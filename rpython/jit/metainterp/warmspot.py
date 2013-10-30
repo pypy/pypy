@@ -512,12 +512,6 @@ class WarmRunnerDesc(object):
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
     def make_driverhook_graphs(self):
-        from rpython.rlib.jit import BaseJitCell
-        bk = self.rtyper.annotator.bookkeeper
-        classdef = bk.getuniqueclassdef(BaseJitCell)
-        s_BaseJitCell_or_None = annmodel.SomeInstance(classdef,
-                                                      can_be_None=True)
-        s_BaseJitCell_not_None = annmodel.SomeInstance(classdef)
         s_Str = annmodel.SomeString()
         #
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)

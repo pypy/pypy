@@ -236,7 +236,7 @@ class WarmEnterState(object):
                 self.warmrunnerdesc.memory_manager.max_unroll_loops = value
 
     def disable_noninlinable_function(self, greenkey):
-        cell = self.jit_cell_at_key(greenkey)
+        cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         cell.dont_trace_here = chr(20)
         debug_start("jit-disableinlining")
         loc = self.get_location_str(greenkey)
@@ -244,7 +244,7 @@ class WarmEnterState(object):
         debug_stop("jit-disableinlining")
 
     def attach_procedure_to_interp(self, greenkey, procedure_token):
-        cell = self.jit_cell_at_key(greenkey)
+        cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         old_token = cell.get_procedure_token()
         cell.set_procedure_token(procedure_token)
         if old_token is not None:
@@ -332,7 +332,9 @@ class WarmEnterState(object):
             """
             # Look for the cell corresponding to the current greenargs.
             # Search for the JitCell that is of the correct subclass of
-            # BaseJitCell, and that stores a key that compares equal
+            # BaseJitCell, and that stores a key that compares equal.
+            # These few lines inline some logic that is also on the
+            # JitCell class, to avoid computing the hash several times.
             greenargs = args[:num_green_args]
             index = JitCell.get_index(*greenargs)
             cell = jitcounter.lookup_chain(index)
@@ -410,6 +412,7 @@ class WarmEnterState(object):
         jitdriver_sd = self.jitdriver_sd
         green_args_spec = unrolling_iterable([('g%d' % i, TYPE)
                      for i, TYPE in enumerate(jitdriver_sd._green_args_spec)])
+        unwrap_greenkey = self.make_unwrap_greenkey()
         #
         class JitCell(BaseJitCell):
             def __init__(self, *greenargs):
@@ -437,6 +440,34 @@ class WarmEnterState(object):
                     x = intmask((x ^ y) * 1405695061)  # prime number, 2**30~31
                     i = i + 1
                 return jitcounter.get_index(x)
+
+            @staticmethod
+            def get_jitcell(*greenargs):
+                index = JitCell.get_index(*greenargs)
+                cell = jitcounter.lookup_chain(index)
+                while cell is not None:
+                    if (isinstance(cell, JitCell) and
+                            cell.comparekey(*greenargs)):
+                        return cell
+                return None
+
+            @staticmethod
+            def get_jit_cell_at_key(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                return JitCell.get_jitcell(*greenargs)
+
+            @staticmethod
+            def ensure_jit_cell_at_key(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                index = JitCell.get_index(*greenargs)
+                cell = jitcounter.lookup_chain(index)
+                while cell is not None:
+                    if (isinstance(cell, JitCell) and
+                            cell.comparekey(*greenargs)):
+                        return cell
+                newcell = JitCell(*greenargs)
+                jitcounter.install_new_cell(index, newcell)
+                return newcell
         #
         self.JitCell = JitCell
         return JitCell
@@ -449,14 +480,14 @@ class WarmEnterState(object):
         #
         warmrunnerdesc = self.warmrunnerdesc
         unwrap_greenkey = self.make_unwrap_greenkey()
-        jit_getter = self.make_jitcell_getter()
+        JitCell = self.make_jitcell_subclass()
         jd = self.jitdriver_sd
         cpu = self.cpu
 
         def can_inline_greenargs(*greenargs):
             if can_never_inline(*greenargs):
                 return False
-            cell = jit_getter(False, *greenargs)
+            cell = JitCell.get_jitcell(*greenargs)
             if cell is not None and ord(cell.dont_trace_here) != 0:
                 return False
             return True
@@ -481,7 +512,7 @@ class WarmEnterState(object):
         redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
 
         def get_assembler_token(greenkey):
-            cell = self.jit_cell_at_key(greenkey)
+            cell = self.ensure_jit_cell_at_key(greenkey)
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
                 from rpython.jit.metainterp.compile import compile_tmp_callback
