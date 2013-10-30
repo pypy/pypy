@@ -224,6 +224,8 @@ class ExecutionContext(object):
         else:
             self.force_all_frames()
             self.w_tracefunc = w_func
+            # Increase the JIT's trace_limit when we have a tracefunc, it
+            # generates a ton of extra ops.
             jit.set_param(None, 'trace_limit', 10000)
 
     def gettrace(self):
