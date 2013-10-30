@@ -144,9 +144,11 @@ class __extend__(pyframe.PyFrame):
     def dispatch_bytecode(self, co_code, next_instr, ec):
         while True:
             self.last_instr = intmask(next_instr)
-            if not jit.we_are_jitted():
+            if jit.we_are_jitted():
+                ec.bytecode_only_trace(self)
+            else:
                 ec.bytecode_trace(self)
-                next_instr = r_uint(self.last_instr)
+            next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
 
