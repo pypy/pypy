@@ -491,6 +491,7 @@ class DtypeCache(object):
             char=NPY_BOOLLTR,
             w_box_type=space.gettypefor(interp_boxes.W_BoolBox),
             alternate_constructors=[space.w_bool],
+            aliases=['bool8'],
         )
         self.w_int8dtype = W_Dtype(
             types.Int8(),
@@ -498,7 +499,8 @@ class DtypeCache(object):
             kind=NPY_SIGNEDLTR,
             name="int8",
             char=NPY_BYTELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Int8Box)
+            w_box_type=space.gettypefor(interp_boxes.W_Int8Box),
+            aliases=['byte'],
         )
         self.w_uint8dtype = W_Dtype(
             types.UInt8(),
@@ -507,6 +509,7 @@ class DtypeCache(object):
             name="uint8",
             char=NPY_UBYTELTR,
             w_box_type=space.gettypefor(interp_boxes.W_UInt8Box),
+            aliases=['ubyte'],
         )
         self.w_int16dtype = W_Dtype(
             types.Int16(),
@@ -515,6 +518,7 @@ class DtypeCache(object):
             name="int16",
             char=NPY_SHORTLTR,
             w_box_type=space.gettypefor(interp_boxes.W_Int16Box),
+            aliases=['short'],
         )
         self.w_uint16dtype = W_Dtype(
             types.UInt16(),
@@ -523,6 +527,7 @@ class DtypeCache(object):
             name="uint16",
             char=NPY_USHORTLTR,
             w_box_type=space.gettypefor(interp_boxes.W_UInt16Box),
+            aliases=['ushort'],
         )
         self.w_int32dtype = W_Dtype(
             types.Int32(),
@@ -572,6 +577,7 @@ class DtypeCache(object):
             char=NPY_LONGLONGLTR,
             w_box_type=space.gettypefor(interp_boxes.W_Int64Box),
             alternate_constructors=[space.w_long],
+            aliases=['longlong'],
         )
         self.w_uint64dtype = W_Dtype(
             types.UInt64(),
@@ -580,6 +586,7 @@ class DtypeCache(object):
             name="uint64",
             char=NPY_ULONGLONGLTR,
             w_box_type=space.gettypefor(interp_boxes.W_UInt64Box),
+            aliases=['ulonglong'],
         )
         self.w_float32dtype = W_Dtype(
             types.Float32(),
@@ -588,6 +595,7 @@ class DtypeCache(object):
             name="float32",
             char=NPY_FLOATLTR,
             w_box_type=space.gettypefor(interp_boxes.W_Float32Box),
+            aliases=['single']
         )
         self.w_float64dtype = W_Dtype(
             types.Float64(),
@@ -617,6 +625,7 @@ class DtypeCache(object):
             name="complex64",
             char=NPY_CFLOATLTR,
             w_box_type = space.gettypefor(interp_boxes.W_Complex64Box),
+            aliases=['csingle'],
             float_type = self.w_float32dtype,
         )
         self.w_complex128dtype = W_Dtype(
@@ -627,7 +636,7 @@ class DtypeCache(object):
             char=NPY_CDOUBLELTR,
             w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
             alternate_constructors=[space.w_complex],
-            aliases=["complex"],
+            aliases=["complex", 'cfloat', 'cdouble'],
             float_type = self.w_float64dtype,
         )
         self.w_complexlongdtype = W_Dtype(

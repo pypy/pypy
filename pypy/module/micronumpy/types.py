@@ -347,6 +347,8 @@ class Bool(BaseType, Primitive):
         return self._coerce(space, w_item)
 
     def _coerce(self, space, w_item):
+        if space.is_none(w_item):
+            return self.box(False)
         return self.box(space.is_true(w_item))
 
     def to_builtin_type(self, space, w_item):
@@ -410,6 +412,8 @@ class Integer(Primitive):
     _mixin_ = True
 
     def _base_coerce(self, space, w_item):
+        if w_item is None:
+            return self.box(0)
         return self.box(space.int_w(space.call_function(space.w_int, w_item)))
     def _coerce(self, space, w_item):
         return self._base_coerce(space, w_item)
@@ -629,6 +633,8 @@ class Float(Primitive):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
+        if w_item is None:
+            return self.box(0.0)
         if space.is_none(w_item):
             return self.box(rfloat.NAN)
         return self.box(space.float_w(space.call_function(space.w_float, w_item)))
@@ -999,6 +1005,10 @@ class ComplexFloating(object):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
+        if w_item is None:
+            return self.box_complex(0.0, 0.0)
+        if space.is_none(w_item):
+            return self.box_complex(rfloat.NAN, rfloat.NAN)
         w_item = space.call_function(space.w_complex, w_item)
         real, imag = space.unpackcomplex(w_item)
         return self.box_complex(real, imag)
