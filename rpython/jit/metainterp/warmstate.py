@@ -124,16 +124,11 @@ def hash_whatever(TYPE, x):
         return rffi.cast(lltype.Signed, x)
 
 
-MODE_COUNTING  = '\x00'   # not yet traced, wait till threshold is reached
-MODE_TRACING   = 'T'      # tracing is currently going on for this cell
-MODE_HAVE_PROC = 'P'      # there is an entry bridge for this cell
-
 class JitCell(BaseJitCell):
-    counter = 0    # when THRESHOLD_LIMIT is reached, start tracing
-    mode = MODE_COUNTING
-    dont_trace_here = False
-    extra_delay = chr(0)
+    tracing = False
+    dont_trace_here = chr(0)
     wref_procedure_token = None
+    next = None
 
     def get_procedure_token(self):
         if self.wref_procedure_token is not None:
@@ -148,6 +143,18 @@ class JitCell(BaseJitCell):
     def _makeref(self, token):
         assert token is not None
         return weakref.ref(token)
+
+    def should_remove_jitcell(self):
+        if self.get_procedure_token() is not None:
+            return False    # don't remove JitCells with a procedure_token
+        if self.tracing:
+            return False    # don't remove JitCells that are being traced
+        if ord(self.dont_trace_here) == 0:
+            return True     # no reason to keep this JitCell
+        else:
+            # decrement dont_trace_here; it will eventually reach zero.
+            self.dont_trace_here = chr(ord(self.dont_trace_here) - 1)
+            return False
 
 # ____________________________________________________________
 
@@ -172,12 +179,7 @@ class WarmEnterState(object):
             meth(default_value)
 
     def _compute_threshold(self, threshold):
-        if threshold <= 0:
-            return 0 # never reach the THRESHOLD_LIMIT
-        if threshold < 2:
-            threshold = 2
-        return (self.THRESHOLD_LIMIT // threshold) + 1
-        # the number is at least 1, and at most about half THRESHOLD_LIMIT
+        return self.warmrunnerdesc.jitcounter.compute_threshold(threshold)
 
     def set_param_threshold(self, threshold):
         self.increment_threshold = self._compute_threshold(threshold)
@@ -186,10 +188,13 @@ class WarmEnterState(object):
         self.increment_function_threshold = self._compute_threshold(threshold)
 
     def set_param_trace_eagerness(self, value):
-        self.trace_eagerness = value
+        self.increment_trace_eagerness = self._compute_threshold(value)
 
     def set_param_trace_limit(self, value):
         self.trace_limit = value
+
+    def set_param_decay(self, decay):
+        self.warmrunnerdesc.jitcounter.set_decay(decay)
 
     def set_param_inlining(self, value):
         self.inlining = value
@@ -232,7 +237,7 @@ class WarmEnterState(object):
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
-        cell.dont_trace_here = True
+        cell.dont_trace_here = chr(20)
         debug_start("jit-disableinlining")
         loc = self.get_location_str(greenkey)
         debug_print("disabled inlining", loc)
@@ -242,7 +247,6 @@ class WarmEnterState(object):
         cell = self.jit_cell_at_key(greenkey)
         old_token = cell.get_procedure_token()
         cell.set_procedure_token(procedure_token)
-        cell.mode = MODE_HAVE_PROC       # valid procedure bridge attached
         if old_token is not None:
             self.cpu.redirect_call_assembler(old_token, procedure_token)
             # procedure_token is also kept alive by any loop that used
@@ -281,6 +285,7 @@ class WarmEnterState(object):
                 assert 0, kind
         func_execute_token = self.cpu.make_execute_token(*ARGS)
         cpu = self.cpu
+        jitcounter = self.warmrunnerdesc.jitcounter
 
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
@@ -306,34 +311,20 @@ class WarmEnterState(object):
             assert 0, "should have raised"
 
         def bound_reached(cell, *args):
-            # bound reached, but we do a last check: if it is the first
-            # time we reach the bound, or if another loop or bridge was
-            # compiled since the last time we reached it, then decrease
-            # the counter by a few percents instead.  It should avoid
-            # sudden bursts of JIT-compilation, and also corner cases
-            # where we suddenly compile more than one loop because all
-            # counters reach the bound at the same time, but where
-            # compiling all but the first one is pointless.
-            curgen = warmrunnerdesc.memory_manager.current_generation
-            curgen = chr(intmask(curgen) & 0xFF)    # only use 8 bits
-            if we_are_translated() and curgen != cell.extra_delay:
-                cell.counter = int(self.THRESHOLD_LIMIT * 0.98)
-                cell.extra_delay = curgen
-                return
-            #
+            jitcounter.reset(
             cell.counter = 0
             if not confirm_enter_jit(*args):
                 return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-            cell.mode = MODE_TRACING
+            cell.tracing = True
+            cell.reset_counter()
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
-                if cell.mode == MODE_TRACING:
-                    cell.counter = 0
-                    cell.mode = MODE_COUNTING
+                cell.tracing = False
+                cell.reset_counter()
 
         def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
@@ -565,7 +556,7 @@ class WarmEnterState(object):
             if can_never_inline(*greenargs):
                 return False
             cell = jit_getter(False, *greenargs)
-            if cell is not None and cell.dont_trace_here:
+            if cell is not None and ord(cell.dont_trace_here) != 0:
                 return False
             return True
         def can_inline_callable(greenkey):
