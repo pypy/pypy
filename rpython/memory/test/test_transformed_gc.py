@@ -1261,6 +1261,20 @@ class TestMiniMarkGC(TestHybridGC):
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcname = "incminimark"
 
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
+            from rpython.memory.gc.incminimark import IncrementalMiniMarkGC \
+                                                      as GCClass
+            GC_PARAMS = {'nursery_size': 32*WORD,
+                         'page_size': 16*WORD,
+                         'arena_size': 64*WORD,
+                         'small_request_threshold': 5*WORD,
+                         'large_object': 8*WORD,
+                         'card_page_indices': 4,
+                         'translated_to_c': False,
+                         }
+            root_stack_depth = 200
+
 
 # ________________________________________________________________
 # tagged pointers
