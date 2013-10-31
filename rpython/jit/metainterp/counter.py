@@ -75,9 +75,8 @@ class JitCounter:
         cell = self.celltable[index]
         keep = newcell
         while cell is not None:
-            remove_me = cell.should_remove_jitcell()
             nextcell = cell.next
-            if not remove_me:
+            if not cell.should_remove_jitcell():
                 cell.next = keep
                 keep = cell
             cell = nextcell
