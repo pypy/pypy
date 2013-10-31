@@ -411,7 +411,7 @@ class WarmEnterState(object):
         #
         jitcounter = self.warmrunnerdesc.jitcounter
         jitdriver_sd = self.jitdriver_sd
-        green_args_spec = unrolling_iterable([('g%d' % i, TYPE)
+        green_args_name_spec = unrolling_iterable([('g%d' % i, TYPE)
                      for i, TYPE in enumerate(jitdriver_sd._green_args_spec)])
         unwrap_greenkey = self.make_unwrap_greenkey()
         random_initial_value = hash(self)
@@ -419,13 +419,13 @@ class WarmEnterState(object):
         class JitCell(BaseJitCell):
             def __init__(self, *greenargs):
                 i = 0
-                for attrname, _ in green_args_spec:
+                for attrname, _ in green_args_name_spec:
                     setattr(self, attrname, greenargs[i])
                     i = i + 1
 
             def comparekey(self, *greenargs2):
                 i = 0
-                for attrname, TYPE in green_args_spec:
+                for attrname, TYPE in green_args_name_spec:
                     item1 = getattr(self, attrname)
                     if not equal_whatever(TYPE, item1, greenargs2[i]):
                         return False
@@ -436,7 +436,7 @@ class WarmEnterState(object):
             def get_index(*greenargs):
                 x = random_initial_value
                 i = 0
-                for TYPE in green_args_spec:
+                for _, TYPE in green_args_name_spec:
                     item = greenargs[i]
                     y = hash_whatever(TYPE, item)
                     x = intmask((x ^ y) * 1405695061)  # prime number, 2**30~31
