@@ -94,8 +94,9 @@ class AppTestSorting(BaseNumpyAppTest):
         # test doubles and complex doubles as the logic is the same.
 
         # check doubles
-        from numpypy import array, nan, zeros, complex128, arange
+        from numpypy import array, zeros, arange
         from math import isnan
+        nan = float('nan')
         a = array([nan, 1, 0])
         b = a.copy()
         b.sort()
@@ -106,7 +107,7 @@ class AppTestSorting(BaseNumpyAppTest):
         assert (b == [2, 1, 0]).all()
 
         # check complex
-        a = zeros(9, dtype=complex128)
+        a = zeros(9, dtype='complex128')
         a.real += [nan, nan, nan, 1, 0, 1, 1, 0, 0]
         a.imag += [nan, 1, 0, nan, nan, 1, 0, 1, 0]
         b = a.copy()
