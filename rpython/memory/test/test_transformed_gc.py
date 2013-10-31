@@ -746,7 +746,7 @@ class GenericMovingGCTests(GenericGCTests):
     def ensure_layoutbuilder(cls, translator):
         jit2gc = getattr(translator, '_jit2gc', None)
         if jit2gc:
-            assert 'finished_minor_collection' in jit2gc
+            assert 'invoke_after_minor_collection' in jit2gc
             return jit2gc['layoutbuilder']
         marker = cls.marker
         GCClass = cls.gcpolicy.transformerclass.GCClass
@@ -757,7 +757,7 @@ class GenericMovingGCTests(GenericGCTests):
             marker[0] += 1
         translator._jit2gc = {
             'layoutbuilder': layoutbuilder,
-            'finished_minor_collection': seeme,
+            'invoke_after_minor_collection': seeme,
         }
         return layoutbuilder
 

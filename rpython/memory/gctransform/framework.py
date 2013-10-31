@@ -143,7 +143,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
             finished_minor_collection = translator._jit2gc.get(
-                'finished_minor_collection', None)
+                'invoke_after_minor_collection', None)
         else:
             self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
             finished_minor_collection = None
