@@ -11,7 +11,7 @@ UINT32MAX = 2 ** 32 - 1
 class JitCounter:
     DEFAULT_SIZE = 4096
 
-    def __init__(self, size=DEFAULT_SIZE):
+    def __init__(self, size=DEFAULT_SIZE, translator=None):
         "NOT_RPYTHON"
         self.size = size
         self.shift = 1
@@ -23,6 +23,14 @@ class JitCounter:
                                        track_allocation=False)
         self.celltable = [None] * size
         self._nextindex = 0
+        #
+        if translator is not None:
+            def invoke_after_minor_collection():
+                self.decay_all_counters()
+            if not hasattr(translator, '_jit2gc'):
+                translator._jit2gc = {}
+            translator._jit2gc['invoke_after_minor_collection'] = (
+                invoke_after_minor_collection)
 
     def compute_threshold(self, threshold):
         """Return the 'increment' value corresponding to the given number."""

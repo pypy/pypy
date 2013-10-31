@@ -207,7 +207,7 @@ class WarmRunnerDesc(object):
         #
         from rpython.jit.metainterp import counter
         if self.cpu.translate_support_code:
-            self.jitcounter = counter.JitCounter()
+            self.jitcounter = counter.JitCounter(translator=translator)
         else:
             self.jitcounter = counter.DeterministicJitCounter()
         #
