@@ -43,18 +43,16 @@ class JitCounter:
 
     def tick(self, index, increment):
         counter = float(self.timetable[index]) + increment
-        #print '-'*79
-        #print 'COUNTER TICK:', index, '-> %s' % counter
         if counter < 1.0:
             self.timetable[index] = r_singlefloat(counter)
             return False
         else:
+            # when the bound is reached, we immediately reset the value to 0.0
+            self.reset(index)
             return True
     tick._always_inline_ = True
 
     def reset(self, index):
-        #print '-'*79
-        #print 'COUNTER RESET:', index
         self.timetable[index] = r_singlefloat(0.0)
 
     def lookup_chain(self, index):

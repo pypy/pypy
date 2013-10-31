@@ -312,7 +312,6 @@ class WarmEnterState(object):
             assert 0, "should have raised"
 
         def bound_reached(index, *args):
-            jitcounter.reset(index)
             if not confirm_enter_jit(*args):
                 return
             # start tracing
