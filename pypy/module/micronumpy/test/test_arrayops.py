@@ -85,11 +85,9 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert c == 12.0
 
     def test_choose_basic(self):
-        from numpypy import array, choose
+        from numpypy import array
         a, b, c = array([1, 2, 3]), array([4, 5, 6]), array([7, 8, 9])
         r = array([2, 1, 0]).choose([a, b, c])
-        assert (r == [7, 5, 3]).all()
-        r = choose(array([2, 1, 0]), [a, b, c])
         assert (r == [7, 5, 3]).all()
 
     def test_choose_broadcast(self):

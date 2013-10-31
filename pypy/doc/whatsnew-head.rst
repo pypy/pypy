@@ -121,3 +121,6 @@ remove a pointless abstraction
 .. branch: jit-settrace
 Allow the jit to continue running when sys.settrace() is active, necessary to
 make coverage.py fast
+
+.. branch: remove-numpypy
+Remove lib_pypy/numpypy in favor of external numpy fork

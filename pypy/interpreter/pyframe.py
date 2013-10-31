@@ -464,8 +464,6 @@ class PyFrame(W_Root):
         new_frame.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
 
         self._setcellvars(cellvars)
-        # XXX what if the frame is in another thread??
-        space.frame_trace_action.fire()
 
     def hide(self):
         return self.pycode.hidden_applevel
@@ -759,7 +757,6 @@ class PyFrame(W_Root):
         else:
             self.w_f_trace = w_trace
             self.f_lineno = self.get_last_lineno()
-            space.frame_trace_action.fire()
 
     def fdel_f_trace(self, space):
         self.w_f_trace = None
