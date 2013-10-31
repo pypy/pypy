@@ -31,8 +31,9 @@ class JitCounter:
         return 1.0 / (threshold - 0.001)
 
     def get_index(self, hash):
-        """Return the index (< self.size) from a hash value.  This keeps
-        the *high* bits of hash!  Be sure that hash is computed correctly."""
+        """Return the index (< self.size) from a hash value.  This truncates
+        the hash to 32 bits, and then keep the *highest* remaining bits.
+        Be sure that hash is computed correctly."""
         return intmask(r_uint32(r_uint(hash) >> self.shift))
     get_index._always_inline_ = True
 
