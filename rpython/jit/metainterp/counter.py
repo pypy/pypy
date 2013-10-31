@@ -42,7 +42,7 @@ class JitCounter:
         """Return the index (< self.size) from a hash value.  This truncates
         the hash to 32 bits, and then keep the *highest* remaining bits.
         Be sure that hash is computed correctly."""
-        return intmask(r_uint32(r_uint(hash) >> self.shift))
+        return intmask(r_uint32(r_uint(r_uint32(hash)) >> self.shift))
     get_index._always_inline_ = True
 
     def fetch_next_index(self):
