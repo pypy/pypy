@@ -74,10 +74,8 @@ def call_args_expand(hop, takes_kwds = True):
         raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
-    for i, key in enumerate(keywords):
-        index = arguments.keywords_w[i]
-        kwds_i['i_' + key] = index
-
+    for key in keywords:
+        kwds_i['i_' + key] = keywords[key]
     return hop, kwds_i
 
 

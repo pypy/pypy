@@ -5,14 +5,13 @@ from rpython.annotator.model import SomeTuple
 
 class ArgumentsForTranslation(object):
     w_starstararg = None
-    def __init__(self, args_w, keywords=None, keywords_w=None,
+    def __init__(self, args_w, keywords=None,
                  w_stararg=None, w_starstararg=None):
         self.w_stararg = w_stararg
         assert w_starstararg is None
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        self.keywords = keywords or []
-        self.keywords_w = keywords_w or []
+        self.keywords = keywords or {}
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -20,8 +19,7 @@ class ArgumentsForTranslation(object):
         if not self.keywords:
             return '%s(%s)' % (name, self.arguments_w,)
         else:
-            return '%s(%s, %s, %s)' % (name, self.arguments_w,
-                                       self.keywords, self.keywords_w)
+            return '%s(%s, %s)' % (name, self.arguments_w, self.keywords)
 
     @property
     def positional_args(self):
@@ -52,12 +50,12 @@ class ArgumentsForTranslation(object):
     def prepend(self, w_firstarg): # used often
         "Return a new Arguments with a new argument inserted first."
         return ArgumentsForTranslation([w_firstarg] + self.arguments_w,
-                                       self.keywords, self.keywords_w, self.w_stararg,
+                                       self.keywords, self.w_stararg,
                                        self.w_starstararg)
 
     def copy(self):
         return ArgumentsForTranslation(self.arguments_w, self.keywords,
-                self.keywords_w, self.w_stararg, self.w_starstararg)
+                self.w_stararg, self.w_starstararg)
 
     def _match_signature(self, scope_w, signature, defaults_w=None):
         """Parse args and kwargs according to the signature of a code object,
@@ -92,18 +90,17 @@ class ArgumentsForTranslation(object):
 
         # handle keyword arguments
         num_remainingkwds = 0
-        keywords_w = self.keywords_w
         kwds_mapping = None
         if num_kwds:
             # kwds_mapping maps target indexes in the scope (minus input_argcount)
-            # to positions in the keywords_w list
-            kwds_mapping = [-1] * (co_argcount - input_argcount)
+            # to keyword names
+            kwds_mapping = []
             # match the keywords given at the call site to the argument names
             # the called function takes
             # this function must not take a scope_w, to make the scope not
             # escape
             num_remainingkwds = len(keywords)
-            for i, name in enumerate(keywords):
+            for name in keywords:
                 j = signature.find_argname(name)
                 # if j == -1 nothing happens
                 if j < input_argcount:
@@ -111,7 +108,7 @@ class ArgumentsForTranslation(object):
                     if j >= 0:
                         raise ArgErrMultipleValues(name)
                 else:
-                    kwds_mapping[j - input_argcount] = i # map to the right index
+                    kwds_mapping.append(name)
                     num_remainingkwds -= 1
 
             if num_remainingkwds:
@@ -126,14 +123,11 @@ class ArgumentsForTranslation(object):
         if input_argcount < co_argcount:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
             j = 0
-            kwds_index = -1
             for i in range(input_argcount, co_argcount):
-                if kwds_mapping is not None:
-                    kwds_index = kwds_mapping[j]
-                    j += 1
-                    if kwds_index >= 0:
-                        scope_w[i] = keywords_w[kwds_index]
-                        continue
+                name = signature.argnames[i]
+                if name in keywords:
+                    scope_w[i] = keywords[name]
+                    continue
                 defnum = i - def_first
                 if defnum >= 0:
                     scope_w[i] = defaults_w[defnum]
@@ -144,8 +138,7 @@ class ArgumentsForTranslation(object):
 
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
-        kwds_w = dict(zip(self.keywords, self.keywords_w))
-        return self.positional_args, kwds_w
+        return self.positional_args, self.keywords
 
     def match_signature(self, signature, defaults_w):
         """Parse args and kwargs according to the signature of a code object,
@@ -169,7 +162,7 @@ class ArgumentsForTranslation(object):
                 args_w = data_w[:cnt] + stararg_w
                 assert len(args_w) == need_cnt
                 assert not self.keywords
-                return ArgumentsForTranslation(args_w, [], [])
+                return ArgumentsForTranslation(args_w, {})
             else:
                 data_w = data_w[:-1]
         assert len(data_w) == cnt
@@ -177,7 +170,7 @@ class ArgumentsForTranslation(object):
         args_w = data_w[:need_cnt]
         _kwds_w = dict(zip(argnames[need_cnt:], data_w[need_cnt:]))
         keywords_w = [_kwds_w[key] for key in self.keywords]
-        return ArgumentsForTranslation(args_w, self.keywords, keywords_w)
+        return ArgumentsForTranslation(args_w, dict(zip(self.keywords, keywords_w)))
 
     @classmethod
     def fromshape(cls, (shape_cnt, shape_keys, shape_star, shape_stst), data_w):
@@ -193,14 +186,13 @@ class ArgumentsForTranslation(object):
             p += 1
         else:
             w_starstar = None
-        return cls(args_w, list(shape_keys), data_w[shape_cnt:end_keys],
+        return cls(args_w, dict(zip(shape_keys, data_w[shape_cnt:end_keys])),
                 w_star, w_starstar)
 
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """
         shape_cnt, shape_keys, shape_star, shape_stst = self._rawshape()
-        data_w = self.arguments_w + [self.keywords_w[self.keywords.index(key)]
-                                         for key in shape_keys]
+        data_w = self.arguments_w + [self.keywords[key] for key in shape_keys]
         if shape_star:
             data_w.append(self.w_stararg)
         if shape_stst:
