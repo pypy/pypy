@@ -124,10 +124,12 @@ def hash_whatever(TYPE, x):
         return rffi.cast(lltype.Signed, x)
 
 
+JC_TRACING         = 0x01
+JC_DONT_TRACE_HERE = 0x02
+JC_TEMPORARY       = 0x04
+
 class BaseJitCell(object):
-    tracing = False
-    temporary = False
-    dont_trace_here = chr(0)
+    flags = 0     # JC_xxx flags
     wref_procedure_token = None
     next = None
 
@@ -140,7 +142,10 @@ class BaseJitCell(object):
 
     def set_procedure_token(self, token, tmp=False):
         self.wref_procedure_token = self._makeref(token)
-        self.temporary = tmp
+        if tmp:
+            self.flags |= JC_TEMPORARY
+        else:
+            self.flags &= ~JC_TEMPORARY
 
     def _makeref(self, token):
         assert token is not None
@@ -149,14 +154,9 @@ class BaseJitCell(object):
     def should_remove_jitcell(self):
         if self.get_procedure_token() is not None:
             return False    # don't remove JitCells with a procedure_token
-        if self.tracing:
-            return False    # don't remove JitCells that are being traced
-        if ord(self.dont_trace_here) == 0:
-            return True     # no reason to keep this JitCell
-        else:
-            # decrement dont_trace_here; it will eventually reach zero.
-            self.dont_trace_here = chr(ord(self.dont_trace_here) - 1)
-            return False
+        # don't remove JitCells that are being traced, or JitCells with
+        # the "don't trace here" flag.  Other JitCells can be removed.
+        return (self.flags & (JC_TRACING | JC_DONT_TRACE_HERE)) == 0
 
 # ____________________________________________________________
 
@@ -239,7 +239,7 @@ class WarmEnterState(object):
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
-        cell.dont_trace_here = chr(20)
+        cell.flags |= JC_DONT_TRACE_HERE
         debug_start("jit-disableinlining")
         loc = self.get_location_str(greenkey)
         debug_print("disabled inlining", loc)
@@ -323,11 +323,11 @@ class WarmEnterState(object):
             if cell is None:
                 cell = JitCell(*greenargs)
                 jitcounter.install_new_cell(index, cell)
-            cell.tracing = True
+            cell.flags |= JC_TRACING
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
-                cell.tracing = False
+                cell.flags &= ~JC_TRACING
 
         def maybe_compile_and_run(increment_threshold, *args):
             """Entry point to the JIT.  Called at the point with the
@@ -353,11 +353,11 @@ class WarmEnterState(object):
 
             # Here, we have found 'cell'.
             #
-            if cell.tracing:
-                # tracing already happening in some outer invocation of
-                # this function. don't trace a second time.
-                return
-            if cell.temporary:
+            if cell.flags & (JC_TRACING | JC_TEMPORARY):
+                if cell.flags & JC_TRACING:
+                    # tracing already happening in some outer invocation of
+                    # this function. don't trace a second time.
+                    return
                 # attached by compile_tmp_callback().  count normally
                 if jitcounter.tick(index, increment_threshold):
                     bound_reached(index, cell, *args)
@@ -500,7 +500,7 @@ class WarmEnterState(object):
             if can_never_inline(*greenargs):
                 return False
             cell = JitCell.get_jitcell(*greenargs)
-            if cell is not None and ord(cell.dont_trace_here) != 0:
+            if cell is not None and (cell.flags & JC_DONT_TRACE_HERE) != 0:
                 return False
             return True
         def can_inline_callable(greenkey):
