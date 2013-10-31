@@ -1,5 +1,5 @@
 import weakref
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -589,6 +589,11 @@ class ResumeGuardDescr(ResumeDescr):
                 intval = longlong.gethash_fast(floatval)
             else:
                 assert 0, typetag
+
+            if not we_are_translated():
+                if isinstance(intval, llmemory.AddressAsInt):
+                    intval = llmemory.cast_adr_to_int(
+                        llmemory.cast_int_to_adr(intval), "forced")
 
             hash = (current_object_addr_as_int(self) * 777767777 +
                     intval * 1442968193)
