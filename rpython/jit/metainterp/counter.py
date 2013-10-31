@@ -1,4 +1,4 @@
-from rpython.rlib.rarithmetic import r_singlefloat, intmask
+from rpython.rlib.rarithmetic import r_singlefloat, intmask, r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -33,7 +33,7 @@ class JitCounter:
     def get_index(self, hash):
         """Return the index (< self.size) from a hash value.  This keeps
         the *high* bits of hash!  Be sure that hash is computed correctly."""
-        return intmask(r_uint32(hash) >> self.shift)
+        return intmask(r_uint32(r_uint(hash) >> self.shift))
     get_index._always_inline_ = True
 
     def fetch_next_index(self):
