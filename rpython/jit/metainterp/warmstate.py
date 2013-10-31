@@ -162,7 +162,6 @@ class BaseJitCell(object):
 
 
 class WarmEnterState(object):
-    THRESHOLD_LIMIT = sys.maxint // 2
 
     def __init__(self, warmrunnerdesc, jitdriver_sd):
         "NOT_RPYTHON"
@@ -316,6 +315,7 @@ class WarmEnterState(object):
         def bound_reached(index, cell, *args):
             if not confirm_enter_jit(*args):
                 return
+            jitcounter.decay_all_counters()
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)

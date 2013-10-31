@@ -129,3 +129,7 @@ class DeterministicJitCounter(JitCounter):
     def get_index(self, hash):
         "NOT_RPYTHON"
         return hash
+
+    def decay_all_counters(self):
+        "NOT_RPYTHON"
+        pass
