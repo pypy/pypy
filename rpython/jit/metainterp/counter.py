@@ -1,4 +1,4 @@
-from rpython.rlib.rarithmetic import r_singlefloat, intmask, r_uint
+from rpython.rlib.rarithmetic import r_singlefloat, r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -22,7 +22,7 @@ class JitCounter:
                                        flavor='raw', zero=True,
                                        track_allocation=False)
         self.celltable = [None] * size
-        self._nextindex = 0
+        self._nextindex = r_uint(0)
         #
         if translator is not None:
             def invoke_after_minor_collection():
@@ -42,7 +42,9 @@ class JitCounter:
         """Return the index (< self.size) from a hash value.  This truncates
         the hash to 32 bits, and then keep the *highest* remaining bits.
         Be sure that hash is computed correctly."""
-        return intmask(r_uint32(r_uint(r_uint32(hash)) >> self.shift))
+        hash32 = r_uint(r_uint32(hash))  # mask off the bits higher than 32
+        index = hash32 >> self.shift     # shift, resulting in a value < size
+        return index                     # return the result as a r_uint
     get_index._always_inline_ = True
 
     def fetch_next_index(self):

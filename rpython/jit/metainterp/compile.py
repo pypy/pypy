@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.conftest import option
@@ -494,7 +495,7 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
-    status = 0
+    status = r_uint(0)
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
     ST_TYPE_MASK    = 0x06     # mask for the type (TY_xxx)
@@ -531,7 +532,7 @@ class ResumeGuardDescr(ResumeDescr):
                 ty = self.TY_FLOAT
             else:
                 assert 0, box.type
-            self.status = ty | (i << self.ST_SHIFT)
+            self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
@@ -574,8 +575,8 @@ class ResumeGuardDescr(ResumeDescr):
         else:    # we have a GUARD_VALUE that fails.
             from rpython.rlib.objectmodel import current_object_addr_as_int
 
-            index = self.status >> self.ST_SHIFT
-            typetag = self.status & self.ST_TYPE_MASK
+            index = intmask(self.status >> self.ST_SHIFT)
+            typetag = intmask(self.status & self.ST_TYPE_MASK)
 
             # fetch the actual value of the guard_value, possibly turning
             # it to an integer
