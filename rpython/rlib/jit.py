@@ -442,7 +442,7 @@ PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
     'function_threshold': 'number of times a function must run for it to become traced from start',
     'trace_eagerness': 'number of times a guard has to fail before we start compiling a bridge',
-    'decay': 'decay counters at each minor collection (0=none, 1000=max)',
+    'decay': 'amount to regularly decay counters by (0=none, 1000=max)',
     'trace_limit': 'number of recorded operations before we abort tracing with ABORT_TOO_LONG',
     'inlining': 'inline python functions or not (1/0)',
     'loop_longevity': 'a parameter controlling how long loops will be kept before being freed, an estimate',
@@ -456,7 +456,7 @@ PARAMETER_DOCS = {
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'function_threshold': 1619, # slightly more than one above, also prime
               'trace_eagerness': 200,
-              'decay': 25,
+              'decay': 40,
               'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,

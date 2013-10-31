@@ -25,8 +25,15 @@ class JitCounter:
         self._nextindex = r_uint(0)
         #
         if translator is not None:
+            self._decay_phase = 0
             def invoke_after_minor_collection():
-                self.decay_all_counters()
+                # After 64 minor collections, we call decay_all_counters().
+                # The "--jit decay=N" option measures the amount the
+                # counters are then reduced by.
+                self._decay_phase += 1
+                if self._decay_phase == 64:
+                    self._decay_phase = 0
+                    self.decay_all_counters()
             if not hasattr(translator, '_jit2gc'):
                 translator._jit2gc = {}
             translator._jit2gc['invoke_after_minor_collection'] = (
