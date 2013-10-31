@@ -459,6 +459,7 @@ class WarmEnterState(object):
                     if (isinstance(cell, JitCell) and
                             cell.comparekey(*greenargs)):
                         return cell
+                    cell = cell.next
                 return None
 
             @staticmethod
@@ -475,6 +476,7 @@ class WarmEnterState(object):
                     if (isinstance(cell, JitCell) and
                             cell.comparekey(*greenargs)):
                         return cell
+                    cell = cell.next
                 newcell = JitCell(*greenargs)
                 jitcounter.install_new_cell(index, newcell)
                 return newcell
