@@ -16,6 +16,7 @@ from rpython.jit.tool.oparser import parse, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
+from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import rop, opname, ResOperation
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
@@ -306,6 +307,7 @@ class FakeMetaInterpStaticData(object):
         class memory_manager:
             retrace_limit = 5
             max_retrace_guards = 15
+        jitcounter = DeterministicJitCounter()
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
