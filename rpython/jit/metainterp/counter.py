@@ -9,7 +9,7 @@ UINT32MAX = 2 ** 32 - 1
 
 
 class JitCounter:
-    DEFAULT_SIZE = 4096
+    DEFAULT_SIZE = 8192
 
     def __init__(self, size=DEFAULT_SIZE, translator=None):
         "NOT_RPYTHON"
