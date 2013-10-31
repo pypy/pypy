@@ -344,6 +344,7 @@ class WarmEnterState(object):
             while cell is not None:
                 if isinstance(cell, JitCell) and cell.comparekey(*greenargs):
                     break    # found
+                cell = cell.next
             else:
                 # not found. increment the counter
                 if jitcounter.tick(index, increment_threshold):
