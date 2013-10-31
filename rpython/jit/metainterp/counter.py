@@ -28,9 +28,7 @@ class JitCounter:
         """Return the 'increment' value corresponding to the given number."""
         if threshold <= 0:
             return 0.0   # no increment, never reach 1.0
-        if threshold < 2:
-            threshold = 2
-        return 1.0 / (threshold - 0.001)   # the number is at most 0.500xx
+        return 1.0 / (threshold - 0.001)
 
     def get_index(self, hash):
         """Return the index (< self.size) from a hash value.  This keeps
@@ -45,6 +43,8 @@ class JitCounter:
 
     def tick(self, index, increment):
         counter = float(self.timetable[index]) + increment
+        #print '-'*79
+        #print 'COUNTER TICK:', index, '-> %s' % counter
         if counter < 1.0:
             self.timetable[index] = r_singlefloat(counter)
             return False
@@ -53,6 +53,8 @@ class JitCounter:
     tick._always_inline_ = True
 
     def reset(self, index):
+        #print '-'*79
+        #print 'COUNTER RESET:', index
         self.timetable[index] = r_singlefloat(0.0)
 
     def lookup_chain(self, index):
