@@ -217,6 +217,7 @@ class ExecutionContext(object):
         if frame:     # else, the exception goes nowhere and is lost
             frame.last_exception = operror
 
+    @jit.dont_look_inside
     def settrace(self, w_func):
         """Set the global trace function."""
         if self.space.is_w(w_func, self.space.w_None):
