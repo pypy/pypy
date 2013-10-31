@@ -126,6 +126,7 @@ def hash_whatever(TYPE, x):
 
 class BaseJitCell(object):
     tracing = False
+    temporary = False
     dont_trace_here = chr(0)
     wref_procedure_token = None
     next = None
@@ -137,8 +138,9 @@ class BaseJitCell(object):
                 return token
         return None
 
-    def set_procedure_token(self, token):
+    def set_procedure_token(self, token, tmp=False):
         self.wref_procedure_token = self._makeref(token)
+        self.temporary = tmp
 
     def _makeref(self, token):
         assert token is not None
@@ -311,20 +313,21 @@ class WarmEnterState(object):
             #
             assert 0, "should have raised"
 
-        def bound_reached(index, *args):
+        def bound_reached(index, cell, *args):
             if not confirm_enter_jit(*args):
                 return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
             greenargs = args[:num_green_args]
-            newcell = JitCell(*greenargs)
-            newcell.tracing = True
-            jitcounter.install_new_cell(index, newcell)
+            if cell is None:
+                cell = JitCell(*greenargs)
+                jitcounter.install_new_cell(index, cell)
+            cell.tracing = True
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
-                newcell.tracing = False
+                cell.tracing = False
 
         def maybe_compile_and_run(increment_threshold, *args):
             """Entry point to the JIT.  Called at the point with the
@@ -344,7 +347,7 @@ class WarmEnterState(object):
             else:
                 # not found. increment the counter
                 if jitcounter.tick(index, increment_threshold):
-                    bound_reached(index, *args)
+                    bound_reached(index, None, *args)
                 return
 
             # Here, we have found 'cell'.
@@ -352,6 +355,11 @@ class WarmEnterState(object):
             if cell.tracing:
                 # tracing already happening in some outer invocation of
                 # this function. don't trace a second time.
+                return
+            if cell.temporary:
+                # attached by compile_tmp_callback().  count normally
+                if jitcounter.tick(index, increment_threshold):
+                    bound_reached(index, cell, *args)
                 return
             # machine code was already compiled for these greenargs
             procedure_token = cell.get_procedure_token()
@@ -517,15 +525,10 @@ class WarmEnterState(object):
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
                 from rpython.jit.metainterp.compile import compile_tmp_callback
-                if cell.mode == MODE_HAVE_PROC:
-                    # used to be a valid entry bridge,
-                    # but was freed in the meantime.
-                    cell.counter = 0
-                    cell.mode = MODE_COUNTING
                 memmgr = warmrunnerdesc.memory_manager
                 procedure_token = compile_tmp_callback(cpu, jd, greenkey,
                                                        redargtypes, memmgr)
-                cell.set_procedure_token(procedure_token)
+                cell.set_procedure_token(procedure_token, tmp=True)
             return procedure_token
         self.get_assembler_token = get_assembler_token
 
