@@ -1390,6 +1390,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.young_rawmalloced_objects:
             self.remove_young_arrays_from_old_objects_pointing_to_young()
         #
+        # A special step in the STATE_MARKING phase.
+        if self.gc_state == STATE_MARKING:
+            # Copy the 'old_objects_pointing_to_young' list so far to
+            # 'more_objects_to_trace'.  Turn black objects back to gray.
+            # This is because these are precisely the old objects that
+            # have been modified and need rescanning.
+            self.old_objects_pointing_to_young.foreach(
+                self._add_to_more_objects_to_trace, None)
+        #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
         # young raw-malloced object is flagged with GCFLAG_VISITED_RMY.
@@ -1459,10 +1468,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # then the write_barrier must have ensured that the prebuilt
         # GcStruct is in the list self.old_objects_pointing_to_young.
         debug_start("gc-minor-walkroots")
+        if self.gc_state == STATE_MARKING:
+            callback = IncrementalMiniMarkGC._trace_drag_out1_marking_phase
+        else:
+            callback = IncrementalMiniMarkGC._trace_drag_out1
         self.root_walker.walk_roots(
-            IncrementalMiniMarkGC._trace_drag_out1,  # stack roots
-            IncrementalMiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
-            None)                         # static in prebuilt gc
+            callback,     # stack roots
+            callback,     # static in prebuilt non-gc
+            None)         # static in prebuilt gc
         debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):
@@ -1522,21 +1535,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     interval_start = next_byte_start
                 #
                 # If we're incrementally marking right now, sorry, we also
-                # need to add the object to 'objects_to_trace' and have it
-                # fully traced very soon.
+                # need to add the object to 'more_objects_to_trace' and have
+                # it fully traced once at the end of the current marking phase.
                 if self.gc_state == STATE_MARKING:
                     self.header(obj).tid &= ~GCFLAG_VISITED
                     self.more_objects_to_trace.append(obj)
 
 
     def collect_oldrefs_to_nursery(self):
-        if self.gc_state == STATE_MARKING:
-            self._collect_oldrefs_to_nursery(True)
-        else:
-            self._collect_oldrefs_to_nursery(False)
-
-    @specialize.arg(1)
-    def _collect_oldrefs_to_nursery(self, state_is_marking):
         # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.
         oldlist = self.old_objects_pointing_to_young
@@ -1552,15 +1558,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Add the flag GCFLAG_TRACK_YOUNG_PTRS.  All live objects should
             # have this flag set after a nursery collection.
             self.header(obj).tid |= GCFLAG_TRACK_YOUNG_PTRS
-            #
-            # If the incremental major collection is currently at
-            # STATE_MARKING, then we must add to 'objects_to_trace' all
-            # objects that go through 'old_objects_pointing_to_young'.
-            # This basically turns black objects gray again, but also
-            # makes sure that we see otherwise-white objects.
-            if state_is_marking:
-                self.header(obj).tid &= ~GCFLAG_VISITED
-                self.more_objects_to_trace.append(obj)
             #
             # Trace the 'obj' to replace pointers to nursery with pointers
             # outside the nursery, possibly forcing nursery objects out
@@ -1584,15 +1581,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def _trace_drag_out1(self, root):
-        # In the MARKING state, we must also record this old object,
-        # if it is not VISITED yet.
-        if self.gc_state == STATE_MARKING:
-            obj = root.address[0]
-            if not self.is_in_nursery(obj):
-                if not self.header(obj).tid & GCFLAG_VISITED:
-                    self.more_objects_to_trace.append(obj)
-        #
         self._trace_drag_out(root, None)
+
+    def _trace_drag_out1_marking_phase(self, root):
+        self._trace_drag_out(root, None)
+        #
+        # We are in the MARKING state: we must also record this object
+        # if it was young.  Don't bother with old objects in general,
+        # as they are anyway added to 'more_objects_to_trace' if they
+        # are modified (see _add_to_more_objects_to_trace).  But we do
+        # need to record the not-visited-yet (white) old objects.  So
+        # as a conservative approximation, we need to add the object to
+        # the list if and only if it doesn't have GCFLAG_VISITED yet.
+        obj = root.address[0]
+        if not self.header(obj).tid & GCFLAG_VISITED:
+            self.more_objects_to_trace.append(obj)
 
     def _trace_drag_out(self, root, ignored):
         obj = root.address[0]
@@ -1668,12 +1671,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
-        else:
-            # we don't need to add this to 'old_objects_pointing_to_young',
-            # but in the STATE_MARKING phase we still need this bit...
-            if self.gc_state == STATE_MARKING:
-                self.header(newobj).tid &= ~GCFLAG_VISITED
-                self.more_objects_to_trace.append(newobj)
 
     _trace_drag_out._always_inline_ = True
 
@@ -1755,6 +1752,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while new.non_empty():
             old.append(new.pop())
         new.delete()
+
+    def _add_to_more_objects_to_trace(self, obj, ignored):
+        self.header(obj).tid &= ~GCFLAG_VISITED
+        self.more_objects_to_trace.append(obj)
 
     def minor_and_major_collection(self):
         # First, finish the current major gc, if there is one in progress.
