@@ -18,18 +18,16 @@ def test_tick():
     incr = jc.compute_threshold(4)
     for i in range(5):
         r = jc.tick(104, incr)
-        assert r is (i >= 3)
+        assert r is (i == 3)
     for i in range(5):
         r = jc.tick(108, incr)
         s = jc.tick(109, incr)
-        assert r is (i >= 3)
-        assert s is (i >= 3)
+        assert r is (i == 3)
+        assert s is (i == 3)
     jc.reset(108)
     for i in range(5):
         r = jc.tick(108, incr)
-        s = jc.tick(109, incr)
-        assert r is (i >= 3)
-        assert s is True
+        assert r is (i == 3)
 
 def test_install_new_chain():
     class Dead:
