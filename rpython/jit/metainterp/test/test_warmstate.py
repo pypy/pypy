@@ -3,10 +3,10 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.warmstate import wrap, unwrap, specialize_value
 from rpython.jit.metainterp.warmstate import equal_whatever, hash_whatever
-from rpython.jit.metainterp.warmstate import WarmEnterState, JitCell
-from rpython.jit.metainterp.warmstate import MODE_HAVE_PROC, MODE_TRACING
+from rpython.jit.metainterp.warmstate import WarmEnterState
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import r_singlefloat
 
@@ -78,69 +78,6 @@ def test_hash_equal_whatever_lltype():
     interpret(fn, [42], type_system='lltype')
 
 
-def test_make_jitcell_getter_default():
-    class FakeJitDriverSD:
-        _green_args_spec = [lltype.Signed, lltype.Float]
-    state = WarmEnterState(None, FakeJitDriverSD())
-    get_jitcell = state._make_jitcell_getter_default()
-    cell1 = get_jitcell(True, 42, 42.5)
-    assert isinstance(cell1, JitCell)
-    cell2 = get_jitcell(True, 42, 42.5)
-    assert cell1 is cell2
-    cell3 = get_jitcell(True, 41, 42.5)
-    assert get_jitcell(False, 42, 0.25) is None
-    cell4 = get_jitcell(True, 42, 0.25)
-    assert get_jitcell(False, 42, 0.25) is cell4
-    assert cell1 is not cell3 is not cell4 is not cell1
-
-def test_make_jitcell_getter():
-    class FakeJitDriverSD:
-        _green_args_spec = [lltype.Float]
-        _get_jitcell_at_ptr = None
-    state = WarmEnterState(None, FakeJitDriverSD())
-    get_jitcell = state.make_jitcell_getter()
-    cell1 = get_jitcell(True, 1.75)
-    cell2 = get_jitcell(True, 1.75)
-    assert cell1 is cell2
-    assert get_jitcell is state.make_jitcell_getter()
-
-def test_make_jitcell_getter_custom():
-    from rpython.rtyper.typesystem import LowLevelTypeSystem
-    class FakeRTyper:
-        type_system = LowLevelTypeSystem.instance
-    celldict = {}
-    def getter(x, y):
-        return celldict.get((x, y))
-    def setter(newcell, x, y):
-        newcell.x = x
-        newcell.y = y
-        celldict[x, y] = newcell
-    GETTER = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Float],
-                                        llmemory.GCREF))
-    SETTER = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed,
-                                         lltype.Float], lltype.Void))
-    class FakeWarmRunnerDesc:
-        rtyper = FakeRTyper()
-        cpu = None
-        memory_manager = None
-    class FakeJitDriverSD:
-        _get_jitcell_at_ptr = llhelper(GETTER, getter)
-        _set_jitcell_at_ptr = llhelper(SETTER, setter)
-    #
-    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
-    get_jitcell = state._make_jitcell_getter_custom()
-    cell1 = get_jitcell(True, 5, 42.5)
-    assert isinstance(cell1, JitCell)
-    assert cell1.x == 5
-    assert cell1.y == 42.5
-    cell2 = get_jitcell(True, 5, 42.5)
-    assert cell2 is cell1
-    cell3 = get_jitcell(True, 41, 42.5)
-    assert get_jitcell(False, 42, 0.25) is None
-    cell4 = get_jitcell(True, 42, 0.25)
-    assert get_jitcell(False, 42, 0.25) is cell4
-    assert cell1 is not cell3 is not cell4 is not cell1
-
 def test_make_unwrap_greenkey():
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed, lltype.Float]
@@ -150,26 +87,11 @@ def test_make_unwrap_greenkey():
     assert greenargs == (42, 42.5)
     assert type(greenargs[0]) is int
 
-def test_attach_unoptimized_bridge_from_interp():
-    class FakeJitDriverSD:
-        _green_args_spec = [lltype.Signed, lltype.Float]
-        _get_jitcell_at_ptr = None
-    state = WarmEnterState(None, FakeJitDriverSD())
-    get_jitcell = state.make_jitcell_getter()
-    class FakeLoopToken(object):
-        invalidated = False
-    looptoken = FakeLoopToken()
-    state.attach_procedure_to_interp([ConstInt(5),
-                                      constfloat(2.25)],
-                                     looptoken)
-    cell1 = get_jitcell(True, 5, 2.25)
-    assert cell1.mode == MODE_HAVE_PROC
-    assert cell1.get_procedure_token() is looptoken
-
 def test_make_jitdriver_callbacks_1():
     class FakeWarmRunnerDesc:
         cpu = None
         memory_manager = None
+        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
@@ -199,13 +121,13 @@ def test_make_jitdriver_callbacks_3():
         rtyper = None
         cpu = None
         memory_manager = None
+        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = None
-        _get_jitcell_at_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
@@ -225,13 +147,13 @@ def test_make_jitdriver_callbacks_4():
         rtyper = None
         cpu = None
         memory_manager = None
+        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
         _can_never_inline_ptr = None
-        _get_jitcell_at_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
 
@@ -251,13 +173,13 @@ def test_make_jitdriver_callbacks_5():
         rtyper = None
         cpu = None
         memory_manager = None
+        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = llhelper(CAN_NEVER_INLINE, can_never_inline)
-        _get_jitcell_at_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
 
@@ -265,52 +187,3 @@ def test_make_jitdriver_callbacks_5():
     state.make_jitdriver_callbacks()
     res = state.can_never_inline(5, 42.5)
     assert res is True
-
-def test_cleanup_jitcell_dict():
-    class FakeJitDriverSD:
-        _green_args_spec = [lltype.Signed]
-    #
-    # Test creating tons of jitcells that remain at 0
-    warmstate = WarmEnterState(None, FakeJitDriverSD())
-    get_jitcell = warmstate._make_jitcell_getter_default()
-    cell1 = get_jitcell(True, -1)
-    assert len(warmstate._jitcell_dict) == 1
-    #
-    for i in range(1, 20005):
-        get_jitcell(True, i)     # should trigger a clean-up at 20001
-        assert len(warmstate._jitcell_dict) == (i % 20000) + 1
-    #
-    # Same test, with one jitcell that has a counter of BASE instead of 0
-    warmstate = WarmEnterState(None, FakeJitDriverSD())
-    get_jitcell = warmstate._make_jitcell_getter_default()
-    cell2 = get_jitcell(True, -2)
-    cell2.counter = BASE = warmstate.THRESHOLD_LIMIT // 2    # 50%
-    #
-    for i in range(0, 20005):
-        get_jitcell(True, i)
-        assert len(warmstate._jitcell_dict) == (i % 19999) + 2
-    #
-    assert cell2 in warmstate._jitcell_dict.values()
-    assert cell2.counter == int(BASE * 0.92)   # decayed once
-    #
-    # Same test, with jitcells that are compiled and freed by the memmgr
-    warmstate = WarmEnterState(None, FakeJitDriverSD())
-    get_jitcell = warmstate._make_jitcell_getter_default()
-    get_jitcell(True, -1)
-    #
-    for i in range(1, 20005):
-        cell = get_jitcell(True, i)
-        cell.mode = MODE_HAVE_PROC
-        cell.wref_procedure_token = None    # or a dead weakref, equivalently
-        assert len(warmstate._jitcell_dict) == (i % 20000) + 1
-    #
-    # Same test, with mode == MODE_TRACING (rare case, kept alive)
-    warmstate = WarmEnterState(None, FakeJitDriverSD())
-    get_jitcell = warmstate._make_jitcell_getter_default()
-    cell = get_jitcell(True, -1)
-    cell.mode = MODE_TRACING
-    #
-    for i in range(1, 20005):
-        cell = get_jitcell(True, i)
-        cell.mode = MODE_TRACING
-        assert len(warmstate._jitcell_dict) == i + 1

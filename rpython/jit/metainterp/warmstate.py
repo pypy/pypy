@@ -174,9 +174,10 @@ class WarmEnterState(object):
             self.profiler = None
         # initialize the state with the default values of the
         # parameters specified in rlib/jit.py
-        for name, default_value in PARAMETERS.items():
-            meth = getattr(self, 'set_param_' + name)
-            meth(default_value)
+        if self.warmrunnerdesc is not None:
+            for name, default_value in PARAMETERS.items():
+                meth = getattr(self, 'set_param_' + name)
+                meth(default_value)
 
     def _compute_threshold(self, threshold):
         return self.warmrunnerdesc.jitcounter.compute_threshold(threshold)
