@@ -23,8 +23,8 @@ class TestArgumentsForTranslation(object):
         args1 = args.prepend("thingy")
         assert args1 is not args
         assert args1.arguments_w == ["thingy", "0"]
-        assert args1.keywords is args.keywords
-        assert args1.keywords_w is args.keywords_w
+        assert args1.keywords == args.keywords
+        assert args1.keywords_w == args.keywords_w
 
     def test_fixedunpacked(self):
         args = MockArgs([], ["k"], [1])

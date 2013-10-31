@@ -11,9 +11,8 @@ class ArgumentsForTranslation(object):
         assert w_starstararg is None
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        self.keywords = keywords
-        self.keywords_w = keywords_w
-        self.keyword_names_w = None
+        self.keywords = keywords or []
+        self.keywords_w = keywords_w or []
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -71,7 +70,7 @@ class ArgumentsForTranslation(object):
 
         args_w = self.positional_args
         num_args = len(args_w)
-        keywords = self.keywords or []
+        keywords = self.keywords
         num_kwds = len(keywords)
 
         # put as many positional input arguments into place as available
@@ -145,7 +144,7 @@ class ArgumentsForTranslation(object):
 
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
-        kwds_w = dict(zip(self.keywords, self.keywords_w)) if self.keywords else {}
+        kwds_w = dict(zip(self.keywords, self.keywords_w))
         return self.positional_args, kwds_w
 
     def match_signature(self, signature, defaults_w):
@@ -177,9 +176,8 @@ class ArgumentsForTranslation(object):
         assert len(data_w) >= need_cnt
         args_w = data_w[:need_cnt]
         _kwds_w = dict(zip(argnames[need_cnt:], data_w[need_cnt:]))
-        keywords = self.keywords or []
-        keywords_w = [_kwds_w[key] for key in keywords]
-        return ArgumentsForTranslation(args_w, keywords, keywords_w)
+        keywords_w = [_kwds_w[key] for key in self.keywords]
+        return ArgumentsForTranslation(args_w, self.keywords, keywords_w)
 
     @classmethod
     def fromshape(cls, (shape_cnt, shape_keys, shape_star, shape_stst), data_w):
@@ -210,15 +208,11 @@ class ArgumentsForTranslation(object):
         return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
 
     def _rawshape(self, nextra=0):
-        shape_cnt = len(self.arguments_w) + nextra       # Number of positional args
-        if self.keywords:
-            shape_keys = self.keywords[:]                # List of keywords (strings)
-            shape_keys.sort()
-        else:
-            shape_keys = []
+        shape_cnt = len(self.arguments_w) + nextra  # Number of positional args
+        shape_keys = tuple(sorted(self.keywords))
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
-        shape_stst = self.w_starstararg is not None # Flag: presence of **kwds
-        return shape_cnt, tuple(shape_keys), shape_star, shape_stst # shape_keys are sorted
+        shape_stst = self.w_starstararg is not None  # Flag: presence of **kwds
+        return shape_cnt, shape_keys, shape_star, shape_stst
 
 
 def rawshape(args, nextra=0):
