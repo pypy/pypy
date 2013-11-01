@@ -21,11 +21,8 @@ ifeq ($(PYPY_EXECUTABLE),)
 else
 	@echo "Building a regular (jitting) version of PyPy, using"
 	@echo "$(PYPY_EXECUTABLE) to run the translation itself."
-	@echo "This takes around 45 minutes and $(URAM) GB of RAM."
+	@echo "This takes up to 1 hour and $(URAM) GB of RAM."
 endif
-	@echo
-	@echo "If you have N cores, consider running \`\`MAKEFLAGS=-jN make'' to"
-	@echo "speed up the last part  (but \`\`make -jN'' does not work!)"
 	@echo "===================================================================="
 	@echo
 	@sleep 5
