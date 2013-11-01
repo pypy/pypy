@@ -12,7 +12,7 @@ endif
 
 pypy-c:
 	@echo
-	@echo "============================================================="
+	@echo "===================================================================="
 ifeq ($(PYPY_EXECUTABLE),)
 	@echo "Building a regular (jitting) version of PyPy, using CPython."
 	@echo "This takes around 2 hours and $(URAM) GB of RAM."
@@ -23,8 +23,10 @@ else
 	@echo "$(PYPY_EXECUTABLE) to run the translation itself."
 	@echo "This takes around 45 minutes and $(URAM) GB of RAM."
 endif
-	@echo "If you have N cores, consider setting \`\`MAKEFLAGS=-jN''."
-	@echo "============================================================="
+	@echo
+	@echo "If you have N cores, consider running \`\`MAKEFLAGS=-jN make'' to"
+	@echo "speed up the last part of translation  (\`\`make -jN'' does not work!)"
+	@echo "===================================================================="
 	@echo
 	@sleep 5
 	$(RUNINTERP) rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
