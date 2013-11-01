@@ -205,6 +205,12 @@ class WarmRunnerDesc(object):
         vrefinfo = VirtualRefInfo(self)
         self.codewriter.setup_vrefinfo(vrefinfo)
         #
+        from rpython.jit.metainterp import counter
+        if self.cpu.translate_support_code:
+            self.jitcounter = counter.JitCounter(translator=translator)
+        else:
+            self.jitcounter = counter.DeterministicJitCounter()
+        #
         self.hooks = policy.jithookiface
         self.make_virtualizable_infos()
         self.make_driverhook_graphs()
@@ -509,21 +515,10 @@ class WarmRunnerDesc(object):
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
     def make_driverhook_graphs(self):
-        from rpython.rlib.jit import BaseJitCell
-        bk = self.rtyper.annotator.bookkeeper
-        classdef = bk.getuniqueclassdef(BaseJitCell)
-        s_BaseJitCell_or_None = annmodel.SomeInstance(classdef,
-                                                      can_be_None=True)
-        s_BaseJitCell_not_None = annmodel.SomeInstance(classdef)
         s_Str = annmodel.SomeString()
         #
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         for jd in self.jitdrivers_sd:
-            jd._set_jitcell_at_ptr = self._make_hook_graph(jd,
-                annhelper, jd.jitdriver.set_jitcell_at, annmodel.s_None,
-                s_BaseJitCell_not_None)
-            jd._get_jitcell_at_ptr = self._make_hook_graph(jd,
-                annhelper, jd.jitdriver.get_jitcell_at, s_BaseJitCell_or_None)
             jd._get_printable_location_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_printable_location, s_Str)
             jd._confirm_enter_jit_ptr = self._make_hook_graph(jd,

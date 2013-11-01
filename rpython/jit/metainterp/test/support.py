@@ -28,8 +28,8 @@ def _get_jitcodes(testself, CPUClass, func, values,
 
     class FakeWarmRunnerState(object):
         def attach_procedure_to_interp(self, greenkey, procedure_token):
-            cell = self.jit_cell_at_key(greenkey)
-            cell.set_procedure_token(procedure_token)
+            assert greenkey == []
+            self._cell.set_procedure_token(procedure_token)
 
         def helper_func(self, FUNCPTR, func):
             from rpython.rtyper.annlowlevel import llhelper
@@ -38,9 +38,11 @@ def _get_jitcodes(testself, CPUClass, func, values,
         def get_location_str(self, args):
             return 'location'
 
-        def jit_cell_at_key(self, greenkey):
-            assert greenkey == []
-            return self._cell
+        class JitCell:
+            @staticmethod
+            def get_jit_cell_at_key(greenkey):
+                assert greenkey == []
+                return FakeWarmRunnerState._cell
         _cell = FakeJitCell()
 
         trace_limit = sys.maxint

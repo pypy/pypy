@@ -195,6 +195,9 @@ class LLInterpRootWalker:
         for obj in self.gcheap._all_prebuilt_gc:
             collect(llmemory.cast_ptr_to_adr(obj._as_ptr()))
 
+    def finished_minor_collection(self):
+        pass
+
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
