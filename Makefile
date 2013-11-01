@@ -25,7 +25,7 @@ else
 endif
 	@echo
 	@echo "If you have N cores, consider running \`\`MAKEFLAGS=-jN make'' to"
-	@echo "speed up the last part of translation  (\`\`make -jN'' does not work!)"
+	@echo "speed up the last part  (but \`\`make -jN'' does not work!)"
 	@echo "===================================================================="
 	@echo
 	@sleep 5
