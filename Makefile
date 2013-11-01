@@ -23,7 +23,16 @@ else
 	@echo "$(PYPY_EXECUTABLE) to run the translation itself."
 	@echo "This takes up to 1 hour and $(URAM) GB of RAM."
 endif
+	@echo
+	@echo "For more control (e.g. to use multiple CPU cores during part of"
+	@echo "the process) you need to run \`\`rpython/bin/rpython'' directly."
+	@echo "For more information see \`\`http://pypy.org/download.html''."
 	@echo "===================================================================="
 	@echo
 	@sleep 5
 	$(RUNINTERP) rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+
+# Note: the -jN option, or MAKEFLAGS=-jN, are not usable.  They are
+# replaced with an opaque --jobserver option by the time this Makefile
+# runs.  We cannot get their original value either:
+# http://lists.gnu.org/archive/html/help-make/2010-08/msg00106.html
