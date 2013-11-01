@@ -23,6 +23,7 @@ else
 	@echo "$(PYPY_EXECUTABLE) to run the translation itself."
 	@echo "This takes around 45 minutes and $(URAM) GB of RAM."
 endif
+	@echo "If you have N cores, consider setting \`\`MAKEFLAGS=-jN''."
 	@echo "============================================================="
 	@echo
 	@sleep 5
