@@ -9,7 +9,7 @@ UINT32MAX = 2 ** 32 - 1
 
 
 class JitCounter:
-    DEFAULT_SIZE = 8192
+    DEFAULT_SIZE = 4096
 
     def __init__(self, size=DEFAULT_SIZE, translator=None):
         "NOT_RPYTHON"
@@ -29,11 +29,11 @@ class JitCounter:
                 step = 0
             glob = Glob()
             def invoke_after_minor_collection():
-                # After 64 minor collections, we call decay_all_counters().
+                # After 32 minor collections, we call decay_all_counters().
                 # The "--jit decay=N" option measures the amount the
                 # counters are then reduced by.
                 glob.step += 1
-                if glob.step == 64:
+                if glob.step == 32:
                     glob.step = 0
                     self.decay_all_counters()
             if not hasattr(translator, '_jit2gc'):
