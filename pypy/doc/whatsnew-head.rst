@@ -124,3 +124,9 @@ make coverage.py fast
 
 .. branch: remove-numpypy
 Remove lib_pypy/numpypy in favor of external numpy fork
+
+.. branch: jit-counter
+Tweak the jit counters: decay them at minor collection (actually
+only every 32 minor collection is enough). Should avoid the "memory
+leaks" observed in long-running processes, actually created by the
+jit compiling more and more rarely executed paths.

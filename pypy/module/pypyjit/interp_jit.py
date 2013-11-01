@@ -32,22 +32,6 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
-def make_greenkey_dict_key(next_instr, is_being_profiled):
-    # use only uints as keys in the jit_cells dict, rather than
-    # a tuple (next_instr, is_being_profiled)
-    return (
-        (next_instr << 1) |
-        r_uint(intmask(is_being_profiled))
-    )
-
-def get_jitcell_at(next_instr, is_being_profiled, bytecode):
-    key = make_greenkey_dict_key(next_instr, is_being_profiled)
-    return bytecode.jit_cells.get(key, None)
-
-def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
-    key = make_greenkey_dict_key(next_instr, is_being_profiled)
-    bytecode.jit_cells[key] = newcell
-
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
@@ -58,8 +42,6 @@ class PyPyJitDriver(JitDriver):
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
-                              get_jitcell_at = get_jitcell_at,
-                              set_jitcell_at = set_jitcell_at,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
                               name='pypyjit')
@@ -120,18 +102,6 @@ def _get_adapted_tick_counter():
         decr_by = 100
     return intmask(decr_by)
 
-
-PyCode__initialize = PyCode._initialize
-
-class __extend__(PyCode):
-    __metaclass__ = extendabletype
-
-    def _initialize(self):
-        PyCode__initialize(self)
-        self.jit_cells = {}
-
-    def _cleanup_(self):
-        self.jit_cells = {}
 
 # ____________________________________________________________
 #

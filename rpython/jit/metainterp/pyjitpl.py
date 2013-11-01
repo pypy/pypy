@@ -2208,7 +2208,10 @@ class MetaInterp(object):
             raise NotImplementedError(opname[opnum])
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):
-        cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
+        JitCell = self.jitdriver_sd.warmstate.JitCell
+        cell = JitCell.get_jit_cell_at_key(greenkey)
+        if cell is None:
+            return None
         token = cell.get_procedure_token()
         if with_compiled_targets:
             if not token:

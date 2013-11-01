@@ -1459,6 +1459,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.get_total_memory_used())
         if self.DEBUG >= 2:
             self.debug_check_consistency()     # expensive!
+        #
+        self.root_walker.finished_minor_collection()
+        #
         debug_stop("gc-minor")
 
 
