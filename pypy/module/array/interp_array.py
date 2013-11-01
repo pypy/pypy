@@ -645,6 +645,9 @@ class ArrayIterator(W_Root):
     def __init__(self, array):
         self.index = 0
         self.array = array
+
+    def iter_w(self, space):
+        return space.wrap(self)
         
     def next_w(self, space):
         if self.index < self.array.len:
@@ -655,6 +658,7 @@ class ArrayIterator(W_Root):
 
 ArrayIterator.typedef = TypeDef(
     'arrayiterator',
+    __iter__ = interp2app(ArrayIterator.iter_w),
     __next__ = interp2app(ArrayIterator.next_w),
     )
 

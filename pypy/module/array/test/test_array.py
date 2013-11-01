@@ -1154,3 +1154,9 @@ class AppTestArrayReconstructor:
             b = array_reconstructor(
                 array.array, 'u', mformat_code, teststr.encode(encoding))
             assert a == b
+
+    def test_iterate_iterator(self):
+        import array
+        it = iter(array.array('b'))
+        assert list(it) == []
+        assert list(iter(it)) == []
