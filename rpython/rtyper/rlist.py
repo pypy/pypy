@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
 from rpython.rtyper.annlowlevel import ADTInterface
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
-from rpython.rtyper.lltypesystem.lltype import nullptr, Char, UniChar, Number
+from rpython.rtyper.lltypesystem.lltype import Char, UniChar, Number
 from rpython.rtyper.rmodel import Repr, IteratorRepr, IntegerRepr
 from rpython.rtyper.rstr import AbstractStringRepr, AbstractCharRepr
 from rpython.tool.pairtype import pairtype, pair
@@ -495,15 +495,6 @@ def ll_newlist_fixed(LIST, count):
     return LIST.ll_newlist(count)
 
 
-# return a nullptr() if lst is a list of pointers it, else None.
-def ll_null_item(lst):
-    LIST = typeOf(lst)
-    if isinstance(LIST, Ptr):
-        ITEM = LIST.TO.ITEM
-        if isinstance(ITEM, Ptr):
-            return nullptr(ITEM.TO)
-    return None
-
 def listItemType(lst):
     LIST = typeOf(lst)
     return LIST.TO.ITEM
@@ -603,9 +594,6 @@ def ll_pop_default(func, l):
     index = length - 1
     newlength = index
     res = l.ll_getitem_fast(index)
-    null = ll_null_item(l)
-    if null is not None:
-        l.ll_setitem_fast(index, null)
     l._ll_resize_le(newlength)
     return res
 
@@ -622,9 +610,6 @@ def ll_pop_zero(func, l):
         l.ll_setitem_fast(j, l.ll_getitem_fast(j1))
         j = j1
         j1 += 1
-    null = ll_null_item(l)
-    if null is not None:
-        l.ll_setitem_fast(newlength, null)
     l._ll_resize_le(newlength)
     return res
 ll_pop_zero.oopspec = 'list.pop(l, 0)'
@@ -732,10 +717,6 @@ def ll_delitem_nonneg(func, l, index):
         l.ll_setitem_fast(j, l.ll_getitem_fast(j1))
         j = j1
         j1 += 1
-
-    null = ll_null_item(l)
-    if null is not None:
-        l.ll_setitem_fast(newlength, null)
     l._ll_resize_le(newlength)
 ll_delitem_nonneg.oopspec = 'list.delitem(l, index)'
 
@@ -890,12 +871,6 @@ def ll_listdelslice_startonly(l, start):
     ll_assert(start >= 0, "del l[start:] with unexpectedly negative start")
     ll_assert(start <= l.ll_length(), "del l[start:] with start > len(l)")
     newlength = start
-    null = ll_null_item(l)
-    if null is not None:
-        j = l.ll_length() - 1
-        while j >= newlength:
-            l.ll_setitem_fast(j, null)
-            j -= 1
     l._ll_resize_le(newlength)
 
 def ll_listdelslice_startstop(l, start, stop):
@@ -912,12 +887,6 @@ def ll_listdelslice_startstop(l, start, stop):
         l.ll_setitem_fast(j, l.ll_getitem_fast(i))
         i += 1
         j += 1
-    null = ll_null_item(l)
-    if null is not None:
-        j = length - 1
-        while j >= newlength:
-            l.ll_setitem_fast(j, null)
-            j -= 1
     l._ll_resize_le(newlength)
 ll_listdelslice_startstop.oopspec = 'list.delslice_startstop(l, start, stop)'
 
