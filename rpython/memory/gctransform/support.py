@@ -34,8 +34,15 @@ def _static_deallocator_body_for_type(v, TYPE, depth=1):
     if isinstance(TYPE, lltype.Array):
         inner = list(_static_deallocator_body_for_type('v_%i'%depth, TYPE.OF, depth+1))
         if inner:
+            # NB. in case of overallocated array, we still decref all items
+            # rather than just the used ones.  This is because the unused
+            # items still have a reference.  It's not really nice, but we
+            # don't really care about the refcounting GC in the first place...
             yield '    '*depth + 'i_%d = 0'%(depth,)
-            yield '    '*depth + 'l_%d = len(%s)'%(depth, v)
+            if TYPE._is_overallocated_array():
+                yield '    '*depth + 'l_%d = %s.allocated_length'%(depth, v)
+            else:
+                yield '    '*depth + 'l_%d = len(%s)'%(depth, v)
             yield '    '*depth + 'while i_%d < l_%d:'%(depth, depth)
             yield '    '*depth + '    v_%d = %s[i_%d]'%(depth, v, depth)
             for line in inner:
