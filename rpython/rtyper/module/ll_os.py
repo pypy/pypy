@@ -1641,9 +1641,11 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os._exit)
     def register_os__exit(self):
+        from rpython.rlib import debug
         os__exit = self.llexternal('_exit', [rffi.INT], lltype.Void)
 
         def _exit_llimpl(status):
+            debug.debug_flush()
             os__exit(rffi.cast(rffi.INT, status))
 
         return extdef([int], s_None, llimpl=_exit_llimpl,
