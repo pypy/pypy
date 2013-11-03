@@ -134,3 +134,6 @@ jit compiling more and more rarely executed paths.
 .. branch: fix-trace-jit
 Fixed the usage of sys.settrace() with the JIT. Also made it so using
 sys.settrace() doesn't cause the GIL to be released on every single iteration.
+
+.. branch: rordereddict
+Implement OrderedDict in RPython
