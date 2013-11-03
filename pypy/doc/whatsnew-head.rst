@@ -130,3 +130,7 @@ Tweak the jit counters: decay them at minor collection (actually
 only every 32 minor collection is enough). Should avoid the "memory
 leaks" observed in long-running processes, actually created by the
 jit compiling more and more rarely executed paths.
+
+.. branch: fix-trace-jit
+Fixed the usage of sys.settrace() with the JIT. Also made it so using
+sys.settrace() doesn't cause the GIL to be released on every single iteration.
