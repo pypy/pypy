@@ -54,8 +54,11 @@ class BaseListRepr(AbstractBaseListRepr):
         else:
             raise NotImplementedError(variant)
 
-    def get_itemarray_lowleveltype(self):
+    def get_itemarray_lowleveltype(self, overallocated):
         ITEM = self.item_repr.lowleveltype
+        hints = {}
+        if overallocated:
+            hints['overallocated'] = True
         ITEMARRAY = GcArray(ITEM,
                             adtmeths = ADTIFixedList({
                                  "ll_newlist": ll_fixed_newlist,
@@ -65,7 +68,8 @@ class BaseListRepr(AbstractBaseListRepr):
                                  "ITEM": ITEM,
                                  "ll_getitem_fast": ll_fixed_getitem_fast,
                                  "ll_setitem_fast": ll_fixed_setitem_fast,
-                            }))
+                            }),
+                            hints = hints)
         return ITEMARRAY
 
 
@@ -86,10 +90,9 @@ class ListRepr(AbstractListRepr, BaseListRepr):
             self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
-            ITEMARRAY = self.get_itemarray_lowleveltype()
+            ITEMARRAY = self.get_itemarray_lowleveltype(True)
             # XXX we might think of turning length stuff into Unsigned
-            self.LIST.become(GcStruct("list", ("length", Signed),
-                                              ("items", Ptr(ITEMARRAY)),
+            self.LIST.become(GcStruct("list", ("items", Ptr(ITEMARRAY)),
                                       adtmeths = ADTIList({
                                           "ll_newlist": ll_newlist,
                                           "ll_newlist_hint": ll_newlist_hint,
@@ -112,8 +115,8 @@ class ListRepr(AbstractListRepr, BaseListRepr):
 
     def prepare_const(self, n):
         result = malloc(self.LIST, immortal=True)
-        result.length = n
         result.items = malloc(self.LIST.items.TO, n)
+        result.items.used_length = n
         return result
 
 
@@ -123,7 +126,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
         if isinstance(self.LIST, GcForwardReference):
-            ITEMARRAY = self.get_itemarray_lowleveltype()
+            ITEMARRAY = self.get_itemarray_lowleveltype(overallocated=False)
             self.LIST.become(ITEMARRAY)
 
     def compact_repr(self):
@@ -142,12 +145,14 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
-@jit.look_inside_iff(lambda l, newsize, overallocate: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.look_inside_iff(lambda l, newsize, overallocate:
+                     jit.isconstant(l.items.allocated_length) and
+                     jit.isconstant(newsize))
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
     Ensure l.items has room for at least newsize elements.  Note that
-    l.items may change, and even if newsize is less than l.length on
+    l.items may change, and even if newsize is less than used_length on
     entry.
     """
     # This over-allocates proportional to the list size, making room
@@ -158,7 +163,6 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
     # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
     if newsize <= 0:
         ll_assert(newsize == 0, "negative list length")
-        l.length = 0
         l.items = _ll_new_empty_item_array(typeOf(l).TO)
         return
     elif overallocate:
@@ -174,28 +178,28 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
     # linear complexity for e.g. repeated usage of l.append().  In case
     # it overflows sys.maxint, it is guaranteed negative, and the following
     # malloc() will fail.
-    items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
-    before_len = l.length
+    items = l.items
+    before_len = items.used_length
     if before_len:   # avoids copying GC flags from the prebuilt_empty_array
-        if before_len < newsize:
-            p = before_len
-        else:
-            p = newsize
+        p = min(before_len, newsize)
+        newitems.used_length = p
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
     l.items = newitems
 
-@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.look_inside_iff(lambda l, newsize:
+                     jit.isconstant(l.items.allocated_length) and
+                     jit.isconstant(newsize))
 def _ll_list_resize_hint(l, newsize):
     """Ensure l.items has room for at least newsize elements without
-    setting l.length to newsize.
+    setting used_length to newsize.
 
     Used before (and after) a batch operation that will likely grow the
     list to the newsize (and after the operation incase the initial
     guess lied).
     """
     assert newsize >= 0, "negative list length"
-    allocated = len(l.items)
+    allocated = l.items.allocated_length
     if newsize > allocated:
         overallocate = True
     elif newsize < (allocated >> 1) - 5:
@@ -208,11 +212,11 @@ def _ll_list_resize_hint(l, newsize):
 def _ll_list_resize_really(l, newsize, overallocate):
     """
     Ensure l.items has room for at least newsize elements, and set
-    l.length to newsize.  Note that l.items may change, and even if
-    newsize is less than l.length on entry.
+    used_length to newsize.  Note that l.items may change, and even if
+    newsize is less than used_length on entry.
     """
     _ll_list_resize_hint_really(l, newsize, overallocate)
-    l.length = newsize
+    l.items.used_length = newsize
 
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.
@@ -230,34 +234,30 @@ def _ll_list_resize_ge(l, newsize):
     a realloc().  In the common case where we already overallocated enough,
     then this is a very fast operation.
     """
-    cond = len(l.items) < newsize
-    if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
+    allocated = l.items.allocated_length
+    cond = allocated < newsize
+    if jit.isconstant(allocated) and jit.isconstant(newsize):
         if cond:
             _ll_list_resize_hint_really(l, newsize, True)
     else:
         jit.conditional_call(cond,
                              _ll_list_resize_hint_really, l, newsize, True)
-    l.length = newsize
+    l.items.used_length = newsize
 
 def _ll_list_resize_le(l, newsize):
     """This is called with 'newsize' smaller than the current length of the
     list.  If 'newsize' falls lower than half the allocated size, proceed
     with the realloc() to shrink the list.
     """
-    cond = newsize < (len(l.items) >> 1) - 5
+    cond = newsize < (l.items.allocated_length >> 1) - 5
     # note: overallocate=False should be safe here
-    if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
+    if jit.isconstant(l.items.allocated_length) and jit.isconstant(newsize):
         if cond:
             _ll_list_resize_hint_really(l, newsize, False)
     else:
         jit.conditional_call(cond, _ll_list_resize_hint_really, l, newsize,
                              False)
-    l.length = newsize
-
-def ll_append_noresize(l, newitem):
-    length = l.length
-    l.length = length + 1
-    l.ll_setitem_fast(length, newitem)
+    l.items.used_length = newsize
 
 
 def ll_both_none(lst1, lst2):
@@ -271,8 +271,9 @@ def ll_both_none(lst1, lst2):
 def ll_newlist(LIST, length):
     ll_assert(length >= 0, "negative list length")
     l = malloc(LIST)
-    l.length = length
-    l.items = malloc(LIST.items.TO, length)
+    items = malloc(LIST.items.TO, length)
+    items.used_length = length
+    l.items = items
     return l
 ll_newlist = typeMethod(ll_newlist)
 ll_newlist.oopspec = 'newlist(length)'
@@ -280,7 +281,6 @@ ll_newlist.oopspec = 'newlist(length)'
 def ll_newlist_hint(LIST, lengthhint):
     ll_assert(lengthhint >= 0, "negative list length")
     l = malloc(LIST)
-    l.length = 0
     l.items = malloc(LIST.items.TO, lengthhint)
     return l
 ll_newlist_hint = typeMethod(ll_newlist_hint)
@@ -292,7 +292,7 @@ ll_newlist_hint.oopspec = 'newlist_hint(lengthhint)'
 INITIAL_EMPTY_LIST_ALLOCATION = 0
 
 def _ll_prebuilt_empty_array(LISTITEM):
-    return malloc(LISTITEM, 0)
+    return malloc(LISTITEM, 0)     # memo!
 _ll_prebuilt_empty_array._annspecialcase_ = 'specialize:memo'
 
 def _ll_new_empty_item_array(LIST):
@@ -303,26 +303,25 @@ def _ll_new_empty_item_array(LIST):
 
 def ll_newemptylist(LIST):
     l = malloc(LIST)
-    l.length = 0
     l.items = _ll_new_empty_item_array(LIST)
     return l
 ll_newemptylist = typeMethod(ll_newemptylist)
 ll_newemptylist.oopspec = 'newlist(0)'
 
 def ll_length(l):
-    return l.length
+    return l.items.used_length
 ll_length.oopspec = 'list.len(l)'
 
 def ll_items(l):
     return l.items
 
 def ll_getitem_fast(l, index):
-    ll_assert(index < l.length, "getitem out of bounds")
+    ll_assert(index < l.ll_length(), "getitem out of bounds")
     return l.ll_items()[index]
 ll_getitem_fast.oopspec = 'list.getitem(l, index)'
 
 def ll_setitem_fast(l, index, item):
-    ll_assert(index < l.length, "setitem out of bounds")
+    ll_assert(index < l.ll_length(), "setitem out of bounds")
     l.ll_items()[index] = item
 ll_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
@@ -405,7 +404,7 @@ def ll_listnext(iter):
     index = iter.index
     if index >= l.ll_length():
         raise StopIteration
-    iter.index = index + 1      # cannot overflow because index < l.length
+    iter.index = index + 1      # cannot overflow because index < used_length
     return l.ll_getitem_fast(index)
 
 def ll_listnext_foldable(iter):
@@ -414,7 +413,7 @@ def ll_listnext_foldable(iter):
     index = iter.index
     if index >= l.ll_length():
         raise StopIteration
-    iter.index = index + 1      # cannot overflow because index < l.length
+    iter.index = index + 1      # cannot overflow because index < used_length
     return ll_getitem_foldable_nonneg(l, index)
 
 def ll_getnextindex(iter):

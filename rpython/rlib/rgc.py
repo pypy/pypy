@@ -200,13 +200,15 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
     # supports non-overlapping copies only
     if not we_are_translated():
-        if source == dest:
+        if lltype.typeOf(source) == lltype.typeOf(dest) and source == dest:
             assert (source_start + length <= dest_start or
                     dest_start + length <= source_start)
 
-    TP = lltype.typeOf(source).TO
-    assert TP == lltype.typeOf(dest).TO
-    if _contains_gcptr(TP.OF):
+    # supports copying between an overallocated GcArray and a regular GcArray
+    TP_SRC = lltype.typeOf(source).TO
+    TP_DST = lltype.typeOf(dest).TO
+    assert TP_SRC.OF == TP_DST.OF
+    if _contains_gcptr(TP_SRC.OF):
         # perform a write barrier that copies necessary flags from
         # source to dest
         if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
@@ -220,13 +222,13 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
-    cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
-                      llmemory.sizeof(TP.OF) * source_start)
-    cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
-                    llmemory.sizeof(TP.OF) * dest_start)
+    cp_source_addr = (source_addr + llmemory.itemoffsetof(TP_SRC, 0) +
+                      llmemory.sizeof(TP_SRC.OF) * source_start)
+    cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP_DST, 0) +
+                    llmemory.sizeof(TP_DST.OF) * dest_start)
 
     llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
-                         llmemory.sizeof(TP.OF) * length)
+                         llmemory.sizeof(TP_SRC.OF) * length)
     keepalive_until_here(source)
     keepalive_until_here(dest)
 
