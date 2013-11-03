@@ -340,6 +340,8 @@ class TestLLSpecializeListComprehension:
     def test_simple_except(self):
         def main(n):
             try:
+                # char -> string conversion inside the append() method,
+                # forced because we later put a string inside lst
                 lst = [chr(x) for x in range(n)]
             except:
                 return -1
