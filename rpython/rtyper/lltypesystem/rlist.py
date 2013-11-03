@@ -156,22 +156,34 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
     entry.
     """
     # This over-allocates proportional to the list size, making room
-    # for additional growth.  The over-allocation is mild, but is
-    # enough to give linear-time amortized behavior over a long
-    # sequence of appends() in the presence of a poorly-performing
-    # system malloc().
-    # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
+    # for additional growth.  The over-allocation is eager for small
+    # lists, and mild for large ones (but enough to give linear-time
+    # amortized behavior over a long sequence of appends()).
+    #
+    # The idea is that small lists exist in the nursery; if they
+    # survive, they will be copied out of it by the GC, which will
+    # reduce their allocated_length down to their used_length.
+    #
+    # The growth pattern is:
+    #      0, 8, 16, 32,  (doubling region, adding 'newsize')
+    #      48, 72, 108,   (adding 'newsize >> 1')
+    #      135, 168, 210, (adding 'newsize >> 2')
+    #      236, ...       (adding 'newsize >> 3' from now on)
     if newsize <= 0:
         ll_assert(newsize == 0, "negative list length")
         l.items = _ll_new_empty_item_array(typeOf(l).TO)
         return
     elif overallocate:
-        if newsize < 9:
-            some = 3
+        if newsize <= 4:
+            new_allocated = 8
+        elif newsize < 32:
+            new_allocated = newsize + newsize
+        elif newsize < 128:
+            new_allocated = newsize + (newsize >> 1)
+        elif newsize < 224:
+            new_allocated = newsize + (newsize >> 2)
         else:
-            some = 6
-        some += newsize >> 3
-        new_allocated = newsize + some
+            new_allocated = newsize + (newsize >> 3)
     else:
         new_allocated = newsize
     # new_allocated is a bit more than newsize, enough to ensure an amortized
