@@ -1,4 +1,4 @@
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module.test_lib_pypy.numpypy.test_base import BaseNumpyAppTest
 
 class AppTestTwoDimBase(BaseNumpyAppTest):
     def test_eye(self):

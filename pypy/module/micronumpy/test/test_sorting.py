@@ -18,7 +18,9 @@ class AppTestSorting(BaseNumpyAppTest):
 
             a = arange(100, dtype=dtype)
             assert (a.argsort() == a).all()
-        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
     def test_argsort_ndim(self):
         from numpypy import array
@@ -76,8 +78,10 @@ class AppTestSorting(BaseNumpyAppTest):
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
             b = array([-1, 3, 3, 4, 6, 8, 100, 101, 256+20], dtype=dtype)
             c = a.copy()
-            exc = raises(NotImplementedError, a.sort)
-            assert exc.value[0].find('supported') >= 0
+            import sys
+            if '__pypy__' in sys.builtin_module_names:
+                exc = raises(NotImplementedError, a.sort)
+                assert exc.value[0].find('supported') >= 0
             #assert (a == b).all(), \
             #    'a,orig,dtype %r,%r,%r' % (a,c,dtype)
 
@@ -90,8 +94,9 @@ class AppTestSorting(BaseNumpyAppTest):
         # test doubles and complex doubles as the logic is the same.
 
         # check doubles
-        from numpypy import array, nan, zeros, complex128, arange
+        from numpypy import array, zeros, arange
         from math import isnan
+        nan = float('nan')
         a = array([nan, 1, 0])
         b = a.copy()
         b.sort()
@@ -102,7 +107,7 @@ class AppTestSorting(BaseNumpyAppTest):
         assert (b == [2, 1, 0]).all()
 
         # check complex
-        a = zeros(9, dtype=complex128)
+        a = zeros(9, dtype='complex128')
         a.real += [nan, nan, nan, 1, 0, 1, 1, 0, 0]
         a.imag += [nan, 1, 0, nan, nan, 1, 0, 1, 0]
         b = a.copy()

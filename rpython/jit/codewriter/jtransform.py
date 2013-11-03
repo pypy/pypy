@@ -93,6 +93,8 @@ class Transformer(object):
         block.exitswitch = renamings.get(block.exitswitch, block.exitswitch)
         self.follow_constant_exit(block)
         self.optimize_goto_if_not(block)
+        if isinstance(block.exitswitch, tuple):
+            self._check_no_vable_array(block.exitswitch)
         for link in block.exits:
             self._check_no_vable_array(link.args)
             self._do_renaming_on_link(renamings, link)

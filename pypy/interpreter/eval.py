@@ -2,7 +2,7 @@
 This module defines the abstract base classes that support execution:
 Code and Frame.
 """
-from pypy.interpreter.error import OperationError
+
 from pypy.interpreter.baseobjspace import W_Root
 
 
@@ -51,88 +51,3 @@ class Code(W_Root):
 
     def funcrun_obj(self, func, w_obj, args):
         return self.funcrun(func, args.prepend(w_obj))
-
-
-class Frame(W_Root):
-    """A frame is an environment supporting the execution of a code object.
-    Abstract base class."""
-
-    def __init__(self, space, w_globals=None):
-        self.space = space
-        self.w_globals = w_globals  # wrapped dict of globals
-        self.w_locals = None       # wrapped dict of locals
-
-    def run(self):
-        "Abstract method to override. Runs the frame"
-        raise TypeError("abstract")
-
-    def getdictscope(self):
-        "Get the locals as a dictionary."
-        self.fast2locals()
-        return self.w_locals
-
-    def getcode(self):
-        return None
-
-    def fget_code(self, space):
-        return space.wrap(self.getcode())
-
-    def fget_getdictscope(self, space):
-        return self.getdictscope()
-
-    def setdictscope(self, w_locals):
-        "Initialize the locals from a dictionary."
-        self.w_locals = w_locals
-        self.locals2fast()
-
-    def getfastscope(self):
-        "Abstract. Get the fast locals as a list."
-        raise TypeError("abstract")
-
-    def setfastscope(self, scope_w):
-        """Abstract. Initialize the fast locals from a list of values,
-        where the order is according to self.getcode().signature()."""
-        raise TypeError("abstract")
-
-    def getfastscopelength(self):
-        "Abstract. Get the expected number of locals."
-        raise TypeError("abstract")
-
-    def fast2locals(self):
-        # Copy values from the fastlocals to self.w_locals
-        if self.w_locals is None:
-            self.w_locals = self.space.newdict()
-        varnames = self.getcode().getvarnames()
-        fastscope_w = self.getfastscope()
-        for i in range(min(len(varnames), self.getfastscopelength())):
-            name = varnames[i]
-            w_value = fastscope_w[i]
-            w_name = self.space.wrap(name)
-            if w_value is not None:
-                self.space.setitem(self.w_locals, w_name, w_value)
-            else:
-                try:
-                    self.space.delitem(self.w_locals, w_name)
-                except OperationError as e:
-                    if not e.match(self.space, self.space.w_KeyError):
-                        raise
-
-    def locals2fast(self):
-        # Copy values from self.w_locals to the fastlocals
-        assert self.w_locals is not None
-        varnames = self.getcode().getvarnames()
-        numlocals = self.getfastscopelength()
-
-        new_fastlocals_w = [None] * numlocals
-
-        for i in range(min(len(varnames), numlocals)):
-            w_name = self.space.wrap(varnames[i])
-            try:
-                w_value = self.space.getitem(self.w_locals, w_name)
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_KeyError):
-                    raise
-            else:
-                new_fastlocals_w[i] = w_value
-
-        self.setfastscope(new_fastlocals_w)

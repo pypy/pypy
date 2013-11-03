@@ -11,10 +11,10 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
-from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
+from pypy.module.micronumpy.constants import *
 
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
@@ -35,7 +35,7 @@ def new_dtype_getter(name):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return get_dtype_cache(space).dtypes_by_name[name]
 
-    def new(space, w_subtype, w_value):
+    def new(space, w_subtype, w_value=None):
         dtype = _get_dtype(space)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
 
@@ -49,9 +49,6 @@ class Box(object):
     _mixin_ = True
 
     def reduce(self, space):
-        from rpython.rlib.rstring import StringBuilder
-        from rpython.rtyper.lltypesystem import rffi, lltype
-
         numpypy = space.getbuiltinmodule("_numpypy")
         assert isinstance(numpypy, MixedModule)
         multiarray = numpypy.get("multiarray")
@@ -233,12 +230,14 @@ class W_GenericBox(W_Root):
         return space.newtuple([w_quotient, w_remainder])
 
     def descr_any(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         value = space.is_true(self)
-        return self.get_dtype(space).box(value)
+        return get_dtype_cache(space).w_booldtype.box(value)
 
     def descr_all(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         value = space.is_true(self)
-        return self.get_dtype(space).box(value)
+        return get_dtype_cache(space).w_booldtype.box(value)
 
     def descr_ravel(self, space):
         from pypy.module.micronumpy.base import convert_to_array
@@ -259,6 +258,12 @@ class W_GenericBox(W_Root):
                 "new type not compatible with array."))
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "view not implelemnted yet"))
+
+    def descr_get_dtype(self, space):
+        return self.get_dtype(space)
+
+    def descr_get_itemsize(self, space):
+        return self.get_dtype(space).descr_get_itemsize(space)
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
@@ -348,16 +353,12 @@ class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex128")
     _COMPONENTS_BOX = W_Float64Box
 
-if long_double_size == 8:
-    W_FloatLongBox = W_Float64Box
-    W_ComplexLongBox = W_Complex128Box
-
-elif long_double_size in (12, 16):
+if long_double_size in (8, 12, 16):
     class W_FloatLongBox(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float%d" % (long_double_size * 8))
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_LONGDOUBLELTR)
 
     class W_ComplexLongBox(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex%d" % (long_double_size * 16))
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_CLONGDOUBLELTR)
         _COMPONENTS_BOX = W_FloatLongBox
 
 class W_FlexibleBox(W_GenericBox):
@@ -374,25 +375,27 @@ class W_FlexibleBox(W_GenericBox):
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
-        from pypy.module.micronumpy.types import VoidType
-        if space.isinstance_w(w_item, space.w_str):
+        if space.isinstance_w(w_item, space.w_basestring):
             item = space.str_w(w_item)
         elif space.isinstance_w(w_item, space.w_int):
-            #Called by iterator protocol
             indx = space.int_w(w_item)
             try:
                 item = self.dtype.fieldnames[indx]
             except IndexError:
-                raise OperationError(space.w_IndexError,
-                     space.wrap("Iterated over too many fields %d" % indx))
+                if indx < 0:
+                    indx += len(self.dtype.fieldnames)
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "invalid index (%d)" % indx))
         else:
             raise OperationError(space.w_IndexError, space.wrap(
-                    "Can only access fields of record with int or str"))
+                "invalid index"))
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("Field %s does not exist" % item))
+            raise OperationError(space.w_IndexError, space.wrap(
+                "invalid index"))
+
+        from pypy.module.micronumpy.types import VoidType
         if isinstance(dtype.itemtype, VoidType):
             read_val = dtype.itemtype.readarray(self.arr, self.ofs, ofs, dtype)
         else:
@@ -508,6 +511,9 @@ W_GenericBox.typedef = TypeDef("generic",
     round = interp2app(W_GenericBox.descr_round),
     conjugate = interp2app(W_GenericBox.descr_conjugate),
     view = interp2app(W_GenericBox.descr_view),
+
+    dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
+    itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
@@ -630,7 +636,7 @@ W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex64Box.descr_reduce),
-    real = GetSetProperty(W_ComplexFloatingBox .descr_get_real),
+    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
     imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
@@ -642,7 +648,7 @@ W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, c
     imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
-if long_double_size in (12, 16):
+if long_double_size in (8, 12, 16):
     W_FloatLongBox.typedef = TypeDef("float%d" % (long_double_size * 8), (W_FloatingBox.typedef),
         __module__ = "numpypy",
         __new__ = interp2app(W_FloatLongBox.descr__new__.im_func),

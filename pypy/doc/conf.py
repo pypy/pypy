@@ -204,3 +204,6 @@ man_pages = [
    u'fast, compliant alternative implementation of the Python language',
    u'The PyPy Project', 1)
 ]
+
+# Enable the new ReadTheDocs theme
+RTD_NEW_THEME = True
