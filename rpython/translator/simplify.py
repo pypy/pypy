@@ -847,7 +847,7 @@ class ListComprehensionDetector(object):
                     self.fixed_list[p] = item
                 else:
                     self.fallback_list.append(item)
-            append._always_inline_ = True
+            append._always_inline_ = "force"
 
             def fence_exact(self):
                 if self.optimize:

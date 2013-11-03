@@ -337,6 +337,18 @@ class TestLLSpecializeListComprehension:
         res = interp.eval_graph(graph, [10])
         assert res == 5
 
+    def test_simple_except(self):
+        def main(n):
+            try:
+                lst = [chr(x) for x in range(n)]
+            except:
+                return -1
+            lst[0] = "foobar"
+            return ord(lst[5][0])
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [10])
+        assert res == 5
+
     def test_mutated_after_listcomp(self):
         def main(n):
             lst = [x*17 for x in range(n)]
