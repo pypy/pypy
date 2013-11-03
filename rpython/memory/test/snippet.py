@@ -161,6 +161,46 @@ class SemiSpaceGCTestDefines:
         res = self.run('from_objwithfinalizer_to_youngobj')
         assert res == 1
 
+    def define_overallocated_items_not_kept_alive(cls):
+        from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+        from rpython.rtyper.lltypesystem import llmemory
+        class B:
+            count = 0
+        class A:
+            def __del__(self):
+                self.b.count += 1
+        ARRAY1 = lltype.GcArray(llmemory.GCREF, hints={'overallocated': True})
+        #ARRAY2 = lltype.GcArray(('a', llmemory.GCREF), ('n', lltype.Signed),
+        #                        hints={'overallocated': True})
+
+        def make(b):
+            a1 = lltype.malloc(ARRAY1, 10)
+            #a2 = lltype.malloc(ARRAY2, 10)
+            a1.used_length = 10
+            #a2.used_length = 10
+            i = 0
+            while i < 10:
+                a = A()
+                a.b = b
+                a1[i] = cast_instance_to_gcref(a)
+                #a2[i].a = cast_instance_to_gcref(a)
+                i += 1
+            return a1
+
+        def f():
+            b = B()
+            a1 = make(b)
+            a1.used_length = 0
+            #a2.used_length = 0
+            llop.gc__collect(lltype.Void)
+            return b.count
+        return f
+
+    def test_overallocated_items_not_kept_alive(self):
+        res = self.run('overallocated_items_not_kept_alive')
+        assert res == 10
+
+
 class SemiSpaceGCTests(SemiSpaceGCTestDefines):
     # xxx messy
 
@@ -171,6 +211,9 @@ class SemiSpaceGCTests(SemiSpaceGCTestDefines):
             return ''.join(res.chars) 
         elif name == 'from_objwithfinalizer_to_youngobj':
             func = self.define_from_objwithfinalizer_to_youngobj()
+            return self.interpret(func, [])
+        elif name == 'overallocated_items_not_kept_alive':
+            func = self.define_overallocated_items_not_kept_alive()
             return self.interpret(func, [])
         else:
             assert 0, "don't know what to do with that"

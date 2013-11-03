@@ -1495,8 +1495,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Get the number of card marker bytes in the header.
             typeid = self.get_type_id(obj)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            length = (obj + offset_to_length).signed[0]
-            bytes = self.card_marking_bytes_for_length(length)
+            allocated_length = (obj + offset_to_length).signed[0]
+            bytes = self.card_marking_bytes_for_length(allocated_length)
             p = llarena.getfakearenaaddress(obj - size_gc_header)
             #
             # If the object doesn't have GCFLAG_TRACK_YOUNG_PTRS, then it
@@ -1514,6 +1514,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             else:
                 # Walk the bytes encoding the card marker bits, and for
                 # each bit set, call trace_and_drag_out_of_nursery_partial().
+                offset_to_used_length = self.varsize_offset_to_used_length(
+                    typeid)
+                used_length = (obj + offset_to_used_length).signed[0]
                 interval_start = 0
                 while bytes > 0:
                     p -= 1
@@ -1526,10 +1529,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         interval_stop = interval_start + self.card_page_indices
                         #
                         if cardbyte & 1:
-                            if interval_stop > length:
-                                interval_stop = length
-                                ll_assert(cardbyte <= 1 and bytes == 0,
-                                          "premature end of object")
+                            if interval_stop > used_length:
+                                interval_stop = used_length
+                                if interval_stop <= interval_start:
+                                    break
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
