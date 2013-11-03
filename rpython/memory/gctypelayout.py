@@ -246,10 +246,10 @@ def encode_type_shape(builder, info, TYPE, index):
         else:
             assert isinstance(TYPE, lltype.GcArray)
             ARRAY = TYPE
-            if not ARRAY._is_overallocated_array():
-                if (isinstance(ARRAY.OF, lltype.Ptr)
+            if (isinstance(ARRAY.OF, lltype.Ptr)
                     and ARRAY.OF.TO._gckind == 'gc'):
-                    infobits |= T_IS_GCARRAY_OF_GCPTR
+                infobits |= T_IS_GCARRAY_OF_GCPTR
+            if not ARRAY._is_overallocated_array():
                 varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
                 varinfo.ofstousedlength = varinfo.ofstolength
             else:

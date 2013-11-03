@@ -217,12 +217,13 @@ class GCBase(object):
             # which we have a special case for performance, or we call
             # the slow path version.
             if self.is_gcarrayofgcptr(typeid):
-                length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
-                item = obj + llmemory.gcarrayofptr_itemsoffset
+                item = obj + self.varsize_offset_to_variable_part(typeid)
+                length_adr = (obj + self.varsize_offset_to_used_length(typeid))
+                length = length_adr.signed[0]
                 while length > 0:
                     if self.points_to_valid_gc_object(item):
                         callback(item, arg)
-                    item += llmemory.gcarrayofptr_singleitemoffset
+                    item += llmemory.size_of_gcref
                     length -= 1
                 return
             self._trace_slow_path(obj, callback, arg)
@@ -273,12 +274,12 @@ class GCBase(object):
         typeid = self.get_type_id(obj)
         if self.is_gcarrayofgcptr(typeid):
             # a performance shortcut for GcArray(gcptr)
-            item = obj + llmemory.gcarrayofptr_itemsoffset
-            item += llmemory.gcarrayofptr_singleitemoffset * start
+            item = obj + self.varsize_offset_to_variable_part(typeid)
+            item += llmemory.size_of_gcref * start
             while length > 0:
                 if self.points_to_valid_gc_object(item):
                     callback(item, arg)
-                item += llmemory.gcarrayofptr_singleitemoffset
+                item += llmemory.size_of_gcref
                 length -= 1
             return
         ll_assert(self.has_gcptr_in_varsize(typeid),

@@ -594,19 +594,11 @@ Address = lltype.Primitive("Address", NULL)
 # GCREF is similar to Address but it is GC-aware
 GCREF = lltype.Ptr(lltype.GcOpaqueType('GCREF'))
 
-# A placeholder for any type that is a GcArray of pointers.
-# This can be used in the symbolic offsets above to access such arrays
-# in a generic way.
-GCARRAY_OF_PTR = lltype.GcArray(GCREF, hints={'placeholder': True})
-gcarrayofptr_lengthoffset = ArrayLengthOffset(GCARRAY_OF_PTR)
-gcarrayofptr_itemsoffset = ArrayItemsOffset(GCARRAY_OF_PTR)
-gcarrayofptr_singleitemoffset = ItemOffset(GCARRAY_OF_PTR.OF)
+size_of_gcref = ItemOffset(GCREF)
+
 def array_type_match(A1, A2):
-    return A1 == A2 or (A2 == GCARRAY_OF_PTR and
-                        isinstance(A1, lltype.GcArray) and
-                        isinstance(A1.OF, lltype.Ptr) and
-                        not A1._hints.get('nolength') and
-        not A1._hints.get('overallocated'))
+    return A1 == A2
+
 def array_item_type_match(T1, T2):
     return T1 == T2 or (T2 == GCREF and isinstance(T1, lltype.Ptr))
 
