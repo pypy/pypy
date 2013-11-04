@@ -339,6 +339,10 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float64")
 
 class W_ComplexFloatingBox(W_InexactBox):
+    def descr_complex(self, space):
+        assert isinstance(self, ComplexBox)
+        return space.wrap(complex(self.real, self.imag))
+
     def descr_get_real(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
         box = self.convert_real_to(dtype)
@@ -644,6 +648,7 @@ W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex64Box.descr_reduce),
+    __complex__ = interp2app(W_ComplexFloatingBox.descr_complex),
     real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
     imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
@@ -652,6 +657,7 @@ W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, c
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex128Box.descr_reduce),
+    __complex__ = interp2app(W_ComplexFloatingBox.descr_complex),
     real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
     imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
@@ -667,6 +673,7 @@ if long_double_size in (8, 12, 16):
         __module__ = "numpypy",
         __new__ = interp2app(W_ComplexLongBox.descr__new__.im_func),
         __reduce__ = interp2app(W_ComplexLongBox.descr_reduce),
+        __complex__ = interp2app(W_ComplexFloatingBox.descr_complex),
         real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
         imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
     )

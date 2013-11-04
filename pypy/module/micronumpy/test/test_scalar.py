@@ -63,3 +63,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert value.itemsize == 8
         assert value.shape == ()
         assert value.ndim == 0
+
+    def test_complex_scalar_complex_cast(self):
+        import numpy as np
+        for tp in [np.csingle, np.cdouble, np.clongdouble]:
+            x = tp(1+2j)
+            assert complex(x) == 1+2j

@@ -5,7 +5,9 @@ newaxis = None
 ufunc = type(sin)
 
 types = ['bool8', 'byte', 'ubyte', 'short', 'ushort', 'longlong', 'ulonglong',
-         'single', 'longfloat', 'longdouble', 'csingle', 'cfloat', 'void']
+         'single', 'double', 'longfloat', 'longdouble',
+         'csingle', 'cdouble', 'cfloat', 'clongdouble',
+         'void']
 for t in ('int', 'uint'):
     for s in (8, 16, 32, 64, 'p'):
         types.append(t + str(s))
