@@ -411,6 +411,22 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.copy()
         assert b[0] == a[0]
 
+        a = arange(8)
+        b = a.copy(order=None)
+        assert (b == a).all()
+        b = a.copy(order=0)
+        assert (b == a).all()
+        b = a.copy(order='C')
+        assert (b == a).all()
+        b = a.copy(order='K')
+        assert (b == a).all()
+        b = a.copy(order='A')
+        assert (b == a).all()
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.copy, order='F')
+            raises(NotImplementedError, a.copy, order=True)
+
     def test_iterator_init(self):
         from numpypy import array
         a = array(range(5))

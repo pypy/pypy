@@ -18,6 +18,8 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
+from pypy.module.micronumpy.conversion_utils import order_converter
+from pypy.module.micronumpy.constants import *
 
 def _find_shape(space, w_size, dtype):
     if space.is_none(w_size):
@@ -287,7 +289,11 @@ class __extend__(W_NDimArray):
     def get_scalar_value(self):
         return self.implementation.get_scalar_value()
 
-    def descr_copy(self, space):
+    def descr_copy(self, space, w_order=None):
+        order = order_converter(space, w_order, NPY_KEEPORDER)
+        if order == NPY_FORTRANORDER:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "unsupported value for order"))
         copy = self.implementation.copy(space)
         w_subtype = space.type(self)
         return wrap_impl(space, w_subtype, self, copy)
