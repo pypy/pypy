@@ -97,7 +97,7 @@ SPECIAL_NAMES = ["ndarray", "dtype", "generic", "flatiter", "ufunc"]
 
 def main(argv):
     cpy_items = find_numpy_items("/usr/bin/python")
-    pypy_items = find_numpy_items(argv[1], "numpypy")
+    pypy_items = find_numpy_items(argv[1])
     ver = get_version_str(argv[1])
     all_items = []
 
