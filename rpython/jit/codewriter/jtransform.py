@@ -1449,7 +1449,6 @@ class Transformer(object):
                 descrs = ()
             else:
                 descrs = (self.cpu.arraydescrof(ARRAY),
-                          self.cpu.fielddescrof(LIST, 'length'),
                           self.cpu.fielddescrof(LIST, 'items'),
                           self.cpu.sizeof(LIST))
         else:
@@ -1487,7 +1486,7 @@ class Transformer(object):
         fast = '_fast' in func.func_name
         return non_negative or fast
 
-    def _prepare_list_getset(self, op, descr, args, checkname):
+    def _prepare_list_getset(self, op, args, checkname, *descrs):
         non_negative = self._get_list_nonneg_canraise_flags(op)
         if non_negative:
             return args[1], []
@@ -1495,8 +1494,8 @@ class Transformer(object):
             v_posindex = Variable('posindex')
             v_posindex.concretetype = lltype.Signed
             op0 = SpaceOperation('-live-', [], None)
-            op1 = SpaceOperation(checkname, [args[0], args[1],
-                                             descr], v_posindex)
+            op1 = SpaceOperation(checkname, [args[0], args[1]] + list(descrs),
+                                 v_posindex)
             return v_posindex, [op0, op1]
 
     def _prepare_void_list_getset(self, op):
@@ -1555,8 +1554,9 @@ class Transformer(object):
                     SpaceOperation('getarrayitem_vable_%s' % kind[0],
                                    [v_base, args[1], arrayfielddescr,
                                     arraydescr], op.result)]
-        v_index, extraop = self._prepare_list_getset(op, arraydescr, args,
-                                                     'check_neg_index')
+        v_index, extraop = self._prepare_list_getset(op, args,
+                                                     'check_neg_index',
+                                                     arraydescr)
         extra = getkind(op.result.concretetype)[0]
         if pure:
             extra += '_pure'
@@ -1576,8 +1576,9 @@ class Transformer(object):
                     SpaceOperation('setarrayitem_vable_%s' % kind[0],
                                    [v_base, args[1], args[2],
                                     arrayfielddescr, arraydescr], None)]
-        v_index, extraop = self._prepare_list_getset(op, arraydescr, args,
-                                                     'check_neg_index')
+        v_index, extraop = self._prepare_list_getset(op, args,
+                                                     'check_neg_index',
+                                                     arraydescr)
         kind = getkind(args[2].concretetype)[0]
         op = SpaceOperation('setarrayitem_gc_%s' % kind,
                             [args[0], v_index, args[2], arraydescr], None)
@@ -1594,46 +1595,47 @@ class Transformer(object):
 
     # ---------- resizable lists ----------
 
-    def do_resizable_newlist(self, op, args, arraydescr, lengthdescr,
+    def do_resizable_newlist(self, op, args, arraydescr,
                              itemsdescr, structdescr):
         v_length = self._get_initial_newlist_length(op, args)
         return SpaceOperation('newlist',
-                              [v_length, structdescr, lengthdescr, itemsdescr,
-                               arraydescr],
+                              [v_length, structdescr, itemsdescr, arraydescr],
                               op.result)
 
-    def do_resizable_newlist_hint(self, op, args, arraydescr, lengthdescr,
+    def do_resizable_newlist_hint(self, op, args, arraydescr,
                                   itemsdescr, structdescr):
         v_hint = self._get_initial_newlist_length(op, args)
         return SpaceOperation('newlist_hint',
-                              [v_hint, structdescr, lengthdescr, itemsdescr,
+                              [v_hint, structdescr, itemsdescr,
                                arraydescr],
                               op.result)
 
-    def do_resizable_list_getitem(self, op, args, arraydescr, lengthdescr,
+    def do_resizable_list_getitem(self, op, args, arraydescr,
                                   itemsdescr, structdescr):
-        v_index, extraop = self._prepare_list_getset(op, lengthdescr, args,
-                                                 'check_resizable_neg_index')
+        v_index, extraop = self._prepare_list_getset(op, args,
+                                                 'check_resizable_neg_index',
+                                                     itemsdescr, arraydescr)
         kind = getkind(op.result.concretetype)[0]
         op = SpaceOperation('getlistitem_gc_%s' % kind,
                             [args[0], v_index, itemsdescr, arraydescr],
                             op.result)
         return extraop + [op]
 
-    def do_resizable_list_setitem(self, op, args, arraydescr, lengthdescr,
+    def do_resizable_list_setitem(self, op, args, arraydescr,
                                   itemsdescr, structdescr):
-        v_index, extraop = self._prepare_list_getset(op, lengthdescr, args,
-                                                 'check_resizable_neg_index')
+        v_index, extraop = self._prepare_list_getset(op, args,
+                                                 'check_resizable_neg_index',
+                                                     itemsdescr, arraydescr)
         kind = getkind(args[2].concretetype)[0]
         op = SpaceOperation('setlistitem_gc_%s' % kind,
                             [args[0], v_index, args[2],
                              itemsdescr, arraydescr], None)
         return extraop + [op]
 
-    def do_resizable_list_len(self, op, args, arraydescr, lengthdescr,
+    def do_resizable_list_len(self, op, args, arraydescr,
                               itemsdescr, structdescr):
-        return SpaceOperation('getfield_gc_i',
-                              [args[0], lengthdescr], op.result)
+        return SpaceOperation('getlistlen',
+                              [args[0], itemsdescr, arraydescr], op.result)
 
     def do_resizable_void_list_getitem(self, op, args):
         self._prepare_void_list_getset(op)

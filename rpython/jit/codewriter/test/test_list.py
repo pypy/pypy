@@ -11,9 +11,10 @@ from rpython.jit.metainterp.history import AbstractDescr
 # ____________________________________________________________
 
 FIXEDLIST = lltype.Ptr(lltype.GcArray(lltype.Signed))
+OVERLIST = lltype.Ptr(lltype.GcArray(lltype.Signed,
+                                     hints={'overallocated': True}))
 VARLIST = lltype.Ptr(lltype.GcStruct('VARLIST',
-                                     ('length', lltype.Signed),
-                                     ('items', FIXEDLIST),
+                                     ('items', OVERLIST),
                                      adtmeths={"ITEM": lltype.Signed}))
 
 class FakeCPU:
@@ -25,6 +26,7 @@ class FakeCPU:
             return '<ArrayDescr>'
     class fielddescrof(AbstractDescr):
         def __init__(self, STRUCT, fieldname):
+            assert hasattr(STRUCT, fieldname)
             self.STRUCT = STRUCT
             self.fieldname = fieldname
         def __repr__(self):
@@ -167,8 +169,7 @@ def test_fixed_len_foldable():
 # Resizable lists
 
 def test_resizable_newlist():
-    alldescrs = ("<SizeDescr>, <FieldDescr length>,"
-                 " <FieldDescr items>, <ArrayDescr>")
+    alldescrs = "<SizeDescr>, <FieldDescr items>, <ArrayDescr>"
     builtin_test('newlist', [], VARLIST,
                  """newlist $0, """+alldescrs+""" -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed)], VARLIST,
@@ -195,7 +196,7 @@ def test_resizable_getitem():
                  [varoftype(VARLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
         -live-
-        check_resizable_neg_index %r0, %i0, <FieldDescr length> -> %i1
+        check_resizable_neg_index %r0, %i0, <FieldDescr items>, <ArrayDescr> -> %i1
         getlistitem_gc_i %r0, %i1, <FieldDescr items>, <ArrayDescr> -> %i2
                  """)
 
@@ -211,13 +212,13 @@ def test_resizable_setitem():
                                       varoftype(lltype.Signed)],
                  lltype.Void, """
         -live-
-        check_resizable_neg_index %r0, %i0, <FieldDescr length> -> %i1
+        check_resizable_neg_index %r0, %i0, <FieldDescr items>, <ArrayDescr> -> %i1
         setlistitem_gc_i %r0, %i1, %i2, <FieldDescr items>, <ArrayDescr>
                  """)
 
 def test_resizable_len():
     builtin_test('list.len', [varoftype(VARLIST)], lltype.Signed,
-                 """getfield_gc_i %r0, <FieldDescr length> -> %i0""")
+                 """getlistlen %r0, <FieldDescr items>, <ArrayDescr> -> %i0""")
 
 def test_resizable_unsupportedop():
     builtin_test('list.foobar', [varoftype(VARLIST)], lltype.Signed,
