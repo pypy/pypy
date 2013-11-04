@@ -556,6 +556,31 @@ class TestTransform(BaseTestTransform):
         assert self.barriers == ['a2i']
 
 
+    def test_transaction_breaking_ops(self):
+        class X:
+            pass
+        x = X()
+        x2 = X()
+
+        def f1(f):
+            x.a = x2  # write barrier
+            llop.stm_commit_transaction(lltype.Void)
+            x.a = x2
+            llop.stm_begin_inevitable_transaction(lltype.Void)
+            x.a = x2
+            llop.stm_partial_commit_and_resume_other_threads(lltype.Void)
+            x.a = x2
+            llop.jit_assembler_call(lltype.Void)
+            x.a = x2
+            llop.stm_perform_transaction(lltype.Void)
+            x.a = x2
+            return x
+
+        self.interpret(f1, [1])
+        assert self.barriers == ['I2W']*6
+            
+
+
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,
                                        random_effects_on_gcobjs=True,

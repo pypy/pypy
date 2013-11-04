@@ -180,6 +180,15 @@ class LLSTMFrame(LLFrame):
     def op_stm_begin_inevitable_transaction(self):
         self.transaction_break()
 
+    def op_stm_partial_commit_and_resume_other_threads(self):
+        self.transaction_break()
+
+    def op_jit_assembler_call(self):
+        self.transaction_break() # dummy for test_writebarrier.py
+
+    def op_stm_perform_transaction(self):
+        self.transaction_break() # dummy for test_writebarrier.py
+
     def op_gc_writebarrier(self, p):
         raise Exception("should have been removed")
 

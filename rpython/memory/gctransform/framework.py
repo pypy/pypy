@@ -654,6 +654,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     gct_indirect_call = gct_direct_call
 
+    def gct_jit_assembler_call(self, hop):
+        livevars = self.push_roots(hop)
+        self.default(hop)
+        self.pop_roots(hop, livevars)
+
     def gct_fv_gc_malloc(self, hop, flags, TYPE, *args):
         op = hop.spaceop
         PTRTYPE = op.result.concretetype
