@@ -345,17 +345,20 @@ class __extend__(W_NDimArray):
         numpypy.reshape : equivalent function
         """
         args_w, kw_w = __args__.unpack()
-        order = 'C'
+        order = NPY_CORDER
         if kw_w:
             if "order" in kw_w:
-                order = space.str_w(kw_w["order"])
+                order = order_converter(space, kw_w["order"], order)
                 del kw_w["order"]
             if kw_w:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "reshape() got unexpected keyword argument(s)"))
-        if order != 'C':
+        if order == NPY_KEEPORDER:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "order 'K' is not permitted for reshaping"))
+        if order != NPY_CORDER and order != NPY_ANYORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
-                "order not implemented"))
+                "unsupported value for order"))
         if len(args_w) == 1:
             w_shape = args_w[0]
         else:

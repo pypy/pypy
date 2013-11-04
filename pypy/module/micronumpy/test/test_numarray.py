@@ -715,7 +715,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([[[[]]]])
         assert a.reshape((0,)).shape == (0,)
         assert a.reshape((0,), order='C').shape == (0,)
+        assert a.reshape((0,), order='A').shape == (0,)
         raises(TypeError, a.reshape, (0,), badarg="C")
+        raises(ValueError, a.reshape, (0,), order="K")
         import sys
         if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, a.reshape, (0,), order='F')
