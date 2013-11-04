@@ -853,7 +853,14 @@ class __extend__(W_NDimArray):
         w_remainder = self.descr_rmod(space, w_other)
         return space.newtuple([w_quotient, w_remainder])
 
-    def descr_dot(self, space, w_other):
+    def descr_dot(self, space, w_other, w_out=None):
+        if space.is_none(w_out):
+            out = None
+        elif not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                    'output must be an array'))
+        else:
+            out = w_out
         other = convert_to_array(space, w_other)
         if other.is_scalar():
             #Note: w_out is not modified, this is numpy compliant.
@@ -861,7 +868,7 @@ class __extend__(W_NDimArray):
         elif len(self.get_shape()) < 2 and len(other.get_shape()) < 2:
             w_res = self.descr_mul(space, other)
             assert isinstance(w_res, W_NDimArray)
-            return w_res.descr_sum(space, space.wrap(-1))
+            return w_res.descr_sum(space, space.wrap(-1), out)
         dtype = interp_ufuncs.find_binop_result_dtype(space,
                                      self.get_dtype(), other.get_dtype())
         if self.get_size() < 1 and other.get_size() < 1:
@@ -869,7 +876,25 @@ class __extend__(W_NDimArray):
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
         # Do the dims match?
         out_shape, other_critical_dim = _match_dot_shapes(space, self, other)
-        w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_instance=self)
+        if out:
+            matches = True
+            if len(out.get_shape()) != len(out_shape):
+                matches = False
+            else:
+                for i in range(len(out_shape)):
+                    if out.get_shape()[i] != out_shape[i]:
+                        matches = False
+                        break
+            if dtype != out.get_dtype():
+                matches = False
+            if not out.implementation.order == "C":
+                matches = False
+            if not matches:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    'output array is not acceptable (must have the right type, nr dimensions, and be a C-Array)'))
+            w_res = out
+        else:
+            w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_instance=self)
         # This is the place to add fpypy and blas
         return loop.multidim_dot(space, self, other,  w_res, dtype,
                                  other_critical_dim)

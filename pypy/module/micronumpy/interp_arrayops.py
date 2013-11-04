@@ -91,11 +91,11 @@ def where(space, w_arr, w_x=None, w_y=None):
     out = W_NDimArray.from_shape(space, shape, dtype)
     return loop.where(out, shape, arr, x, y, dtype)
 
-def dot(space, w_obj1, w_obj2):
+def dot(space, w_obj1, w_obj2, w_out=None):
     w_arr = convert_to_array(space, w_obj1)
     if w_arr.is_scalar():
-        return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
-    return w_arr.descr_dot(space, w_obj2)
+        return convert_to_array(space, w_obj2).descr_dot(space, w_arr, w_out)
+    return w_arr.descr_dot(space, w_obj2, w_out)
 
 
 @unwrap_spec(axis=int)

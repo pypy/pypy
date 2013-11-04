@@ -84,6 +84,17 @@ class AppTestNumSupport(BaseNumpyAppTest):
         c = array(3.0).dot(array(4))
         assert c == 12.0
 
+    def test_dot_out(self):
+        from numpypy import arange, dot
+        a = arange(12).reshape(3, 4)
+        b = arange(12).reshape(4, 3)
+        out = arange(9).reshape(3, 3)
+        c = dot(a, b, out=out)
+        assert (c == out).all()
+        out = arange(9,dtype=float).reshape(3, 3)
+        exc = raises(ValueError, dot, a, b, out)
+        assert exc.value[0].find('not acceptable') > 0
+
     def test_choose_basic(self):
         from numpypy import array
         a, b, c = array([1, 2, 3]), array([4, 5, 6]), array([7, 8, 9])
