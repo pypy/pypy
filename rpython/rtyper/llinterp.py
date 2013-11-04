@@ -529,8 +529,11 @@ class LLFrame(object):
     def op_jit_record_known_class(self, *args):
         pass
 
-    def op_jit_conditional_call(self, *args):
-        raise NotImplementedError("should not be called while not jitted")
+    def op_conditional_call(self, condition, function, *args):
+        assert isinstance(condition, bool)
+        if condition:
+            res = self.op_direct_call(function, *args)
+            assert res is None
 
     def op_get_exception_addr(self, *args):
         raise NotImplementedError

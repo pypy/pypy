@@ -1350,7 +1350,7 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
-    def rewrite_op_jit_conditional_call(self, op):
+    def rewrite_op_conditional_call(self, op):
         have_floats = False
         for arg in op.args:
             if getkind(arg.concretetype) == 'float':

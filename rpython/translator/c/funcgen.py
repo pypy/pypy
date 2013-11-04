@@ -431,14 +431,16 @@ class FunctionCodeGenerator(object):
                     break
         return line
 
-    def OP_DIRECT_CALL(self, op):
-        fn = op.args[0]
+    def _op_direct_call(self, fn, args_v, result):
         try:
             targets = [fn.value._obj.graph]
         except AttributeError:
             targets = None
         return self.generic_call(fn.concretetype, self.expr(fn),
-                                 op.args[1:], op.result, targets)
+                                 args_v, result, targets)
+
+    def OP_DIRECT_CALL(self, op):
+        return self._op_direct_call(op.args[0], op.args[1:], op.result)
 
     def OP_INDIRECT_CALL(self, op):
         fn = op.args[0]
@@ -454,8 +456,12 @@ class FunctionCodeGenerator(object):
         fnexpr = '((%s)%s)' % (cdecl(typename, ''), self.expr(fnaddr))
         return self.generic_call(FUNC, fnexpr, op.args[1:], op.result)
 
-    def OP_JIT_CONDITIONAL_CALL(self, op):
-        return 'abort();  /* jit_conditional_call */'
+    def OP_CONDITIONAL_CALL(self, op):
+        condition = self.expr(op.args[0])
+        assert op.result.concretetype is Void
+        call = self._op_direct_call(op.args[1], op.args[2:], op.result)
+        return 'if (%s) { /* conditional_call */\n\t%s\n}' % (
+            condition, call.replace('\n', '\n\t'))
 
     # low-level operations
     def generic_get(self, op, sourceexpr):
