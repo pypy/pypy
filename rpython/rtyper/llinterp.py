@@ -977,6 +977,8 @@ class LLFrame(object):
     op_stm_major_collect = _stm_not_implemented
     op_stm_abort_and_retry = _stm_not_implemented
     op_stm_become_inevitable = _stm_not_implemented
+    op_stm_stop_all_other_threads = _stm_not_implemented
+    op_stm_partial_commit_and_resume_other_threads = _stm_not_implemented
 
     # __________________________________________________________
     # operations on addresses

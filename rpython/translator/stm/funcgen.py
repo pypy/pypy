@@ -103,6 +103,12 @@ def stm_become_inevitable(funcgen, op):
     string_literal = c_string_constant(info)
     return 'stm_become_inevitable(%s);' % (string_literal,)
 
+def stm_stop_all_other_threads(funcgen, op):
+    return 'stm_stop_all_other_threads();'
+
+def stm_partial_commit_and_resume_other_threads(funcgen, op):
+    return 'stm_partial_commit_and_resume_other_threads();'
+
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'stm_push_root((gcptr)%s);' % (arg0,)

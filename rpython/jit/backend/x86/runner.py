@@ -7,6 +7,7 @@ from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
+from rpython.rlib import rstm
 
 import sys
 
@@ -127,6 +128,9 @@ class AbstractX86CPU(AbstractLLCPU):
     def invalidate_loop(self, looptoken):
         from rpython.jit.backend.x86 import codebuf
 
+        if self.gc_ll_descr.stm:
+            rstm.stop_all_other_threads()
+            
         for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
             mc = codebuf.MachineCodeBlockWrapper()
             mc.JMP_l(tgt)
@@ -134,6 +138,9 @@ class AbstractX86CPU(AbstractLLCPU):
             mc.copy_to_raw_memory(addr - 1)
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
+        
+        if self.gc_ll_descr.stm:
+            rstm.partial_commit_and_resume_other_threads()
 
     def get_all_loop_runs(self):
         l = lltype.malloc(LOOP_RUN_CONTAINER,

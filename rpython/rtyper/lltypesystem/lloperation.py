@@ -416,6 +416,8 @@ LL_OPERATIONS = {
     'stm_allocate':           LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
     'stm_become_inevitable':  LLOp(canmallocgc=True),
+    'stm_stop_all_other_threads': LLOp(canmallocgc=True),
+    'stm_partial_commit_and_resume_other_threads': LLOp(canmallocgc=True),
     'stm_minor_collect':      LLOp(canmallocgc=True),
     'stm_major_collect':      LLOp(canmallocgc=True),
     'stm_get_tid':            LLOp(canfold=True),

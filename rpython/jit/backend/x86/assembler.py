@@ -770,8 +770,6 @@ class Assembler386(BaseAssembler):
                                 rawstart)
         debug_bridge(descr_number, rawstart, codeendpos)
         self.patch_pending_failure_recoveries(rawstart)
-        # patch the jump from original guard
-        self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -780,6 +778,14 @@ class Assembler386(BaseAssembler):
                               ops_offset=ops_offset, descr=faildescr)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
+
+        if self.cpu.gc_ll_descr.stm:
+            rstm.stop_all_other_threads()
+        # patch the jump from original guard after the frame-depth update
+        self.patch_jump_for_descr(faildescr, rawstart)
+        if self.cpu.gc_ll_descr.stm:
+            rstm.partial_commit_and_resume_other_threads()
+        
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -1082,7 +1088,13 @@ class Assembler386(BaseAssembler):
             assert mc.get_relative_pos() == 5
         else:
             assert mc.get_relative_pos() <= 13
+        # patch assembler:
+        if self.cpu.gc_ll_descr.stm:
+            rstm.stop_all_other_threads()
         mc.copy_to_raw_memory(oldadr)
+        if self.cpu.gc_ll_descr.stm:
+            rstm.partial_commit_and_resume_other_threads()
+        
 
     def dump(self, text):
         if not self.verbose:

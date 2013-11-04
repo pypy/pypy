@@ -34,6 +34,14 @@ def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 
 @dont_look_inside
+def stop_all_other_threads():
+    llop.stm_stop_all_other_threads(lltype.Void)
+
+@dont_look_inside
+def partial_commit_and_resume_other_threads():
+    llop.stm_partial_commit_and_resume_other_threads(lltype.Void)
+    
+@dont_look_inside
 def should_break_transaction():
     return we_are_translated() and (
         llop.stm_should_break_transaction(lltype.Bool))

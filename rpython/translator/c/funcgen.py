@@ -586,6 +586,8 @@ class FunctionCodeGenerator(object):
     OP_STM_INITIALIZE                   = _OP_STM
     OP_STM_FINALIZE                     = _OP_STM
     OP_STM_BECOME_INEVITABLE            = _OP_STM
+    OP_STM_STOP_ALL_OTHER_THREADS       = _OP_STM
+    OP_STM_PARTIAL_COMMIT_AND_RESUME_OTHER_THREADS = _OP_STM
     OP_STM_BARRIER                      = _OP_STM
     OP_STM_PTR_EQ                       = _OP_STM
     OP_STM_PUSH_ROOT                    = _OP_STM
