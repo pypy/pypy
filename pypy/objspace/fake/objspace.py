@@ -176,7 +176,7 @@ class FakeObjSpace(ObjSpace):
                 self._see_interp2app(x)
             if isinstance(x, GetSetProperty):
                 self._see_getsetproperty(x)
-        if isinstance(x, (r_singlefloat, complex)):
+        if isinstance(x, r_singlefloat):
             self._wrap_not_rpython(x)
         if isinstance(x, list):
             if x == []: # special case: it is used e.g. in sys/__init__.py
