@@ -26,9 +26,6 @@ degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
 
-def isfinite(d):
-    return not rfloat.isinf(d) and not rfloat.isnan(d)
-
 def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
@@ -860,7 +857,7 @@ class Float(Primitive):
 
     @raw_unary_op
     def isfinite(self, v):
-        return not (rfloat.isinf(v) or rfloat.isnan(v))
+        return rfloat.isfinite(v)
 
     @simple_unary_op
     def radians(self, v):
@@ -939,7 +936,7 @@ class Float(Primitive):
     @simple_unary_op
     def rint(self, v):
         x = float(v)
-        if isfinite(x):
+        if rfloat.isfinite(x):
             import math
             y = math.floor(x)
             r = x - y
@@ -1028,7 +1025,7 @@ class ComplexFloating(object):
     def str_format(self, box):
         real, imag = self.for_computation(self.unbox(box))
         imag_str = str_format(imag)
-        if rfloat.isnan(imag) or rfloat.isinf(imag):
+        if not rfloat.isfinite(imag):
             imag_str += '*'
         imag_str += 'j'
 
@@ -1264,7 +1261,7 @@ class ComplexFloating(object):
     def pow(self, v1, v2):
         if v1[1] == 0 and v2[1] == 0 and v1[0] > 0:
             return math.pow(v1[0], v2[0]), 0
-        #if not isfinite(v1[0]) or not isfinite(v1[1]):
+        #if not rfloat.isfinite(v1[0]) or not rfloat.isfinite(v1[1]):
         #    return rfloat.NAN, rfloat.NAN
         try:
             return rcomplex.c_pow(v1, v2)
@@ -1331,9 +1328,9 @@ class ComplexFloating(object):
     @specialize.argtype(1)
     def round(self, v, decimals=0):
         ans = list(self.for_computation(self.unbox(v)))
-        if isfinite(ans[0]):
+        if rfloat.isfinite(ans[0]):
             ans[0] = rfloat.round_double(ans[0], decimals, half_even=True)
-        if isfinite(ans[1]):
+        if rfloat.isfinite(ans[1]):
             ans[1] = rfloat.round_double(ans[1], decimals, half_even=True)
         return self.box_complex(ans[0], ans[1])
 
@@ -1363,7 +1360,7 @@ class ComplexFloating(object):
                 if v[0] < 0:
                     return 0., 0.
                 return rfloat.INFINITY, rfloat.NAN
-            elif (isfinite(v[0]) or \
+            elif (rfloat.isfinite(v[0]) or \
                                  (rfloat.isinf(v[0]) and v[0] > 0)):
                 return rfloat.NAN, rfloat.NAN
         try:
@@ -1391,7 +1388,7 @@ class ComplexFloating(object):
                 if v[0] < 0:
                     return -1., 0.
                 return rfloat.NAN, rfloat.NAN
-            elif (isfinite(v[0]) or \
+            elif (rfloat.isfinite(v[0]) or \
                                  (rfloat.isinf(v[0]) and v[0] > 0)):
                 return rfloat.NAN, rfloat.NAN
         try:
@@ -1408,7 +1405,7 @@ class ComplexFloating(object):
         if rfloat.isinf(v[0]):
             if v[1] == 0.:
                 return rfloat.NAN, 0.
-            if isfinite(v[1]):
+            if rfloat.isfinite(v[1]):
                 return rfloat.NAN, rfloat.NAN
             elif not rfloat.isnan(v[1]):
                 return rfloat.NAN, rfloat.INFINITY
@@ -1419,7 +1416,7 @@ class ComplexFloating(object):
         if rfloat.isinf(v[0]):
             if v[1] == 0.:
                 return rfloat.NAN, 0.0
-            if isfinite(v[1]):
+            if rfloat.isfinite(v[1]):
                 return rfloat.NAN, rfloat.NAN
             elif not rfloat.isnan(v[1]):
                 return rfloat.INFINITY, rfloat.NAN
@@ -1427,7 +1424,7 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def tan(self, v):
-        if rfloat.isinf(v[0]) and isfinite(v[1]):
+        if rfloat.isinf(v[0]) and rfloat.isfinite(v[1]):
             return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tan(*v)
 
@@ -1453,7 +1450,7 @@ class ComplexFloating(object):
     @complex_unary_op
     def sinh(self, v):
         if rfloat.isinf(v[1]):
-            if isfinite(v[0]):
+            if rfloat.isfinite(v[0]):
                 if v[0] == 0.0:
                     return 0.0, rfloat.NAN
                 return rfloat.NAN, rfloat.NAN
@@ -1464,7 +1461,7 @@ class ComplexFloating(object):
     @complex_unary_op
     def cosh(self, v):
         if rfloat.isinf(v[1]):
-            if isfinite(v[0]):
+            if rfloat.isfinite(v[0]):
                 if v[0] == 0.0:
                     return rfloat.NAN, 0.0
                 return rfloat.NAN, rfloat.NAN
@@ -1474,7 +1471,7 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def tanh(self, v):
-        if rfloat.isinf(v[1]) and isfinite(v[0]):
+        if rfloat.isinf(v[1]) and rfloat.isfinite(v[0]):
             return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tanh(*v)
 
@@ -1503,7 +1500,7 @@ class ComplexFloating(object):
 
     @raw_unary_op
     def isfinite(self, v):
-        return isfinite(v[0]) and isfinite(v[1])
+        return rfloat.isfinite(v[0]) and rfloat.isfinite(v[1])
 
     #@simple_unary_op
     #def radians(self, v):
