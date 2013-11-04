@@ -68,4 +68,5 @@ class AppTestScalar(BaseNumpyAppTest):
         import numpy as np
         for tp in [np.csingle, np.cdouble, np.clongdouble]:
             x = tp(1+2j)
+            assert hasattr(x, '__complex__') == (tp != np.cdouble)
             assert complex(x) == 1+2j
