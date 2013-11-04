@@ -1027,14 +1027,17 @@ class ComplexFloating(object):
 
     def str_format(self, box):
         real, imag = self.for_computation(self.unbox(box))
-        imag_str = str_format(imag) + 'j'
+        imag_str = str_format(imag)
+        if rfloat.isnan(imag) or rfloat.isinf(imag):
+            imag_str += '*'
+        imag_str += 'j'
 
         # (0+2j) => 2j
         if real == 0:
             return imag_str
 
         real_str = str_format(real)
-        op = '+' if imag >= 0 else ''
+        op = '+' if rfloat.copysign(1, imag) > 0 else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     def fill(self, storage, width, box, start, stop, offset):
