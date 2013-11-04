@@ -45,6 +45,41 @@ extension modules there is a good chance that it will work with PyPy.
 
 We list the differences we know about in `cpython differences`_.
 
+-----------------------------------------------
+Module xyz does not work with PyPy: ImportError
+-----------------------------------------------
+
+A module installed for CPython is not automatically available for PyPy
+--- just like a module installed for CPython 2.6 is not automatically
+available for CPython 2.7 if you installed both.  In other words, you
+need to install the module xyz specifically for PyPy.
+
+On Linux, this means that you cannot use ``apt-get`` or some similar
+package manager: these tools are only meant *for the version of CPython
+provided by the same package manager.*  So forget about them for now
+and read on.
+
+It is quite common nowadays that xyz is available on PyPI_ and
+installable with ``pip install xyz``.  The simplest solution is to `use
+virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
+and type: ``pip install xyz``.
+
+If you get errors from the C compiler, the module is a CPython C
+Extension module using unsupported features.  `See below.`_
+
+Alternatively, if either the module xyz is not available on PyPI or you
+don't want to use virtualenv, then download the source code of xyz,
+decompress the zip/tarball, and run the standard command: ``pypy
+setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
+you may need to run the command with `sudo` for a global installation.
+The other commands of ``setup.py`` are available too, like ``build``.
+
+.. _PyPI: https://pypi.python.org/pypi
+.. _`use virtualenv (as documented here)`: getting-started.html#installing-using-virtualenv
+
+
+.. _`See below.`: 
+
 --------------------------------------------
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
@@ -55,7 +90,9 @@ the 1.4 release, but support is still in beta phase.  CPython
 extension modules in PyPy are often much slower than in CPython due to
 the need to emulate refcounting.  It is often faster to take out your
 CPython extension and replace it with a pure python version that the
-JIT can see.
+JIT can see.  If trying to install module xyz, and the module has both
+a C and a Python version of the same code, try first to disable the C
+version; this is usually easily done by changing some line in ``setup.py``.
 
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
