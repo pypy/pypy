@@ -196,6 +196,14 @@ void stm_call_on_abort(void *key, void callback(void *));
 /* only user currently is stm_allocate_public_integer_address() */
 void stm_register_integer_address(intptr_t);
 
+/* enter single-threaded mode. Used e.g. when patching assembler
+   code that mustn't be executed in another thread while being
+   patched. This can be used to atomically update non-transactional
+   memory.
+   These calls may collect! */
+void stm_stop_all_other_threads(void);
+void stm_partial_commit_and_resume_other_threads(void);
+
 /* macro functionality */
 
 extern __thread gcptr *stm_shadowstack;

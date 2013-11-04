@@ -1030,8 +1030,14 @@ void stmgcpage_possibly_major_collect(int force)
     if (ACCESS_ONCE(countdown_next_major_coll) > 0)
         return;
 
-    stm_start_single_thread();
-
+    /* in case we run in single_thread mode already and we are the
+       single thread, we must not try to enter it again.
+       This can happen after manually entering the mode by calling
+       stm_stop_all_other_threads(). */
+    int single_threaded = in_single_thread == thread_descriptor;
+    if (!single_threaded)
+        stm_start_single_thread();
+    
     /* If several threads were blocked on the previous line, the first
        one to proceed sees 0 in 'countdown_next_major_coll'.  It's the
        thread that will do the major collection.  Afterwards the other
@@ -1040,7 +1046,8 @@ void stmgcpage_possibly_major_collect(int force)
     if (countdown_next_major_coll == 0)
         major_collect();
 
-    stm_stop_single_thread();
+    if (!single_threaded)
+        stm_stop_single_thread();
 
     AbortNowIfDelayed();
 }

@@ -124,7 +124,8 @@ static const revision_t GCFLAG_WEAKREF                = STM_FIRST_GCFLAG << 14;
 #define ABRT_VALIDATE_INEV        5
 #define ABRT_COLLECT_MINOR        6
 #define ABRT_COLLECT_MAJOR        7
-#define ABORT_REASONS         8
+#define ABRT_OTHER_THREADS        8
+#define ABORT_REASONS         9
 #define ABORT_NAMES      { "MANUAL",            \
                            "COMMIT",            \
                            "STOLEN_MODIFIED",   \
@@ -133,6 +134,7 @@ static const revision_t GCFLAG_WEAKREF                = STM_FIRST_GCFLAG << 14;
                            "VALIDATE_INEV",     \
                            "COLLECT_MINOR",     \
                            "COLLECT_MAJOR",     \
+                           "OTHER_THREADS",     \
                          }
 
 #define SPLP_ABORT                0
@@ -208,8 +210,8 @@ extern struct tx_descriptor *stm_tx_head;
 /************************************************************/
 
 
-void BeginInevitableTransaction(void);  /* must save roots around this call */
-void CommitTransaction(void);           /* must save roots around this call */
+void BeginInevitableTransaction(int);  /* must save roots around this call */
+void CommitTransaction(int);           /* must save roots around this call */
 void BecomeInevitable(const char *why); /* must save roots around this call */
 void AbortTransaction(int);
 void AbortTransactionAfterCollect(struct tx_descriptor *, int);

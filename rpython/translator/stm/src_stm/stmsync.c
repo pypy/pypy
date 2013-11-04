@@ -96,7 +96,7 @@ int stm_enter_callback_call(void)
         init_shadowstack();
         stmgcpage_release_global_lock();
     }
-    BeginInevitableTransaction();
+    BeginInevitableTransaction(0);
     return token;
 }
 
@@ -106,7 +106,7 @@ void stm_leave_callback_call(int token)
     if (token == 1)
         stmgc_minor_collect();   /* force everything out of the nursery */
 
-    CommitTransaction();
+    CommitTransaction(0);
 
     if (token == 1) {
         stmgcpage_acquire_global_lock();
@@ -141,7 +141,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     stm_push_root(END_MARKER_OFF);
 
     if (!thread_descriptor->atomic)
-        CommitTransaction();
+        CommitTransaction(0);
 
 #ifdef _GC_ON_CPYTHON
     volatile PyThreadState *v_ts = PyGILState_GetThisThreadState();
@@ -193,7 +193,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
         assert(stm_shadowstack == v_saved_value + 2);
 
         if (!d->atomic)
-            CommitTransaction();
+            CommitTransaction(0);
 
         counter = 0;
     }
@@ -205,7 +205,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
         }
     }
     else {
-        BeginInevitableTransaction();
+        BeginInevitableTransaction(0);
     }
 
     gcptr x = stm_pop_root();   /* pop the END_MARKER */
@@ -222,7 +222,7 @@ void stm_transaction_break(void *buf, void (*longjmp_callback)(void *))
         stm_possible_safe_point();
     }
     else {
-        CommitTransaction();
+        CommitTransaction(0);
 
         unsigned long limit = d->reads_size_limit_nonatomic;
         if (limit != 0 && limit < (stm_regular_length_limit >> 1))
@@ -247,7 +247,7 @@ void stm_commit_transaction(void)
 {   /* must save roots around this call */
     struct tx_descriptor *d = thread_descriptor;
     if (!d->atomic)
-        CommitTransaction();
+        CommitTransaction(0);
     else
         BecomeInevitable("stm_commit_transaction but atomic");
 }
@@ -256,7 +256,7 @@ void stm_begin_inevitable_transaction(void)
 {   /* must save roots around this call */
     struct tx_descriptor *d = thread_descriptor;
     if (!d->atomic)
-        BeginInevitableTransaction();
+        BeginInevitableTransaction(0);
 }
 
 void stm_become_inevitable(const char *reason)
@@ -279,7 +279,7 @@ int stm_in_transaction(void)
 static pthread_rwlock_t rwlock_shared =
     PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 
-static struct tx_descriptor *in_single_thread = NULL;  /* for debugging */
+struct tx_descriptor *in_single_thread = NULL;
 
 void stm_start_sharedlock(void)
 {
@@ -319,8 +319,45 @@ static void stop_exclusivelock(void)
                        "pthread_rwlock_unlock failure\n");
 }
 
+
+void stm_stop_all_other_threads(void)
+{                               /* push gc roots! */
+    struct tx_descriptor *d;
+
+    BecomeInevitable("stop_all_other_threads");
+    stm_start_single_thread();
+    
+    for (d = stm_tx_head; d; d = d->tx_next) {
+        if (*d->active_ref == 1) // && d != thread_descriptor) <- TRUE
+            AbortTransactionAfterCollect(d, ABRT_OTHER_THREADS);
+    }
+}
+
+
+void stm_partial_commit_and_resume_other_threads(void)
+{                               /* push gc roots! */
+    struct tx_descriptor *d = thread_descriptor;
+    assert(*d->active_ref == 2);
+    int atomic = d->atomic;
+
+    /* Give up atomicity during commit. This still works because
+       we keep the inevitable status, thereby being guaranteed to 
+       commit before all others. */
+    stm_atomic(-atomic);
+
+    /* Commit and start new inevitable transaction while never
+       giving up the inevitable status. */
+    CommitTransaction(1);       /* 1=stay_inevitable! */
+    BeginInevitableTransaction(1);
+
+    /* restore atomic-count */
+    stm_atomic(atomic);
+
+    stm_stop_single_thread();
+}
+
 void stm_start_single_thread(void)
-{
+{                               /* push gc roots! */
     /* Called by the GC, just after a minor collection, when we need to do
        a major collection.  When it returns, it acquired the "write lock"
        which prevents any other thread from running in a transaction.
@@ -337,7 +374,7 @@ void stm_start_single_thread(void)
 }
 
 void stm_stop_single_thread(void)
-{
+{                               /* push gc roots! */
     /* Warning, may block waiting for rwlock_in_transaction while another
        thread runs a major GC */
     assert(in_single_thread == thread_descriptor);

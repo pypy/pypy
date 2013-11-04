@@ -1072,11 +1072,12 @@ long stm_atomic(long delta)
   return d->atomic;
 }
 
-static void init_transaction(struct tx_descriptor *d)
+static void init_transaction(struct tx_descriptor *d, int already_locked)
 {
   assert(d->atomic == 0);
   assert(*d->active_ref == 0);
-  stm_start_sharedlock();
+  if (!already_locked)
+    stm_start_sharedlock();
   assert(*d->active_ref == 0);
 
   if (clock_gettime(CLOCK_MONOTONIC, &d->start_real_time) < 0) {
@@ -1097,7 +1098,7 @@ static void init_transaction(struct tx_descriptor *d)
 void stm_begin_transaction(void *buf, void (*longjmp_callback)(void *))
 {
   struct tx_descriptor *d = thread_descriptor;
-  init_transaction(d);
+  init_transaction(d, 0);
   *d->active_ref = 1;
   d->setjmp_buf = buf;
   d->longjmp_callback = longjmp_callback;
@@ -1426,13 +1427,14 @@ void AbortPrivateFromProtected(struct tx_descriptor *d)
   dprintf(("private_from_protected: clear (abort)\n"));
 }
 
-void CommitTransaction(void)
+void CommitTransaction(int stay_inevitable)
 {   /* must save roots around this call */
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
   assert(*d->active_ref >= 1);
   assert(d->atomic == 0);
-  dprintf(("CommitTransaction(%p)\n", d));
+  dprintf(("CommitTransaction(%d): %p\n", stay_inevitable, d));
+
   spinlock_acquire(d->public_descriptor->collection_lock, 'C');  /*committing*/
   if (d->public_descriptor->stolen_objects.size != 0)
     stm_normalize_stolen_objects(d);
@@ -1446,7 +1448,11 @@ void CommitTransaction(void)
         {
           stm_fatalerror("global_cur_time modified even though we are inev\n");
         }
-      inev_mutex_release();
+
+      if (!stay_inevitable) {
+        /* we simply don't release the mutex. */
+        inev_mutex_release();
+      }
     }
   else
     {
@@ -1504,7 +1510,8 @@ void CommitTransaction(void)
   spinlock_release(d->public_descriptor->collection_lock);
   d->num_commits++;
   *d->active_ref = 0;
-  stm_stop_sharedlock();
+  if (!stay_inevitable)
+    stm_stop_sharedlock();
 
   /* clear the list of callbacks that would have been called
      on abort */
@@ -1569,13 +1576,25 @@ void BecomeInevitable(const char *why)
   make_inevitable(d);    /* cannot abort any more */
 }
 
-void BeginInevitableTransaction(void)
+void BeginInevitableTransaction(int already_inevitable)
 {   /* must save roots around this call */
   struct tx_descriptor *d = thread_descriptor;
   revision_t cur_time;
 
-  init_transaction(d);
-  cur_time = acquire_inev_mutex_and_mark_global_cur_time(d);
+  init_transaction(d, already_inevitable);
+  
+  if (already_inevitable) {
+    cur_time = ACCESS_ONCE(global_cur_time);
+    assert((cur_time & 1) == 0);
+    if (!bool_cas(&global_cur_time, cur_time, cur_time + 1)) {
+      stm_fatalerror("there was a commit between a partial inevitable "
+                     "commit and the continuation of the transaction\n");
+    }
+  }
+  else {
+    cur_time = acquire_inev_mutex_and_mark_global_cur_time(d);
+  }
+
   d->start_time = cur_time;
   make_inevitable(d);
 }
