@@ -4,6 +4,7 @@ from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import objectmodel, jit, rgc
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper import rmodel
@@ -44,20 +45,19 @@ def ll_call_lookup_function(d, key, hash, flag):
     DICT = lltype.typeOf(d).TO
     fun = d.lookup_function_no
     if fun == FUNC_BYTE:
-        return DICT.lookup_family.byte_lookup_function(d, key, hash, flag)
+        return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
     elif fun == FUNC_SHORT:
-        return DICT.lookup_family.short_lookup_function(d, key, hash, flag)
+        return ll_dict_lookup(d, key, hash, flag, TYPE_SHORT)
     elif IS_64BIT and fun == FUNC_INT:
-        return DICT.lookup_family.int_lookup_function(d, key, hash, flag)
+        return ll_dict_lookup(d, key, hash, flag, TYPE_INT)
     elif fun == FUNC_LONG:
-        return DICT.lookup_family.long_lookup_function(d, key, hash, flag)
+        return ll_dict_lookup(d, key, hash, flag, TYPE_LONG)
     assert False
 
 def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
                 ll_fasthash_function=None, ll_hash_function=None,
                 ll_eq_function=None, method_cache={},
-                dummykeyobj=None, dummyvalueobj=None, rtyper=None,
-                setup_lookup_funcs=True):
+                dummykeyobj=None, dummyvalueobj=None, rtyper=None):
     # get the actual DICT type. if DICT is None, it's created, otherwise
     # forward reference is becoming DICT
     if DICT is None:
@@ -147,51 +147,9 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
     adtmeths['lookup_function'] = lltype.staticAdtMethod(ll_call_lookup_function)
     adtmeths['allocate'] = lltype.typeMethod(_ll_malloc_dict)
 
-    family = LookupFamily()
-    adtmeths['lookup_family'] = family
-
     DICT.become(lltype.GcStruct("dicttable", adtmeths=adtmeths,
                                 *fields))
-
-    family.empty_array = DICTENTRYARRAY.allocate(0)
-    if setup_lookup_funcs:
-        _setup_lookup_funcs(DICT, rtyper, family)
     return DICT
-
-def _setup_lookup_funcs(DICT, rtyper, family):
-    DICTKEY = DICT.entries.TO.OF.key
-    LOOKUP_FUNC = lltype.Ptr(lltype.FuncType([lltype.Ptr(DICT), DICTKEY,
-                                              lltype.Signed, lltype.Signed],
-                                              lltype.Signed))
-
-
-    STORECLEAN_FUNC = lltype.Ptr(lltype.FuncType([lltype.Ptr(DICT),
-                                                  lltype.Signed,
-                                                  lltype.Signed],
-                                                 lltype.Void))
-
-    for name, T in [('byte', rffi.UCHAR),
-                    ('short', rffi.USHORT),
-                    ('int', rffi.UINT),
-                    ('long', lltype.Unsigned)]:
-        if name == 'int' and not IS_64BIT:
-            continue
-        lookupfn, storecleanfn = new_lookup_functions(LOOKUP_FUNC,
-                                                      STORECLEAN_FUNC, T=T,
-                                                      rtyper=rtyper)
-        setattr(family, '%s_lookup_function' % name, lookupfn)
-        setattr(family, '%s_insert_clean_function' % name, storecleanfn)
-
-def llhelper_or_compile(rtyper, FUNCPTR, ll_func):
-    # the check is for pseudo rtyper from tests
-    if rtyper is None or not hasattr(rtyper, 'annotate_helper_fn'):
-        return llhelper(FUNCPTR, ll_func)
-    else:
-        return rtyper.annotate_helper_fn(ll_func, FUNCPTR.TO.ARGS)
-
-class LookupFamily:
-    def _freeze_(self):
-        return True
 
 
 class OrderedDictRepr(AbstractDictRepr):
@@ -249,16 +207,8 @@ class OrderedDictRepr(AbstractDictRepr):
                                                                    s_key)
             kwd['dummyvalueobj'] = self.value_repr.get_ll_dummyval_obj(
                 self.rtyper, s_value)
-
-            kwd['setup_lookup_funcs'] = False
             get_ll_dict(DICTKEY, DICTVALUE, DICT=self.DICT,
                         rtyper=self.rtyper, **kwd)
-
-    def _setup_repr_final(self):
-        if not self.finalized:
-            family = self.lowleveltype.TO.lookup_family
-            _setup_lookup_funcs(self.lowleveltype.TO, self.rtyper, family)
-            self.finalized = True
 
 
     def convert_const(self, dictobj):
@@ -451,6 +401,10 @@ if IS_64BIT:
     FUNC_BYTE, FUNC_SHORT, FUNC_INT, FUNC_LONG = range(4)
 else:
     FUNC_BYTE, FUNC_SHORT, FUNC_LONG = range(3)
+TYPE_BYTE  = rffi.UCHAR
+TYPE_SHORT = rffi.USHORT
+TYPE_INT   = rffi.UINT
+TYPE_LONG  = lltype.Unsigned
 
 def ll_malloc_indexes_and_choose_lookup(d, n):
     if n <= 256:
@@ -477,13 +431,13 @@ def ll_malloc_indexes_and_choose_lookup(d, n):
 def ll_call_insert_clean_function(d, hash, i):
     DICT = lltype.typeOf(d).TO
     if d.lookup_function_no == FUNC_BYTE:
-        DICT.lookup_family.byte_insert_clean_function(d, hash, i)
+        ll_dict_store_clean(d, hash, i, TYPE_BYTE)
     elif d.lookup_function_no == FUNC_SHORT:
-        DICT.lookup_family.short_insert_clean_function(d, hash, i)
+        ll_dict_store_clean(d, hash, i, TYPE_SHORT)
     elif IS_64BIT and d.lookup_function_no == FUNC_INT:
-        DICT.lookup_family.int_insert_clean_function(d, hash, i)
+        ll_dict_store_clean(d, hash, i, TYPE_INT)
     elif d.lookup_function_no == FUNC_LONG:
-        DICT.lookup_family.long_insert_clean_function(d, hash, i)
+        ll_dict_store_clean(d, hash, i, TYPE_LONG)
     else:
         assert False
 
@@ -738,31 +692,83 @@ FLAG_STORE = 1
 FLAG_DELETE = 2
 FLAG_DELETE_TRY_HARD = 3
 
-def new_lookup_functions(LOOKUP_FUNC, STORECLEAN_FUNC, T, rtyper=None):
-    INDEXES = lltype.Ptr(lltype.GcArray(T))
+@specialize.memo()
+def _ll_ptr_to_array_of(T):
+    return lltype.Ptr(lltype.GcArray(T))
 
-    def ll_kill_something(d):
-        i = 0
-        indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
-        while True:
-            index = rffi.cast(lltype.Signed, indexes[i])
-            if index >= VALID_OFFSET:
-                indexes[i] = rffi.cast(T, DELETED)
-                return index
-            i += 1
-
-    @jit.look_inside_iff(lambda d, key, hash, store_flag:
-                         jit.isvirtual(d) and jit.isconstant(key))
-    def ll_dict_lookup(d, key, hash, store_flag):
-        entries = d.entries
-        indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
-        mask = len(indexes) - 1
-        i = r_uint(hash & mask)
-        # do the first try before any looping
-        ENTRIES = lltype.typeOf(entries).TO
-        direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
-        index = rffi.cast(lltype.Signed, indexes[intmask(i)])
+def ll_kill_something(d, T):
+    INDEXES = _ll_ptr_to_array_of(T)
+    i = 0
+    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
+    while True:
+        index = rffi.cast(lltype.Signed, indexes[i])
         if index >= VALID_OFFSET:
+            indexes[i] = rffi.cast(T, DELETED)
+            return index
+        i += 1
+
+@jit.look_inside_iff(lambda d, key, hash, store_flag, T:
+                     jit.isvirtual(d) and jit.isconstant(key))
+def ll_dict_lookup(d, key, hash, store_flag, T):
+    INDEXES = _ll_ptr_to_array_of(T)
+    entries = d.entries
+    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
+    mask = len(indexes) - 1
+    i = r_uint(hash & mask)
+    # do the first try before any looping
+    ENTRIES = lltype.typeOf(entries).TO
+    direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
+    index = rffi.cast(lltype.Signed, indexes[intmask(i)])
+    if index >= VALID_OFFSET:
+        checkingkey = entries[index - VALID_OFFSET].key
+        if direct_compare and checkingkey == key:
+            if store_flag == FLAG_DELETE:
+                indexes[i] = rffi.cast(T, DELETED)
+            return index - VALID_OFFSET   # found the entry
+        if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
+            # correct hash, maybe the key is e.g. a different pointer to
+            # an equal object
+            found = d.keyeq(checkingkey, key)
+            #llop.debug_print(lltype.Void, "comparing keys", ll_debugrepr(checkingkey), ll_debugrepr(key), found)
+            if d.paranoia:
+                if (entries != d.entries or lltype.cast_opaque_ptr(llmemory.GCREF, indexes) != d.indexes or
+                    not entries.valid(index - VALID_OFFSET) or
+                    entries[index - VALID_OFFSET].key != checkingkey):
+                    # the compare did major nasty stuff to the dict: start over
+                    return ll_dict_lookup(d, key, hash, store_flag, T)
+            if found:
+                if store_flag == FLAG_DELETE:
+                    indexes[i] = rffi.cast(T, DELETED)
+                return index - VALID_OFFSET
+        deletedslot = -1
+    elif index == DELETED:
+        deletedslot = intmask(i)
+    else:
+        # pristine entry -- lookup failed
+        if store_flag == FLAG_STORE:
+            indexes[i] = rffi.cast(T, d.num_used_items + VALID_OFFSET)
+        elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
+            return ll_kill_something(d, T)
+        return -1
+
+    # In the loop, a deleted entry (everused and not valid) is by far
+    # (factor of 100s) the least likely outcome, so test for that last.
+    perturb = r_uint(hash)
+    while 1:
+        # compute the next index using unsigned arithmetic
+        i = (i << 2) + i + perturb + 1
+        i = i & mask
+        index = rffi.cast(lltype.Signed, indexes[intmask(i)])
+        if index == FREE:
+            if store_flag == FLAG_STORE:
+                if deletedslot == -1:
+                    deletedslot = intmask(i)
+                indexes[deletedslot] = rffi.cast(T, d.num_used_items +
+                                                 VALID_OFFSET)
+            elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
+                return ll_kill_something(d, T)
+            return -1
+        elif index >= VALID_OFFSET:
             checkingkey = entries[index - VALID_OFFSET].key
             if direct_compare and checkingkey == key:
                 if store_flag == FLAG_DELETE:
@@ -772,85 +778,34 @@ def new_lookup_functions(LOOKUP_FUNC, STORECLEAN_FUNC, T, rtyper=None):
                 # correct hash, maybe the key is e.g. a different pointer to
                 # an equal object
                 found = d.keyeq(checkingkey, key)
-                #llop.debug_print(lltype.Void, "comparing keys", ll_debugrepr(checkingkey), ll_debugrepr(key), found)
                 if d.paranoia:
                     if (entries != d.entries or lltype.cast_opaque_ptr(llmemory.GCREF, indexes) != d.indexes or
                         not entries.valid(index - VALID_OFFSET) or
                         entries[index - VALID_OFFSET].key != checkingkey):
                         # the compare did major nasty stuff to the dict: start over
-                        return ll_dict_lookup(d, key, hash, store_flag)
+                        return ll_dict_lookup(d, key, hash, store_flag, T)
                 if found:
                     if store_flag == FLAG_DELETE:
                         indexes[i] = rffi.cast(T, DELETED)
                     return index - VALID_OFFSET
-            deletedslot = -1
-        elif index == DELETED:
+        elif deletedslot == -1:
             deletedslot = intmask(i)
-        else:
-            # pristine entry -- lookup failed
-            if store_flag == FLAG_STORE:
-                indexes[i] = rffi.cast(T, d.num_used_items + VALID_OFFSET)
-            elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
-                return ll_kill_something(d)
-            return -1
+        perturb >>= PERTURB_SHIFT
 
-        # In the loop, a deleted entry (everused and not valid) is by far
-        # (factor of 100s) the least likely outcome, so test for that last.
-        perturb = r_uint(hash)
-        while 1:
-            # compute the next index using unsigned arithmetic
-            i = (i << 2) + i + perturb + 1
-            i = i & mask
-            index = rffi.cast(lltype.Signed, indexes[intmask(i)])
-            if index == FREE:
-                if store_flag == FLAG_STORE:
-                    if deletedslot == -1:
-                        deletedslot = intmask(i)
-                    indexes[deletedslot] = rffi.cast(T, d.num_used_items +
-                                                     VALID_OFFSET)
-                elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
-                    return ll_kill_something(d)
-                return -1
-            elif index >= VALID_OFFSET:
-                checkingkey = entries[index - VALID_OFFSET].key
-                if direct_compare and checkingkey == key:
-                    if store_flag == FLAG_DELETE:
-                        indexes[i] = rffi.cast(T, DELETED)
-                    return index - VALID_OFFSET   # found the entry
-                if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
-                    # correct hash, maybe the key is e.g. a different pointer to
-                    # an equal object
-                    found = d.keyeq(checkingkey, key)
-                    if d.paranoia:
-                        if (entries != d.entries or lltype.cast_opaque_ptr(llmemory.GCREF, indexes) != d.indexes or
-                            not entries.valid(index - VALID_OFFSET) or
-                            entries[index - VALID_OFFSET].key != checkingkey):
-                            # the compare did major nasty stuff to the dict: start over
-                            return ll_dict_lookup(d, key, hash, store_flag)
-                    if found:
-                        if store_flag == FLAG_DELETE:
-                            indexes[i] = rffi.cast(T, DELETED)
-                        return index - VALID_OFFSET
-            elif deletedslot == -1:
-                deletedslot = intmask(i)
-            perturb >>= PERTURB_SHIFT
-
-    def ll_dict_store_clean(d, hash, index):
-        # a simplified version of ll_dict_lookup() which assumes that the
-        # key is new, and the dictionary doesn't contain deleted entries.
-        # It only finds the next free slot for the given hash.
-        indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
-        mask = len(indexes) - 1
-        i = r_uint(hash & mask)
-        perturb = r_uint(hash)
-        while rffi.cast(lltype.Signed, indexes[i]) != 0:
-            i = (i << 2) + i + perturb + 1
-            i = i & mask
-            perturb >>= PERTURB_SHIFT
-        indexes[i] = rffi.cast(T, index + VALID_OFFSET)
-
-    return (llhelper_or_compile(rtyper, LOOKUP_FUNC, ll_dict_lookup),
-            llhelper_or_compile(rtyper, STORECLEAN_FUNC, ll_dict_store_clean))
+def ll_dict_store_clean(d, hash, index, T):
+    # a simplified version of ll_dict_lookup() which assumes that the
+    # key is new, and the dictionary doesn't contain deleted entries.
+    # It only finds the next free slot for the given hash.
+    INDEXES = _ll_ptr_to_array_of(T)
+    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
+    mask = len(indexes) - 1
+    i = r_uint(hash & mask)
+    perturb = r_uint(hash)
+    while rffi.cast(lltype.Signed, indexes[i]) != 0:
+        i = (i << 2) + i + perturb + 1
+        i = i & mask
+        perturb >>= PERTURB_SHIFT
+    indexes[i] = rffi.cast(T, index + VALID_OFFSET)
 
 # ____________________________________________________________
 #
@@ -858,9 +813,15 @@ def new_lookup_functions(LOOKUP_FUNC, STORECLEAN_FUNC, T, rtyper=None):
 
 DICT_INITSIZE = 8
 
+
+@specialize.memo()
+def _ll_empty_array(DICT):
+    """Memo function: cache a single prebuilt allocated empty array."""
+    return DICT.entries.TO.allocate(0)
+
 def ll_newdict(DICT):
     d = DICT.allocate()
-    d.entries = DICT.lookup_family.empty_array
+    d.entries = _ll_empty_array(DICT)
     ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
     d.num_items = 0
     d.num_used_items = 0
@@ -1030,7 +991,7 @@ def ll_dict_clear(d):
         return
     DICT = lltype.typeOf(d).TO
     old_entries = d.entries
-    d.entries = DICT.lookup_family.empty_array
+    d.entries = _ll_empty_array(DICT)
     ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
     d.num_items = 0
     d.num_used_items = 0

@@ -261,6 +261,10 @@ class TestOrderedRDict(BaseTestRDict):
     def newdict():
         return OrderedDict()
 
+    @staticmethod
+    def newdict2():
+        return OrderedDict()
+
     def test_two_dicts_with_different_value_types(self):
         def func(i):
             d1 = OrderedDict()

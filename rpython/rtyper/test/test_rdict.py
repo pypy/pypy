@@ -856,10 +856,26 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, [42])
         assert res == 42
 
+    def test_externalvsinternal(self):
+        class A: pass
+        class B: pass
+        class C: pass
+        class D: pass
+        def func():
+            d1 = self.newdict();  d1[A()] = B()
+            d2 = self.newdict2(); d2[C()] = D()
+            return (d1, d2)
+        res = self.interpret(func, [])
+        assert lltype.typeOf(res.item0) == lltype.typeOf(res.item1)
+
 
 class TestRDict(BaseTestRDict):
     @staticmethod
     def newdict():
+        return {}
+
+    @staticmethod
+    def newdict2():
         return {}
 
     def test_two_dicts_with_different_value_types(self):
