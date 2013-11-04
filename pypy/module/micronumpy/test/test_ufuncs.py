@@ -319,6 +319,27 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert x == 3
         assert isinstance(x, (int, long))
 
+    def test_complex_nan_extrema(self):
+        import math
+        import numpy as np
+        cnan = complex(0, np.nan)
+
+        b = np.minimum(1, cnan)
+        assert b.real == 0
+        assert math.isnan(b.imag)
+
+        b = np.maximum(1, cnan)
+        assert b.real == 0
+        assert math.isnan(b.imag)
+
+        b = np.fmin(1, cnan)
+        assert b.real == 1
+        assert b.imag == 0
+
+        b = np.fmax(1, cnan)
+        assert b.real == 1
+        assert b.imag == 0
+
     def test_multiply(self):
         from numpypy import array, multiply, arange
 

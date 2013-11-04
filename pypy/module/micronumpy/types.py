@@ -1192,11 +1192,11 @@ class ComplexFloating(object):
 
     def _lt(self, v1, v2):
         (r1, i1), (r2, i2) = v1, v2
-        if r1 < r2:
+        if r1 < r2 and not rfloat.isnan(i1) and not rfloat.isnan(i2):
             return True
-        elif not r1 <= r2:
-            return False
-        return i1 < i2
+        if r1 == r2 and i1 < i2:
+            return True
+        return False
 
     @raw_binary_op
     def lt(self, v1, v2):
@@ -1234,10 +1234,14 @@ class ComplexFloating(object):
         return self._bool(v1) ^ self._bool(v2)
 
     def min(self, v1, v2):
-        return self.fmin(v1, v2)
+        if self.le(v1, v2) or self.isnan(v1):
+            return v1
+        return v2
 
     def max(self, v1, v2):
-        return self.fmax(v1, v2)
+        if self.ge(v1, v2) or self.isnan(v1):
+            return v1
+        return v2
 
     @complex_binary_op
     def floordiv(self, v1, v2):
@@ -1292,20 +1296,12 @@ class ComplexFloating(object):
         return -1,0
 
     def fmax(self, v1, v2):
-        if self.isnan(v2):
-            return v1
-        elif self.isnan(v1):
-            return v2
-        if self.ge(v1, v2):
+        if self.ge(v1, v2) or self.isnan(v2):
             return v1
         return v2
 
     def fmin(self, v1, v2):
-        if self.isnan(v2):
-            return v1
-        elif self.isnan(v1):
-            return v2
-        if self.le(v1, v2):
+        if self.le(v1, v2) or self.isnan(v2):
             return v1
         return v2
 

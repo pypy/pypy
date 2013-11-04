@@ -1,6 +1,7 @@
 from _numpypy.multiarray import *
 from _numpypy.umath import *
 
+nan = float('nan')
 newaxis = None
 ufunc = type(sin)
 
