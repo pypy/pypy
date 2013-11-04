@@ -265,6 +265,12 @@ class W_GenericBox(W_Root):
     def descr_get_itemsize(self, space):
         return self.get_dtype(space).descr_get_itemsize(space)
 
+    def descr_get_shape(self, space):
+        return space.newtuple([])
+
+    def descr_get_ndim(self, space):
+        return space.wrap(0)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
 
@@ -514,6 +520,8 @@ W_GenericBox.typedef = TypeDef("generic",
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
+    shape = GetSetProperty(W_GenericBox.descr_get_shape),
+    ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,

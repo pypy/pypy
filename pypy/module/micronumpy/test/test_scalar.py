@@ -61,3 +61,5 @@ class AppTestScalar(BaseNumpyAppTest):
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
         assert value.itemsize == 8
+        assert value.shape == ()
+        assert value.ndim == 0
