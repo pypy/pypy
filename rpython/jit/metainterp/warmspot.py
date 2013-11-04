@@ -164,6 +164,12 @@ def get_stats():
 def reset_stats():
     pyjitpl._warmrunnerdesc.stats.clear()
 
+def reset_jit():
+    """Helper for some tests (see micronumpy/test/test_zjit.py)"""
+    reset_stats()
+    pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
+    pyjitpl._warmrunnerdesc.jitcounter._clear_all()
+
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator
 

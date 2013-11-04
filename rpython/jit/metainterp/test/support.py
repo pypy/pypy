@@ -3,6 +3,7 @@ import py, sys
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
+from rpython.jit.metainterp.warmspot import reset_stats
 from rpython.jit.metainterp.warmstate import unspecialize_value
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from rpython.jit.metainterp import pyjitpl, history, jitexc

@@ -151,3 +151,7 @@ class DeterministicJitCounter(JitCounter):
     def decay_all_counters(self):
         "NOT_RPYTHON"
         pass
+
+    def _clear_all(self):
+        self.timetable.clear()
+        self.celltable.clear()
