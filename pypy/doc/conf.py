@@ -205,5 +205,3 @@ man_pages = [
    u'The PyPy Project', 1)
 ]
 
-# Enable the new ReadTheDocs theme
-RTD_NEW_THEME = True
