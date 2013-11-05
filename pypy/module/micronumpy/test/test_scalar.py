@@ -56,11 +56,21 @@ class AppTestScalar(BaseNumpyAppTest):
         assert b.round() == 1.0
         assert b.round(decimals=5) is b
 
+    def test_astype(self):
+        import numpy as np
+        a = np.bool_(True).astype(np.float32)
+        assert type(a) is np.float32
+        assert a == 1.0
+        a = np.bool_(True).astype('int32')
+        assert type(a) is np.int32
+        assert a == 1
+
     def test_attributes(self):
         import numpypy as np
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
         assert value.itemsize == 8
+        assert value.nbytes == 8
         assert value.shape == ()
         assert value.ndim == 0
 
