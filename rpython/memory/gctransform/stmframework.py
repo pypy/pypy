@@ -97,11 +97,13 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.default(hop)
         self.pop_roots(hop, livevars)
 
-    gct_stm_become_inevitable   = _gct_with_roots_pushed
-    gct_stm_stop_all_other_threads   = _gct_with_roots_pushed
-    gct_stm_partial_commit_and_resume_other_threads  = _gct_with_roots_pushed
-    gct_stm_perform_transaction = _gct_with_roots_pushed
-    gct_stm_allocate_nonmovable_int_adr = _gct_with_roots_pushed
+    gct_stm_become_inevitable                       = _gct_with_roots_pushed
+    gct_stm_set_transaction_length                  = _gct_with_roots_pushed
+    gct_stm_stop_all_other_threads                  = _gct_with_roots_pushed
+    gct_stm_partial_commit_and_resume_other_threads = _gct_with_roots_pushed
+    gct_stm_perform_transaction                     = _gct_with_roots_pushed
+    gct_stm_allocate_nonmovable_int_adr             = _gct_with_roots_pushed
+    gct_stm_inspect_abort_info                      = _gct_with_roots_pushed
 
 
 class StmRootWalker(BaseRootWalker):
