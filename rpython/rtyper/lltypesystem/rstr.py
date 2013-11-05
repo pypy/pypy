@@ -106,7 +106,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw._always_inline_ = True
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
-    @jit.oopspec('stroruni.copy_raw_to_string(ptrsrc, dst, dststart, length)')
+    @jit.dont_look_inside
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
@@ -118,6 +118,9 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         llmemory.raw_memcopy(srcbuf, dst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(dst)
+    copy_raw_to_string._always_inline_ = True
+    copy_raw_to_string = func_with_new_name(copy_raw_to_string,
+                                              'copy_raw_to_%s' % name)
 
     return copy_string_to_raw, copy_raw_to_string, copy_string_contents
 
