@@ -265,7 +265,7 @@ class W_GenericBox(W_Root):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "view not implelemnted yet"))
 
-    def descr_squeeze(self):
+    def descr_self(self, space):
         return self
 
     def descr_get_dtype(self, space):
@@ -527,13 +527,15 @@ W_GenericBox.typedef = TypeDef("generic",
     conjugate = interp2app(W_GenericBox.descr_conjugate),
     astype = interp2app(W_GenericBox.descr_astype),
     view = interp2app(W_GenericBox.descr_view),
-    squeeze = interp2app(W_GenericBox.descr_squeeze),
+    squeeze = interp2app(W_GenericBox.descr_self),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
     nbytes = GetSetProperty(W_GenericBox.descr_get_itemsize),
     shape = GetSetProperty(W_GenericBox.descr_get_shape),
+    strides = GetSetProperty(W_GenericBox.descr_get_shape),
     ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
+    T = GetSetProperty(W_GenericBox.descr_self),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,

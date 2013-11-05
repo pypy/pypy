@@ -79,7 +79,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert value.itemsize == 8
         assert value.nbytes == 8
         assert value.shape == ()
+        assert value.strides == ()
         assert value.ndim == 0
+        assert value.T is value
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np
