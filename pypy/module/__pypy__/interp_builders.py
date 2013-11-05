@@ -32,10 +32,8 @@ def create_builder(name, strtype, builder_cls):
         @unwrap_spec(s=strtype)
         def descr_append(self, space, s):
             self._check_done(space)
-            if jit.is_constant(len(s)) and len(s) < 5:
+            if jit.isconstant(len(s)) and len(s) < 5:
                 self._append_multiple_chars(s)
-                # the same but annotated as char
-                self.builder.append(s[0])
             else:
                 self.builder.append(s)
 
