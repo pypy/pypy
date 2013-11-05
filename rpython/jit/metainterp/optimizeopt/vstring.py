@@ -516,7 +516,6 @@ class OptString(optimizer.Optimization):
         if length.is_constant() and length.box.getint() == 0:
             return
         elif ((src.is_virtual() or src.is_constant()) and
-              isinstance(dst, VStringPlainValue) and dst.is_virtual() and
               srcstart.is_constant() and dststart.is_constant() and
               length.is_constant()):
             src_start = srcstart.force_box(self).getint()
@@ -527,7 +526,15 @@ class OptString(optimizer.Optimization):
             assert actual_length <= MAX_CONST_LEN
             for index in range(actual_length):
                 vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
-                dst.setitem(index + dst_start, vresult)
+                if isinstance(dst, VStringPlainValue):
+                    dst.setitem(index + dst_start, vresult)
+                else:
+                    op = ResOperation(mode.STRSETITEM, [
+                        op.getarg(1),
+                        ConstInt(index + dst_start),
+                        vresult.force_box(self),
+                    ], None)
+                    self.emit_operation(op)
         else:
             copy_str_content(self,
                 src.force_box(self),
@@ -752,8 +759,10 @@ class OptString(optimizer.Optimization):
     def propagate_forward(self, op):
         dispatch_opt(self, op)
 
+
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
         default=OptString.emit_operation)
+
 
 def _findall_call_oopspec():
     prefix = 'opt_call_stroruni_'

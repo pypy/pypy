@@ -5122,6 +5122,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_copy_virtual_src_concrete_dst(self):
+        ops = """
+        [p0]
+        p1 = newstr(1)
+        strsetitem(p1, 0, 101)
+        copystrcontent(p1, p0, 0, 0, 1)
+        finish(p0)
+        """
+        expected = """
+        [p0]
+        strsetitem(p0, 0, 101)
+        finish(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_call_pure_vstring_const(self):
         py.test.skip("implement me")
         ops = """
