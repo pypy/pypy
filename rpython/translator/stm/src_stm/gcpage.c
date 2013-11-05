@@ -920,9 +920,15 @@ void force_minor_collections(void)
     struct tx_descriptor *saved = thread_descriptor;
     revision_t saved_private_rev = stm_private_rev_num;
     char *saved_read_barrier_cache = stm_read_barrier_cache;
+    int saved_active = stm_active;
+    char *saved_nursery_current = stm_nursery_current;
+    char *saved_nursery_nextlimit = stm_nursery_nextlimit;
 
     assert(saved_private_rev == *saved->private_revision_ref);
     assert(saved_read_barrier_cache == *saved->read_barrier_cache_ref);
+    assert(saved_active == *saved->active_ref);
+    assert(saved_nursery_current == *saved->nursery_current_ref);
+    assert(saved_nursery_nextlimit == *saved->nursery_nextlimit_ref);
 
     for (d = stm_tx_head; d; d = d->tx_next) {
         /* Force a minor collection to run in the thread 'd'.
@@ -934,20 +940,49 @@ void force_minor_collections(void)
             /* Hack: temporarily pretend that we "are" the other thread...
              */
             assert(d->shadowstack_end_ref && *d->shadowstack_end_ref);
-            thread_descriptor = d;
-            stm_private_rev_num = *d->private_revision_ref;
+            /* set thread locals to expected values */
+            thread_descriptor      = d;
+            stm_private_rev_num    = *d->private_revision_ref;
             stm_read_barrier_cache = *d->read_barrier_cache_ref;
+            stm_active             = *d->active_ref;
+            stm_nursery_current    = *d->nursery_current_ref;
+            stm_nursery_nextlimit  = *d->nursery_nextlimit_ref;
+            /* save, then point _refs to the new thread-locals */
+            revision_t *d_private_revision_ref = d->private_revision_ref;
+            char **d_read_barrier_cache_ref    = d->read_barrier_cache_ref;
+            int   *d_active_ref                = d->active_ref;
+            char **d_nursery_current_ref       = d->nursery_current_ref;
+            char **d_nursery_nextlimit_ref     = d->nursery_nextlimit_ref;
+            d->private_revision_ref   = &stm_private_rev_num;
+            d->read_barrier_cache_ref = &stm_read_barrier_cache;
+            d->active_ref             = &stm_active;
+            d->nursery_current_ref    = &stm_nursery_current;
+            d->nursery_nextlimit_ref  = &stm_nursery_nextlimit;
 
+            /* we impersonated the other thread. */
             stmgc_minor_collect_no_abort();
 
-            assert(stm_private_rev_num == *d->private_revision_ref);
-            *d->read_barrier_cache_ref = stm_read_barrier_cache;
-
-            thread_descriptor = saved;
-            stm_private_rev_num = saved_private_rev;
-            stm_read_barrier_cache = saved_read_barrier_cache;
+            /* priv_rev didn't change! others may have */
+            assert(*d_private_revision_ref == stm_private_rev_num);
+            *d_read_barrier_cache_ref = stm_read_barrier_cache;
+            *d_active_ref             = stm_active;
+            *d_nursery_current_ref    = stm_nursery_current;
+            *d_nursery_nextlimit_ref  = stm_nursery_nextlimit;
+            /* restore _ref pointers in other thread */
+            d->private_revision_ref = d_private_revision_ref;
+            d->read_barrier_cache_ref = d_read_barrier_cache_ref;
+            d->active_ref = d_active_ref;
+            d->nursery_current_ref = d_nursery_current_ref;
+            d->nursery_nextlimit_ref = d_nursery_nextlimit_ref;
         }
     }
+    /* restore current thread */
+    thread_descriptor = saved;
+    stm_private_rev_num = saved_private_rev;
+    stm_read_barrier_cache = saved_read_barrier_cache;
+    stm_active = saved_active;
+    stm_nursery_current = saved_nursery_current;
+    stm_nursery_nextlimit = saved_nursery_nextlimit;
     stmgc_minor_collect_no_abort();
 }
 

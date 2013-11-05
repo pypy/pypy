@@ -37,8 +37,8 @@ void stmgc_init_nursery(void)
     assert(d->nursery_base == NULL);
     d->nursery_base = stm_malloc(GC_NURSERY);       /* start of nursery */
     d->nursery_end = d->nursery_base + GC_NURSERY;  /* end of nursery */
-    *d->nursery_current_ref = d->nursery_base;           /* current position */
-    *d->nursery_nextlimit_ref = d->nursery_base;         /* next section limit */
+    stm_nursery_current = d->nursery_base;           /* current position */
+    stm_nursery_nextlimit = d->nursery_base;         /* next section limit */
     d->nursery_cleared = NC_REGULAR;
 
     dprintf(("minor: nursery is at [%p to %p]\n", d->nursery_base,
@@ -64,7 +64,7 @@ void stmgc_done_nursery(void)
 void stmgc_minor_collect_soon(void)
 {
     struct tx_descriptor *d = thread_descriptor;
-    *d->nursery_current_ref = d->nursery_end;
+    stm_nursery_current = d->nursery_end;
 }
 
 inline static gcptr allocate_nursery(size_t size, revision_t tid)
@@ -72,11 +72,11 @@ inline static gcptr allocate_nursery(size_t size, revision_t tid)
     /* if 'tid == -1', we must not collect */
     struct tx_descriptor *d = thread_descriptor;
     gcptr P;
-    char *cur = *d->nursery_current_ref;
+    char *cur = stm_nursery_current;
     char *end = cur + size;
     assert((size & 3) == 0);
-    *d->nursery_current_ref = end;
-    if (end > *d->nursery_nextlimit_ref) {
+    stm_nursery_current = end;
+    if (end > stm_nursery_nextlimit) {
         P = allocate_next_section(size, tid);
     }
     else {
@@ -593,7 +593,7 @@ static gcptr allocate_next_section(size_t allocate_size, revision_t tid)
        First fix 'nursery_current', left to a bogus value by the caller.
     */
     struct tx_descriptor *d = thread_descriptor;
-    *d->nursery_current_ref -= allocate_size;
+    stm_nursery_current -= allocate_size;
 
     /* Are we asking for a "reasonable" number of bytes, i.e. a value
        at most equal to one section?
@@ -613,8 +613,8 @@ static gcptr allocate_next_section(size_t allocate_size, revision_t tid)
     }
 
     /* Are we at the end of the nursery? */
-    if (*d->nursery_nextlimit_ref == d->nursery_end ||
-        *d->nursery_current_ref == d->nursery_end) {   // stmgc_minor_collect_soon()
+    if (stm_nursery_nextlimit == d->nursery_end ||
+        stm_nursery_current == d->nursery_end) {   // stmgc_minor_collect_soon()
         /* Yes */
         if (tid == -1)
             return NULL;    /* cannot collect */
@@ -630,12 +630,12 @@ static gcptr allocate_next_section(size_t allocate_size, revision_t tid)
 
     /* Clear the next section */
     if (d->nursery_cleared != NC_ALREADY_CLEARED)
-        memset(*d->nursery_nextlimit_ref, 0, GC_NURSERY_SECTION);
-    *d->nursery_nextlimit_ref += GC_NURSERY_SECTION;
+        memset(stm_nursery_nextlimit, 0, GC_NURSERY_SECTION);
+    stm_nursery_nextlimit += GC_NURSERY_SECTION;
 
     /* Return the object from there */
-    gcptr P = (gcptr)(*d->nursery_current_ref);
-    *d->nursery_current_ref += allocate_size;
+    gcptr P = (gcptr)(stm_nursery_current);
+    stm_nursery_current += allocate_size;
     assert(*d->nursery_current_ref <= *d->nursery_nextlimit_ref);
 
     P->h_tid = tid;

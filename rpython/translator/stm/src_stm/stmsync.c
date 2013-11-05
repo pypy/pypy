@@ -10,7 +10,7 @@ static unsigned long stm_regular_length_limit = 10000;
 static revision_t sync_required = 0;
 
 void stm_set_transaction_length(long length_max)
-{
+{                               /* save roots around this call! */
     BecomeInevitable("set_transaction_length");
     if (length_max <= 0) {
         length_max = 1;
@@ -43,7 +43,7 @@ _Bool stm_should_break_transaction(void)
                                    d->reads_size_limit_nonatomic));
     /* if is_inevitable(), reads_size_limit_nonatomic should be 0
        (and thus reads_size_limit too, if !d->atomic.) */
-    if (*d->active_ref == 2)
+    if (stm_active == 2)
         assert(d->reads_size_limit_nonatomic == 0);
 #endif
 
@@ -168,7 +168,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
            has configured 'reads_size_limit_nonatomic' to a smaller value.
            When such a shortened transaction succeeds, the next one will
            see its length limit doubled, up to the maximum. */
-        if (counter == 0 && *d->active_ref != 2) {
+        if (counter == 0 && stm_active != 2) {
             unsigned long limit = d->reads_size_limit_nonatomic;
             if (limit != 0 && limit < (stm_regular_length_limit >> 1))
                 limit = (limit << 1) | 1;
@@ -183,7 +183,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
             /* atomic transaction: a common case is that callback() returned
                even though we are atomic because we need a major GC.  For
                that case, release and reaquire the rw lock here. */
-            assert(*d->active_ref >= 1);
+            assert(stm_active >= 1);
             stm_possible_safe_point();
         }
 
@@ -218,7 +218,7 @@ void stm_transaction_break(void *buf, void (*longjmp_callback)(void *))
 {   /* must save roots around this call */
     struct tx_descriptor *d = thread_descriptor;
     if (d->atomic) {
-        assert(*d->active_ref >= 1);
+        assert(stm_active >= 1);
         stm_possible_safe_point();
     }
     else {
@@ -267,7 +267,7 @@ void stm_become_inevitable(const char *reason)
 int stm_in_transaction(void)
 {
     struct tx_descriptor *d = thread_descriptor;
-    return d && *d->active_ref;
+    return d && stm_active;
 }
 
 /************************************************************/
@@ -337,7 +337,7 @@ void stm_stop_all_other_threads(void)
 void stm_partial_commit_and_resume_other_threads(void)
 {                               /* push gc roots! */
     struct tx_descriptor *d = thread_descriptor;
-    assert(*d->active_ref == 2);
+    assert(stm_active == 2);
     int atomic = d->atomic;
 
     /* Give up atomicity during commit. This still works because
@@ -391,7 +391,7 @@ void stm_possible_safe_point(void)
 
     /* Warning, may block waiting for rwlock_in_transaction while another
        thread runs a major GC */
-    assert(*thread_descriptor->active_ref);
+    assert(stm_active);
     assert(in_single_thread != thread_descriptor);
 
     stm_stop_sharedlock();

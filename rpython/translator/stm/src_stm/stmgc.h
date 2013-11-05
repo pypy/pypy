@@ -136,7 +136,7 @@ int stm_in_transaction(void);
 /* change the default transaction length, and ask if now would be a good
    time to break the transaction (by returning from the 'callback' above
    with a positive value). */
-void stm_set_transaction_length(long length_max);
+void stm_set_transaction_length(long length_max); /* save roots! */
 _Bool stm_should_break_transaction(void);
 
 /* change the atomic counter by 'delta' and return the new value.  Used
@@ -163,7 +163,7 @@ extern __thread gcptr stm_thread_local_obj;
    stm_inspect_abort_info().  (XXX details not documented yet) */
 void stm_abort_info_push(gcptr obj, long fieldoffsets[]);
 void stm_abort_info_pop(long count);
-char *stm_inspect_abort_info(void);    /* turns inevitable */
+char *stm_inspect_abort_info(void);    /* turns inevitable, push roots! */
 
 /* mostly for debugging support */
 void stm_abort_and_retry(void);
