@@ -26,7 +26,11 @@ def create_builder(name, strtype, builder_cls):
         @unwrap_spec(s=strtype)
         def descr_append(self, space, s):
             self._check_done(space)
-            self.builder.append(s)
+            if len(s) == 1:
+                # the same but annotated as char
+                self.builder.append(s[0])
+            else:
+                self.builder.append(s)
 
         @unwrap_spec(s=strtype, start=int, end=int)
         def descr_append_slice(self, space, s, start, end):
