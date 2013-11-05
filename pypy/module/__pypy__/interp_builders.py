@@ -24,18 +24,10 @@ def create_builder(name, strtype, builder_cls):
         def descr__new__(space, w_subtype, size=-1):
             return W_Builder(space, size)
 
-        @jit.unroll_safe
-        def _append_multiple_chars(self, s):
-            for c in s:
-                self.builder.append(c)
-
         @unwrap_spec(s=strtype)
         def descr_append(self, space, s):
             self._check_done(space)
-            if jit.isconstant(len(s)) and len(s) < 5:
-                self._append_multiple_chars(s)
-            else:
-                self.builder.append(s)
+            self.builder.append(s)
 
         @unwrap_spec(s=strtype, start=int, end=int)
         def descr_append_slice(self, space, s, start, end):
