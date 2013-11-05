@@ -74,5 +74,6 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_complex_str_format(self):
         import numpy as np
         assert str(np.complex128(complex(1, float('nan')))) == '(1+nan*j)'
+        assert str(np.complex128(complex(1, float('-nan')))) == '(1+nan*j)'
         assert str(np.complex128(complex(1, float('inf')))) == '(1+inf*j)'
         assert str(np.complex128(complex(1, float('-inf')))) == '(1-inf*j)'

@@ -1034,7 +1034,7 @@ class ComplexFloating(object):
             return imag_str
 
         real_str = str_format(real)
-        op = '+' if rfloat.copysign(1, imag) > 0 else ''
+        op = '+' if imag >= 0 or rfloat.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     def fill(self, storage, width, box, start, stop, offset):
