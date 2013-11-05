@@ -65,6 +65,13 @@ class AppTestScalar(BaseNumpyAppTest):
         assert type(a) is np.int32
         assert a == 1
 
+    def test_squeeze(self):
+        import numpy as np
+        assert np.True_.squeeze() is np.True_
+        a = np.float32(1.0)
+        assert a.squeeze() is a
+        raises(TypeError, a.squeeze, 2)
+
     def test_attributes(self):
         import numpypy as np
         value = np.dtype('int64').type(12345)
