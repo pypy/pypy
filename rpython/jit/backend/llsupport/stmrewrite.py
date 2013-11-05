@@ -5,6 +5,8 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
+                                debug_print)
 
 #
 # STM Support
@@ -38,6 +40,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         
 
     def rewrite(self, operations):
+        debug_start("jit-stmrewrite-ops")
         # overridden method from parent class
         #
         insert_transaction_break = False
@@ -175,10 +178,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  fall-back  ----------
             self.fallback_inevitable(op)
+            debug_print("fallback for", op.repr())
             #
 
         # call_XX without guard_not_forced?
         assert not insert_transaction_break
+        debug_stop("jit-stmrewrite-ops")
         return self.newops
 
     def emitting_an_operation_that_can_collect(self):
