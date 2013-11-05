@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib import jit
 
 
 def create_builder(name, strtype, builder_cls):
@@ -23,10 +24,20 @@ def create_builder(name, strtype, builder_cls):
         def descr__new__(space, w_subtype, size=-1):
             return W_Builder(space, size)
 
+        @jit.unroll_safe
+        def _append_multiple_chars(self, s):
+            for c in s:
+                self.builder.append(c)
+
         @unwrap_spec(s=strtype)
         def descr_append(self, space, s):
             self._check_done(space)
-            self.builder.append(s)
+            if jit.is_constant(len(s)) and len(s) < 5:
+                self._append_multiple_chars(s)
+                # the same but annotated as char
+                self.builder.append(s[0])
+            else:
+                self.builder.append(s)
 
         @unwrap_spec(s=strtype, start=int, end=int)
         def descr_append_slice(self, space, s, start, end):

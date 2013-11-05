@@ -56,13 +56,32 @@ class AppTestScalar(BaseNumpyAppTest):
         assert b.round() == 1.0
         assert b.round(decimals=5) is b
 
+    def test_astype(self):
+        import numpy as np
+        a = np.bool_(True).astype(np.float32)
+        assert type(a) is np.float32
+        assert a == 1.0
+        a = np.bool_(True).astype('int32')
+        assert type(a) is np.int32
+        assert a == 1
+
+    def test_squeeze(self):
+        import numpy as np
+        assert np.True_.squeeze() is np.True_
+        a = np.float32(1.0)
+        assert a.squeeze() is a
+        raises(TypeError, a.squeeze, 2)
+
     def test_attributes(self):
         import numpypy as np
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
         assert value.itemsize == 8
+        assert value.nbytes == 8
         assert value.shape == ()
+        assert value.strides == ()
         assert value.ndim == 0
+        assert value.T is value
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np

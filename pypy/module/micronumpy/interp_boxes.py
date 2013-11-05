@@ -249,6 +249,12 @@ class W_GenericBox(W_Root):
         v = self.convert_to(self.get_dtype(space))
         return self.get_dtype(space).itemtype.round(v, decimals)
 
+    def descr_astype(self, space, w_dtype):
+        from pypy.module.micronumpy.interp_dtype import W_Dtype
+        dtype = space.interp_w(W_Dtype,
+            space.call_function(space.gettypefor(W_Dtype), w_dtype))
+        return self.convert_to(dtype)
+
     def descr_view(self, space, w_dtype):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
         dtype = space.interp_w(W_Dtype,
@@ -258,6 +264,9 @@ class W_GenericBox(W_Root):
                 "new type not compatible with array."))
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "view not implelemnted yet"))
+
+    def descr_self(self, space):
+        return self
 
     def descr_get_dtype(self, space):
         return self.get_dtype(space)
@@ -516,12 +525,17 @@ W_GenericBox.typedef = TypeDef("generic",
     ravel = interp2app(W_GenericBox.descr_ravel),
     round = interp2app(W_GenericBox.descr_round),
     conjugate = interp2app(W_GenericBox.descr_conjugate),
+    astype = interp2app(W_GenericBox.descr_astype),
     view = interp2app(W_GenericBox.descr_view),
+    squeeze = interp2app(W_GenericBox.descr_self),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
+    nbytes = GetSetProperty(W_GenericBox.descr_get_itemsize),
     shape = GetSetProperty(W_GenericBox.descr_get_shape),
+    strides = GetSetProperty(W_GenericBox.descr_get_shape),
     ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
+    T = GetSetProperty(W_GenericBox.descr_self),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
