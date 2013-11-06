@@ -529,12 +529,12 @@ class OptString(optimizer.Optimization):
                 if dst_virtual:
                     dst.setitem(index + dst_start, vresult)
                 else:
-                    op = ResOperation(mode.STRSETITEM, [
+                    new_op = ResOperation(mode.STRSETITEM, [
                         op.getarg(1),
                         ConstInt(index + dst_start),
                         vresult.force_box(self),
                     ], None)
-                    self.emit_operation(op)
+                    self.emit_operation(new_op)
         else:
             copy_str_content(self,
                 src.force_box(self),

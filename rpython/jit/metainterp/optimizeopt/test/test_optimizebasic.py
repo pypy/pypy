@@ -5125,14 +5125,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_str_copy_virtual_src_concrete_dst(self):
         ops = """
         [p0]
-        p1 = newstr(1)
+        p1 = newstr(2)
         strsetitem(p1, 0, 101)
-        copystrcontent(p1, p0, 0, 0, 1)
+        strsetitem(p1, 1, 102)
+        copystrcontent(p1, p0, 0, 0, 2)
         finish(p0)
         """
         expected = """
         [p0]
         strsetitem(p0, 0, 101)
+        strsetitem(p0, 1, 102)
         finish(p0)
         """
         self.optimize_strunicode_loop(ops, expected)
