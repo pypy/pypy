@@ -16,6 +16,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from rpython.jit.codewriter import heaptracker, longlong
+from rpython.rlib import rstm
 
 
 def giveup():
@@ -248,12 +249,17 @@ def compile_retrace(metainterp, greenkey, start,
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
+    if rgc.stm_is_enabled():
+        rstm.stop_all_other_threads()
     target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop)
 
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)
     record_loop_or_bridge(metainterp_sd, loop)
+    if rgc.stm_is_enabled():
+        rstm.partial_commit_and_resume_other_threads()
+
     return target_token
 
 def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
@@ -899,9 +905,13 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     if new_trace.operations[-1].getopnum() != rop.LABEL:
         # We managed to create a bridge.  Dispatch to resumekey to
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
+        if rgc.stm_is_enabled():
+            rstm.stop_all_other_threads()
         target_token = new_trace.operations[-1].getdescr()
         resumekey.compile_and_attach(metainterp, new_trace)
         record_loop_or_bridge(metainterp_sd, new_trace)
+        if rgc.stm_is_enabled():
+            rstm.partial_commit_and_resume_other_threads()
         return target_token
     else:
         metainterp.retrace_needed(new_trace)
