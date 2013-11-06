@@ -530,7 +530,7 @@ class OptString(optimizer.Optimization):
                     dst.setitem(index + dst_start, vresult)
                 else:
                     new_op = ResOperation(mode.STRSETITEM, [
-                        op.getarg(1),
+                        dst.force_box(self),
                         ConstInt(index + dst_start),
                         vresult.force_box(self),
                     ], None)
