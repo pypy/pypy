@@ -513,19 +513,20 @@ class OptString(optimizer.Optimization):
         srcstart = self.getvalue(op.getarg(2))
         dststart = self.getvalue(op.getarg(3))
         length = self.getvalue(op.getarg(4))
+        dst_virtual = (isinstance(dst, VStringPlainValue) and dst.is_virtual())
 
         if length.is_constant() and length.box.getint() == 0:
             return
         elif ((src.is_virtual() or src.is_constant()) and
               srcstart.is_constant() and dststart.is_constant() and
               length.is_constant() and
-              (length.force_box(self).getint() < 20 or (src.is_virtual() and dst.is_virtual()))):
+              (length.force_box(self).getint() < 20 or (src.is_virtual() and dst_virtual))):
             src_start = srcstart.force_box(self).getint()
             dst_start = dststart.force_box(self).getint()
             actual_length = length.force_box(self).getint()
             for index in range(actual_length):
                 vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
-                if isinstance(dst, VStringPlainValue) and dst.is_virtual():
+                if dst_virtual:
                     dst.setitem(index + dst_start, vresult)
                 else:
                     op = ResOperation(mode.STRSETITEM, [
