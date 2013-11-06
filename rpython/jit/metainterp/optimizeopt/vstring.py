@@ -154,6 +154,7 @@ class VStringPlainValue(VAbstractStringValue):
         return self._chars[index]     # may return None!
 
     def setitem(self, index, charvalue):
+        assert self.is_virtual()
         assert isinstance(charvalue, optimizer.OptValue)
         assert self._chars[index] is None, (
             "setitem() on an already-initialized location")
@@ -524,7 +525,7 @@ class OptString(optimizer.Optimization):
             actual_length = length.force_box(self).getint()
             for index in range(actual_length):
                 vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
-                if isinstance(dst, VStringPlainValue):
+                if isinstance(dst, VStringPlainValue) and dst.is_virtual():
                     dst.setitem(index + dst_start, vresult)
                 else:
                     op = ResOperation(mode.STRSETITEM, [
