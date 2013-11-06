@@ -517,13 +517,11 @@ class OptString(optimizer.Optimization):
             return
         elif ((src.is_virtual() or src.is_constant()) and
               srcstart.is_constant() and dststart.is_constant() and
-              length.is_constant()):
+              length.is_constant() and
+              (length.force_box(self).getint() < 20 or (src.is_virtual() and dst.is_virtual()))):
             src_start = srcstart.force_box(self).getint()
             dst_start = dststart.force_box(self).getint()
-            # 'length' must be <= MAX_CONST_LEN here, because 'dst' is a
-            # VStringPlainValue, which is limited to MAX_CONST_LEN.
             actual_length = length.force_box(self).getint()
-            assert actual_length <= MAX_CONST_LEN
             for index in range(actual_length):
                 vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
                 if isinstance(dst, VStringPlainValue):
