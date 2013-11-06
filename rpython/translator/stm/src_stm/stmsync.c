@@ -78,11 +78,17 @@ void stm_set_max_aborts(int max_aborts)
     d->max_aborts = max_aborts;
 }
 
+static void start_exclusivelock(void);
+static void stop_exclusivelock(void);
 int stm_enter_callback_call(void)
 {
     int token = (thread_descriptor == NULL);
     dprintf(("enter_callback_call(tok=%d)\n", token));
     if (token == 1) {
+        /* acquire exclusive lock. Just to be safe... 
+           XXX: remove again when sure it is not needed
+                (interaction with stop_all_other_threads()) */
+        start_exclusivelock();
         stmgcpage_acquire_global_lock();
 #ifdef STM_BARRIER_COUNT
         static int seen = 0;
@@ -95,6 +101,7 @@ int stm_enter_callback_call(void)
         stmgc_init_nursery();
         init_shadowstack();
         stmgcpage_release_global_lock();
+        stop_exclusivelock();
     }
     BeginInevitableTransaction(0);
     return token;
@@ -109,11 +116,13 @@ void stm_leave_callback_call(int token)
     CommitTransaction(0);
 
     if (token == 1) {
+        start_exclusivelock();
         stmgcpage_acquire_global_lock();
         done_shadowstack();
         stmgc_done_nursery();
         DescriptorDone();
         stmgcpage_release_global_lock();
+        stop_exclusivelock();
     }
 }
 
@@ -293,6 +302,7 @@ void stm_start_sharedlock(void)
 
 void stm_stop_sharedlock(void)
 {
+    assert(in_single_thread == NULL);
     dprintf(("stm_stop_sharedlock\n"));
     //assert(stmgc_nursery_hiding(thread_descriptor, 1));
     int err = pthread_rwlock_unlock(&rwlock_shared);
@@ -312,6 +322,7 @@ static void start_exclusivelock(void)
 
 static void stop_exclusivelock(void)
 {
+    assert(in_single_thread == NULL);
     dprintf(("stop_exclusivelock\n"));
     int err = pthread_rwlock_unlock(&rwlock_shared);
     if (err != 0)
@@ -320,17 +331,22 @@ static void stop_exclusivelock(void)
 }
 
 
+static int single_thread_nesting = 0;
 void stm_stop_all_other_threads(void)
 {                               /* push gc roots! */
     struct tx_descriptor *d;
 
     BecomeInevitable("stop_all_other_threads");
-    stm_start_single_thread();
-    
-    for (d = stm_tx_head; d; d = d->tx_next) {
-        if (*d->active_ref == 1) // && d != thread_descriptor) <- TRUE
-            AbortTransactionAfterCollect(d, ABRT_OTHER_THREADS);
+    if (!single_thread_nesting) {
+        assert(in_single_thread == NULL);
+        stm_start_single_thread();
+        
+        for (d = stm_tx_head; d; d = d->tx_next) {
+            if (*d->active_ref == 1) // && d != thread_descriptor) <- TRUE
+                AbortTransactionAfterCollect(d, ABRT_OTHER_THREADS);
+        }
     }
+    single_thread_nesting++;
 }
 
 
@@ -340,20 +356,23 @@ void stm_partial_commit_and_resume_other_threads(void)
     assert(stm_active == 2);
     int atomic = d->atomic;
 
-    /* Give up atomicity during commit. This still works because
-       we keep the inevitable status, thereby being guaranteed to 
-       commit before all others. */
-    stm_atomic(-atomic);
-
-    /* Commit and start new inevitable transaction while never
-       giving up the inevitable status. */
-    CommitTransaction(1);       /* 1=stay_inevitable! */
-    BeginInevitableTransaction(1);
-
-    /* restore atomic-count */
-    stm_atomic(atomic);
-
-    stm_stop_single_thread();
+    single_thread_nesting--;
+    if (single_thread_nesting == 0) {
+        /* Give up atomicity during commit. This still works because
+           we keep the inevitable status, thereby being guaranteed to 
+           commit before all others. */
+        stm_atomic(-atomic);
+        
+        /* Commit and start new inevitable transaction while never
+           giving up the inevitable status. */
+        CommitTransaction(1);       /* 1=stay_inevitable! */
+        BeginInevitableTransaction(1);
+        
+        /* restore atomic-count */
+        stm_atomic(atomic);
+        
+        stm_stop_single_thread();
+    }
 }
 
 void stm_start_single_thread(void)
