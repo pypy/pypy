@@ -271,18 +271,19 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         opnum = op.getopnum()
         descr = op.getdescr()
         target_category = 'R'
-        if opnum == rop.GETFIELD_GC:
-            assert isinstance(descr, FieldDescr)
-            if descr.is_immutable():
-                target_category = 'I'
-        elif opnum == rop.GETINTERIORFIELD_GC:
-            assert isinstance(descr, InteriorFieldDescr)
-            if descr.is_immutable():
-                target_category = 'I'
-        elif opnum == rop.GETARRAYITEM_GC:
-            assert isinstance(descr, ArrayDescr)
-            if descr.is_immutable():
-                target_category = 'I'
+        # XXX: review:
+        # if opnum == rop.GETFIELD_GC:
+        #     assert isinstance(descr, FieldDescr)
+        #     if descr.is_immutable():
+        #         target_category = 'I'
+        # elif opnum == rop.GETINTERIORFIELD_GC:
+        #     assert isinstance(descr, InteriorFieldDescr)
+        #     if descr.is_immutable():
+        #         target_category = 'I'
+        # elif opnum == rop.GETARRAYITEM_GC:
+        #     assert isinstance(descr, ArrayDescr)
+        #     if descr.is_immutable():
+        #         target_category = 'I'
                 
         self.handle_category_operations(op, target_category)
 

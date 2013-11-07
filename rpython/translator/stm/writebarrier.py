@@ -85,8 +85,8 @@ class BlockTransformer(object):
                 # field even on a stub
                 pass
 
-            elif (op.opname in ('getarraysize', 'getinteriorarraysize')
-                or (is_getter and is_immutable(op))):
+            elif op.opname in ('getarraysize', 'getinteriorarraysize'):
+                # XXX: or (is_getter and is_immutable(op))):
                 # we can't leave getarraysize or the immutable getfields
                 # fully unmodified: we need at least immut_read_barrier
                 # to detect stubs.
