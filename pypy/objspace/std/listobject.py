@@ -1336,10 +1336,9 @@ class AbstractUnwrappedStrategy(object):
                 l[index] = self.unwrap(w_item)
             except IndexError:
                 raise
-            return
-
-        w_list.switch_to_object_strategy()
-        w_list.setitem(index, w_item)
+        else:
+            w_list.switch_to_object_strategy()
+            w_list.setitem(index, w_item)
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         assert slicelength >= 0
