@@ -99,7 +99,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread"),
     BoolOption("stm", "enable use of Software Transactional Memory",
-               default=False, cmdline="--stm",
+               default=True, cmdline="--stm",
                suggests=[("translation.gc", "stmgc")],   # Boehm works too
                requires=[("translation.thread", True),
                          ("translation.continuation", False),  # XXX for now
