@@ -34,8 +34,9 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy", "_ffi",
+     "_collections", "_multibytecodec", "_ffi",
      "_continuation", "_cffi_backend", "_csv", "cppyy", "_pypyjson"]
+    # stm disabled "micronumpy", caused translation problems once..
 ))
 
 translation_modules = default_modules.copy()
