@@ -2,13 +2,14 @@
 Pointers.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt, wrap_oserror
-
 from rpython.rlib import rposix
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rtyper.annlowlevel import llstr, llunicode
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw, copy_unicode_to_raw
 
+from pypy.interpreter.error import OperationError, operationerrfmt, wrap_oserror
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
@@ -90,8 +91,7 @@ class W_CTypePtrOrArray(W_CType):
                                       "initializer string is too long for '%s'"
                                       " (got %d characters)",
                                       self.name, n)
-            for i in range(n):
-                cdata[i] = s[i]
+            copy_string_to_raw(llstr(s), cdata, 0, n)
             if n != self.length:
                 cdata[n] = '\x00'
         elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar):
@@ -105,8 +105,7 @@ class W_CTypePtrOrArray(W_CType):
                                       " (got %d characters)",
                                       self.name, n)
             unichardata = rffi.cast(rffi.CWCHARP, cdata)
-            for i in range(n):
-                unichardata[i] = s[i]
+            copy_unicode_to_raw(llunicode(s), unichardata, 0, n)
             if n != self.length:
                 unichardata[n] = u'\x00'
         else:
@@ -157,7 +156,6 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
         return cdataobj.W_CData(self.space, ptrdata, self)
 
     def convert_from_object(self, cdata, w_ob):
-        space = self.space
         if not isinstance(w_ob, cdataobj.W_CData):
             raise self._convert_error("cdata pointer", w_ob)
         other = w_ob.ctype
@@ -298,7 +296,6 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def convert_argument_from_object(self, cdata, w_ob):
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
-        space = self.space
         result = (not isinstance(w_ob, cdataobj.W_CData) and
                   self._prepare_pointer_call_argument(w_ob, cdata))
         if result == 0:
