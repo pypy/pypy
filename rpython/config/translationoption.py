@@ -99,7 +99,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread"),
     BoolOption("stm", "enable use of Software Transactional Memory",
-               default=True, cmdline="--stm",
+               default=False, cmdline="--stm",
                suggests=[("translation.gc", "stmgc")],   # Boehm works too
                requires=[("translation.thread", True),
                          ("translation.continuation", False),  # XXX for now
@@ -325,7 +325,7 @@ OPT_TABLE = {
     'mem':  DEFL_GC + '  lowinline     remove_asserts    removetypeptr',
     '2':    DEFL_GC + '  extraopts',
     '3':    DEFL_GC + '  extraopts     remove_asserts',
-    'jit':  DEFL_GC + '  extraopts     jit',
+    'jit':  'stmgc  extraopts     jit  stm',
     }
 
 def set_opt_level(config, level):
@@ -363,6 +363,8 @@ def set_opt_level(config, level):
             config.translation.suggest(jit=True)
         elif word == 'removetypeptr':
             config.translation.suggest(gcremovetypeptr=True)
+        elif word == 'stm':
+            config.translation.suggest(stm=True)
         else:
             raise ValueError(word)
 
