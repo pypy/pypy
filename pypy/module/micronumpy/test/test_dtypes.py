@@ -268,6 +268,42 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
 
+    def test_newbyteorder(self):
+        import numpypy as np
+        import sys
+        sys_is_le = sys.byteorder == 'little'
+        native_code = sys_is_le and '<' or '>'
+        swapped_code = sys_is_le and '>' or '<'
+        native_dt = np.dtype(native_code+'i2')
+        swapped_dt = np.dtype(swapped_code+'i2')
+        assert native_dt.newbyteorder('S') == swapped_dt
+        assert native_dt.newbyteorder() == swapped_dt
+        assert native_dt == swapped_dt.newbyteorder('S')
+        assert native_dt == swapped_dt.newbyteorder('=')
+        assert native_dt == swapped_dt.newbyteorder('N')
+        assert native_dt == native_dt.newbyteorder('|')
+        assert np.dtype('<i2') == native_dt.newbyteorder('<')
+        assert np.dtype('<i2') == native_dt.newbyteorder('L')
+        assert np.dtype('>i2') == native_dt.newbyteorder('>')
+        assert np.dtype('>i2') == native_dt.newbyteorder('B')
+
+        for t in [np.int_, np.float_]:
+            dt = np.dtype(t)
+            dt1 = dt.newbyteorder().newbyteorder()
+            dt2 = dt.newbyteorder("<")
+            dt3 = dt.newbyteorder(">")
+            assert dt.byteorder != dt1.byteorder
+            #assert hash(dt) == hash(dt1)
+            if dt == dt2:
+                assert dt.byteorder != dt2.byteorder
+                #assert hash(dt) == hash(dt2)
+            else:
+                assert dt.byteorder != dt3.byteorder
+                #assert hash(dt) == hash(dt3)
+
+            exc = raises(ValueError, dt.newbyteorder, 'XX')
+            assert exc.value[0] == 'XX is an unrecognized byteorder'
+
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
         import numpypy as numpy

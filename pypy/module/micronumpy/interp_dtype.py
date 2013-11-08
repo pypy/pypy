@@ -9,6 +9,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import jit
+from pypy.module.micronumpy.conversion_utils import byteorder_converter
 from pypy.module.micronumpy.constants import *
 
 
@@ -303,6 +304,17 @@ class W_Dtype(W_Root):
         fields = space.getitem(w_data, space.wrap(4))
         self.set_fields(space, fields)
 
+    @unwrap_spec(new_order=str)
+    def descr_newbyteorder(self, space, new_order=NPY_SWAP):
+        newendian = byteorder_converter(space, new_order)
+        endian = self.byteorder
+        if endian != NPY_IGNORE:
+            if newendian == NPY_SWAP:
+                endian = NPY_OPPBYTE if self.is_native() else NPY_NATBYTE
+            elif newendian != NPY_IGNORE:
+                endian = newendian
+        return W_Dtype(self.itemtype, self.num, self.kind, self.name, self.char, self.w_box_type, endian)
+
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
     fields = {}
@@ -400,6 +412,7 @@ W_Dtype.typedef = TypeDef("dtype",
 
     __reduce__ = interp2app(W_Dtype.descr_reduce),
     __setstate__ = interp2app(W_Dtype.descr_setstate),
+    newbyteorder = interp2app(W_Dtype.descr_newbyteorder),
 
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
