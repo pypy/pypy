@@ -313,7 +313,8 @@ class W_Dtype(W_Root):
                 endian = NPY_OPPBYTE if self.is_native() else NPY_NATBYTE
             elif newendian != NPY_IGNORE:
                 endian = newendian
-        return W_Dtype(self.itemtype, self.num, self.kind, self.name, self.char, self.w_box_type, endian)
+        itemtype = self.itemtype.__class__(endian in (NPY_NATIVE, NPY_NATBYTE))
+        return W_Dtype(itemtype, self.num, self.kind, self.name, self.char, self.w_box_type, endian)
 
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)

@@ -304,6 +304,13 @@ class AppTestDtypes(BaseAppTestDtypes):
             exc = raises(ValueError, dt.newbyteorder, 'XX')
             assert exc.value[0] == 'XX is an unrecognized byteorder'
 
+        for t in [np.int_, np.float_]:
+            dt1 = np.dtype(t)
+            dt2 = dt1.newbyteorder()
+            s1 = np.array(123, dtype=dt1).tostring()
+            s2 = np.array(123, dtype=dt2).byteswap().tostring()
+            assert s1 == s2
+
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
         import numpypy as numpy
