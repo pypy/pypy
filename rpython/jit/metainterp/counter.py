@@ -18,11 +18,20 @@ class JitCounter:
         while (UINT32MAX >> self.shift) != size - 1:
             self.shift += 1
             assert self.shift < 999, "size is not a power of two <= 2**31"
-        self.timetable = lltype.malloc(rffi.CArray(rffi.FLOAT), size,
+        #
+        # The table of timings.  The first half is used for starting the
+        # compilation of new loops.  The second half is used for turning
+        # failing guards into bridges.  The two halves are split to avoid
+        # too much interference.
+        self.timetablesize = size * 2
+        self.timetable = lltype.malloc(rffi.CArray(rffi.FLOAT),
+                                       self.timetablesize,
                                        flavor='raw', zero=True,
                                        track_allocation=False)
-        self.celltable = [None] * size
         self._nextindex = r_uint(0)
+        #
+        # The table of JitCell entries, recording already-compiled loops
+        self.celltable = [None] * size
         #
         if translator is not None:
             class Glob:
@@ -60,6 +69,10 @@ class JitCounter:
         result = self._nextindex
         self._nextindex = (result + 1) & self.get_index(-1)
         return result
+
+    def in_second_half(self, index):
+        assert index < r_uint(self.size)
+        return self.size + index
 
     def tick(self, index, increment):
         counter = float(self.timetable[index]) + increment
@@ -112,7 +125,7 @@ class JitCounter:
         # important in corner cases where we would suddenly compile more
         # than one loop because all counters reach the bound at the same
         # time, but where compiling all but the first one is pointless.
-        size = self.size
+        size = self.timetablesize
         pypy__decay_jit_counters(self.timetable, self.decay_by_mult, size)
 
 
@@ -151,6 +164,10 @@ class DeterministicJitCounter(JitCounter):
     def decay_all_counters(self):
         "NOT_RPYTHON"
         pass
+
+    def in_second_half(self, index):
+        "NOT_RPYTHON"
+        return index + 12345
 
     def _clear_all(self):
         self.timetable.clear()
