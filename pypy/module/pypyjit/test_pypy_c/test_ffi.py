@@ -327,4 +327,5 @@ class Test__ffi(BaseTestPyPyC):
 
         log = self.run(main, [300])
         loop, = log.loops_by_filename(self.filepath)
-        assert False, "XXX: fill this in"
+        assert loop.match("""
+        """)
