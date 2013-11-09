@@ -192,10 +192,6 @@ class ConstPointerType(PointerType):
     _base_pattern       = " const *&"
     _base_pattern_array = "(const *&)"
 
-    def build_backend_type(self, ffi, finishlist):
-        BPtr = PointerType(self.totype).get_cached_btype(ffi, finishlist)
-        return BPtr
-
 const_voidp_type = ConstPointerType(void_type)
 
 
@@ -216,10 +212,10 @@ class ArrayType(BaseType):
         self.item = item
         self.length = length
         #
-        if self.length is None:
+        if length is None or length == '...':
             brackets = '&[]'
         else:
-            brackets = '&[%d]' % self.length
+            brackets = '&[%d]' % length
         self.c_name_with_marker = (
             self.item.c_name_with_marker.replace('&', brackets))
 
@@ -227,6 +223,10 @@ class ArrayType(BaseType):
         return ArrayType(self.item, newlength)
 
     def build_backend_type(self, ffi, finishlist):
+        if self.length == '...':
+            from . import api
+            raise api.CDefError("cannot render the type %r: unknown length" %
+                                (self,))
         self.item.get_cached_btype(ffi, finishlist)   # force the item BType
         BPtrItem = PointerType(self.item).get_cached_btype(ffi, finishlist)
         return global_cache(self, ffi, 'new_array_type', BPtrItem, self.length)
@@ -252,6 +252,7 @@ class StructOrUnionOrEnum(BaseTypeByIdentity):
 class StructOrUnion(StructOrUnionOrEnum):
     fixedlayout = None
     completed = False
+    partial = False
 
     def __init__(self, name, fldnames, fldtypes, fldbitsize):
         self.name = name
@@ -303,20 +304,21 @@ class StructOrUnion(StructOrUnionOrEnum):
             return    # not completing it: it's an opaque struct
         #
         self.completed = 1
-        fldtypes = tuple(tp.get_cached_btype(ffi, finishlist)
-                         for tp in self.fldtypes)
         #
         if self.fixedlayout is None:
+            fldtypes = [tp.get_cached_btype(ffi, finishlist)
+                        for tp in self.fldtypes]
             lst = list(zip(self.fldnames, fldtypes, self.fldbitsize))
             ffi._backend.complete_struct_or_union(BType, lst, self)
             #
         else:
+            fldtypes = []
             fieldofs, fieldsize, totalsize, totalalignment = self.fixedlayout
             for i in range(len(self.fldnames)):
                 fsize = fieldsize[i]
                 ftype = self.fldtypes[i]
                 #
-                if isinstance(ftype, ArrayType) and ftype.length is None:
+                if isinstance(ftype, ArrayType) and ftype.length == '...':
                     # fix the length to match the total size
                     BItemType = ftype.item.get_cached_btype(ffi, finishlist)
                     nlen, nrest = divmod(fsize, ffi.sizeof(BItemType))
@@ -327,18 +329,20 @@ class StructOrUnion(StructOrUnionOrEnum):
                     ftype = ftype.resolve_length(nlen)
                     self.fldtypes = (self.fldtypes[:i] + (ftype,) +
                                      self.fldtypes[i+1:])
-                    BArrayType = ftype.get_cached_btype(ffi, finishlist)
-                    fldtypes = (fldtypes[:i] + (BArrayType,) +
-                                fldtypes[i+1:])
-                    continue
                 #
-                bitemsize = ffi.sizeof(fldtypes[i])
-                if bitemsize != fsize:
-                    self._verification_error(
-                        "field '%s.%s' is declared as %d bytes, but is "
-                        "really %d bytes" % (self.name,
-                                             self.fldnames[i] or '{}',
-                                             bitemsize, fsize))
+                BFieldType = ftype.get_cached_btype(ffi, finishlist)
+                if isinstance(ftype, ArrayType) and ftype.length is None:
+                    assert fsize == 0
+                else:
+                    bitemsize = ffi.sizeof(BFieldType)
+                    if bitemsize != fsize:
+                        self._verification_error(
+                            "field '%s.%s' is declared as %d bytes, but is "
+                            "really %d bytes" % (self.name,
+                                                 self.fldnames[i] or '{}',
+                                                 bitemsize, fsize))
+                fldtypes.append(BFieldType)
+            #
             lst = list(zip(self.fldnames, fldtypes, self.fldbitsize, fieldofs))
             ffi._backend.complete_struct_or_union(BType, lst, self,
                                                   totalsize, totalalignment)
@@ -348,11 +352,6 @@ class StructOrUnion(StructOrUnionOrEnum):
         from .ffiplatform import VerificationError
         raise VerificationError(msg)
 
-
-class StructType(StructOrUnion):
-    kind = 'struct'
-    partial = False
-
     def check_not_partial(self):
         if self.partial and self.fixedlayout is None:
             from . import ffiplatform
@@ -361,18 +360,17 @@ class StructType(StructOrUnion):
     def build_backend_type(self, ffi, finishlist):
         self.check_not_partial()
         finishlist.append(self)
-        
-        return global_cache(self, ffi, 'new_struct_type',
+        #
+        return global_cache(self, ffi, 'new_%s_type' % self.kind,
                             self.get_official_name(), key=self)
+
+
+class StructType(StructOrUnion):
+    kind = 'struct'
 
 
 class UnionType(StructOrUnion):
     kind = 'union'
-
-    def build_backend_type(self, ffi, finishlist):
-        finishlist.append(self)
-        return global_cache(self, ffi, 'new_union_type',
-                            self.get_official_name(), key=self)
 
 
 class EnumType(StructOrUnionOrEnum):
@@ -386,6 +384,12 @@ class EnumType(StructOrUnionOrEnum):
         self.enumvalues = enumvalues
         self.baseinttype = baseinttype
         self.build_c_name_with_marker()
+
+    def force_the_name(self, forcename):
+        StructOrUnionOrEnum.force_the_name(self, forcename)
+        if self.forcename is None:
+            name = self.get_official_name()
+            self.forcename = '$' + name.replace(' ', '_')
 
     def check_not_partial(self):
         if self.partial and not self.partial_resolved:

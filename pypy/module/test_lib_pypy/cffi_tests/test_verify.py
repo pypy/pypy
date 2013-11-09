@@ -7,17 +7,20 @@ from pypy.module.test_lib_pypy.cffi_tests.support import *
 
 if sys.platform == 'win32':
     pass      # no obvious -Werror equivalent on MSVC
-elif (sys.platform == 'darwin' and
-      [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
-    pass      # recent MacOSX come with clang by default, and passing some
-              # flags from the interpreter (-mno-fused-madd) generates a
-              # warning --- which is interpreted as an error with -Werror
 else:
-    # assume a standard GCC
+    if (sys.platform == 'darwin' and
+          [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
+        # special things for clang
+        extra_compile_args = [
+            '-Werror', '-Qunused-arguments', '-Wno-error=shorten-64-to-32']
+    else:
+        # assume a standard gcc
+        extra_compile_args = ['-Werror']
+
     class FFI(FFI):
         def verify(self, *args, **kwds):
             return super(FFI, self).verify(
-                *args, extra_compile_args=['-Werror'], **kwds)
+                *args, extra_compile_args=extra_compile_args, **kwds)
 
 def setup_module():
     import cffi.verifier
@@ -477,32 +480,71 @@ def test_struct_array_field():
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s.a) == 17 * ffi.sizeof('int')
 
-def test_struct_array_guess_length():
+def test_struct_array_no_length():
     ffi = FFI()
-    ffi.cdef("struct foo_s { int a[]; ...; };")    # <= no declared length
-    ffi.verify("struct foo_s { int x; int a[17]; int y; };")
-    assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
-    s = ffi.new("struct foo_s *")
-    assert ffi.sizeof(s.a) == 17 * ffi.sizeof('int')
-
-def test_struct_array_guess_length_2():
-    ffi = FFI()
-    ffi.cdef("struct foo_s { int a[]; ...; };\n"    # <= no declared length
+    ffi.cdef("struct foo_s { int a[]; int y; ...; };\n"
              "int bar(struct foo_s *);\n")
     lib = ffi.verify("struct foo_s { int x; int a[17]; int y; };\n"
                      "int bar(struct foo_s *f) { return f->a[14]; }\n")
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
+    assert ffi.typeof(s.a) is ffi.typeof('int *')   # because no length
     s.a[14] = 4242
     assert lib.bar(s) == 4242
+    # with no declared length, out-of-bound accesses are not detected
+    s.a[17] = -521
+    assert s.y == s.a[17] == -521
+    #
+    s = ffi.new("struct foo_s *", {'a': list(range(17))})
+    assert s.a[16] == 16
+    # overflows at construction time not detected either
+    s = ffi.new("struct foo_s *", {'a': list(range(18))})
+    assert s.y == s.a[17] == 17
 
-def test_struct_array_guess_length_3():
+def test_struct_array_guess_length():
     ffi = FFI()
     ffi.cdef("struct foo_s { int a[...]; };")
     ffi.verify("struct foo_s { int x; int a[17]; int y; };")
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s.a) == 17 * ffi.sizeof('int')
+    py.test.raises(IndexError, 's.a[17]')
+
+def test_struct_array_c99_1():
+    if sys.platform == 'win32':
+        py.test.skip("requires C99")
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int x; int a[]; };")
+    ffi.verify("struct foo_s { int x; int a[]; };")
+    assert ffi.sizeof('struct foo_s') == 1 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242, 4])
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')   # the same in C
+    assert s.a[3] == 0
+    s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+    assert s.a[3] == -10
+    s = ffi.new("struct foo_s *")
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242])
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+
+def test_struct_array_c99_2():
+    if sys.platform == 'win32':
+        py.test.skip("requires C99")
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int x; int a[]; ...; };")
+    ffi.verify("struct foo_s { int x, y; int a[]; };")
+    assert ffi.sizeof('struct foo_s') == 2 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242, 4])
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert s.a[3] == 0
+    s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert s.a[3] == -10
+    s = ffi.new("struct foo_s *")
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242])
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
 
 def test_struct_ptr_to_array_field():
     ffi = FFI()
@@ -613,6 +655,21 @@ def test_enum_usage():
     assert s.x == 1
     s.x = 17
     assert s.x == 17
+
+def test_anonymous_enum():
+    ffi = FFI()
+    ffi.cdef("enum { EE1 }; enum { EE2, EE3 };")
+    lib = ffi.verify("enum { EE1 }; enum { EE2, EE3 };")
+    assert lib.EE1 == 0
+    assert lib.EE2 == 0
+    assert lib.EE3 == 1
+
+def test_nonfull_anonymous_enum():
+    ffi = FFI()
+    ffi.cdef("enum { EE1, ... }; enum { EE3, ... };")
+    lib = ffi.verify("enum { EE2, EE1 }; enum { EE3 };")
+    assert lib.EE1 == 1
+    assert lib.EE3 == 0
 
 def test_nonfull_enum_syntax2():
     ffi = FFI()
@@ -1160,6 +1217,36 @@ def test_ffi_union():
     ffi.cdef("union foo_u { char x; long *z; };")
     ffi.verify("union foo_u { char x; int y; long *z; };")
 
+def test_ffi_union_partial():
+    ffi = FFI()
+    ffi.cdef("union foo_u { char x; ...; };")
+    ffi.verify("union foo_u { char x; int y; };")
+    assert ffi.sizeof("union foo_u") == 4
+
+def test_ffi_union_with_partial_struct():
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int x; ...; }; union foo_u { struct foo_s s; };")
+    ffi.verify("struct foo_s { int a; int x; }; "
+               "union foo_u { char b[32]; struct foo_s s; };")
+    assert ffi.sizeof("struct foo_s") == 8
+    assert ffi.sizeof("union foo_u") == 32
+
+def test_ffi_union_partial_2():
+    ffi = FFI()
+    ffi.cdef("typedef union { char x; ...; } u1;")
+    ffi.verify("typedef union { char x; int y; } u1;")
+    assert ffi.sizeof("u1") == 4
+
+def test_ffi_union_with_partial_struct_2():
+    ffi = FFI()
+    ffi.cdef("typedef struct { int x; ...; } s1;"
+             "typedef union { s1 s; } u1;")
+    ffi.verify("typedef struct { int a; int x; } s1; "
+               "typedef union { char b[32]; s1 s; } u1;")
+    assert ffi.sizeof("s1") == 8
+    assert ffi.sizeof("u1") == 32
+    assert ffi.offsetof("u1", "s") == 0
+
 def test_ffi_struct_packed():
     if sys.platform == 'win32':
         py.test.skip("needs a GCC extension")
@@ -1423,7 +1510,12 @@ def test_global_array_with_dotdotdot_length():
     ffi = FFI()
     ffi.cdef("int fooarray[...];")
     lib = ffi.verify("int fooarray[50];")
-    assert repr(lib.fooarray).startswith("<cdata 'int *'")
+    assert repr(lib.fooarray).startswith("<cdata 'int[50]'")
+
+def test_bad_global_array_with_dotdotdot_length():
+    ffi = FFI()
+    ffi.cdef("int fooarray[...];")
+    py.test.raises(VerificationError, ffi.verify, "char fooarray[23];")
 
 def test_struct_containing_struct():
     ffi = FFI()
@@ -1635,3 +1727,26 @@ def test_dir():
                         #define FOO 42""")
     assert dir(lib) == ['AA', 'BB', 'FOO', 'somearray',
                         'somefunc', 'somevar', 'sv2']
+
+def test_typeof_func_with_struct_argument():
+    ffi = FFI()
+    ffi.cdef("""struct s { int a; }; int foo(struct s);""")
+    lib = ffi.verify("""struct s { int a; };
+                        int foo(struct s x) { return x.a; }""")
+    s = ffi.new("struct s *", [-1234])
+    m = lib.foo(s[0])
+    assert m == -1234
+    assert repr(ffi.typeof(lib.foo)) == "<ctype 'int(*)(struct s)'>"
+
+def test_bug_const_char_ptr_array_1():
+    ffi = FFI()
+    ffi.cdef("""const char *a[...];""")
+    lib = ffi.verify("""const char *a[5];""")
+    assert repr(ffi.typeof(lib.a)) == "<ctype 'char *[5]'>"
+
+def test_bug_const_char_ptr_array_2():
+    from cffi import FFI     # ignore warnings
+    ffi = FFI()
+    ffi.cdef("""const int a[];""")
+    lib = ffi.verify("""const int a[5];""")
+    assert repr(ffi.typeof(lib.a)) == "<ctype 'int *'>"

@@ -185,3 +185,13 @@ class TestBitfield:
         ffi.cdef("typedef struct { float x; } foo_t;")
         p = ffi.new("foo_t *", [5.2])
         assert repr(p).startswith("<cdata 'foo_t *' ")
+
+    def test_struct_array_no_length(self):
+        ffi = FFI()
+        ffi.cdef("struct foo_s { int x; int a[]; };")
+        p = ffi.new("struct foo_s *", [100, [200, 300, 400]])
+        assert p.x == 100
+        assert ffi.typeof(p.a) is ffi.typeof("int *")   # no length available
+        assert p.a[0] == 200
+        assert p.a[1] == 300
+        assert p.a[2] == 400
