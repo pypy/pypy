@@ -264,3 +264,19 @@ class TestPosix(BaseRtypingTest):
             res = self.interpret(f, [])
             a, b, c = os.getresgid()
             assert res == a + b * 37 + c * 1291
+
+    if hasattr(os, 'setresuid'):
+        def test_setresuid(self):
+            def f():
+                a, b, c = os.getresuid()
+                a = (a + 1) - 1
+                os.setresuid(a, b, c)
+            self.interpret(f, [])
+
+    if hasattr(os, 'setresgid'):
+        def test_setresgid(self):
+            def f():
+                a, b, c = os.getresgid()
+                a = (a + 1) - 1
+                os.setresgid(a, b, c)
+            self.interpret(f, [])

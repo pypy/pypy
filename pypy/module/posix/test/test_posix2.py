@@ -670,6 +670,18 @@ class AppTestPosix:
             res = os.getresgid()
             assert len(res) == 3
 
+    if hasattr(os, 'setresuid'):
+        def test_os_setresuid(self):
+            os = self.posix
+            a, b, c = os.getresuid()
+            os.setresuid(a, b, c)
+
+    if hasattr(os, 'setresgid'):
+        def test_os_setresgid(self):
+            os = self.posix
+            a, b, c = os.getresgid()
+            os.setresgid(a, b, c)
+
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):
             os = self.posix

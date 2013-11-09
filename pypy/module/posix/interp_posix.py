@@ -1170,6 +1170,28 @@ def getresgid(space):
                            space.wrap(egid),
                            space.wrap(sgid)])
 
+@unwrap_spec(ruid=c_uid_t, euid=c_uid_t, suid=c_uid_t)
+def setresuid(space, ruid, euid, suid):
+    """ setresuid(ruid, euid, suid)
+
+    Set the current process's real, effective, and saved user ids.
+    """
+    try:
+        os.setresuid(ruid, euid, suid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(rgid=c_gid_t, egid=c_gid_t, sgid=c_gid_t)
+def setresgid(space, rgid, egid, sgid):
+    """ setresgid(rgid, egid, sgid)
+    
+    Set the current process's real, effective, and saved group ids.
+    """
+    try:
+        os.setresgid(rgid, egid, sgid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
         @unwrap_spec(status=c_int)

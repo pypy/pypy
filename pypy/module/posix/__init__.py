@@ -157,7 +157,7 @@ corresponding Unix manual entries for more information on calls."""
                  'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid',
                  'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs',
                  'setgroups', 'initgroups', 'tcgetpgrp', 'tcsetpgrp',
-                 'getresuid', 'getresgid']:
+                 'getresuid', 'getresgid', 'setresuid', 'setresgid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:

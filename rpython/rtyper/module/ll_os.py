@@ -878,6 +878,32 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], (int, int, int), llimpl=c_getresgid_llimpl,
                       export_name='ll_os.ll_os_getresgid')
 
+    @registering_if(os, 'setresuid')
+    def register_os_setresuid(self):
+        c_setresuid = self.llexternal('setresuid', [rffi.INT] * 3, rffi.INT)
+
+        def c_setresuid_llimpl(ruid, euid, suid):
+            res = c_setresuid(ruid, euid, suid)
+            res = rffi.cast(lltype.Signed, res)
+            if res == -1:
+                raise OSError(rposix.get_errno(), "setresuid failed")
+
+        return extdef([int, int, int], None, llimpl=c_setresuid_llimpl,
+                      export_name='ll_os.ll_os_setresuid')
+
+    @registering_if(os, 'setresgid')
+    def register_os_setresgid(self):
+        c_setresgid = self.llexternal('setresgid', [rffi.INT] * 3, rffi.INT)
+
+        def c_setresgid_llimpl(rgid, egid, sgid):
+            res = c_setresgid(rgid, egid, sgid)
+            res = rffi.cast(lltype.Signed, res)
+            if res == -1:
+                raise OSError(rposix.get_errno(), "setresgid failed")
+
+        return extdef([int, int, int], None, llimpl=c_setresgid_llimpl,
+                      export_name='ll_os.ll_os_setresgid')
+
     @registering_str_unicode(os.open)
     def register_os_open(self, traits):
         os_open = self.llexternal(traits.posix_function_name('open'),
