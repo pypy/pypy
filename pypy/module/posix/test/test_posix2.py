@@ -630,6 +630,16 @@ class AppTestPosix:
             os = self.posix
             raises(OSError, os.initgroups, "crW2hTQC", 100)
 
+    if hasattr(os, 'tcgetpgrp'):
+        def test_os_tcgetpgrp(self):
+            os = self.posix
+            raises(OSError, os.tcgetpgrp, 9999)
+
+    if hasattr(os, 'tcsetpgrp'):
+        def test_os_tcsetpgrp(self):
+            os = self.posix
+            raises(OSError, os.tcsetpgrp, 9999, 1)
+
     if hasattr(os, 'getpgid'):
         def test_os_getpgid(self):
             os = self.posix

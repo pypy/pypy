@@ -1121,6 +1121,29 @@ def setsid(space):
         raise wrap_oserror(space, e)
     return space.w_None
 
+@unwrap_spec(fd=c_int)
+def tcgetpgrp(space, fd):
+    """ tcgetpgrp(fd) -> pgid
+
+    Return the process group associated with the terminal given by a fd.
+    """
+    try:
+        pgid = os.tcgetpgrp(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(pgid)
+
+@unwrap_spec(fd=c_int, pgid=c_gid_t)
+def tcsetpgrp(space, fd, pgid):
+    """ tcsetpgrp(fd, pgid)
+
+    Set the process group associated with the terminal given by a fd.
+    """
+    try:
+        os.tcsetpgrp(fd, pgid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
         @unwrap_spec(status=c_int)

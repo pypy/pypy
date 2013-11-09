@@ -225,3 +225,24 @@ class TestPosix(BaseRtypingTest):
                 return 0
             res = self.interpret(f, [])
             assert res == 1
+
+    if hasattr(os, 'tcgetpgrp'):
+        def test_tcgetpgrp(self):
+            def f(fd):
+                try:
+                    return os.tcgetpgrp(fd)
+                except OSError:
+                    return 42
+            res = self.interpret(f, [9999])
+            assert res == 42
+
+    if hasattr(os, 'tcsetpgrp'):
+        def test_tcsetpgrp(self):
+            def f(fd, pgrp):
+                try:
+                    os.tcsetpgrp(fd, pgrp)
+                except OSError:
+                    return 1
+                return 0
+            res = self.interpret(f, [9999, 1])
+            assert res == 1

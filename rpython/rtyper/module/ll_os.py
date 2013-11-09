@@ -129,10 +129,6 @@ class CConfig:
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
 
-        GID_T = platform.SimpleType('gid_t', rffi.INT)
-        #TODO right now is used only in getgroups, may need to update other
-        #functions like setgid
-
     # For now we require off_t to be the same size as LONGLONG, which is the
     # interface required by callers of functions that thake an argument of type
     # off_t
@@ -693,7 +689,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getgroups')
     def register_os_getgroups(self):
-        GP = rffi.CArrayPtr(self.GID_T)
+        GP = rffi.CArrayPtr(rffi.PID_T)
         c_getgroups = self.llexternal('getgroups', [rffi.INT, GP], rffi.INT)
 
         def getgroups_llimpl():
@@ -715,7 +711,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'setgroups')
     def register_os_setgroups(self):
-        GP = rffi.CArrayPtr(self.GID_T)
+        GP = rffi.CArrayPtr(rffi.PID_T)
         c_setgroups = self.llexternal('setgroups', [rffi.SIZE_T, GP], rffi.INT)
 
         def setgroups_llimpl(list):
@@ -723,7 +719,7 @@ class RegisterOs(BaseLazyRegistering):
             groups = lltype.malloc(GP.TO, n, flavor='raw')
             try:
                 for i in range(n):
-                    groups[i] = rffi.cast(self.GID_T, list[i])
+                    groups[i] = rffi.cast(rffi.PID_T, list[i])
                 n = c_setgroups(rffi.cast(rffi.SIZE_T, n), groups)
             finally:
                 lltype.free(groups, flavor='raw')
@@ -736,10 +732,10 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'initgroups')
     def register_os_initgroups(self):
         c_initgroups = self.llexternal('initgroups',
-                                       [rffi.CCHARP, self.GID_T], rffi.INT)
+                                       [rffi.CCHARP, rffi.PID_T], rffi.INT)
 
         def initgroups_llimpl(user, group):
-            n = c_initgroups(user, rffi.cast(self.GID_T, group))
+            n = c_initgroups(user, rffi.cast(rffi.PID_T, group))
             if n != 0:
                 raise OSError(rposix.get_errno(), "os_initgroups failed")
 
@@ -780,6 +776,35 @@ class RegisterOs(BaseLazyRegistering):
                           export_name='ll_os.ll_os_' + name)
         else:
             return self.extdef_for_os_function_accepting_0int(name)
+
+    @registering_if(os, 'tcgetpgrp')
+    def register_os_tcgetpgrp(self):
+        c_tcgetpgrp = self.llexternal('tcgetpgrp', [rffi.INT], rffi.PID_T)
+
+        def c_tcgetpgrp_llimpl(fd):
+            res = c_tcgetpgrp(rffi.cast(rffi.INT, fd))
+            res = rffi.cast(lltype.Signed, res)
+            if res == -1:
+                raise OSError(rposix.get_errno(), "tcgetpgrp failed")
+            return res
+
+        return extdef([int], int, llimpl=c_tcgetpgrp_llimpl,
+                      export_name='ll_os.ll_os_tcgetpgrp')
+
+    @registering_if(os, 'tcsetpgrp')
+    def register_os_tcsetpgrp(self):
+        c_tcsetpgrp = self.llexternal('tcsetpgrp', [rffi.INT, rffi.PID_T],
+                                      rffi.INT)
+
+        def c_tcsetpgrp_llimpl(fd, pgrp):
+            res = c_tcsetpgrp(rffi.cast(rffi.INT, fd),
+                              rffi.cast(rffi.PID_T, pgrp))
+            res = rffi.cast(lltype.Signed, res)
+            if res == -1:
+                raise OSError(rposix.get_errno(), "tcsetpgrp failed")
+
+        return extdef([int, int], None, llimpl=c_tcsetpgrp_llimpl,
+                      export_name='ll_os.ll_os_tcsetpgrp')
 
     @registering_if(os, 'getppid')
     def register_os_getppid(self):
