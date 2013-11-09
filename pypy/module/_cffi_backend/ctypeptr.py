@@ -15,15 +15,12 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypePtrOrArray(W_CType):
-    _attrs_            = ['ctitem', 'can_cast_anything', 'is_struct_ptr',
-                          'length']
-    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'is_struct_ptr',
-                          'length']
+    _attrs_            = ['ctitem', 'can_cast_anything', 'length']
+    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'length']
     length = -1
 
     def __init__(self, space, size, extra, extra_position, ctitem,
                  could_cast_anything=True):
-        from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         name, name_position = ctitem.insert_name(extra, extra_position)
         W_CType.__init__(self, space, size, name, name_position)
         # this is the "underlying type":
@@ -32,7 +29,6 @@ class W_CTypePtrOrArray(W_CType):
         #  - for functions, it is the return type
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
-        self.is_struct_ptr = isinstance(ctitem, W_CTypeStructOrUnion)
 
     def is_char_ptr_or_array(self):
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar)
@@ -195,6 +191,7 @@ class W_CTypePointer(W_CTypePtrBase):
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):
+        from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         space = self.space
         ctitem = self.ctitem
         datasize = ctitem.size
@@ -202,10 +199,15 @@ class W_CTypePointer(W_CTypePtrBase):
             raise operationerrfmt(space.w_TypeError,
                 "cannot instantiate ctype '%s' of unknown size",
                                   self.name)
-        if self.is_struct_ptr:
+        if isinstance(ctitem, W_CTypeStructOrUnion):
             # 'newp' on a struct-or-union pointer: in this case, we return
             # a W_CDataPtrToStruct object which has a strong reference
             # to a W_CDataNewOwning that really contains the structure.
+            #
+            if ctitem.with_var_array and not space.is_w(w_init, space.w_None):
+                datasize = ctitem.convert_struct_from_object(
+                    lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
+            #
             cdatastruct = cdataobj.W_CDataNewOwning(space, datasize, ctitem)
             cdata = cdataobj.W_CDataPtrToStructOrUnion(space,
                                                        cdatastruct._cdata,
@@ -321,7 +323,8 @@ class W_CTypePointer(W_CTypePtrBase):
         space = self.space
         ctype2 = cdata.ctype
         if (isinstance(ctype2, W_CTypeStructOrUnion) or
-            (isinstance(ctype2, W_CTypePtrOrArray) and ctype2.is_struct_ptr)):
+               (isinstance(ctype2, W_CTypePtrOrArray) and
+                isinstance(ctype2.ctitem, W_CTypeStructOrUnion))):
             ptrdata = rffi.ptradd(cdata._cdata, offset)
             return cdataobj.W_CData(space, ptrdata, self)
         else:
