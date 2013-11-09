@@ -360,9 +360,11 @@ def _generate_posix_vars():
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # _sysconfigdata is generated at build time, see _generate_posix_vars()
-    from _sysconfigdata import build_time_vars
-    vars.update(build_time_vars)
+    # in cPython, _sysconfigdata is generated at build time, see _generate_posix_vars()
+    # in PyPy no such module exists
+    #from _sysconfigdata import build_time_vars
+    #vars.update(build_time_vars)
+    return
 
 def _init_non_posix(vars):
     """Initialize the module as appropriate for NT"""
