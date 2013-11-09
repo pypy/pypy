@@ -615,6 +615,8 @@ class AppTestPosix:
         def test_os_getgroups(self):
             os = self.posix
             assert os.getgroups() == self.getgroups
+
+    if hasattr(os, 'setgroups'):
         def test_os_setgroups(self):
             os = self.posix
             raises(TypeError, os.setgroups, [2, 5, "hello"])
@@ -622,6 +624,11 @@ class AppTestPosix:
                 os.setgroups(os.getgroups())
             except OSError:
                 pass
+
+    if hasattr(os, 'initgroups'):
+        def test_os_initgroups(self):
+            os = self.posix
+            raises(OSError, os.initgroups, "crW2hTQC", 100)
 
     if hasattr(os, 'getpgid'):
         def test_os_getpgid(self):

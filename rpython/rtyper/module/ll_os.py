@@ -702,14 +702,15 @@ class RegisterOs(BaseLazyRegistering):
                 groups = lltype.malloc(GP.TO, n, flavor='raw')
                 try:
                     n = c_getgroups(n, groups)
-                    result = [groups[i] for i in range(n)]
+                    result = [rffi.cast(lltype.Signed, groups[i])
+                              for i in range(n)]
                 finally:
                     lltype.free(groups, flavor='raw')
                 if n >= 0:
                     return result
             raise OSError(rposix.get_errno(), "os_getgroups failed")
 
-        return extdef([], [self.GID_T], llimpl=getgroups_llimpl,
+        return extdef([], [int], llimpl=getgroups_llimpl,
                       export_name="ll_os.ll_getgroups")
 
     @registering_if(os, 'setgroups')
@@ -729,8 +730,21 @@ class RegisterOs(BaseLazyRegistering):
             if n != 0:
                 raise OSError(rposix.get_errno(), "os_setgroups failed")
 
-        return extdef([[self.GID_T]], None, llimpl=setgroups_llimpl,
+        return extdef([[int]], None, llimpl=setgroups_llimpl,
                       export_name="ll_os.ll_setgroups")
+
+    @registering_if(os, 'initgroups')
+    def register_os_initgroups(self):
+        c_initgroups = self.llexternal('initgroups',
+                                       [rffi.CCHARP, self.GID_T], rffi.INT)
+
+        def initgroups_llimpl(user, group):
+            n = c_initgroups(user, rffi.cast(self.GID_T, group))
+            if n != 0:
+                raise OSError(rposix.get_errno(), "os_initgroups failed")
+
+        return extdef([str, int], None, llimpl=initgroups_llimpl,
+                      export_name="ll_os.ll_initgroups")
 
     @registering_if(os, 'getpgrp')
     def register_os_getpgrp(self):

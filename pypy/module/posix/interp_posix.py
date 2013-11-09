@@ -1008,6 +1008,19 @@ def setgroups(space, w_list):
     except OSError, e:
         raise wrap_oserror(space, e)
 
+@unwrap_spec(username=str, gid=c_gid_t)
+def initgroups(space, username, gid):
+    """ initgroups(username, gid) -> None
+    
+    Call the system initgroups() to initialize the group access list with all of
+    the groups of which the specified username is a member, plus the specified
+    group id.
+    """
+    try:
+        os.initgroups(username, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 def getpgrp(space):
     """ getpgrp() -> pgrp
 

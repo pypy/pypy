@@ -206,6 +206,7 @@ class TestPosix(BaseRtypingTest):
             ll_a = self.interpret(f, [])
             assert self.ll_to_list(ll_a) == f()
 
+    if hasattr(os, 'setgroups'):
         def test_setgroups(self):
             def f():
                 try:
@@ -213,3 +214,14 @@ class TestPosix(BaseRtypingTest):
                 except OSError:
                     pass
             self.interpret(f, [])
+
+    if hasattr(os, 'initgroups'):
+        def test_initgroups(self):
+            def f():
+                try:
+                    os.initgroups('sUJJeumz', 4321)
+                except OSError:
+                    return 1
+                return 0
+            res = self.interpret(f, [])
+            assert res == 1
