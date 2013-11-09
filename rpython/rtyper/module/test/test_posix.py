@@ -190,6 +190,14 @@ class TestPosix(BaseRtypingTest):
             res = self.interpret(f, [94781413])
             assert hlstr(res) == "oooops!!"
 
+    if hasattr(os, 'pathconf'):
+        def test_os_pathconf(self):
+            def f(i):
+                return os.pathconf("/tmp", i)
+            i = os.pathconf_names["PC_NAME_MAX"]
+            some_value = self.interpret(f, [i])
+            assert some_value >= 31
+
     if hasattr(os, 'chroot'):
         def test_os_chroot(self):
             def f():

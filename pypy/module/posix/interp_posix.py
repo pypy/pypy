@@ -1248,6 +1248,15 @@ def fpathconf(space, fd, w_name):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
+@unwrap_spec(path='str0')
+def pathconf(space, path, w_name):
+    num = confname_w(space, w_name, os.pathconf_names)
+    try:
+        res = os.pathconf(path, num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
+
 def confstr(space, w_name):
     num = confname_w(space, w_name, os.confstr_names)
     try:

@@ -705,6 +705,14 @@ class AppTestPosix:
             raises(OSError, os.fpathconf, -1, "PC_PIPE_BUF")
             raises(ValueError, os.fpathconf, 1, "##")
 
+    if hasattr(os, 'pathconf'):
+        def test_os_pathconf(self):
+            os = self.posix
+            assert os.pathconf("/tmp", "PC_NAME_MAX") >= 31
+            # Linux: the following gets 'No such file or directory'
+            raises(OSError, os.pathconf, "", "PC_PIPE_BUF")
+            raises(ValueError, os.pathconf, "/tmp", "##")
+
     if hasattr(os, 'confstr'):
         def test_os_confstr(self):
             os = self.posix
