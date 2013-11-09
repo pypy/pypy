@@ -228,7 +228,7 @@ class Test__ffi(BaseTestPyPyC):
             except ImportError:
                 sys.stderr.write('SKIP: cannot import cffi\n')
                 return 0
-                
+
             ffi = cffi.FFI()
 
             ffi.cdef("""
@@ -301,5 +301,30 @@ class Test__ffi(BaseTestPyPyC):
             f(1)
         #
         libm_name = get_libm_name(sys.platform)
-        log = self.run(main, [libm_name])
+        self.run(main, [libm_name])
         # assert did not crash
+
+    def test_cffi_init_struct_with_list(self):
+        def main(n):
+            import sys
+            try:
+                import cffi
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import cffi\n')
+                return 0
+
+            ffi = cffi.FFI()
+            ffi.cdef("""
+            struct s {
+                int x;
+                int y;
+                int z;
+            };
+            """)
+
+            for i in xrange(n):
+                ffi.new("struct s *", [i, i, i])
+
+        log = self.run(main, [300])
+        loop, = log.loops_by_filename(self.filepath)
+        assert False, "XXX: fill this in"
