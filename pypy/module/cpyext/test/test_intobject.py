@@ -183,7 +183,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 return val;
                 """
                 ),
-                ], prologue='#include <numpy/arrayobject.h>')
+                ])
         i = mod.test_int()
         assert isinstance(i, int)
         assert i == 42
