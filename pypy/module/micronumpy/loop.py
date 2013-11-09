@@ -10,8 +10,8 @@ from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
-from pypy.module.micronumpy import constants
-from pypy.module.micronumpy.support import int_w
+from pypy.module.micronumpy.support import index_w
+from pypy.module.micronumpy.constants import *
 
 call2_driver = jit.JitDriver(name='numpy_call2',
                              greens = ['shapelen', 'func', 'calc_dtype',
@@ -159,10 +159,16 @@ reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
                                   greens = ['shapelen', 'func', 'dtype'],
                                   reds = 'auto')
 
-def compute_reduce_cumultative(obj, out, calc_dtype, func, identity):
+def compute_reduce_cumulative(obj, out, calc_dtype, func, identity):
     obj_iter = obj.create_iter()
     out_iter = out.create_iter()
-    cur_value = identity.convert_to(calc_dtype)
+    if identity is None:
+        cur_value = obj_iter.getitem().convert_to(calc_dtype)
+        out_iter.setitem(cur_value)
+        out_iter.next()
+        obj_iter.next()
+    else:
+        cur_value = identity.convert_to(calc_dtype)
     shapelen = len(obj.get_shape())
     while not obj_iter.done():
         reduce_cum_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -218,10 +224,10 @@ axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
                                             'func', 'dtype'],
                                     reds='auto')
 
-def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
+def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumulative,
                    temp):
-    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumultative)
-    if cumultative:
+    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumulative)
+    if cumulative:
         temp_iter = temp.create_axis_iter(arr.get_shape(), axis, False)
     else:
         temp_iter = out_iter # hack
@@ -240,7 +246,7 @@ def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
             cur = temp_iter.getitem()
             w_val = func(dtype, cur, w_val)
         out_iter.setitem(w_val)
-        if cumultative:
+        if cumulative:
             temp_iter.setitem(w_val)
             temp_iter.next()
         arr_iter.next()
@@ -581,15 +587,15 @@ def choose(space, arr, choices, shape, dtype, out, mode):
     while not arr_iter.done():
         choose_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
                                       mode=mode)
-        index = int_w(space, arr_iter.getitem())
+        index = index_w(space, arr_iter.getitem())
         if index < 0 or index >= len(iterators):
-            if mode == constants.MODE_RAISE:
+            if mode == NPY_RAISE:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "invalid entry in choice array"))
-            elif mode == constants.MODE_WRAP:
+            elif mode == NPY_WRAP:
                 index = index % (len(iterators))
             else:
-                assert mode == constants.MODE_CLIP
+                assert mode == NPY_CLIP
                 if index < 0:
                     index = 0
                 else:

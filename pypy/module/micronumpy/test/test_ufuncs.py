@@ -1,6 +1,78 @@
-from pypy.conftest import option
-from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
+        find_unaryop_result_dtype)
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+
+
+class TestUfuncCoercion(object):
+    def test_binops(self, space):
+        bool_dtype = get_dtype_cache(space).w_booldtype
+        int8_dtype = get_dtype_cache(space).w_int8dtype
+        int32_dtype = get_dtype_cache(space).w_int32dtype
+        float64_dtype = get_dtype_cache(space).w_float64dtype
+
+        # Basic pairing
+        assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
+        assert find_binop_result_dtype(space, bool_dtype, float64_dtype) is float64_dtype
+        assert find_binop_result_dtype(space, float64_dtype, bool_dtype) is float64_dtype
+        assert find_binop_result_dtype(space, int32_dtype, int8_dtype) is int32_dtype
+        assert find_binop_result_dtype(space, int32_dtype, bool_dtype) is int32_dtype
+
+        # With promote bool (happens on div), the result is that the op should
+        # promote bools to int8
+        assert find_binop_result_dtype(space, bool_dtype, bool_dtype, promote_bools=True) is int8_dtype
+        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_bools=True) is float64_dtype
+
+        # Coerce to floats
+        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_to_float=True) is float64_dtype
+
+    def test_unaryops(self, space):
+        bool_dtype = get_dtype_cache(space).w_booldtype
+        int8_dtype = get_dtype_cache(space).w_int8dtype
+        uint8_dtype = get_dtype_cache(space).w_uint8dtype
+        int16_dtype = get_dtype_cache(space).w_int16dtype
+        uint16_dtype = get_dtype_cache(space).w_uint16dtype
+        int32_dtype = get_dtype_cache(space).w_int32dtype
+        uint32_dtype = get_dtype_cache(space).w_uint32dtype
+        long_dtype = get_dtype_cache(space).w_longdtype
+        ulong_dtype = get_dtype_cache(space).w_ulongdtype
+        int64_dtype = get_dtype_cache(space).w_int64dtype
+        uint64_dtype = get_dtype_cache(space).w_uint64dtype
+        float16_dtype = get_dtype_cache(space).w_float16dtype
+        float32_dtype = get_dtype_cache(space).w_float32dtype
+        float64_dtype = get_dtype_cache(space).w_float64dtype
+
+        # Normal rules, everything returns itself
+        assert find_unaryop_result_dtype(space, bool_dtype) is bool_dtype
+        assert find_unaryop_result_dtype(space, int8_dtype) is int8_dtype
+        assert find_unaryop_result_dtype(space, uint8_dtype) is uint8_dtype
+        assert find_unaryop_result_dtype(space, int16_dtype) is int16_dtype
+        assert find_unaryop_result_dtype(space, uint16_dtype) is uint16_dtype
+        assert find_unaryop_result_dtype(space, int32_dtype) is int32_dtype
+        assert find_unaryop_result_dtype(space, uint32_dtype) is uint32_dtype
+        assert find_unaryop_result_dtype(space, long_dtype) is long_dtype
+        assert find_unaryop_result_dtype(space, ulong_dtype) is ulong_dtype
+        assert find_unaryop_result_dtype(space, int64_dtype) is int64_dtype
+        assert find_unaryop_result_dtype(space, uint64_dtype) is uint64_dtype
+        assert find_unaryop_result_dtype(space, float32_dtype) is float32_dtype
+        assert find_unaryop_result_dtype(space, float64_dtype) is float64_dtype
+
+        # Coerce to floats, some of these will eventually be float16, or
+        # whatever our smallest float type is.
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype
+        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype
+        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float16_dtype
+        assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
+        assert find_unaryop_result_dtype(space, uint16_dtype, promote_to_float=True) is float32_dtype
+        assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, uint32_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, int64_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, uint64_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, float32_dtype, promote_to_float=True) is float32_dtype
+        assert find_unaryop_result_dtype(space, float64_dtype, promote_to_float=True) is float64_dtype
+
+        # promote bools, happens with sign ufunc
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
@@ -122,6 +194,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array(range(30))
         assert negative(a + a)[3] == -6
 
+        a = array([[1, 2], [3, 4]])
+        b = negative(a + a)
+        assert (b == [[-2, -4], [-6, -8]]).all()
+
     def test_abs(self):
         from numpypy import array, absolute
 
@@ -163,7 +239,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(true_divide(0, 0))
 
     def test_fabs(self):
-        from numpypy import array, fabs, complex128
+        from numpypy import array, fabs
         from math import fabs as math_fabs, isnan
 
         a = array([-5.0, -0.0, 1.0])
@@ -243,8 +319,29 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert x == 3
         assert isinstance(x, (int, long))
 
+    def test_complex_nan_extrema(self):
+        import math
+        import numpy as np
+        cnan = complex(0, np.nan)
+
+        b = np.minimum(1, cnan)
+        assert b.real == 0
+        assert math.isnan(b.imag)
+
+        b = np.maximum(1, cnan)
+        assert b.real == 0
+        assert math.isnan(b.imag)
+
+        b = np.fmin(1, cnan)
+        assert b.real == 1
+        assert b.imag == 0
+
+        b = np.fmax(1, cnan)
+        assert b.real == 1
+        assert b.imag == 0
+
     def test_multiply(self):
-        from numpypy import array, multiply
+        from numpypy import array, multiply, arange
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -252,8 +349,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] * b[i]
 
+        a = arange(15).reshape(5, 3)
+        assert(multiply.reduce(a) == array([0, 3640, 12320])).all()
+
     def test_rint(self):
-        from numpypy import array, complex, rint, isnan
+        from numpypy import array, dtype, rint, isnan
         import sys
 
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
@@ -305,7 +405,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             [False, True, True]).all()
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal, complex64, complex128
+        from numpypy import array, reciprocal
 
         inf = float('inf')
         nan = float('nan')
@@ -338,7 +438,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] - b[i]
 
     def test_floorceiltrunc(self):
-        from numpypy import array, floor, ceil, trunc, complex128
+        from numpypy import array, floor, ceil, trunc
         import math
         ninf, inf = float("-inf"), float("inf")
         a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
@@ -703,10 +803,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert invert(False) == True
 
     def test_shift(self):
-        from numpypy import left_shift, right_shift, bool
+        from numpypy import left_shift, right_shift, dtype
 
         assert (left_shift([5, 1], [2, 13]) == [20, 2**13]).all()
         assert (right_shift(10, range(5)) == [10, 5, 2, 1, 0]).all()
+        bool_ = dtype('bool').type
         assert left_shift(bool(1), 3) == left_shift(1, 3)
         assert right_shift(bool(1), 3) == right_shift(1, 3)
 
@@ -753,11 +854,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()
 
     def test_isnan_isinf(self):
-        from numpypy import isnan, isinf, float64, array
+        from numpypy import isnan, isinf, array, dtype
         assert isnan(float('nan'))
         assert not isnan(3)
         assert not isinf(3)
-        assert isnan(float64(float('nan')))
+        assert isnan(dtype('float64').type(float('nan')))
         assert not isnan(3)
         assert isinf(float('inf'))
         assert not isnan(3.5)
@@ -767,39 +868,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (isnan(array([0.2, float('inf'), float('nan')])) == [False, False, True]).all()
         assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
         assert isinf(array([0.2])).dtype.kind == 'b'
-
-    def test_isposinf_isneginf(self):
-        from numpypy import isneginf, isposinf
-        assert isposinf(float('inf'))
-        assert not isposinf(3)
-        assert not isneginf(3)
-        assert not isposinf(float('-inf'))
-        assert not isposinf(float('nan'))
-        assert not isposinf(0)
-        assert not isposinf(0.0)
-        assert isneginf(float('-inf'))
-        assert not isneginf(float('inf'))
-        assert not isneginf(float('nan'))
-        assert not isneginf(0)
-        assert not isneginf(0.0)
-
-    def test_isfinite(self):
-        from numpypy import isfinite
-        inf = float('inf')
-        ninf = -float('inf')
-        nan = float('nan')
-        assert (isfinite([0, 0.0, 1e50, -1e-50]) ==
-            [True, True, True, True]).all()
-        assert (isfinite([ninf, inf, -nan, nan]) ==
-            [False, False, False, False]).all()
-        assert (isfinite([1, 2, 3]) == [True, True, True]).all()
-
-        a = [complex(0, 0), complex(1e50, -1e-50), complex(inf, 0),
-             complex(inf, inf), complex(inf, ninf), complex(0, inf),
-             complex(ninf, ninf), complex(nan, 0), complex(0, nan),
-             complex(nan, nan)]
-        assert (isfinite(a) == [True, True, False, False, False,
-                        False, False, False, False, False]).all()
 
     def test_logical_ops(self):
         from numpypy import logical_and, logical_or, logical_xor, logical_not
@@ -994,3 +1062,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         print b
         assert (b == [[0, 0, 1], [1, 3, 5]]).all()
         assert b.dtype == int
+
+    def test_noncommutative_reduce_accumulate(self):
+        import numpypy as np
+        tosubtract = np.arange(5)
+        todivide = np.array([2.0, 0.5, 0.25])
+        assert np.subtract.reduce(tosubtract) == -10
+        assert np.divide.reduce(todivide) == 16.0
+        assert (np.subtract.accumulate(tosubtract) ==
+                np.array([0, -1, -3, -6, -10])).all()
+        assert (np.divide.accumulate(todivide) ==
+                np.array([2., 4., 16.])).all()

@@ -369,7 +369,9 @@ class GcLLDescr_framework(GcLLDescription):
         translator = self.translator
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
-        translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
+        if not hasattr(translator, '_jit2gc'):
+            translator._jit2gc = {}
+        translator._jit2gc['layoutbuilder'] = self.layoutbuilder
 
     def _setup_gcclass(self):
         from rpython.memory.gcheader import GCHeaderBuilder

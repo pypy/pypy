@@ -17,7 +17,8 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
 
 class AppTestDtypes(BaseAppTestDtypes):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
-    def test_dtype(self):
+
+    def test_dtype_basic(self):
         from numpypy import dtype
 
         d = dtype('?')
@@ -33,6 +34,14 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype(None) is dtype(float)
 
+        e = dtype('int8')
+        exc = raises(KeyError, "e[2]")
+        assert exc.value.message == "There are no fields in dtype int8."
+        exc = raises(KeyError, "e['z']")
+        assert exc.value.message == "There are no fields in dtype int8."
+        exc = raises(KeyError, "e[None]")
+        assert exc.value.message == "There are no fields in dtype int8."
+
         exc = raises(TypeError, dtype, (1, 2))
         assert 'data type not understood' in str(exc.value)
         raises(KeyError, 'dtype(int)["asdasd"]')
@@ -47,8 +56,21 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_dtype_aliases(self):
         from numpypy import dtype
+        assert dtype('bool8') is dtype('bool')
+        assert dtype('byte') is dtype('int8')
+        assert dtype('ubyte') is dtype('uint8')
+        assert dtype('short') is dtype('int16')
+        assert dtype('ushort') is dtype('uint16')
+        assert dtype('longlong') is dtype('q')
+        assert dtype('ulonglong') is dtype('Q')
+        assert dtype("float") is dtype(float)
+        assert dtype('single') is dtype('float32')
+        assert dtype('double') is dtype('float64')
         assert dtype('longfloat').num in (12, 13)
         assert dtype('longdouble').num in (12, 13)
+        assert dtype('csingle') is dtype('complex64')
+        assert dtype('cfloat') is dtype('complex128')
+        assert dtype('cdouble') is dtype('complex128')
         assert dtype('clongfloat').num in (15, 16)
         assert dtype('clongdouble').num in (15, 16)
 
@@ -190,36 +212,17 @@ class AppTestDtypes(BaseAppTestDtypes):
             d3 = (array([1], d1) + array([1], d2)).dtype
             assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
 
-    def test_add_int8(self):
-        from numpypy import array, dtype
-
-        a = array(range(5), dtype="int8")
-        b = a + a
-        assert b.dtype is dtype("int8")
-        for i in range(5):
-            assert b[i] == i * 2
-
-    def test_add_int16(self):
-        from numpypy import array, dtype
-
-        a = array(range(5), dtype="int16")
-        b = a + a
-        assert b.dtype is dtype("int16")
-        for i in range(5):
-            assert b[i] == i * 2
-
-    def test_add_uint32(self):
-        from numpypy import array, dtype
-
-        a = array(range(5), dtype="I")
-        b = a + a
-        assert b.dtype is dtype("I")
-        for i in range(5):
-            assert b[i] == i * 2
+    def test_add(self):
+        import numpypy as np
+        for dtype in ["int8", "int16", "I"]:
+            a = np.array(range(5), dtype=dtype)
+            b = a + a
+            assert b.dtype is np.dtype(dtype)
+            for i in range(5):
+                assert b[i] == i * 2
 
     def test_shape(self):
         from numpypy import dtype
-
         assert dtype(long).shape == ()
 
     def test_cant_subclass(self):
@@ -233,39 +236,13 @@ class AppTestDtypes(BaseAppTestDtypes):
             pass
         assert True
 
-    def test_aliases(self):
-        from numpypy import dtype
-
-        assert dtype("float") is dtype(float)
-
-    def test_index_int8(self):
-        from numpypy import array, int8
-
-        a = array(range(10), dtype=int8)
-        b = array([0] * 10, dtype=int8)
-        for idx in b: a[idx] += 1
-
-    def test_index_int16(self):
-        from numpypy import array, int16
-
-        a = array(range(10), dtype=int16)
-        b = array([0] * 10, dtype=int16)
-        for idx in b: a[idx] += 1
-
-    def test_index_int32(self):
-        from numpypy import array, int32
-
-        a = array(range(10), dtype=int32)
-        b = array([0] * 10, dtype=int32)
-        for idx in b: a[idx] += 1
-
-    def test_index_int64(self):
-        from numpypy import array, int64
-
-        a = array(range(10), dtype=int64)
-        b = array([0] * 10, dtype=int64)
-        for idx in b:
-            a[idx] += 1
+    def test_index(self):
+        import numpypy as np
+        for dtype in [np.int8, np.int16, np.int32, np.int64]:
+            a = np.array(range(10), dtype=dtype)
+            b = np.array([0] * 10, dtype=dtype)
+            for idx in b:
+                a[idx] += 1
 
     def test_hash(self):
         import numpypy as numpy
@@ -665,6 +642,11 @@ class AppTestTypes(BaseAppTestDtypes):
             assert numpy.intp is numpy.int64
             assert numpy.uintp is numpy.uint64
 
+        assert issubclass(numpy.float64, numpy.floating)
+        assert issubclass(numpy.longfloat, numpy.floating)
+        assert not issubclass(numpy.float64, numpy.longfloat)
+        assert not issubclass(numpy.longfloat, numpy.float64)
+
     def test_mro(self):
         import numpypy as numpy
 
@@ -720,8 +702,8 @@ class AppTestTypes(BaseAppTestDtypes):
         # strange
         assert dtype('string').str == '|S0'
         assert dtype('unicode').str == byteorder + 'U0'
-        # assert dtype(('string', 7)).str == '|S7'
-        # assert dtype(('unicode', 7)).str == '<U7'
+        #assert dtype(('string', 7)).str == '|S7'
+        #assert dtype(('unicode', 7)).str == '<U7'
 
     def test_intp(self):
         from numpypy import dtype
@@ -740,35 +722,25 @@ class AppTestTypes(BaseAppTestDtypes):
     def test_any_all_nonzero(self):
         import numpypy as numpy
         x = numpy.bool_(True)
-        assert x.any()
-        assert x.all()
-        assert x.__nonzero__()
-        assert isinstance(x.any(), numpy.bool_)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.True_
+        assert x.all() is numpy.True_
+        assert x.__nonzero__() is True
         x = numpy.bool_(False)
-        assert not x.any()
-        assert not x.all()
-        assert not x.__nonzero__()
-        assert isinstance(x.any(), numpy.bool_)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.False_
+        assert x.all() is numpy.False_
+        assert x.__nonzero__() is False
         x = numpy.float64(0)
-        assert not x.any()
-        assert not x.all()
-        assert not x.__nonzero__()
-        assert isinstance(x.any(), numpy.float64)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.False_
+        assert x.all() is numpy.False_
+        assert x.__nonzero__() is False
         x = numpy.complex128(0)
-        assert not x.any()
-        assert not x.all()
-        assert not x.__nonzero__()
-        assert isinstance(x.any(), numpy.complex128)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.False_
+        assert x.all() is numpy.False_
+        assert x.__nonzero__() is False
         x = numpy.complex128(0+1j)
-        assert x.any()
-        assert x.all()
-        assert x.__nonzero__()
-        assert isinstance(x.any(), numpy.complex128)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.True_
+        assert x.all() is numpy.True_
+        assert x.__nonzero__() is True
 
     def test_ravel(self):
         from numpypy import float64, int8, array
@@ -779,7 +751,6 @@ class AppTestTypes(BaseAppTestDtypes):
         x = int8(42).ravel()
         assert x.dtype == int8
         assert (x == array(42)).all()
-
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
@@ -879,7 +850,17 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d["x"].itemsize == 16
         e = dtype([("x", "float", 2), ("y", "int", 2)])
         assert e.fields.keys() == keys
-        assert e['x'].shape == (2,)
+        for v in ['x', u'x', 0, -2]:
+            assert e[v] == (dtype('float'), (2,))
+        for v in ['y', u'y', 1, -1]:
+            assert e[v] == (dtype('int'), (2,))
+        for v in [-3, 2]:
+            exc = raises(IndexError, "e[%d]" % v)
+            assert exc.value.message == "Field index %d out of range." % v
+        exc = raises(KeyError, "e['z']")
+        assert exc.value.message == "Field named 'z' not found."
+        exc = raises(ValueError, "e[None]")
+        assert exc.value.message == 'Field key must be an integer, string, or unicode.'
 
         dt = dtype((float, 10))
         assert dt.shape == (10,)
@@ -961,7 +942,11 @@ class AppTestPyPyOnly(BaseNumpyAppTest):
 
     def test_typeinfo(self):
         from numpypy import void, number, int64, bool_, complex64, complex128, float16
-        from numpypy.core.multiarray import typeinfo
+        try:
+            from numpy.core.multiarray import typeinfo
+        except ImportError:
+            # running on dummy module
+            from numpypy import typeinfo
         assert typeinfo['Number'] == number
         assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
         assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
@@ -981,5 +966,3 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         except NotImplementedError, e:
             if e.message.find('unable to create dtype from objects')>=0:
                 skip('creating ojbect dtype not supported yet')
-
-

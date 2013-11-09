@@ -84,6 +84,8 @@ class FakeCallControl:
     def calldescr_canraise(self, calldescr):
         return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex == EffectInfo.OS_NONE
     def get_vinfo(self, VTYPEPTR):
+        if hasattr(VTYPEPTR.TO, 'inst_vlist'):
+            return FakeVInfo()
         return None
 
 class FakeCallControlWithVRefInfo:
@@ -99,6 +101,13 @@ class FakeCallControlWithVRefInfo:
         return FakeDescr()
     def calldescr_canraise(self, calldescr):
         return False
+
+class FakeVInfo:
+    static_field_to_extra_box = {}
+    array_fields = {'inst_vlist': '?'}
+    array_field_counter = {'inst_vlist': 0}
+    array_field_descrs = [FakeDescr()]
+    array_descrs = [FakeDescr()]
 
 # ____________________________________________________________
 
@@ -1000,6 +1009,22 @@ class TestFlatten:
             convert_longlong_bytes_to_float %(tmp_var)s -> %(result_var)s
             float_return %(result_var)s
         """ % {"result_var": result_var, "tmp_var": tmp_var}, transform=True)
+
+    def test_vable_attribute_list_is_not_None(self):
+        class F:
+            _virtualizable_ = ['vlist[*]']
+            vlist = None
+            def __init__(self, x):
+                self.vlist = [x]
+        def g():
+            return F(42)
+        def f():
+            f = g()
+            if f.vlist is not None:
+                pass
+        e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
+                           transform=True)
+        assert str(e.value).startswith("A virtualizable array is passed aroun")
 
 
 def check_force_cast(FROM, TO, operations, value):

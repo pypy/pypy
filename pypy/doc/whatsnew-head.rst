@@ -111,3 +111,29 @@ make open() and friends rpython
 
 .. branch: incremental-gc
 Added the new incminimark GC which performs GC in incremental steps
+
+.. branch: fast_cffi_list_init
+fastpath for cffi.new("long[]")
+
+.. branch: remove-eval-frame
+remove a pointless abstraction
+
+.. branch: jit-settrace
+Allow the jit to continue running when sys.settrace() is active, necessary to
+make coverage.py fast
+
+.. branch: remove-numpypy
+Remove lib_pypy/numpypy in favor of external numpy fork
+
+.. branch: jit-counter
+Tweak the jit counters: decay them at minor collection (actually
+only every 32 minor collection is enough). Should avoid the "memory
+leaks" observed in long-running processes, actually created by the
+jit compiling more and more rarely executed paths.
+
+.. branch: fix-trace-jit
+Fixed the usage of sys.settrace() with the JIT. Also made it so using
+sys.settrace() doesn't cause the GIL to be released on every single iteration.
+
+.. branch: rordereddict
+Implement OrderedDict in RPython

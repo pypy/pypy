@@ -43,10 +43,13 @@ class W_CType(W_Root):
     def is_unichar_ptr_or_array(self):
         return False
 
-    def is_long(self):
-        return False
+    def unpack_list_of_int_items(self, cdata):
+        return None
 
-    def is_double(self):
+    def unpack_list_of_float_items(self, cdata):
+        return None
+
+    def pack_list_of_items(self, cdata, w_ob):
         return False
 
     def newp(self, w_init):

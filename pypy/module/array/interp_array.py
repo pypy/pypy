@@ -1,17 +1,21 @@
 from __future__ import with_statement
 
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import ovfcheck, widen
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.annlowlevel import llstr
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, interpindirect2app
 from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr, TypeDef
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._file.interp_file import W_File
-from rpython.rlib import jit
-from rpython.rlib.rarithmetic import ovfcheck, widen
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.objspace.std.floatobject import W_FloatObject
+
 
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
@@ -234,8 +238,7 @@ class W_ArrayBase(W_Root):
         new = len(s) / self.itemsize
         self.setlen(oldlen + new)
         cbuf = self._charbuf_start()
-        for i in range(len(s)):
-            cbuf[oldlen * self.itemsize + i] = s[i]
+        copy_string_to_raw(llstr(s), rffi.ptradd(cbuf, oldlen * self.itemsize), 0, len(s))
         self._charbuf_stop()
 
     @unwrap_spec(w_f=W_File, n=int)
@@ -624,7 +627,7 @@ def make_array(mytype):
                         item = unwrap(space.call_method(w_item, mytype.method))
                     except OperationError:
                         msg = 'array item must be ' + mytype.unwrap[:-2]
-                        raise OperationError(space.w_TypeError, space.wrap(msg))                        
+                        raise OperationError(space.w_TypeError, space.wrap(msg))
                 else:
                     raise
             if mytype.unwrap == 'bigint_w':

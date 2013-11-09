@@ -283,10 +283,18 @@ class W_CData(W_Root):
         return self.ctype.iter(self)
 
     def unpackiterable_int(self, space):
-        return self.ctype.aslist_int(self)
+        from pypy.module._cffi_backend import ctypearray
+        ctype = self.ctype
+        if isinstance(ctype, ctypearray.W_CTypeArray):
+            return ctype.ctitem.unpack_list_of_int_items(self)
+        return None
 
     def unpackiterable_float(self, space):
-        return self.ctype.aslist_float(self)
+        from pypy.module._cffi_backend import ctypearray
+        ctype = self.ctype
+        if isinstance(ctype, ctypearray.W_CTypeArray):
+            return ctype.ctitem.unpack_list_of_float_items(self)
+        return None
 
     @specialize.argtype(1)
     def write_raw_signed_data(self, source):

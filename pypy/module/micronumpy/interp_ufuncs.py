@@ -9,6 +9,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
+from pypy.module.micronumpy.constants import *
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -86,7 +87,7 @@ class W_Ufunc(W_Root):
             out = w_out
         return self.reduce(space, w_obj, False, #do not promote_to_largest
                     w_axis, True, #keepdims must be true
-                    out, w_dtype, cumultative=True)
+                    out, w_dtype, cumulative=True)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
@@ -158,7 +159,7 @@ class W_Ufunc(W_Root):
                            w_dtype)
 
     def reduce(self, space, w_obj, promote_to_largest, w_axis,
-               keepdims=False, out=None, dtype=None, cumultative=False):
+               keepdims=False, out=None, dtype=None, cumulative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -173,7 +174,6 @@ class W_Ufunc(W_Root):
         shapelen = len(obj_shape)
         axis = unwrap_axis_arg(space, shapelen, w_axis)
         assert axis >= 0
-        size = obj.get_size()
         dtype = interp_dtype.decode_w_dtype(space, dtype)
         if dtype is None:
             if self.comparison_func:
@@ -193,7 +193,7 @@ class W_Ufunc(W_Root):
                                 "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
-            if cumultative:
+            if cumulative:
                 shape = obj_shape[:]
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
                 if out:
@@ -227,15 +227,15 @@ class W_Ufunc(W_Root):
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
             return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
-                                       self.identity, cumultative, temp)
-        if cumultative:
+                                       self.identity, cumulative, temp)
+        if cumulative:
             if out:
                 if out.get_shape() != [obj.get_size()]:
                     raise OperationError(space.w_ValueError, space.wrap(
                         "out of incompatible size"))
             else:
                 out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, w_instance=obj)
-            loop.compute_reduce_cumultative(obj, out, dtype, self.func,
+            loop.compute_reduce_cumulative(obj, out, dtype, self.func,
                                             self.identity)
             return out
         if out:
@@ -432,16 +432,16 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
     # Some operations promote op(bool, bool) to return int8, rather than bool
-    if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
+    if promote_bools and (dt1.kind == dt2.kind == NPY_GENBOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
 
     # Everything numeric promotes to complex
     if dt2.is_complex_type() or dt1.is_complex_type():
-        if dt2.num == 14:
+        if dt2.num == NPY_CFLOAT:
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
-        elif dt2.num == 15:
+        elif dt2.num == NPY_CDOUBLE:
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
-        elif dt2.num == 16:
+        elif dt2.num == NPY_CLONGDOUBLE:
             return interp_dtype.get_dtype_cache(space).w_complexlongdtype
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
@@ -453,35 +453,30 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return dt2
 
     # Everything promotes to float, and bool promotes to everything.
-    if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
+    if dt2.kind == NPY_FLOATINGLTR or dt1.kind == NPY_GENBOOLLTR:
         # Float32 + 8-bit int = Float64
-        if dt2.num == 11 and dt1.itemtype.get_element_size() >= 4:
+        if dt2.num == NPY_FLOAT and dt1.itemtype.get_element_size() >= 4:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
         return dt2
 
     # for now this means mixing signed and unsigned
-    if dt2.kind == interp_dtype.SIGNEDLTR:
+    if dt2.kind == NPY_SIGNEDLTR:
         # if dt2 has a greater number of bytes, then just go with it
         if dt1.itemtype.get_element_size() < dt2.itemtype.get_element_size():
             return dt2
         # we need to promote both dtypes
         dtypenum = dt2.num + 2
-    elif dt2.num == 10 or (LONG_BIT == 64 and dt2.num == 8):
+    elif dt2.num == NPY_ULONGLONG or (LONG_BIT == 64 and dt2.num == NPY_ULONG):
         # UInt64 + signed = Float64
-        dtypenum = 12
+        dtypenum = NPY_DOUBLE
     elif dt2.is_flexible_type():
         # For those operations that get here (concatenate, stack),
         # flexible types take precedence over numeric type
         if dt2.is_record_type():
             return dt2
         if dt1.is_str_or_unicode():
-            if dt2.num == 18:
-                if dt2.itemtype.get_element_size() >= \
-                           dt1.itemtype.get_element_size():
-                    return dt2
-                return dt1
             if dt2.itemtype.get_element_size() >= \
-                       dt1.itemtype.get_element_size():
+                    dt1.itemtype.get_element_size():
                 return dt2
             return dt1
         return dt2
@@ -491,7 +486,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
-        newdtype.kind == interp_dtype.FLOATINGLTR):
+        newdtype.kind == NPY_FLOATINGLTR):
         return newdtype
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
@@ -502,23 +497,23 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
-    if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
+    if promote_bools and (dt.kind == NPY_GENBOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
     if promote_to_float:
-        if dt.kind == interp_dtype.FLOATINGLTR or dt.kind==interp_dtype.COMPLEXLTR:
+        if dt.kind == NPY_FLOATINGLTR or dt.kind == NPY_COMPLEXLTR:
             return dt
-        if dt.num >= 5:
+        if dt.num >= NPY_INT:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
         for bytes, dtype in interp_dtype.get_dtype_cache(space).float_dtypes_by_num_bytes:
-            if (dtype.kind == interp_dtype.FLOATINGLTR and
+            if (dtype.kind == NPY_FLOATINGLTR and
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype
     if promote_to_largest:
-        if dt.kind == interp_dtype.BOOLLTR or dt.kind == interp_dtype.SIGNEDLTR:
+        if dt.kind == NPY_GENBOOLLTR or dt.kind == NPY_SIGNEDLTR:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
-        elif dt.kind == interp_dtype.FLOATINGLTR:
+        elif dt.kind == NPY_FLOATINGLTR:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
-        elif dt.kind == interp_dtype.UNSIGNEDLTR:
+        elif dt.kind == NPY_UNSIGNEDLTR:
             return interp_dtype.get_dtype_cache(space).w_uint64dtype
         else:
             assert False
@@ -530,7 +525,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
     complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
     float_type = interp_dtype.get_dtype_cache(space).w_float64dtype
-    str_dtype = interp_dtype.get_dtype_cache(space).w_stringdtype
     if isinstance(w_obj, interp_boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         if current_guess is None:
@@ -561,8 +555,8 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         if (current_guess is None):
             return interp_dtype.variable_dtype(space,
                                                'S%d' % space.len_w(w_obj))
-        elif current_guess.num ==18:
-            if  current_guess.itemtype.get_size() < space.len_w(w_obj):
+        elif current_guess.num == NPY_STRING:
+            if current_guess.itemtype.get_size() < space.len_w(w_obj):
                 return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess

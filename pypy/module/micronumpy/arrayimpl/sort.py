@@ -309,7 +309,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
 def sort_array(arr, space, w_axis, w_order):
     cache = space.fromcache(SortCache) # that populates SortClasses
     itemtype = arr.dtype.itemtype
-    if not arr.dtype.native:
+    if not arr.dtype.is_native():
         raise OperationError(space.w_NotImplementedError,
            space.wrap("sorting of non-native btyeorder not supported yet"))
     for tp in all_types:
@@ -323,8 +323,7 @@ def sort_array(arr, space, w_axis, w_order):
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)
-all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__ and
-                                     not issubclass(i[0], types.BaseFloat16)]
+all_types = [i for i in all_types if not issubclass(i[0], types.Float16)]
 all_types = unrolling_iterable(all_types)
 
 class ArgSortCache(object):
