@@ -236,11 +236,15 @@ class W_CTypePointer(W_CTypePtrBase):
     def add(self, cdata, i):
         space = self.space
         ctitem = self.ctitem
+        itemsize = ctitem.size
         if ctitem.size < 0:
-            raise operationerrfmt(space.w_TypeError,
+            if self.is_void_ptr:
+                itemsize = 1
+            else:
+                raise operationerrfmt(space.w_TypeError,
                                   "ctype '%s' points to items of unknown size",
                                   self.name)
-        p = rffi.ptradd(cdata, i * self.ctitem.size)
+        p = rffi.ptradd(cdata, i * itemsize)
         return cdataobj.W_CData(space, p, self)
 
     def cast(self, w_ob):
