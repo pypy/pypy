@@ -5,6 +5,11 @@ What's new in PyPy 2.1
 .. this is a revision shortly after release-2.1-beta
 .. startrev: 4eb52818e7c0
 
+.. branch: sanitise_bytecode_dispatch
+Make PyPy's bytecode dispatcher easy to read, and less reliant on RPython
+magic. There is no functional change, though the removal of dead code leads
+to many fewer tests to execute.
+
 .. branch: fastjson
 Fast json decoder written in RPython, about 3-4x faster than the pure Python
 decoder which comes with the stdlib
@@ -47,6 +52,13 @@ Added some addition tests for statvfs.
 .. branch: ndarray-subtype
 Allow subclassing ndarray, i.e. matrix
 
+.. branch: ndarray-sort
+Implement ndarray in-place sorting (for numeric types, no non-native byte order)
+
+.. branch: pypy-pyarray
+Implement much of numpy's c api in cpyext, allows (slow) access to ndarray
+from c
+
 .. branch: kill-ootype
 
 .. branch: fast-slowpath
@@ -74,3 +86,54 @@ a bit
 .. branch: dotviewer-linewidth
 .. branch: reflex-support
 .. branch: numpypy-inplace-op
+.. branch: rewritten-loop-logging
+.. branch: no-release-gil
+.. branch: safe-win-mmap
+.. branch: boolean-indexing-cleanup
+.. branch: cpyext-best_base
+.. branch: fileops2
+
+.. branch: nobold-backtrace
+Work on improving UnionError messages and stack trace displays.
+
+.. branch: improve-errors-again
+More improvements and refactorings of error messages.
+
+.. branch: improve-errors-again2
+Unbreak tests in rlib.
+
+.. branch: less-stringly-ops
+Use subclasses of SpaceOperation instead of SpaceOperator objects.
+Random cleanups in flowspace.
+
+.. branch: file-support-in-rpython
+make open() and friends rpython
+
+.. branch: incremental-gc
+Added the new incminimark GC which performs GC in incremental steps
+
+.. branch: fast_cffi_list_init
+fastpath for cffi.new("long[]")
+
+.. branch: remove-eval-frame
+remove a pointless abstraction
+
+.. branch: jit-settrace
+Allow the jit to continue running when sys.settrace() is active, necessary to
+make coverage.py fast
+
+.. branch: remove-numpypy
+Remove lib_pypy/numpypy in favor of external numpy fork
+
+.. branch: jit-counter
+Tweak the jit counters: decay them at minor collection (actually
+only every 32 minor collection is enough). Should avoid the "memory
+leaks" observed in long-running processes, actually created by the
+jit compiling more and more rarely executed paths.
+
+.. branch: fix-trace-jit
+Fixed the usage of sys.settrace() with the JIT. Also made it so using
+sys.settrace() doesn't cause the GIL to be released on every single iteration.
+
+.. branch: rordereddict
+Implement OrderedDict in RPython

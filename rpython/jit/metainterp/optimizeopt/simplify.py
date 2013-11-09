@@ -45,7 +45,7 @@ class OptSimplify(Optimization):
                 return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
             self.last_label_descr = op.getdescr()
         self.emit_operation(op)
-        
+
     def optimize_JUMP(self, op):
         if not self.unroll:
             descr = op.getdescr()

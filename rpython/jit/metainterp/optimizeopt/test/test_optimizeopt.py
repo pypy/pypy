@@ -3263,6 +3263,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_partially_constant_xor(self):
+        ops = """
+        [i0, i1]
+        i2 = int_xor(i0, 23)
+        i3 = int_xor(i1, 0)
+        jump(i2, i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_xor(i0, 23)
+        jump(i2, i1)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def test_residual_call_does_not_invalidate_caches(self):

@@ -269,7 +269,8 @@ class Test__ffi(BaseTestPyPyC):
                 n += 1
             return n
 
-        log = self.run(main, [], import_site=True)
+        log = self.run(main, [], import_site=True,
+                       discard_stdout_before_last_line=True)  # <- for Win32
         assert log.result == 10000
         loop, = log.loops_by_id('cfficall')
         assert loop.match_by_id('cfficall', """
@@ -277,3 +278,28 @@ class Test__ffi(BaseTestPyPyC):
             f1 = call_release_gil(..., descr=<Calli 4 ii EF=6 OS=62>)
             ...
         """)
+
+    def test__cffi_bug1(self):
+        from rpython.rlib.test.test_clibffi import get_libm_name
+        def main(libm_name):
+            try:
+                import _cffi_backend
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _cffi_backend\n')
+                return 0
+
+            libm = _cffi_backend.load_library(libm_name)
+            BDouble = _cffi_backend.new_primitive_type("double")
+            BSin = _cffi_backend.new_function_type([BDouble], BDouble)
+            sin = libm.load_function(BSin, 'sin')
+
+            def f(*args):
+                for i in range(300):
+                    sin(*args)
+
+            f(1.0)
+            f(1)
+        #
+        libm_name = get_libm_name(sys.platform)
+        log = self.run(main, [libm_name])
+        # assert did not crash

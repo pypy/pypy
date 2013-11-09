@@ -30,7 +30,7 @@ from pypy.objspace.std.util import get_positive_index, negate
 from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
-    instantiate, newlist_hint, resizelist_hint, specialize)
+    instantiate, newlist_hint, resizelist_hint, specialize, import_from_mixin)
 from rpython.tool.sourcetools import func_with_new_name
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
@@ -138,6 +138,8 @@ def list_unroll_condition(w_list1, space, w_list2):
 
 
 class W_ListObject(W_Root):
+
+    strategy = None
 
     def __init__(self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
@@ -290,6 +292,11 @@ class W_ListObject(W_Root):
         """Return the items in the list as unwrapped ints. If the list does not
         use the list strategy, return None."""
         return self.strategy.getitems_int(self)
+
+    def getitems_float(self):
+        """Return the items in the list as unwrapped floats. If the list does not
+        use the list strategy, return None."""
+        return self.strategy.getitems_float(self)
     # ___________________________________________________
 
     def mul(self, times):
@@ -755,6 +762,9 @@ class ListStrategy(object):
     def getitems_int(self, w_list):
         return None
 
+    def getitems_float(self, w_list):
+        return None
+
     def getstorage_copy(self, w_list):
         raise NotImplementedError
 
@@ -939,11 +949,16 @@ class EmptyListStrategy(ListStrategy):
             w_list.__init__(space, w_iterable.getitems_copy())
             return
 
-        intlist = space.listview_int(w_iterable)
+        intlist = space.unpackiterable_int(w_iterable)
         if intlist is not None:
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
-            # need to copy because intlist can share with w_iterable
-            w_list.lstorage = strategy.erase(intlist[:])
+            w_list.lstorage = strategy.erase(intlist)
+            return
+
+        floatlist = space.unpackiterable_float(w_iterable)
+        if floatlist is not None:
+            w_list.strategy = strategy = space.fromcache(FloatListStrategy)
+            w_list.lstorage = strategy.erase(floatlist)
             return
 
         strlist = space.listview_str(w_iterable)
@@ -1170,7 +1185,6 @@ class RangeListStrategy(ListStrategy):
 
 
 class AbstractUnwrappedStrategy(object):
-    _mixin_ = True
 
     def wrap(self, unwrapped):
         raise NotImplementedError
@@ -1329,7 +1343,6 @@ class AbstractUnwrappedStrategy(object):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         assert slicelength >= 0
-        items = self.unerase(w_list.lstorage)
 
         if self is self.space.fromcache(ObjectListStrategy):
             w_other = w_other._temporarily_as_objects()
@@ -1341,6 +1354,7 @@ class AbstractUnwrappedStrategy(object):
             w_list.setslice(start, step, slicelength, w_other_as_object)
             return
 
+        items = self.unerase(w_list.lstorage)
         oldsize = len(items)
         len2 = w_other.length()
         if step == 1:  # Support list resizing for non-extended slices
@@ -1456,7 +1470,9 @@ class AbstractUnwrappedStrategy(object):
         self.unerase(w_list.lstorage).reverse()
 
 
-class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class ObjectListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = None
     _applevel_repr = "object"
 
@@ -1489,7 +1505,9 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class IntegerListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = 0
     _applevel_repr = "int"
 
@@ -1520,7 +1538,30 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _base_extend_from_list = _extend_from_list
+
+    def _extend_from_list(self, w_list, w_other):
+        if w_other.strategy is self.space.fromcache(RangeListStrategy):
+            l = self.unerase(w_list.lstorage)
+            other = w_other.getitems_int()
+            assert other is not None
+            l += other
+            return
+        return self._base_extend_from_list(w_list, w_other)
+
+
+    _base_setslice = setslice
+
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        if w_other.strategy is self.space.fromcache(RangeListStrategy):
+            storage = self.erase(w_other.getitems_int())
+            w_other = W_ListObject.from_storage_and_strategy(
+                    self.space, storage, self)
+        return self._base_setslice(w_list, start, step, slicelength, w_other)
+
+class FloatListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = 0.0
     _applevel_repr = "float"
 
@@ -1547,8 +1588,13 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
+    def getitems_float(self, w_list):
+        return self.unerase(w_list.lstorage)
 
-class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+
+class StringListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = None
     _applevel_repr = "str"
 
@@ -1579,7 +1625,9 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class UnicodeListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = None
     _applevel_repr = "unicode"
 

@@ -8,7 +8,6 @@ import py
 
 from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from rpython.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
 
 
 """
@@ -253,6 +252,23 @@ class Block(object):
         from rpython.translator.tool.graphpage import try_show
         try_show(self)
 
+    def get_graph(self):
+        import gc
+        pending = [self]   # pending blocks
+        seen = {self: True, None: True}
+        for x in pending:
+            for y in gc.get_referrers(x):
+                if isinstance(y, FunctionGraph):
+                    return y
+                elif isinstance(y, Link):
+                    block = y.prevblock
+                    if block not in seen:
+                        pending.append(block)
+                        seen[block] = True
+                elif isinstance(y, dict):
+                    pending.append(y)   # go back from the dict to the real obj
+        return pending
+
     view = show
 
 
@@ -354,6 +370,21 @@ class WrapException(Exception):
     """Attempted wrapping of a type that cannot sanely appear in flow graph or
     during its construction"""
 
+
+# method-wrappers have not enough introspection in CPython
+if hasattr(complex.real.__get__, 'im_self'):
+    type_with_bad_introspection = None     # on top of PyPy
+else:
+    type_with_bad_introspection = type(complex.real.__get__)
+
+def const(obj):
+    if isinstance(obj, (Variable, Constant)):
+        raise TypeError("already wrapped: " + repr(obj))
+    # method-wrapper have ill-defined comparison and introspection
+    # to appear in a flow graph
+    if type(obj) is type_with_bad_introspection:
+        raise WrapException
+    return Constant(obj)
 
 class SpaceOperation(object):
     __slots__ = "opname args result offset".split()
@@ -489,7 +520,8 @@ def checkgraph(graph):
     if not __debug__:
         return
     try:
-
+        from rpython.rlib.rarithmetic import (is_valid_int, r_longlong,
+            r_ulonglong, r_uint)
         vars_previous_blocks = {}
 
         exitblocks = {graph.returnblock: 1,   # retval

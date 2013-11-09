@@ -31,6 +31,12 @@ def test_list_ddl(con):
     result = list(cursor)
     assert result == [(42,)]
 
+def test_connect_takes_same_positional_args_as_Connection(con):
+    from inspect import getargspec
+    clsargs = getargspec(_sqlite3.Connection.__init__).args[1:]  # ignore self
+    conargs = getargspec(_sqlite3.connect).args
+    assert clsargs == conargs
+
 def test_total_changes_after_close(con):
     con.close()
     pytest.raises(_sqlite3.ProgrammingError, "con.total_changes")
@@ -238,3 +244,18 @@ def test_issue1573(con):
     cur = con.cursor()
     cur.execute(u'SELECT 1 as méil')
     assert cur.description[0][0] == u"méil".encode('utf-8')
+
+def test_adapter_exception(con):
+    def cast(obj):
+        raise ZeroDivisionError
+
+    _sqlite3.register_adapter(int, cast)
+    try:
+        cur = con.cursor()
+        cur.execute("select ?", (4,))
+        val = cur.fetchone()[0]
+        # Adapter error is ignored, and parameter is passed as is.
+        assert val == 4
+        assert type(val) is int
+    finally:
+        del _sqlite3.adapters[(int, _sqlite3.PrepareProtocol)]

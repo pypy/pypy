@@ -452,7 +452,7 @@ class ResOpAssembler(BaseAssembler):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
-        # and call the function jit_remember_young_pointer() from the GC.
+        # and call the function remember_young_pointer() from the GC.
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)

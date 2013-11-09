@@ -144,12 +144,12 @@ BZ2_bzWrite = external('BZ2_bzWrite', [rffi.INTP, BZFILE, rffi.CCHARP,
 BZ2_bzCompressInit = external('BZ2_bzCompressInit', [bz_stream, rffi.INT,
                               rffi.INT, rffi.INT], rffi.INT)
 BZ2_bzCompressEnd = external('BZ2_bzCompressEnd', [bz_stream], rffi.INT,
-                             threadsafe=False)
+                             releasegil=False)
 BZ2_bzCompress = external('BZ2_bzCompress', [bz_stream, rffi.INT], rffi.INT)
 BZ2_bzDecompressInit = external('BZ2_bzDecompressInit', [bz_stream, rffi.INT,
                                                          rffi.INT], rffi.INT)
 BZ2_bzDecompressEnd = external('BZ2_bzDecompressEnd', [bz_stream], rffi.INT,
-                               threadsafe=False)
+                               releasegil=False)
 BZ2_bzDecompress = external('BZ2_bzDecompress', [bz_stream], rffi.INT)
 
 def _catch_bz2_error(space, bzerror):

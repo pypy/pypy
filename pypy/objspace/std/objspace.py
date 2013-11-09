@@ -10,7 +10,7 @@ from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, import_from_mixin
 from rpython.rlib import jit
 
 # Object imports
@@ -37,9 +37,10 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.stringtype import wrapstr
 from pypy.objspace.std.unicodetype import wrapunicode
 
-class StdObjSpace(ObjSpace, DescrOperation):
+class StdObjSpace(ObjSpace):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
+    import_from_mixin(DescrOperation)
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
@@ -471,6 +472,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitems_int()
         return None
 
+    def listview_float(self, w_obj):
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_float()
+        # dict and set don't have FloatStrategy, so we can just ignore them
+        # for now
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_float()
+        return None
+
     def view_as_kwargs(self, w_dict):
         if type(w_dict) is W_DictMultiObject:
             return w_dict.view_as_kwargs()
@@ -492,16 +502,19 @@ class StdObjSpace(ObjSpace, DescrOperation):
                                  self.wrap("Expected tuple of length 3"))
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
+    _DescrOperation_is_true = is_true
+    _DescrOperation_getattr = getattr
+
     def is_true(self, w_obj):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.
         if type(w_obj) is W_BoolObject:
             return w_obj.boolval
-        return DescrOperation.is_true(self, w_obj)
+        return self._DescrOperation_is_true(w_obj)
 
     def getattr(self, w_obj, w_name):
         if not self.config.objspace.std.getattributeshortcut:
-            return DescrOperation.getattr(self, w_obj, w_name)
+            return self._DescrOperation_getattr(w_obj, w_name)
         # an optional shortcut for performance
 
         w_type = self.type(w_obj)
@@ -587,10 +600,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
 
     def call_method(self, w_obj, methname, *arg_w):
-        if self.config.objspace.opcodes.CALL_METHOD:
-            return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
-        else:
-            return ObjSpace.call_method(self, w_obj, methname, *arg_w)
+        return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
 
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):

@@ -1516,13 +1516,18 @@ def test_struct_with_bitfields():
     d = BStruct.fields
     assert d[0][1].offset == d[1][1].offset == d[2][1].offset == 0
     assert d[3][1].offset == sizeof(BLong)
-    assert d[0][1].bitshift == 0
+    def f(m, r):
+        if sys.byteorder == 'little':
+            return r
+        else:
+            return LONGBITS - m - r
+    assert d[0][1].bitshift == f(1, 0)
     assert d[0][1].bitsize == 1
-    assert d[1][1].bitshift == 1
+    assert d[1][1].bitshift == f(2, 1)
     assert d[1][1].bitsize == 2
-    assert d[2][1].bitshift == 3
+    assert d[2][1].bitshift == f(3, 3)
     assert d[2][1].bitsize == 3
-    assert d[3][1].bitshift == 0
+    assert d[3][1].bitshift == f(LONGBITS - 5, 0)
     assert d[3][1].bitsize == LONGBITS - 5
     assert sizeof(BStruct) == 2 * sizeof(BLong)
     assert alignof(BStruct) == alignof(BLong)
@@ -2856,13 +2861,38 @@ def _test_bitfield_details(flag):
                                        ('b1', BInt, 9),
                                        ('b2', BUInt, 7),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag % 2 == 0:   # gcc and gcc ARM
+    if flag % 2 == 0:   # gcc, any variant
         assert typeoffsetof(BStruct, 'c') == (BChar, 3)
         assert sizeof(BStruct) == 4
     else:               # msvc
         assert typeoffsetof(BStruct, 'c') == (BChar, 8)
         assert sizeof(BStruct) == 12
     assert alignof(BStruct) == 4
+    #
+    p = newp(new_pointer_type(BStruct), None)
+    p.a = b'A'
+    p.b1 = -201
+    p.b2 = 99
+    p.c = b'\x9D'
+    raw = buffer(p)[:]
+    if sys.byteorder == 'little':
+        if flag == 0 or flag == 2:  # gcc, little endian
+            assert raw == b'A7\xC7\x9D'
+        elif flag == 1: # msvc
+            assert raw == b'A\x00\x00\x007\xC7\x00\x00\x9D\x00\x00\x00'
+        elif flag == 4: # gcc, big endian
+            assert raw == b'A\xE3\x9B\x9D'
+        else:
+            raise AssertionError("bad flag")
+    else:
+        if flag == 0 or flag == 2:  # gcc
+            assert raw == b'A\xC77\x9D'
+        elif flag == 1: # msvc
+            assert raw == b'A\x00\x00\x00\x00\x00\xC77\x9D\x00\x00\x00'
+        elif flag == 4: # gcc, big endian
+            assert raw == b'A\x9B\xE3\x9D'
+        else:
+            raise AssertionError("bad flag")
     #
     BStruct = new_struct_type("struct foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
@@ -2875,16 +2905,21 @@ def _test_bitfield_details(flag):
     elif flag == 1: # msvc
         assert sizeof(BStruct) == 6
         assert alignof(BStruct) == 2
-    else:           # gcc ARM
+    elif flag == 2: # gcc ARM
         assert sizeof(BStruct) == 6
         assert alignof(BStruct) == 2
+    elif flag == 4: # gcc, big endian
+        assert sizeof(BStruct) == 5
+        assert alignof(BStruct) == 1
+    else:
+        raise AssertionError("bad flag")
     #
     BStruct = new_struct_type("struct foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
                                        ('',  BInt, 0),
                                        ('',  BInt, 0),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag == 0:   # gcc
+    if flag == 0:    # gcc
         assert typeoffsetof(BStruct, 'c') == (BChar, 4)
         assert sizeof(BStruct) == 5
         assert alignof(BStruct) == 1
@@ -2892,10 +2927,16 @@ def _test_bitfield_details(flag):
         assert typeoffsetof(BStruct, 'c') == (BChar, 1)
         assert sizeof(BStruct) == 2
         assert alignof(BStruct) == 1
-    else:            # gcc ARM
+    elif flag == 2:  # gcc ARM
         assert typeoffsetof(BStruct, 'c') == (BChar, 4)
         assert sizeof(BStruct) == 8
         assert alignof(BStruct) == 4
+    elif flag == 4:  # gcc, big endian
+        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+        assert sizeof(BStruct) == 5
+        assert alignof(BStruct) == 1
+    else:
+        raise AssertionError("bad flag")
 
 
 def test_bitfield_as_gcc():
@@ -2906,6 +2947,9 @@ def test_bitfield_as_msvc():
 
 def test_bitfield_as_arm_gcc():
     _test_bitfield_details(flag=2)
+
+def test_bitfield_as_big_endian():
+    _test_bitfield_details(flag=4)
 
 
 def test_version():

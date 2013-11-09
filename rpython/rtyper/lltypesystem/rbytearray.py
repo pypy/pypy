@@ -16,6 +16,9 @@ _, copy_bytearray_contents_from_str = rstr._new_copy_contents_fun(rstr.STR,
                                                                   lltype.Char,
                                                                   'bytearray_from_str')
 
+def _empty_bytearray():
+    return empty
+
 BYTEARRAY.become(lltype.GcStruct('rpy_bytearray',
                  ('chars', lltype.Array(lltype.Char)), adtmeths={
     'malloc' : lltype.staticAdtMethod(mallocbytearray),
@@ -23,7 +26,10 @@ BYTEARRAY.become(lltype.GcStruct('rpy_bytearray',
     'copy_contents_from_str': lltype.staticAdtMethod(
                                          copy_bytearray_contents_from_str),
     'length': rstr.LLHelpers.ll_length,
+    'empty': lltype.staticAdtMethod(_empty_bytearray),
 }))
+
+empty = lltype.malloc(BYTEARRAY, 0, immortal=True)
 
 class LLHelpers(rstr.LLHelpers):
     @classmethod

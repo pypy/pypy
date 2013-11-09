@@ -117,13 +117,17 @@ def new_array_type(space, w_ctptr, w_length):
 
 SF_MSVC_BITFIELDS = 1
 SF_GCC_ARM_BITFIELDS = 2
+SF_GCC_BIG_ENDIAN = 4
 
 if sys.platform == 'win32':
     DEFAULT_SFLAGS = SF_MSVC_BITFIELDS
-elif rffi_platform.getdefined('__arm__', ''):
-    DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
 else:
-    DEFAULT_SFLAGS = 0
+    if rffi_platform.getdefined('__arm__', ''):
+        DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
+    else:
+        DEFAULT_SFLAGS = 0
+    if sys.byteorder == 'big':
+        DEFAULT_SFLAGS |= SF_GCC_BIG_ENDIAN
 
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
@@ -324,6 +328,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     #
                     prev_bitfield_free -= fbitsize
                     field_offset_bytes = boffset / 8 - ftype.size
+
+                if sflags & SF_GCC_BIG_ENDIAN:
+                    bitshift = 8 * ftype.size - fbitsize- bitshift
 
                 fld = ctypestruct.W_CField(ftype, field_offset_bytes,
                                            bitshift, fbitsize)

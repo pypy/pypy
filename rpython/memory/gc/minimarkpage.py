@@ -1,3 +1,4 @@
+import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.objectmodel import we_are_translated
@@ -99,12 +100,10 @@ class ArenaCollection(object):
         # a pointer to a page that has room for at least one more
         # allocation of the given size.
         length = small_request_threshold / WORD + 1
-        self.page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                           flavor='raw', zero=True,
-                                           immortal=True)
-        self.full_page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                                flavor='raw', zero=True,
-                                                immortal=True)
+        self.page_for_size          = self._new_page_ptr_list(length)
+        self.full_page_for_size     = self._new_page_ptr_list(length)
+        self.old_page_for_size      = self._new_page_ptr_list(length)
+        self.old_full_page_for_size = self._new_page_ptr_list(length)
         self.nblocks_for_size = lltype.malloc(rffi.CArray(lltype.Signed),
                                               length, flavor='raw',
                                               immortal=True)
@@ -141,6 +140,12 @@ class ArenaCollection(object):
         # the total memory used, counting every block in use, without
         # the additional bookkeeping stuff.
         self.total_memory_used = r_uint(0)
+
+
+    def _new_page_ptr_list(self, length):
+        return lltype.malloc(rffi.CArray(PAGE_PTR), length,
+                             flavor='raw', zero=True,
+                             immortal=True)
 
 
     def malloc(self, size):
@@ -248,9 +253,7 @@ class ArenaCollection(object):
                 arena = arena.nextarena
 
 
-    def allocate_new_arena(self):
-        """Loads in self.current_arena the arena to allocate from next."""
-        #
+    def _pick_next_arena(self):
         # Pick an arena from 'arenas_lists[i]', with i as small as possible
         # but > 0.  Use caching with 'min_empty_nfreepages', which guarantees
         # that 'arenas_lists[1:min_empty_nfreepages]' are all empty.
@@ -262,10 +265,25 @@ class ArenaCollection(object):
                 # Found it.
                 self.current_arena = self.arenas_lists[i]
                 self.arenas_lists[i] = self.current_arena.nextarena
-                return
+                return True
             #
             i += 1
             self.min_empty_nfreepages = i
+        return False
+
+
+    def allocate_new_arena(self):
+        """Loads in self.current_arena the arena to allocate from next."""
+        #
+        if self._pick_next_arena():
+            return
+        #
+        # Maybe we are incrementally collecting, in which case an arena
+        # could have more free pages thrown into it than arenas_lists[]
+        # accounts for.  Rehash and retry.
+        self._rehash_arenas_lists()
+        if self._pick_next_arena():
+            return
         #
         # No more arena with any free page.  We must allocate a new arena.
         if not we_are_translated():
@@ -297,14 +315,32 @@ class ArenaCollection(object):
     allocate_new_arena._dont_inline_ = True
 
 
-    def mass_free(self, ok_to_free_func):
-        """For each object, if ok_to_free_func(obj) returns True, then free
-        the object.
+    def mass_free_prepare(self):
+        """Prepare calls to mass_free_incremental(): moves the chained lists
+        into 'self.old_xxx'.
         """
         self.total_memory_used = r_uint(0)
         #
-        # For each size class:
         size_class = self.small_request_threshold >> WORD_POWER_2
+        self.size_class_with_old_pages = size_class
+        #
+        while size_class >= 1:
+            self.old_page_for_size[size_class]      = (
+                            self.page_for_size[size_class])
+            self.old_full_page_for_size[size_class] = (
+                            self.full_page_for_size[size_class])
+            self.page_for_size[size_class]      = PAGE_NULL
+            self.full_page_for_size[size_class] = PAGE_NULL
+            size_class -= 1
+
+
+    def mass_free_incremental(self, ok_to_free_func, max_pages):
+        """For each object, if ok_to_free_func(obj) returns True, then free
+        the object.  This returns True if complete, or False if the limit
+        'max_pages' is reached.
+        """
+        size_class = self.size_class_with_old_pages
+        #
         while size_class >= 1:
             #
             # Walk the pages in 'page_for_size[size_class]' and
@@ -313,9 +349,32 @@ class ArenaCollection(object):
             # and become available for reuse by any size class.  Pages
             # not completely freed are re-chained either in
             # 'full_page_for_size[]' or 'page_for_size[]'.
-            self.mass_free_in_pages(size_class, ok_to_free_func)
+            max_pages = self.mass_free_in_pages(size_class, ok_to_free_func,
+                                                max_pages)
+            if max_pages <= 0:
+                self.size_class_with_old_pages = size_class
+                return False
             #
             size_class -= 1
+        #
+        if size_class >= 0:
+            self._rehash_arenas_lists()
+            self.size_class_with_old_pages = -1
+        #
+        return True
+
+
+    def mass_free(self, ok_to_free_func):
+        """For each object, if ok_to_free_func(obj) returns True, then free
+        the object.
+        """
+        self.mass_free_prepare()
+        #
+        res = self.mass_free_incremental(ok_to_free_func, sys.maxint)
+        ll_assert(res, "non-incremental mass_free_in_pages() returned False")
+
+
+    def _rehash_arenas_lists(self):
         #
         # Rehash arenas into the correct arenas_lists[i].  If
         # 'self.current_arena' contains an arena too, it remains there.
@@ -353,18 +412,20 @@ class ArenaCollection(object):
         self.min_empty_nfreepages = 1
 
 
-    def mass_free_in_pages(self, size_class, ok_to_free_func):
+    def mass_free_in_pages(self, size_class, ok_to_free_func, max_pages):
         nblocks = self.nblocks_for_size[size_class]
         block_size = size_class * WORD
-        remaining_partial_pages = PAGE_NULL
-        remaining_full_pages = PAGE_NULL
+        remaining_partial_pages = self.page_for_size[size_class]
+        remaining_full_pages = self.full_page_for_size[size_class]
         #
         step = 0
         while step < 2:
             if step == 0:
-                page = self.full_page_for_size[size_class]
+                page = self.old_full_page_for_size[size_class]
+                self.old_full_page_for_size[size_class] = PAGE_NULL
             else:
-                page = self.page_for_size[size_class]
+                page = self.old_page_for_size[size_class]
+                self.old_page_for_size[size_class] = PAGE_NULL
             #
             while page != PAGE_NULL:
                 #
@@ -392,12 +453,26 @@ class ArenaCollection(object):
                     # No object survives; free the page.
                     self.free_page(page)
 
+                #
+                max_pages -= 1
+                if max_pages <= 0:
+                    # End of the incremental step: store back the unprocessed
+                    # pages into self.old_xxx and return early
+                    if step == 0:
+                        self.old_full_page_for_size[size_class] = nextpage
+                    else:
+                        self.old_page_for_size[size_class] = nextpage
+                    step = 99     # stop
+                    break
+
                 page = nextpage
             #
-            step += 1
+            else:
+                step += 1
         #
         self.page_for_size[size_class] = remaining_partial_pages
         self.full_page_for_size[size_class] = remaining_full_pages
+        return max_pages
 
 
     def free_page(self, page):

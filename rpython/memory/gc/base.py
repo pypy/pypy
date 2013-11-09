@@ -101,7 +101,7 @@ class GCBase(object):
     def set_root_walker(self, root_walker):
         self.root_walker = root_walker
 
-    def write_barrier(self, newvalue, addr_struct):
+    def write_barrier(self, addr_struct):
         pass
 
     def size_gc_header(self, typeid=0):
@@ -430,6 +430,7 @@ def choose_gc_from_config(config):
                "generation": "generation.GenerationGC",
                "hybrid": "hybrid.HybridGC",
                "minimark" : "minimark.MiniMarkGC",
+               "incminimark" : "incminimark.IncrementalMiniMarkGC",
                }
     try:
         modulename, classname = classes[config.translation.gc].split('.')

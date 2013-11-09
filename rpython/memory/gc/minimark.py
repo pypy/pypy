@@ -1059,16 +1059,16 @@ class MiniMarkGC(MovingGCBase):
     def JIT_minimal_size_in_nursery(cls):
         return cls.minimal_size_in_nursery
 
-    def write_barrier(self, newvalue, addr_struct):
+    def write_barrier(self, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
-            self.remember_young_pointer(addr_struct, newvalue)
+            self.remember_young_pointer(addr_struct)
 
-    def write_barrier_from_array(self, newvalue, addr_array, index):
+    def write_barrier_from_array(self, addr_array, index):
         if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
             if self.card_page_indices > 0:     # <- constant-folded
                 self.remember_young_pointer_from_array2(addr_array, index)
             else:
-                self.remember_young_pointer(addr_array, newvalue)
+                self.remember_young_pointer(addr_array)
 
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
@@ -1076,9 +1076,8 @@ class MiniMarkGC(MovingGCBase):
         # instead of keeping it as a regular method is to
         # make the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
-        def remember_young_pointer(addr_struct, newvalue):
+        def remember_young_pointer(addr_struct):
             # 'addr_struct' is the address of the object in which we write.
-            # 'newvalue' is the address that we are going to write in there.
             # We know that 'addr_struct' has GCFLAG_TRACK_YOUNG_PTRS so far.
             #
             if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
@@ -1086,39 +1085,31 @@ class MiniMarkGC(MovingGCBase):
                           self.header(addr_struct).tid & GCFLAG_HAS_CARDS != 0,
                       "young object with GCFLAG_TRACK_YOUNG_PTRS and no cards")
             #
-            # If it seems that what we are writing is a pointer to a young obj
-            # (as checked with appears_to_be_young()), then we need
-            # to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add the object
-            # to the list 'old_objects_pointing_to_young'.  We know that
-            # 'addr_struct' cannot be in the nursery, because nursery objects
-            # never have the flag GCFLAG_TRACK_YOUNG_PTRS to start with.
+            # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
+            # the object to the list 'old_objects_pointing_to_young'.
+            # We know that 'addr_struct' cannot be in the nursery,
+            # because nursery objects never have the flag
+            # GCFLAG_TRACK_YOUNG_PTRS to start with.  Note that in
+            # theory we don't need to do that if the pointer that we're
+            # writing into the object isn't pointing to a young object.
+            # However, it isn't really a win, because then sometimes
+            # we're going to call this function a lot of times for the
+            # same object; moreover we'd need to pass the 'newvalue' as
+            # an argument here.  The JIT has always called a
+            # 'newvalue'-less version, too.
+            self.old_objects_pointing_to_young.append(addr_struct)
             objhdr = self.header(addr_struct)
-            if self.appears_to_be_young(newvalue):
-                self.old_objects_pointing_to_young.append(addr_struct)
-                objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
             #
             # Second part: if 'addr_struct' is actually a prebuilt GC
             # object and it's the first time we see a write to it, we
-            # add it to the list 'prebuilt_root_objects'.  Note that we
-            # do it even in the (rare?) case of 'addr' being NULL or another
-            # prebuilt object, to simplify code.
+            # add it to the list 'prebuilt_root_objects'.
             if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                 objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                 self.prebuilt_root_objects.append(addr_struct)
 
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
-        #
-        def jit_remember_young_pointer(addr_struct):
-            # minimal version of the above, with just one argument,
-            # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
-            self.old_objects_pointing_to_young.append(addr_struct)
-            objhdr = self.header(addr_struct)
-            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(addr_struct)
-        self.jit_remember_young_pointer = jit_remember_young_pointer
         #
         if self.card_page_indices > 0:
             self._init_writebarrier_with_card_marker()
@@ -1179,13 +1170,13 @@ class MiniMarkGC(MovingGCBase):
             # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
             # but GCFLAG_CARDS_SET is cleared.  This tries to set
             # GCFLAG_CARDS_SET if possible; otherwise, it falls back
-            # to jit_remember_young_pointer().
+            # to remember_young_pointer().
             objhdr = self.header(addr_array)
             if objhdr.tid & GCFLAG_HAS_CARDS:
                 self.old_objects_with_cards_set.append(addr_array)
                 objhdr.tid |= GCFLAG_CARDS_SET
             else:
-                self.jit_remember_young_pointer(addr_array)
+                self.remember_young_pointer(addr_array)
 
         self.jit_remember_young_pointer_from_array = (
             jit_remember_young_pointer_from_array)
@@ -1195,19 +1186,6 @@ class MiniMarkGC(MovingGCBase):
         addr_byte = obj - size_gc_header
         return llarena.getfakearenaaddress(addr_byte) + (~byteindex)
 
-
-    def assume_young_pointers(self, addr_struct):
-        """Called occasionally by the JIT to mean ``assume that 'addr_struct'
-        may now contain young pointers.''
-        """
-        objhdr = self.header(addr_struct)
-        if objhdr.tid & GCFLAG_TRACK_YOUNG_PTRS:
-            self.old_objects_pointing_to_young.append(addr_struct)
-            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-            #
-            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(addr_struct)
 
     def writebarrier_before_copy(self, source_addr, dest_addr,
                                  source_start, dest_start, length):
@@ -1257,6 +1235,7 @@ class MiniMarkGC(MovingGCBase):
 
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest
+        assert self.card_page_indices > 0
         bytes = self.card_marking_bytes_for_length(length)
         #
         anybyte = 0

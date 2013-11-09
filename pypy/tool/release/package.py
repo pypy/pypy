@@ -86,6 +86,13 @@ add --without-tk option to skip packaging binary CFFI extension."""
     builddir = udir.ensure("build", dir=True)
     pypydir = builddir.ensure(name, dir=True)
     includedir = basedir.join('include')
+    # Recursively copy all headers, shutil has only ignore
+    # so we do a double-negative to include what we want
+    def copyonly(dirpath, contents):
+        return set(contents) - set(
+            shutil.ignore_patterns('*.h', '*.incl')(dirpath, contents),
+        )
+    shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
@@ -116,7 +123,7 @@ add --without-tk option to skip packaging binary CFFI extension."""
             # modules for windows, has the lib moved or are there no
             # exported functions in the dll so no import library is created?
 
-    # Careful: to copy lib_pypy, copying just the svn-tracked files
+    # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
@@ -127,11 +134,6 @@ add --without-tk option to skip packaging binary CFFI extension."""
                                            '*.c', '*.o'))
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
-    headers = includedir.listdir('*.h') + includedir.listdir('*.inl')
-    for n in headers:
-        # we want to put there all *.h and *.inl from trunk/include
-        # and from pypy/_interfaces
-        shutil.copy(str(n), str(pypydir.join('include')))
     #
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))

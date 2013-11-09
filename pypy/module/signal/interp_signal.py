@@ -77,11 +77,15 @@ class CheckSignalAction(PeriodicAsyncAction):
                 # and there is a signal pending: we force the ticker to
                 # -1, which should ensure perform() is called quickly.
 
-    @jit.dont_look_inside
     def perform(self, executioncontext, frame):
+        self._poll_for_signals()
+
+    @jit.dont_look_inside
+    def _poll_for_signals(self):
         # Poll for the next signal, if any
         n = self.pending_signal
-        if n < 0: n = pypysig_poll()
+        if n < 0:
+            n = pypysig_poll()
         while n >= 0:
             if self.space.threadlocals.signals_enabled():
                 # If we are in the main thread, report the signal now,
@@ -89,7 +93,8 @@ class CheckSignalAction(PeriodicAsyncAction):
                 self.pending_signal = -1
                 report_signal(self.space, n)
                 n = self.pending_signal
-                if n < 0: n = pypysig_poll()
+                if n < 0:
+                    n = pypysig_poll()
             else:
                 # Otherwise, arrange for perform() to be called again
                 # after we switch to the main thread.

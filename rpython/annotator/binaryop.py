@@ -6,7 +6,8 @@ import py
 import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import SomeObject, SomeInteger, SomeBool, s_Bool
-from rpython.annotator.model import SomeString, SomeChar, SomeList, SomeDict
+from rpython.annotator.model import SomeString, SomeChar, SomeList, SomeDict,\
+     SomeOrderedDict
 from rpython.annotator.model import SomeUnicodeCodePoint, SomeUnicodeString
 from rpython.annotator.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from rpython.annotator.model import SomeInstance, SomeBuiltin, SomeIterator
@@ -20,7 +21,7 @@ from rpython.annotator.model import add_knowntypedata, merge_knowntypedata
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.rlib import rarithmetic
-from rpython.tool.error import AnnotatorError
+from rpython.annotator.model import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
@@ -243,14 +244,16 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
             if t2 is int:
                 if int2.nonneg == False:
-                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t1
+                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
+                            "integers are of the same signedness")
                 knowntype = t1
             elif t1 is int:
                 if int1.nonneg == False:
-                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t2
+                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
+                            "integers are of the same signedness")
                 knowntype = t2
             else:
-                raise UnionError, "Merging these types (%s, %s) is not supported" % (t1, t2)
+                raise UnionError(int1, int2)
         return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
                            knowntype=knowntype)
 
@@ -455,7 +458,7 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
 class __extend__(pairtype(SomeString, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeString)):
     def mod((str, unistring)):
-        raise NotImplementedError(
+        raise AnnotatorError(
             "string formatting mixing strings and unicode not supported")
 
 
@@ -469,7 +472,7 @@ class __extend__(pairtype(SomeString, SomeTuple),
             if (is_unicode and isinstance(s_item, (SomeChar, SomeString)) or
                 is_string and isinstance(s_item, (SomeUnicodeCodePoint,
                                                   SomeUnicodeString))):
-                raise NotImplementedError(
+                raise AnnotatorError(
                     "string formatting mixing strings and unicode not supported")
         getbookkeeper().count('strformat', s_string, s_tuple)
         no_nul = s_string.no_nul
@@ -551,9 +554,9 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 
     def union((tup1, tup2)):
         if len(tup1.items) != len(tup2.items):
-            raise UnionError("cannot take the union of a tuple of length %d "
-                             "and a tuple of length %d" % (len(tup1.items),
-                                                           len(tup2.items)))
+            raise UnionError(tup1, tup2, "RPython cannot unify tuples of "
+                    "different length: %d versus %d" % \
+                    (len(tup1.items), len(tup2.items)))
         else:
             unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
@@ -579,7 +582,8 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 class __extend__(pairtype(SomeDict, SomeDict)):
 
     def union((dic1, dic2)):
-        return SomeDict(dic1.dictdef.union(dic2.dictdef))
+        assert dic1.__class__ == dic2.__class__
+        return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
 
 class __extend__(pairtype(SomeDict, SomeObject)):
@@ -726,7 +730,8 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         else:
             basedef = ins1.classdef.commonbase(ins2.classdef)
             if basedef is None:
-                raise UnionError(ins1, ins2)
+                raise UnionError(ins1, ins2, "RPython cannot unify instances "
+                        "with no common base class")
         flags = ins1.flags
         if flags:
             flags = flags.copy()
@@ -768,7 +773,8 @@ class __extend__(pairtype(SomeIterator, SomeIterator)):
     def union((iter1, iter2)):
         s_cont = unionof(iter1.s_container, iter2.s_container)
         if iter1.variant != iter2.variant:
-            raise UnionError("merging incompatible iterators variants")
+            raise UnionError(iter1, iter2,
+                    "RPython cannot unify incompatible iterator variants")
         return SomeIterator(s_cont, *iter1.variant)
 
 
@@ -778,8 +784,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
         if (bltn1.analyser != bltn2.analyser or
             bltn1.methodname != bltn2.methodname or
             bltn1.s_self is None or bltn2.s_self is None):
-            raise UnionError("cannot merge two different builtin functions "
-                             "or methods:\n  %r\n  %r" % (bltn1, bltn2))
+            raise UnionError(bltn1, bltn2)
         s_self = unionof(bltn1.s_self, bltn2.s_self)
         return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
@@ -822,14 +827,14 @@ def _make_none_union(classname, constructor_args='', glob=None):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
 
         class __extend__(pairtype(SomePBC, %(classname)s)):
             def union((pbc, obj)):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
     """ % loc)
     exec source.compile() in glob
 
@@ -837,6 +842,7 @@ _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
 _make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
+_make_none_union('SomeOrderedDict',          'obj.dictdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeWeakRef',         'obj.classdef')
 
@@ -976,8 +982,8 @@ class __extend__(pairtype(SomeImpossibleValue, SomeAddress)):
 
 class __extend__(pairtype(SomeAddress, SomeObject)):
     def union((s_addr, s_obj)):
-        raise UnionError, "union of address and anything else makes no sense"
+        raise UnionError(s_addr, s_obj)
 
 class __extend__(pairtype(SomeObject, SomeAddress)):
     def union((s_obj, s_addr)):
-        raise UnionError, "union of address and anything else makes no sense"
+        raise UnionError(s_obj, s_addr)

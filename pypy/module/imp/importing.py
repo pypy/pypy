@@ -841,8 +841,7 @@ def getimportlock(space):
 #
 #     default_magic - 6    -- used by CPython without the -U option
 #     default_magic - 5    -- used by CPython with the -U option
-#     default_magic        -- used by PyPy without the CALL_METHOD opcode
-#     default_magic + 2    -- used by PyPy with the CALL_METHOD opcode
+#     default_magic        -- used by PyPy [because of CALL_METHOD]
 #
 from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
@@ -855,10 +854,7 @@ def get_pyc_magic(space):
             magic = __import__('imp').get_magic()
             return struct.unpack('<i', magic)[0]
 
-    result = default_magic
-    if space.config.objspace.opcodes.CALL_METHOD:
-        result += 2
-    return result
+    return default_magic
 
 
 def parse_source_module(space, pathname, source):

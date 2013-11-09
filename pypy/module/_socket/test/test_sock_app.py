@@ -403,6 +403,8 @@ class AppTestSocket:
     def test_socket_connect_ex(self):
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        # The following might fail if the DNS redirects failed requests to a
+        # catch-all address (i.e. opendns).
         # Make sure we get an app-level error, not an interp one.
         raises(_socket.gaierror, s.connect_ex, ("wrong.invalid", 80))
         s.close()

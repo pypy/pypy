@@ -4,19 +4,20 @@ Implementation of a part of the standard Python opcodes.
 The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
-import sys
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
-from pypy.interpreter.pycode import PyCode, BytecodeCorruption
-from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit, rstackovf
-from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import check_nonneg
-from pypy.tool.stdlib_opcode import (bytecode_spec,
-                                     unrolling_all_opcode_descs)
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter import (
+    gateway, function, eval, pyframe, pytraceback, pycode
+)
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.pycode import PyCode, BytecodeCorruption
+from pypy.tool.stdlib_opcode import bytecode_spec
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -41,33 +42,13 @@ def binaryoperation(operationname):
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
-compare_dispatch_table = [
-    "cmp_lt",   # "<"
-    "cmp_le",   # "<="
-    "cmp_eq",   # "=="
-    "cmp_ne",   # "!="
-    "cmp_gt",   # ">"
-    "cmp_ge",   # ">="
-    "cmp_in",
-    "cmp_not_in",
-    "cmp_is",
-    "cmp_is_not",
-    "cmp_exc_match",
-    ]
 
-unrolling_compare_dispatch_table = unrolling_iterable(
-    enumerate(compare_dispatch_table))
-
+opcodedesc = bytecode_spec.opcodedesc
+HAVE_ARGUMENT = bytecode_spec.HAVE_ARGUMENT
 
 class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
     minus the ones related to nested scopes."""
-
-    bytecode_spec = bytecode_spec
-    opcode_method_names = bytecode_spec.method_names
-    opcodedesc = bytecode_spec.opcodedesc
-    opdescmap = bytecode_spec.opdescmap
-    HAVE_ARGUMENT = bytecode_spec.HAVE_ARGUMENT
 
     ### opcode dispatch ###
 
@@ -161,16 +142,17 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
-        space = self.space
         while True:
             self.last_instr = intmask(next_instr)
-            if not jit.we_are_jitted():
+            if jit.we_are_jitted():
+                ec.bytecode_only_trace(self)
+            else:
                 ec.bytecode_trace(self)
-                next_instr = r_uint(self.last_instr)
+            next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
 
-            if opcode >= self.HAVE_ARGUMENT:
+            if opcode >= HAVE_ARGUMENT:
                 lo = ord(co_code[next_instr])
                 hi = ord(co_code[next_instr+1])
                 next_instr += 2
@@ -180,19 +162,18 @@ class __extend__(pyframe.PyFrame):
 
             # note: the structure of the code here is such that it makes
             # (after translation) a big "if/elif" chain, which is then
-            # turned into a switch().  It starts here: even if the first
-            # one is not an "if" but a "while" the effect is the same.
+            # turned into a switch().
 
-            while opcode == self.opcodedesc.EXTENDED_ARG.index:
+            while opcode == opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
-                if opcode < self.HAVE_ARGUMENT:
+                if opcode < HAVE_ARGUMENT:
                     raise BytecodeCorruption
                 lo = ord(co_code[next_instr+1])
                 hi = ord(co_code[next_instr+2])
                 next_instr += 3
                 oparg = (oparg * 65536) | (hi * 256) | lo
 
-            if opcode == self.opcodedesc.RETURN_VALUE.index:
+            if opcode == opcodedesc.RETURN_VALUE.index:
                 w_returnvalue = self.popvalue()
                 block = self.unrollstack(SReturnValue.kind)
                 if block is None:
@@ -202,8 +183,7 @@ class __extend__(pyframe.PyFrame):
                     unroller = SReturnValue(w_returnvalue)
                     next_instr = block.handle(self, unroller)
                     return next_instr    # now inside a 'finally' block
-
-            if opcode == self.opcodedesc.END_FINALLY.index:
+            elif opcode == opcodedesc.END_FINALLY.index:
                 unroller = self.end_finally()
                 if isinstance(unroller, SuspendedUnroller):
                     # go on unrolling the stack
@@ -215,49 +195,248 @@ class __extend__(pyframe.PyFrame):
                     else:
                         next_instr = block.handle(self, unroller)
                 return next_instr
-
-            if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
+            elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
-
-            if we_are_translated():
-                for opdesc in unrolling_all_opcode_descs:
-                    # static checks to skip this whole case if necessary
-                    if opdesc.bytecode_spec is not self.bytecode_spec:
-                        continue
-                    if not opdesc.is_enabled(space):
-                        continue
-                    if opdesc.methodname in (
-                        'EXTENDED_ARG', 'RETURN_VALUE',
-                        'END_FINALLY', 'JUMP_ABSOLUTE'):
-                        continue   # opcodes implemented above
-
-                    # the following "if" is part of the big switch described
-                    # above.
-                    if opcode == opdesc.index:
-                        # dispatch to the opcode method
-                        meth = getattr(self, opdesc.methodname)
-                        res = meth(oparg, next_instr)
-                        # !! warning, for the annotator the next line is not
-                        # comparing an int and None - you can't do that.
-                        # Instead, it's constant-folded to either True or False
-                        if res is not None:
-                            next_instr = res
-                        break
-                else:
-                    self.MISSING_OPCODE(oparg, next_instr)
-
-            else:  # when we are not translated, a list lookup is much faster
-                methodname = self.opcode_method_names[opcode]
-                try:
-                    meth = getattr(self, methodname)
-                except AttributeError:
-                    raise BytecodeCorruption("unimplemented opcode, ofs=%d, "
-                                             "code=%d, name=%s" %
-                                             (self.last_instr, opcode,
-                                              methodname))
-                res = meth(oparg, next_instr)
-                if res is not None:
-                    next_instr = res
+            elif opcode == opcodedesc.BREAK_LOOP.index:
+                next_instr = self.BREAK_LOOP(oparg, next_instr)
+            elif opcode == opcodedesc.CONTINUE_LOOP.index:
+                next_instr = self.CONTINUE_LOOP(oparg, next_instr)
+            elif opcode == opcodedesc.FOR_ITER.index:
+                next_instr = self.FOR_ITER(oparg, next_instr)
+            elif opcode == opcodedesc.JUMP_FORWARD.index:
+                next_instr = self.JUMP_FORWARD(oparg, next_instr)
+            elif opcode == opcodedesc.JUMP_IF_FALSE_OR_POP.index:
+                next_instr = self.JUMP_IF_FALSE_OR_POP(oparg, next_instr)
+            elif opcode == opcodedesc.JUMP_IF_NOT_DEBUG.index:
+                next_instr = self.JUMP_IF_NOT_DEBUG(oparg, next_instr)
+            elif opcode == opcodedesc.JUMP_IF_TRUE_OR_POP.index:
+                next_instr = self.JUMP_IF_TRUE_OR_POP(oparg, next_instr)
+            elif opcode == opcodedesc.POP_JUMP_IF_FALSE.index:
+                next_instr = self.POP_JUMP_IF_FALSE(oparg, next_instr)
+            elif opcode == opcodedesc.POP_JUMP_IF_TRUE.index:
+                next_instr = self.POP_JUMP_IF_TRUE(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_ADD.index:
+                self.BINARY_ADD(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_AND.index:
+                self.BINARY_AND(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_DIVIDE.index:
+                self.BINARY_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_FLOOR_DIVIDE.index:
+                self.BINARY_FLOOR_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_LSHIFT.index:
+                self.BINARY_LSHIFT(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_MODULO.index:
+                self.BINARY_MODULO(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_MULTIPLY.index:
+                self.BINARY_MULTIPLY(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_OR.index:
+                self.BINARY_OR(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_POWER.index:
+                self.BINARY_POWER(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_RSHIFT.index:
+                self.BINARY_RSHIFT(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_SUBSCR.index:
+                self.BINARY_SUBSCR(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_SUBTRACT.index:
+                self.BINARY_SUBTRACT(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_TRUE_DIVIDE.index:
+                self.BINARY_TRUE_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_XOR.index:
+                self.BINARY_XOR(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_CLASS.index:
+                self.BUILD_CLASS(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_LIST.index:
+                self.BUILD_LIST(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_LIST_FROM_ARG.index:
+                self.BUILD_LIST_FROM_ARG(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_MAP.index:
+                self.BUILD_MAP(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_SET.index:
+                self.BUILD_SET(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_SLICE.index:
+                self.BUILD_SLICE(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_TUPLE.index:
+                self.BUILD_TUPLE(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_FUNCTION.index:
+                self.CALL_FUNCTION(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_FUNCTION_KW.index:
+                self.CALL_FUNCTION_KW(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_FUNCTION_VAR.index:
+                self.CALL_FUNCTION_VAR(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_FUNCTION_VAR_KW.index:
+                self.CALL_FUNCTION_VAR_KW(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_METHOD.index:
+                self.CALL_METHOD(oparg, next_instr)
+            elif opcode == opcodedesc.COMPARE_OP.index:
+                self.COMPARE_OP(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_ATTR.index:
+                self.DELETE_ATTR(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_FAST.index:
+                self.DELETE_FAST(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_GLOBAL.index:
+                self.DELETE_GLOBAL(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_NAME.index:
+                self.DELETE_NAME(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_SLICE_0.index:
+                self.DELETE_SLICE_0(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_SLICE_1.index:
+                self.DELETE_SLICE_1(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_SLICE_2.index:
+                self.DELETE_SLICE_2(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_SLICE_3.index:
+                self.DELETE_SLICE_3(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_SUBSCR.index:
+                self.DELETE_SUBSCR(oparg, next_instr)
+            elif opcode == opcodedesc.DUP_TOP.index:
+                self.DUP_TOP(oparg, next_instr)
+            elif opcode == opcodedesc.DUP_TOPX.index:
+                self.DUP_TOPX(oparg, next_instr)
+            elif opcode == opcodedesc.EXEC_STMT.index:
+                self.EXEC_STMT(oparg, next_instr)
+            elif opcode == opcodedesc.GET_ITER.index:
+                self.GET_ITER(oparg, next_instr)
+            elif opcode == opcodedesc.IMPORT_FROM.index:
+                self.IMPORT_FROM(oparg, next_instr)
+            elif opcode == opcodedesc.IMPORT_NAME.index:
+                self.IMPORT_NAME(oparg, next_instr)
+            elif opcode == opcodedesc.IMPORT_STAR.index:
+                self.IMPORT_STAR(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_ADD.index:
+                self.INPLACE_ADD(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_AND.index:
+                self.INPLACE_AND(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_DIVIDE.index:
+                self.INPLACE_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_FLOOR_DIVIDE.index:
+                self.INPLACE_FLOOR_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_LSHIFT.index:
+                self.INPLACE_LSHIFT(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_MODULO.index:
+                self.INPLACE_MODULO(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_MULTIPLY.index:
+                self.INPLACE_MULTIPLY(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_OR.index:
+                self.INPLACE_OR(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_POWER.index:
+                self.INPLACE_POWER(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_RSHIFT.index:
+                self.INPLACE_RSHIFT(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_SUBTRACT.index:
+                self.INPLACE_SUBTRACT(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_TRUE_DIVIDE.index:
+                self.INPLACE_TRUE_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_XOR.index:
+                self.INPLACE_XOR(oparg, next_instr)
+            elif opcode == opcodedesc.LIST_APPEND.index:
+                self.LIST_APPEND(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_ATTR.index:
+                self.LOAD_ATTR(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_CLOSURE.index:
+                self.LOAD_CLOSURE(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_CONST.index:
+                self.LOAD_CONST(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_DEREF.index:
+                self.LOAD_DEREF(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_FAST.index:
+                self.LOAD_FAST(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_GLOBAL.index:
+                self.LOAD_GLOBAL(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_LOCALS.index:
+                self.LOAD_LOCALS(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_NAME.index:
+                self.LOAD_NAME(oparg, next_instr)
+            elif opcode == opcodedesc.LOOKUP_METHOD.index:
+                self.LOOKUP_METHOD(oparg, next_instr)
+            elif opcode == opcodedesc.MAKE_CLOSURE.index:
+                self.MAKE_CLOSURE(oparg, next_instr)
+            elif opcode == opcodedesc.MAKE_FUNCTION.index:
+                self.MAKE_FUNCTION(oparg, next_instr)
+            elif opcode == opcodedesc.MAP_ADD.index:
+                self.MAP_ADD(oparg, next_instr)
+            elif opcode == opcodedesc.NOP.index:
+                self.NOP(oparg, next_instr)
+            elif opcode == opcodedesc.POP_BLOCK.index:
+                self.POP_BLOCK(oparg, next_instr)
+            elif opcode == opcodedesc.POP_TOP.index:
+                self.POP_TOP(oparg, next_instr)
+            elif opcode == opcodedesc.PRINT_EXPR.index:
+                self.PRINT_EXPR(oparg, next_instr)
+            elif opcode == opcodedesc.PRINT_ITEM.index:
+                self.PRINT_ITEM(oparg, next_instr)
+            elif opcode == opcodedesc.PRINT_ITEM_TO.index:
+                self.PRINT_ITEM_TO(oparg, next_instr)
+            elif opcode == opcodedesc.PRINT_NEWLINE.index:
+                self.PRINT_NEWLINE(oparg, next_instr)
+            elif opcode == opcodedesc.PRINT_NEWLINE_TO.index:
+                self.PRINT_NEWLINE_TO(oparg, next_instr)
+            elif opcode == opcodedesc.RAISE_VARARGS.index:
+                self.RAISE_VARARGS(oparg, next_instr)
+            elif opcode == opcodedesc.ROT_FOUR.index:
+                self.ROT_FOUR(oparg, next_instr)
+            elif opcode == opcodedesc.ROT_THREE.index:
+                self.ROT_THREE(oparg, next_instr)
+            elif opcode == opcodedesc.ROT_TWO.index:
+                self.ROT_TWO(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_EXCEPT.index:
+                self.SETUP_EXCEPT(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_FINALLY.index:
+                self.SETUP_FINALLY(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_LOOP.index:
+                self.SETUP_LOOP(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_WITH.index:
+                self.SETUP_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.SET_ADD.index:
+                self.SET_ADD(oparg, next_instr)
+            elif opcode == opcodedesc.SLICE_0.index:
+                self.SLICE_0(oparg, next_instr)
+            elif opcode == opcodedesc.SLICE_1.index:
+                self.SLICE_1(oparg, next_instr)
+            elif opcode == opcodedesc.SLICE_2.index:
+                self.SLICE_2(oparg, next_instr)
+            elif opcode == opcodedesc.SLICE_3.index:
+                self.SLICE_3(oparg, next_instr)
+            elif opcode == opcodedesc.STOP_CODE.index:
+                self.STOP_CODE(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_ATTR.index:
+                self.STORE_ATTR(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_DEREF.index:
+                self.STORE_DEREF(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_FAST.index:
+                self.STORE_FAST(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_GLOBAL.index:
+                self.STORE_GLOBAL(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_MAP.index:
+                self.STORE_MAP(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_NAME.index:
+                self.STORE_NAME(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_SLICE_0.index:
+                self.STORE_SLICE_0(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_SLICE_1.index:
+                self.STORE_SLICE_1(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_SLICE_2.index:
+                self.STORE_SLICE_2(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_SLICE_3.index:
+                self.STORE_SLICE_3(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_SUBSCR.index:
+                self.STORE_SUBSCR(oparg, next_instr)
+            elif opcode == opcodedesc.UNARY_CONVERT.index:
+                self.UNARY_CONVERT(oparg, next_instr)
+            elif opcode == opcodedesc.UNARY_INVERT.index:
+                self.UNARY_INVERT(oparg, next_instr)
+            elif opcode == opcodedesc.UNARY_NEGATIVE.index:
+                self.UNARY_NEGATIVE(oparg, next_instr)
+            elif opcode == opcodedesc.UNARY_NOT.index:
+                self.UNARY_NOT(oparg, next_instr)
+            elif opcode == opcodedesc.UNARY_POSITIVE.index:
+                self.UNARY_POSITIVE(oparg, next_instr)
+            elif opcode == opcodedesc.UNPACK_SEQUENCE.index:
+                self.UNPACK_SEQUENCE(oparg, next_instr)
+            elif opcode == opcodedesc.WITH_CLEANUP.index:
+                self.WITH_CLEANUP(oparg, next_instr)
+            elif opcode == opcodedesc.YIELD_VALUE.index:
+                self.YIELD_VALUE(oparg, next_instr)
+            else:
+                self.MISSING_OPCODE(oparg, next_instr)
 
             if jit.we_are_jitted():
                 return next_instr
@@ -325,6 +504,44 @@ class __extend__(pyframe.PyFrame):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
         self.locals_stack_w[varindex] = w_newvalue
+
+    def getfreevarname(self, index):
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        return freevarnames[index]
+
+    def iscellvar(self, index):
+        # is the variable given by index a cell or a free var?
+        return index < len(self.pycode.co_cellvars)
+
+    def LOAD_DEREF(self, varindex, next_instr):
+        # nested scopes: access a variable through its cell object
+        cell = self.cells[varindex]
+        try:
+            w_value = cell.get()
+        except ValueError:
+            varname = self.getfreevarname(varindex)
+            if self.iscellvar(varindex):
+                message = "local variable '%s' referenced before assignment" % varname
+                w_exc_type = self.space.w_UnboundLocalError
+            else:
+                message = ("free variable '%s' referenced before assignment"
+                           " in enclosing scope" % varname)
+                w_exc_type = self.space.w_NameError
+            raise OperationError(w_exc_type, self.space.wrap(message))
+        else:
+            self.pushvalue(w_value)
+
+    def STORE_DEREF(self, varindex, next_instr):
+        # nested scopes: access a variable through its cell object
+        w_newvalue = self.popvalue()
+        cell = self.cells[varindex]
+        cell.set(w_newvalue)
+
+    def LOAD_CLOSURE(self, varindex, next_instr):
+        # nested scopes: access the cell object
+        cell = self.cells[varindex]
+        w_value = self.space.wrap(cell)
+        self.pushvalue(w_value)
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
@@ -519,7 +736,6 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         if nbargs == 0:
             frame = self
-            ec = self.space.getexecutioncontext()
             while frame:
                 if frame.last_exception is not None:
                     operror = frame.last_exception
@@ -733,36 +949,6 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_value)
     LOAD_ATTR._always_inline_ = True
 
-    def cmp_lt(self, w_1, w_2):
-        return self.space.lt(w_1, w_2)
-
-    def cmp_le(self, w_1, w_2):
-        return self.space.le(w_1, w_2)
-
-    def cmp_eq(self, w_1, w_2):
-        return self.space.eq(w_1, w_2)
-
-    def cmp_ne(self, w_1, w_2):
-        return self.space.ne(w_1, w_2)
-
-    def cmp_gt(self, w_1, w_2):
-        return self.space.gt(w_1, w_2)
-
-    def cmp_ge(self, w_1, w_2):
-        return self.space.ge(w_1, w_2)
-
-    def cmp_in(self, w_1, w_2):
-        return self.space.contains(w_2, w_1)
-
-    def cmp_not_in(self, w_1, w_2):
-        return self.space.not_(self.space.contains(w_2, w_1))
-
-    def cmp_is(self, w_1, w_2):
-        return self.space.is_(w_1, w_2)
-
-    def cmp_is_not(self, w_1, w_2):
-        return self.space.not_(self.space.is_(w_1, w_2))
-
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
         space = self.space
@@ -779,11 +965,28 @@ class __extend__(pyframe.PyFrame):
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
-        w_result = None
-        for i, attr in unrolling_compare_dispatch_table:
-            if i == testnum:
-                w_result = getattr(self, attr)(w_1, w_2)
-                break
+        if testnum == 0:
+            w_result = self.space.lt(w_1, w_2)
+        elif testnum == 1:
+            w_result = self.space.le(w_1, w_2)
+        elif testnum == 2:
+            w_result = self.space.eq(w_1, w_2)
+        elif testnum == 3:
+            w_result = self.space.ne(w_1, w_2)
+        elif testnum == 4:
+            w_result = self.space.gt(w_1, w_2)
+        elif testnum == 5:
+            w_result = self.space.ge(w_1, w_2)
+        elif testnum == 6:
+            w_result = self.space.contains(w_2, w_1)
+        elif testnum == 7:
+            w_result = self.space.not_(self.space.contains(w_2, w_1))
+        elif testnum == 8:
+            w_result = self.space.is_(w_1, w_2)
+        elif testnum == 9:
+            w_result = self.space.not_(self.space.is_(w_1, w_2))
+        elif testnum == 10:
+            w_result = self.cmp_exc_match(w_1, w_2)
         else:
             raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
@@ -1023,6 +1226,18 @@ class __extend__(pyframe.PyFrame):
                                defaultarguments)
         self.pushvalue(self.space.wrap(fn))
 
+    @jit.unroll_safe
+    def MAKE_CLOSURE(self, numdefaults, next_instr):
+        w_codeobj = self.popvalue()
+        codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
+        w_freevarstuple = self.popvalue()
+        freevars = [self.space.interp_w(Cell, cell)
+                    for cell in self.space.fixedview(w_freevarstuple)]
+        defaultarguments = self.popvalues(numdefaults)
+        fn = function.Function(self.space, codeobj, self.w_globals,
+                               defaultarguments, freevars)
+        self.pushvalue(self.space.wrap(fn))
+
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:
             w_step = self.popvalue()
@@ -1084,49 +1299,6 @@ class __extend__(pyframe.PyFrame):
         w_value = self.popvalue()
         w_dict = self.peekvalue()
         self.space.setitem(w_dict, w_key, w_value)
-
-
-class __extend__(pyframe.CPythonFrame):
-
-    def JUMP_IF_FALSE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if not self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
-
-    def JUMP_IF_TRUE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
-
-    def BUILD_MAP(self, itemcount, next_instr):
-        if sys.version_info >= (2, 6):
-            # We could pre-allocate a dict here
-            # but for the moment this code is not translated.
-            pass
-        else:
-            if itemcount != 0:
-                raise BytecodeCorruption
-        w_dict = self.space.newdict()
-        self.pushvalue(w_dict)
-
-    def STORE_MAP(self, zero, next_instr):
-        if sys.version_info >= (2, 6):
-            w_key = self.popvalue()
-            w_value = self.popvalue()
-            w_dict = self.peekvalue()
-            self.space.setitem(w_dict, w_key, w_value)
-        else:
-            raise BytecodeCorruption
-
-    def LIST_APPEND(self, oparg, next_instr):
-        w = self.popvalue()
-        if sys.version_info < (2, 7):
-            v = self.popvalue()
-        else:
-            v = self.peekvalue(oparg - 1)
-        self.space.call_method(v, 'append', w)
 
 
 ### ____________________________________________________________ ###

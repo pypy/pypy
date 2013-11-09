@@ -149,6 +149,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['nice'] = 'interp_posix.nice'
     if hasattr(os, 'getlogin'):
         interpleveldefs['getlogin'] = 'interp_posix.getlogin'
+    if hasattr(os, 'ctermid'):
+        interpleveldefs['ctermid'] = 'interp_posix.ctermid'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',

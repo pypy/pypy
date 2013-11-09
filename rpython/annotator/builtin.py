@@ -2,11 +2,13 @@
 Built-in functions.
 """
 import sys
+from collections import OrderedDict
 
 from rpython.annotator.model import (
     SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple, s_Bool,
     SomeUnicodeCodePoint, SomeAddress, SomeFloat, unionof, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
+    SomeOrderedDict,
     SomeByteArray, annotation_to_lltype, lltype_to_annotation,
     ll_to_annotation, add_knowntypedata, s_ImpossibleValue,)
 from rpython.annotator.bookkeeper import getbookkeeper
@@ -94,7 +96,7 @@ def builtin_reversed(s_obj):
 
 
 def builtin_bool(s_obj):
-    return s_obj.is_true()
+    return s_obj.bool()
 
 def builtin_int(s_obj, s_base=None):
     if isinstance(s_obj, SomeInteger):
@@ -298,6 +300,10 @@ def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
     return SomeDict(dictdef)
 
+def robjmodel_r_ordereddict(s_eqfn, s_hashfn):
+    dictdef = getbookkeeper().getdictdef(is_r_dict=True)
+    dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
+    return SomeOrderedDict(dictdef)
 
 def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     from rpython.rtyper import rmodel
@@ -337,7 +343,7 @@ def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
 def unicodedata_decimal(s_uchr):
-    raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"
+    raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
 def test(*args):
     return s_Bool
@@ -357,6 +363,8 @@ BUILTIN_ANALYZERS[rpython.rlib.rarithmetic.intmask] = rarith_intmask
 BUILTIN_ANALYZERS[rpython.rlib.rarithmetic.longlongmask] = rarith_longlongmask
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.instantiate] = robjmodel_instantiate
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.r_dict] = robjmodel_r_dict
+BUILTIN_ANALYZERS[rpython.rlib.objectmodel.r_ordereddict] = robjmodel_r_ordereddict
+BUILTIN_ANALYZERS[OrderedDict] = lambda : SomeOrderedDict(getbookkeeper().getdictdef())
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
 BUILTIN_ANALYZERS[rpython.rtyper.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory_cast_ptr_to_adr

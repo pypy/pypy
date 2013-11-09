@@ -191,38 +191,38 @@ def set_range(pat, index, char_code):
 
 def set_bigcharset(pat, index, char_code):
     # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
-    # XXX this function needs a makeover, it's very bad
     count = pat[index+1]
     index += 2
-    if char_code < 65536:
-        block_index = char_code >> 8
-        # NB: there are CODESIZE block indices per bytecode
-        a = to_byte_array(pat[index+(block_index / CODESIZE)])
-        block = a[block_index % CODESIZE]
-        index += 256 / CODESIZE  # skip block indices
-        if CODESIZE == 2:
-            shift = 4
-        else:
-            shift = 5
-        block_value = pat[index+(block * (32 / CODESIZE)
-                                 + ((char_code & 255) >> shift))]
-        match = (block_value & (1 << (char_code & ((8 * CODESIZE) - 1)))) != 0
+
+    if CODESIZE == 2:
+        # One bytecode is 2 bytes, so contains 2 of the blockindices.
+        # So the 256 blockindices are packed in 128 bytecodes, but
+        # we need to unpack it as a byte.
+        assert char_code < 65536
+        shift = 4
     else:
-        index += 256 / CODESIZE  # skip block indices
-        match = False
+        # One bytecode is 4 bytes, so contains 4 of the blockindices.
+        # So the 256 blockindices are packed in 64 bytecodes, but
+        # we need to unpack it as a byte.
+        if char_code >= 65536:
+            index += 256 / CODESIZE + count * (32 / CODESIZE)
+            return False, index
+        shift = 5
+
+    block = pat[index + (char_code >> (shift + 5))]
+
+    block_shift = char_code >> 5
+    if BIG_ENDIAN:
+        block_shift = ~block_shift
+    block_shift &= (CODESIZE - 1) * 8
+    block = (block >> block_shift) & 0xFF
+
+    index += 256 / CODESIZE
+    block_value = pat[index+(block * (32 / CODESIZE)
+                             + ((char_code & 255) >> shift))]
+    match = (block_value & (1 << (char_code & ((8 * CODESIZE) - 1))))
     index += count * (32 / CODESIZE)  # skip blocks
     return match, index
-
-def to_byte_array(int_value):
-    """Creates a list of bytes out of an integer representing data that is
-    CODESIZE bytes wide."""
-    byte_array = [0] * CODESIZE
-    for i in range(CODESIZE):
-        byte_array[i] = int_value & 0xff
-        int_value = int_value >> 8
-    if BIG_ENDIAN:
-        byte_array.reverse()
-    return byte_array
 
 set_dispatch_table = [
     None, # FAILURE

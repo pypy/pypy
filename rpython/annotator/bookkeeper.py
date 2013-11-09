@@ -5,9 +5,10 @@ The Bookkeeper class.
 from __future__ import absolute_import
 
 import sys, types, inspect, weakref
+from collections import OrderedDict
 
 from rpython.flowspace.model import Constant
-from rpython.annotator.model import (
+from rpython.annotator.model import (SomeOrderedDict,
     SomeString, SomeChar, SomeFloat, SomePtr, unionof, SomeInstance, SomeDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
@@ -370,7 +371,7 @@ class Bookkeeper(object):
                 for e in x:
                     listdef.generalize(self.immutablevalue(e, False))
                 result = SomeList(listdef)
-        elif tp is dict or tp is r_dict:
+        elif tp is dict or tp is r_dict or tp is OrderedDict:
             if need_const:
                 key = Constant(x)
                 try:
@@ -412,7 +413,10 @@ class Bookkeeper(object):
                     dictdef.generalize_key(self.immutablevalue(ek, False))
                     dictdef.generalize_value(self.immutablevalue(ev, False))
                     dictdef.seen_prebuilt_key(ek)
-                result = SomeDict(dictdef)
+                if tp is OrderedDict:
+                    result = SomeOrderedDict(dictdef)
+                else:
+                    result = SomeDict(dictdef)
         elif tp is weakref.ReferenceType:
             x1 = x()
             if x1 is None:
@@ -688,7 +692,7 @@ class Bookkeeper(object):
         fn, block, i = self.position_key
         op = block.operations[i]
         if opname is not None:
-            assert op.opname == opname or op.opname in opname
+            assert op.opname == opname
         if arity is not None:
             assert len(op.args) == arity
         if pos is not None:

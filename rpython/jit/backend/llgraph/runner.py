@@ -183,7 +183,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, looptoken, log=True,
+                     name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
         looptoken.compiled_loop_token = clt
         lltrace = LLTrace(inputargs, operations)
@@ -192,7 +193,7 @@ class LLGraphCPU(model.AbstractCPU):
         self._record_labels(lltrace)
 
     def compile_bridge(self, faildescr, inputargs, operations,
-                       original_loop_token, log=True):
+                       original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         lltrace = LLTrace(inputargs, operations)
@@ -380,6 +381,8 @@ class LLGraphCPU(model.AbstractCPU):
             res = self.llinterp.eval_graph(ptr._obj.graph, args)
         else:
             res = ptr._obj._callable(*args)
+        if RESULT is lltype.Void:
+            return None
         return support.cast_result(RESULT, res)
 
     def _do_call(self, func, args_i, args_r, args_f, calldescr):
@@ -417,7 +420,6 @@ class LLGraphCPU(model.AbstractCPU):
 
     bh_setfield_raw   = bh_setfield_gc
     bh_setfield_raw_i = bh_setfield_raw
-    bh_setfield_raw_r = bh_setfield_raw
     bh_setfield_raw_f = bh_setfield_raw
 
     def bh_arraylen_gc(self, a, descr):

@@ -34,7 +34,7 @@ class AppTestThreadSignal(GenericTestThread):
                     thread.interrupt_main()
                     for i in range(10):
                         print('x')
-                        time.sleep(0.1)
+                        time.sleep(0.25)
             except BaseException, e:
                 interrupted.append(e)
             finally:
@@ -59,7 +59,7 @@ class AppTestThreadSignal(GenericTestThread):
                 for j in range(10):
                     if len(done): break
                     print('.')
-                    time.sleep(0.1)
+                    time.sleep(0.25)
                 print('main thread loop done')
                 assert len(done) == 1
                 assert len(interrupted) == 1
@@ -117,7 +117,7 @@ class AppTestThreadSignalLock:
 
         def subthread():
             try:
-                time.sleep(0.25)
+                time.sleep(0.5)
                 with __pypy__.thread.signals_enabled:
                     thread.interrupt_main()
             except BaseException, e:

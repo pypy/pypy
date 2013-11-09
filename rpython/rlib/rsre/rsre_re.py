@@ -286,8 +286,8 @@ class SREScanner(object):
 class Scanner:
     # This class is copied directly from re.py.
     def __init__(self, lexicon, flags=0):
-        from sre_constants import BRANCH, SUBPATTERN
-        import sre_parse
+        from rpython.rlib.rsre.rpy.sre_constants import BRANCH, SUBPATTERN
+        from rpython.rlib.rsre.rpy import sre_parse
         self.lexicon = lexicon
         # combine phrases into a compound pattern
         p = []

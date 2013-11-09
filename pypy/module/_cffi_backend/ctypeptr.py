@@ -58,19 +58,26 @@ class W_CTypePtrOrArray(W_CType):
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
 
+    def _convert_array_from_listview(self, cdata, w_ob):
+        if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
+            return
+        #
+        space = self.space
+        lst_w = space.listview(w_ob)
+        if self.length >= 0 and len(lst_w) > self.length:
+            raise operationerrfmt(space.w_IndexError,
+                "too many initializers for '%s' (got %d)",
+                                  self.name, len(lst_w))
+        ctitem = self.ctitem
+        for i in range(len(lst_w)):
+            ctitem.convert_from_object(cdata, lst_w[i])
+            cdata = rffi.ptradd(cdata, ctitem.size)
+
     def convert_array_from_object(self, cdata, w_ob):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            lst_w = space.listview(w_ob)
-            if self.length >= 0 and len(lst_w) > self.length:
-                raise operationerrfmt(space.w_IndexError,
-                    "too many initializers for '%s' (got %d)",
-                                      self.name, len(lst_w))
-            ctitem = self.ctitem
-            for i in range(len(lst_w)):
-                ctitem.convert_from_object(cdata, lst_w[i])
-                cdata = rffi.ptradd(cdata, ctitem.size)
+            self._convert_array_from_listview(cdata, w_ob)
         elif (self.can_cast_anything or
               (self.ctitem.is_primitive_integer and
                self.ctitem.size == rffi.sizeof(lltype.Char))):

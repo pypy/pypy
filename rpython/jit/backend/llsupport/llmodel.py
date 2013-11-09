@@ -97,7 +97,7 @@ class AbstractLLCPU(AbstractCPU):
                 new_frame.jf_savedata = frame.jf_savedata
                 new_frame.jf_guard_exc = frame.jf_guard_exc
                 # all other fields are empty
-                llop.gc_assume_young_pointers(lltype.Void, new_frame)
+                llop.gc_writebarrier(lltype.Void, new_frame)
                 return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
             except Exception, e:
                 print "Unhandled exception", e, "in realloc_frame"
@@ -247,6 +247,7 @@ class AbstractLLCPU(AbstractCPU):
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
+                llop.gc_writebarrier(lltype.Void, ll_frame)
                 ll_frame = func(ll_frame)
             finally:
                 if not self.translate_support_code:
@@ -368,68 +369,44 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def read_int_at_mem(self, gcref, ofs, size, sign):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 if sign:
-                    items = rffi.cast(rffi.CArrayPtr(STYPE), items)
-                    val = items[0]
+                    val = llop.raw_load(STYPE, gcref, ofs)
                     val = rffi.cast(lltype.Signed, val)
                 else:
-                    items = rffi.cast(rffi.CArrayPtr(UTYPE), items)
-                    val = items[0]
+                    val = llop.raw_load(UTYPE, gcref, ofs)
                     val = rffi.cast(lltype.Signed, val)
-                # --- end of GC unsafe code ---
                 return val
         else:
             raise NotImplementedError("size = %d" % size)
 
     @specialize.argtype(1)
-    def write_int_at_mem(self, gcref, ofs, size, sign, newvalue):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+    def write_int_at_mem(self, gcref, ofs, size, newvalue):
         for TYPE, _, itemsize in unroll_basic_sizes:
             if size == itemsize:
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
-                items[0] = rffi.cast(TYPE, newvalue)
-                # --- end of GC unsafe code ---
+                newvalue = rffi.cast(TYPE, newvalue)
+                llop.raw_store(lltype.Void, gcref, ofs, newvalue)
                 return
         else:
             raise NotImplementedError("size = %d" % size)
 
+    @specialize.argtype(1)
     def read_ref_at_mem(self, gcref, ofs):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        pval = self._cast_int_to_gcref(items[0])
-        # --- end of GC unsafe code ---
-        return pval
+        return llop.raw_load(llmemory.GCREF, gcref, ofs)
 
+    # non-@specialized: must only be called with llmemory.GCREF
     def write_ref_at_mem(self, gcref, ofs, newvalue):
-        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        items[0] = self.cast_gcref_to_int(newvalue)
-        # --- end of GC unsafe code ---
+        llop.raw_store(lltype.Void, gcref, ofs, newvalue)
+        # the write barrier is implied above
 
     @specialize.argtype(1)
     def read_float_at_mem(self, gcref, ofs):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        fval = items[0]
-        # --- end of GC unsafe code ---
-        return fval
+        return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs)
 
     @specialize.argtype(1)
     def write_float_at_mem(self, gcref, ofs, newvalue):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        items[0] = newvalue
-        # --- end of GC unsafe code ---
+        llop.raw_store(lltype.Void, gcref, ofs, newvalue)
 
     # ____________________________________________________________
 
@@ -439,7 +416,7 @@ class AbstractLLCPU(AbstractCPU):
         """
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
-        self.write_int_at_mem(newframe, ofs + index, WORD, 1, value)
+        self.write_int_at_mem(newframe, ofs + index, WORD, value)
 
     def set_ref_value(self, newframe, index, value):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
@@ -467,7 +444,7 @@ class AbstractLLCPU(AbstractCPU):
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         ofs = arraydescr.lendescr.offset
-        return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
+        return self.read_int_at_mem(array, ofs, WORD, 1)
 
     @specialize.argtype(1)
     def bh_getarrayitem_gc_i(self, gcref, itemindex, arraydescr):
@@ -488,8 +465,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def bh_setarrayitem_gc_i(self, gcref, itemindex, newvalue, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
-        self.write_int_at_mem(gcref, ofs + itemindex * size, size, sign,
-                              newvalue)
+        self.write_int_at_mem(gcref, ofs + itemindex * size, size, newvalue)
 
     def bh_setarrayitem_gc_r(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
@@ -509,97 +485,43 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_getinteriorfield_gc_i(self, gcref, itemindex, descr):
         assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
-        ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.field_size
-        sign = descr.fielddescr.is_field_signed()
-        fullofs = itemindex * size + ofs
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), fullofs)
-        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
-            if fieldsize == itemsize:
-                if sign:
-                    item = rffi.cast(rffi.CArrayPtr(STYPE), items)
-                    val = item[0]
-                    val = rffi.cast(lltype.Signed, val)
-                else:
-                    item = rffi.cast(rffi.CArrayPtr(UTYPE), items)
-                    val = item[0]
-                    val = rffi.cast(lltype.Signed, val)
-                # --- end of GC unsafe code ---
-                return val
-        else:
-            raise NotImplementedError("size = %d" % fieldsize)
+        ofs, size, _ = self.unpack_arraydescr_size(descr.arraydescr)
+        fldofs, fldsize, sign = self.unpack_fielddescr_size(descr.fielddescr)
+        ofs += itemindex * size + fldofs
+        return self.read_int_at_mem(gcref, ofs, fldsize, sign)
 
     def bh_getinteriorfield_gc_r(self, gcref, itemindex, descr):
         assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs, size, _ = self.unpack_arraydescr_size(descr.arraydescr)
         ofs += descr.fielddescr.offset
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs +
-                            size * itemindex)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        pval = self._cast_int_to_gcref(items[0])
-        # --- end of GC unsafe code ---
-        return pval
+        fullofs = itemindex * size + ofs
+        return self.read_ref_at_mem(gcref, fullofs)
 
     def bh_getinteriorfield_gc_f(self, gcref, itemindex, descr):
         assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs, size, _ = self.unpack_arraydescr_size(descr.arraydescr)
         ofs += descr.fielddescr.offset
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs +
-                            size * itemindex)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        fval = items[0]
-        # --- end of GC unsafe code ---
-        return fval
+        fullofs = itemindex * size + ofs
+        return self.read_float_at_mem(gcref, fullofs)
 
-    def bh_setinteriorfield_gc_i(self, gcref, itemindex, value, descr):
+    def bh_setinteriorfield_gc_i(self, gcref, itemindex, newvalue, descr):
         assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
-        ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.field_size
-        ofs = itemindex * size + ofs
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        for TYPE, _, itemsize in unroll_basic_sizes:
-            if fieldsize == itemsize:
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
-                items[0] = rffi.cast(TYPE, value)
-                # --- end of GC unsafe code ---
-                return
-        else:
-            raise NotImplementedError("size = %d" % fieldsize)
+        ofs, size, _ = self.unpack_arraydescr_size(descr.arraydescr)
+        fldofs, fldsize, _ = self.unpack_fielddescr_size(descr.fielddescr)
+        ofs += itemindex * size + fldofs
+        self.write_int_at_mem(gcref, ofs, fldsize, newvalue)
 
     def bh_setinteriorfield_gc_r(self, gcref, itemindex, newvalue, descr):
         assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
-        ofs += descr.fielddescr.offset
-        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
-                            ofs + size * itemindex)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        items[0] = self.cast_gcref_to_int(newvalue)
-        # --- end of GC unsafe code ---
+        ofs, size, _ = self.unpack_arraydescr_size(descr.arraydescr)
+        ofs += itemindex * size + descr.fielddescr.offset
+        self.write_ref_at_mem(gcref, ofs, newvalue)
 
     def bh_setinteriorfield_gc_f(self, gcref, itemindex, newvalue, descr):
         assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
-        ofs += descr.fielddescr.offset
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
-                            ofs + size * itemindex)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        items[0] = newvalue
-        # --- end of GC unsafe code ---
+        ofs, size, _ = self.unpack_arraydescr_size(descr.arraydescr)
+        ofs += itemindex * size + descr.fielddescr.offset
+        self.write_float_at_mem(gcref, ofs, newvalue)
 
     def bh_strlen(self, string):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
@@ -618,106 +540,48 @@ class AbstractLLCPU(AbstractCPU):
         return ord(u.chars[index])
 
     @specialize.argtype(1)
-    def _base_do_getfield_i(self, struct, fielddescr):
+    def bh_getfield_gc_i(self, struct, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                # Note that in the common case where size==sizeof(Signed),
-                # both cases of what follows are doing the same thing.
-                # But gcc is clever enough to figure this out :-)
-                if sign:
-                    val = rffi.cast(rffi.CArrayPtr(STYPE), fieldptr)[0]
-                    val = rffi.cast(lltype.Signed, val)
-                else:
-                    val = rffi.cast(rffi.CArrayPtr(UTYPE), fieldptr)[0]
-                    val = rffi.cast(lltype.Signed, val)
-                # --- end of GC unsafe code ---
-                return val
-        else:
-            raise NotImplementedError("size = %d" % size)
+        return self.read_int_at_mem(struct, ofs, size, sign)
 
     @specialize.argtype(1)
-    def _base_do_getfield_r(self, struct, fielddescr):
+    def bh_getfield_gc_r(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)[0]
-        pval = self._cast_int_to_gcref(pval)
-        # --- end of GC unsafe code ---
-        return pval
+        return self.read_ref_at_mem(struct, ofs)
 
     @specialize.argtype(1)
-    def _base_do_getfield_f(self, struct, fielddescr):
+    def bh_getfield_gc_f(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        fval = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)[0]
-        # --- end of GC unsafe code ---
-        return fval
+        return self.read_float_at_mem(struct, ofs)
 
-    bh_getfield_gc_i = _base_do_getfield_i
-    bh_getfield_gc_r = _base_do_getfield_r
-    bh_getfield_gc_f = _base_do_getfield_f
-    bh_getfield_raw_i = _base_do_getfield_i
-    bh_getfield_raw_r = _base_do_getfield_r
-    bh_getfield_raw_f = _base_do_getfield_f
+    bh_getfield_raw_i = bh_getfield_gc_i
+    bh_getfield_raw_r = bh_getfield_gc_r
+    bh_getfield_raw_f = bh_getfield_gc_f
 
     @specialize.argtype(1)
-    def _base_do_setfield_i(self, struct, newvalue, fielddescr):
-        ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        for TYPE, _, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                fieldptr = rffi.cast(rffi.CArrayPtr(TYPE), fieldptr)
-                fieldptr[0] = rffi.cast(TYPE, newvalue)
-                # --- end of GC unsafe code ---
-                return
-        else:
-            raise NotImplementedError("size = %d" % size)
+    def bh_setfield_gc_i(self, struct, newvalue, fielddescr):
+        ofs, size, _ = self.unpack_fielddescr_size(fielddescr)
+        self.write_int_at_mem(struct, ofs, size, newvalue)
 
-    @specialize.argtype(1)
-    def _base_do_setfield_r(self, struct, newvalue, fielddescr):
+    def bh_setfield_gc_r(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
-        assert lltype.typeOf(struct) is not lltype.Signed, (
-            "can't handle write barriers for setfield_raw")
-        self.gc_ll_descr.do_write_barrier(struct, newvalue)
-        # --- start of GC unsafe code (no GC operation!) ---
-        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)
-        fieldptr[0] = self.cast_gcref_to_int(newvalue)
-        # --- end of GC unsafe code ---
+        self.write_ref_at_mem(struct, ofs, newvalue)
 
     @specialize.argtype(1)
-    def _base_do_setfield_f(self, struct, newvalue, fielddescr):
+    def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        fieldptr = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)
-        fieldptr[0] = newvalue
-        # --- end of GC unsafe code ---
+        self.write_float_at_mem(struct, ofs, newvalue)
 
-    bh_setfield_gc_i = _base_do_setfield_i
-    bh_setfield_gc_r = _base_do_setfield_r
-    bh_setfield_gc_f = _base_do_setfield_f
-    bh_setfield_raw_i = _base_do_setfield_i
-    bh_setfield_raw_r = _base_do_setfield_r
-    bh_setfield_raw_f = _base_do_setfield_f
+    bh_setfield_raw_i = bh_setfield_gc_i
+    bh_setfield_raw_f = bh_setfield_gc_f
 
     def bh_raw_store_i(self, addr, offset, newvalue, descr):
-        ofs, size, sign = self.unpack_arraydescr_size(descr)
-        items = addr + offset
-        for TYPE, _, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
-                items[0] = rffi.cast(TYPE, newvalue)
-                break
+        ofs, size, _ = self.unpack_arraydescr_size(descr)
+        assert ofs == 0     # otherwise, 'descr' is not a raw length-less array
+        self.write_int_at_mem(addr, offset, size, newvalue)
 
     def bh_raw_store_f(self, addr, offset, newvalue, descr):
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
-        items[0] = newvalue
+        self.write_float_at_mem(addr, offset, newvalue)
 
     def bh_raw_load_i(self, addr, offset, descr):
         ofs, size, sign = self.unpack_arraydescr_size(descr)
@@ -725,8 +589,7 @@ class AbstractLLCPU(AbstractCPU):
         return self.read_int_at_mem(addr, offset, size, sign)
 
     def bh_raw_load_f(self, addr, offset, descr):
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
-        return items[0]
+        return self.read_float_at_mem(addr, offset)
 
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
@@ -734,8 +597,7 @@ class AbstractLLCPU(AbstractCPU):
     def bh_new_with_vtable(self, vtable, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
         if self.vtable_offset is not None:
-            as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
-            as_array[self.vtable_offset/WORD] = vtable
+            self.write_int_at_mem(res, self.vtable_offset, WORD, vtable)
         return res
 
     def bh_new_raw_buffer(self, size):

@@ -339,9 +339,10 @@ We are using
 
 + methods and other class attributes do not change after startup
 + single inheritance is fully supported
-+ simple mixins somewhat work too, but the mixed in class needs a
-  ``_mixin_ = True`` class attribute. isinstance checks against the
-  mixin type will fail when translated.
++ use `rpython.rlib.objectmodel.import_from_mixin(M)` in a class
+  body to copy the whole content of a class `M`.  This can be used
+  to implement mixins: functions and staticmethods are duplicated
+  (the other class attributes are just copied unmodified).
 
 + classes are first-class objects too
 
