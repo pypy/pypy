@@ -155,7 +155,8 @@ corresponding Unix manual entries for more information on calls."""
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',
                  'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid',
-                 'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs']:
+                 'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs',
+                 'setgroups']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:

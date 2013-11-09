@@ -987,7 +987,26 @@ def getgroups(space):
 
     Return list of supplemental group IDs for the process.
     """
-    return space.newlist([space.wrap(e) for e in os.getgroups()])
+    try:
+        list = os.getgroups()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newlist([space.wrap(e) for e in list])
+
+def setgroups(space, w_list):
+    """ setgroups(list)
+
+    Set the groups of the current process to list.
+    """
+    list = []
+    for w_gid in space.unpackiterable(w_list):
+        gid = space.int_w(w_gid)
+        check_uid_range(space, gid)
+        list.append(gid)
+    try:
+        os.setgroups(list[:])
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 def getpgrp(space):
     """ getpgrp() -> pgrp

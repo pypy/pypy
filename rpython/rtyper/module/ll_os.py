@@ -712,6 +712,26 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], [self.GID_T], llimpl=getgroups_llimpl,
                       export_name="ll_os.ll_getgroups")
 
+    @registering_if(os, 'setgroups')
+    def register_os_setgroups(self):
+        GP = rffi.CArrayPtr(self.GID_T)
+        c_setgroups = self.llexternal('setgroups', [rffi.SIZE_T, GP], rffi.INT)
+
+        def setgroups_llimpl(list):
+            n = len(list)
+            groups = lltype.malloc(GP.TO, n, flavor='raw')
+            try:
+                for i in range(n):
+                    groups[i] = rffi.cast(self.GID_T, list[i])
+                n = c_setgroups(rffi.cast(rffi.SIZE_T, n), groups)
+            finally:
+                lltype.free(groups, flavor='raw')
+            if n != 0:
+                raise OSError(rposix.get_errno(), "os_setgroups failed")
+
+        return extdef([[self.GID_T]], None, llimpl=setgroups_llimpl,
+                      export_name="ll_os.ll_setgroups")
+
     @registering_if(os, 'getpgrp')
     def register_os_getpgrp(self):
         name = 'getpgrp'

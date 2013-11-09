@@ -205,3 +205,11 @@ class TestPosix(BaseRtypingTest):
                 return os.getgroups()
             ll_a = self.interpret(f, [])
             assert self.ll_to_list(ll_a) == f()
+
+        def test_setgroups(self):
+            def f():
+                try:
+                    os.setgroups(os.getgroups())
+                except OSError:
+                    pass
+            self.interpret(f, [])
