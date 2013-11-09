@@ -31,7 +31,7 @@ class Verifier(object):
             k2 = k2.lstrip('0').rstrip('L')
             modulename = '_cffi_%s_%s%s%s' % (tag, self._vengine._class_key,
                                               k1, k2)
-        suffix = _get_so_suffix()
+        suffix = _get_so_suffixes()[0]
         self.tmpdir = tmpdir or _caller_dir_pycache()
         self.sourcefilename = os.path.join(self.tmpdir, modulename + '.c')
         self.modulefilename = os.path.join(self.tmpdir, modulename + suffix)
@@ -42,18 +42,21 @@ class Verifier(object):
     def write_source(self, file=None):
         """Write the C source code.  It is produced in 'self.sourcefilename',
         which can be tweaked beforehand."""
-        if self._has_source and file is None:
-            raise ffiplatform.VerificationError("source code already written")
-        self._write_source(file)
+        with self.ffi._lock:
+            if self._has_source and file is None:
+                raise ffiplatform.VerificationError(
+                    "source code already written")
+            self._write_source(file)
 
     def compile_module(self):
         """Write the C source code (if not done already) and compile it.
         This produces a dynamic link library in 'self.modulefilename'."""
-        if self._has_module:
-            raise ffiplatform.VerificationError("module already compiled")
-        if not self._has_source:
-            self._write_source()
-        self._compile_module()
+        with self.ffi._lock:
+            if self._has_module:
+                raise ffiplatform.VerificationError("module already compiled")
+            if not self._has_source:
+                self._write_source()
+            self._compile_module()
 
     def load_library(self):
         """Get a C module from this Verifier instance.
@@ -62,11 +65,14 @@ class Verifier(object):
         operations to the C module.  If necessary, the C code is written
         and compiled first.
         """
-        if not self._has_module:
-            self._locate_module()
+        with self.ffi._lock:
             if not self._has_module:
-                self.compile_module()
-        return self._load_library()
+                self._locate_module()
+                if not self._has_module:
+                    if not self._has_source:
+                        self._write_source()
+                    self._compile_module()
+            return self._load_library()
 
     def get_module_name(self):
         basename = os.path.basename(self.modulefilename)
@@ -81,7 +87,9 @@ class Verifier(object):
 
     def get_extension(self):
         if not self._has_source:
-            self._write_source()
+            with self.ffi._lock:
+                if not self._has_source:
+                    self._write_source()
         sourcename = ffiplatform.maybe_relative_path(self.sourcefilename)
         modname = self.get_module_name()
         return ffiplatform.get_extension(sourcename, modname, **self.kwds)
@@ -103,7 +111,7 @@ class Verifier(object):
             else:
                 path = None
             filename = self._vengine.find_module(self.get_module_name(), path,
-                                                 _get_so_suffix())
+                                                 _get_so_suffixes())
             if filename is None:
                 return
             self.modulefilename = filename
@@ -193,7 +201,7 @@ def cleanup_tmpdir(tmpdir=None, keep_so=False):
     if keep_so:
         suffix = '.c'   # only remove .c files
     else:
-        suffix = _get_so_suffix().lower()
+        suffix = _get_so_suffixes()[0].lower()
     for fn in filelist:
         if fn.lower().startswith('_cffi_') and (
                 fn.lower().endswith(suffix) or fn.lower().endswith('.c')):
@@ -213,15 +221,20 @@ def cleanup_tmpdir(tmpdir=None, keep_so=False):
         except OSError:
             pass
 
-def _get_so_suffix():
+def _get_so_suffixes():
+    suffixes = []
     for suffix, mode, type in imp.get_suffixes():
         if type == imp.C_EXTENSION:
-            return suffix
-    # bah, no C_EXTENSION available.  Occurs on pypy without cpyext
-    if sys.platform == 'win32':
-        return ".pyd"
-    else:
-        return ".so"
+            suffixes.append(suffix)
+
+    if not suffixes:
+        # bah, no C_EXTENSION available.  Occurs on pypy without cpyext
+        if sys.platform == 'win32':
+            suffixes = [".pyd"]
+        else:
+            suffixes = [".so"]
+
+    return suffixes
 
 def _ensure_dir(filename):
     try:

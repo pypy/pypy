@@ -15,7 +15,7 @@ class VCPythonEngine(object):
     def patch_extension_kwds(self, kwds):
         pass
 
-    def find_module(self, module_name, path, so_suffix):
+    def find_module(self, module_name, path, so_suffixes):
         try:
             f, filename, descr = imp.find_module(module_name, path)
         except ImportError:
@@ -25,7 +25,7 @@ class VCPythonEngine(object):
         # Note that after a setuptools installation, there are both .py
         # and .so files with the same basename.  The code here relies on
         # imp.find_module() locating the .so in priority.
-        if descr[0] != so_suffix:
+        if descr[0] not in so_suffixes:
             return None
         return filename
 
@@ -280,8 +280,8 @@ class VCPythonEngine(object):
             return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
                 var, self._gettypenum(tp))
         elif isinstance(tp, model.ArrayType):
-            return '_cffi_from_c_deref((char *)%s, _cffi_type(%d))' % (
-                var, self._gettypenum(tp))
+            return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
+                var, self._gettypenum(model.PointerType(tp.item)))
         elif isinstance(tp, model.StructType):
             if tp.fldnames is None:
                 raise TypeError("'%s' is used as %s, but is opaque" % (
@@ -464,11 +464,14 @@ class VCPythonEngine(object):
         prnt('  static Py_ssize_t nums[] = {')
         prnt('    sizeof(%s),' % cname)
         prnt('    offsetof(struct _cffi_aligncheck, y),')
-        for fname, _, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize in tp.enumfields():
             if fbitsize >= 0:
                 continue      # xxx ignore fbitsize for now
             prnt('    offsetof(%s, %s),' % (cname, fname))
-            prnt('    sizeof(((%s *)0)->%s),' % (cname, fname))
+            if isinstance(ftype, model.ArrayType) and ftype.length is None:
+                prnt('    0,  /* %s */' % ftype._get_c_name())
+            else:
+                prnt('    sizeof(((%s *)0)->%s),' % (cname, fname))
         prnt('    -1')
         prnt('  };')
         prnt('  return _cffi_get_struct_layout(nums);')
@@ -491,7 +494,7 @@ class VCPythonEngine(object):
         #
         function = getattr(module, layoutfuncname)
         layout = function()
-        if isinstance(tp, model.StructType) and tp.partial:
+        if isinstance(tp, model.StructOrUnion) and tp.partial:
             # use the function()'s sizes and offsets to guide the
             # layout of the struct
             totalsize = layout[0]
@@ -528,9 +531,10 @@ class VCPythonEngine(object):
                     continue        # xxx ignore fbitsize for now
                 check(layout[i], ffi.offsetof(BStruct, fname),
                       "wrong offset for field %r" % (fname,))
-                BField = ffi._get_cached_btype(ftype)
-                check(layout[i+1], ffi.sizeof(BField),
-                      "wrong size for field %r" % (fname,))
+                if layout[i+1] != 0:
+                    BField = ffi._get_cached_btype(ftype)
+                    check(layout[i+1], ffi.sizeof(BField),
+                          "wrong size for field %r" % (fname,))
                 i += 2
             assert i == len(layout)
 
@@ -566,7 +570,7 @@ class VCPythonEngine(object):
     # constants, likely declared with '#define'
 
     def _generate_cpy_const(self, is_int, name, tp=None, category='const',
-                            vartp=None, delayed=True):
+                            vartp=None, delayed=True, size_too=False):
         prnt = self._prnt
         funcname = '_cffi_%s_%s' % (category, name)
         prnt('static int %s(PyObject *lib)' % funcname)
@@ -597,6 +601,15 @@ class VCPythonEngine(object):
                  '(unsigned long long)(%s));' % (name,))
         prnt('  if (o == NULL)')
         prnt('    return -1;')
+        if size_too:
+            prnt('  {')
+            prnt('    PyObject *o1 = o;')
+            prnt('    o = Py_BuildValue("On", o1, (Py_ssize_t)sizeof(%s));'
+                 % (name,))
+            prnt('    Py_DECREF(o1);')
+            prnt('    if (o == NULL)')
+            prnt('      return -1;')
+            prnt('  }')
         prnt('  res = PyObject_SetAttrString(lib, "%s", o);' % name)
         prnt('  Py_DECREF(o);')
         prnt('  if (res < 0)')
@@ -677,15 +690,16 @@ class VCPythonEngine(object):
 
     def _generate_cpy_variable_collecttype(self, tp, name):
         if isinstance(tp, model.ArrayType):
-            self._do_collect_type(tp)
+            tp_ptr = model.PointerType(tp.item)
         else:
             tp_ptr = model.PointerType(tp)
-            self._do_collect_type(tp_ptr)
+        self._do_collect_type(tp_ptr)
 
     def _generate_cpy_variable_decl(self, tp, name):
         if isinstance(tp, model.ArrayType):
             tp_ptr = model.PointerType(tp.item)
-            self._generate_cpy_const(False, name, tp, vartp=tp_ptr)
+            self._generate_cpy_const(False, name, tp, vartp=tp_ptr,
+                                     size_too = (tp.length == '...'))
         else:
             tp_ptr = model.PointerType(tp)
             self._generate_cpy_const(False, name, tp_ptr, category='var')
@@ -694,11 +708,29 @@ class VCPythonEngine(object):
     _loading_cpy_variable = _loaded_noop
 
     def _loaded_cpy_variable(self, tp, name, module, library):
+        value = getattr(library, name)
         if isinstance(tp, model.ArrayType):   # int a[5] is "constant" in the
-            return                            # sense that "a=..." is forbidden
+                                              # sense that "a=..." is forbidden
+            if tp.length == '...':
+                assert isinstance(value, tuple)
+                (value, size) = value
+                BItemType = self.ffi._get_cached_btype(tp.item)
+                length, rest = divmod(size, self.ffi.sizeof(BItemType))
+                if rest != 0:
+                    raise ffiplatform.VerificationError(
+                        "bad size: %r does not seem to be an array of %s" %
+                        (name, tp.item))
+                tp = tp.resolve_length(length)
+            # 'value' is a <cdata 'type *'> which we have to replace with
+            # a <cdata 'type[N]'> if the N is actually known
+            if tp.length is not None:
+                BArray = self.ffi._get_cached_btype(tp)
+                value = self.ffi.cast(BArray, value)
+                setattr(library, name, value)
+            return
         # remove ptr=<cdata 'int *'> from the library instance, and replace
         # it by a property on the class, which reads/writes into ptr[0].
-        ptr = getattr(library, name)
+        ptr = value
         delattr(library, name)
         def getter(library):
             return ptr[0]

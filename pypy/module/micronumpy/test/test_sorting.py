@@ -12,8 +12,7 @@ class AppTestSorting(BaseNumpyAppTest):
             exp = sorted(range(len(exp)), key=exp.__getitem__)
             c = a.copy()
             res = a.argsort()
-            assert (res == exp).all(), \
-                'a,res,dtype %r,%r,%r' % (a,res,dtype)
+            assert (res == exp).all(), '%r\n%r\n%r' % (a,res,exp)
             assert (a == c).all() # not modified
 
             a = arange(100, dtype=dtype)
@@ -60,11 +59,10 @@ class AppTestSorting(BaseNumpyAppTest):
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
                       'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
-            b = sorted(list(a))
-            c = a.copy()
-            a.sort()
-            assert (a == b).all(), \
-                'a,orig,dtype %r,%r,%r' % (a,c,dtype)
+            exp = sorted(list(a))
+            res = a.copy()
+            res.sort()
+            assert (res == exp).all(), '%r\n%r\n%r' % (a,res,exp)
 
             a = arange(100, dtype=dtype)
             c = a.copy()
@@ -84,7 +82,6 @@ class AppTestSorting(BaseNumpyAppTest):
                 assert exc.value[0].find('supported') >= 0
             #assert (a == b).all(), \
             #    'a,orig,dtype %r,%r,%r' % (a,c,dtype)
-
 
 # tests from numpy/tests/test_multiarray.py
     def test_sort_corner_cases(self):
@@ -307,7 +304,6 @@ class AppTestSorting(BaseNumpyAppTest):
         assert (r == array([('a', 1), ('c', 3), ('b', 255), ('d', 258)],
                                  dtype=mydtype)).all()
 
-
 # tests from numpy/tests/test_regression.py
     def test_sort_bigendian(self):
         skip('not implemented yet')
@@ -325,3 +321,13 @@ class AppTestSorting(BaseNumpyAppTest):
         y = fromstring("\x00\x01\x00\x02", dtype="S2")
         x.sort(kind='q')
         assert (x == y).all()
+
+    def test_string_mergesort(self):
+        import numpypy as np
+        import sys
+        x = np.array(['a'] * 32)
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "x.argsort(kind='m')")
+            assert 'non-numeric types' in exc.value.message
+        else:
+            assert (x.argsort(kind='m') == np.arange(32)).all()

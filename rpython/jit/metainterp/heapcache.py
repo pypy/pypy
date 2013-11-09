@@ -96,8 +96,13 @@ class HeapCache(object):
                 idx += 1
 
     def _escape(self, box):
-        if box in self.new_boxes:
-            self.new_boxes[box] = False
+        try:
+            unescaped = self.new_boxes[box]
+        except KeyError:
+            pass
+        else:
+            if unescaped:
+                self.new_boxes[box] = False
         try:
             deps = self.dependencies.pop(box)
         except KeyError:
