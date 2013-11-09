@@ -95,12 +95,15 @@ class W_CTypeStructOrUnion(W_CType):
         if not self._copy_from_same(cdata, w_ob):
             self.convert_struct_from_object(cdata, w_ob)
 
-    @jit.look_inside_iff(
-        lambda self, cdata, w_ob, optvarsize=-1: jit.isvirtual(w_ob)
-    )
     def convert_struct_from_object(self, cdata, w_ob, optvarsize=-1):
         self._check_only_one_argument_for_union(w_ob)
+        self._convert_struct_from_object(cdata, w_ob, optvarsize)
 
+    # XXX: needed because look_inside_iff doesn't like default args
+    @jit.look_inside_iff(
+        lambda self, cdata, w_ob, optvarsize: jit.isvirtual(w_ob)
+    )
+    def _convert_struct_from_object(self, cdata, w_ob, optvarsize):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
