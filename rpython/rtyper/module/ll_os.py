@@ -834,6 +834,50 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_setsid(self):
         return self.extdef_for_os_function_returning_int('setsid')
 
+    @registering_if(os, 'getresuid')
+    def register_os_getresuid(self):
+        c_getresuid = self.llexternal('getresuid', [rffi.INTP] * 3, rffi.INT)
+
+        def c_getresuid_llimpl():
+            out = lltype.malloc(rffi.INTP.TO, 3, flavor='raw')
+            try:
+                res = c_getresuid(rffi.ptradd(out, 0),
+                                  rffi.ptradd(out, 1),
+                                  rffi.ptradd(out, 2))
+                res = rffi.cast(lltype.Signed, res)
+                if res == -1:
+                    raise OSError(rposix.get_errno(), "getresuid failed")
+                return (rffi.cast(lltype.Signed, out[0]),
+                        rffi.cast(lltype.Signed, out[1]),
+                        rffi.cast(lltype.Signed, out[2]))
+            finally:
+                lltype.free(out, flavor='raw')
+
+        return extdef([], (int, int, int), llimpl=c_getresuid_llimpl,
+                      export_name='ll_os.ll_os_getresuid')
+
+    @registering_if(os, 'getresgid')
+    def register_os_getresgid(self):
+        c_getresgid = self.llexternal('getresgid', [rffi.INTP] * 3, rffi.INT)
+
+        def c_getresgid_llimpl():
+            out = lltype.malloc(rffi.INTP.TO, 3, flavor='raw')
+            try:
+                res = c_getresgid(rffi.ptradd(out, 0),
+                                  rffi.ptradd(out, 1),
+                                  rffi.ptradd(out, 2))
+                res = rffi.cast(lltype.Signed, res)
+                if res == -1:
+                    raise OSError(rposix.get_errno(), "getresgid failed")
+                return (rffi.cast(lltype.Signed, out[0]),
+                        rffi.cast(lltype.Signed, out[1]),
+                        rffi.cast(lltype.Signed, out[2]))
+            finally:
+                lltype.free(out, flavor='raw')
+
+        return extdef([], (int, int, int), llimpl=c_getresgid_llimpl,
+                      export_name='ll_os.ll_os_getresgid')
+
     @registering_str_unicode(os.open)
     def register_os_open(self, traits):
         os_open = self.llexternal(traits.posix_function_name('open'),

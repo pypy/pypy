@@ -1144,6 +1144,32 @@ def tcsetpgrp(space, fd, pgid):
     except OSError, e:
         raise wrap_oserror(space, e)
 
+def getresuid(space):
+    """ getresuid() -> (ruid, euid, suid)
+
+    Get tuple of the current process's real, effective, and saved user ids.
+    """
+    try:
+        (ruid, euid, suid) = os.getresuid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(ruid),
+                           space.wrap(euid),
+                           space.wrap(suid)])
+
+def getresgid(space):
+    """ getresgid() -> (rgid, egid, sgid)
+
+    Get tuple of the current process's real, effective, and saved group ids.
+    """
+    try:
+        (rgid, egid, sgid) = os.getresgid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(rgid),
+                           space.wrap(egid),
+                           space.wrap(sgid)])
+
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
         @unwrap_spec(status=c_int)

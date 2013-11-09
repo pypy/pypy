@@ -658,6 +658,18 @@ class AppTestPosix:
             assert os.getsid(0) == self.getsid0
             raises(OSError, os.getsid, -100000)
 
+    if hasattr(os, 'getresuid'):
+        def test_os_getresuid(self):
+            os = self.posix
+            res = os.getresuid()
+            assert len(res) == 3
+
+    if hasattr(os, 'getresgid'):
+        def test_os_getresgid(self):
+            os = self.posix
+            res = os.getresgid()
+            assert len(res) == 3
+
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):
             os = self.posix
