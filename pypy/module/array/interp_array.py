@@ -868,9 +868,6 @@ def make_array(mytype):
                     self.buffer[i] = w_item.buffer[j]
                     j += 1
 
-        # We can't look into this function until ptradd works with things (in the
-        # JIT) other than rffi.CCHARP
-        @jit.dont_look_inside
         def delitem(self, space, i, j):
             if i < 0:
                 i += self.len
@@ -906,7 +903,6 @@ def make_array(mytype):
                 lltype.free(oldbuffer, flavor='raw')
 
         # Add and mul methods
-
         def descr_add(self, space, w_other):
             if not isinstance(w_other, W_Array):
                 return space.w_NotImplemented
