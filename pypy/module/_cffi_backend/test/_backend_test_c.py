@@ -542,6 +542,7 @@ def test_array_add():
     assert repr(a) == "<cdata 'int[3][5]' owning %d bytes>" % (
         3*5*size_of_int(),)
     assert repr(a + 0).startswith("<cdata 'int(*)[5]' 0x")
+    assert 0 + a == a + 0 != 1 + a == a + 1
     assert repr(a[0]).startswith("<cdata 'int[5]' 0x")
     assert repr((a + 0)[0]).startswith("<cdata 'int[5]' 0x")
     assert repr(a[0] + 0).startswith("<cdata 'int *' 0x")
@@ -1631,9 +1632,6 @@ def test_add_error():
 def test_void_errors():
     py.test.raises(ValueError, alignof, new_void_type())
     py.test.raises(TypeError, newp, new_pointer_type(new_void_type()), None)
-    x = cast(new_pointer_type(new_void_type()), 42)
-    py.test.raises(TypeError, "x + 1")
-    py.test.raises(TypeError, "x - 1")
 
 def test_too_many_items():
     BChar = new_primitive_type("char")
@@ -2952,6 +2950,166 @@ def test_bitfield_as_big_endian():
     _test_bitfield_details(flag=4)
 
 
+def test_struct_array_no_length():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BArray = new_array_type(BIntP, None)
+    BStruct = new_struct_type("foo")
+    py.test.raises(TypeError, complete_struct_or_union,
+                   BStruct, [('x', BArray),
+                             ('y', BInt)])
+    #
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('x', BInt),
+                                       ('y', BArray)])
+    assert sizeof(BStruct) == size_of_int()
+    d = BStruct.fields
+    assert len(d) == 2
+    assert d[0][0] == 'x'
+    assert d[0][1].type is BInt
+    assert d[0][1].offset == 0
+    assert d[0][1].bitshift == -1
+    assert d[0][1].bitsize == -1
+    assert d[1][0] == 'y'
+    assert d[1][1].type is BArray
+    assert d[1][1].offset == size_of_int()
+    assert d[1][1].bitshift == -1
+    assert d[1][1].bitsize == -1
+    #
+    p = newp(new_pointer_type(BStruct))
+    p.x = 42
+    assert p.x == 42
+    assert typeof(p.y) is BIntP
+    assert p.y == cast(BIntP, p) + 1
+    #
+    p = newp(new_pointer_type(BStruct), [100])
+    assert p.x == 100
+    #
+    # Tests for
+    #    ffi.new("struct_with_var_array *", [field.., [the_array_items..]])
+    #    ffi.new("struct_with_var_array *", [field.., array_size])
+    plist = []
+    for i in range(20):
+        if i % 2 == 0:
+            p = newp(new_pointer_type(BStruct), [100, [200, i, 400]])
+        else:
+            p = newp(new_pointer_type(BStruct), [100, 3])
+            p.y[1] = i
+            p.y[0] = 200
+            assert p.y[2] == 0
+            p.y[2] = 400
+        plist.append(p)
+    for i in range(20):
+        p = plist[i]
+        assert p.x == 100
+        assert p.y[0] == 200
+        assert p.y[1] == i
+        assert p.y[2] == 400
+        assert list(p.y[0:3]) == [200, i, 400]
+    #
+    # the following assignment works, as it normally would, for any array field
+    p.y = [500, 600]
+    assert list(p.y[0:3]) == [500, 600, 400]
+    #
+    # error cases
+    py.test.raises(TypeError, "p.y = cast(BIntP, 0)")
+    py.test.raises(TypeError, "p.y = 15")
+    py.test.raises(TypeError, "p.y = None")
+    #
+    # accepting this may be specified by the C99 standard,
+    # or a GCC strangeness...
+    BStruct2 = new_struct_type("bar")
+    complete_struct_or_union(BStruct2, [('f', BStruct),
+                                        ('n', BInt)])
+    p = newp(new_pointer_type(BStruct2), {'n': 42})
+    assert p.n == 42
+    #
+    # more error cases
+    py.test.raises(TypeError, newp, new_pointer_type(BStruct), [100, None])
+    BArray4 = new_array_type(BIntP, 4)
+    BStruct4 = new_struct_type("test4")
+    complete_struct_or_union(BStruct4, [('a', BArray4)])   # not varsized
+    py.test.raises(TypeError, newp, new_pointer_type(BStruct4), [None])
+    py.test.raises(TypeError, newp, new_pointer_type(BStruct4), [4])
+    p = newp(new_pointer_type(BStruct4), [[10, 20, 30]])
+    assert p.a[0] == 10
+    assert p.a[1] == 20
+    assert p.a[2] == 30
+    assert p.a[3] == 0
+
+def test_struct_array_no_length_explicit_position():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BArray = new_array_type(BIntP, None)
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('x', BArray, -1, 0), # actually 3 items
+                                       ('y', BInt, -1, 12)])
+    p = newp(new_pointer_type(BStruct), [[10, 20], 30])
+    assert p.x[0] == 10
+    assert p.x[1] == 20
+    assert p.x[2] == 0
+    assert p.y == 30
+    p = newp(new_pointer_type(BStruct), {'x': [40], 'y': 50})
+    assert p.x[0] == 40
+    assert p.x[1] == 0
+    assert p.x[2] == 0
+    assert p.y == 50
+    p = newp(new_pointer_type(BStruct), {'y': 60})
+    assert p.x[0] == 0
+    assert p.x[1] == 0
+    assert p.x[2] == 0
+    assert p.y == 60
+    #
+    # This "should" work too, allocating a larger structure
+    # (a bit strange in this case, but useful in general)
+    plist = []
+    for i in range(20):
+        p = newp(new_pointer_type(BStruct), [[10, 20, 30, 40, 50, 60, 70]])
+        plist.append(p)
+    for i in range(20):
+        p = plist[i]
+        assert p.x[0] == 10
+        assert p.x[1] == 20
+        assert p.x[2] == 30
+        assert p.x[3] == 40 == p.y
+        assert p.x[4] == 50
+        assert p.x[5] == 60
+        assert p.x[6] == 70
+
+def test_ass_slice():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), None)
+    p = newp(BArray, b"foobar")
+    p[2:5] = [b"*", b"Z", b"T"]
+    p[1:3] = b"XY"
+    assert list(p) == [b"f", b"X", b"Y", b"Z", b"T", b"r", b"\x00"]
+    py.test.raises(TypeError, "p[1:5] = u+'XYZT'")
+    py.test.raises(TypeError, "p[1:5] = [1, 2, 3, 4]")
+    #
+    BUniChar = new_primitive_type("wchar_t")
+    BArray = new_array_type(new_pointer_type(BUniChar), None)
+    p = newp(BArray, u+"foobar")
+    p[2:5] = [u+"*", u+"Z", u+"T"]
+    p[1:3] = u+"XY"
+    assert list(p) == [u+"f", u+"X", u+"Y", u+"Z", u+"T", u+"r", u+"\x00"]
+    py.test.raises(TypeError, "p[1:5] = b'XYZT'")
+    py.test.raises(TypeError, "p[1:5] = [1, 2, 3, 4]")
+
+def test_void_p_arithmetic():
+    BVoid = new_void_type()
+    BInt = new_primitive_type("intptr_t")
+    p = cast(new_pointer_type(BVoid), 100000)
+    assert int(cast(BInt, p)) == 100000
+    assert int(cast(BInt, p + 42)) == 100042
+    assert int(cast(BInt, p - (-42))) == 100042
+    assert (p + 42) - p == 42
+    q = cast(new_pointer_type(new_primitive_type("char")), 100000)
+    py.test.raises(TypeError, "p - q")
+    py.test.raises(TypeError, "q - p")
+    py.test.raises(TypeError, "p + cast(new_primitive_type('int'), 42)")
+    py.test.raises(TypeError, "p - cast(new_primitive_type('int'), 42)")
+
+
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.7"
+    assert __version__ == "0.8"

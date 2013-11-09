@@ -514,7 +514,8 @@ class ResumeGuardDescr(ResumeDescr):
         #
         if metainterp_sd.warmrunnerdesc is not None:   # for tests
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
-            self.status = jitcounter.fetch_next_index() << self.ST_SHIFT
+            index = jitcounter.in_second_half(jitcounter.fetch_next_index())
+            self.status = index << self.ST_SHIFT
 
     def make_a_counter_per_value(self, guard_value_op):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
@@ -598,7 +599,7 @@ class ResumeGuardDescr(ResumeDescr):
 
             hash = (current_object_addr_as_int(self) * 777767777 +
                     intval * 1442968193)
-            index = jitcounter.get_index(hash)
+            index = jitcounter.in_second_half(jitcounter.get_index(hash))
         #
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
         return jitcounter.tick(index, increment)

@@ -78,6 +78,11 @@ class AppTestPosix:
             cls.w_sysconf_name = space.wrap(sysconf_name)
             cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
+        if hasattr(os, 'confstr'):
+            confstr_name = os.confstr_names.keys()[0]
+            cls.w_confstr_name = space.wrap(confstr_name)
+            cls.w_confstr_value = space.wrap(os.confstr_names[confstr_name])
+            cls.w_confstr_result = space.wrap(os.confstr(confstr_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
         cls.w_python = space.wrap(sys.executable)
         if hasattr(os, 'major'):
@@ -616,6 +621,30 @@ class AppTestPosix:
             os = self.posix
             assert os.getgroups() == self.getgroups
 
+    if hasattr(os, 'setgroups'):
+        def test_os_setgroups(self):
+            os = self.posix
+            raises(TypeError, os.setgroups, [2, 5, "hello"])
+            try:
+                os.setgroups(os.getgroups())
+            except OSError:
+                pass
+
+    if hasattr(os, 'initgroups'):
+        def test_os_initgroups(self):
+            os = self.posix
+            raises(OSError, os.initgroups, "crW2hTQC", 100)
+
+    if hasattr(os, 'tcgetpgrp'):
+        def test_os_tcgetpgrp(self):
+            os = self.posix
+            raises(OSError, os.tcgetpgrp, 9999)
+
+    if hasattr(os, 'tcsetpgrp'):
+        def test_os_tcsetpgrp(self):
+            os = self.posix
+            raises(OSError, os.tcsetpgrp, 9999, 1)
+
     if hasattr(os, 'getpgid'):
         def test_os_getpgid(self):
             os = self.posix
@@ -634,6 +663,30 @@ class AppTestPosix:
             assert os.getsid(0) == self.getsid0
             raises(OSError, os.getsid, -100000)
 
+    if hasattr(os, 'getresuid'):
+        def test_os_getresuid(self):
+            os = self.posix
+            res = os.getresuid()
+            assert len(res) == 3
+
+    if hasattr(os, 'getresgid'):
+        def test_os_getresgid(self):
+            os = self.posix
+            res = os.getresgid()
+            assert len(res) == 3
+
+    if hasattr(os, 'setresuid'):
+        def test_os_setresuid(self):
+            os = self.posix
+            a, b, c = os.getresuid()
+            os.setresuid(a, b, c)
+
+    if hasattr(os, 'setresgid'):
+        def test_os_setresgid(self):
+            os = self.posix
+            a, b, c = os.getresgid()
+            os.setresgid(a, b, c)
+
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):
             os = self.posix
@@ -651,6 +704,25 @@ class AppTestPosix:
             assert os.fpathconf(1, "PC_PIPE_BUF") >= 128
             raises(OSError, os.fpathconf, -1, "PC_PIPE_BUF")
             raises(ValueError, os.fpathconf, 1, "##")
+
+    if hasattr(os, 'pathconf'):
+        def test_os_pathconf(self):
+            os = self.posix
+            assert os.pathconf("/tmp", "PC_NAME_MAX") >= 31
+            # Linux: the following gets 'No such file or directory'
+            raises(OSError, os.pathconf, "", "PC_PIPE_BUF")
+            raises(ValueError, os.pathconf, "/tmp", "##")
+
+    if hasattr(os, 'confstr'):
+        def test_os_confstr(self):
+            os = self.posix
+            assert os.confstr(self.confstr_value) == self.confstr_result
+            assert os.confstr(self.confstr_name) == self.confstr_result
+            assert os.confstr_names[self.confstr_name] == self.confstr_value
+
+        def test_os_confstr_error(self):
+            os = self.posix
+            raises(ValueError, os.confstr, "!@#$%!#$!@#")
 
     if hasattr(os, 'wait'):
         def test_os_wait(self):

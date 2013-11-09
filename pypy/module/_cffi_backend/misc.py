@@ -278,6 +278,22 @@ def object_as_bool(space, w_ob):
 
 # ____________________________________________________________
 
+def get_new_array_length(space, w_value):
+    if (space.isinstance_w(w_value, space.w_list) or
+        space.isinstance_w(w_value, space.w_tuple)):
+        return (w_value, space.int_w(space.len(w_value)))
+    elif space.isinstance_w(w_value, space.w_basestring):
+        # from a string, we add the null terminator
+        return (w_value, space.int_w(space.len(w_value)) + 1)
+    else:
+        explicitlength = space.getindex_w(w_value, space.w_OverflowError)
+        if explicitlength < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative array length"))
+        return (space.w_None, explicitlength)
+
+# ____________________________________________________________
+
 @specialize.arg(0)
 def _raw_memcopy_tp(TPP, source, dest):
     # in its own function: LONGLONG may make the whole function jit-opaque

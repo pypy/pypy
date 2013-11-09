@@ -34,19 +34,8 @@ class W_CTypeArray(W_CTypePtrOrArray):
         datasize = self.size
         #
         if datasize < 0:
-            if (space.isinstance_w(w_init, space.w_list) or
-                space.isinstance_w(w_init, space.w_tuple)):
-                length = space.int_w(space.len(w_init))
-            elif space.isinstance_w(w_init, space.w_basestring):
-                # from a string, we add the null terminator
-                length = space.int_w(space.len(w_init)) + 1
-            else:
-                length = space.getindex_w(w_init, space.w_OverflowError)
-                if length < 0:
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("negative array length"))
-                w_init = space.w_None
-            #
+            from pypy.module._cffi_backend import misc
+            w_init, length = misc.get_new_array_length(space, w_init)
             try:
                 datasize = ovfcheck(length * self.ctitem.size)
             except OverflowError:
