@@ -651,6 +651,30 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, int], int, "ll_os.ll_fpathconf",
                       llimpl=fpathconf_llimpl)
 
+    @registering_if(os, 'confstr')
+    def register_os_confstr(self):
+        c_confstr = self.llexternal('confstr', [rffi.INT, rffi.CCHARP,
+                                                rffi.SIZE_T], rffi.SIZE_T)
+
+        def confstr_llimpl(i):
+            rposix.set_errno(0)
+            n = c_confstr(i, lltype.nullptr(rffi.CCHARP.TO), 0)
+            n = rffi.cast(lltype.Signed, n)
+            if n > 0:
+                buf = lltype.malloc(rffi.CCHARP.TO, n, flavor='raw')
+                try:
+                    c_confstr(i, buf, n)
+                    return rffi.charp2strn(buf, n)
+                finally:
+                    lltype.free(buf, flavor='raw')
+            else:
+                errno = rposix.get_errno()
+                if errno != 0:
+                    raise OSError(errno, "confstr failed")
+                return None
+        return extdef([int], SomeString(can_be_None=True),
+                      "ll_os.ll_confstr", llimpl=confstr_llimpl)
+
     @registering_if(os, 'getuid')
     def register_os_getuid(self):
         return self.extdef_for_os_function_returning_int('getuid')

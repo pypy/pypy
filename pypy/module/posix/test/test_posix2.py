@@ -78,6 +78,11 @@ class AppTestPosix:
             cls.w_sysconf_name = space.wrap(sysconf_name)
             cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
+        if hasattr(os, 'confstr'):
+            confstr_name = os.confstr_names.keys()[0]
+            cls.w_confstr_name = space.wrap(confstr_name)
+            cls.w_confstr_value = space.wrap(os.confstr_names[confstr_name])
+            cls.w_confstr_result = space.wrap(os.confstr(confstr_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
         cls.w_python = space.wrap(sys.executable)
         if hasattr(os, 'major'):
@@ -699,6 +704,17 @@ class AppTestPosix:
             assert os.fpathconf(1, "PC_PIPE_BUF") >= 128
             raises(OSError, os.fpathconf, -1, "PC_PIPE_BUF")
             raises(ValueError, os.fpathconf, 1, "##")
+
+    if hasattr(os, 'confstr'):
+        def test_os_confstr(self):
+            os = self.posix
+            assert os.confstr(self.confstr_value) == self.confstr_result
+            assert os.confstr(self.confstr_name) == self.confstr_result
+            assert os.confstr_names[self.confstr_name] == self.confstr_value
+
+        def test_os_confstr_error(self):
+            os = self.posix
+            raises(ValueError, os.confstr, "!@#$%!#$!@#")
 
     if hasattr(os, 'wait'):
         def test_os_wait(self):

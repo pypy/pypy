@@ -1,5 +1,6 @@
 import py
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.annlowlevel import hlstr
 from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
@@ -175,6 +176,19 @@ class TestPosix(BaseRtypingTest):
             def f(i):
                 return os.sysconf(i)
             assert self.interpret(f, [13]) == f(13)
+
+    if hasattr(os, 'confstr'):
+        def test_os_confstr(self):
+            def f(i):
+                try:
+                    return os.confstr(i)
+                except OSError:
+                    return "oooops!!"
+            some_value = os.confstr_names.values()[-1]
+            res = self.interpret(f, [some_value])
+            assert hlstr(res) == f(some_value)
+            res = self.interpret(f, [94781413])
+            assert hlstr(res) == "oooops!!"
 
     if hasattr(os, 'chroot'):
         def test_os_chroot(self):

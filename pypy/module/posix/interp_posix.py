@@ -1233,15 +1233,28 @@ def confname_w(space, w_name, namespace):
 
 def sysconf(space, w_name):
     num = confname_w(space, w_name, os.sysconf_names)
-    return space.wrap(os.sysconf(num))
+    try:
+        res = os.sysconf(num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
     num = confname_w(space, w_name, os.pathconf_names)
     try:
-        return space.wrap(os.fpathconf(fd, num))
+        res = os.fpathconf(fd, num)
     except OSError, e:
         raise wrap_oserror(space, e)
+    return space.wrap(res)
+
+def confstr(space, w_name):
+    num = confname_w(space, w_name, os.confstr_names)
+    try:
+        res = os.confstr(num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
 
 @unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
