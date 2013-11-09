@@ -410,7 +410,6 @@ class W_ArrayBase(W_Root):
     def descr_getslice(self, space, w_i, w_j):
         return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
 
-
     def descr_setitem(self, space, w_idx, w_item):
         "x.__setitem__(i, y) <==> x[i]=y"
         if space.isinstance_w(w_idx, space.w_slice):
@@ -913,10 +912,18 @@ def make_array(mytype):
                 return space.w_NotImplemented
             a = mytype.w_class(space)
             a.setlen(self.len + w_other.len, overallocate=False)
-            for i in range(self.len):
-                a.buffer[i] = self.buffer[i]
-            for i in range(w_other.len):
-                a.buffer[i + self.len] = w_other.buffer[i]
+            if self.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, a.buffer),
+                    rffi.cast(rffi.VOIDP, self.buffer),
+                    self.len * mytype.bytes
+                )
+            if w_other.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(a.buffer, self.len)),
+                    rffi.cast(rffi.VOIDP, w_other.buffer),
+                    w_other.len * mytype.bytes
+                )
             return a
 
         def descr_inplace_add(self, space, w_other):
@@ -925,8 +932,12 @@ def make_array(mytype):
             oldlen = self.len
             otherlen = w_other.len
             self.setlen(oldlen + otherlen)
-            for i in range(otherlen):
-                self.buffer[oldlen + i] = w_other.buffer[i]
+            if otherlen:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, oldlen)),
+                    rffi.cast(rffi.VOIDP, w_other.buffer),
+                    otherlen * mytype.bytes
+                )
             return self
 
         def descr_mul(self, space, w_repeat):
