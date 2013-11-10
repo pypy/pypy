@@ -393,7 +393,8 @@ class VGenericEngine(object):
             negative = function(p)
             value = int(p[0])
             if value < 0 and not negative:
-                value += (1 << (8*self.ffi.sizeof("long long")))
+                BLongLong = self.ffi._typeof_locked("long long")[0]
+                value += (1 << (8*self.ffi.sizeof(BLongLong)))
         else:
             BFunc = self.ffi._typeof_locked(tp.get_c_name('(*)(void)', name))[0]
             function = module.load_function(BFunc, funcname)
