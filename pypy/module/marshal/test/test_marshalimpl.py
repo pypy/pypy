@@ -56,3 +56,29 @@ class AppTestMarshalMore:
 class AppTestMarshalSmallLong(AppTestMarshalMore):
     spaceconfig = dict(usemodules=('array',),
                        **{"objspace.std.withsmalllong": True})
+
+
+def test_long_more(space):
+    import marshal, struct
+
+    class FakeM:
+        def __init__(self):
+            self.seen = []
+        def start(self, code):
+            self.seen.append(code)
+        def put_int(self, value):
+            self.seen.append(struct.pack("i", value))
+        def put_short(self, value):
+            self.seen.append(struct.pack("h", value))
+
+    def _marshal_check(x):
+        expected = marshal.dumps(long(x))
+        w_obj = space.wraplong(x)
+        m = FakeM()
+        space.marshal_w(w_obj, m)
+        assert ''.join(m.seen) == expected
+
+    for sign in [1L, -1L]:
+        for i in range(100):
+            _marshal_check(sign * ((1L << i) - 1L))
+            _marshal_check(sign * (1L << i))

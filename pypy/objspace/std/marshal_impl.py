@@ -207,20 +207,20 @@ register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
     from rpython.rlib.rbigint import rbigint
+    from rpython.rlib.rarithmetic import r_ulonglong
     m.start(TYPE_LONG)
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
     num = w_long.num
     sign = num.sign
     num = num.abs()
-    ints = []
-    while num.tobool():
-        next = intmask(num.uintmask() & MASK)
-        ints.append(next)
-        num = num.rshift(SHIFT)
-    m.put_int(len(ints) * sign)
-    for i in ints:
-        m.put_short(i)
+    total_length = (num.bit_length() + (SHIFT - 1)) / SHIFT
+    m.put_int(total_length * sign)
+    bigshiftcount = r_ulonglong(0)
+    for i in range(total_length):
+        next = num.abs_rshift_and_mask(bigshiftcount, MASK)
+        m.put_short(next)
+        bigshiftcount += SHIFT
 
 def unmarshal_Long(space, u, tc):
     from rpython.rlib.rbigint import rbigint
