@@ -28,6 +28,27 @@ class TestTransform(BaseTestTransform):
         assert len(self.writemode) == 0
         assert self.barriers == ['I2R']
 
+    def test_array_size(self):
+        array_gc = lltype.GcArray(('z', lltype.Signed))
+        array_nongc = lltype.Array(('z', lltype.Signed))
+        Q = lltype.GcStruct('Q',
+                            ('gc', lltype.Ptr(array_gc)),
+                            ('raw', lltype.Ptr(array_nongc)))
+        q = lltype.malloc(Q, immortal=True)
+        q.gc = lltype.malloc(array_gc, n=3, flavor='gc', immortal=True)
+        q.raw = lltype.malloc(array_nongc, n=5, flavor='raw', immortal=True)
+        def f1(n):
+            if n == 1:
+                return len(q.gc)
+            else:
+                return len(q.raw)
+        res = self.interpret(f1, [1])
+        assert self.barriers == ['I2R', 'a2i']
+        res = self.interpret(f1, [0])
+        assert self.barriers == ['I2R']
+        
+        
+
     def test_simple_read_2(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         x2 = lltype.malloc(X, immortal=True)

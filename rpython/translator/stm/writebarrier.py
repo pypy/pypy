@@ -85,7 +85,8 @@ class BlockTransformer(object):
                 # field even on a stub
                 pass
 
-            elif op.opname in ('getarraysize', 'getinteriorarraysize'):
+            elif (op.opname in ('getarraysize', 'getinteriorarraysize') and
+                  is_gc_ptr(op.args[0].concretetype)):
                 # XXX: or (is_getter and is_immutable(op))):
                 # we can't leave getarraysize or the immutable getfields
                 # fully unmodified: we need at least immut_read_barrier
