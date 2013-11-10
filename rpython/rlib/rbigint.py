@@ -945,7 +945,7 @@ class rbigint(object):
 
     @jit.elidable
     def abs_rshift_and_mask(self, bigshiftcount, mask):
-        assert type(bigshiftcount) is r_ulonglong
+        assert isinstance(bigshiftcount, r_ulonglong)
         assert mask >= 0
         wordshift = bigshiftcount / SHIFT
         numdigits = self.numdigits()
