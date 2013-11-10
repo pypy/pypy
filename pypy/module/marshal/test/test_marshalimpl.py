@@ -77,6 +77,10 @@ def test_long_more(space):
         m = FakeM()
         space.marshal_w(w_obj, m)
         assert ''.join(m.seen) == expected
+        #
+        u = interp_marshal.StringUnmarshaller(space, space.wrap(expected))
+        w_long = u.load_w_obj()
+        assert space.eq_w(w_long, w_obj) is True
 
     for sign in [1L, -1L]:
         for i in range(100):
