@@ -943,6 +943,7 @@ class rbigint(object):
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
 
+    @jit.elidable
     def abs_rshift_and_mask(self, bigshiftcount, mask):
         assert type(bigshiftcount) is r_ulonglong
         assert mask >= 0
@@ -957,6 +958,39 @@ class rbigint(object):
             hishift = SHIFT - loshift
             lastdigit |= self.digit(wordshift+1) << hishift
         return lastdigit & mask
+
+    @staticmethod
+    def from_list_n_bits(list, nbits):
+        if len(list) == 0:
+            return NULLRBIGINT
+
+        if nbits == SHIFT:
+            z = rbigint(list, 1)
+        else:
+            if not (1 <= nbits < SHIFT):
+                raise ValueError
+
+            lllength = (r_ulonglong(len(list)) * nbits) // SHIFT
+            length = intmask(lllength) + 1
+            z = rbigint([NULLDIGIT] * length, 1)
+
+            out = 0
+            i = 0
+            accum = 0
+            for input in list:
+                accum |= (input << i)
+                original_i = i
+                i += nbits
+                if i > SHIFT:
+                    z.setdigit(out, accum)
+                    out += 1
+                    accum = input >> (SHIFT - original_i)
+                    i -= SHIFT
+            assert out < length
+            z.setdigit(out, accum)
+
+        z._normalize()
+        return z
 
     @jit.elidable
     def and_(self, other):

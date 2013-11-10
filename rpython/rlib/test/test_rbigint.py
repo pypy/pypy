@@ -489,6 +489,20 @@ class Test_rbigint(object):
                     res3 = f1.abs_rshift_and_mask(r_ulonglong(y), mask)
                     assert res3 == (abs(x) >> y) & mask
 
+    def test_from_list_n_bits(self):
+        for x in ([3L ** 30L, 5L ** 20L, 7 ** 300] +
+                  [1L << i for i in range(130)] +
+                  [(1L << i) - 1L for i in range(130)]):
+            for nbits in range(1, SHIFT+1):
+                mask = (1 << nbits) - 1
+                lst = []
+                got = x
+                while got > 0:
+                    lst.append(int(got & mask))
+                    got >>= nbits
+                f1 = rbigint.from_list_n_bits(lst, nbits)
+                assert f1.tolong() == x
+
     def test_bitwise(self):
         for x in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30]):
             for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 3 ** 31]):
