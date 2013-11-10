@@ -95,6 +95,9 @@ class W_CTypeStructOrUnion(W_CType):
         if not self._copy_from_same(cdata, w_ob):
             self.convert_struct_from_object(cdata, w_ob, optvarsize=-1)
 
+    @jit.look_inside_iff(
+        lambda self, cdata, w_ob, optvarsize: jit.isvirtual(w_ob)
+    )
     def convert_struct_from_object(self, cdata, w_ob, optvarsize):
         self._check_only_one_argument_for_union(w_ob)
 
