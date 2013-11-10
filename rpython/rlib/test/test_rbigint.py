@@ -475,6 +475,7 @@ class Test_rbigint(object):
 
     def test_shift(self):
         negative = -23
+        masks_list = [int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]
         for x in gen_signs([3L ** 30L, 5L ** 20L, 7 ** 300, 0L, 1L]):
             f1 = rbigint.fromlong(x)
             py.test.raises(ValueError, f1.lshift, negative)
@@ -484,7 +485,10 @@ class Test_rbigint(object):
                 res2 = f1.rshift(int(y)).tolong()
                 assert res1 == x << y
                 assert res2 == x >> y
-                
+                for mask in masks_list:
+                    res3 = f1.abs_rshift_and_mask(r_ulonglong(y), mask)
+                    assert res3 == (abs(x) >> y) & mask
+
     def test_bitwise(self):
         for x in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30]):
             for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 3 ** 31]):
