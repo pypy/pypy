@@ -930,14 +930,12 @@ class rbigint(object):
 
         loshift = int_other % SHIFT
         hishift = SHIFT - loshift
-        lomask = (1 << hishift) - 1
-        himask = MASK ^ lomask
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
         while i < newsize:
-            newdigit = (self.digit(wordshift) >> loshift) & lomask
+            newdigit = (self.digit(wordshift) >> loshift)
             if i+1 < newsize:
-                newdigit |= (self.digit(wordshift+1) << hishift) & himask
+                newdigit |= (self.digit(wordshift+1) << hishift)
             z.setdigit(i, newdigit)
             i += 1
             wordshift += 1
