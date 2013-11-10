@@ -230,11 +230,8 @@ def unmarshal_Long(space, u, tc):
         lng = -lng
     else:
         negative = False
-    SHIFT = 15
-    result = rbigint.fromint(0)
-    for i in range(lng):
-        shift = i * SHIFT
-        result = result.or_(rbigint.fromint(u.get_short()).lshift(shift))
+    digits = [u.get_short() for i in range(lng)]
+    result = rbigint.from_list_n_bits(digits, 15)
     if lng and not result.tobool():
         raise_exception(space, 'bad marshal data')
     if negative:
