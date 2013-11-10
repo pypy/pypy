@@ -1,7 +1,10 @@
 import weakref
+from .lock import allocate_lock
+
 
 class BaseTypeByIdentity(object):
     is_array_type = False
+    is_raw_function = False
 
     def get_c_name(self, replace_with='', context='a C file'):
         result = self.c_name_with_marker
@@ -146,6 +149,7 @@ class RawFunctionType(BaseFunctionType):
     # a function, but not a pointer-to-function.  The backend has no
     # notion of such a type; it's used temporarily by parsing.
     _base_pattern = '(&)(%s)'
+    is_raw_function = True
 
     def build_backend_type(self, ffi, finishlist):
         from . import api
@@ -212,8 +216,10 @@ class ArrayType(BaseType):
         self.item = item
         self.length = length
         #
-        if length is None or length == '...':
+        if length is None:
             brackets = '&[]'
+        elif length == '...':
+            brackets = '&[/*...*/]'
         else:
             brackets = '&[%d]' % length
         self.c_name_with_marker = (
@@ -448,6 +454,9 @@ def unknown_ptr_type(name, structname=None):
     tp = StructType(structname, None, None, None)
     return NamedPointerType(tp, name)
 
+
+global_lock = allocate_lock()
+
 def global_cache(srctype, ffi, funcname, *args, **kwds):
     key = kwds.pop('key', (funcname, args))
     assert not kwds
@@ -468,8 +477,17 @@ def global_cache(srctype, ffi, funcname, *args, **kwds):
         res = getattr(ffi._backend, funcname)(*args)
     except NotImplementedError as e:
         raise NotImplementedError("%r: %s" % (srctype, e))
-    ffi._backend.__typecache[key] = res
-    return res
+    # note that setdefault() on WeakValueDictionary is not atomic
+    # and contains a rare bug (http://bugs.python.org/issue19542);
+    # we have to use a lock and do it ourselves
+    cache = ffi._backend.__typecache
+    with global_lock:
+        res1 = cache.get(key)
+        if res1 is None:
+            cache[key] = res
+            return res
+        else:
+            return res1
 
 def pointer_cache(ffi, BType):
     return global_cache('?', ffi, 'new_pointer_type', BType)

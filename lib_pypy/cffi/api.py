@@ -129,11 +129,9 @@ class FFI(object):
             cdecl = cdecl.encode('ascii')
         #
         type = self._parser.parse_type(cdecl)
-        if hasattr(type, 'as_function_pointer'):
-            really_a_function_type = True
+        really_a_function_type = type.is_raw_function
+        if really_a_function_type:
             type = type.as_function_pointer()
-        else:
-            really_a_function_type = False
         btype = self._get_cached_btype(type)
         result = btype, really_a_function_type
         self._parsed_types[key] = result
