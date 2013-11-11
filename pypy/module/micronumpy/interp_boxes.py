@@ -289,6 +289,9 @@ class W_GenericBox(W_Root):
     def descr_get_ndim(self, space):
         return space.wrap(0)
 
+    def descr_copy(self, space):
+        return self.convert_to(self.get_dtype(space))
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
 
@@ -538,6 +541,7 @@ W_GenericBox.typedef = TypeDef("generic",
     astype = interp2app(W_GenericBox.descr_astype),
     view = interp2app(W_GenericBox.descr_view),
     squeeze = interp2app(W_GenericBox.descr_self),
+    copy = interp2app(W_GenericBox.descr_copy),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),

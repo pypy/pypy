@@ -65,6 +65,14 @@ class AppTestScalar(BaseNumpyAppTest):
         assert type(a) is np.int32
         assert a == 1
 
+    def test_copy(self):
+        import numpy as np
+        a = np.int32(2)
+        b = a.copy()
+        assert type(b) is type(a)
+        assert b == a
+        assert b is not a
+
     def test_squeeze(self):
         import numpy as np
         assert np.True_.squeeze() is np.True_
