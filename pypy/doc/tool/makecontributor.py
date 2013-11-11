@@ -1,3 +1,5 @@
+# NOTE: run this script with LANG=en_US.UTF-8
+
 import py
 import sys
 from collections import defaultdict
@@ -132,7 +134,7 @@ def main(show_numbers):
         if show_numbers:
             print '%5d %s' % (n, name)
         else:
-            print name
+            print '  ' + name
 
 if __name__ == '__main__':
     show_numbers = '-n' in sys.argv
