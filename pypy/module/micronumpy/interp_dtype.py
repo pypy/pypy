@@ -254,6 +254,11 @@ class W_Dtype(W_Root):
             raise OperationError(space.w_KeyError, space.wrap(
                 "Field named '%s' not found." % item))
 
+    def descr_len(self, space):
+        if self.fields is None:
+            return space.wrap(0)
+        return space.wrap(len(self.fields))
+
     def descr_reduce(self, space):
         w_class = space.type(self)
 
@@ -397,6 +402,7 @@ W_Dtype.typedef = TypeDef("dtype",
     __eq__ = interp2app(W_Dtype.descr_eq),
     __ne__ = interp2app(W_Dtype.descr_ne),
     __getitem__ = interp2app(W_Dtype.descr_getitem),
+    __len__ = interp2app(W_Dtype.descr_len),
 
     __reduce__ = interp2app(W_Dtype.descr_reduce),
     __setstate__ = interp2app(W_Dtype.descr_setstate),

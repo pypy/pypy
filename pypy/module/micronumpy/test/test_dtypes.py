@@ -221,6 +221,13 @@ class AppTestDtypes(BaseAppTestDtypes):
             for i in range(5):
                 assert b[i] == i * 2
 
+    def test_len(self):
+        import numpy as np
+        d = np.dtype('int32')
+        assert len(d) == 0
+        d = np.dtype([('x', 'i4'), ('y', 'i4')])
+        assert len(d) == 2
+
     def test_shape(self):
         from numpypy import dtype
         assert dtype(long).shape == ()
