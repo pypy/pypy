@@ -1713,6 +1713,19 @@ class AppTestNumArray(BaseNumpyAppTest):
                                                         4, 4]]).all()
         assert (array([1, 2]).repeat(2) == array([1, 1, 2, 2])).all()
 
+    def test_resize(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.resize, ())
+
+    def test_squeeze(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.squeeze)
 
     def test_swapaxes(self):
         from numpypy import array

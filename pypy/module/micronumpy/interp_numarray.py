@@ -640,7 +640,8 @@ class __extend__(W_NDimArray):
     def descr_put(self, space, w_indices, w_values, w_mode=None):
         put(space, self, w_indices, w_values, w_mode)
 
-    def descr_resize(self, space, w_new_shape, w_refcheck=True):
+    @unwrap_spec(w_refcheck=WrappedDefault(True))
+    def descr_resize(self, space, w_new_shape, w_refcheck=None):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "resize not implemented yet"))
 
@@ -692,7 +693,7 @@ class __extend__(W_NDimArray):
             return
         return self.implementation.sort(space, w_axis, w_order)
 
-    def descr_squeeze(self, space):
+    def descr_squeeze(self, space, w_axis=None):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "squeeze not implemented yet"))
 
@@ -1218,6 +1219,8 @@ W_NDimArray.typedef = TypeDef(
 
     copy = interp2app(W_NDimArray.descr_copy),
     reshape = interp2app(W_NDimArray.descr_reshape),
+    resize = interp2app(W_NDimArray.descr_resize),
+    squeeze = interp2app(W_NDimArray.descr_squeeze),
     T = GetSetProperty(W_NDimArray.descr_get_transpose),
     transpose = interp2app(W_NDimArray.descr_transpose),
     tolist = interp2app(W_NDimArray.descr_tolist),
