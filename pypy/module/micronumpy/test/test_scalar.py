@@ -83,6 +83,15 @@ class AppTestScalar(BaseNumpyAppTest):
         assert value.ndim == 0
         assert value.T is value
 
+    def test_indexing(self):
+        import numpy as np
+        v = np.int32(2)
+        for b in [v[()], v[...]]:
+            assert isinstance(b, np.ndarray)
+            assert b.shape == ()
+            assert b == v
+        raises(IndexError, "v['blah']")
+
     def test_complex_scalar_complex_cast(self):
         import numpy as np
         for tp in [np.csingle, np.cdouble, np.clongdouble]:
