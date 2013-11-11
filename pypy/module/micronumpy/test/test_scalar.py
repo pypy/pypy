@@ -92,10 +92,15 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_complex_str_format(self):
         import numpy as np
-        assert str(np.complex128(complex(1, float('nan')))) == '(1+nan*j)'
-        assert str(np.complex128(complex(1, float('-nan')))) == '(1+nan*j)'
-        assert str(np.complex128(complex(1, float('inf')))) == '(1+inf*j)'
-        assert str(np.complex128(complex(1, float('-inf')))) == '(1-inf*j)'
+        for t in [np.complex64, np.complex128]:
+            assert str(t(complex(1, float('nan')))) == '(1+nan*j)'
+            assert str(t(complex(1, float('-nan')))) == '(1+nan*j)'
+            assert str(t(complex(1, float('inf')))) == '(1+inf*j)'
+            assert str(t(complex(1, float('-inf')))) == '(1-inf*j)'
+            for x in [0, 1, -1]:
+                assert str(t(complex(x))) == str(complex(x))
+                assert str(t(x*1j)) == str(complex(x*1j))
+                assert str(t(x + x*1j)) == str(complex(x + x*1j))
 
     def test_complex_zero_division(self):
         import numpy as np

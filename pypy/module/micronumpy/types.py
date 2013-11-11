@@ -1030,7 +1030,7 @@ class ComplexFloating(object):
         imag_str += 'j'
 
         # (0+2j) => 2j
-        if real == 0:
+        if real == 0 and math.copysign(1, real) == 1:
             return imag_str
 
         real_str = str_format(real)
