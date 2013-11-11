@@ -96,3 +96,20 @@ class AppTestScalar(BaseNumpyAppTest):
         assert str(np.complex128(complex(1, float('-nan')))) == '(1+nan*j)'
         assert str(np.complex128(complex(1, float('inf')))) == '(1+inf*j)'
         assert str(np.complex128(complex(1, float('-inf')))) == '(1-inf*j)'
+
+    def test_complex_zero_division(self):
+        import numpy as np
+        for t in [np.complex64, np.complex128]:
+            a = t(0.0)
+            b = t(1.0)
+            assert np.isinf(b/a)
+            b = t(complex(np.inf, np.inf))
+            assert np.isinf(b/a)
+            b = t(complex(np.inf, np.nan))
+            assert np.isinf(b/a)
+            b = t(complex(np.nan, np.inf))
+            assert np.isinf(b/a)
+            b = t(complex(np.nan, np.nan))
+            assert np.isnan(b/a)
+            b = t(0.)
+            assert np.isnan(b/a)
