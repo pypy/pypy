@@ -160,7 +160,10 @@ class VCPythonEngine(object):
             def __dir__(self):
                 return FFILibrary._cffi_dir + list(self.__dict__)
         library = FFILibrary()
-        module._cffi_setup(lst, ffiplatform.VerificationError, library)
+        if module._cffi_setup(lst, ffiplatform.VerificationError, library):
+            import warnings
+            warnings.warn("reimporting %r might overwrite older definitions"
+                          % (self.verifier.get_module_name()))
         #
         # finally, call the loaded_cpy_xxx() functions.  This will perform
         # the final adjustments, like copying the Python->C wrapper
@@ -646,12 +649,23 @@ class VCPythonEngine(object):
         prnt('static int %s(PyObject *lib)' % funcname)
         prnt('{')
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
-            prnt('  if (%s != %d) {' % (enumerator, enumvalue))
+            if enumvalue < 0:
+                prnt('  if ((%s) >= 0 || (long)(%s) != %dL) {' % (
+                    enumerator, enumerator, enumvalue))
+            else:
+                prnt('  if ((%s) < 0 || (unsigned long)(%s) != %dUL) {' % (
+                    enumerator, enumerator, enumvalue))
+            prnt('    char buf[64];')
+            prnt('    if ((%s) < 0)' % enumerator)
+            prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % enumerator)
+            prnt('    else')
+            prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
+                 enumerator)
             prnt('    PyErr_Format(_cffi_VerificationError,')
-            prnt('                 "enum %s: %s has the real value %d, '
-                 'not %d",')
-            prnt('                 "%s", "%s", (int)%s, %d);' % (
-                name, enumerator, enumerator, enumvalue))
+            prnt('                 "enum %s: %s has the real value %s, '
+                 'not %s",')
+            prnt('                 "%s", "%s", buf, "%d");' % (
+                name, enumerator, enumvalue))
             prnt('    return -1;')
             prnt('  }')
         prnt('  return %s;' % self._chained_list_constants[True])
@@ -743,12 +757,9 @@ class VCPythonEngine(object):
 
     def _generate_setup_custom(self):
         prnt = self._prnt
-        prnt('static PyObject *_cffi_setup_custom(PyObject *lib)')
+        prnt('static int _cffi_setup_custom(PyObject *lib)')
         prnt('{')
-        prnt('  if (%s < 0)' % self._chained_list_constants[True])
-        prnt('    return NULL;')
-        prnt('  Py_INCREF(Py_None);')
-        prnt('  return Py_None;')
+        prnt('  return %s;' % self._chained_list_constants[True])
         prnt('}')
 
 cffimod_header = r'''
@@ -866,17 +877,20 @@ typedef struct _ctypedescr CTypeDescrObject;
 static void *_cffi_exports[_CFFI_NUM_EXPORTS];
 static PyObject *_cffi_types, *_cffi_VerificationError;
 
-static PyObject *_cffi_setup_custom(PyObject *lib);   /* forward */
+static int _cffi_setup_custom(PyObject *lib);   /* forward */
 
 static PyObject *_cffi_setup(PyObject *self, PyObject *args)
 {
     PyObject *library;
+    int was_alive = (_cffi_types != NULL);
     if (!PyArg_ParseTuple(args, "OOO", &_cffi_types, &_cffi_VerificationError,
                                        &library))
         return NULL;
     Py_INCREF(_cffi_types);
     Py_INCREF(_cffi_VerificationError);
-    return _cffi_setup_custom(library);
+    if (_cffi_setup_custom(library) < 0)
+        return NULL;
+    return PyBool_FromLong(was_alive);
 }
 
 static void _cffi_init(void)

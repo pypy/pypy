@@ -1596,6 +1596,19 @@ def test_enum_size():
 ##        assert ffi.sizeof("enum foo_e") == expected_size
 ##        assert int(ffi.cast("enum foo_e", -1)) == expected_minus1
 
+def test_enum_bug118():
+    maxulong = 256 ** FFI().sizeof("unsigned long") - 1
+    for c1, c2, c2c in [(0xffffffff, -1, ''),
+                        (maxulong, -1, ''),
+                        (-1, 0xffffffff, 'U'),
+                        (-1, maxulong, 'UL')]:
+        ffi = FFI()
+        ffi.cdef("enum foo_e { AA=%s };" % c1)
+        e = py.test.raises(VerificationError, ffi.verify,
+                           "enum foo_e { AA=%s%s };" % (c2, c2c))
+        assert str(e.value) == ('enum foo_e: AA has the real value %d, not %d'
+                                % (c2, c1))
+
 def test_string_to_voidp_arg():
     ffi = FFI()
     ffi.cdef("int myfunc(void *);")

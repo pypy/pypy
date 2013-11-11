@@ -422,11 +422,22 @@ class VGenericEngine(object):
         prnt('int %s(char *out_error)' % funcname)
         prnt('{')
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
-            prnt('  if (%s != %d) {' % (enumerator, enumvalue))
+            if enumvalue < 0:
+                prnt('  if ((%s) >= 0 || (long)(%s) != %dL) {' % (
+                    enumerator, enumerator, enumvalue))
+            else:
+                prnt('  if ((%s) < 0 || (unsigned long)(%s) != %dUL) {' % (
+                    enumerator, enumerator, enumvalue))
+            prnt('    char buf[64];')
+            prnt('    if ((%s) < 0)' % enumerator)
+            prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % enumerator)
+            prnt('    else')
+            prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
+                 enumerator)
             prnt('    snprintf(out_error, 255,'
-                             '"%s has the real value %d, not %d",')
-            prnt('            "%s", (int)%s, %d);' % (
-                enumerator, enumerator, enumvalue))
+                             ' "%s has the real value %s, not %s",')
+            prnt('            "%s", buf, "%d");' % (
+                enumerator, enumvalue))
             prnt('    return -1;')
             prnt('  }')
         prnt('  return 0;')
