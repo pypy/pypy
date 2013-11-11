@@ -694,8 +694,16 @@ class __extend__(W_NDimArray):
         return self.implementation.sort(space, w_axis, w_order)
 
     def descr_squeeze(self, space, w_axis=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "squeeze not implemented yet"))
+        if not space.is_none(w_axis):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "axis unsupported for squeeze"))
+        cur_shape = self.get_shape()
+        new_shape = [s for s in cur_shape if s != 1]
+        if len(cur_shape) == len(new_shape):
+            return self
+        return wrap_impl(space, space.type(self), self,
+                         self.implementation.get_view(
+                             self, self.get_dtype(), new_shape))
 
     def descr_strides(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -705,7 +713,7 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "tofile not implemented yet"))
 
-    def descr_view(self, space, w_dtype=None, w_type=None) :
+    def descr_view(self, space, w_dtype=None, w_type=None):
         if not w_type and w_dtype:
             try:
                 if space.is_true(space.issubtype(w_dtype, space.gettypefor(W_NDimArray))):
