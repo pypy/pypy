@@ -49,5 +49,5 @@ Release Steps
   python-announce, python-dev ...
 
 * add a tag on jitviewer that corresponds to pypy release
-* add a tag on codespeed that corresponds to pypy release
+* add a tag on codespeed that corresponds to pypy release (XXX where??)
 
