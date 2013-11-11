@@ -406,6 +406,8 @@ class W_LongObject(W_AbstractLongObject):
             if w_exponent.asbigint().sign < 0:
                 from pypy.objspace.std.floatobject import delegate_Long2Float
                 w_exponent = delegate_Long2Float(space, w_exponent)
+                # XXX: hack around multimethod annoyances for now (when
+                # w_modulus=None)
                 return space.pow(self.descr_float(space), w_exponent, space.w_None if w_modulus is None else w_modulus)
             return W_LongObject(self.num.pow(w_exponent.asbigint(), None))
         elif space.isinstance_w(w_modulus, space.w_int):
