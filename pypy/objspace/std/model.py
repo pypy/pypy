@@ -143,7 +143,7 @@ class StdTypeModel:
             ]
         self.typeorder[intobject.W_IntObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
-            (longobject.W_LongObject,   longobject.delegate_Int2Long),
+#            (longobject.W_LongObject,   longobject.delegate_Int2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
         if False and config.objspace.std.withsmalllong:

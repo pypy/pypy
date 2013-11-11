@@ -62,6 +62,7 @@ def delegate_Int2Float(space, w_intobj):
 
 # long-to-float delegation
 def delegate_Long2Float(space, w_longobj):
+    # XXX: tofloat is not abstract (SmallLongs)
     return W_FloatObject(w_longobj.tofloat(space))
 
 

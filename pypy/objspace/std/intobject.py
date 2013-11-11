@@ -5,6 +5,8 @@ translation this module uses rarithmetic.ovfcheck to explicitly check
 for overflows, something CPython does not do anymore.
 """
 
+import operator
+
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import (
     LONG_BIT, is_valid_int, ovfcheck, string_to_int, r_uint)
@@ -52,7 +54,6 @@ class W_AbstractIntObject(W_Object):
 
     def _make_descr_binop(opname):
         # XXX: func_renamer or func_with_new_name?
-        import operator
         from rpython.tool.sourcetools import func_renamer
         op = getattr(operator, opname)
 
@@ -99,9 +100,11 @@ class W_AbstractIntObject(W_Object):
     descr_mul, descr_rmul = _make_descr_binop('mul')
 
     def _make_descr_cmp(opname):
-        import operator
         op = getattr(operator, opname)
         def f(self, space, w_other):
+            # XXX: this doesn't belong here, regardless of how we originally set this up. blargh
+            #if isinstance(w_other, W_SmallLongObject):
+            #    return space.newbool(op(space.int_w(self), w_other.longlong))
             if not space.isinstance_w(w_other, space.w_int):
                 return space.w_NotImplemented
 
@@ -416,9 +419,9 @@ class W_IntObject(W_AbstractIntObject):
         b = b.lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(b)
 
-    def unwrap(self, space):
+    def int_w(self, space):
         return int(self.intval)
-    int_w = unwrap
+    unwrap = int_w
 
     def uint_w(self, space):
         intval = self.intval
@@ -447,7 +450,6 @@ class W_IntObject(W_AbstractIntObject):
     def descr_repr(self, space):
         res = str(self.intval)
         return space.wrap(res)
-
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
 def _delegate_Int2Long(space, w_intobj):
