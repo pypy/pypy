@@ -27,11 +27,11 @@ class W_FloatObject(W_AbstractFloatObject):
 
     typedef = float_typedef
 
-    def __init__(w_self, floatval):
-        w_self.floatval = floatval
+    def __init__(self, floatval):
+        self.floatval = floatval
 
-    def unwrap(w_self, space):
-        return w_self.floatval
+    def unwrap(self, space):
+        return self.floatval
 
     def float_w(self, space):
         return self.floatval
