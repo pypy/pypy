@@ -10,8 +10,10 @@ extern "C" {
 #include "Python.h"
 
 #ifdef PY_SSIZE_T_CLEAN
-#define PyPyObject_CallFunction _PyPyObject_CallFunction_SizeT
-#define PyPyObject_CallMethod _PyPyObject_CallMethod_SizeT
+#undef PyObject_CallFunction
+#undef PyObject_CallMethod
+#define PyObject_CallFunction _PyObject_CallFunction_SizeT
+#define PyObject_CallMethod _PyObject_CallMethod_SizeT
 #endif
 
 #define PyEval_CallObject(func,arg) \

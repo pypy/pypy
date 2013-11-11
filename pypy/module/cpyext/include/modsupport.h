@@ -10,9 +10,20 @@ extern "C" {
 /* If PY_SSIZE_T_CLEAN is defined, each functions treats #-specifier
    to mean Py_ssize_t */
 #ifdef PY_SSIZE_T_CLEAN
-#define PyPy_BuildValue           _PyPy_BuildValue_SizeT
-#define PyPy_VaBuildValue         _PyPy_VaBuildValue_SizeT
-    /*XXX more*/
+#undef PyArg_Parse
+#undef PyArg_ParseTuple
+#undef PyArg_ParseTupleAndKeywords
+#undef PyArg_VaParse
+#undef PyArg_VaParseTupleAndKeywords
+#undef Py_BuildValue
+#undef Py_VaBuildValue
+#define PyArg_Parse         _PyArg_Parse_SizeT
+#define PyArg_ParseTuple        _PyArg_ParseTuple_SizeT
+#define PyArg_ParseTupleAndKeywords _PyArg_ParseTupleAndKeywords_SizeT
+#define PyArg_VaParse           _PyArg_VaParse_SizeT
+#define PyArg_VaParseTupleAndKeywords   _PyArg_VaParseTupleAndKeywords_SizeT
+#define Py_BuildValue           _Py_BuildValue_SizeT
+#define Py_VaBuildValue         _Py_VaBuildValue_SizeT
 #endif
 
 #define PYTHON_API_VERSION 1013
@@ -25,6 +36,15 @@ int PyArg_VaParse(PyObject *, const char *, va_list);
 int PyArg_ParseTupleAndKeywords(PyObject *, PyObject *,
 				const char *, char **, ...);
 int PyArg_VaParseTupleAndKeywords(PyObject *, PyObject *,
+				const char *, char **, va_list);
+
+int _PyArg_Parse_SizeT(PyObject *, const char *, ...);
+int _PyArg_ParseTuple_SizeT(PyObject *, const char *, ...);
+int _PyArg_VaParse_SizeT(PyObject *, const char *, va_list);
+
+int _PyArg_ParseTupleAndKeywords_SizeT(PyObject *, PyObject *,
+				const char *, char **, ...);
+int _PyArg_VaParseTupleAndKeywords_SizeT(PyObject *, PyObject *,
 				const char *, char **, va_list);
   
 /* to make sure that modules compiled with CPython's or PyPy's Python.h
