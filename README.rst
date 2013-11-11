@@ -1,5 +1,5 @@
 =====================================
-PyPy: Python in Python Implementation 
+PyPy: Python in Python Implementation
 =====================================
 
 Welcome to PyPy!
@@ -26,9 +26,11 @@ and send us feedback!
 Building
 ========
 
-build with::
+build with:
 
-  rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+.. code-block:: console
+
+    $ rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
 
 This ends up with ``pypy-c`` binary in the main pypy directory. We suggest
 to use virtualenv with the resulting pypy-c as the interpreter, you can

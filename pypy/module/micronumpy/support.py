@@ -1,11 +1,15 @@
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 
-def int_w(space, w_obj):
+def index_w(space, w_obj):
     try:
         return space.int_w(space.index(w_obj))
     except OperationError:
-        return space.int_w(space.int(w_obj))
+        try:
+            return space.int_w(space.int(w_obj))
+        except OperationError:
+            raise OperationError(space.w_IndexError, space.wrap(
+                "cannot convert index to integer"))
 
 @jit.unroll_safe
 def product(s):

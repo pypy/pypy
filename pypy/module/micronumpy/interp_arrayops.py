@@ -1,12 +1,12 @@
-
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement,\
      shape_agreement_multiple
-from pypy.module.micronumpy.constants import MODES
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.micronumpy.conversion_utils import clipmode_converter
+from pypy.module.micronumpy.constants import *
 
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
@@ -91,11 +91,11 @@ def where(space, w_arr, w_x=None, w_y=None):
     out = W_NDimArray.from_shape(space, shape, dtype)
     return loop.where(out, shape, arr, x, y, dtype)
 
-def dot(space, w_obj1, w_obj2):
+def dot(space, w_obj1, w_obj2, w_out=None):
     w_arr = convert_to_array(space, w_obj1)
     if w_arr.is_scalar():
-        return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
-    return w_arr.descr_dot(space, w_obj2)
+        return convert_to_array(space, w_obj2).descr_dot(space, w_arr, w_out)
+    return w_arr.descr_dot(space, w_obj2, w_out)
 
 
 @unwrap_spec(axis=int)
@@ -118,12 +118,12 @@ def concatenate(space, w_args, axis=0):
                 shape[i] += axis_size
         a_dt = arr.get_dtype()
         if dtype.is_record_type() and a_dt.is_record_type():
-            #Record types must match
+            # Record types must match
             for f in dtype.fields:
                 if f not in a_dt.fields or \
                              dtype.fields[f] != a_dt.fields[f]:
                     raise OperationError(space.w_TypeError,
-                               space.wrap("record type mismatch"))
+                               space.wrap("invalid type promotion"))
         elif dtype.is_record_type() or a_dt.is_record_type():
             raise OperationError(space.w_TypeError,
                         space.wrap("invalid type promotion"))
@@ -171,8 +171,7 @@ def repeat(space, w_arr, repeats, w_axis):
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
 
-@unwrap_spec(mode=str)
-def choose(space, w_arr, w_choices, w_out, mode):
+def choose(space, w_arr, w_choices, w_out, w_mode):
     arr = convert_to_array(space, w_arr)
     choices = [convert_to_array(space, w_item) for w_item
                in space.listview(w_choices)]
@@ -187,23 +186,16 @@ def choose(space, w_arr, w_choices, w_out, mode):
     shape = shape_agreement_multiple(space, choices + [w_out])
     out = interp_dtype.dtype_agreement(space, choices, shape, w_out)
     dtype = out.get_dtype()
-    if mode not in MODES:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("mode %s not known" % (mode,)))
-    loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
+    mode = clipmode_converter(space, w_mode)
+    loop.choose(space, arr, choices, shape, dtype, out, mode)
     return out
 
-
-@unwrap_spec(mode=str)
-def put(space, w_arr, w_indices, w_values, mode='raise'):
-    from pypy.module.micronumpy import constants
-    from pypy.module.micronumpy.support import int_w
+def put(space, w_arr, w_indices, w_values, w_mode):
+    from pypy.module.micronumpy.support import index_w
 
     arr = convert_to_array(space, w_arr)
+    mode = clipmode_converter(space, w_mode)
 
-    if mode not in constants.MODES:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("mode %s not known" % (mode,)))
     if not w_indices:
         raise OperationError(space.w_ValueError,
                              space.wrap("indice list cannot be empty"))
@@ -225,20 +217,21 @@ def put(space, w_arr, w_indices, w_values, mode='raise'):
 
     v_idx = 0
     for idx in indices:
-        index = int_w(space, idx)
+        index = index_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
-            if constants.MODES[mode] == constants.MODE_RAISE:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "invalid entry in choice array"))
-            elif constants.MODES[mode] == constants.MODE_WRAP:
+            if mode == NPY_RAISE:
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
+            elif mode == NPY_WRAP:
                 index = index % arr.get_size()
-            else:
-                assert constants.MODES[mode] == constants.MODE_CLIP
+            elif mode == NPY_CLIP:
                 if index < 0:
                     index = 0
                 else:
                     index = arr.get_size() - 1
+            else:
+                assert False
 
         value = values[v_idx]
 
@@ -246,7 +239,6 @@ def put(space, w_arr, w_indices, w_values, mode='raise'):
             v_idx += 1
 
         arr.setitem(space, [index], dtype.coerce(space, value))
-
 
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()

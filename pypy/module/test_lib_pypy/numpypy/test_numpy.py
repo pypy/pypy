@@ -1,47 +1,6 @@
 from pypy.conftest import option
 import py, sys
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-
-class AppTestNumpyImport1(object):
-    spaceconfig = dict(usemodules=['micronumpy'])
-
-    @classmethod
-    def setup_class(cls):
-        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("pypy only test")
-
-    def test_imports_no_warning(self):
-        from warnings import catch_warnings
-        with catch_warnings(record=True) as w:
-            import numpypy
-            import numpy
-            assert len(w) == 0
-            import numpy
-            assert len(w) == 0
-
-class AppTestNumpyImport2(object):
-    spaceconfig = dict(usemodules=['micronumpy'])
-
-    @classmethod
-    def setup_class(cls):
-        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("pypy only test")
-
-    def test_imports_with_warning(self):
-        import sys
-        from warnings import catch_warnings
-        # XXX why are numpypy and numpy modules already imported?
-        mods = [d for d in sys.modules.keys() if d.find('numpy') >= 0]
-        if mods:
-            skip('%s already imported' % mods)
-
-        with catch_warnings(record=True) as w:
-            import numpy
-            msg = w[0].message
-            assert msg.message.startswith(
-                "The 'numpy' module of PyPy is in-development")
-            import numpy
-            assert len(w) == 1
+from pypy.module.test_lib_pypy.numpypy.test_base import BaseNumpyAppTest
 
 class AppTestNumpy(BaseNumpyAppTest):
     def test_min_max_after_import(self):
@@ -95,15 +54,14 @@ class AppTestNumpy(BaseNumpyAppTest):
         assert math.isnan(numpypy.nan)
 
     def test___all__(self):
-        import numpy
-        assert '__all__' in dir(numpy)
-        assert 'numpypy' not in dir(numpy)
+        import numpypy
+        assert '__all__' in dir(numpypy)
+        assert 'numpypy' not in dir(numpypy)
 
     def test_get_include(self):
-        import sys
+        import numpypy, os, sys
+        assert 'get_include' in dir(numpypy)
+        path = numpypy.get_include()
         if not hasattr(sys, 'pypy_translation_info'):
             skip("pypy white-box test")
-        import numpy, os
-        assert 'get_include' in dir(numpy)
-        path = numpy.get_include()
         assert os.path.exists(path + '/numpy/arrayobject.h')

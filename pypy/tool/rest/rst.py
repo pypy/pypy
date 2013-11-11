@@ -38,7 +38,7 @@ class AbstractMetaclass(type):
             class_list = parent_cls
         if obj.allow_nesting:
             class_list.append(obj)
-        
+
         for _class in class_list:
             if not _class.allowed_child:
                 _class.allowed_child = {obj:True}
@@ -56,7 +56,7 @@ class AbstractNode(object):
     allow_nesting = False
     allowed_child = {}
     defaults = {}
-    
+
     _reg_whitespace = py.std.re.compile('\s+')
 
     def __init__(self, *args, **kwargs):
@@ -66,53 +66,53 @@ class AbstractNode(object):
             self._add(child)
         for arg in kwargs:
             setattr(self, arg, kwargs[arg])
-    
+
     def join(self, *children):
         """ add child nodes
-        
+
             returns a reference to self
         """
         for child in children:
             self._add(child)
         return self
-    
+
     def add(self, child):
         """ adds a child node
-            
+
             returns a reference to the child
         """
         self._add(child)
         return child
-        
+
     def _add(self, child):
         if child.__class__ not in self.allowed_child:
             raise RestError("%r cannot be child of %r" % \
                 (child.__class__, self.__class__))
         self.children.append(child)
         child.parent = self
-    
+
     def __getitem__(self, item):
         return self.children[item]
-    
+
     def __setitem__(self, item, value):
         self.children[item] = value
 
     def text(self):
         """ return a ReST string representation of the node """
         return self.sep.join([child.text() for child in self.children])
-    
+
     def wordlist(self):
-        """ return a list of ReST strings for this node and its children """ 
+        """ return a list of ReST strings for this node and its children """
         return [self.text()]
 
 class Rest(AbstractNode):
     """ Root node of a document """
-    
+
     sep = "\n\n"
     def __init__(self, *args, **kwargs):
         AbstractNode.__init__(self, *args, **kwargs)
         self.links = {}
-    
+
     def render_links(self, check=False):
         """render the link attachments of the document"""
         assert not check, "Link checking not implemented"
@@ -132,7 +132,7 @@ class Rest(AbstractNode):
                                'transition')
         for child in self.children:
             outcome.append(child.text())
-        
+
         # always a trailing newline
         text = self.sep.join([i for i in outcome if i]) + "\n"
         return text + self.render_links()
@@ -145,7 +145,7 @@ class Transition(AbstractNode):
         self.char = char
         self.width = width
         super(Transition, self).__init__(*args, **kwargs)
-        
+
     def text(self):
         return (self.width - 1) * self.char
 
@@ -156,7 +156,7 @@ class Paragraph(AbstractNode):
     sep = " "
     indent = ""
     width = 80
-    
+
     def __init__(self, *args, **kwargs):
         # make shortcut
         args = list(args)
@@ -164,19 +164,19 @@ class Paragraph(AbstractNode):
             if isinstance(arg, str):
                 args[num] = Text(arg)
         super(Paragraph, self).__init__(*args, **kwargs)
-    
+
     def text(self):
         texts = []
         for child in self.children:
             texts += child.wordlist()
-        
+
         buf = []
         outcome = []
         lgt = len(self.indent)
-        
+
         def grab(buf):
             outcome.append(self.indent + self.sep.join(buf))
-        
+
         texts.reverse()
         while texts:
             next = texts[-1]
@@ -193,19 +193,19 @@ class Paragraph(AbstractNode):
                 buf = []
         grab(buf)
         return "\n".join(outcome)
-    
+
 class SubParagraph(Paragraph):
     """ indented sub paragraph """
 
     indent = " "
-    
+
 class Title(Paragraph):
     """ title element """
 
     parentclass = Rest
     belowchar = "="
     abovechar = ""
-    
+
     def text(self):
         txt = self._get_text()
         lines = []
@@ -228,7 +228,7 @@ class AbstractText(AbstractNode):
     end = ""
     def __init__(self, _text):
         self._text = _text
-    
+
     def text(self):
         text = self.escape(self._text)
         return self.start + text + self.end
@@ -241,7 +241,7 @@ class AbstractText(AbstractNode):
         if self.end and self.end != self.start:
             text = text.replace(self.end, '\\%s' % (self.end,))
         return text
-    
+
 class Text(AbstractText):
     def wordlist(self):
         text = escape(self._text)
@@ -287,7 +287,7 @@ class Citation(AbstractText):
 class ListItem(Paragraph):
     allow_nesting = True
     item_chars = '*+-'
-    
+
     def text(self):
         idepth = self.get_indent_depth()
         indent = self.indent + (idepth + 1) * '  '
@@ -296,7 +296,7 @@ class ListItem(Paragraph):
         item_char = self.item_chars[idepth]
         ret += [indent[len(item_char)+1:], item_char, ' ', txt[len(indent):]]
         return ''.join(ret)
-    
+
     def render_children(self, indent):
         txt = []
         buffer = []
@@ -352,7 +352,7 @@ class Link(AbstractText):
         self._text = _text
         self.target = target
         self.rest = None
-    
+
     def text(self):
         if self.rest is None:
             self.rest = self.find_rest()
@@ -372,12 +372,12 @@ class Link(AbstractText):
 class InternalLink(AbstractText):
     start = '`'
     end = '`_'
-    
+
 class LinkTarget(Paragraph):
     def __init__(self, name, target):
         self.name = name
         self.target = target
-    
+
     def text(self):
         return ".. _`%s`:%s\n" % (self.name, self.target)
 
@@ -392,7 +392,7 @@ class Directive(Paragraph):
         self.content = args
         super(Directive, self).__init__()
         self.options = options
-        
+
     def text(self):
         # XXX not very pretty...
         txt = '.. %s::' % (self.name,)
@@ -405,6 +405,6 @@ class Directive(Paragraph):
             txt += '\n'
             for item in self.content:
                 txt += '\n    ' + item
-        
+
         return txt
 

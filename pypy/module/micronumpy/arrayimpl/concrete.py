@@ -102,13 +102,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             dtype =  self.dtype.float_type
             return SliceArray(self.start + dtype.get_size(), strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
-        if self.dtype.is_flexible_type():
-            # numpy returns self for self.imag
-            return SliceArray(self.start, strides, backstrides,
-                    self.get_shape(), self, orig_array)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
-        impl.fill(self.dtype.box(0))
+        if not self.dtype.is_flexible_type():
+            impl.fill(self.dtype.box(0))
         return impl
 
     def set_imag(self, space, orig_array, w_value):
@@ -124,12 +121,13 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         for i, w_index in enumerate(view_w):
             if space.isinstance_w(w_index, space.w_slice):
                 raise IndexError
-            idx = support.int_w(space, w_index)
+            idx = support.index_w(space, w_index)
             if idx < 0:
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
                 raise operationerrfmt(space.w_IndexError,
-                      "index (%d) out of range (0<=index<%d", i, self.get_shape()[i],
+                      "index %d is out of bounds for axis %d with size %d",
+                      idx, i, self.get_shape()[i],
                 )
             item += idx * strides[i]
         return item
@@ -145,7 +143,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 idx = shape[i] + idx
             if idx < 0 or idx >= shape[i]:
                 raise operationerrfmt(space.w_IndexError,
-                      "index (%d) out of range (0<=index<%d", i, shape[i],
+                      "index %d is out of bounds for axis %d with size %d",
+                      idx, i, self.get_shape()[i],
                 )
             item += idx * strides[i]
         return item
@@ -194,7 +193,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return self._lookup_by_index(space, view_w)
         if shape_len > 1:
             raise IndexError
-        idx = support.int_w(space, w_idx)
+        idx = support.index_w(space, w_idx)
         return self._lookup_by_index(space, [space.wrap(idx)])
 
     @jit.unroll_safe
@@ -204,7 +203,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             dtype = self.dtype
             if not dtype.is_record_type() or idx not in dtype.fields:
                 raise OperationError(space.w_ValueError, space.wrap(
-                    "field named %s not defined" % idx))
+                    "field named %s not found" % idx))
             return RecordChunk(idx)
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
@@ -380,8 +379,8 @@ class ConcreteArray(ConcreteArrayNotOwning):
 
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):
-        raise OperationError(space.w_RuntimeError, space.wrap(
-            "array is not writable"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
 
 
 class SliceArray(BaseConcreteArray):

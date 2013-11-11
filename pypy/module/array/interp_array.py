@@ -1,17 +1,21 @@
 from __future__ import with_statement
 
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import ovfcheck, widen
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.annlowlevel import llstr
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, interpindirect2app
 from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr, TypeDef
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._file.interp_file import W_File
-from rpython.rlib import jit
-from rpython.rlib.rarithmetic import ovfcheck, widen
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.objspace.std.floatobject import W_FloatObject
+
 
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
@@ -234,8 +238,7 @@ class W_ArrayBase(W_Root):
         new = len(s) / self.itemsize
         self.setlen(oldlen + new)
         cbuf = self._charbuf_start()
-        for i in range(len(s)):
-            cbuf[oldlen * self.itemsize + i] = s[i]
+        copy_string_to_raw(llstr(s), rffi.ptradd(cbuf, oldlen * self.itemsize), 0, len(s))
         self._charbuf_stop()
 
     @unwrap_spec(w_f=W_File, n=int)
@@ -406,7 +409,6 @@ class W_ArrayBase(W_Root):
 
     def descr_getslice(self, space, w_i, w_j):
         return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
-
 
     def descr_setitem(self, space, w_idx, w_item):
         "x.__setitem__(i, y) <==> x[i]=y"
@@ -624,7 +626,7 @@ def make_array(mytype):
                         item = unwrap(space.call_method(w_item, mytype.method))
                     except OperationError:
                         msg = 'array item must be ' + mytype.unwrap[:-2]
-                        raise OperationError(space.w_TypeError, space.wrap(msg))                        
+                        raise OperationError(space.w_TypeError, space.wrap(msg))
                 else:
                     raise
             if mytype.unwrap == 'bigint_w':
@@ -866,9 +868,6 @@ def make_array(mytype):
                     self.buffer[i] = w_item.buffer[j]
                     j += 1
 
-        # We can't look into this function until ptradd works with things (in the
-        # JIT) other than rffi.CCHARP
-        @jit.dont_look_inside
         def delitem(self, space, i, j):
             if i < 0:
                 i += self.len
@@ -904,16 +903,23 @@ def make_array(mytype):
                 lltype.free(oldbuffer, flavor='raw')
 
         # Add and mul methods
-
         def descr_add(self, space, w_other):
             if not isinstance(w_other, W_Array):
                 return space.w_NotImplemented
             a = mytype.w_class(space)
             a.setlen(self.len + w_other.len, overallocate=False)
-            for i in range(self.len):
-                a.buffer[i] = self.buffer[i]
-            for i in range(w_other.len):
-                a.buffer[i + self.len] = w_other.buffer[i]
+            if self.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, a.buffer),
+                    rffi.cast(rffi.VOIDP, self.buffer),
+                    self.len * mytype.bytes
+                )
+            if w_other.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(a.buffer, self.len)),
+                    rffi.cast(rffi.VOIDP, w_other.buffer),
+                    w_other.len * mytype.bytes
+                )
             return a
 
         def descr_inplace_add(self, space, w_other):
@@ -922,8 +928,12 @@ def make_array(mytype):
             oldlen = self.len
             otherlen = w_other.len
             self.setlen(oldlen + otherlen)
-            for i in range(otherlen):
-                self.buffer[oldlen + i] = w_other.buffer[i]
+            if otherlen:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, oldlen)),
+                    rffi.cast(rffi.VOIDP, w_other.buffer),
+                    otherlen * mytype.bytes
+                )
             return self
 
         def descr_mul(self, space, w_repeat):

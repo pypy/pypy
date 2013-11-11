@@ -204,3 +204,4 @@ man_pages = [
    u'fast, compliant alternative implementation of the Python language',
    u'The PyPy Project', 1)
 ]
+

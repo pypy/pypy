@@ -930,20 +930,67 @@ class rbigint(object):
 
         loshift = int_other % SHIFT
         hishift = SHIFT - loshift
-        lomask = (1 << hishift) - 1
-        himask = MASK ^ lomask
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
         while i < newsize:
-            newdigit = (self.digit(wordshift) >> loshift) & lomask
+            newdigit = (self.digit(wordshift) >> loshift)
             if i+1 < newsize:
-                newdigit |= (self.digit(wordshift+1) << hishift) & himask
+                newdigit |= (self.digit(wordshift+1) << hishift)
             z.setdigit(i, newdigit)
             i += 1
             wordshift += 1
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
+
+    @jit.elidable
+    def abs_rshift_and_mask(self, bigshiftcount, mask):
+        assert isinstance(bigshiftcount, r_ulonglong)
+        assert mask >= 0
+        wordshift = bigshiftcount / SHIFT
+        numdigits = self.numdigits()
+        if wordshift >= numdigits:
+            return 0
+        wordshift = intmask(wordshift)
+        loshift = intmask(intmask(bigshiftcount) - intmask(wordshift * SHIFT))
+        lastdigit = self.digit(wordshift) >> loshift
+        if mask > (MASK >> loshift) and wordshift + 1 < numdigits:
+            hishift = SHIFT - loshift
+            lastdigit |= self.digit(wordshift+1) << hishift
+        return lastdigit & mask
+
+    @staticmethod
+    def from_list_n_bits(list, nbits):
+        if len(list) == 0:
+            return NULLRBIGINT
+
+        if nbits == SHIFT:
+            z = rbigint(list, 1)
+        else:
+            if not (1 <= nbits < SHIFT):
+                raise ValueError
+
+            lllength = (r_ulonglong(len(list)) * nbits) // SHIFT
+            length = intmask(lllength) + 1
+            z = rbigint([NULLDIGIT] * length, 1)
+
+            out = 0
+            i = 0
+            accum = 0
+            for input in list:
+                accum |= (input << i)
+                original_i = i
+                i += nbits
+                if i > SHIFT:
+                    z.setdigit(out, accum)
+                    out += 1
+                    accum = input >> (SHIFT - original_i)
+                    i -= SHIFT
+            assert out < length
+            z.setdigit(out, accum)
+
+        z._normalize()
+        return z
 
     @jit.elidable
     def and_(self, other):
