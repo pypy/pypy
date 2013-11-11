@@ -316,9 +316,9 @@ class Test__ffi(BaseTestPyPyC):
             ffi = cffi.FFI()
             ffi.cdef("""
             struct s {
-                int x;
-                int y;
-                int z;
+                short x;
+                short y;
+                short z;
             };
             """)
 
@@ -339,9 +339,9 @@ class Test__ffi(BaseTestPyPyC):
         guard_value(p165, ConstPtr(ptr70), descr=...)
         p166 = getfield_gc(p165, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .+>)
         guard_value(p166, ConstPtr(ptr72), descr=...)
-        p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr 8 EF=4>)
+        p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
         guard_no_exception(descr=...)
-        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 12, descr=<Calli 8 i EF=4>)
+        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4>)
         setfield_gc(p167, 0, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
         setfield_gc(p167, ConstPtr(ptr86), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
         guard_no_exception(descr=...)
@@ -351,20 +351,20 @@ class Test__ffi(BaseTestPyPyC):
         setfield_gc(p167, ConstPtr(ptr89), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
         i171 = uint_gt(i170, i108)
         guard_false(i171, descr=...)
-        i172 = int_sub(i160, -2147483648)
-        i173 = int_and(i172, 4294967295)
-        i174 = int_add(i173, -2147483648)
-        setarrayitem_raw(i169, 0, i174, descr=<ArrayS .>)
+        i172 = int_sub(i160, -32768)
+        i173 = int_and(i172, 65535)
+        i174 = int_add(i173, -32768)
+        setarrayitem_raw(i169, 0, i174, descr=<ArrayS 2>)
         i175 = int_add(i168, i121)
         i176 = int_sub(i160, i130)
         i177 = uint_gt(i176, i132)
         guard_false(i177, descr=...)
-        setarrayitem_raw(i175, 0, i174, descr=<ArrayS .>)
+        setarrayitem_raw(i175, 0, i174, descr=<ArrayS 2>)
         i178 = int_add(i168, i140)
         i179 = int_sub(i160, i149)
         i180 = uint_gt(i179, i151)
         guard_false(i180, descr=...)
-        setarrayitem_raw(i178, 0, i174, descr=<ArrayS .>)
+        setarrayitem_raw(i178, 0, i174, descr=<ArrayS 2>)
         --TICK--
         i183 = arraylen_gc(p67, descr=<ArrayP .>)
         i184 = arraylen_gc(p92, descr=<ArrayP .>)
