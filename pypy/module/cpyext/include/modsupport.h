@@ -7,6 +7,14 @@
 extern "C" {
 #endif
 
+/* If PY_SSIZE_T_CLEAN is defined, each functions treats #-specifier
+   to mean Py_ssize_t */
+#ifdef PY_SSIZE_T_CLEAN
+#define PyPy_BuildValue           _PyPy_BuildValue_SizeT
+#define PyPy_VaBuildValue         _PyPy_VaBuildValue_SizeT
+    /*XXX more*/
+#endif
+
 #define PYTHON_API_VERSION 1013
 #define PYTHON_API_STRING "1013"
 
