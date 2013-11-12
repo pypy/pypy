@@ -178,6 +178,30 @@ class AbstractARMBuilder(object):
                 | (dm & 0xF))
         self.write32(instr)
 
+    def VMOV_sc(self, dest, src):
+        """move a single precision vfp register[src] to a core reg[dest]"""
+        self._VMOV_32bit(src, dest, to_arm_register=1)
+
+    def VMOV_cs(self, dest, src):
+        """move a core register[src] to a single precision vfp
+        register[dest]"""
+        self._VMOV_32bit(dest, src, to_arm_register=0)
+
+    def _VMOV_32bit(self, float_reg, core_reg, to_arm_register, cond=cond.AL):
+        """This instruction transfers the contents of a single-precision VFP
+           register to an ARM core register, or the contents of an ARM core
+           register to a single-precision VFP register.
+        """
+        instr = (cond << 28
+                | 0xE << 24
+                | to_arm_register << 20
+                | ((float_reg >> 1) & 0xF) << 16
+                | core_reg << 12
+                | 0xA << 8
+                | (float_reg & 0x1) << 7
+                | 1 << 4)
+        self.write32(instr)
+
     def VMOV_cc(self, dd, dm, cond=cond.AL):
         sz = 1  # for 64-bit mode
         instr = (cond << 28
