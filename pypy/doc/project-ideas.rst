@@ -158,6 +158,8 @@ finder, which is nicely portable.  So far it gives a pypy that is around
 Embedding PyPy
 ----------------------------------------
 
+Note: there is a basic proof-of-concept for that as a `uwsgi pypy plugin`_
+
 Being able to embed PyPy, say with its own limited C API, would be
 useful.  But here is the most interesting variant, straight from
 EuroPython live discussion :-)  We can have a generic "libpypy.so" that
@@ -165,6 +167,8 @@ can be used as a placeholder dynamic library, and when it gets loaded,
 it runs a .py module that installs (via ctypes) the interface it wants
 exported.  This would give us a one-size-fits-all generic .so file to be
 imported by any application that wants to load .so files :-)
+
+.. _`uwsgi pypy plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
 
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------
