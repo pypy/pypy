@@ -222,8 +222,16 @@ class AbstractARMBuilder(object):
         self._VCVT(target, source, cond, 0, 1)
 
     def _VCVT(self, target, source, cond, opc2, sz):
-        D = 0
-        M = 0
+        # A8.6.295
+        to_integer = (opc2 >> 2) & 1
+        if to_integer:
+            D = target & 1
+            target >>= 1
+            M = (source >> 4) & 1
+        else:
+            M = source & 1
+            source >>= 1
+            D = (target >> 4) & 1
         op = 1
         instr = (cond << 28
                 | 0xEB8 << 16
@@ -240,8 +248,8 @@ class AbstractARMBuilder(object):
 
     def _VCVT_single_double(self, target, source, cond, sz):
         # double_to_single = (sz == '1');
-        D = 0
-        M = 0
+        D = target & 1 if sz else (target >> 4) & 1
+        M = (source >> 4) & 1 if sz else source & 1
         instr = (cond << 28
                 | 0xEB7 << 16
                 | 0xAC << 4
