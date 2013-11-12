@@ -712,7 +712,7 @@ def test_define_int():
              "#define BAZ ...\n")
     lib = ffi.verify("#define FOO 42\n"
                      "#define BAR (-44)\n"
-                     "#define BAZ 0xffffffffffffffffLL\n")
+                     "#define BAZ 0xffffffffffffffffULL\n")
     assert lib.FOO == 42
     assert lib.BAR == -44
     assert lib.BAZ == 0xffffffffffffffff
