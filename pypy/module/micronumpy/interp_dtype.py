@@ -401,7 +401,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     raise operationerrfmt(space.w_TypeError, msg, w_dtype)
 
 W_Dtype.typedef = TypeDef("dtype",
-    __module__ = "numpypy",
+    __module__ = "numpy",
     __new__ = interp2app(descr__new__),
 
     __str__= interp2app(W_Dtype.descr_str),

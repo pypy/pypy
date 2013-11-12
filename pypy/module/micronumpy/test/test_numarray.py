@@ -249,9 +249,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         return CustomIntObject(value)
 
     def test_ndarray(self):
-        from numpypy import ndarray, array, dtype
+        from numpy import ndarray, array, dtype, flatiter
 
         assert type(ndarray) is type
+        assert repr(ndarray) == "<type 'numpy.ndarray'>"
+        assert repr(flatiter) == "<type 'numpy.flatiter'>"
         assert type(array) is not type
         a = ndarray((2, 3))
         assert a.shape == (2, 3)

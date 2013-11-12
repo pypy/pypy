@@ -26,6 +26,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d.kind == 'b'
         assert dtype(d) is d
         assert dtype('bool') is d
+        assert repr(type(d)) == "<type 'numpy.dtype'>"
 
         assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'

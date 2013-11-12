@@ -338,11 +338,11 @@ class __extend__(W_NDimArray):
 
         Returns an array containing the same data with a new shape.
 
-        Refer to `numpypy.reshape` for full documentation.
+        Refer to `numpy.reshape` for full documentation.
 
         See Also
         --------
-        numpypy.reshape : equivalent function
+        numpy.reshape : equivalent function
         """
         args_w, kw_w = __args__.unpack()
         order = NPY_CORDER
@@ -1123,9 +1123,8 @@ app_ptp = applevel(r"""
         return res
 """, filename=__file__).interphook('ptp')
 
-W_NDimArray.typedef = TypeDef(
-    "ndarray",
-    __module__ = "numpypy",
+W_NDimArray.typedef = TypeDef("ndarray",
+    __module__ = "numpy",
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),
@@ -1391,8 +1390,8 @@ def build_scalar(space, w_dtype, w_state):
     return box
 
 
-W_FlatIterator.typedef = TypeDef(
-    'flatiter',
+W_FlatIterator.typedef = TypeDef("flatiter",
+    __module__ = "numpy",
     __iter__ = interp2app(W_FlatIterator.descr_iter),
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),
