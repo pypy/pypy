@@ -40,6 +40,10 @@ def startfile(filepath, operation=None):
         raise TypeError("argument 1 must be str or unicode")
     rc = int(w.cast("uintptr_t", rc))
     if rc <= 32:
-        # sorry, no way to get the error message in less than one page of code
         code = w.libK.GetLastError()
-        raise WindowsError(code, "Error %s" % code, filepath)
+        try:
+            import _rawffi
+            msg = _rawffi.FormatError(code)
+        except ImportError:
+            msg = 'Error %s' % code
+        raise WindowsError(code, msg, filepath)
