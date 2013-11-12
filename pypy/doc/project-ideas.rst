@@ -90,9 +90,6 @@ PyPy has pluggable garbage collection policy. This means that various garbage
 collectors can be written for specialized purposes, or even various
 experiments can be done for the general purpose. Examples:
 
-* An incremental garbage collector that has specified maximal pause times,
-  crucial for games
-
 * A garbage collector that compact memory better for mobile devices
 
 * A concurrent garbage collector (a lot of work)
