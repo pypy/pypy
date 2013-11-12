@@ -382,7 +382,14 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
     elif space.isinstance_w(w_dtype, space.w_tuple):
-        return descr__new__(space, w_subtype, space.getitem(w_dtype, space.wrap(0)), w_align, w_copy, w_shape=space.getitem(w_dtype, space.wrap(1)))
+        w_dtype0 = space.getitem(w_dtype, space.wrap(0))
+        w_dtype1 = space.getitem(w_dtype, space.wrap(1))
+        subdtype = descr__new__(space, w_subtype, w_dtype0, w_align, w_copy)
+        assert isinstance(subdtype, W_Dtype)
+        if subdtype.get_size() == 0:
+            name = "%s%d" % (subdtype.kind, space.int_w(w_dtype1))
+            return descr__new__(space, w_subtype, space.wrap(name), w_align, w_copy)
+        return descr__new__(space, w_subtype, w_dtype0, w_align, w_copy, w_shape=w_dtype1)
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
     for dtype in cache.builtin_dtypes:

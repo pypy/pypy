@@ -46,6 +46,18 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert 'data type not understood' in str(exc.value)
         raises(KeyError, 'dtype(int)["asdasd"]')
 
+    def test_dtype_from_tuple(self):
+        import numpy as np
+        d = np.dtype((np.int64, 4))
+        assert d == np.dtype(('i8', (4,)))
+        assert d.shape == (4,)
+        d = np.dtype((np.string_, 4))
+        assert d == np.dtype('S4')
+        assert d.shape == ()
+        d = np.dtype(('S', 4))
+        assert d == np.dtype('S4')
+        assert d.shape == ()
+
     def test_dtype_eq(self):
         from numpypy import dtype
 
