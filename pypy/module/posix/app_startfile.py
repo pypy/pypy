@@ -11,9 +11,9 @@ class CFFIWrapper(object):
         """)
         self.NULL = ffi.NULL
         self.cast = ffi.cast
-        self.libK = ffi.dlopen("Kernel32.dll")
-        self.libS = ffi.dlopen("Shell32.dll")
+        self.lib = ffi.dlopen("Shell32.dll")
         self.SW_SHOWNORMAL = 1
+        self.getwinerror = ffi.getwinerror
 
 _cffi_wrapper = None
 
@@ -29,21 +29,16 @@ def startfile(filepath, operation=None):
     if isinstance(filepath, str):
         if isinstance(operation, unicode):
             operation = operation.encode("ascii")
-        rc = w.libS.ShellExecuteA(w.NULL, operation, filepath,
-                                  w.NULL, w.NULL, w.SW_SHOWNORMAL)
+        rc = w.lib.ShellExecuteA(w.NULL, operation, filepath,
+                                 w.NULL, w.NULL, w.SW_SHOWNORMAL)
     elif isinstance(filepath, unicode):
         if isinstance(operation, str):
             operation = operation.decode("ascii")
-        rc = w.libS.ShellExecuteW(w.NULL, operation, filepath,
-                                  w.NULL, w.NULL, w.SW_SHOWNORMAL)
+        rc = w.lib.ShellExecuteW(w.NULL, operation, filepath,
+                                 w.NULL, w.NULL, w.SW_SHOWNORMAL)
     else:
         raise TypeError("argument 1 must be str or unicode")
     rc = int(w.cast("uintptr_t", rc))
     if rc <= 32:
-        code = w.libK.GetLastError()
-        try:
-            import _rawffi
-            msg = _rawffi.FormatError(code)
-        except ImportError:
-            msg = 'Error %s' % code
+        code, msg = w.getwinerror()
         raise WindowsError(code, msg, filepath)
