@@ -10,7 +10,11 @@ class AppTestGrp:
                                     "No grp module on this platform")
 
     def test_basic(self):
-        g = self.grp.getgrnam("root")
+        raises(KeyError, self.grp.getgrnam, "dEkLofcG")
+        try:
+            g = self.grp.getgrnam("root")
+        except KeyError:
+            return     # no 'root' group on OS/X?
         assert g.gr_gid == 0
         assert g.gr_mem == ['root'] or g.gr_mem == []
         assert g.gr_name == 'root'
