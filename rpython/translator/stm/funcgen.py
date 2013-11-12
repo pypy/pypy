@@ -53,7 +53,14 @@ def stm_finalize(funcgen, op):
 
 def stm_barrier(funcgen, op):
     category_change = op.args[0].value
-    frm, middle, to = category_change
+    # XXX: how to unify the stm_barrier llop generation in
+    #      writebarrier.py and threadlocalref.py?
+    if isinstance(category_change, str):
+        frm, middle, to = category_change
+    else: # rstr
+        frm, middle, to = (category_change.chars[0],
+                           category_change.chars[1],
+                           category_change.chars[2])
     assert middle == '2'
     assert frm < to
     if to == 'W':

@@ -440,7 +440,8 @@ LL_OPERATIONS = {
     'stm_weakref_allocate':   LLOp(sideeffects=False, canmallocgc=True),
     
     'stm_threadlocalref_get': LLOp(sideeffects=False),
-    'stm_threadlocalref_set': LLOp(),
+    'stm_threadlocalref_set': LLOp(canmallocgc=True), # may allocate new array,
+                                                      # see threadlocalref.py
     'stm_threadlocal_get':    LLOp(sideeffects=False),
     'stm_threadlocal_set':    LLOp(),
 

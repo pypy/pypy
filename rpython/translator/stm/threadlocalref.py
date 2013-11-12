@@ -28,13 +28,19 @@ def transform_tlref(t):
         if not array:
             return lltype.nullptr(rclass.OBJECTPTR.TO)
         else:
+            array = llop.stm_barrier(lltype.Ptr(ARRAY), 'A2R', array)
             return array[index]
     #
     def ll_threadlocalref_set(index, newvalue):
         array = llop.stm_threadlocal_get(lltype.Ptr(ARRAY))
         if not array:
-            array = lltype.malloc(ARRAY, total)
+            array = lltype.malloc(ARRAY, total) # llop may allocate!
             llop.stm_threadlocal_set(lltype.Void, array)
+        else:
+            array = llop.stm_barrier(lltype.Ptr(ARRAY), 'A2W', array)
+            # invalidating other barriers after an llop.threadlocalref_set
+            # is not necessary since no other variable should contain
+            # a reference to stm_threadlocal_obj
         array[index] = newvalue
     #
     annhelper = annlowlevel.MixLevelHelperAnnotator(t.rtyper)

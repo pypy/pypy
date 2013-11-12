@@ -1,5 +1,11 @@
 ------------------------------------------------------------
 
+should stm_thread_local_obj always be read & writeable? would
+a write-barrier in begin_transaction be too much for small
+transactions? should we handle it specially (undolog?)
+
+------------------------------------------------------------
+
 looking at trace of fibo.tlc (targettlc.py), there are a lot
 of read-barriers followed by write-barriers. Merging them
 and making the first a write-barrier is important!
