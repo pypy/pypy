@@ -55,10 +55,6 @@ class VFPRegisterLocation(RegisterLocation):
     type = FLOAT
     width = 2 * WORD
 
-    def get_single_precision_regs(self):
-        return [VFPRegisterLocation(i) for i in
-                        [self.value * 2, self.value * 2 + 1]]
-
     def __repr__(self):
         return 'vfp%d' % self.value
 
