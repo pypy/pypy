@@ -2,8 +2,7 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 
 class AppTestGrp:
-
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'itertools'))
+    spaceconfig = dict(usemodules=('binascii', '_ffi', '_rawffi', 'itertools'))
 
     def setup_class(cls):
         cls.w_grp = import_lib_pypy(cls.space, 'grp',
