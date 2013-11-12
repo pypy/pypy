@@ -9,6 +9,7 @@ from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes,\
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable, to_coords, shape_agreement, \
      shape_agreement_multiple
+from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
@@ -610,13 +611,11 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dumps not implemented yet"))
 
+    w_flags = None
     def descr_get_flags(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "getting flags not implemented yet"))
-
-    def descr_set_flags(self, space, w_args):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "setting flags not implemented yet"))
+        if self.w_flags is None:
+            self.w_flags = W_FlagsObject(self)
+        return self.w_flags
 
     @unwrap_spec(offset=int)
     def descr_getfield(self, space, w_dtype, offset):
@@ -1203,6 +1202,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     size = GetSetProperty(W_NDimArray.descr_get_size),
     itemsize = GetSetProperty(W_NDimArray.descr_get_itemsize),
     nbytes = GetSetProperty(W_NDimArray.descr_get_nbytes),
+    flags = GetSetProperty(W_NDimArray.descr_get_flags),
 
     fill = interp2app(W_NDimArray.descr_fill),
     tostring = interp2app(W_NDimArray.descr_tostring),
