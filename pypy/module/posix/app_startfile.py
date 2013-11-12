@@ -1,3 +1,4 @@
+# NOT_RPYTHON
 
 class CFFIWrapper(object):
     def __init__(self):
