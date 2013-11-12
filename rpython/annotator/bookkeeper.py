@@ -5,7 +5,6 @@ The Bookkeeper class.
 from __future__ import absolute_import
 
 import sys, types, inspect, weakref
-from collections import OrderedDict
 
 from rpython.flowspace.model import Constant
 from rpython.annotator.model import (SomeOrderedDict,
@@ -371,7 +370,7 @@ class Bookkeeper(object):
                 for e in x:
                     listdef.generalize(self.immutablevalue(e, False))
                 result = SomeList(listdef)
-        elif tp is dict or tp is r_dict or tp is OrderedDict:
+        elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
             if need_const:
                 key = Constant(x)
                 try:
@@ -413,7 +412,7 @@ class Bookkeeper(object):
                     dictdef.generalize_key(self.immutablevalue(ek, False))
                     dictdef.generalize_value(self.immutablevalue(ev, False))
                     dictdef.seen_prebuilt_key(ek)
-                if tp is OrderedDict:
+                if tp is SomeOrderedDict.knowntype:
                     result = SomeOrderedDict(dictdef)
                 else:
                     result = SomeDict(dictdef)
