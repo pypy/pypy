@@ -157,6 +157,21 @@ in the base directory. Then compile::
     ms\do_ms.bat
     nmake -f ms\nt.mak install
 
+TkInter module support
+~~~~~~~~~~~~~~~~~~~~~~
+
+Download tcl from http:://http://www.tcl.tk/software/tcltk/download.html
+Extract tcl85. cd into the ``win`` directory and compile::
+
+    nmake -nologo -f makefile.vc release OPTS=symbols,threads
+
+Download tcl from http:://http://www.tcl.tk/software/tcltk/download.html
+Extract tcl85. cd into the ``win`` directory and compile::
+
+    set TCLDIR=<tcl85_dir>
+    nmake -nologo -f makefile.vc release OPTS=symbols,threads
+
+
 Using the mingw compiler
 ------------------------
 
