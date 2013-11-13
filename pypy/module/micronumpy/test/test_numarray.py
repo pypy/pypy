@@ -710,7 +710,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_reshape(self):
         from numpypy import array, zeros
+        for a in [array(1), array([1])]:
+            for s in [(), (1,)]:
+                b = a.reshape(s)
+                assert b.shape == s
+                assert (b == [1]).all()
         a = array(range(12))
+        exc = raises(ValueError, "b = a.reshape(())")
+        assert str(exc.value) == "total size of new array must be unchanged"
         exc = raises(ValueError, "b = a.reshape((3, 10))")
         assert str(exc.value) == "total size of new array must be unchanged"
         b = a.reshape((3, 4))
