@@ -198,8 +198,7 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
-        if (isinstance(w_idx, W_NDimArray) and
-            w_idx.get_dtype().is_bool_type()):
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
             return self.getitem_filter(space, w_idx)
         try:
             return self.implementation.descr_getitem(space, self, w_idx)
@@ -213,9 +212,11 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
-        if (isinstance(w_idx, W_NDimArray) and
-                w_idx.get_dtype().is_bool_type()):
-            self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
+            try:
+                self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
+            except ValueError, e:
+                raise OperationError(space.w_ValueError, space.wrap(str(e)))
             return
         try:
             self.implementation.descr_setitem(space, self, w_idx, w_value)

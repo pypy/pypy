@@ -2454,6 +2454,23 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert exc.value[0].find('cannot assign') >= 0
         assert (a == [[0, 1], [2, 3], [4, 5]]).all()
 
+    def test_nonarray_assignment(self):
+        import numpypy as np
+        a = np.arange(10)
+        b = np.ones(10, dtype=bool)
+        r = np.arange(10)
+        def assign(a, b, c):
+            a[b] = c
+        raises(ValueError, assign, a, b, np.nan)
+        #raises(ValueError, assign, a, r, np.nan)  # XXX
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            a[b] = np.array(np.nan)
+            #a[r] = np.array(np.nan)
+        else:
+            raises(ValueError, assign, a, b, np.array(np.nan))
+            #raises(ValueError, assign, a, r, np.array(np.nan))
+
     def test_copy_kwarg(self):
         from numpypy import array
         x = array([1, 2, 3])
