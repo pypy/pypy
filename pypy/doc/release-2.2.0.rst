@@ -67,27 +67,20 @@ Highlights
   separately in a virtualenv with ``pip install
   git+https://bitbucket.org/pypy/numpy.git``.
 
-* improvements to non-inlined calls
+* non-inlined calls have less overhead
 
-* sys.set_trace is now JITted (think coverage)
+* Things that use ``sys.set_trace`` are now JITted (like coverage)
 
-* faster json
+* JSON encoding is faster
 
-* improvements in buffer copying
-
-* tk is supported (XXX was already in pypy 2.1 it seems?? maybe not
-  correctly packaged?)
+* various buffer copying methods experience speedups (like list-of-ints to
+  ``int[]`` buffer from cffi)
 
 * We finally wrote all the missing ``os.xxx()`` functions.  There are
   a lot of strange ones that nobody ever heard about, except those who
   really need them.
 
-* numpy C API
+* numpy has a rudimentary C API that cooperates with ``cpyext``
 
-
- the core module is included in PyPy 2.2, but you must now install an
-  external fork of numpy from https://bitbucket.org/pypy/numpy
-
-
-removed in favor of an external numpy fork at
-https://bitbucket.org/pypy/numpy
+Cheers,
+Armin Rigo and Maciej Fijalkowski
