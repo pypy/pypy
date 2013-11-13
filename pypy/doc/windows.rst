@@ -118,14 +118,10 @@ the base directory.  Then compile::
 The sqlite3 database library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Download http://www.sqlite.org/2013/sqlite-amalgamation-3071601.zip and extract
-it into a directory under the base directory. Also get 
-http://www.sqlite.org/2013/sqlite-dll-win32-x86-3071601.zip and extract the dll
-into the bin directory, and the sqlite3.def into the sources directory.
-Now build the import library so cffi can use the header and dll::
+PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
+wrapper is compiled when the module is imported for the first time.
+The sqlite3.dll should be version 3.6.21 for CPython2.7 compatablility.
 
-    lib /DEF:sqlite3.def" /OUT:sqlite3.lib"
-    copy sqlite3.lib path\to\libs
 
 
 The expat XML parser
