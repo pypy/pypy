@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 
+POSSIBLE BUG:
+investigate if another thread can force a jitframe. Thus,
+making a transaction break *after* a guard_not_forced
+would be wrong, as the force will only be visible after
+the break. (The GIL doesn't get released inbetween
+the GUARD and the next call that is allowed to, so no
+problems there)..
+Solution, move transaction breaks right before guard_not_forced, maybe
+
+------------------------------------------------------------
+
 should stm_thread_local_obj always be read & writeable? would
 a write-barrier in begin_transaction be too much for small
 transactions? should we handle it specially (undolog?)

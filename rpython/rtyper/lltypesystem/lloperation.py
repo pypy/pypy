@@ -410,6 +410,9 @@ LL_OPERATIONS = {
     # direct_calls and maybe several casts, but it looks less heavy-weight
     # to keep them as operations until the genc stage)
 
+    # NOTE: use canmallocgc for all operations that can contain a collection.
+    #       that includes all that do 'BecomeInevitable' or otherwise contain
+    #       possible GC safe-points! (also sync with stmframework.py)
     'stm_initialize':         LLOp(),
     'stm_finalize':           LLOp(),
     'stm_barrier':            LLOp(sideeffects=False),
@@ -429,7 +432,7 @@ LL_OPERATIONS = {
     'stm_commit_transaction': LLOp(),
     'stm_begin_inevitable_transaction': LLOp(),
     'stm_should_break_transaction': LLOp(sideeffects=False),
-    'stm_set_transaction_length': LLOp(),
+    'stm_set_transaction_length': LLOp(canmallocgc=True),
     'stm_change_atomic':      LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
     'stm_perform_transaction':LLOp(canmallocgc=True),
@@ -447,7 +450,7 @@ LL_OPERATIONS = {
 
     'stm_abort_info_push':    LLOp(),
     'stm_abort_info_pop':     LLOp(),
-    'stm_inspect_abort_info': LLOp(sideeffects=False),
+    'stm_inspect_abort_info': LLOp(sideeffects=False, canmallocgc=True),
 
     'stm_get_adr_of_private_rev_num':LLOp(),
     'stm_get_adr_of_read_barrier_cache':LLOp(),

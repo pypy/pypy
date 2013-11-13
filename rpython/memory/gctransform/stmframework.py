@@ -97,6 +97,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.default(hop)
         self.pop_roots(hop, livevars)
 
+    # sync with lloperation.py
     gct_stm_become_inevitable                       = _gct_with_roots_pushed
     gct_stm_set_transaction_length                  = _gct_with_roots_pushed
     gct_stm_stop_all_other_threads                  = _gct_with_roots_pushed
