@@ -77,7 +77,14 @@ Then expand it into the base directory (base_dir) and modify your environment to
     set INCLUDE=<base_dir>\include;%INCLUDE%
     set LIB=<base_dir>\lib;%LIB%
 
-Now you should be good to go. Read on for more information.
+Now you should be good to go. Read on for more information. Note that much of this is taken from
+the python.org build process for version 2.7 
+(  http://hg.python.org/cpython/file/v2.7.5/Tools/buildbot/external-common.bat and
+http://hg.python.org/cpython/file/v2.7.5/Tools/buildbot/external.bat ), and can be run automagically
+by:: 
+
+    cd <base_dir>
+    nmake -F <pypy-checkout>\pypy\tool\build_win32_extern.mk all
 
 The Boehm garbage collector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -109,11 +116,10 @@ the base directory.  Then compile::
 The bz2 compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Download http://bzip.org/1.0.5/bzip2-1.0.5.tar.gz and extract it in
-the base directory.  Then compile::
-
-    cd bzip2-1.0.5
+    svn export http://svn.python.org/projects/external/bzip2-1.0.6
+    cd bzip2-1.0.6
     nmake -f makefile.msc
+    copy bzip.dll <somewhere in the PATH>\bzip.dll
     
 The sqlite3 database library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -121,8 +127,6 @@ The sqlite3 database library
 PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
 wrapper is compiled when the module is imported for the first time.
 The sqlite3.dll should be version 3.6.21 for CPython2.7 compatablility.
-
-
 
 The expat XML parser
 ~~~~~~~~~~~~~~~~~~~~
@@ -146,9 +150,8 @@ OpenSSL needs a Perl interpreter to configure its makefile.  You may
 use the one distributed by ActiveState, or the one from cygwin.  In
 both case the perl interpreter must be found on the PATH.
 
-Get http://www.openssl.org/source/openssl-0.9.8k.tar.gz and extract it
-in the base directory. Then compile::
-
+    svn export http://svn.python.org/projects/external/openssl-0.9.8y
+    cd openssl-0.9.8y
     perl Configure VC-WIN32
     ms\do_ms.bat
     nmake -f ms\nt.mak install
@@ -156,16 +159,11 @@ in the base directory. Then compile::
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Download tcl from http:://http://www.tcl.tk/software/tcltk/download.html
-Extract tcl85. cd into the ``win`` directory and compile::
+and
 
-    nmake -nologo -f makefile.vc release OPTS=symbols,threads
+    svn export http://svn.python.org/projects/external/tcl-8.5.2.1
+    svn export http://svn.python.org/projects/external/sqlite-3.6.21
 
-Download tcl from http:://http://www.tcl.tk/software/tcltk/download.html
-Extract tcl85. cd into the ``win`` directory and compile::
-
-    set TCLDIR=<tcl85_dir>
-    nmake -nologo -f makefile.vc release OPTS=symbols,threads
 
 
 Using the mingw compiler
