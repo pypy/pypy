@@ -98,11 +98,11 @@ class __extend__(W_NDimArray):
 
     def getitem_filter(self, space, arr):
         if len(arr.get_shape()) > 1 and arr.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("boolean index array should have 1 dimension"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "boolean index array should have 1 dimension"))
         if arr.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("index out of range for array"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "index out of range for array"))
         size = loop.count_all_true(arr)
         if len(arr.get_shape()) == 1:
             res_shape = [size] + self.get_shape()[1:]
@@ -113,17 +113,18 @@ class __extend__(W_NDimArray):
 
     def setitem_filter(self, space, idx, val):
         if len(idx.get_shape()) > 1 and idx.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("boolean index array should have 1 dimension"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "boolean index array should have 1 dimension"))
         if idx.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("index out of range for array"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "index out of range for array"))
         size = loop.count_all_true(idx)
         if size > val.get_size() and val.get_size() != 1:
-            raise OperationError(space.w_ValueError, space.wrap("NumPy boolean array indexing assignment "
-                                                                "cannot assign %d input values to "
-                                                                "the %d output values where the mask is true" %
-                                                                (val.get_size(), size)))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "NumPy boolean array indexing assignment "
+                "cannot assign %d input values to "
+                "the %d output values where the mask is true" %
+                (val.get_size(), size)))
         loop.setitem_filter(self, idx, val, size)
 
     def _prepare_array_index(self, space, w_index):
