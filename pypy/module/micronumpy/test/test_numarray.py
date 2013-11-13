@@ -249,9 +249,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         return CustomIntObject(value)
 
     def test_ndarray(self):
-        from numpypy import ndarray, array, dtype
+        from numpy import ndarray, array, dtype, flatiter
 
         assert type(ndarray) is type
+        assert repr(ndarray) == "<type 'numpy.ndarray'>"
+        assert repr(flatiter) == "<type 'numpy.flatiter'>"
         assert type(array) is not type
         a = ndarray((2, 3))
         assert a.shape == (2, 3)
@@ -509,6 +511,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert a[i] == i
 
+    def test_setitem_array(self):
+        import numpy as np
+        a = np.array((-1., 0, 1))/0.
+        b = np.array([False, False, True], dtype=bool)
+        a[b] = 100
+        assert a[2] == 100
+
     def test_setitem_obj_index(self):
         from numpypy import arange
         a = arange(10)
@@ -701,7 +710,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_reshape(self):
         from numpypy import array, zeros
+        for a in [array(1), array([1])]:
+            for s in [(), (1,)]:
+                b = a.reshape(s)
+                assert b.shape == s
+                assert (b == [1]).all()
         a = array(range(12))
+        exc = raises(ValueError, "b = a.reshape(())")
+        assert str(exc.value) == "total size of new array must be unchanged"
         exc = raises(ValueError, "b = a.reshape((3, 10))")
         assert str(exc.value) == "total size of new array must be unchanged"
         b = a.reshape((3, 4))
@@ -2444,6 +2460,23 @@ class AppTestMultiDim(BaseNumpyAppTest):
         exc = raises(ValueError, 'a[a & 1 == 1] = []')
         assert exc.value[0].find('cannot assign') >= 0
         assert (a == [[0, 1], [2, 3], [4, 5]]).all()
+
+    def test_nonarray_assignment(self):
+        import numpypy as np
+        a = np.arange(10)
+        b = np.ones(10, dtype=bool)
+        r = np.arange(10)
+        def assign(a, b, c):
+            a[b] = c
+        raises(ValueError, assign, a, b, np.nan)
+        #raises(ValueError, assign, a, r, np.nan)  # XXX
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            a[b] = np.array(np.nan)
+            #a[r] = np.array(np.nan)
+        else:
+            raises(ValueError, assign, a, b, np.array(np.nan))
+            #raises(ValueError, assign, a, r, np.array(np.nan))
 
     def test_copy_kwarg(self):
         from numpypy import array

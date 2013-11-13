@@ -9,6 +9,7 @@ from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes,\
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable, to_coords, shape_agreement, \
      shape_agreement_multiple
+from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
@@ -97,11 +98,11 @@ class __extend__(W_NDimArray):
 
     def getitem_filter(self, space, arr):
         if len(arr.get_shape()) > 1 and arr.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("boolean index array should have 1 dimension"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "boolean index array should have 1 dimension"))
         if arr.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("index out of range for array"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "index out of range for array"))
         size = loop.count_all_true(arr)
         if len(arr.get_shape()) == 1:
             res_shape = [size] + self.get_shape()[1:]
@@ -112,18 +113,19 @@ class __extend__(W_NDimArray):
 
     def setitem_filter(self, space, idx, val):
         if len(idx.get_shape()) > 1 and idx.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("boolean index array should have 1 dimension"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "boolean index array should have 1 dimension"))
         if idx.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("index out of range for array"))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "index out of range for array"))
         size = loop.count_all_true(idx)
         if size > val.get_size() and val.get_size() != 1:
-            raise OperationError(space.w_ValueError, space.wrap("NumPy boolean array indexing assignment "
-                                                                "cannot assign %d input values to "
-                                                                "the %d output values where the mask is true" %
-                                                                (val.get_size(), size)))
-        loop.setitem_filter(self, idx, val, size)
+            raise OperationError(space.w_ValueError, space.wrap(
+                "NumPy boolean array indexing assignment "
+                "cannot assign %d input values to "
+                "the %d output values where the mask is true" %
+                (val.get_size(), size)))
+        loop.setitem_filter(space, self, idx, val, size)
 
     def _prepare_array_index(self, space, w_index):
         if isinstance(w_index, W_NDimArray):
@@ -196,8 +198,7 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
-        if (isinstance(w_idx, W_NDimArray) and
-            w_idx.get_dtype().is_bool_type()):
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
             return self.getitem_filter(space, w_idx)
         try:
             return self.implementation.descr_getitem(space, self, w_idx)
@@ -211,9 +212,11 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
-        if (isinstance(w_idx, W_NDimArray) and
-                w_idx.get_dtype().is_bool_type()):
-            self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
+            try:
+                self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
+            except ValueError, e:
+                raise OperationError(space.w_ValueError, space.wrap(str(e)))
             return
         try:
             self.implementation.descr_setitem(space, self, w_idx, w_value)
@@ -338,11 +341,11 @@ class __extend__(W_NDimArray):
 
         Returns an array containing the same data with a new shape.
 
-        Refer to `numpypy.reshape` for full documentation.
+        Refer to `numpy.reshape` for full documentation.
 
         See Also
         --------
-        numpypy.reshape : equivalent function
+        numpy.reshape : equivalent function
         """
         args_w, kw_w = __args__.unpack()
         order = NPY_CORDER
@@ -610,13 +613,11 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dumps not implemented yet"))
 
+    w_flags = None
     def descr_get_flags(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "getting flags not implemented yet"))
-
-    def descr_set_flags(self, space, w_args):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "setting flags not implemented yet"))
+        if self.w_flags is None:
+            self.w_flags = W_FlagsObject(self)
+        return self.w_flags
 
     @unwrap_spec(offset=int)
     def descr_getfield(self, space, w_dtype, offset):
@@ -1123,9 +1124,8 @@ app_ptp = applevel(r"""
         return res
 """, filename=__file__).interphook('ptp')
 
-W_NDimArray.typedef = TypeDef(
-    "ndarray",
-    __module__ = "numpypy",
+W_NDimArray.typedef = TypeDef("ndarray",
+    __module__ = "numpy",
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),
@@ -1204,6 +1204,7 @@ W_NDimArray.typedef = TypeDef(
     size = GetSetProperty(W_NDimArray.descr_get_size),
     itemsize = GetSetProperty(W_NDimArray.descr_get_itemsize),
     nbytes = GetSetProperty(W_NDimArray.descr_get_nbytes),
+    flags = GetSetProperty(W_NDimArray.descr_get_flags),
 
     fill = interp2app(W_NDimArray.descr_fill),
     tostring = interp2app(W_NDimArray.descr_tostring),
@@ -1391,8 +1392,8 @@ def build_scalar(space, w_dtype, w_state):
     return box
 
 
-W_FlatIterator.typedef = TypeDef(
-    'flatiter',
+W_FlatIterator.typedef = TypeDef("flatiter",
+    __module__ = "numpy",
     __iter__ = interp2app(W_FlatIterator.descr_iter),
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),

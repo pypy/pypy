@@ -11,6 +11,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
@@ -113,7 +114,7 @@ class ComplexBox(Box):
 
 
 class W_GenericBox(W_Root):
-    _attrs_ = []
+    _attrs_ = ['w_flags']
 
     def descr__new__(space, w_subtype, __args__):
         raise operationerrfmt(space.w_TypeError,
@@ -291,6 +292,12 @@ class W_GenericBox(W_Root):
 
     def descr_copy(self, space):
         return self.convert_to(self.get_dtype(space))
+
+    w_flags = None
+    def descr_get_flags(self, space):
+        if self.w_flags is None:
+            self.w_flags = W_FlagsObject(self)
+        return self.w_flags
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
@@ -550,6 +557,7 @@ W_GenericBox.typedef = TypeDef("generic",
     strides = GetSetProperty(W_GenericBox.descr_get_shape),
     ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
     T = GetSetProperty(W_GenericBox.descr_self),
+    flags = GetSetProperty(W_GenericBox.descr_get_flags),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,

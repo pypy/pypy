@@ -73,6 +73,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
         else:
+            if self.get_size() == 1 and len(new_shape) == 0:
+                return scalar.Scalar(self.dtype, self.getitem(0))
             return None
 
     def get_view(self, orig_array, dtype, new_shape):

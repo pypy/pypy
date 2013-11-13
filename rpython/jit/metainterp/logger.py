@@ -103,7 +103,9 @@ class LogOperations(object):
         elif isinstance(arg, BoxInt):
             return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
-            return 'ConstPtr(ptr' + str(mv) + ')'
+            if arg.value:
+                return 'ConstPtr(ptr' + str(mv) + ')'
+            return 'ConstPtr(null)'
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):
