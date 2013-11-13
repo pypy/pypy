@@ -511,6 +511,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert a[i] == i
 
+    def test_setitem_array(self):
+        import numpy as np
+        a = np.array((-1., 0, 1))/0.
+        b = np.array([False, False, True], dtype=bool)
+        a[b] = 100
+        assert a[2] == 100
+
     def test_setitem_obj_index(self):
         from numpypy import arange
         a = arange(10)
