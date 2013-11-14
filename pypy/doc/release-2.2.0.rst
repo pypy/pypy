@@ -74,7 +74,7 @@ Highlights
 
 * Things that use ``sys.set_trace`` are now JITted (like coverage)
 
-* JSON encoding used to be very fast, now decoding is as well
+* JSON decoding is now very fast (JSON encoding was already very fast)
 
 * various buffer copying methods experience speedups (like list-of-ints to
   ``int[]`` buffer from cffi)
