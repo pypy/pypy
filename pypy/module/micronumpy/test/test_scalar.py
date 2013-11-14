@@ -53,6 +53,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
+        assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
         assert b.round(decimals=5) is b
 

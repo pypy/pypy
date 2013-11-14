@@ -255,7 +255,10 @@ class W_GenericBox(W_Root):
         return convert_to_array(space, w_values)
 
     @unwrap_spec(decimals=int)
-    def descr_round(self, space, decimals=0):
+    def descr_round(self, space, decimals=0, w_out=None):
+        if not space.is_none(w_out):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "out not supported"))
         v = self.convert_to(self.get_dtype(space))
         return self.get_dtype(space).itemtype.round(v, decimals)
 
