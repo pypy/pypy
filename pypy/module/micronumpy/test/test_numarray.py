@@ -2928,6 +2928,15 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert str(a.dtype) == '|S1'
         assert a == 'x'
 
+    def test_newbyteorder(self):
+        import numpy as np
+        a = np.array([1, 2], dtype=np.int16)
+        b = a.newbyteorder()
+        assert (b == [256, 512]).all()
+        c = b.byteswap()
+        assert (c == [1, 2]).all()
+        assert (a == [1, 2]).all()
+
     def test_pickle(self):
         from numpypy import dtype, array
         from cPickle import loads, dumps
