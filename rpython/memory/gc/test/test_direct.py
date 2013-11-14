@@ -60,6 +60,9 @@ class DirectRootWalker(object):
     def _walk_prebuilt_gc(self, callback):
         pass
 
+    def finished_minor_collection(self):
+        pass
+
 
 class BaseDirectGCTest(object):
     GC_PARAMS = {}

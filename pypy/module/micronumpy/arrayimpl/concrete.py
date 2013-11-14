@@ -73,6 +73,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
         else:
+            if self.get_size() == 1 and len(new_shape) == 0:
+                return scalar.Scalar(self.dtype, self.getitem(0))
             return None
 
     def get_view(self, orig_array, dtype, new_shape):
@@ -121,7 +123,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         for i, w_index in enumerate(view_w):
             if space.isinstance_w(w_index, space.w_slice):
                 raise IndexError
-            idx = support.int_w(space, w_index)
+            idx = support.index_w(space, w_index)
             if idx < 0:
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
@@ -193,7 +195,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return self._lookup_by_index(space, view_w)
         if shape_len > 1:
             raise IndexError
-        idx = support.int_w(space, w_idx)
+        idx = support.index_w(space, w_idx)
         return self._lookup_by_index(space, [space.wrap(idx)])
 
     @jit.unroll_safe
@@ -203,7 +205,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             dtype = self.dtype
             if not dtype.is_record_type() or idx not in dtype.fields:
                 raise OperationError(space.w_ValueError, space.wrap(
-                    "field named %s not defined" % idx))
+                    "field named %s not found" % idx))
             return RecordChunk(idx)
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):

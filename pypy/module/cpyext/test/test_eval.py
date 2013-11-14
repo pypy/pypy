@@ -212,7 +212,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
             ("call_func", "METH_VARARGS",
              """
                 return PyObject_CallFunction(PyTuple_GetItem(args, 0),
-                   "siO", "text", 42, Py_None);
+                   "siiiiO", "text", 42, -41, 40, -39, Py_None);
              """),
             ("call_method", "METH_VARARGS",
              """
@@ -222,8 +222,27 @@ class AppTestCall(AppTestCpythonExtensionBase):
             ])
         def f(*args):
             return args
-        assert module.call_func(f) == ("text", 42, None)
+        assert module.call_func(f) == ("text", 42, -41, 40, -39, None)
         assert module.call_method("text") == 2
+
+    def test_CallFunction_PY_SSIZE_T_CLEAN(self):
+        module = self.import_extension('foo', [
+            ("call_func", "METH_VARARGS",
+             """
+                return PyObject_CallFunction(PyTuple_GetItem(args, 0),
+                   "s#s#", "text", (Py_ssize_t)3, "othertext", (Py_ssize_t)6);
+             """),
+            ("call_method", "METH_VARARGS",
+             """
+                return PyObject_CallMethod(PyTuple_GetItem(args, 0),
+                   "find", "s#", "substring", (Py_ssize_t)6);
+             """),
+            ], PY_SSIZE_T_CLEAN=True)
+        def f(*args):
+            return args
+        assert module.call_func(f) == ("tex", "othert")
+        assert module.call_method("<<subst>>") == -1
+        assert module.call_method("<<substr>>") == 2
 
     def test_CallFunctionObjArgs(self):
         module = self.import_extension('foo', [

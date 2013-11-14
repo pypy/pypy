@@ -389,12 +389,17 @@ SYMBOLS_C = [
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
+    '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
+    '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
+    '_PyArg_VaParseTupleAndKeywords_SizeT',
+    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
+    '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyObject_GetBuffer', 'PyBuffer_Release',
 

@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib import jit
 
 
 def create_builder(name, strtype, builder_cls):

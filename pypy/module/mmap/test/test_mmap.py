@@ -524,6 +524,8 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         assert m[-3:7] == b"bar"
 
+        assert m[1:0:1] == ""
+
         f.close()
 
     def test_buffer(self):

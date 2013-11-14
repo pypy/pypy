@@ -21,9 +21,9 @@ class W_SmallLongObject(W_AbstractLongObject):
     from pypy.objspace.std.longtype import long_typedef as typedef
     _immutable_fields_ = ['longlong']
 
-    def __init__(w_self, value):
+    def __init__(self, value):
         assert isinstance(value, r_longlong)
-        w_self.longlong = value
+        self.longlong = value
 
     @staticmethod
     def fromint(value):
@@ -33,17 +33,17 @@ class W_SmallLongObject(W_AbstractLongObject):
     def frombigint(bigint):
         return W_SmallLongObject(bigint.tolonglong())
 
-    def asbigint(w_self):
-        return rbigint.fromrarith_int(w_self.longlong)
+    def asbigint(self):
+        return rbigint.fromrarith_int(self.longlong)
 
     def longval(self):
         return self.longlong
 
-    def __repr__(w_self):
-        return '<W_SmallLongObject(%d)>' % w_self.longlong
+    def __repr__(self):
+        return '<W_SmallLongObject(%d)>' % self.longlong
 
-    def int_w(w_self, space):
-        a = w_self.longlong
+    def int_w(self, space):
+        a = self.longlong
         b = intmask(a)
         if b == a:
             return b
@@ -51,8 +51,8 @@ class W_SmallLongObject(W_AbstractLongObject):
             raise OperationError(space.w_OverflowError, space.wrap(
                 "long int too large to convert to int"))
 
-    def uint_w(w_self, space):
-        a = w_self.longlong
+    def uint_w(self, space):
+        a = self.longlong
         if a < 0:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot convert negative integer to unsigned int"))
@@ -63,8 +63,8 @@ class W_SmallLongObject(W_AbstractLongObject):
             raise OperationError(space.w_OverflowError, space.wrap(
                 "long int too large to convert to unsigned int"))
 
-    def bigint_w(w_self, space):
-        return w_self.asbigint()
+    def bigint_w(self, space):
+        return self.asbigint()
 
     def float_w(self, space):
         return float(self.longlong)

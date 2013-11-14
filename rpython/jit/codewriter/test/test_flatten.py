@@ -993,6 +993,16 @@ class TestFlatten:
             int_return %i2
         """, transform=True)
 
+    def test_direct_ptradd_2(self):
+        def f(p, n):
+            return lltype.direct_ptradd(p, n + 2)
+        self.encoding_test(f, [lltype.nullptr(rffi.SHORTP.TO), 123], """
+            int_add %i1, $2 -> %i2
+            int_mul %i2, $<ItemOffset <SHORT> 1> -> %i3
+            int_add %i0, %i3 -> %i4
+            int_return %i4
+        """, transform=True)
+
     def test_convert_float_bytes(self):
         from rpython.rlib.longlong2float import float2longlong, longlong2float
         def f(x):

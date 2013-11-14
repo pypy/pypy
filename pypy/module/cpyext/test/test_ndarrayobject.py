@@ -1,5 +1,3 @@
-import py
-
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -286,3 +284,5 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         arr = mod.test_FromObject()
         dt = mod.test_DescrFromType(11)
         assert dt.num == 11
+
+

@@ -647,10 +647,10 @@ class AppTestImport(BaseImportTest):
 
     def test_reimport_builtin_simple_case_1(self):
         import sys, time
-        del time.tzset
+        del time.clock
         del sys.modules['time']
         import time
-        assert hasattr(time, 'tzset')
+        assert hasattr(time, 'clock')
 
     def test_reimport_builtin_simple_case_2(self):
         skip("fix me")

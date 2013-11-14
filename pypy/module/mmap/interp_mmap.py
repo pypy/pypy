@@ -170,6 +170,8 @@ class W_MMap(W_Root):
         if step == 0:  # index only
             return space.wrap(ord(self.mmap.getitem(start)))
         elif step == 1:
+            if stop - start < 0:
+                return space.wrapbytes("")
             return space.wrapbytes(self.mmap.getslice(start, stop - start))
         else:
             res = "".join([self.mmap.getitem(i)

@@ -25,7 +25,8 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func_or_src, args=[], import_site=False, **jitopts):
+    def run(self, func_or_src, args=[], import_site=False,
+            discard_stdout_before_last_line=False, **jitopts):
         jitopts.setdefault('threshold', 200)
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
@@ -69,6 +70,9 @@ class BaseTestPyPyC(object):
         if stderr.startswith('debug_alloc.h:'):   # lldebug builds
             stderr = ''
         assert not stderr
+        #
+        if discard_stdout_before_last_line:
+            stdout = stdout.splitlines(True)[-1]
         #
         # parse the JIT log
         rawlog = logparser.parse_log_file(str(logfile))
