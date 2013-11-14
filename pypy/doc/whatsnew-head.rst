@@ -6,3 +6,6 @@ What's new in PyPy 2.2+
 .. startrev: 4cd1bc8b3111
 
 .. branch: release-2.2.x
+
+.. branch: numpy-newbyteorder
+Clean up numpy types, add newbyteorder functionality
