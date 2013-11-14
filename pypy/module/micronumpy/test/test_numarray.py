@@ -1758,6 +1758,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(ValueError, a.squeeze, 0)
         assert exc.value.message == "cannot select an axis to squeeze out " \
                                     "which has size greater than one"
+        exc = raises(ValueError, a.squeeze, (1, 1))
+        assert exc.value.message == "duplicate value in 'axis'"
 
     def test_swapaxes(self):
         from numpypy import array
