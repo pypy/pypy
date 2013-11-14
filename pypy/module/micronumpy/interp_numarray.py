@@ -519,13 +519,7 @@ class __extend__(W_NDimArray):
         # by converting nonnative byte order.
         if self.is_scalar():
             return space.wrap(0)
-        if not self.get_dtype().is_flexible_type():
-            s = self.get_dtype().name
-            if not self.get_dtype().is_native():
-                s = s[1:]
-            dtype = interp_dtype.get_dtype_cache(space).dtypes_by_name[s]
-        else:
-            dtype = self.get_dtype()
+        dtype = self.get_dtype().descr_newbyteorder(space, NPY_NATIVE)
         contig = self.implementation.astype(space, dtype)
         return contig.argsort(space, w_axis)
 
