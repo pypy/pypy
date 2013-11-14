@@ -198,7 +198,6 @@ class W_Dtype(W_Root):
             self.fields = None
         else:
             self.fields = {}
-            ofs_and_items = []
             size = 0
             for key in space.listview(w_fields):
                 value = space.getitem(w_fields, key)
@@ -209,10 +208,9 @@ class W_Dtype(W_Root):
                 offset = space.int_w(space.getitem(value, space.wrap(1)))
                 self.fields[space.str_w(key)] = offset, dtype
 
-                ofs_and_items.append((offset, dtype.itemtype))
                 size += dtype.get_size()
 
-            self.itemtype = types.RecordType(ofs_and_items)
+            self.itemtype = types.RecordType()
             self.size = size
             self.name = "void" + str(8 * self.get_size())
 
@@ -328,7 +326,6 @@ def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
     fields = {}
     offset = 0
-    ofs_and_items = []
     fieldnames = []
     for w_elem in lst_w:
         size = 1
@@ -345,10 +342,9 @@ def dtype_from_list(space, w_lst):
             raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
-        ofs_and_items.append((offset, subdtype.itemtype))
         offset += subdtype.get_size() * size
         fieldnames.append(fldname)
-    itemtype = types.RecordType(ofs_and_items)
+    itemtype = types.RecordType()
     return W_Dtype(itemtype, NPY_VOID, NPY_VOIDLTR,
                    "void" + str(8 * offset * itemtype.get_element_size()),
                    NPY_VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox),

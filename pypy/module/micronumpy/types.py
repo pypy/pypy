@@ -1784,11 +1784,6 @@ class VoidType(BaseStringType):
 
 class RecordType(BaseType):
     T = lltype.Char
-    _immutable_fields_ = ['offsets_and_fields']
-
-    def __init__(self, offsets_and_fields):
-        BaseType.__init__(self)
-        self.offsets_and_fields = offsets_and_fields
 
     def get_element_size(self):
         return rffi.sizeof(self.T)
@@ -1807,14 +1802,14 @@ class RecordType(BaseType):
         if not space.issequence_w(w_item):
             raise OperationError(space.w_TypeError, space.wrap(
                 "expected sequence"))
-        if len(self.offsets_and_fields) != space.len_w(w_item):
+        if len(dtype.fields) != space.len_w(w_item):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)
         arr = VoidBoxStorage(dtype.get_size(), dtype)
         for i in range(len(items_w)):
-            subdtype = dtype.fields[dtype.fieldnames[i]][1]
-            ofs, itemtype = self.offsets_and_fields[i]
+            ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
+            itemtype = subdtype.itemtype
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
             itemtype.store(arr, 0, ofs, w_box)
@@ -1831,7 +1826,9 @@ class RecordType(BaseType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         pieces = ["("]
         first = True
-        for ofs, tp in self.offsets_and_fields:
+        for name in box.dtype.fieldnames:
+            ofs, subdtype = box.dtype.fields[name]
+            tp = subdtype.itemtype
             if first:
                 first = False
             else:
