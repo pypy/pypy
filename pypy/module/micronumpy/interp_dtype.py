@@ -35,7 +35,9 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     return out
 
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char", "w_box_type", "byteorder", "float_type"]
+    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char",
+                          "w_box_type", "byteorder", "size?", "float_type",
+                          "fields?", "fieldnames?", "shape", "subdtype", "base"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type, byteorder=NPY_NATIVE,
                  size=1, alternate_constructors=[], aliases=[], float_type=None,
