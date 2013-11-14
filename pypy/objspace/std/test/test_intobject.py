@@ -498,6 +498,11 @@ class AppTestInt:
         b = A(5).real
         assert type(b) is int
 
+    def test_int_error_msg(self):
+        e = raises(TypeError, int, [])
+        assert str(e.value) == (
+            "int() argument must be a string or a number, not 'list'")
+
 
 class AppTestIntOptimizedAdd(AppTestInt):
     spaceconfig = {"objspace.std.optimized_int_add": True}

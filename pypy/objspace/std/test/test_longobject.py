@@ -341,3 +341,8 @@ class AppTestLong:
 
         assert int(long(3)) == long(3)
         assert int(A(13)) == 42
+
+    def test_long_error_msg(self):
+        e = raises(TypeError, long, [])
+        assert str(e.value) == (
+            "long() argument must be a string or a number, not 'list'")

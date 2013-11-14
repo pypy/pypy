@@ -119,9 +119,14 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
         if not ok:
             # otherwise, use the __int__() or the __trunc__() methods
             w_obj = w_value
-            if space.lookup(w_obj, '__int__') is None:
+            if space.lookup(w_obj, '__int__') is not None:
+                w_obj = space.int(w_obj)
+            elif space.lookup(w_obj, '__trunc__') is not None:
                 w_obj = space.trunc(w_obj)
-            w_obj = space.int(w_obj)
+            else:
+                raise operationerrfmt(space.w_TypeError,
+                    "int() argument must be a string or a number, not '%T'",
+                    w_obj)
             # 'int(x)' should return what x.__int__() returned, which should
             # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):
