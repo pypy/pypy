@@ -19,7 +19,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
-from pypy.module.micronumpy.conversion_utils import order_converter
+from pypy.module.micronumpy.conversion_utils import order_converter, multi_axis_converter
 from pypy.module.micronumpy.constants import *
 
 def _find_shape(space, w_size, dtype):
@@ -692,11 +692,20 @@ class __extend__(W_NDimArray):
         return self.implementation.sort(space, w_axis, w_order)
 
     def descr_squeeze(self, space, w_axis=None):
-        if not space.is_none(w_axis):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "axis unsupported for squeeze"))
         cur_shape = self.get_shape()
-        new_shape = [s for s in cur_shape if s != 1]
+        if not space.is_none(w_axis):
+            axes = multi_axis_converter(space, w_axis, len(cur_shape))
+            new_shape = []
+            for i in range(len(cur_shape)):
+                if axes[i]:
+                    if cur_shape[i] != 1:
+                        raise OperationError(space.w_ValueError, space.wrap(
+                            "cannot select an axis to squeeze out " \
+                            "which has size greater than one"))
+                else:
+                    new_shape.append(cur_shape[i])
+        else:
+            new_shape = [s for s in cur_shape if s != 1]
         if len(cur_shape) == len(new_shape):
             return self
         return wrap_impl(space, space.type(self), self,
