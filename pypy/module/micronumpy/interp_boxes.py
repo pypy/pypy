@@ -284,6 +284,9 @@ class W_GenericBox(W_Root):
     def descr_get_dtype(self, space):
         return self.get_dtype(space)
 
+    def descr_get_size(self, space):
+        return space.wrap(1)
+
     def descr_get_itemsize(self, space):
         return self.get_dtype(space).descr_get_itemsize(space)
 
@@ -554,6 +557,7 @@ W_GenericBox.typedef = TypeDef("generic",
     copy = interp2app(W_GenericBox.descr_copy),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
+    size = GetSetProperty(W_GenericBox.descr_get_size),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
     nbytes = GetSetProperty(W_GenericBox.descr_get_itemsize),
     shape = GetSetProperty(W_GenericBox.descr_get_shape),
