@@ -1,4 +1,3 @@
-from collections import OrderedDict
 
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
@@ -750,7 +749,7 @@ BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
-BUILTIN_TYPER[OrderedDict] = rtype_ordered_dict
+BUILTIN_TYPER[annmodel.SomeOrderedDict.knowntype] = rtype_ordered_dict
 BUILTIN_TYPER[objectmodel.r_ordereddict] = rtype_ordered_dict
 
 # _________________________________________________________________

@@ -712,7 +712,7 @@ def test_define_int():
              "#define BAZ ...\n")
     lib = ffi.verify("#define FOO 42\n"
                      "#define BAR (-44)\n"
-                     "#define BAZ 0xffffffffffffffffLL\n")
+                     "#define BAZ 0xffffffffffffffffULL\n")
     assert lib.FOO == 42
     assert lib.BAR == -44
     assert lib.BAZ == 0xffffffffffffffff
@@ -1602,6 +1602,8 @@ def test_enum_bug118():
                         (maxulong, -1, ''),
                         (-1, 0xffffffff, 'U'),
                         (-1, maxulong, 'UL')]:
+        if c2c and sys.platform == 'win32':
+            continue     # enums may always be signed with MSVC
         ffi = FFI()
         ffi.cdef("enum foo_e { AA=%s };" % c1)
         e = py.test.raises(VerificationError, ffi.verify,

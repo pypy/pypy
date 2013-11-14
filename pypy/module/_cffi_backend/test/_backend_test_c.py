@@ -2687,6 +2687,16 @@ def test_GetLastError():
     #
     res = GetLastError()
     assert res == 42
+    #
+    SetLastError(2)
+    code, message = getwinerror()
+    assert code == 2
+    assert message == "The system cannot find the file specified"
+    #
+    code, message = getwinerror(1155)
+    assert code == 1155
+    assert message == ("No application is associated with the "
+                       "specified file for this operation")
 
 def test_nonstandard_integer_types():
     for typename in ['int8_t', 'uint8_t', 'int16_t', 'uint16_t', 'int32_t',

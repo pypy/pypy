@@ -195,3 +195,20 @@ class TestBitfield:
         assert p.a[0] == 200
         assert p.a[1] == 300
         assert p.a[2] == 400
+
+    @pytest.mark.skipif("sys.platform != 'win32'")
+    def test_getwinerror(self):
+        ffi = FFI()
+        code, message = ffi.getwinerror(1155)
+        assert code == 1155
+        assert message == ("No application is associated with the "
+                           "specified file for this operation")
+        ffi.cdef("void SetLastError(int);")
+        lib = ffi.dlopen("Kernel32.dll")
+        lib.SetLastError(2)
+        code, message = ffi.getwinerror()
+        assert code == 2
+        assert message == "The system cannot find the file specified"
+        code, message = ffi.getwinerror(-1)
+        assert code == 2
+        assert message == "The system cannot find the file specified"
