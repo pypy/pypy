@@ -484,15 +484,7 @@ class __extend__(pyframe.PyFrame):
         try:
             w_value = cell.get()
         except ValueError:
-            varname = self.getfreevarname(varindex)
-            if self.iscellvar(varindex):
-                message = "local variable '%s' referenced before assignment" % varname
-                w_exc_type = self.space.w_UnboundLocalError
-            else:
-                message = ("free variable '%s' referenced before assignment"
-                           " in enclosing scope" % varname)
-                w_exc_type = self.space.w_NameError
-            raise OperationError(w_exc_type, self.space.wrap(message))
+            self.raise_exc_unbound(varindex)
         else:
             self.pushvalue(w_value)
 
@@ -501,6 +493,26 @@ class __extend__(pyframe.PyFrame):
         w_newvalue = self.popvalue()
         cell = self.cells[varindex]
         cell.set(w_newvalue)
+
+    def DELETE_DEREF(self, varindex, next_instr):
+        cell = self.cells[varindex]
+        try:
+            cell.get()
+        except ValueError:
+            self.raise_exc_unbound(varindex)
+        else:
+            cell.set(None)
+
+    def raise_exc_unbound(self, varindex):
+        varname = self.getfreevarname(varindex)
+        if self.iscellvar(varindex):
+            message = "local variable '%s' referenced before assignment"%varname
+            w_exc_type = self.space.w_UnboundLocalError
+        else:
+            message = ("free variable '%s' referenced before assignment"
+                       " in enclosing scope"%varname)
+            w_exc_type = self.space.w_NameError
+        raise OperationError(w_exc_type, self.space.wrap(message))
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
@@ -1200,16 +1212,11 @@ class __extend__(pyframe.PyFrame):
         return self._make_function(oparg)
 
     @jit.unroll_safe
-    def MAKE_CLOSURE(self, numdefaults, next_instr):
-        w_codeobj = self.popvalue()
-        codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
-        w_freevarstuple = self.popvalue()
+    def MAKE_CLOSURE(self, oparg, next_instr):
+        w_freevarstuple = self.peekvalue(1)
         freevars = [self.space.interp_w(Cell, cell)
                     for cell in self.space.fixedview(w_freevarstuple)]
-        defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.w_globals,
-                               defaultarguments, freevars)
-        self.pushvalue(self.space.wrap(fn))
+        self._make_function(oparg, freevars)
 
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:

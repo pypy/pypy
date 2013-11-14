@@ -510,7 +510,7 @@ class PyFrame(W_Root):
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_stack_w[i]
-            w_name = self.space.wrap(name)
+            w_name = self.space.wrap(name.decode('utf-8'))
             if w_value is not None:
                 self.space.setitem(self.w_locals, w_name, w_value)
             else:
@@ -547,7 +547,7 @@ class PyFrame(W_Root):
         new_fastlocals_w = [None] * numlocals
 
         for i in range(min(len(varnames), numlocals)):
-            w_name = self.space.wrap(varnames[i])
+            w_name = self.space.wrap(varnames[i].decode('utf-8'))
             try:
                 w_value = self.space.getitem(self.w_locals, w_name)
             except OperationError, e:
@@ -576,6 +576,8 @@ class PyFrame(W_Root):
         """
         Initialize cellvars from self.locals_stack_w.
         """
+        if self.cells is None:
+            return
         args_to_copy = self.pycode._args_as_cellvars
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
