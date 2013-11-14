@@ -625,10 +625,10 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "itemset not implemented yet"))
 
-    @unwrap_spec(neworder=str)
-    def descr_newbyteorder(self, space, neworder):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "newbyteorder not implemented yet"))
+    @unwrap_spec(new_order=str)
+    def descr_newbyteorder(self, space, new_order=NPY_SWAP):
+        return self.descr_view(space,
+            self.get_dtype().descr_newbyteorder(space, new_order))
 
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None))
@@ -1268,6 +1268,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     diagonal = interp2app(W_NDimArray.descr_diagonal),
     trace = interp2app(W_NDimArray.descr_trace),
     view = interp2app(W_NDimArray.descr_view),
+    newbyteorder = interp2app(W_NDimArray.descr_newbyteorder),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),

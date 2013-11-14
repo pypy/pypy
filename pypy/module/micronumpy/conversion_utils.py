@@ -63,6 +63,7 @@ def order_converter(space, w_order, default):
             raise OperationError(space.w_TypeError, space.wrap(
                 "order not understood"))
 
+
 def multi_axis_converter(space, w_axis, ndim):
     if space.is_none(w_axis):
         return [True] * ndim
