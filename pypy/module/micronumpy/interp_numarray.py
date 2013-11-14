@@ -85,10 +85,10 @@ class __extend__(W_NDimArray):
         return space.wrap(len(self.get_shape()))
 
     def descr_get_itemsize(self, space):
-        return space.wrap(self.get_dtype().itemtype.get_element_size())
+        return space.wrap(self.get_dtype().get_size())
 
     def descr_get_nbytes(self, space):
-        return space.wrap(self.get_size() * self.get_dtype().itemtype.get_element_size())
+        return space.wrap(self.get_size() * self.get_dtype().get_size())
 
     def descr_fill(self, space, w_value):
         self.fill(self.get_dtype().coerce(space, w_value))
@@ -625,10 +625,10 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "itemset not implemented yet"))
 
-    @unwrap_spec(neworder=str)
-    def descr_newbyteorder(self, space, neworder):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "newbyteorder not implemented yet"))
+    @unwrap_spec(new_order=str)
+    def descr_newbyteorder(self, space, new_order=NPY_SWAP):
+        return self.descr_view(space,
+            self.get_dtype().descr_newbyteorder(space, new_order))
 
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None))
@@ -1268,6 +1268,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     diagonal = interp2app(W_NDimArray.descr_diagonal),
     trace = interp2app(W_NDimArray.descr_trace),
     view = interp2app(W_NDimArray.descr_view),
+    newbyteorder = interp2app(W_NDimArray.descr_newbyteorder),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
@@ -1340,7 +1341,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     # not an array or incorrect dtype
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (
-                 dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1):
+                 dtype.is_str_or_unicode() and dtype.get_size() < 1):
         for w_elem in elems_w:
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
@@ -1349,7 +1350,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
-    if dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1:
+    if dtype.is_str_or_unicode() and dtype.get_size() < 1:
         # promote S0 -> S1, U0 -> U1
         dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     if ndmin > len(shape):

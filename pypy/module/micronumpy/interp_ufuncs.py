@@ -475,8 +475,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         if dt2.is_record_type():
             return dt2
         if dt1.is_str_or_unicode():
-            if dt2.itemtype.get_element_size() >= \
-                    dt1.itemtype.get_element_size():
+            if dt2.get_size() >= dt1.get_size():
                 return dt2
             return dt1
         return dt2
@@ -556,7 +555,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             return interp_dtype.variable_dtype(space,
                                                'S%d' % space.len_w(w_obj))
         elif current_guess.num == NPY_STRING:
-            if current_guess.itemtype.get_size() < space.len_w(w_obj):
+            if current_guess.get_size() < space.len_w(w_obj):
                 return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
