@@ -63,22 +63,25 @@ Highlights
 
 * NumPy has been split: now PyPy only contains the core module, called
   ``_numpypy``.  The ``numpy`` module itself has been moved to
-  ``https://bitbucket.org/pypy/numpy``.  You need to install it
-  separately in a virtualenv with ``pip install
-  git+https://bitbucket.org/pypy/numpy.git``.
+  ``https://bitbucket.org/pypy/numpy`` and ``numpypy`` disappeared.
+  You need to install NumPy separately with a virtualenv:
+  ``pip install git+https://bitbucket.org/pypy/numpy.git``;
+  or by directly doing
+  ``git clone https://bitbucket.org/pypy/numpy.git``,
+  ``cd numpy``, ``python setup.py install``.
 
 * non-inlined calls have less overhead
 
 * Things that use ``sys.set_trace`` are now JITted (like coverage)
 
-* JSON encoding is faster
+* JSON encoding used to be very fast, now decoding is as well
 
 * various buffer copying methods experience speedups (like list-of-ints to
   ``int[]`` buffer from cffi)
 
-* We finally wrote all the missing ``os.xxx()`` functions.  There are
-  a lot of strange ones that nobody ever heard about, except those who
-  really need them.
+* We finally wrote (hopefully) all the missing ``os.xxx()`` functions,
+  including ``os.startfile()`` on Windows and a handful of rare ones
+  on Posix.
 
 * numpy has a rudimentary C API that cooperates with ``cpyext``
 
