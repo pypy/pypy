@@ -1260,10 +1260,6 @@ class ComplexFloating(object):
 
     @complex_binary_op
     def pow(self, v1, v2):
-        if v1[1] == 0 and v2[1] == 0 and v1[0] > 0:
-            return math.pow(v1[0], v2[0]), 0
-        #if not rfloat.isfinite(v1[0]) or not rfloat.isfinite(v1[1]):
-        #    return rfloat.NAN, rfloat.NAN
         try:
             return rcomplex.c_pow(v1, v2)
         except ZeroDivisionError:
