@@ -52,7 +52,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         loop.setslice(space, shape, self, impl)
 
     def get_size(self):
-        return self.size // self.dtype.itemtype.get_element_size()
+        return self.size // self.dtype.get_size()
 
     def get_storage_size(self):
         return self.size
@@ -399,7 +399,7 @@ class SliceArray(BaseConcreteArray):
         self.storage = parent.storage
         self.order = parent.order
         self.dtype = dtype
-        self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
+        self.size = support.product(shape) * self.dtype.get_size()
         self.start = start
         self.orig_arr = orig_arr
 
