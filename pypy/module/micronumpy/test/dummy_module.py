@@ -1,6 +1,7 @@
 from _numpypy.multiarray import *
 from _numpypy.umath import *
 
+inf = float('inf')
 nan = float('nan')
 newaxis = None
 ufunc = type(sin)
@@ -19,7 +20,7 @@ for s in (64, 128):
 for t in types:
     globals()[t] = dtype(t).type
 
-types = ['bool', 'int', 'float', 'complex', 'str', 'unicode']
+types = ['bool', 'int', 'float', 'complex', 'str', 'string', 'unicode']
 for t in types:
     globals()[t + '_'] = dtype(t).type
 del types

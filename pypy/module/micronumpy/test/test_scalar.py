@@ -53,6 +53,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
+        assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
         assert b.round(decimals=5) is b
 
@@ -65,6 +66,14 @@ class AppTestScalar(BaseNumpyAppTest):
         assert type(a) is np.int32
         assert a == 1
 
+    def test_copy(self):
+        import numpy as np
+        a = np.int32(2)
+        b = a.copy()
+        assert type(b) is type(a)
+        assert b == a
+        assert b is not a
+
     def test_squeeze(self):
         import numpy as np
         assert np.True_.squeeze() is np.True_
@@ -76,12 +85,22 @@ class AppTestScalar(BaseNumpyAppTest):
         import numpypy as np
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
+        assert value.size == 1
         assert value.itemsize == 8
         assert value.nbytes == 8
         assert value.shape == ()
         assert value.strides == ()
         assert value.ndim == 0
         assert value.T is value
+
+    def test_indexing(self):
+        import numpy as np
+        v = np.int32(2)
+        for b in [v[()], v[...]]:
+            assert isinstance(b, np.ndarray)
+            assert b.shape == ()
+            assert b == v
+        raises(IndexError, "v['blah']")
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np
@@ -92,7 +111,29 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_complex_str_format(self):
         import numpy as np
-        assert str(np.complex128(complex(1, float('nan')))) == '(1+nan*j)'
-        assert str(np.complex128(complex(1, float('-nan')))) == '(1+nan*j)'
-        assert str(np.complex128(complex(1, float('inf')))) == '(1+inf*j)'
-        assert str(np.complex128(complex(1, float('-inf')))) == '(1-inf*j)'
+        for t in [np.complex64, np.complex128]:
+            assert str(t(complex(1, float('nan')))) == '(1+nan*j)'
+            assert str(t(complex(1, float('-nan')))) == '(1+nan*j)'
+            assert str(t(complex(1, float('inf')))) == '(1+inf*j)'
+            assert str(t(complex(1, float('-inf')))) == '(1-inf*j)'
+            for x in [0, 1, -1]:
+                assert str(t(complex(x))) == str(complex(x))
+                assert str(t(x*1j)) == str(complex(x*1j))
+                assert str(t(x + x*1j)) == str(complex(x + x*1j))
+
+    def test_complex_zero_division(self):
+        import numpy as np
+        for t in [np.complex64, np.complex128]:
+            a = t(0.0)
+            b = t(1.0)
+            assert np.isinf(b/a)
+            b = t(complex(np.inf, np.inf))
+            assert np.isinf(b/a)
+            b = t(complex(np.inf, np.nan))
+            assert np.isinf(b/a)
+            b = t(complex(np.nan, np.inf))
+            assert np.isinf(b/a)
+            b = t(complex(np.nan, np.nan))
+            assert np.isnan(b/a)
+            b = t(0.)
+            assert np.isnan(b/a)

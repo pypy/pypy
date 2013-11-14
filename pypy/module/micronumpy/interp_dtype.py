@@ -255,6 +255,11 @@ class W_Dtype(W_Root):
             raise OperationError(space.w_KeyError, space.wrap(
                 "Field named '%s' not found." % item))
 
+    def descr_len(self, space):
+        if self.fields is None:
+            return space.wrap(0)
+        return space.wrap(len(self.fields))
+
     def descr_reduce(self, space):
         w_class = space.type(self)
 
@@ -390,7 +395,14 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
     elif space.isinstance_w(w_dtype, space.w_tuple):
-        return descr__new__(space, w_subtype, space.getitem(w_dtype, space.wrap(0)), w_align, w_copy, w_shape=space.getitem(w_dtype, space.wrap(1)))
+        w_dtype0 = space.getitem(w_dtype, space.wrap(0))
+        w_dtype1 = space.getitem(w_dtype, space.wrap(1))
+        subdtype = descr__new__(space, w_subtype, w_dtype0, w_align, w_copy)
+        assert isinstance(subdtype, W_Dtype)
+        if subdtype.get_size() == 0:
+            name = "%s%d" % (subdtype.kind, space.int_w(w_dtype1))
+            return descr__new__(space, w_subtype, space.wrap(name), w_align, w_copy)
+        return descr__new__(space, w_subtype, w_dtype0, w_align, w_copy, w_shape=w_dtype1)
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
     for dtype in cache.builtin_dtypes:
@@ -402,7 +414,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     raise operationerrfmt(space.w_TypeError, msg, w_dtype)
 
 W_Dtype.typedef = TypeDef("dtype",
-    __module__ = "numpypy",
+    __module__ = "numpy",
     __new__ = interp2app(descr__new__),
 
     __str__= interp2app(W_Dtype.descr_str),
@@ -410,6 +422,7 @@ W_Dtype.typedef = TypeDef("dtype",
     __eq__ = interp2app(W_Dtype.descr_eq),
     __ne__ = interp2app(W_Dtype.descr_ne),
     __getitem__ = interp2app(W_Dtype.descr_getitem),
+    __len__ = interp2app(W_Dtype.descr_len),
 
     __reduce__ = interp2app(W_Dtype.descr_reduce),
     __setstate__ = interp2app(W_Dtype.descr_setstate),

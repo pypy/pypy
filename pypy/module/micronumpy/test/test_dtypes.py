@@ -26,6 +26,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d.kind == 'b'
         assert dtype(d) is d
         assert dtype('bool') is d
+        assert repr(type(d)) == "<type 'numpy.dtype'>"
 
         assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'
@@ -45,6 +46,18 @@ class AppTestDtypes(BaseAppTestDtypes):
         exc = raises(TypeError, dtype, (1, 2))
         assert 'data type not understood' in str(exc.value)
         raises(KeyError, 'dtype(int)["asdasd"]')
+
+    def test_dtype_from_tuple(self):
+        import numpy as np
+        d = np.dtype((np.int64, 4))
+        assert d == np.dtype(('i8', (4,)))
+        assert d.shape == (4,)
+        d = np.dtype((np.string_, 4))
+        assert d == np.dtype('S4')
+        assert d.shape == ()
+        d = np.dtype(('S', 4))
+        assert d == np.dtype('S4')
+        assert d.shape == ()
 
     def test_dtype_eq(self):
         from numpypy import dtype
@@ -220,6 +233,13 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert b.dtype is np.dtype(dtype)
             for i in range(5):
                 assert b[i] == i * 2
+
+    def test_len(self):
+        import numpy as np
+        d = np.dtype('int32')
+        assert len(d) == 0
+        d = np.dtype([('x', 'i4'), ('y', 'i4')])
+        assert len(d) == 2
 
     def test_shape(self):
         from numpypy import dtype

@@ -1162,10 +1162,19 @@ class Transformer(object):
                                   v_result)
 
     def rewrite_op_direct_ptradd(self, op):
-        # xxx otherwise, not implemented:
-        assert op.args[0].concretetype == rffi.CCHARP
+        v_shift = op.args[1]
+        assert v_shift.concretetype == lltype.Signed
+        ops = []
         #
-        return SpaceOperation('int_add', [op.args[0], op.args[1]], op.result)
+        if op.args[0].concretetype != rffi.CCHARP:
+            v_prod = varoftype(lltype.Signed)
+            by = llmemory.sizeof(op.args[0].concretetype.TO.OF)
+            c_by = Constant(by, lltype.Signed)
+            ops.append(SpaceOperation('int_mul', [v_shift, c_by], v_prod))
+            v_shift = v_prod
+        #
+        ops.append(SpaceOperation('int_add', [op.args[0], v_shift], op.result))
+        return ops
 
     # ----------
     # Long longs, for 32-bit only.  Supported operations are left unmodified,

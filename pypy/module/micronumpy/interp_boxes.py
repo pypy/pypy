@@ -11,6 +11,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
@@ -113,7 +114,7 @@ class ComplexBox(Box):
 
 
 class W_GenericBox(W_Root):
-    _attrs_ = []
+    _attrs_ = ['w_flags']
 
     def descr__new__(space, w_subtype, __args__):
         raise operationerrfmt(space.w_TypeError,
@@ -125,6 +126,15 @@ class W_GenericBox(W_Root):
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
+
+    def descr_getitem(self, space, w_item):
+        from pypy.module.micronumpy.base import convert_to_array
+        if space.is_w(w_item, space.w_Ellipsis) or \
+                (space.isinstance_w(w_item, space.w_tuple) and
+                    space.len_w(w_item) == 0):
+            return convert_to_array(space, self)
+        raise OperationError(space.w_IndexError, space.wrap(
+            "invalid index to scalar variable"))
 
     def descr_str(self, space):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
@@ -245,7 +255,10 @@ class W_GenericBox(W_Root):
         return convert_to_array(space, w_values)
 
     @unwrap_spec(decimals=int)
-    def descr_round(self, space, decimals=0):
+    def descr_round(self, space, decimals=0, w_out=None):
+        if not space.is_none(w_out):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "out not supported"))
         v = self.convert_to(self.get_dtype(space))
         return self.get_dtype(space).itemtype.round(v, decimals)
 
@@ -271,6 +284,9 @@ class W_GenericBox(W_Root):
     def descr_get_dtype(self, space):
         return self.get_dtype(space)
 
+    def descr_get_size(self, space):
+        return space.wrap(1)
+
     def descr_get_itemsize(self, space):
         return self.get_dtype(space).descr_get_itemsize(space)
 
@@ -279,6 +295,15 @@ class W_GenericBox(W_Root):
 
     def descr_get_ndim(self, space):
         return space.wrap(0)
+
+    def descr_copy(self, space):
+        return self.convert_to(self.get_dtype(space))
+
+    w_flags = None
+    def descr_get_flags(self, space):
+        if self.w_flags is None:
+            self.w_flags = W_FlagsObject(self)
+        return self.w_flags
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
@@ -467,6 +492,7 @@ W_GenericBox.typedef = TypeDef("generic",
 
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
 
+    __getitem__ = interp2app(W_GenericBox.descr_getitem),
     __str__ = interp2app(W_GenericBox.descr_str),
     __repr__ = interp2app(W_GenericBox.descr_str),
     __format__ = interp2app(W_GenericBox.descr_format),
@@ -528,14 +554,17 @@ W_GenericBox.typedef = TypeDef("generic",
     astype = interp2app(W_GenericBox.descr_astype),
     view = interp2app(W_GenericBox.descr_view),
     squeeze = interp2app(W_GenericBox.descr_self),
+    copy = interp2app(W_GenericBox.descr_copy),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
+    size = GetSetProperty(W_GenericBox.descr_get_size),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
     nbytes = GetSetProperty(W_GenericBox.descr_get_itemsize),
     shape = GetSetProperty(W_GenericBox.descr_get_shape),
     strides = GetSetProperty(W_GenericBox.descr_get_shape),
     ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
     T = GetSetProperty(W_GenericBox.descr_self),
+    flags = GetSetProperty(W_GenericBox.descr_get_flags),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,

@@ -62,3 +62,24 @@ def order_converter(space, w_order, default):
         else:
             raise OperationError(space.w_TypeError, space.wrap(
                 "order not understood"))
+
+def multi_axis_converter(space, w_axis, ndim):
+    if space.is_none(w_axis):
+        return [True] * ndim
+    out = [False] * ndim
+    if not space.isinstance_w(w_axis, space.w_tuple):
+        w_axis = space.newtuple([w_axis])
+    for w_item in space.fixedview(w_axis):
+        item = space.int_w(w_item)
+        axis = item
+        if axis < 0:
+            axis += ndim
+        if axis < 0 or axis >= ndim:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "'axis' entry %d is out of bounds [-%d, %d)" %
+                (item, ndim, ndim)))
+        if out[axis]:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "duplicate value in 'axis'"))
+        out[axis] = True
+    return out

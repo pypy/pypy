@@ -249,9 +249,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         return CustomIntObject(value)
 
     def test_ndarray(self):
-        from numpypy import ndarray, array, dtype
+        from numpy import ndarray, array, dtype, flatiter
 
         assert type(ndarray) is type
+        assert repr(ndarray) == "<type 'numpy.ndarray'>"
+        assert repr(flatiter) == "<type 'numpy.flatiter'>"
         assert type(array) is not type
         a = ndarray((2, 3))
         assert a.shape == (2, 3)
@@ -509,6 +511,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert a[i] == i
 
+    def test_setitem_array(self):
+        import numpy as np
+        a = np.array((-1., 0, 1))/0.
+        b = np.array([False, False, True], dtype=bool)
+        a[b] = 100
+        assert a[2] == 100
+
     def test_setitem_obj_index(self):
         from numpypy import arange
         a = arange(10)
@@ -701,7 +710,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_reshape(self):
         from numpypy import array, zeros
+        for a in [array(1), array([1])]:
+            for s in [(), (1,)]:
+                b = a.reshape(s)
+                assert b.shape == s
+                assert (b == [1]).all()
         a = array(range(12))
+        exc = raises(ValueError, "b = a.reshape(())")
+        assert str(exc.value) == "total size of new array must be unchanged"
         exc = raises(ValueError, "b = a.reshape((3, 10))")
         assert str(exc.value) == "total size of new array must be unchanged"
         b = a.reshape((3, 4))
@@ -1713,6 +1729,37 @@ class AppTestNumArray(BaseNumpyAppTest):
                                                         4, 4]]).all()
         assert (array([1, 2]).repeat(2) == array([1, 1, 2, 2])).all()
 
+    def test_resize(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.resize, ())
+
+    def test_squeeze(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        assert a.squeeze() is a
+        a = np.array([[1,2,3]])
+        b = a.squeeze()
+        assert b.shape == (3,)
+        assert (b == a).all()
+        b[1] = -1
+        assert a[0][1] == -1
+        a = np.arange(9).reshape((3, 1, 3, 1))
+        b = a.squeeze(1)
+        assert b.shape == (3, 3, 1)
+        b = a.squeeze((1,))
+        assert b.shape == (3, 3, 1)
+        b = a.squeeze((1, -1))
+        assert b.shape == (3, 3)
+        exc = raises(ValueError, a.squeeze, 5)
+        assert exc.value.message == "'axis' entry 5 is out of bounds [-4, 4)"
+        exc = raises(ValueError, a.squeeze, 0)
+        assert exc.value.message == "cannot select an axis to squeeze out " \
+                                    "which has size greater than one"
+        exc = raises(ValueError, a.squeeze, (1, 1))
+        assert exc.value.message == "duplicate value in 'axis'"
 
     def test_swapaxes(self):
         from numpypy import array

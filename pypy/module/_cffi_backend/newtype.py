@@ -158,8 +158,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     fields_list = []
     fields_dict = {}
     custom_field_pos = False
+    with_var_array = False
 
-    for w_field in fields_w:
+    for i in range(len(fields_w)):
+        w_field = fields_w[i]
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
             raise OperationError(space.w_TypeError,
@@ -176,7 +178,11 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                                   "duplicate field name '%s'", fname)
         #
         if ftype.size < 0:
-            raise operationerrfmt(space.w_TypeError,
+            if (isinstance(ftype, ctypearray.W_CTypeArray) and fbitsize < 0
+                    and (i == len(fields_w) - 1 or foffset != -1)):
+                with_var_array = True
+            else:
+                raise operationerrfmt(space.w_TypeError,
                     "field '%s.%s' has ctype '%s' of unknown size",
                                   w_ctype.name, fname, ftype.name)
         #
@@ -235,7 +241,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 
-            boffset += ftype.size * 8
+            if ftype.size >= 0:
+                boffset += ftype.size * 8
             prev_bitfield_size = 0
 
         else:
@@ -359,6 +366,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     w_ctype.fields_list = fields_list
     w_ctype.fields_dict = fields_dict
     w_ctype.custom_field_pos = custom_field_pos
+    w_ctype.with_var_array = with_var_array
 
 # ____________________________________________________________
 
