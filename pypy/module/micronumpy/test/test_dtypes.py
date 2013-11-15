@@ -833,12 +833,19 @@ class AppTestTypes(BaseAppTestDtypes):
         assert (x == array(42)).all()
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
-    def test_str_unicode(self):
-        skip('numpypy differs from numpy')
+    def test_mro(self):
         from numpypy import str_, unicode_, character, flexible, generic
-
-        assert str_.mro() == [str_, str, basestring, character, flexible, generic, object]
-        assert unicode_.mro() == [unicode_, unicode, basestring, character, flexible, generic, object]
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            assert str_.mro() == [str_, character, flexible, generic,
+                                  str, basestring, object]
+            assert unicode_.mro() == [unicode_, character, flexible, generic,
+                                      unicode, basestring, object]
+        else:
+            assert str_.mro() == [str_, str, basestring, character, flexible,
+                                  generic, object]
+            assert unicode_.mro() == [unicode_, unicode, basestring, character,
+                                      flexible, generic, object]
 
     def test_str_dtype(self):
         from numpypy import dtype, str_
@@ -1018,11 +1025,12 @@ class AppTestNotDirect(BaseNumpyAppTest):
 class AppTestObjectDtypes(BaseNumpyAppTest):
     def test_scalar_from_object(self):
         from numpypy import array
+        import sys
         class Polynomial(object):
             pass
-        try:
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, array, Polynomial())
+            assert exc.value.message.find('unable to create dtype from objects') >= 0
+        else:
             a = array(Polynomial())
             assert a.shape == ()
-        except NotImplementedError, e:
-            if e.message.find('unable to create dtype from objects') >= 0:
-                skip('creating ojbect dtype not supported yet')

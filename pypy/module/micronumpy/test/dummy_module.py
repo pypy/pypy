@@ -26,7 +26,7 @@ for t in types:
 del types
 
 types = ['Generic', 'Number', 'Integer', 'SignedInteger', 'UnsignedInteger',
-         'Inexact', 'Floating', 'ComplexFloating', 'Character']
+         'Inexact', 'Floating', 'ComplexFloating', 'Flexible', 'Character']
 for t in types:
     globals()[t.lower()] = typeinfo[t]
 
