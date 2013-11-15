@@ -40,7 +40,7 @@ class TestBase(unittest.TestCase):
         if os.path.isdir(target):
             for path, dirs, files in os.walk(target, topdown=False):
                 for name in files:
-                    os.remove(os.path.join(path, name))
+                    test_support.remove_gc(os.path.join(path, name))
                 for name in dirs:
                     os.rmdir(os.path.join(path, name))
             os.rmdir(target)
@@ -1843,7 +1843,7 @@ class MaildirTestCase(unittest.TestCase):
         self._msgfiles = []
 
     def tearDown(self):
-        map(os.unlink, self._msgfiles)
+        map(test_support.remove_gc, self._msgfiles)
         os.rmdir(os.path.join(self._dir, "cur"))
         os.rmdir(os.path.join(self._dir, "tmp"))
         os.rmdir(os.path.join(self._dir, "new"))

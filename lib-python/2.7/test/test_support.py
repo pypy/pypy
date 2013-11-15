@@ -185,6 +185,18 @@ def unlink(filename):
     except OSError:
         pass
 
+if sys.platform == 'win32':
+    def remove_gc(filename, tries=5):
+        try:
+            os.remove(filename)
+        except WindowsError:
+            if tries <= 0:
+                raise
+            gc.collect()
+            remove_gc(filename, tries - 1)
+else:
+    remove_gc = os.unlink
+
 def rmtree(path):
     try:
         shutil.rmtree(path)

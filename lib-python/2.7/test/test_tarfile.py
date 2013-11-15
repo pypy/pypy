@@ -351,7 +351,7 @@ class MiscReadTest(CommonReadTest):
             else:
                 self.fail("ReadError not raised")
         finally:
-            _really_remove(empty)
+            test_support.remove_gc(empty)
 
 
 class StreamReadTest(CommonReadTest):
@@ -1321,27 +1321,13 @@ class PaxUnicodeTest(UstarUnicodeTest):
         tar.close()
 
 
-if sys.platform == 'win32':
-    def _really_remove(name, tries=5):
-        try:
-            os.remove(name)
-        except WindowsError:
-            if tries > 0:
-                import gc; gc.collect()
-                _really_remove(name, tries - 1)
-            else:
-                raise
-else:
-    _really_remove = os.unlink
-
-
 class AppendTest(unittest.TestCase):
     # Test append mode (cp. patch #1652681).
 
     def setUp(self):
         self.tarname = tmpname
         if os.path.exists(self.tarname):
-            _really_remove(self.tarname)
+            test_support.remove_gc(self.tarname)
 
     def _add_testfile(self, fileobj=None):
         tar = tarfile.open(self.tarname, "a", fileobj=fileobj)
