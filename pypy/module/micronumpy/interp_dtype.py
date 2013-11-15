@@ -854,24 +854,21 @@ class DtypeCache(object):
         for k, v in typeinfo_partial.iteritems():
             space.setitem(w_typeinfo, space.wrap(k), space.gettypefor(v))
         for k, dtype in typeinfo_full.iteritems():
-            itemsize = dtype.get_size()
+            itembits = dtype.get_size() * 8
             items_w = [space.wrap(dtype.char),
                        space.wrap(dtype.num),
-                       space.wrap(itemsize * 8),  # in case of changing
-                       # number of bits per byte in the future
-                       space.wrap(itemsize /
-                                  (2 if dtype.kind == NPY_COMPLEXLTR else 1)
-                                  or 1)]
+                       space.wrap(itembits),
+                       space.wrap(dtype.itemtype.get_element_size())]
             if dtype.is_int_type():
                 if dtype.kind == NPY_GENBOOLLTR:
                     w_maxobj = space.wrap(1)
                     w_minobj = space.wrap(0)
                 elif dtype.is_signed():
-                    w_maxobj = space.wrap(r_longlong((1 << (itemsize*8 - 1))
+                    w_maxobj = space.wrap(r_longlong((1 << (itembits - 1))
                                           - 1))
-                    w_minobj = space.wrap(r_longlong(-1) << (itemsize*8 - 1))
+                    w_minobj = space.wrap(r_longlong(-1) << (itembits - 1))
                 else:
-                    w_maxobj = space.wrap(r_ulonglong(1 << (itemsize*8)) - 1)
+                    w_maxobj = space.wrap(r_ulonglong(1 << itembits) - 1)
                     w_minobj = space.wrap(0)
                 items_w = items_w + [w_maxobj, w_minobj]
             items_w = items_w + [dtype.w_box_type]

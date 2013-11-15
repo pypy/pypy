@@ -18,6 +18,22 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
 class AppTestDtypes(BaseAppTestDtypes):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
+    def test_typeinfo(self):
+        import numpy as np
+        try:
+            from numpy.core.multiarray import typeinfo
+        except ImportError:
+            # running on dummy module
+            from numpypy import typeinfo
+        assert typeinfo['Number'] == np.number
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L,
+                                        -9223372036854775808L, np.longlong)
+        assert typeinfo['VOID'] == ('V', 20, 0, 1, np.void)
+        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, np.bool_)
+        assert typeinfo['CFLOAT'] == ('F', 14, 64, 8, np.complex64)
+        assert typeinfo['CDOUBLE'] == ('D', 15, 128, 16, np.complex128)
+        assert typeinfo['HALF'] == ('e', 23, 16, 2, np.float16)
+
     def test_dtype_basic(self):
         from numpypy import dtype
 
@@ -863,12 +879,12 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
 
     def test_unicode_boxes(self):
         from numpypy import unicode_
-        try:
-            u = unicode_(3)
-        except NotImplementedError, e:
-            if e.message.find('not supported yet') >= 0:
-                skip('unicode box not implemented')
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, unicode_, 3)
+            assert exc.value.message.find('not supported yet') >= 0
         else:
+            u = unicode_(3)
             assert isinstance(u, unicode)
 
     def test_character_dtype(self):
@@ -999,27 +1015,6 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
 
-class AppTestPyPyOnly(BaseNumpyAppTest):
-    def setup_class(cls):
-        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("pypy only test")
-        BaseNumpyAppTest.setup_class.im_func(cls)
-
-    def test_typeinfo(self):
-        from numpypy import void, number, int64, bool_, complex64, complex128, float16
-        try:
-            from numpy.core.multiarray import typeinfo
-        except ImportError:
-            # running on dummy module
-            from numpypy import typeinfo
-        assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
-        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
-        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
-        assert typeinfo['CFLOAT'] == ('F', 14, 64, 4, complex64)
-        assert typeinfo['CDOUBLE'] == ('D', 15, 128, 8, complex128)
-        assert typeinfo['HALF'] == ('e', 23, 16, 2, float16)
-
 class AppTestObjectDtypes(BaseNumpyAppTest):
     def test_scalar_from_object(self):
         from numpypy import array
@@ -1029,5 +1024,5 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
             a = array(Polynomial())
             assert a.shape == ()
         except NotImplementedError, e:
-            if e.message.find('unable to create dtype from objects')>=0:
+            if e.message.find('unable to create dtype from objects') >= 0:
                 skip('creating ojbect dtype not supported yet')
