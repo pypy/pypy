@@ -272,11 +272,16 @@ class W_GenericBox(W_Root):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
         dtype = space.interp_w(W_Dtype,
             space.call_function(space.gettypefor(W_Dtype), w_dtype))
+        if dtype.get_size() == 0:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "data-type must not be 0-sized"))
         if dtype.get_size() != self.get_dtype(space).get_size():
             raise OperationError(space.w_ValueError, space.wrap(
                 "new type not compatible with array."))
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "view not implelemnted yet"))
+        if dtype.is_str_or_unicode():
+            return dtype.coerce(space, space.wrap(self.raw_str()))
+        else:
+            return dtype.itemtype.runpack_str(self.raw_str())
 
     def descr_self(self, space):
         return self

@@ -1520,7 +1520,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert arange(4, dtype='>c8').real.max() == 3.0
         assert arange(4, dtype='<c8').real.max() == 3.0
 
-    def test_view(self):
+    def test_scalar_view(self):
+        from numpypy import array
+        a = array(3, dtype='int32')
+        b = a.view(dtype='float32')
+        assert b.shape == ()
+        assert b < 1
+        exc = raises(ValueError, a.view, 'int8')
+        assert exc.value[0] == "new type not compatible with array."
+        exc = raises(TypeError, a.view, 'string')
+        assert exc.value[0] == "data-type must not be 0-sized"
+        assert a.view('S4') == '\x03'
+
+    def test_array_view(self):
         from numpypy import array, dtype
         x = array((1, 2), dtype='int8')
         assert x.shape == (2,)
@@ -1538,26 +1550,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array(range(15), dtype='i2').reshape(3,5)
         exc = raises(ValueError, x.view, dtype='i4')
         assert exc.value[0] == "new type not compatible with array."
+        exc = raises(TypeError, x.view, 'string')
+        assert exc.value[0] == "data-type must not be 0-sized"
         assert x.view('int8').shape == (3, 10)
         x = array(range(15), dtype='int16').reshape(3,5).T
         assert x.view('int8').shape == (10, 3)
+        #assert x.view('S2')[1][1] == '\x06'
 
     def test_ndarray_view_empty(self):
         from numpypy import array, dtype
         x = array([], dtype=[('a', 'int8'), ('b', 'int8')])
         y = x.view(dtype='int16')
-
-    def test_scalar_view(self):
-        from numpypy import dtype, array
-        a = array(0, dtype='int32')
-        b = a.view(dtype='float32')
-        assert b.shape == ()
-        assert b == 0
-        s = dtype('int64').type(12)
-        exc = raises(ValueError, s.view, 'int8')
-        assert exc.value[0] == "new type not compatible with array."
-        skip('not implemented yet')
-        assert s.view('double') < 7e-323
 
     def test_tolist_scalar(self):
         from numpypy import dtype

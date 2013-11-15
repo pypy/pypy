@@ -80,7 +80,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 return scalar.Scalar(self.dtype, self.getitem(0))
             return None
 
-    def get_view(self, orig_array, dtype, new_shape):
+    def get_view(self, space, orig_array, dtype, new_shape):
         strides, backstrides = support.calc_strides(new_shape, dtype,
                                                     self.order)
         return SliceArray(self.start, strides, backstrides, new_shape,

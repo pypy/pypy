@@ -102,6 +102,20 @@ class AppTestScalar(BaseNumpyAppTest):
             assert b == v
         raises(IndexError, "v['blah']")
 
+    def test_view(self):
+        import numpy as np
+        s = np.dtype('int64').type(12)
+        exc = raises(ValueError, s.view, 'int8')
+        assert exc.value[0] == "new type not compatible with array."
+        t = s.view('double')
+        assert type(t) is np.double
+        assert t < 7e-323
+        exc = raises(TypeError, s.view, 'string')
+        assert exc.value[0] == "data-type must not be 0-sized"
+        t = s.view('S8')
+        assert type(t) is np.string_
+        assert t == '\x0c'
+
     def test_complex_scalar_complex_cast(self):
         import numpy as np
         for tp in [np.csingle, np.cdouble, np.clongdouble]:

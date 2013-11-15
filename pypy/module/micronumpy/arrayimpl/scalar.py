@@ -68,9 +68,12 @@ class Scalar(base.BaseArrayImplementation):
     def transpose(self, _):
         return self
 
-    def get_view(self, orig_array, dtype, new_shape):
+    def get_view(self, space, orig_array, dtype, new_shape):
         scalar = Scalar(dtype)
-        scalar.value = self.value.convert_to(dtype)
+        if dtype.is_str_or_unicode():
+            scalar.value = dtype.coerce(space, space.wrap(self.value.raw_str()))
+        else:
+            scalar.value = dtype.itemtype.runpack_str(self.value.raw_str())
         return scalar
 
     def get_real(self, orig_array):
