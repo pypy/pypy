@@ -81,19 +81,6 @@ class W_Dtype(W_Root):
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 
-    def getitem(self, arr, i):
-        item = self.itemtype.read(arr, i, 0)
-        return item
-
-    def getitem_bool(self, arr, i):
-        return self.itemtype.read_bool(arr, i, 0)
-
-    def setitem(self, arr, i, box):
-        self.itemtype.store(arr, i, 0, box)
-
-    def fill(self, storage, box, start, stop):
-        self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)
-
     def is_int_type(self):
         return (self.kind == NPY_SIGNEDLTR or self.kind == NPY_UNSIGNEDLTR or
                 self.kind == NPY_GENBOOLLTR)

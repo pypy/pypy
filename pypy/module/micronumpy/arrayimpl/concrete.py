@@ -36,10 +36,13 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return backstrides
 
     def getitem(self, index):
-        return self.dtype.getitem(self, index)
+        return self.dtype.itemtype.read(self, index, 0)
+
+    def getitem_bool(self, index):
+        return self.dtype.itemtype.read_bool(self, index, 0)
 
     def setitem(self, index, value):
-        self.dtype.setitem(self, index, value)
+        self.dtype.itemtype.store(self, index, 0, value)
 
     def setslice(self, space, arr):
         impl = arr.implementation
@@ -268,7 +271,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def create_dot_iter(self, shape, skip):
         r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),
                                   shape, skip)
-        return iter.MultiDimViewIterator(self, self.dtype, self.start, r[0], r[1], shape)
+        return iter.MultiDimViewIterator(self, self.start, r[0], r[1], shape)
 
     def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
@@ -331,21 +334,24 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                 support.product(shape) > support.product(self.get_shape()):
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
-                                            self.get_shape(), shape, backward_broadcast)
-            return iter.MultiDimViewIterator(self, self.dtype, self.start, r[0], r[1], shape)
-
+                                            self.get_shape(), shape,
+                                            backward_broadcast)
+            return iter.MultiDimViewIterator(self, self.start,
+                                             r[0], r[1], shape)
         if not require_index:
             return iter.ConcreteArrayIterator(self)
-        else:
-            if len(self.get_shape()) == 1:
-                return iter.OneDimViewIterator(self, self.dtype, self.start,
-                        self.get_strides(), self.get_shape())
-            else:
-                return iter.MultiDimViewIterator(self, self.dtype, self.start,
-                        self.get_strides(), self.get_backstrides(), self.get_shape())
+        if len(self.get_shape()) == 1:
+            return iter.OneDimViewIterator(self, self.start,
+                                           self.get_strides(),
+                                           self.get_shape())
+        return iter.MultiDimViewIterator(self, self.start,
+                                         self.get_strides(),
+                                         self.get_backstrides(),
+                                         self.get_shape())
 
     def fill(self, box):
-        self.dtype.fill(self.storage, box, 0, self.size)
+        self.dtype.itemtype.fill(self.storage, self.dtype.get_size(),
+                                 box, 0, self.size, 0)
 
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = support.calc_strides(new_shape, self.dtype,
@@ -416,14 +422,16 @@ class SliceArray(BaseConcreteArray):
                                             self.get_backstrides(),
                                             self.get_shape(), shape,
                                             backward_broadcast)
-            return iter.MultiDimViewIterator(self.parent, self.dtype,
-                                             self.start, r[0], r[1], shape)
+            return iter.MultiDimViewIterator(self, self.start,
+                                             r[0], r[1], shape)
         if len(self.get_shape()) == 1:
-            return iter.OneDimViewIterator(self.parent, self.dtype, self.start,
-                    self.get_strides(), self.get_shape())
-        return iter.MultiDimViewIterator(self.parent, self.dtype, self.start,
-                                    self.get_strides(),
-                                    self.get_backstrides(), self.get_shape())
+            return iter.OneDimViewIterator(self, self.start,
+                                           self.get_strides(),
+                                           self.get_shape())
+        return iter.MultiDimViewIterator(self, self.start,
+                                         self.get_strides(),
+                                         self.get_backstrides(),
+                                         self.get_shape())
 
     def set_shape(self, space, orig_array, new_shape):
         if len(self.get_shape()) < 2 or self.size == 0:
