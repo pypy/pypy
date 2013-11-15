@@ -2,7 +2,7 @@ import sys
 import math
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import rfloat
+from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
@@ -373,7 +373,7 @@ class JSONDecoder(object):
             return # help the annotator to know that we'll never go beyond
                    # this point
         #
-        uchr = unichr(val)
+        uchr = runicode.code_to_unichr(val)     # may be a surrogate pair again
         utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
         builder.append(utf8_ch)
         return i
