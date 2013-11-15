@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-import py, sys
 from pypy.module._pypyjson.interp_decoder import JSONDecoder
 
 def test_skip_whitespace():

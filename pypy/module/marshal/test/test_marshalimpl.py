@@ -80,7 +80,7 @@ def test_long_more(space):
         #
         u = interp_marshal.StringUnmarshaller(space, space.wrap(expected))
         w_long = u.load_w_obj()
-        assert space.eq_w(w_long, w_obj) is True
+        assert space.eq_w(w_long, w_obj)
 
     for sign in [1L, -1L]:
         for i in range(100):
