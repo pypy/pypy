@@ -143,7 +143,7 @@ class W_Dtype(W_Root):
         if basic == NPY_UNICODELTR:
             size >>= 2
             endian = NPY_NATBYTE
-        elif size <= 1:
+        elif size // (self.size or 1) <= 1:
             endian = NPY_IGNORE
         else:
             endian = self.byteorder
