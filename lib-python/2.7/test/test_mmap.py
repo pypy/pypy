@@ -1,5 +1,5 @@
 from test.test_support import (TESTFN, run_unittest, import_module, unlink,
-                               requires, _2G, _4G)
+                               requires, _2G, _4G, remove_gc)
 import unittest
 import os, re, itertools, socket, sys
 
@@ -11,7 +11,7 @@ class MmapTests(unittest.TestCase):
 
     def setUp(self):
         if os.path.exists(TESTFN):
-            os.unlink(TESTFN)
+            remove_gc(TESTFN)
 
     def tearDown(self):
         try:
@@ -651,7 +651,8 @@ class MmapTests(unittest.TestCase):
 class LargeMmapTests(unittest.TestCase):
 
     def setUp(self):
-        unlink(TESTFN)
+        if os.path.exists(TESTFN):
+            remove_gc(TESTFN)
 
     def tearDown(self):
         unlink(TESTFN)
