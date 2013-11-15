@@ -108,7 +108,7 @@ class scoped_unicode2rawwcharp:
 def unicode2rawwcharp(u):
     """unicode -> raw wchar_t*"""
     if _should_merge_surrogates():
-        size = _unicode2rawwcharp_loop(u, None)
+        size = _unicode2rawwcharp_loop(u, lltype.nullptr(RAW_WCHARP.TO))
     else:
         size = len(u)
     array = lltype.malloc(RAW_WCHARP.TO, size + 1, flavor='raw')
@@ -118,7 +118,6 @@ def unicode2rawwcharp(u):
 unicode2rawwcharp._annenforceargs_ = [unicode]
 
 def _unicode2rawwcharp_loop(u, array):
-    write = array is not None
     ulen = len(u)
     count = i = 0
     while i < ulen:
@@ -126,13 +125,13 @@ def _unicode2rawwcharp_loop(u, array):
         if (_should_merge_surrogates() and
             0xD800 <= oc <= 0xDBFF and i + 1 < ulen and
             0xDC00 <= ord(u[i + 1]) <= 0xDFFF):
-            if write:
+            if array:
                 merged = (((oc & 0x03FF) << 10) |
                           (ord(u[i + 1]) & 0x03FF)) + 0x10000
                 array[count] = rffi.cast(rffi.WCHAR_T, merged)
             i += 2
         else:
-            if write:
+            if array:
                 array[count] = rffi.cast(rffi.WCHAR_T, oc)
             i += 1
         count += 1
