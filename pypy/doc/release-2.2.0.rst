@@ -66,9 +66,9 @@ Highlights
   ``https://bitbucket.org/pypy/numpy`` and ``numpypy`` disappeared.
   You need to install NumPy separately with a virtualenv:
   ``pip install git+https://bitbucket.org/pypy/numpy.git``;
-  or by directly doing
-  ``git clone https://bitbucket.org/pypy/numpy.git``,
-  ``cd numpy``, ``python setup.py install``.
+  or directly:
+  ``git clone https://bitbucket.org/pypy/numpy.git``;
+  ``cd numpy``; ``pypy setup.py install``.
 
 * non-inlined calls have less overhead
 
