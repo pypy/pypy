@@ -2906,6 +2906,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0] == 'abc'
         assert a[1] == 'def'
         assert a[2] == 'ab'
+        b = array(["\x00\x01", "\x00\x02\x03"], dtype=str)
+        assert str(b.dtype) == '|S3'
+        assert b[0] == "\x00\x01"
+        assert b[1] == "\x00\x02\x03"
+        assert b.tostring() == "\x00\x01\x00\x00\x02\x03"
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
         b = array(['abcdefg', 'ab', 'cd'])

@@ -499,7 +499,7 @@ def tostring(space, arr):
     builder = StringBuilder()
     iter = arr.create_iter()
     w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
-    itemsize = arr.get_dtype().itemtype.get_element_size()
+    itemsize = arr.get_dtype().get_size()
     res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
                                w_res_str.implementation.get_storage_as_int(space))
     while not iter.done():
