@@ -19,8 +19,6 @@ import _testcapi
 skips = []
 if support.check_impl_detail(pypy=True):
     skips += [
-            'test_Z_code', # test_{Z,u}_code require PY_SSIZE_T_CLEAN support
-            'test_u_code',
             'test_broken_memoryview',
             'test_capsule',
             'test_lazy_hash_inheritance',
