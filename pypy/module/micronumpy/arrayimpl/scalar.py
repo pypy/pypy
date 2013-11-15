@@ -123,6 +123,9 @@ class Scalar(base.BaseArrayImplementation):
                             )
 
     def descr_getitem(self, space, _, w_idx):
+        if space.isinstance_w(w_idx, space.w_tuple):
+            if space.len_w(w_idx) == 0:
+                return self.get_scalar_value()
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
 
