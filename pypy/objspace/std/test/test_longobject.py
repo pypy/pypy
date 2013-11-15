@@ -41,7 +41,6 @@ class TestW_LongObject:
 
 
 class AppTestLong:
-
     def test_trunc(self):
         import math
         assert math.trunc(1L) == 1L
@@ -310,7 +309,6 @@ class AppTestLong:
         assert 8L.bit_length() == 4
         assert (-1<<40).bit_length() == 41
         assert ((2**31)-1).bit_length() == 31
-
 
     def test_negative_zero(self):
         x = eval("-0L")
