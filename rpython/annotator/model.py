@@ -32,7 +32,6 @@ from __future__ import absolute_import
 import inspect
 import weakref
 from types import BuiltinFunctionType, MethodType
-from collections import OrderedDict
 
 import rpython
 from rpython.tool import descriptor
@@ -357,7 +356,11 @@ class SomeDict(SomeObject):
             return '{...%s...}' % (len(const),)
 
 class SomeOrderedDict(SomeDict):
-    knowntype = OrderedDict
+    try:
+        from collections import OrderedDict as knowntype
+    except ImportError:    # Python 2.6
+        class PseudoOrderedDict(dict): pass
+        knowntype = PseudoOrderedDict
 
     def method_copy(dct):
         return SomeOrderedDict(dct.dictdef)

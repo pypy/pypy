@@ -81,7 +81,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert isinstance(add, ufunc)
         assert repr(add) == "<ufunc 'add'>"
-        assert repr(ufunc) == "<type 'numpypy.ufunc'>" or repr(ufunc) == "<type 'numpy.ufunc'>"
+        assert repr(ufunc) == "<type 'numpy.ufunc'>"
 
     def test_ufunc_attrs(self):
         from numpypy import add, multiply, sin

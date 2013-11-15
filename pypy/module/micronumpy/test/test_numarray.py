@@ -249,9 +249,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         return CustomIntObject(value)
 
     def test_ndarray(self):
-        from numpypy import ndarray, array, dtype
+        from numpy import ndarray, array, dtype, flatiter
 
         assert type(ndarray) is type
+        assert repr(ndarray) == "<type 'numpy.ndarray'>"
+        assert repr(flatiter) == "<type 'numpy.flatiter'>"
         assert type(array) is not type
         a = ndarray((2, 3))
         assert a.shape == (2, 3)
@@ -509,6 +511,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert a[i] == i
 
+    def test_setitem_array(self):
+        import numpy as np
+        a = np.array((-1., 0, 1))/0.
+        b = np.array([False, False, True], dtype=bool)
+        a[b] = 100
+        assert a[2] == 100
+
     def test_setitem_obj_index(self):
         from numpypy import arange
         a = arange(10)
@@ -652,13 +661,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[newaxis] == [[2, 3, 4]]).all()
 
     def test_scalar(self):
-        from numpypy import array, dtype
+        from numpypy import array, dtype, int64
         a = array(3)
         raises(IndexError, "a[0]")
         raises(IndexError, "a[0] = 5")
         assert a.size == 1
         assert a.shape == ()
         assert a.dtype is dtype(int)
+        b = a[()]
+        assert type(b) is int64
+        assert b == 3
 
     def test_len(self):
         from numpypy import array
@@ -701,7 +713,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_reshape(self):
         from numpypy import array, zeros
+        for a in [array(1), array([1])]:
+            for s in [(), (1,)]:
+                b = a.reshape(s)
+                assert b.shape == s
+                assert (b == [1]).all()
         a = array(range(12))
+        exc = raises(ValueError, "b = a.reshape(())")
+        assert str(exc.value) == "total size of new array must be unchanged"
         exc = raises(ValueError, "b = a.reshape((3, 10))")
         assert str(exc.value) == "total size of new array must be unchanged"
         b = a.reshape((3, 4))
@@ -1730,6 +1749,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == a).all()
         b[1] = -1
         assert a[0][1] == -1
+        a = np.arange(9).reshape((3, 1, 3, 1))
+        b = a.squeeze(1)
+        assert b.shape == (3, 3, 1)
+        b = a.squeeze((1,))
+        assert b.shape == (3, 3, 1)
+        b = a.squeeze((1, -1))
+        assert b.shape == (3, 3)
+        exc = raises(ValueError, a.squeeze, 5)
+        assert exc.value.message == "'axis' entry 5 is out of bounds [-4, 4)"
+        exc = raises(ValueError, a.squeeze, 0)
+        assert exc.value.message == "cannot select an axis to squeeze out " \
+                                    "which has size greater than one"
+        exc = raises(ValueError, a.squeeze, (1, 1))
+        assert exc.value.message == "duplicate value in 'axis'"
 
     def test_swapaxes(self):
         from numpypy import array
@@ -2684,6 +2717,9 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (u == [1]).all()
         else:
             assert (u == [1, 0]).all()
+        v = fromstring("abcd", dtype="|S2")
+        assert v[0] == "ab"
+        assert v[1] == "cd"
 
     def test_fromstring_types(self):
         from numpypy import fromstring, array, dtype
@@ -2870,6 +2906,14 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0] == 'abc'
         assert a[1] == 'def'
         assert a[2] == 'ab'
+        b = array(["\x00\x01", "\x00\x02\x03"], dtype=str)
+        assert str(b.dtype) == '|S3'
+        assert b[0] == "\x00\x01"
+        assert b[1] == "\x00\x02\x03"
+        assert b.tostring() == "\x00\x01\x00\x00\x02\x03"
+        c = b.astype(b.dtype)
+        assert (b == c).all()
+        assert c.tostring() == "\x00\x01\x00\x00\x02\x03"
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
         b = array(['abcdefg', 'ab', 'cd'])
@@ -2897,6 +2941,15 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
         assert a == 'x'
+
+    def test_newbyteorder(self):
+        import numpy as np
+        a = np.array([1, 2], dtype=np.int16)
+        b = a.newbyteorder()
+        assert (b == [256, 512]).all()
+        c = b.byteswap()
+        assert (c == [1, 2]).all()
+        assert (a == [1, 2]).all()
 
     def test_pickle(self):
         from numpypy import dtype, array

@@ -554,13 +554,17 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             if (space.lookup(w_obj, '__long__') is not None or
                 space.lookup(w_obj, '__int__') is not None):
                 w_obj = space.long(w_obj)
-            else:
+            elif space.lookup(w_obj, '__trunc__') is not None:
                 w_obj = space.trunc(w_obj)
                 # :-(  blame CPython 2.7
                 if space.lookup(w_obj, '__long__') is not None:
                     w_obj = space.long(w_obj)
                 else:
                     w_obj = space.int(w_obj)
+            else:
+                raise operationerrfmt(space.w_TypeError,
+                    "long() argument must be a string or a number, not '%T'",
+                    w_obj)
             bigint = space.bigint_w(w_obj)
             return newbigint(space, w_longtype, bigint)
     else:

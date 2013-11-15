@@ -712,7 +712,7 @@ def test_define_int():
              "#define BAZ ...\n")
     lib = ffi.verify("#define FOO 42\n"
                      "#define BAR (-44)\n"
-                     "#define BAZ 0xffffffffffffffffLL\n")
+                     "#define BAZ 0xffffffffffffffffULL\n")
     assert lib.FOO == 42
     assert lib.BAR == -44
     assert lib.BAZ == 0xffffffffffffffff
@@ -1602,6 +1602,8 @@ def test_enum_bug118():
                         (maxulong, -1, ''),
                         (-1, 0xffffffff, 'U'),
                         (-1, maxulong, 'UL')]:
+        if c2c and sys.platform == 'win32':
+            continue     # enums may always be signed with MSVC
         ffi = FFI()
         ffi.cdef("enum foo_e { AA=%s };" % c1)
         e = py.test.raises(VerificationError, ffi.verify,
@@ -1766,3 +1768,87 @@ def test_bug_const_char_ptr_array_2():
     ffi.cdef("""const int a[];""")
     lib = ffi.verify("""const int a[5];""")
     assert repr(ffi.typeof(lib.a)) == "<ctype 'int *'>"
+
+def _test_various_calls(force_libffi):
+    cdef_source = """
+    int xvalue;
+    long long ivalue, rvalue;
+    float fvalue;
+    double dvalue;
+    long double Dvalue;
+    signed char tf_bb(signed char x, signed char c);
+    unsigned char tf_bB(signed char x, unsigned char c);
+    short tf_bh(signed char x, short c);
+    unsigned short tf_bH(signed char x, unsigned short c);
+    int tf_bi(signed char x, int c);
+    unsigned int tf_bI(signed char x, unsigned int c);
+    long tf_bl(signed char x, long c);
+    unsigned long tf_bL(signed char x, unsigned long c);
+    long long tf_bq(signed char x, long long c);
+    float tf_bf(signed char x, float c);
+    double tf_bd(signed char x, double c);
+    long double tf_bD(signed char x, long double c);
+    """
+    if force_libffi:
+        cdef_source = (cdef_source
+            .replace('tf_', '(*const tf_')
+            .replace('(signed char x', ')(signed char x'))
+    ffi = FFI()
+    ffi.cdef(cdef_source)
+    lib = ffi.verify("""
+    int xvalue;
+    long long ivalue, rvalue;
+    float fvalue;
+    double dvalue;
+    long double Dvalue;
+
+    #define S(letter)  xvalue = x; letter##value = c; return rvalue;
+
+    signed char tf_bb(signed char x, signed char c) { S(i) }
+    unsigned char tf_bB(signed char x, unsigned char c) { S(i) }
+    short tf_bh(signed char x, short c) { S(i) }
+    unsigned short tf_bH(signed char x, unsigned short c) { S(i) }
+    int tf_bi(signed char x, int c) { S(i) }
+    unsigned int tf_bI(signed char x, unsigned int c) { S(i) }
+    long tf_bl(signed char x, long c) { S(i) }
+    unsigned long tf_bL(signed char x, unsigned long c) { S(i) }
+    long long tf_bq(signed char x, long long c) { S(i) }
+    float tf_bf(signed char x, float c) { S(f) }
+    double tf_bd(signed char x, double c) { S(d) }
+    long double tf_bD(signed char x, long double c) { S(D) }
+    """)
+    lib.rvalue = 0x7182838485868788
+    for kind, cname in [('b', 'signed char'),
+                        ('B', 'unsigned char'),
+                        ('h', 'short'),
+                        ('H', 'unsigned short'),
+                        ('i', 'int'),
+                        ('I', 'unsigned int'),
+                        ('l', 'long'),
+                        ('L', 'unsigned long'),
+                        ('q', 'long long'),
+                        ('f', 'float'),
+                        ('d', 'double'),
+                        ('D', 'long double')]:
+        sign = +1 if 'unsigned' in cname else -1
+        lib.xvalue = 0
+        lib.ivalue = 0
+        lib.fvalue = 0
+        lib.dvalue = 0
+        lib.Dvalue = 0
+        fun = getattr(lib, 'tf_b' + kind)
+        res = fun(-42, sign * 99)
+        if kind == 'D':
+            res = float(res)
+        assert res == int(ffi.cast(cname, 0x7182838485868788))
+        assert lib.xvalue == -42
+        if kind in 'fdD':
+            assert float(getattr(lib, kind + 'value')) == -99.0
+        else:
+            assert lib.ivalue == sign * 99
+
+def test_various_calls_direct():
+    _test_various_calls(force_libffi=False)
+
+def test_various_calls_libffi():
+    _test_various_calls(force_libffi=True)

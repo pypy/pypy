@@ -7,7 +7,6 @@ from rpython.rlib.rbigint import rbigint
 
 
 class TestW_IntObject:
-
     def _longshiftresult(self, x):
         """ calculate an overflowing shift """
         n = 1
@@ -32,7 +31,7 @@ class TestW_IntObject:
         space = self.space
         assert isinstance(space.bigint_w(space.wrap(42)), rbigint)
         assert space.bigint_w(space.wrap(42)).eq(rbigint.fromint(42))
-        
+
     def test_repr(self):
         x = 1
         f1 = iobj.W_IntObject(x)
@@ -63,7 +62,7 @@ class TestW_IntObject:
                     method = getattr(wx, 'descr_%s' % op)
                     myres = method(self.space, wy)
                     assert self.space.unwrap(myres) == res
-                    
+
     def test_add(self):
         space = self.space
         x = 1
@@ -295,8 +294,8 @@ class TestW_IntObject:
         result = f1.descr_hex(self.space)
         assert self.space.unwrap(result) == hex(x)
 
-class AppTestInt:
 
+class AppTestInt:
     def test_conjugate(self):
         assert (1).conjugate() == 1
         assert (-1).conjugate() == -1
@@ -338,7 +337,7 @@ class AppTestInt:
         assert "42" == str(42)
         assert "42" == repr(42)
         raises(ValueError, int, '0x2A')
-        
+
     def test_int_two_param(self):
         assert 42 == int('0x2A', 0)
         assert 42 == int('2A', 16)
@@ -443,28 +442,28 @@ class AppTestInt:
 
     def test_special_int(self):
         class a(object):
-            def __int__(self): 
-                self.ar = True 
+            def __int__(self):
+                self.ar = True
                 return None
         inst = a()
-        raises(TypeError, int, inst) 
+        raises(TypeError, int, inst)
         assert inst.ar == True 
 
-        class b(object): 
+        class b(object):
             pass 
         raises((AttributeError,TypeError), int, b()) 
 
     def test_special_long(self):
         class a(object):
-            def __long__(self): 
-                self.ar = True 
+            def __long__(self):
+                self.ar = True
                 return None
         inst = a()
-        raises(TypeError, long, inst) 
-        assert inst.ar == True 
+        raises(TypeError, long, inst)
+        assert inst.ar == True
 
-        class b(object): 
-            pass 
+        class b(object):
+            pass
         raises((AttributeError,TypeError), long, b())
 
     def test_just_trunc(self):
@@ -481,6 +480,15 @@ class AppTestInt:
         class myotherint(int):
             pass
         assert int(myotherint(21)) == 21
+
+    def test_trunc_returns_non_int(self):
+        class Integral(object):
+            def __int__(self):
+                return 42
+        class TruncReturnsNonInt(object):
+            def __trunc__(self):
+                return Integral()
+        assert int(TruncReturnsNonInt()) == 42
 
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)
@@ -509,6 +517,11 @@ class AppTestInt:
         class A(int): pass
         b = A(5).real
         assert type(b) is int
+
+    def test_int_error_msg(self):
+        e = raises(TypeError, int, [])
+        assert str(e.value) == (
+            "int() argument must be a string or a number, not 'list'")
 
     def test_coerce(self):
         assert 3 .__coerce__(4) == (3, 4)

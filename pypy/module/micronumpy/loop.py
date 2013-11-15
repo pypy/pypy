@@ -398,7 +398,7 @@ setitem_filter_driver = jit.JitDriver(name = 'numpy_setitem_bool',
                                                 'index_dtype'],
                                       reds = 'auto')
 
-def setitem_filter(arr, index, value, size):
+def setitem_filter(space, arr, index, value, size):
     arr_iter = arr.create_iter()
     shapelen = len(arr.get_shape())
     if shapelen > 1 and len(index.get_shape()) < 2:
@@ -414,7 +414,7 @@ def setitem_filter(arr, index, value, size):
                                               arr_dtype=arr_dtype,
                                              )
         if index_iter.getitem_bool():
-            arr_iter.setitem(value_iter.getitem())
+            arr_iter.setitem(arr_dtype.coerce(space, value_iter.getitem()))
             value_iter.next()
         arr_iter.next()
         index_iter.next()
@@ -481,12 +481,16 @@ fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
                                   greens = ['itemsize', 'dtype'],
                                   reds = 'auto')
 
-def fromstring_loop(a, dtype, itemsize, s):
+def fromstring_loop(space, a, dtype, itemsize, s):
     i = 0
     ai = a.create_iter()
     while not ai.done():
         fromstring_driver.jit_merge_point(dtype=dtype, itemsize=itemsize)
-        val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
+        sub = s[i*itemsize:i*itemsize + itemsize]
+        if dtype.is_str_or_unicode():
+            val = dtype.coerce(space, space.wrap(sub))
+        else:
+            val = dtype.itemtype.runpack_str(sub)
         ai.setitem(val)
         ai.next()
         i += 1
@@ -495,7 +499,7 @@ def tostring(space, arr):
     builder = StringBuilder()
     iter = arr.create_iter()
     w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
-    itemsize = arr.get_dtype().itemtype.get_element_size()
+    itemsize = arr.get_dtype().get_size()
     res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
                                w_res_str.implementation.get_storage_as_int(space))
     while not iter.done():

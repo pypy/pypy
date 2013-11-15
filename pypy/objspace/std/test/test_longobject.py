@@ -41,7 +41,6 @@ class TestW_LongObject:
 
 
 class AppTestLong:
-
     def test_trunc(self):
         import math
         assert math.trunc(1L) == 1L
@@ -311,7 +310,6 @@ class AppTestLong:
         assert (-1<<40).bit_length() == 41
         assert ((2**31)-1).bit_length() == 31
 
-
     def test_negative_zero(self):
         x = eval("-0L")
         assert x == 0L
@@ -341,6 +339,11 @@ class AppTestLong:
 
         assert int(long(3)) == long(3)
         assert int(A(13)) == 42
+
+    def test_long_error_msg(self):
+        e = raises(TypeError, long, [])
+        assert str(e.value) == (
+            "long() argument must be a string or a number, not 'list'")
 
     def test_coerce(self):
         assert 3L.__coerce__(4L) == (3L, 4L)

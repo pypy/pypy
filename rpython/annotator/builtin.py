@@ -2,7 +2,6 @@
 Built-in functions.
 """
 import sys
-from collections import OrderedDict
 
 from rpython.annotator.model import (
     SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple, s_Bool,
@@ -364,7 +363,7 @@ BUILTIN_ANALYZERS[rpython.rlib.rarithmetic.longlongmask] = rarith_longlongmask
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.instantiate] = robjmodel_instantiate
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.r_ordereddict] = robjmodel_r_ordereddict
-BUILTIN_ANALYZERS[OrderedDict] = lambda : SomeOrderedDict(getbookkeeper().getdictdef())
+BUILTIN_ANALYZERS[SomeOrderedDict.knowntype] = lambda : SomeOrderedDict(getbookkeeper().getdictdef())
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[rpython.rlib.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
 BUILTIN_ANALYZERS[rpython.rtyper.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory_cast_ptr_to_adr

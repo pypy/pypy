@@ -26,11 +26,13 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d.kind == 'b'
         assert dtype(d) is d
         assert dtype('bool') is d
+        assert repr(type(d)) == "<type 'numpy.dtype'>"
 
         assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'
         assert dtype(int).fields is None
         assert dtype(int).names is None
+        assert dtype(int).hasobject is False
 
         assert dtype(None) is dtype(float)
 
@@ -45,6 +47,18 @@ class AppTestDtypes(BaseAppTestDtypes):
         exc = raises(TypeError, dtype, (1, 2))
         assert 'data type not understood' in str(exc.value)
         raises(KeyError, 'dtype(int)["asdasd"]')
+
+    def test_dtype_from_tuple(self):
+        import numpy as np
+        d = np.dtype((np.int64, 4))
+        assert d == np.dtype(('i8', (4,)))
+        assert d.shape == (4,)
+        d = np.dtype((np.string_, 4))
+        assert d == np.dtype('S4')
+        assert d.shape == ()
+        d = np.dtype(('S', 4))
+        assert d == np.dtype('S4')
+        assert d.shape == ()
 
     def test_dtype_eq(self):
         from numpypy import dtype
@@ -274,6 +288,49 @@ class AppTestDtypes(BaseAppTestDtypes):
         else:
             assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
+
+    def test_newbyteorder(self):
+        import numpypy as np
+        import sys
+        sys_is_le = sys.byteorder == 'little'
+        native_code = sys_is_le and '<' or '>'
+        swapped_code = sys_is_le and '>' or '<'
+        native_dt = np.dtype(native_code+'i2')
+        swapped_dt = np.dtype(swapped_code+'i2')
+        assert native_dt.newbyteorder('S') == swapped_dt
+        assert native_dt.newbyteorder() == swapped_dt
+        assert native_dt == swapped_dt.newbyteorder('S')
+        assert native_dt == swapped_dt.newbyteorder('=')
+        assert native_dt == swapped_dt.newbyteorder('N')
+        assert native_dt == native_dt.newbyteorder('|')
+        assert np.dtype('<i2') == native_dt.newbyteorder('<')
+        assert np.dtype('<i2') == native_dt.newbyteorder('L')
+        assert np.dtype('>i2') == native_dt.newbyteorder('>')
+        assert np.dtype('>i2') == native_dt.newbyteorder('B')
+
+        for t in [np.int_, np.float_]:
+            dt = np.dtype(t)
+            dt1 = dt.newbyteorder().newbyteorder()
+            dt2 = dt.newbyteorder("<")
+            dt3 = dt.newbyteorder(">")
+            assert dt.byteorder != dt1.byteorder
+            #assert hash(dt) == hash(dt1)
+            if dt == dt2:
+                assert dt.byteorder != dt2.byteorder
+                #assert hash(dt) == hash(dt2)
+            else:
+                assert dt.byteorder != dt3.byteorder
+                #assert hash(dt) == hash(dt3)
+
+            exc = raises(ValueError, dt.newbyteorder, 'XX')
+            assert exc.value[0] == 'XX is an unrecognized byteorder'
+
+        for t in [np.int_, np.float_]:
+            dt1 = np.dtype(t)
+            dt2 = dt1.newbyteorder()
+            s1 = np.array(123, dtype=dt1).tostring()
+            s2 = np.array(123, dtype=dt2).byteswap().tostring()
+            assert s1 == s2
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -709,8 +766,8 @@ class AppTestTypes(BaseAppTestDtypes):
         # strange
         assert dtype('string').str == '|S0'
         assert dtype('unicode').str == byteorder + 'U0'
-        #assert dtype(('string', 7)).str == '|S7'
-        #assert dtype(('unicode', 7)).str == '<U7'
+        assert dtype(('string', 7)).str == '|S7'
+        assert dtype(('unicode', 7)).str == '<U7'
 
     def test_intp(self):
         from numpypy import dtype
@@ -771,13 +828,14 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         from numpypy import dtype, str_
 
         raises(TypeError, "dtype('Sx')")
-        d = dtype('S8')
-        assert d.itemsize == 8
-        assert dtype(str) == dtype('S')
-        assert d.kind == 'S'
-        assert d.type is str_
-        assert d.name == "string64"
-        assert d.num == 18
+        for t in ['S8', '|S8', '=S8']:
+            d = dtype(t)
+            assert d.itemsize == 8
+            assert dtype(str) == dtype('S')
+            assert d.kind == 'S'
+            assert d.type is str_
+            assert d.name == "string64"
+            assert d.num == 18
         for i in [1, 2, 3]:
             d = dtype('c%d' % i)
             assert d.itemsize == 1
