@@ -340,7 +340,7 @@ class MiscReadTest(CommonReadTest):
         # constructor in case of an error. For the test we rely on
         # the fact that opening an empty file raises a ReadError.
         empty = os.path.join(TEMPDIR, "empty")
-        open(empty, "wb").write("")
+        open(empty, "wb").close()
 
         try:
             tar = object.__new__(tarfile.TarFile)
@@ -351,7 +351,7 @@ class MiscReadTest(CommonReadTest):
             else:
                 self.fail("ReadError not raised")
         finally:
-            os.remove(empty)
+            _really_remove(empty)
 
 
 class StreamReadTest(CommonReadTest):
@@ -1321,13 +1321,27 @@ class PaxUnicodeTest(UstarUnicodeTest):
         tar.close()
 
 
+if sys.platform == 'win32':
+    def _really_remove(name, tries=5):
+        try:
+            os.remove(name)
+        except WindowsError:
+            if tries > 0:
+                import gc; gc.collect()
+                _really_remove(name, tries - 1)
+            else:
+                raise
+else:
+    _really_remove = os.unlink
+
+
 class AppendTest(unittest.TestCase):
     # Test append mode (cp. patch #1652681).
 
     def setUp(self):
         self.tarname = tmpname
         if os.path.exists(self.tarname):
-            os.remove(self.tarname)
+            _really_remove(self.tarname)
 
     def _add_testfile(self, fileobj=None):
         tar = tarfile.open(self.tarname, "a", fileobj=fileobj)
