@@ -1260,10 +1260,6 @@ class ComplexFloating(object):
 
     @complex_binary_op
     def pow(self, v1, v2):
-        if v1[1] == 0 and v2[1] == 0 and v1[0] > 0:
-            return math.pow(v1[0], v2[0]), 0
-        #if not rfloat.isfinite(v1[0]) or not rfloat.isfinite(v1[1]):
-        #    return rfloat.NAN, rfloat.NAN
         try:
             return rcomplex.c_pow(v1, v2)
         except ZeroDivisionError:
@@ -1591,17 +1587,8 @@ elif interp_boxes.long_double_size in (12, 16):
         ComponentBoxType = interp_boxes.W_FloatLongBox
 
 class BaseStringType(BaseType):
-    _immutable_fields = ['size']
-
-    def __init__(self, size=0):
-        BaseType.__init__(self)
-        self.size = size
-
     def get_element_size(self):
-        return self.size * rffi.sizeof(self.T)
-
-    def get_size(self):
-        return self.size
+        return rffi.sizeof(self.T)
 
 def str_unary_op(func):
     specialize.argtype(1)(func)
@@ -1636,13 +1623,13 @@ class StringType(BaseStringType):
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        return self._store(arr.storage, i, offset, box)
+        size = min(arr.dtype.size, box.arr.size - box.ofs)
+        return self._store(arr.storage, i, offset, box, size)
 
     @jit.unroll_safe
-    def _store(self, storage, i, offset, box):
+    def _store(self, storage, i, offset, box, size):
         assert isinstance(box, interp_boxes.W_StringBox)
-        # XXX simplify to range(box.dtype.get_size()) ?
-        for k in range(min(self.size, box.arr.size-box.ofs)):
+        for k in range(size):
             storage[k + offset + i] = box.arr.storage[k + box.ofs]
 
     def read(self, arr, i, offset, dtype=None):
@@ -1719,23 +1706,25 @@ class StringType(BaseStringType):
         return bool(self.to_str(v))
 
     def build_and_convert(self, space, mydtype, box):
+        if isinstance(box, interp_boxes.W_StringBox):
+            return box
         assert isinstance(box, interp_boxes.W_GenericBox)
         if box.get_dtype(space).is_str_or_unicode():
             arg = box.get_dtype(space).itemtype.to_str(box)
         else:
             w_arg = box.descr_str(space)
             arg = space.str_w(space.str(w_arg))
-        arr = VoidBoxStorage(self.size, mydtype)
+        arr = VoidBoxStorage(mydtype.size, mydtype)
         i = 0
-        for i in range(min(len(arg), self.size)):
+        for i in range(min(len(arg), mydtype.size)):
             arr.storage[i] = arg[i]
-        for j in range(i + 1, self.size):
+        for j in range(i + 1, mydtype.size):
             arr.storage[j] = '\x00'
-        return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+        return interp_boxes.W_StringBox(arr, 0, arr.dtype)
 
     def fill(self, storage, width, box, start, stop, offset):
         for i in xrange(start, stop, width):
-            self._store(storage, i, offset, box)
+            self._store(storage, i, offset, box, width)
 
 class UnicodeType(BaseStringType):
     T = lltype.UniChar
@@ -1772,14 +1761,14 @@ class VoidType(BaseStringType):
                 ofs += size
 
     def coerce(self, space, dtype, w_items):
-        arr = VoidBoxStorage(self.size, dtype)
+        arr = VoidBoxStorage(dtype.get_size(), dtype)
         self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
-        for k in range(self.get_element_size()):
+        for k in range(box.arr.dtype.get_size()):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
 
     def readarray(self, arr, i, offset, dtype=None):
@@ -1793,15 +1782,9 @@ class VoidType(BaseStringType):
 
 class RecordType(BaseType):
     T = lltype.Char
-    _immutable_fields_ = ['offsets_and_fields', 'size']
-
-    def __init__(self, offsets_and_fields, size):
-        BaseType.__init__(self)
-        self.offsets_and_fields = offsets_and_fields
-        self.size = size
 
     def get_element_size(self):
-        return self.size
+        return rffi.sizeof(self.T)
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
@@ -1817,14 +1800,14 @@ class RecordType(BaseType):
         if not space.issequence_w(w_item):
             raise OperationError(space.w_TypeError, space.wrap(
                 "expected sequence"))
-        if len(self.offsets_and_fields) != space.len_w(w_item):
+        if len(dtype.fields) != space.len_w(w_item):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)
-        arr = VoidBoxStorage(self.size, dtype)
+        arr = VoidBoxStorage(dtype.get_size(), dtype)
         for i in range(len(items_w)):
-            subdtype = dtype.fields[dtype.fieldnames[i]][1]
-            ofs, itemtype = self.offsets_and_fields[i]
+            ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
+            itemtype = subdtype.itemtype
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
             itemtype.store(arr, 0, ofs, w_box)
@@ -1833,7 +1816,7 @@ class RecordType(BaseType):
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
-        for k in range(self.get_element_size()):
+        for k in range(box.arr.dtype.get_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
 
     @jit.unroll_safe
@@ -1841,7 +1824,9 @@ class RecordType(BaseType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         pieces = ["("]
         first = True
-        for ofs, tp in self.offsets_and_fields:
+        for name in box.dtype.fieldnames:
+            ofs, subdtype = box.dtype.fields[name]
+            tp = subdtype.itemtype
             if first:
                 first = False
             else:

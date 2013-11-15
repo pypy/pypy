@@ -40,7 +40,7 @@ Index of various topics:
 
 * `FAQ`_: some frequently asked questions.
 
-* `Release 2.1.0`_: the latest official release
+* `Release 2.2.0`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
@@ -110,7 +110,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
-.. _`Release 2.1.0`: http://pypy.org/download.html
+.. _`Release 2.2.0`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
 .. _`potential project ideas`: project-ideas.html

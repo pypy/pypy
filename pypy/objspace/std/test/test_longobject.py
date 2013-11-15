@@ -42,7 +42,6 @@ class TestW_LongObject:
 
 
 class AppTestLong:
-
     def test_trunc(self):
         import math
         assert math.trunc(1) == 1
@@ -374,6 +373,11 @@ class AppTestLong:
 
         assert int(int(3)) == int(3)
         assert int(A(13)) == 42
+
+    def test_long_error_msg(self):
+        e = raises(TypeError, long, [])
+        assert str(e.value) == (
+            "long() argument must be a string or a number, not 'list'")
 
     def test_large_identity(self):
         import sys

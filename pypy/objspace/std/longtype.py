@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, interpindirect2app, unwrap_spec)
@@ -40,9 +40,13 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             w_obj = w_value
             if space.lookup(w_obj, '__int__') is not None:
                 w_obj = space.int(w_obj)
-            else:
+            elif space.lookup(w_obj, '__trunc__') is not None:
                 w_obj = space.trunc(w_obj)
                 w_obj = space.int(w_obj)
+            else:
+                raise operationerrfmt(space.w_TypeError,
+                    "long() argument must be a string or a number, not '%T'",
+                    w_obj)
             if space.is_w(w_longtype, space.w_int):
                 return w_obj
             bigint = space.bigint_w(w_obj)

@@ -11,7 +11,7 @@ class MmapTests(unittest.TestCase):
 
     def setUp(self):
         if os.path.exists(TESTFN):
-            os.unlink(TESTFN)
+            unlink(TESTFN)
 
     def tearDown(self):
         try:

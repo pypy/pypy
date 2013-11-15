@@ -148,6 +148,10 @@ class BaseArrayTests:
             raises(OverflowError, a.append, 2 ** (8 * b))
 
     def test_fromstring(self):
+        a = self.array('l')
+        a.fromstring('')
+        assert not len(a)
+
         for t in 'bBhHiIlLfd':
             a = self.array(t)
             a.fromstring('\x00' * a.itemsize * 2)

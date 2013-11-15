@@ -661,13 +661,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[newaxis] == [[2, 3, 4]]).all()
 
     def test_scalar(self):
-        from numpypy import array, dtype
+        from numpypy import array, dtype, int64
         a = array(3)
         raises(IndexError, "a[0]")
         raises(IndexError, "a[0] = 5")
         assert a.size == 1
         assert a.shape == ()
         assert a.dtype is dtype(int)
+        b = a[()]
+        assert type(b) is int64
+        assert b == 3
 
     def test_len(self):
         from numpypy import array
@@ -1746,6 +1749,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == a).all()
         b[1] = -1
         assert a[0][1] == -1
+        a = np.arange(9).reshape((3, 1, 3, 1))
+        b = a.squeeze(1)
+        assert b.shape == (3, 3, 1)
+        b = a.squeeze((1,))
+        assert b.shape == (3, 3, 1)
+        b = a.squeeze((1, -1))
+        assert b.shape == (3, 3)
+        exc = raises(ValueError, a.squeeze, 5)
+        assert exc.value.message == "'axis' entry 5 is out of bounds [-4, 4)"
+        exc = raises(ValueError, a.squeeze, 0)
+        assert exc.value.message == "cannot select an axis to squeeze out " \
+                                    "which has size greater than one"
+        exc = raises(ValueError, a.squeeze, (1, 1))
+        assert exc.value.message == "duplicate value in 'axis'"
 
     def test_swapaxes(self):
         from numpypy import array
@@ -2452,23 +2469,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert exc.value[0].find('cannot assign') >= 0
         assert (a == [[0, 1], [2, 3], [4, 5]]).all()
 
-    def test_nonarray_assignment(self):
-        import numpypy as np
-        a = np.arange(10)
-        b = np.ones(10, dtype=bool)
-        r = np.arange(10)
-        def assign(a, b, c):
-            a[b] = c
-        raises(ValueError, assign, a, b, np.nan)
-        #raises(ValueError, assign, a, r, np.nan)  # XXX
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            a[b] = np.array(np.nan)
-            #a[r] = np.array(np.nan)
-        else:
-            raises(ValueError, assign, a, b, np.array(np.nan))
-            #raises(ValueError, assign, a, r, np.array(np.nan))
-
     def test_copy_kwarg(self):
         from numpypy import array
         x = array([1, 2, 3])
@@ -2708,6 +2708,9 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (u == [1]).all()
         else:
             assert (u == [1, 0]).all()
+        v = fromstring("abcd", dtype="|S2")
+        assert v[0] == "ab"
+        assert v[1] == "cd"
 
     def test_fromstring_types(self):
         from numpypy import fromstring, array, dtype
@@ -2895,6 +2898,14 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0] == 'abc'
         assert a[1] == 'def'
         assert a[2] == 'ab'
+        b = array(["\x00\x01", "\x00\x02\x03"], dtype=str)
+        assert str(b.dtype) == '|S3'
+        assert b[0] == "\x00\x01"
+        assert b[1] == "\x00\x02\x03"
+        assert b.tostring() == "\x00\x01\x00\x00\x02\x03"
+        c = b.astype(b.dtype)
+        assert (b == c).all()
+        assert c.tostring() == "\x00\x01\x00\x00\x02\x03"
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
         b = array(['abcdefg', 'ab', 'cd'])
@@ -2922,6 +2933,15 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
         assert a == 'x'
+
+    def test_newbyteorder(self):
+        import numpy as np
+        a = np.array([1, 2], dtype=np.int16)
+        b = a.newbyteorder()
+        assert (b == [256, 512]).all()
+        c = b.byteswap()
+        assert (c == [1, 2]).all()
+        assert (a == [1, 2]).all()
 
     def test_pickle(self):
         from numpypy import dtype, array

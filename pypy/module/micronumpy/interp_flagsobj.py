@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError
 class W_FlagsObject(W_Root):
     def __init__(self, arr):
         self.arr = arr
+        self.flags = 0
 
     def descr_get_contiguous(self, space):
         return space.w_True
@@ -32,10 +33,23 @@ class W_FlagsObject(W_Root):
         raise OperationError(space.w_KeyError, space.wrap(
             "Unknown flag"))
 
+    def eq(self, space, w_other):
+        if not isinstance(w_other, W_FlagsObject):
+            return False
+        return self.flags == w_other.flags
+
+    def descr_eq(self, space, w_other):
+        return space.wrap(self.eq(space, w_other))
+
+    def descr_ne(self, space, w_other):
+        return space.wrap(not self.eq(space, w_other))
+
 W_FlagsObject.typedef = TypeDef("flagsobj",
     __module__ = "numpy",
     __getitem__ = interp2app(W_FlagsObject.descr_getitem),
     __setitem__ = interp2app(W_FlagsObject.descr_setitem),
+    __eq__ = interp2app(W_FlagsObject.descr_eq),
+    __ne__ = interp2app(W_FlagsObject.descr_ne),
 
     contiguous = GetSetProperty(W_FlagsObject.descr_get_contiguous),
     c_contiguous = GetSetProperty(W_FlagsObject.descr_get_contiguous),

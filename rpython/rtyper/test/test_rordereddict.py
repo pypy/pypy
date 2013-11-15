@@ -1,6 +1,9 @@
 
 import py
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:     # Python 2.6
+    py.test.skip("requires collections.OrderedDict")
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
