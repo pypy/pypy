@@ -828,13 +828,14 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         from numpypy import dtype, str_
 
         raises(TypeError, "dtype('Sx')")
-        d = dtype('S8')
-        assert d.itemsize == 8
-        assert dtype(str) == dtype('S')
-        assert d.kind == 'S'
-        assert d.type is str_
-        assert d.name == "string64"
-        assert d.num == 18
+        for t in ['S8', '|S8', '=S8']:
+            d = dtype(t)
+            assert d.itemsize == 8
+            assert dtype(str) == dtype('S')
+            assert d.kind == 'S'
+            assert d.type is str_
+            assert d.name == "string64"
+            assert d.num == 18
         for i in [1, 2, 3]:
             d = dtype('c%d' % i)
             assert d.itemsize == 1

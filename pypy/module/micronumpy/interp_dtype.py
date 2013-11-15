@@ -390,7 +390,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return cache.dtypes_by_name[name]
         except KeyError:
             pass
-        if name[0] in 'VSUc' or name[0] in '<>=' and name[1] in 'VSUc':
+        if name[0] in 'VSUc' or name[0] in '<>=|' and name[1] in 'VSUc':
             return variable_dtype(space, name)
         raise OperationError(space.w_TypeError, space.wrap(
             "data type %s not understood" % name))
@@ -452,7 +452,7 @@ W_Dtype.typedef.acceptable_as_base_class = False
 
 
 def variable_dtype(space, name):
-    if name[0] in '<>=':
+    if name[0] in '<>=|':
         name = name[1:]
     char = name[0]
     if len(name) == 1:
