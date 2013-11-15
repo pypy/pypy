@@ -2717,6 +2717,9 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (u == [1]).all()
         else:
             assert (u == [1, 0]).all()
+        v = fromstring("abcd", dtype="|S2")
+        assert v[0] == "ab"
+        assert v[1] == "cd"
 
     def test_fromstring_types(self):
         from numpypy import fromstring, array, dtype

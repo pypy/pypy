@@ -481,12 +481,16 @@ fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
                                   greens = ['itemsize', 'dtype'],
                                   reds = 'auto')
 
-def fromstring_loop(a, dtype, itemsize, s):
+def fromstring_loop(space, a, dtype, itemsize, s):
     i = 0
     ai = a.create_iter()
     while not ai.done():
         fromstring_driver.jit_merge_point(dtype=dtype, itemsize=itemsize)
-        val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
+        sub = s[i*itemsize:i*itemsize + itemsize]
+        if dtype.is_str_or_unicode():
+            val = dtype.coerce(space, space.wrap(sub))
+        else:
+            val = dtype.itemtype.runpack_str(sub)
         ai.setitem(val)
         ai.next()
         i += 1
