@@ -1607,9 +1607,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(a) == 6
         assert (a == [0,1,2,3,4,5]).all()
         assert a.dtype is dtype(int)
-        if 0: # XXX why does numpy allow this?
-            a = concatenate((a1, a2), axis=1)
-            assert (a == [0,1,2,3,4,5]).all()
+        a = concatenate((a1, a2), axis=1)
+        assert (a == [0,1,2,3,4,5]).all()
         a = concatenate((a1, a2), axis=-1)
         assert (a == [0,1,2,3,4,5]).all()
 
@@ -1644,6 +1643,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(exc.value) == \
                 "all the input arrays must have same number of dimensions"
+
+        exc = raises(ValueError, concatenate, (b1, b2), axis=1)
+        assert str(exc.value) == \
+                "all the input array dimensions except for the " \
+                "concatenation axis must match exactly"
 
         g1 = array([0,1,2])
         g2 = array([[3,4,5]])
