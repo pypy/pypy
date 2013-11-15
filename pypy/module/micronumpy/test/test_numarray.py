@@ -2911,6 +2911,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert b[0] == "\x00\x01"
         assert b[1] == "\x00\x02\x03"
         assert b.tostring() == "\x00\x01\x00\x00\x02\x03"
+        c = b.astype(b.dtype)
+        assert (b == c).all()
+        assert c.tostring() == "\x00\x01\x00\x00\x02\x03"
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
         b = array(['abcdefg', 'ab', 'cd'])

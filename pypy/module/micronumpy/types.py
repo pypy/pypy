@@ -1706,6 +1706,8 @@ class StringType(BaseStringType):
         return bool(self.to_str(v))
 
     def build_and_convert(self, space, mydtype, box):
+        if isinstance(box, interp_boxes.W_StringBox):
+            return box
         assert isinstance(box, interp_boxes.W_GenericBox)
         if box.get_dtype(space).is_str_or_unicode():
             arg = box.get_dtype(space).itemtype.to_str(box)
