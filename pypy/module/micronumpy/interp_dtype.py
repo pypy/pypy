@@ -231,7 +231,8 @@ class W_Dtype(W_Root):
         if self.fields is None:
             raise OperationError(space.w_KeyError, space.wrap(
                 "There are no fields in dtype %s." % self.name))
-        if space.isinstance_w(w_item, space.w_basestring):
+        if (space.isinstance_w(w_item, space.w_unicode) or
+            space.isinstance_w(w_item, space.w_bytes)):
             item = space.str_w(w_item)
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)

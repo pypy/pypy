@@ -410,7 +410,8 @@ class W_FlexibleBox(W_GenericBox):
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
-        if space.isinstance_w(w_item, space.w_basestring):
+        if (space.isinstance_w(w_item, space.w_unicode) or
+            space.isinstance_w(w_item, space.w_bytes)):
             item = space.str_w(w_item)
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
