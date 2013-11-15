@@ -224,6 +224,9 @@ class W_Dtype(W_Root):
                         raise
                     break
 
+    def descr_get_hasobject(self, space):
+        return space.w_False
+
     def descr_getitem(self, space, w_item):
         if self.fields is None:
             raise OperationError(space.w_KeyError, space.wrap(
@@ -443,6 +446,7 @@ W_Dtype.typedef = TypeDef("dtype",
     isnative = GetSetProperty(W_Dtype.descr_get_isnative),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
+    hasobject = GetSetProperty(W_Dtype.descr_get_hasobject),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
