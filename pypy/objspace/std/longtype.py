@@ -45,7 +45,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                 w_obj = space.int(w_obj)
             else:
                 raise operationerrfmt(space.w_TypeError,
-                    "long() argument must be a string or a number, not '%T'",
+                    "int() argument must be a string or a number, not '%T'",
                     w_obj)
             if space.is_w(w_longtype, space.w_int):
                 return w_obj
@@ -68,7 +68,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                 s = strval.decode('latin-1')
             except OperationError:
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("long() can't convert non-string "
+                                     space.wrap("int() can't convert non-string "
                                                 "with explicit base"))
         return string_to_w_long(space, w_longtype, s, base)
 
