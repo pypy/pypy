@@ -3070,12 +3070,14 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         h = np.array(buf, dtype=descr)
         assert len(h) == 2
         skip('broken')  # XXX
-        assert np.array_equal(h['x'], np.array([buf[0][0],
-                                                buf[1][0]], dtype='i4'))
-        assert np.array_equal(h['y'], np.array([buf[0][1],
-                                                buf[1][1]], dtype='f8'))
-        assert np.array_equal(h['z'], np.array([buf[0][2],
-                                                buf[1][2]], dtype='u1'))
+        for v in (h, h[0], h['x']):
+            repr(v)  # check for crash in repr
+        assert (h['x'] == np.array([buf[0][0],
+                                    buf[1][0]], dtype='i4')).all()
+        assert (h['y'] == np.array([buf[0][1],
+                                    buf[1][1]], dtype='f8')).all()
+        assert (h['z'] == np.array([buf[0][2],
+                                    buf[1][2]], dtype='u1')).all()
 
     def test_multidim_subarray(self):
         from numpypy import dtype, array
