@@ -661,7 +661,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[newaxis] == [[2, 3, 4]]).all()
 
     def test_scalar(self):
-        from numpypy import array, dtype, int64
+        from numpypy import array, dtype, int_
         a = array(3)
         raises(IndexError, "a[0]")
         raises(IndexError, "a[0] = 5")
@@ -669,7 +669,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.shape == ()
         assert a.dtype is dtype(int)
         b = a[()]
-        assert type(b) is int64
+        assert type(b) is int_
         assert b == 3
 
     def test_len(self):
