@@ -663,8 +663,10 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_scalar(self):
         from numpypy import array, dtype, int_
         a = array(3)
-        raises(IndexError, "a[0]")
-        raises(IndexError, "a[0] = 5")
+        exc = raises(IndexError, "a[0]")
+        assert exc.value[0] == "0-d arrays can't be indexed"
+        exc = raises(IndexError, "a[0] = 5")
+        assert exc.value[0] == "0-d arrays can't be indexed"
         assert a.size == 1
         assert a.shape == ()
         assert a.dtype is dtype(int)

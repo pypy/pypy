@@ -130,19 +130,20 @@ class Scalar(base.BaseArrayImplementation):
             if space.len_w(w_idx) == 0:
                 return self.get_scalar_value()
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def getitem_index(self, space, idx):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def descr_setitem(self, space, _, w_idx, w_val):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def setitem_index(self, space, idx, w_val):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
+
     def set_shape(self, space, orig_array, new_shape):
         if not new_shape:
             return self
