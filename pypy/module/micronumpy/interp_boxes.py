@@ -418,6 +418,9 @@ class W_FlexibleBox(W_GenericBox):
     def get_dtype(self, space):
         return self.arr.dtype
 
+    def raw_str(self):
+        return self.arr.dtype.itemtype.to_str(self)
+
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
         if space.isinstance_w(w_item, space.w_basestring):
@@ -468,9 +471,6 @@ class W_CharacterBox(W_FlexibleBox):
     def convert_to(self, dtype):
         # XXX assert dtype is str type
         return self
-
-    def raw_str(self):
-        return self.arr.dtype.itemtype.to_str(self)
 
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):

@@ -1535,6 +1535,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
         assert a.view('S4') == 'abc1'
+        a = array([(1, 2)], dtype=[('a', int), ('b', int)])[0]
+        assert a.shape == ()
+        assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
 
     def test_array_view(self):
         from numpypy import array, dtype
@@ -1566,6 +1569,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array(['abc', 'defg'], dtype='string')
         assert x.view('S4')[0] == 'abc'
         assert x.view('S4')[1] == 'defg'
+        a = array([(1, 2)], dtype=[('a', int), ('b', int)])
+        assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
     def test_ndarray_view_empty(self):
         from numpypy import array, dtype

@@ -1586,9 +1586,23 @@ elif interp_boxes.long_double_size in (12, 16):
         BoxType = interp_boxes.W_ComplexLongBox
         ComponentBoxType = interp_boxes.W_FloatLongBox
 
-class BaseStringType(BaseType):
+class FlexibleType(BaseType):
     def get_element_size(self):
         return rffi.sizeof(self.T)
+
+    @jit.unroll_safe
+    def to_str(self, item):
+        builder = StringBuilder()
+        assert isinstance(item, interp_boxes.W_FlexibleBox)
+        i = item.ofs
+        end = i + item.dtype.get_size()
+        while i < end:
+            assert isinstance(item.arr.storage[i], str)
+            if item.arr.storage[i] == '\x00':
+                break
+            builder.append(item.arr.storage[i])
+            i += 1
+        return builder.build()
 
 def str_unary_op(func):
     specialize.argtype(1)(func)
@@ -1607,7 +1621,7 @@ def str_binary_op(func):
         )
     return dispatcher
 
-class StringType(BaseStringType):
+class StringType(FlexibleType):
     T = lltype.Char
 
     @jit.unroll_safe
@@ -1636,20 +1650,6 @@ class StringType(BaseStringType):
         if dtype is None:
             dtype = arr.dtype
         return interp_boxes.W_StringBox(arr, i + offset, dtype)
-
-    @jit.unroll_safe
-    def to_str(self, item):
-        builder = StringBuilder()
-        assert isinstance(item, interp_boxes.W_StringBox)
-        i = item.ofs
-        end = i + item.dtype.get_size()
-        while i < end:
-            assert isinstance(item.arr.storage[i], str)
-            if item.arr.storage[i] == '\x00':
-                break
-            builder.append(item.arr.storage[i])
-            i += 1
-        return builder.build()
 
     def str_format(self, item):
         builder = StringBuilder()
@@ -1726,7 +1726,7 @@ class StringType(BaseStringType):
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box, width)
 
-class UnicodeType(BaseStringType):
+class UnicodeType(FlexibleType):
     T = lltype.UniChar
 
     @jit.unroll_safe
@@ -1736,7 +1736,7 @@ class UnicodeType(BaseStringType):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "coerce (probably from set_item) not implemented for unicode type"))
 
-class VoidType(BaseStringType):
+class VoidType(FlexibleType):
     T = lltype.Char
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
@@ -1780,11 +1780,8 @@ class VoidType(BaseStringType):
                              dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
         return W_NDimArray(implementation)
 
-class RecordType(BaseType):
+class RecordType(FlexibleType):
     T = lltype.Char
-
-    def get_element_size(self):
-        return rffi.sizeof(self.T)
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
