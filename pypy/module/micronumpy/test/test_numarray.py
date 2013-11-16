@@ -1535,6 +1535,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
         assert a.view('S4') == 'abc1'
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.view, [('a', 'i2'), ('b', 'i2')])
+        else:
+            b = a.view([('a', 'i2'), ('b', 'i2')])
+            assert b.shape == (1,)
+            assert b[0][0] == 25185
+            assert b[0][1] == 12643
         a = array([(1, 2)], dtype=[('a', int), ('b', int)])[0]
         assert a.shape == ()
         assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'

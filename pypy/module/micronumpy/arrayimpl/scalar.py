@@ -72,6 +72,9 @@ class Scalar(base.BaseArrayImplementation):
         scalar = Scalar(dtype)
         if dtype.is_str_or_unicode():
             scalar.value = dtype.coerce(space, space.wrap(self.value.raw_str()))
+        elif dtype.is_record_type():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "viewing scalar as record not implemented"))
         else:
             scalar.value = dtype.itemtype.runpack_str(self.value.raw_str())
         return scalar
