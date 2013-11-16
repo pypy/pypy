@@ -1782,9 +1782,11 @@ class VoidType(FlexibleType):
         from pypy.module.micronumpy.base import W_NDimArray
         if dtype is None:
             dtype = arr.dtype
-        strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
+        strides, backstrides = support.calc_strides(dtype.shape,
+                                                    dtype.subdtype, arr.order)
         implementation = SliceArray(i + offset, strides, backstrides,
-                             dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
+                                    dtype.shape, arr, W_NDimArray(arr),
+                                    dtype.subdtype)
         return W_NDimArray(implementation)
 
 class RecordType(FlexibleType):
