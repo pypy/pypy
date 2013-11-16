@@ -82,7 +82,7 @@ You can either install Tk development headers package or
 add --without-tk option to skip packaging binary CFFI extension."""
             sys.exit(1)
         #Can the dependencies be found from cffi somehow?    
-        win_extras += ['tk85t.dll', 'tk85.dll', 'tcl85t.dll', 'tcl85.dll']    
+        win_extras += ['tcl85.dll', 'tk85.dll']    
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -124,6 +124,19 @@ add --without-tk option to skip packaging binary CFFI extension."""
             # XXX users will complain that they cannot compile cpyext
             # modules for windows, has the lib moved or are there no
             # exported functions in the dll so no import library is created?
+        if not withouttk:
+            try:
+                p = pypy_c.dirpath().join('tck85.dll')
+                if not p.check():
+                    p = py.path.local.sysfind(extra)
+                tktcldir = p.dirpath().join('..').join('tcltk').join('_lib')
+                shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
+            except WindowsError:
+                print >>sys.stderr, """Packaging Tk runtime failed.
+tk85.dll and tcl85.dll found, expecting to find runtime in ..\\tcktk\\lib
+directory next to the dlls, as per build instructions."""
+                import traceback;traceback.print_exc()
+                sys.exit(1)
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.

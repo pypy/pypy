@@ -73,18 +73,11 @@ from
 https://bitbucket.org/pypy/pypy/downloads/local.zip
 Then expand it into the base directory (base_dir) and modify your environment to reflect this::
 
-    set PATH=<base_dir>\bin;%PATH%
-    set INCLUDE=<base_dir>\include;%INCLUDE%
-    set LIB=<base_dir>\lib;%LIB%
+    set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
+    set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
+    set LIB=<base_dir>\lib;<base_dir>\tcltk\lib;%LIB%
 
-Now you should be good to go. Read on for more information. Note that much of this is taken from
-the python.org build process for version 2.7 
-(  http://hg.python.org/cpython/file/v2.7.5/Tools/buildbot/external-common.bat and
-http://hg.python.org/cpython/file/v2.7.5/Tools/buildbot/external.bat ), and can be run automagically
-by:: 
-
-    cd <base_dir>
-    nmake -F <pypy-checkout>\pypy\tool\build_win32_extern.mk all
+Now you should be good to go. Read on for more information. 
 
 The Boehm garbage collector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -159,12 +152,23 @@ both case the perl interpreter must be found on the PATH.
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~
 
-and
+Note that much of this is taken from the cpython build process.
+Tkinter is imported via cffi, so the module is optional. To recreate the tcltk
+directory found for the release script, create the dlls, libs, headers and
+runtime by running::
 
-    svn export http://svn.python.org/projects/external/tcl-8.5.2.1
-    svn export http://svn.python.org/projects/external/sqlite-3.6.21
+	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85 
+	svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
+	cd tcl85\win 
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all 
+	nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
+	cd ..\..\tk85\win 
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all 
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
 
-
+Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
+for use. The release packaging script will pick up the tcltk runtime in the lib
+directory and put it in the archive.
 
 Using the mingw compiler
 ------------------------
