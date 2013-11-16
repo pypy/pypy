@@ -115,6 +115,8 @@ class AppTestScalar(BaseNumpyAppTest):
         t = s.view('S8')
         assert type(t) is np.string_
         assert t == '\x0c'
+        s = np.dtype('string').type('abc1')
+        assert s.view('S4') == 'abc1'
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np

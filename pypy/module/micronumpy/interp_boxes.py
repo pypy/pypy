@@ -469,6 +469,9 @@ class W_CharacterBox(W_FlexibleBox):
         # XXX assert dtype is str type
         return self
 
+    def raw_str(self):
+        return self.arr.dtype.itemtype.to_str(self)
+
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype

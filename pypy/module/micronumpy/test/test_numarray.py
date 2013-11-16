@@ -1533,6 +1533,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(TypeError, a.view, 'string')
         assert exc.value[0] == "data-type must not be 0-sized"
         assert a.view('S4') == '\x03'
+        a = array('abc1', dtype='c')
+        assert a.view('S4') == 'abc1'
 
     def test_array_view(self):
         from numpypy import array, dtype
@@ -1558,6 +1560,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array(range(15), dtype='int16').reshape(3,5).T
         assert x.view('int8').shape == (10, 3)
         #assert x.view('S2')[1][1] == '\x06'
+        x = array(['abc', 'defg'], dtype='c')
+        assert x.view('S1')[0] == 'a'
+        assert x.view('S1')[1] == 'd'
+        x = array(['abc', 'defg'], dtype='string')
+        assert x.view('S4')[0] == 'abc'
+        assert x.view('S4')[1] == 'defg'
 
     def test_ndarray_view_empty(self):
         from numpypy import array, dtype
