@@ -1546,6 +1546,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([(1, 2)], dtype=[('a', int), ('b', int)])[0]
         assert a.shape == ()
         assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
+        a = array(2, dtype=int)
+        b = a.view('complex64')
+        assert 0 < b.real < 1
+        assert b.imag == 0
 
     def test_array_view(self):
         from numpypy import array, dtype

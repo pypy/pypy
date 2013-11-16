@@ -197,7 +197,7 @@ class Primitive(object):
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value)
 
-    def runpack_str(self, s):
+    def runpack_str(self, space, s):
         v = runpack(self.format_code, s)
         return self.box(v)
 
@@ -961,7 +961,7 @@ class Float16(BaseType, Float):
     def box(self, value):
         return self.BoxType(rffi.cast(rffi.DOUBLE, value))
 
-    def runpack_str(self, s):
+    def runpack_str(self, space, s):
         assert len(s) == 2
         fval = unpack_float(s, native_is_bigendian)
         return self.box(fval)
@@ -1043,6 +1043,13 @@ class ComplexFloating(object):
             raw_storage_setitem(storage, i+offset, real)
             raw_storage_setitem(storage,
                     i+offset+rffi.sizeof(self.T), imag)
+
+    def runpack_str(self, space, s):
+        comp = self.ComponentBoxType._get_dtype(space).itemtype
+        l = len(s) // 2
+        real = comp.runpack_str(space, s[:l])
+        imag = comp.runpack_str(space, s[l:])
+        return self.composite(real, imag)
 
     @staticmethod
     def for_computation(v):
@@ -1570,7 +1577,7 @@ elif interp_boxes.long_double_size in (12, 16):
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_FloatLongBox
 
-        def runpack_str(self, s):
+        def runpack_str(self, space, s):
             assert len(s) == interp_boxes.long_double_size
             fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)

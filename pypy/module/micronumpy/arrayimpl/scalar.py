@@ -76,7 +76,7 @@ class Scalar(base.BaseArrayImplementation):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "viewing scalar as record not implemented"))
         else:
-            scalar.value = dtype.itemtype.runpack_str(self.value.raw_str())
+            scalar.value = dtype.itemtype.runpack_str(space, self.value.raw_str())
         return scalar
 
     def get_real(self, orig_array):

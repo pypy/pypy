@@ -111,6 +111,10 @@ class AppTestScalar(BaseNumpyAppTest):
         t = s.view('double')
         assert type(t) is np.double
         assert t < 7e-323
+        t = s.view('complex64')
+        assert type(t) is np.complex64
+        assert 0 < t.real < 1
+        assert t.imag == 0
         exc = raises(TypeError, s.view, 'string')
         assert exc.value[0] == "data-type must not be 0-sized"
         t = s.view('S8')

@@ -284,7 +284,7 @@ class W_GenericBox(W_Root):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "viewing scalar as record not implemented"))
         else:
-            return dtype.itemtype.runpack_str(self.raw_str())
+            return dtype.itemtype.runpack_str(space, self.raw_str())
 
     def descr_self(self, space):
         return self
