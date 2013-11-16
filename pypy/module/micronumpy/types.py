@@ -1644,7 +1644,7 @@ class StringType(FlexibleType):
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        size = min(arr.dtype.size, box.arr.size - box.ofs)
+        size = min(arr.dtype.size - offset, box.arr.size - box.ofs)
         return self._store(arr.storage, i, offset, box, size)
 
     @jit.unroll_safe
@@ -1822,6 +1822,17 @@ class RecordType(FlexibleType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(box.arr.dtype.get_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
+
+    def to_builtin_type(self, space, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        items = []
+        dtype = box.dtype
+        for name in dtype.fieldnames:
+            ofs, subdtype = dtype.fields[name]
+            itemtype = subdtype.itemtype
+            subbox = itemtype.read(box.arr, box.ofs, ofs, subdtype)
+            items.append(itemtype.to_builtin_type(space, subbox))
+        return space.newtuple(items)
 
     @jit.unroll_safe
     def str_format(self, box):

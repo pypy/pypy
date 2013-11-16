@@ -2590,6 +2590,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array([1]).item() == 1
         a = array('x')
         assert a.item() == 'x'
+        a = array([(1, 'abc')], dtype=[('a', int), ('b', 'S2')])
+        b = a.item(0)
+        assert type(b) is tuple
+        assert type(b[0]) is int
+        assert type(b[1]) is str
+        assert b[0] == 1
+        assert b[1] == 'ab'
 
     def test_int_array_index(self):
         from numpypy import array
