@@ -979,6 +979,7 @@ class LLFrame(object):
     op_stm_become_inevitable = _stm_not_implemented
     op_stm_stop_all_other_threads = _stm_not_implemented
     op_stm_partial_commit_and_resume_other_threads = _stm_not_implemented
+    op_jit_stm_transaction_break_point = _stm_not_implemented
 
     # __________________________________________________________
     # operations on addresses

@@ -35,6 +35,7 @@ def arguments(*args):
 
 class MIFrame(object):
     debug = False
+    # Write resops corresponding to jitcodes
 
     def __init__(self, metainterp):
         self.metainterp = metainterp
@@ -58,6 +59,9 @@ class MIFrame(object):
         self.parent_resumedata_frame_info_list = None
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
+        # for stm: placement of stm_break_point
+        self.stm_break_wanted = False
+        self.stm_break_done = False
 
     @specialize.arg(3)
     def copy_constants(self, registers, constants, ConstClass):
@@ -186,7 +190,22 @@ class MIFrame(object):
             raise AssertionError("bad result box type")
 
     # ------------------------------
-
+    @arguments("int")
+    def opimpl_stm_transaction_break(self, if_there_is_no_other):
+        val = bool(if_there_is_no_other)
+        if (self.stm_break_wanted or (val and not self.stm_break_done)):
+            self.stm_break_done = True
+            self.stm_break_wanted = False
+            if not val:
+                print "did an stm_transaction_break(False)"
+            else:
+                print "did an stm_transaction_break(True)"
+            self.execute(rop.STM_TRANSACTION_BREAK, ConstInt(val))
+        elif not val:
+            print "ignored stm_transaction_break(False)"
+        elif val:
+            print "ignored stm_transaction_break(True)"
+    
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
                     'int_ne', 'int_gt', 'int_ge',
@@ -1406,6 +1425,7 @@ class MIFrame(object):
             # XXX refactor: direct_libffi_call() is a hack
             if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
                 self.metainterp.direct_libffi_call()
+            self.stm_break_wanted = True
             return resbox
         else:
             effect = effectinfo.extraeffect

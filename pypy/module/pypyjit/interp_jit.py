@@ -6,7 +6,7 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from rpython.rlib import jit
+from rpython.rlib import jit, rstm
 from rpython.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -69,6 +69,8 @@ class __extend__(PyFrame):
                 pypyjitdriver.jit_merge_point(ec=ec,
                     frame=self, next_instr=next_instr, pycode=pycode,
                     is_being_profiled=is_being_profiled)
+                # nothing inbetween!
+                rstm.jit_stm_transaction_break_point(False)
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
@@ -94,6 +96,7 @@ class __extend__(PyFrame):
             self.last_instr = intmask(jumpto)
             ec.bytecode_trace(self, decr_by)
             jumpto = r_uint(self.last_instr)
+            rstm.jit_stm_transaction_break_point(True)
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                     pycode=self.getcode(),

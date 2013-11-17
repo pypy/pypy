@@ -11,10 +11,11 @@ from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import jit, rstackovf
+from rpython.rlib import jit, rstackovf, rstm
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.debug import check_nonneg
 from pypy.tool.stdlib_opcode import bytecode_spec
+from rpython.rlib.jit import we_are_jitted
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -63,6 +64,8 @@ class __extend__(pyframe.PyFrame):
                     stmonly_jitdriver.jit_merge_point(
                         self=self, co_code=co_code,
                         next_instr=next_instr, ec=ec)
+                    # nothing inbetween!
+                    rstm.jit_stm_transaction_break_point(False)
                     self = self._hints_for_stm()
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
@@ -452,7 +455,6 @@ class __extend__(pyframe.PyFrame):
                 # one of the opcodes in the one of the sequences
                 #    * POP_TOP/LOAD_CONST/RETURN_VALUE
                 #    * POP_TOP/LOAD_FAST/RETURN_VALUE
-                from rpython.rlib import rstm
                 if rstm.should_break_transaction():
                     opcode = ord(co_code[next_instr])
                     if opcode not in (opcodedesc.RETURN_VALUE.index,

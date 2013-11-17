@@ -1,6 +1,9 @@
 ------------------------------------------------------------
 
 POSSIBLE BUG:
+part of this is done: still investigate where transaction
+  breaks are really allowed to happen in the JIT. (JUMP,
+  FINISH, call_footer(), ...)
 investigate if another thread can force a jitframe. Thus,
 making a transaction break *after* a guard_not_forced
 would be wrong, as the force will only be visible after

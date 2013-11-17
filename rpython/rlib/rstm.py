@@ -29,6 +29,26 @@ def get_adr_of_read_barrier_cache():
     addr = llop.stm_get_adr_of_read_barrier_cache(llmemory.Address)
     return rffi.cast(lltype.Signed, addr)
 
+def jit_stm_transaction_break_point(if_there_is_no_other):
+    # if_there_is_no_other means that we use this point only
+    # if there is no other break point in the trace.
+    # If it is False, the point may be used if it comes right
+    # a CALL_RELEASE_GIL
+    pass # specialized below
+    # llop.jit_stm_transaction_break_point(lltype.Void,
+    #                                      if_there_is_no_other)
+
+class JitSTMTransactionBreakPoint(ExtRegistryEntry):
+    _about_ = jit_stm_transaction_break_point
+    def compute_result_annotation(self, arg):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_None
+    def specialize_call(self, hop):
+        [v_arg] = hop.inputargs(lltype.Bool)
+        hop.exception_cannot_occur()
+        return hop.genop('jit_stm_transaction_break_point', [v_arg],
+                         resulttype=lltype.Void)
+    
 @dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)

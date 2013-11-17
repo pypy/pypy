@@ -48,6 +48,9 @@ def stm_initialize(funcgen, op):
                        sizeof(struct pypy_object0 *));
     '''
 
+def jit_stm_transaction_break_point(funcgen, op):
+    return '/* jit_stm_transaction_break_point */'
+    
 def stm_finalize(funcgen, op):
     return 'stm_finalize();'
 

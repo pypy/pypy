@@ -1276,16 +1276,13 @@ class RegAlloc(BaseRegalloc):
         self.perform_discard(op, [base_loc, ofs_loc, size_loc])
         
     def consider_stm_transaction_break(self, op):
-        check_type_box = op.getarg(0)
-        assert isinstance(check_type_box, ConstInt)
-        check_type = check_type_box.getint()
         #
         # only save regs for the should_break_transaction call
         self.xrm.before_call()
         self.rm.before_call()
         gcmap = self.get_gcmap() # allocate the gcmap *before*
         #
-        self.assembler.stm_transaction_break(check_type, gcmap)
+        self.assembler.stm_transaction_break(gcmap)
         
 
     def consider_jump(self, op):

@@ -43,7 +43,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         debug_start("jit-stmrewrite-ops")
         # overridden method from parent class
         #
-        insert_transaction_break = False
         for op in operations:
             opnum = op.getopnum()
             if not we_are_translated():
@@ -54,6 +53,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                     continue
             if opnum in (rop.INCREMENT_DEBUG_COUNTER,
                          rop.DEBUG_MERGE_POINT):
+                self.newops.append(op)
+                continue
+            # ----------  transaction breaks  ----------
+            if opnum == rop.STM_TRANSACTION_BREAK:
+                self.emitting_an_operation_that_can_collect()
+                self.next_op_may_be_in_new_transaction()
                 self.newops.append(op)
                 continue
             # ----------  ptr_eq  ----------
@@ -82,22 +87,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
                 self.newops.append(op)
-
-                # insert a transaction break after call_release_gil
-                # in order to commit the inevitable transaction following
-                # it immediately
-                if (opnum == rop.GUARD_NOT_FORCED
-                    and insert_transaction_break):
-                    # insert transaction_break after GUARD after calls
-                    self.newops.append(
-                        ResOperation(rop.STM_TRANSACTION_BREAK,
-                                     [ConstInt(0)], None))
-                    insert_transaction_break = False
-                    self.emitting_an_operation_that_can_collect()
-                    self.next_op_may_be_in_new_transaction()
-                else:
-                    assert insert_transaction_break is False
-
                 continue
             # ----------  getfields  ----------
             if opnum in (rop.GETFIELD_GC, rop.GETARRAYITEM_GC,
@@ -118,14 +107,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             if op.is_call():
                 self.emitting_an_operation_that_can_collect()
                 self.next_op_may_be_in_new_transaction()
-
-                if opnum in (rop.CALL_MAY_FORCE, rop.CALL_ASSEMBLER,
-                             rop.CALL_RELEASE_GIL):
-                    # insert more transaction breaks after function
-                    # calls since they are likely to return as
-                    # inevitable transactions
-                    insert_transaction_break = True
-                    
+                                    
                 if opnum == rop.CALL_RELEASE_GIL:
                     # self.fallback_inevitable(op)
                     # is done by assembler._release_gil_shadowstack()
@@ -137,6 +119,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                     # non-transactionsafe and non-releasegil function
                     descr = op.getdescr()
                     assert not descr or isinstance(descr, CallDescr)
+                    
                     if not descr or not descr.get_extra_info() \
                       or descr.get_extra_info().call_needs_inevitable():
                         self.fallback_inevitable(op)
@@ -156,16 +139,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.emitting_an_operation_that_can_collect()
                 self.next_op_may_be_in_new_transaction()
                 
-                self.known_lengths.clear()
-                self.always_inevitable = False
                 self.newops.append(op)
                 continue
             # ----------  jumps  ----------
             if opnum == rop.JUMP:
-                self.newops.append(
-                    ResOperation(rop.STM_TRANSACTION_BREAK,
-                                 [ConstInt(1)], None))
-                # self.emitting_an_operation_that_can_collect()
                 self.newops.append(op)
                 continue
             # ----------  finish, other ignored ops  ----------
@@ -181,8 +158,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             debug_print("fallback for", op.repr())
             #
 
-        # call_XX without guard_not_forced?
-        assert not insert_transaction_break
         debug_stop("jit-stmrewrite-ops")
         return self.newops
 
@@ -191,7 +166,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.invalidate_write_categories()
     
     def next_op_may_be_in_new_transaction(self):
+        self.known_lengths.clear() # XXX: check if really necessary or
+                                   # just for labels
         self.known_category.clear()
+        self.always_inevitable = False
 
     def invalidate_write_categories(self):
         for v, c in self.known_category.items():

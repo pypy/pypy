@@ -1341,6 +1341,16 @@ class Transformer(object):
                                           [v], None))
         return ops
 
+    def rewrite_op_jit_stm_transaction_break_point(self, op):
+        if isinstance(op.args[0], Constant):
+            arg = int(op.args[0].value)
+            c_arg = Constant(arg, lltype.Signed)
+        else:
+            log.WARNING("stm_transaction_break_point without const argument, assuming False in %r" % (self.graph,))
+            c_arg = Constant(0, lltype.Signed)
+
+        return SpaceOperation('stm_transaction_break', [c_arg], op.result)
+    
     def rewrite_op_jit_marker(self, op):
         key = op.args[0].value
         jitdriver = op.args[1].value

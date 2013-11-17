@@ -413,6 +413,8 @@ LL_OPERATIONS = {
     # NOTE: use canmallocgc for all operations that can contain a collection.
     #       that includes all that do 'BecomeInevitable' or otherwise contain
     #       possible GC safe-points! (also sync with stmframework.py)
+    # (some ops like stm_commit_transaction don't need it because there
+    #  must be no gc-var access afterwards anyway)
     'stm_initialize':         LLOp(),
     'stm_finalize':           LLOp(),
     'stm_barrier':            LLOp(sideeffects=False),
@@ -522,6 +524,7 @@ LL_OPERATIONS = {
     'jit_assembler_call': LLOp(canrun=True,   # similar to an 'indirect_call'
                                canraise=(Exception,),
                                canmallocgc=True),
+    'jit_stm_transaction_break_point' : LLOp(),
 
     # __________ GC operations __________
 

@@ -7,24 +7,29 @@ from rpython.rtyper.annlowlevel import (MixLevelHelperAnnotator,
                                       cast_base_ptr_to_instance)
 from rpython.rlib import rstm
 from rpython.tool.sourcetools import compile2
+from rpython.translator.c.support import log
 
-
-def find_jit_merge_point(graph):
+def find_jit_merge_point(graph, relaxed=False):
     found = []
     for block in graph.iterblocks():
         for i in range(len(block.operations)):
             op = block.operations[i]
-            if (op.opname == 'jit_marker' and
-                    op.args[0].value == 'jit_merge_point'):
+            if (op.opname == 'jit_marker'
+                and op.args[0].value == 'jit_merge_point'):
                 jitdriver = op.args[1].value
                 if not jitdriver.autoreds:
-                    found.append((block, i))
+                    if (relaxed
+                        or (i + 1 < len(block.operations)
+                            and block.operations[i+1].opname == 'jit_stm_transaction_break_point')):
+                        found.append((block, i))
+                    else:
+                        log.WARNING("ignoring jitdriver without a transaction break point in %r" % (graph,))
                 else:
-                    from rpython.translator.c.support import log
                     log.WARNING("ignoring jitdriver with autoreds in %r" % (
                         graph,))        # XXX XXX!
+
+    assert len(found) <= 1, "several jit_merge_point's in %r" % (graph,)
     if found:
-        assert len(found) == 1, "several jit_merge_point's in %r" % (graph,)
         return found[0]
     else:
         return None
@@ -44,7 +49,8 @@ class JitDriverSplitter(object):
     #     while 1:               ====>      while 1:
     #         jit_merge_point()   |             if should_break_transaction():
     #         stuff_after         |                 return invoke_stm(..)
-    # ----------------------------+             stuff_after
+    #                             |             stuff_after
+    # ----------------------------+             
     #
     # def invoke_stm(..):
     #     p = new container object
@@ -125,7 +131,7 @@ class JitDriverSplitter(object):
     def rewrite_main_graph(self):
         # add 'should_break_transaction()'
         main_graph = self.main_graph
-        block1, i = find_jit_merge_point(main_graph)
+        block1, i = find_jit_merge_point(main_graph, relaxed=True)
         assert i == len(block1.operations) - 1
         del block1.operations[i]
         blockf = self.add_call_should_break_transaction(block1)
@@ -194,7 +200,7 @@ class JitDriverSplitter(object):
         #
         # change the startblock of callback_graph to point just after the
         # jit_merge_point
-        block1, i = find_jit_merge_point(callback_graph)
+        block1, i = find_jit_merge_point(callback_graph, relaxed=True)
         assert i == len(block1.operations) - 1
         del block1.operations[i]
         [link] = block1.exits

@@ -920,6 +920,14 @@ def test_promote_2():
     assert block.operations[1].result is None
     assert block.exits[0].args == [v1]
 
+def test_jit_stm_transaction_break_point():
+    op = SpaceOperation('jit_stm_transaction_break_point',
+                        [Constant(1, lltype.Signed)], lltype.Void)
+    tr = Transformer()
+    op2 = tr.rewrite_operation(op)
+    assert op2.opname == 'stm_transaction_break'
+    assert op2.args[0].value == 1
+    
 def test_jit_merge_point_1():
     class FakeJitDriverSD:
         index = 42

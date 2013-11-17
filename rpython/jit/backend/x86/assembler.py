@@ -194,7 +194,8 @@ class Assembler386(BaseAssembler):
             return    # tests only
 
         """ While arriving on slowpath, we have a gcpattern on stack 0.
-        This function must preserve all registers
+        This function does not have to preserve registers. It expects
+        all registers to be saved in the caller.
         """
         mc = codebuf.MachineCodeBlockWrapper()
         # store the gc pattern
@@ -3153,26 +3154,12 @@ class Assembler386(BaseAssembler):
         mc.MOV(dest_addr, X86_64_SCRATCH_REG)
 
         
-    def stm_transaction_break(self, check_type, gcmap):
+    def stm_transaction_break(self, gcmap):
         assert self.cpu.gc_ll_descr.stm
         if not we_are_translated():
             return     # tests only
 
-        # check_type: 0 do a check for inevitable before
-        # doing a check of stm_should_break_transaction().
-        # else, just do stm_should_break_transaction()
         mc = self.mc
-        if check_type == 0:
-            # only check stm_should_break_transaction()
-            # if we are inevitable:
-            nc = self._get_stm_tl(rstm.get_active_adr())
-            self._tl_segment_if_stm(mc)
-            mc.CMP_ji(nc, 1)
-            mc.J_il(rx86.Conditions['Z'], 0xfffff)    # patched later
-            jz_location = mc.get_relative_pos()
-        else:
-            jz_location = 0
-        
         # if stm_should_break_transaction()
         fn = stmtlocal.stm_should_break_transaction_fn
         mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
@@ -3200,7 +3187,8 @@ class Assembler386(BaseAssembler):
         # CALL break function
         fn = self.stm_transaction_break_path
         mc.CALL(imm(fn))
-        # HERE is the place an aborted transaction retries
+        # ** HERE ** is the place an aborted transaction retries
+        # ebp/frame reloaded by longjmp callback
         #
         # restore regs
         base_ofs = self.cpu.get_baseofs_of_frame_field()
@@ -3216,9 +3204,6 @@ class Assembler386(BaseAssembler):
             mc.MOVSD_xb(xr.value, (ofs + xr.value * coeff) * WORD + base_ofs)
         #
         # patch the JZ above
-        if jz_location:
-            offset = mc.get_relative_pos() - jz_location
-            mc.overwrite32(jz_location-4, offset)
         offset = mc.get_relative_pos() - jz_location2
         mc.overwrite32(jz_location2-4, offset)
 
