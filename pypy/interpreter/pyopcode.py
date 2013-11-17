@@ -61,6 +61,8 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 if self.space.config.translation.stm:
+                    # only used for no-jit. The jit-jitdriver is
+                    # in interp_jit.py
                     stmonly_jitdriver.jit_merge_point(
                         self=self, co_code=co_code,
                         next_instr=next_instr, ec=ec)
