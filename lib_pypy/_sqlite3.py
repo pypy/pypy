@@ -271,14 +271,14 @@ if _has_load_extension():
 if sys.platform.startswith('freebsd'):
     _lib = _ffi.verify("""
     #include <sqlite3.h>
-    """, libraries=['sqlite3']
+    """, libraries=['sqlite3']],
+         include_dirs=['/usr/local/include'],
+         library_dirs=['/usr/local/lib']
     )
 else:
     _lib = _ffi.verify("""
     #include <sqlite3.h>
-    """, libraries=['sqlite3']],
-         include_dirs=['/usr/local/include'],
-         library_dirs=['/usr/local/lib']
+    """, libraries=['sqlite3']
     )
 
 exported_sqlite_symbols = [
