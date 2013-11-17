@@ -1543,10 +1543,10 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b.shape == (1,)
             assert b[0][0] == 25185
             assert b[0][1] == 12643
-        a = array([(1, 2)], dtype=[('a', int), ('b', int)])[0]
+        a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])[0]
         assert a.shape == ()
         assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
-        a = array(2, dtype=int)
+        a = array(2, dtype='int64')
         b = a.view('complex64')
         assert 0 < b.real < 1
         assert b.imag == 0
@@ -1581,7 +1581,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array(['abc', 'defg'], dtype='string')
         assert x.view('S4')[0] == 'abc'
         assert x.view('S4')[1] == 'defg'
-        a = array([(1, 2)], dtype=[('a', int), ('b', int)])
+        a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])
         assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
     def test_ndarray_view_empty(self):

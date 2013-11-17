@@ -130,9 +130,9 @@ class AppTestScalar(BaseNumpyAppTest):
             assert b[0] == 25185
             assert b[1] == 12643
         if '__pypy__' in sys.builtin_module_names:
-            raises(TypeError, "np.dtype([('a', int), ('b', int)]).type('a' * 16)")
+            raises(TypeError, "np.dtype([('a', 'int64'), ('b', 'int64')]).type('a' * 16)")
         else:
-            s = np.dtype([('a', int), ('b', int)]).type('a' * 16)
+            s = np.dtype([('a', 'int64'), ('b', 'int64')]).type('a' * 16)
             assert s.view('S16') == 'a' * 16
 
     def test_complex_scalar_complex_cast(self):
