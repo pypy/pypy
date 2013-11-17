@@ -48,6 +48,6 @@ Release Steps
 * send announcements to pypy-dev, python-list,
   python-announce, python-dev ...
 
-* add a tag on jitviewer that corresponds to pypy release
-* add a tag on codespeed that corresponds to pypy release
+* add a tag on the pypy/jitviewer repo that corresponds to pypy release
+* add a tag on the codespeed web site that corresponds to pypy release
 

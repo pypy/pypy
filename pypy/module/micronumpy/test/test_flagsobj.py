@@ -20,3 +20,10 @@ class AppTestFlagsObj(BaseNumpyAppTest):
         import numpy as np
         a = np.int32(2)
         assert a.flags.c_contiguous == True
+
+    def test_compare(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        b = np.array([4,5,6,7])
+        assert a.flags == b.flags
+        assert not a.flags != b.flags

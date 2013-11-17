@@ -523,6 +523,9 @@ class __extend__(SomeString,
             return SomeObject.op_contains(str, s_element)
     op_contains.can_only_throw = []
 
+    def method_format(self, *args):
+        raise AnnotatorError("Method format() is not RPython")
+
 
 class __extend__(SomeByteArray):
     def getslice(ba, s_start, s_stop):
