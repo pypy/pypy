@@ -126,14 +126,14 @@ add --without-tk option to skip packaging binary CFFI extension."""
             # exported functions in the dll so no import library is created?
         if not withouttk:
             try:
-                p = pypy_c.dirpath().join('tck85.dll')
+                p = pypy_c.dirpath().join('tcl85.dll')
                 if not p.check():
-                    p = py.path.local.sysfind(extra)
-                tktcldir = p.dirpath().join('..').join('tcltk').join('_lib')
+                    p = py.path.local.sysfind('tcl85.dll')
+                tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
                 print >>sys.stderr, """Packaging Tk runtime failed.
-tk85.dll and tcl85.dll found, expecting to find runtime in ..\\tcktk\\lib
+tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
 directory next to the dlls, as per build instructions."""
                 import traceback;traceback.print_exc()
                 sys.exit(1)
