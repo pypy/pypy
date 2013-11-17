@@ -268,10 +268,18 @@ def _has_load_extension():
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
 
-_lib = _ffi.verify("""
-#include <sqlite3.h>
-""", libraries=['sqlite3']
-)
+if sys.platform.startswith('freebsd'):
+    _lib = _ffi.verify("""
+    #include <sqlite3.h>
+    """, libraries=['sqlite3']],
+         include_dirs=['/usr/local/include'],
+         library_dirs=['/usr/local/lib']
+    )
+else:
+    _lib = _ffi.verify("""
+    #include <sqlite3.h>
+    """, libraries=['sqlite3']
+    )
 
 exported_sqlite_symbols = [
     'SQLITE_ALTER_TABLE',
