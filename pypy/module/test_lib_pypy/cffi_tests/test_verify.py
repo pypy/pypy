@@ -1638,7 +1638,11 @@ def test_callback_indirection():
         #include <malloc.h>
         #define alloca _alloca
         #else
-        #include <alloca.h>
+        # ifdef __FreeBSD__
+        #  include <stdlib.h>
+        # else
+        #  include <alloca.h>
+        # endif
         #endif
         static int (*python_callback)(int how_many, int *values);
         static int c_callback(int how_many, ...) {
