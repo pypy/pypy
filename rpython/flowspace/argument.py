@@ -83,6 +83,14 @@ class CallSpec(object):
         self.arguments_w = args_w
         self.keywords = keywords or {}
 
+    def __repr__(self):
+        """ NOT_RPYTHON """
+        name = self.__class__.__name__
+        if not self.keywords:
+            return '%s(%s)' % (name, self.arguments_w,)
+        else:
+            return '%s(%s, %s)' % (name, self.arguments_w, self.keywords)
+
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """
         shape_cnt  = len(self.arguments_w)    # Number of positional args

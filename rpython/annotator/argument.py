@@ -2,22 +2,9 @@
 Arguments objects.
 """
 from rpython.annotator.model import SomeTuple
+from rpython.flowspace.argument import CallSpec
 
-class ArgumentsForTranslation(object):
-    def __init__(self, args_w, keywords=None, w_stararg=None):
-        self.w_stararg = w_stararg
-        assert isinstance(args_w, list)
-        self.arguments_w = args_w
-        self.keywords = keywords or {}
-
-    def __repr__(self):
-        """ NOT_RPYTHON """
-        name = self.__class__.__name__
-        if not self.keywords:
-            return '%s(%s)' % (name, self.arguments_w,)
-        else:
-            return '%s(%s, %s)' % (name, self.arguments_w, self.keywords)
-
+class ArgumentsForTranslation(CallSpec):
     @property
     def positional_args(self):
         if self.w_stararg is not None:
