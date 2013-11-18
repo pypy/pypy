@@ -490,7 +490,7 @@ def fromstring_loop(space, a, dtype, itemsize, s):
         if dtype.is_str_or_unicode():
             val = dtype.coerce(space, space.wrap(sub))
         else:
-            val = dtype.itemtype.runpack_str(sub)
+            val = dtype.itemtype.runpack_str(space, sub)
         ai.setitem(val)
         ai.next()
         i += 1

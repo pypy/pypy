@@ -67,18 +67,22 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             raise PyPyCNotFound(
                 'Bogus path: %r does not exist (see docstring for more info)'
                 % (os.path.dirname(str(pypy_c)),))
+    win_extras = ['libpypy-c.dll', 'libexpat.dll', 'sqlite3.dll',
+                      'libeay32.dll', 'ssleay32.dll']
     subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
     if not sys.platform == 'win32':
         subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
         subprocess.check_call([str(pypy_c), '-c', 'import syslog'])
-        if not withouttk:
-            try:
-                subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
-            except subprocess.CalledProcessError:
-                print >>sys.stderr, """Building Tk bindings failed.
+    if not withouttk:
+        try:
+            subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
+        except subprocess.CalledProcessError:
+            print >>sys.stderr, """Building Tk bindings failed.
 You can either install Tk development headers package or
 add --without-tk option to skip packaging binary CFFI extension."""
-                sys.exit(1)
+            sys.exit(1)
+        #Can the dependencies be found from cffi somehow?    
+        win_extras += ['tcl85.dll', 'tk85.dll']    
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -101,9 +105,7 @@ add --without-tk option to skip packaging binary CFFI extension."""
 
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
 
-        for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll',
-                      'libeay32.dll', 'ssleay32.dll']:
+        for extra in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -122,6 +124,19 @@ add --without-tk option to skip packaging binary CFFI extension."""
             # XXX users will complain that they cannot compile cpyext
             # modules for windows, has the lib moved or are there no
             # exported functions in the dll so no import library is created?
+        if not withouttk:
+            try:
+                p = pypy_c.dirpath().join('tcl85.dll')
+                if not p.check():
+                    p = py.path.local.sysfind('tcl85.dll')
+                tktcldir = p.dirpath().join('..').join('lib')
+                shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
+            except WindowsError:
+                print >>sys.stderr, """Packaging Tk runtime failed.
+tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
+directory next to the dlls, as per build instructions."""
+                import traceback;traceback.print_exc()
+                sys.exit(1)
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
@@ -216,6 +231,12 @@ if __name__ == '__main__':
             break
         else:
             print_usage()
+
+    if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
+        kw['nostrip'] = True
+
+    if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
+        kw['withouttk'] = True
 
     args = args[i:]
     package(*args, **kw)

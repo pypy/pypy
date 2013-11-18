@@ -198,7 +198,8 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
+                and len(w_idx.get_shape()) > 0:
             return self.getitem_filter(space, w_idx)
         try:
             return self.implementation.descr_getitem(space, self, w_idx)
@@ -212,7 +213,8 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
+                and len(w_idx.get_shape()) > 0:
             self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
             return
         try:
@@ -704,7 +706,7 @@ class __extend__(W_NDimArray):
             return self
         return wrap_impl(space, space.type(self), self,
                          self.implementation.get_view(
-                             self, self.get_dtype(), new_shape))
+                             space, self, self.get_dtype(), new_shape))
 
     def descr_strides(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -733,11 +735,14 @@ class __extend__(W_NDimArray):
         impl = self.implementation
         new_shape = self.get_shape()[:]
         dims = len(new_shape)
+        if new_itemsize == 0:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "data-type must not be 0-sized"))
         if dims == 0:
             # Cannot resize scalars
             if old_itemsize != new_itemsize:
                 raise OperationError(space.w_ValueError, space.wrap(
-                    "new type not compatible with array shape"))
+                    "new type not compatible with array."))
         else:
             if dims == 1 or impl.get_strides()[0] < impl.get_strides()[-1]:
                 # Column-major, resize first dimension
@@ -751,7 +756,7 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 new_shape[-1] = new_shape[-1] * old_itemsize / new_itemsize
-        v = impl.get_view(self, dtype, new_shape)
+        v = impl.get_view(space, self, dtype, new_shape)
         w_ret = wrap_impl(space, w_type, self, v)
         return w_ret
 
