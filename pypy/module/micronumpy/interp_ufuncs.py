@@ -343,17 +343,15 @@ class W_Ufunc1(W_Ufunc):
                               w_obj.get_scalar_value().convert_to(calc_dtype))
             if out is None:
                 return w_val
-            if isinstance(out, W_NDimArray):
-                if out.is_scalar():
-                    out.set_scalar_value(w_val)
-                else:
-                    out.fill(res_dtype.coerce(space, w_val))
-            return self.call_prepare(space, out, w_obj, w_val)
+            if out.is_scalar():
+                out.set_scalar_value(w_val)
+            else:
+                out.fill(res_dtype.coerce(space, w_val))
+            return out
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        w_result = loop.call1(space, shape, self.func, calc_dtype, res_dtype,
+        return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
-        return self.call_prepare(space, out, w_obj, w_result)
 
 
 class W_Ufunc2(W_Ufunc):
@@ -423,11 +421,11 @@ class W_Ufunc2(W_Ufunc):
             promote_bools=self.promote_bools)
         if space.is_none(w_out):
             out = None
-        #elif not isinstance(w_out, W_NDimArray):
-        #    raise OperationError(space.w_TypeError, space.wrap(
-        #            'output must be an array'))
+        elif not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                    'output must be an array'))
         else:
-            out = convert_to_array(space, w_out)
+            out = w_out
             calc_dtype = out.get_dtype()
         if self.comparison_func:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
@@ -443,15 +441,14 @@ class W_Ufunc2(W_Ufunc):
                     out.set_scalar_value(arr)
                 else:
                     out.fill(arr)
-                arr = out
-            # XXX handle array_priority
-            return self.call_prepare(space, out, w_lhs, arr)
+            else:
+                out = arr
+            return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        w_result = loop.call2(space, new_shape, self.func, calc_dtype,
+        return loop.call2(space, new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
-        # XXX handle array_priority
-        return self.call_prepare(space, out, w_lhs, w_result)
+
 
 W_Ufunc.typedef = TypeDef("ufunc",
     __module__ = "numpypy",
