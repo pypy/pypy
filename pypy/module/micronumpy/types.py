@@ -1789,6 +1789,25 @@ class VoidType(FlexibleType):
                                     dtype.subdtype)
         return W_NDimArray(implementation)
 
+    def str_format(self, val):
+        # only called with the results of readarray()
+        from pypy.module.micronumpy.base import W_NDimArray
+        assert isinstance(val, W_NDimArray)
+        i = val.create_iter()
+        first = True
+        dtype = val.get_dtype()
+        s = StringBuilder()
+        s.append('[')
+        while not i.done():
+            if first:
+                first = False
+            else:
+                s.append(', ')
+            s.append(dtype.itemtype.str_format(i.getitem()))
+            i.next()
+        s.append(']')
+        return s.build()
+
 class RecordType(FlexibleType):
     T = lltype.Char
 
@@ -1848,7 +1867,11 @@ class RecordType(FlexibleType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
+            if isinstance(tp, VoidType):
+                val = tp.readarray(box.arr, box.ofs, ofs, subdtype)
+            else:
+                val = tp.read(box.arr, box.ofs, ofs, subdtype)
+            pieces.append(tp.str_format(val))
         pieces.append(")")
         return "".join(pieces)
 
