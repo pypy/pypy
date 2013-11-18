@@ -173,7 +173,6 @@ class W_Ufunc(W_Root):
         shapelen = len(obj_shape)
         axis = unwrap_axis_arg(space, shapelen, w_axis)
         assert axis >= 0
-        size = obj.get_size()
         dtype = interp_dtype.decode_w_dtype(space, dtype)
         if dtype is None:
             if self.comparison_func:
