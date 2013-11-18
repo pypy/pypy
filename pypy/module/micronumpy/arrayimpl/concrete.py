@@ -211,7 +211,15 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                     "field named %s not found" % idx))
             return RecordChunk(idx)
         if (space.isinstance_w(w_idx, space.w_int) or
-            space.isinstance_w(w_idx, space.w_slice)):
+                space.isinstance_w(w_idx, space.w_slice)):
+            return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
+        elif isinstance(w_idx, W_NDimArray) and \
+                isinstance(w_idx.implementation, scalar.Scalar):
+            w_idx = w_idx.get_scalar_value().item(space)
+            if not space.isinstance_w(w_idx, space.w_int) and \
+                    not space.isinstance_w(w_idx, space.w_bool):
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "arrays used as indices must be of integer (or boolean) type"))
             return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
         elif space.is_w(w_idx, space.w_None):
             return Chunks([NewAxisChunk()])
