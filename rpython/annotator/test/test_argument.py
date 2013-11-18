@@ -65,51 +65,51 @@ class TestArgumentsForTranslation(object):
 
     def test_rawshape(self):
         args = MockArgs([1, 2, 3])
-        assert rawshape(args) == (3, (), False, False)
+        assert rawshape(args) == (3, (), False)
 
         args = MockArgs([1])
-        assert rawshape(args, 2) == (3, (), False, False)
+        assert rawshape(args, 2) == (3, (), False)
 
         args = MockArgs([1, 2, 3, 4, 5])
-        assert rawshape(args) == (5, (), False, False)
+        assert rawshape(args) == (5, (), False)
 
         args = MockArgs([1], {'c': 3, 'b': 2})
-        assert rawshape(args) == (1, ('b', 'c'), False, False)
+        assert rawshape(args) == (1, ('b', 'c'), False)
 
         args = MockArgs([1], {'c': 5})
-        assert rawshape(args) == (1, ('c', ), False, False)
+        assert rawshape(args) == (1, ('c', ), False)
 
         args = MockArgs([1], {'c': 5, 'd': 7})
-        assert rawshape(args) == (1, ('c', 'd'), False, False)
+        assert rawshape(args) == (1, ('c', 'd'), False)
 
         args = MockArgs([1, 2, 3, 4, 5], {'e': 5, 'd': 7})
-        assert rawshape(args) == (5, ('d', 'e'), False, False)
+        assert rawshape(args) == (5, ('d', 'e'), False)
 
     def test_flatten(self):
         args = MockArgs([1, 2, 3])
-        assert args.flatten() == ((3, (), False, False), [1, 2, 3])
+        assert args.flatten() == ((3, (), False), [1, 2, 3])
 
         args = MockArgs([1])
-        assert args.flatten() == ((1, (), False, False), [1])
+        assert args.flatten() == ((1, (), False), [1])
 
         args = MockArgs([1, 2, 3, 4, 5])
-        assert args.flatten() == ((5, (), False, False), [1, 2, 3, 4, 5])
+        assert args.flatten() == ((5, (), False), [1, 2, 3, 4, 5])
 
         args = MockArgs([1], {'c': 3, 'b': 2})
-        assert args.flatten() == ((1, ('b', 'c'), False, False), [1, 2, 3])
+        assert args.flatten() == ((1, ('b', 'c'), False), [1, 2, 3])
 
         args = MockArgs([1], {'c': 5})
-        assert args.flatten() == ((1, ('c', ), False, False), [1, 5])
+        assert args.flatten() == ((1, ('c', ), False), [1, 5])
 
         args = MockArgs([1], {'c': 5, 'd': 7})
-        assert args.flatten() == ((1, ('c', 'd'), False, False), [1, 5, 7])
+        assert args.flatten() == ((1, ('c', 'd'), False), [1, 5, 7])
 
         args = MockArgs([1, 2, 3, 4, 5], {'e': 5, 'd': 7})
-        assert args.flatten() == ((5, ('d', 'e'), False, False), [1, 2, 3, 4, 5, 7, 5])
+        assert args.flatten() == ((5, ('d', 'e'), False), [1, 2, 3, 4, 5, 7, 5])
 
     def test_stararg_flowspace_variable(self):
         var = object()
-        shape = ((2, ('g', ), True, False), [1, 2, 9, var])
+        shape = ((2, ('g', ), True), [1, 2, 9, var])
         args = MockArgs([1, 2], {'g': 9}, w_stararg=var)
         assert args.flatten() == shape
 
@@ -117,30 +117,30 @@ class TestArgumentsForTranslation(object):
         assert args.flatten() == shape
 
     def test_fromshape(self):
-        shape = ((3, (), False, False), [1, 2, 3])
+        shape = ((3, (), False), [1, 2, 3])
         args = MockArgs.fromshape(*shape)
         assert args.flatten() == shape
 
-        shape = ((1, (), False, False), [1])
+        shape = ((1, (), False), [1])
         args = MockArgs.fromshape(*shape)
         assert args.flatten() == shape
 
-        shape = ((5, (), False, False), [1, 2, 3, 4, 5])
+        shape = ((5, (), False), [1, 2, 3, 4, 5])
         args = MockArgs.fromshape(*shape)
         assert args.flatten() == shape
 
-        shape = ((1, ('b', 'c'), False, False), [1, 2, 3])
+        shape = ((1, ('b', 'c'), False), [1, 2, 3])
         args = MockArgs.fromshape(*shape)
         assert args.flatten() == shape
 
-        shape = ((1, ('c', ), False, False), [1, 5])
+        shape = ((1, ('c', ), False), [1, 5])
         args = MockArgs.fromshape(*shape)
         assert args.flatten() == shape
 
-        shape = ((1, ('c', 'd'), False, False), [1, 5, 7])
+        shape = ((1, ('c', 'd'), False), [1, 5, 7])
         args = MockArgs.fromshape(*shape)
         assert args.flatten() == shape
 
-        shape = ((5, ('d', 'e'), False, False), [1, 2, 3, 4, 5, 7, 5])
+        shape = ((5, ('d', 'e'), False), [1, 2, 3, 4, 5, 7, 5])
         args = MockArgs.fromshape(*shape)
         assert args.flatten() == shape

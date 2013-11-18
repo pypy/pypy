@@ -4,11 +4,8 @@ Arguments objects.
 from rpython.annotator.model import SomeTuple
 
 class ArgumentsForTranslation(object):
-    w_starstararg = None
-    def __init__(self, args_w, keywords=None,
-                 w_stararg=None, w_starstararg=None):
+    def __init__(self, args_w, keywords=None, w_stararg=None):
         self.w_stararg = w_stararg
-        assert w_starstararg is None
         assert isinstance(args_w, list)
         self.arguments_w = args_w
         self.keywords = keywords or {}
@@ -50,12 +47,11 @@ class ArgumentsForTranslation(object):
     def prepend(self, w_firstarg): # used often
         "Return a new Arguments with a new argument inserted first."
         return ArgumentsForTranslation([w_firstarg] + self.arguments_w,
-                                       self.keywords, self.w_stararg,
-                                       self.w_starstararg)
+                                       self.keywords, self.w_stararg)
 
     def copy(self):
         return ArgumentsForTranslation(self.arguments_w, self.keywords,
-                self.w_stararg, self.w_starstararg)
+                self.w_stararg)
 
     def _match_signature(self, scope_w, signature, defaults_w=None):
         """Parse args and kwargs according to the signature of a code object,
@@ -173,7 +169,7 @@ class ArgumentsForTranslation(object):
         return ArgumentsForTranslation(args_w, dict(zip(self.keywords, keywords_w)))
 
     @classmethod
-    def fromshape(cls, (shape_cnt, shape_keys, shape_star, shape_stst), data_w):
+    def fromshape(cls, (shape_cnt, shape_keys, shape_star), data_w):
         args_w = data_w[:shape_cnt]
         p = end_keys = shape_cnt + len(shape_keys)
         if shape_star:
@@ -181,30 +177,22 @@ class ArgumentsForTranslation(object):
             p += 1
         else:
             w_star = None
-        if shape_stst:
-            w_starstar = data_w[p]
-            p += 1
-        else:
-            w_starstar = None
         return cls(args_w, dict(zip(shape_keys, data_w[shape_cnt:end_keys])),
-                w_star, w_starstar)
+                w_star)
 
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """
-        shape_cnt, shape_keys, shape_star, shape_stst = self._rawshape()
+        shape_cnt, shape_keys, shape_star = self._rawshape()
         data_w = self.arguments_w + [self.keywords[key] for key in shape_keys]
         if shape_star:
             data_w.append(self.w_stararg)
-        if shape_stst:
-            data_w.append(self.w_starstararg)
-        return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
+        return (shape_cnt, shape_keys, shape_star), data_w
 
     def _rawshape(self, nextra=0):
         shape_cnt = len(self.arguments_w) + nextra  # Number of positional args
         shape_keys = tuple(sorted(self.keywords))
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
-        shape_stst = self.w_starstararg is not None  # Flag: presence of **kwds
-        return shape_cnt, shape_keys, shape_star, shape_stst
+        return shape_cnt, shape_keys, shape_star
 
 
 def rawshape(args, nextra=0):

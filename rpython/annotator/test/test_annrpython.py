@@ -1065,8 +1065,9 @@ class TestAnnotateTestCase:
         gf2 = graphof(a, f2)
         gf3 = graphof(a, f3)
 
-        assert fam1.calltables == {(2, (), False, False): [{fdesc1: gf1}], (1, (), False, False): [{fdesc1: gf1}]}
-        assert fam2.calltables == {(1, (), False, False): [{fdesc2: gf2, fdesc3: gf3}]}
+        assert fam1.calltables == {(2, (), False): [{fdesc1: gf1}],
+                                   (1, (), False): [{fdesc1: gf1}]}
+        assert fam2.calltables == {(1, (), False): [{fdesc2: gf2, fdesc3: gf3}]}
 
     def test_pbc_call_ins(self):
         class A(object):
@@ -1117,14 +1118,14 @@ class TestAnnotateTestCase:
         gfA_m = graphof(a, A.m.im_func)
         gfC_m = graphof(a, C.m.im_func)
 
-        assert famB_n.calltables == {(1, (), False, False): [{mdescB_n.funcdesc: gfB_n}] }
-        assert famA_m.calltables == {(1, (), False, False): [{mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }] }
+        assert famB_n.calltables == {(1, (), False): [{mdescB_n.funcdesc: gfB_n}] }
+        assert famA_m.calltables == {(1, (), False): [{mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }] }
 
         mdescCinit = getmdesc(C().__init__)
         famCinit = mdescCinit.getcallfamily()
         gfCinit = graphof(a, C.__init__.im_func)
 
-        assert famCinit.calltables == {(1, (), False, False): [{mdescCinit.funcdesc: gfCinit}] }
+        assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}] }
 
     def test_isinstance_usigned(self):
         def f(x):
@@ -2053,7 +2054,7 @@ class TestAnnotateTestCase:
 
         someint = annmodel.SomeInteger()
 
-        assert (fdesc.get_s_signatures((2,(),False,False))
+        assert (fdesc.get_s_signatures((2, (), False))
                 == [([someint,someint],someint)])
 
     def test_emulated_pbc_call_callback(self):
@@ -4080,7 +4081,7 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert ("RPython cannot unify instances with no common base class" 
+        assert ("RPython cannot unify instances with no common base class"
                 in exc.value.msg)
 
     def test_unionerror_iters(self):
@@ -4096,7 +4097,7 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert ("RPython cannot unify incompatible iterator variants" in 
+        assert ("RPython cannot unify incompatible iterator variants" in
                 exc.value.msg)
 
     def test_variable_getattr(self):

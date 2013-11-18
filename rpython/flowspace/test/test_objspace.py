@@ -748,8 +748,7 @@ class TestFlowObjSpace(Base):
         for block in graph.iterblocks():
             for op in block.operations:
                 assert op.opname == "call_args"
-                assert op.args == map(Constant,
-                        [g, (0, ('x',), False, False), 2])
+                assert op.args == map(Constant, [g, (0, ('x',), False), 2])
 
     def test_catch_importerror_1(self):
         def f():
