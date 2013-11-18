@@ -1869,11 +1869,19 @@ class AppTestNumArray(BaseNumpyAppTest):
                       [7, 8, 9]])
         assert (a[np.array(0)] == a[0]).all()
         assert (a[np.array(1)] == a[1]).all()
+        assert (a[np.array(True)] == a[1]).all()
+        assert (a[np.array(False)] == a[0]).all()
         exc = raises(IndexError, "a[np.array(1.1)]")
         assert exc.value.message == 'arrays used as indices must be of ' \
                                     'integer (or boolean) type'
-        assert (a[np.array(True)] == a[1]).all()
-        assert (a[np.array(False)] == a[0]).all()
+
+        a[np.array(1)] = a[2]
+        assert a[1][1] == 8
+        a[np.array(True)] = a[0]
+        assert a[1][1] == 2
+        exc = raises(IndexError, "a[np.array(1.1)] = a[2]")
+        assert exc.value.message == 'arrays used as indices must be of ' \
+                                    'integer (or boolean) type'
 
     def test_bool_array_index(self):
         from numpypy import arange, array
