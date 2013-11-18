@@ -217,5 +217,11 @@ if __name__ == '__main__':
         else:
             print_usage()
 
+    if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
+        kw['nostrip'] = True
+
+    if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
+        kw['withouttk'] = True
+
     args = args[i:]
     package(*args, **kw)
