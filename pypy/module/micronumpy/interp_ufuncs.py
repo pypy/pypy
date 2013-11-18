@@ -256,38 +256,6 @@ class W_Ufunc(W_Root):
             return out
         return res
 
-    def call_prepare(self, space, w_out, w_obj, w_result):
-        if isinstance(w_out, W_NDimArray):
-            w_array = space.lookup(w_out, "__array_prepare__")
-            w_caller = w_out
-        else:
-            w_array = space.lookup(w_obj, "__array_prepare__")
-            w_caller = w_obj
-        if w_array:
-            w_retVal = space.get_and_call_function(w_array, w_caller, w_result, None)
-            if not isinstance(w_retVal, W_NDimArray) and \
-               not isinstance(w_retVal, interp_boxes.Box):
-                raise OperationError(space.w_ValueError,
-                    space.wrap( "__array_prepare__ must return an "
-                                "ndarray or subclass thereof"))
-            if isinstance(w_result, interp_boxes.Box) or \
-                w_result.is_scalar():
-                if not isinstance(w_retVal, interp_boxes.Box) and not w_retVal.is_scalar():
-                    raise OperationError(space.w_TypeError,
-                        space.wrap( "__array_prepare__ must return an "
-                                    "ndarray or subclass thereof which is "
-                                    "otherwise identical to its input"))
-            elif w_result.get_shape() != w_retVal.get_shape() or \
-               w_result.implementation.get_strides() != \
-                    w_retVal.implementation.get_strides():
-                raise OperationError(space.w_TypeError,
-                    space.wrap( "__array_prepare__ must return an "
-                                "ndarray or subclass thereof which is "
-                                "otherwise identical to its input"))
-            return w_retVal
-        return w_result
-
-
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
     argcount = 1
