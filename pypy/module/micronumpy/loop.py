@@ -12,22 +12,12 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
 from pypy.module.micronumpy import constants
 from pypy.module.micronumpy.support import int_w
+from pypy.module.micronumpy import interp_boxes
 
-call2_driver = jit.JitDriver(name='numpy_call2',
-                             greens = ['shapelen', 'func', 'calc_dtype',
-                                       'res_dtype'],
-                             reds = ['shape', 'w_lhs', 'w_rhs', 'out',
-                                     'left_iter', 'right_iter', 'out_iter'])
-
-def call_prepare(self, space, w_out, w_obj, w_result):
-    if isinstance(w_out, W_NDimArray):
-        w_array = space.lookup(w_out, "__array_prepare__")
-        w_caller = w_out
-    else:
-        w_array = space.lookup(w_obj, "__array_prepare__")
-        w_caller = w_obj
+def call_prepare(space, w_obj, w_result):
+    w_array = space.lookup(w_obj, "__array_prepare__")
     if w_array:
-        w_retVal = space.get_and_call_function(w_array, w_caller, w_result, None)
+        w_retVal = space.get_and_call_function(w_array, w_obj, w_result, None)
         if not isinstance(w_retVal, W_NDimArray) and \
             not isinstance(w_retVal, interp_boxes.Box):
             raise OperationError(space.w_ValueError,
@@ -50,6 +40,11 @@ def call_prepare(self, space, w_out, w_obj, w_result):
         return w_retVal
     return w_result
 
+call2_driver = jit.JitDriver(name='numpy_call2',
+                             greens = ['shapelen', 'func', 'calc_dtype',
+                                       'res_dtype'],
+                             reds = ['shape', 'w_lhs', 'w_rhs', 'out',
+                                     'left_iter', 'right_iter', 'out_iter'])
 def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     # handle array_priority
     # w_lhs and w_rhs could be of different ndarray subtypes. Numpy does:
@@ -78,6 +73,10 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype,
                                      w_instance=lhs_for_subtype)
+        out = call_prepare(space, w_lhs, out)
+    else:
+        out = call_prepare(space, out, out)
+
     left_iter = w_lhs.create_iter(shape)
     right_iter = w_rhs.create_iter(shape)
     out_iter = out.create_iter(shape)
@@ -107,6 +106,9 @@ call1_driver = jit.JitDriver(name='numpy_call1',
 def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
+        out = call_prepare(space, w_obj, out)
+    else:
+        out = call_prepare(space, out, out)
     obj_iter = w_obj.create_iter(shape)
     out_iter = out.create_iter(shape)
     shapelen = len(shape)

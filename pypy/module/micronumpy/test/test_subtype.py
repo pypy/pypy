@@ -260,7 +260,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert type(x) == ndarray
         assert a.called_wrap
 
-    def test___array_prepare__2arg(self):
+    def test___array_prepare__2arg_scalar(self):
         from numpypy import ndarray, array, add, ones
         class with_prepare(ndarray):
             def __array_prepare__(self, arr, context):
@@ -287,7 +287,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert x.called_prepare
         raises(TypeError, add, a, b, out=c)
 
-    def test___array_prepare__1arg(self):
+    def test___array_prepare__1arg_scalar(self):
         from numpypy import ndarray, array, log, ones
         class with_prepare(ndarray):
             def __array_prepare__(self, arr, context):
@@ -316,6 +316,61 @@ class AppTestSupport(BaseNumpyAppTest):
         assert x.called_prepare
         raises(TypeError, log, a, out=c)
 
+    def test___array_prepare__2arg_array(self):
+        from numpypy import ndarray, array, add, ones
+        class with_prepare(ndarray):
+            def __array_prepare__(self, arr, context):
+                retVal = array(arr).view(type=with_prepare)
+                retVal.called_prepare = True
+                return retVal
+        class with_prepare_fail(ndarray):
+            called_prepare = False
+            def __array_prepare__(self, arr, context):
+                return array(arr[0]).view(type=with_prepare)
+        a = array([1])
+        b = array([1]).view(type=with_prepare)
+        x = add(a, a, out=b)
+        assert x == 2
+        assert type(x) == with_prepare
+        assert x.called_prepare
+        b.called_prepare = False
+        a = ones((3, 2)).view(type=with_prepare)
+        b = ones((3, 2))
+        c = ones((3, 2)).view(type=with_prepare_fail)
+        x = add(a, b, out=a)
+        assert (x == 2).all()
+        assert type(x) == with_prepare
+        assert x.called_prepare
+        raises(TypeError, add, a, b, out=c)
+
+    def test___array_prepare__1arg_array(self):
+        from numpypy import ndarray, array, log, ones
+        class with_prepare(ndarray):
+            def __array_prepare__(self, arr, context):
+                retVal = array(arr).view(type=with_prepare)
+                retVal.called_prepare = True
+                return retVal
+        class with_prepare_fail(ndarray):
+            def __array_prepare__(self, arr, context):
+                return array(arr[0]).view(type=with_prepare)
+        a = array([1])
+        b = array([1]).view(type=with_prepare)
+        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        x = log(a, out=b)
+        print 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        assert x == 0
+        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        assert type(x) == with_prepare
+        assert x.called_prepare
+        x.called_prepare = False
+        a = ones((3, 2)).view(type=with_prepare)
+        b = ones((3, 2))
+        c = ones((3, 2)).view(type=with_prepare_fail)
+        x = log(a)
+        assert (x == 0).all()
+        assert type(x) == with_prepare
+        assert x.called_prepare
+        raises(TypeError, log, a, out=c)
 
     def test___array_prepare__reduce(self):
         from numpypy import ndarray, array, sum, ones, add
