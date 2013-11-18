@@ -113,7 +113,7 @@ if sys.platform.startswith("openbsd"):
     linklibs = ['tk85', 'tcl85']
     libdirs = ['/usr/local/lib', '/usr/X11R6/lib']
 elif sys.platform.startswith("freebsd"):
-    incdirs = ['/usr/local/include/tcl8.6', '/usr/local/include/tk8.6', '/usr/local/include/X11']
+    incdirs = ['/usr/local/include/tcl8.6', '/usr/local/include/tk8.6', '/usr/local/include/X11', '/usr/local/include']
     linklibs = ['tk86', 'tcl86']
     libdirs = ['/usr/local/lib']
 elif sys.platform == 'win32':
