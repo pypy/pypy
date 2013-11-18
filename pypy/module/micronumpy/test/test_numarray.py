@@ -3068,14 +3068,18 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             ([4,3], [[7.,5.],[7.,5.]], 9),
             ]
         h = np.array(buf, dtype=descr)
+        print '3'
         assert len(h) == 2
-        skip('broken')  # XXX
         for v in (h, h[0], h['x']):
+            print '2',type(v),v
             repr(v)  # check for crash in repr
+        print '1'
         assert (h['x'] == np.array([buf[0][0],
                                     buf[1][0]], dtype='i4')).all()
+        print '4'
         assert (h['y'] == np.array([buf[0][1],
                                     buf[1][1]], dtype='f8')).all()
+        print '5'
         assert (h['z'] == np.array([buf[0][2],
                                     buf[1][2]], dtype='u1')).all()
 
