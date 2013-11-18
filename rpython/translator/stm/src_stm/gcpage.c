@@ -219,10 +219,11 @@ void stmgcpage_free(gcptr obj)
 /***** registering of small stubs as integer addresses *****/
 
 void stm_register_integer_address(intptr_t adr)
-{
+{                               /* needs to be inevitable! */
     wlog_t *found;
     gcptr obj = (gcptr)adr;
     /* current limitations for 'adr': smallstub or h_original */
+    assert(stm_active == 2);
     assert((obj->h_tid & GCFLAG_SMALLSTUB)
            || (obj->h_original == 0 || obj->h_tid & GCFLAG_PREBUILT_ORIGINAL));
     assert(obj->h_tid & GCFLAG_PUBLIC);
@@ -242,13 +243,18 @@ void stm_register_integer_address(intptr_t adr)
 }
 
 void stm_unregister_integer_address(intptr_t adr)
-{
+{                               /* push roots! */
     wlog_t *found;
     gcptr obj = (gcptr)adr;
 
     assert((obj->h_tid & GCFLAG_SMALLSTUB)
            || (obj->h_original == 0 || obj->h_tid & GCFLAG_PREBUILT_ORIGINAL));
     assert(obj->h_tid & GCFLAG_PUBLIC);
+
+    /* become inevitable because we would have to re-register them
+       on abort, but make sure only to re-register if not registered
+       in the same aborted transaction (XXX) */
+    stm_become_inevitable("stm_unregister_integer_address()");
 
     stmgcpage_acquire_global_lock();
 
@@ -528,12 +534,18 @@ static void mark_registered_objs(void)
     G2L_LOOP_FORWARD(registered_objs, item) {
         gcptr R = item->addr;
         assert(R->h_tid & GCFLAG_PUBLIC);
-
-        if ((R->h_original == 0) || (R->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
-            /* the obj is an original and will therefore survive: */
-            gcptr V = stmgcpage_visit(R);
-            assert(V == R);
+        
+        if (R->h_tid & GCFLAG_PREBUILT_ORIGINAL) {
+            /* already done by mark_prebuilt_roots */
+            assert((R->h_tid & (GCFLAG_MARKED|GCFLAG_VISITED|GCFLAG_PUBLIC))
+                   == (GCFLAG_MARKED|GCFLAG_VISITED|GCFLAG_PUBLIC));
+            continue;
         }
+        /* else if (R->h_original == 0) { */
+        /*     /\* the obj is an original and will therefore survive: *\/ */
+        /*     gcptr V = visit_public(R, NULL); */
+        /*     assert(V == R); */
+        /* } */
         else {
             assert(R->h_tid & GCFLAG_SMALLSTUB); /* only case for now */
             /* make sure R stays valid: */

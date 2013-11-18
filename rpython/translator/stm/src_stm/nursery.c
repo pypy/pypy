@@ -85,7 +85,7 @@ inline static gcptr allocate_nursery(size_t size, revision_t tid)
     }
 #ifdef _GC_DEBUG
     if (P != NULL) {
-        assert(P->h_tid != 0);
+        assert((P->h_tid & STM_USER_TID_MASK) == (tid & STM_USER_TID_MASK));
         assert_cleared(((char *)P) + sizeof(revision_t),
                        size - sizeof(revision_t));
     }

@@ -139,6 +139,7 @@ gcptr stm_DirectReadBarrier(gcptr G)
 
   d->count_reads++;
   assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), stmgc_is_in_nursery(d, P)));
+  assert(G->h_revision != 0);
 
  restart_all:
   if (P->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED)
@@ -356,7 +357,7 @@ gcptr stm_ImmutReadBarrier(gcptr P)
   assert(P->h_tid & GCFLAG_PUBLIC);
   assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
                  stmgc_is_in_nursery(thread_descriptor, P)));
-
+  assert(P->h_revision != 0);
 
   revision_t v = ACCESS_ONCE(P->h_revision);
   assert(IS_POINTER(v));  /* "is a pointer", "has a more recent revision" */
@@ -661,6 +662,7 @@ static inline void record_write_barrier(gcptr P)
 
 gcptr stm_RepeatWriteBarrier(gcptr P)
 {
+  assert(P->h_revision != 0);
   assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
                  stmgc_is_in_nursery(thread_descriptor, P)));
 
@@ -674,6 +676,7 @@ gcptr stm_RepeatWriteBarrier(gcptr P)
 
 gcptr stm_WriteBarrier(gcptr P)
 {
+  assert(P->h_revision != 0);
   assert(!(P->h_tid & GCFLAG_IMMUTABLE));
   assert((P->h_tid & GCFLAG_STUB) ||
          stmgc_size(P) > sizeof(struct stm_stub_s) - WORD);

@@ -66,7 +66,7 @@ void stm_invoke_callbacks_on_abort(struct tx_descriptor *d)
 
 
 intptr_t stm_allocate_public_integer_address(gcptr obj)
-{
+{                               /* push roots! */
     struct tx_descriptor *d = thread_descriptor;
     gcptr stub;
     intptr_t result;
@@ -75,6 +75,12 @@ intptr_t stm_allocate_public_integer_address(gcptr obj)
        of an integer.
        During major collections, we visit them and update
        their references. */
+
+    /* stm_register_integer_address needs to run in inevitable
+       transaction */
+    stm_push_root(obj);
+    stm_become_inevitable("stm_allocate_public_integer_address");
+    obj = stm_pop_root();
 
     /* we don't want to deal with young objs */
     if (!(obj->h_tid & GCFLAG_OLD)) {
@@ -94,9 +100,11 @@ intptr_t stm_allocate_public_integer_address(gcptr obj)
         orig = (gcptr)obj->h_original;
     }
     
-    if (orig->h_tid & GCFLAG_PUBLIC) {
-        /* the original is public, so we can take that as a non-movable
-         object to register */
+    if ((orig->h_tid & (GCFLAG_PUBLIC | GCFLAG_PREBUILT_ORIGINAL))
+        == (GCFLAG_PUBLIC | GCFLAG_PREBUILT_ORIGINAL)) {
+        /* public is not enough as public stubs may get replaced
+           by the protected object they point to, if they are in the 
+           same thread (I think...) */
         result = (intptr_t)orig;
     }
     else {
@@ -116,9 +124,11 @@ intptr_t stm_allocate_public_integer_address(gcptr obj)
         result = (intptr_t)stub;
     }
     spinlock_release(d->public_descriptor->collection_lock);
-    stm_register_integer_address(result);
 
     dprintf(("allocate_public_int_adr(%p): %p", obj, (void*)result));
+
+    stm_register_integer_address(result);
+
     return result;
 }
 

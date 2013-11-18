@@ -39,9 +39,9 @@ gcptr stm_allocate_immutable(size_t size, unsigned long tid);
 
 /* allocates a public reference to the object that will 
    not be freed until stm_unregister_integer_address is 
-   called on the result */
+   called on the result (push roots!) */
 intptr_t stm_allocate_public_integer_address(gcptr);
-void stm_unregister_integer_address(intptr_t);
+void stm_unregister_integer_address(intptr_t); /* push roots too! */
 
 
 /* returns a never changing hash for the object */
@@ -194,6 +194,7 @@ void stm_clear_on_abort(void *start, size_t bytes);
 void stm_call_on_abort(void *key, void callback(void *));
 
 /* only user currently is stm_allocate_public_integer_address() */
+/* needs to be in an inevitable transaction! */
 void stm_register_integer_address(intptr_t);
 
 /* enter single-threaded mode. Used e.g. when patching assembler
