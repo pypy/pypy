@@ -1086,7 +1086,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
             raise OperationError(space.w_TypeError, space.wrap(
                 "numpy scalars from buffers not supported yet"))
         storage = rffi.cast(RAW_STORAGE_PTR, raw_ptr)
-        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype)
+        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
+                                                  w_base=w_buffer)
 
     if not shape:
         return W_NDimArray.new_scalar(space, dtype)

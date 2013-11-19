@@ -2096,7 +2096,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[1] = ord('a')
         a[2] = ord('r')
         assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
-        
+        assert a.base is buf
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
