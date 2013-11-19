@@ -93,7 +93,11 @@ class __extend__(W_NDimArray):
     def descr_fill(self, space, w_value):
         self.fill(self.get_dtype().coerce(space, w_value))
 
-    def descr_tostring(self, space):
+    def descr_tostring(self, space, w_order=None):
+        order = order_converter(space, w_order, NPY_CORDER)
+        if order == NPY_FORTRANORDER:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "unsupported value for order"))
         return space.wrap(loop.tostring(space, self))
 
     def getitem_filter(self, space, arr):

@@ -2829,6 +2829,15 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
+        a = array([[1, 2], [3, 4]], dtype='i1')
+        for order in (None, False, 'C', 'K', 'a'):
+            assert a.tostring(order) == '\x01\x02\x03\x04'
+        import sys
+        for order in (True, 'F'):
+            if '__pypy__' in sys.builtin_module_names:
+                raises(NotImplementedError, a.tostring, order)
+            else:
+                assert a.tostring(order) == '\x01\x03\x02\x04'
 
 
 class AppTestRepr(BaseNumpyAppTest):
