@@ -2098,6 +2098,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
         assert a.base is buf
 
+    def test_ndarray_subclass_from_buffer(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*3)
+        class X(np.ndarray):
+            pass
+        a = X((3,), buffer=buf, dtype='i2')
+        assert type(a) is X
+
     def test_ndarray_from_buffer_and_offset(self):
         import numpypy as np
         import array
