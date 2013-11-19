@@ -313,9 +313,6 @@ class W_GenericBox(W_Root):
             self.w_flags = W_FlagsObject(self)
         return self.w_flags
 
-    def descr_dtype(self, space):
-        return self._get_dtype(space)
-
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
 
@@ -567,9 +564,6 @@ W_GenericBox.typedef = TypeDef("generic",
     conjugate = interp2app(W_GenericBox.descr_conjugate),
     astype = interp2app(W_GenericBox.descr_astype),
     view = interp2app(W_GenericBox.descr_view),
-<<<<<<< local
-    dtype = GetSetProperty(W_GenericBox.descr_dtype)
-=======
     squeeze = interp2app(W_GenericBox.descr_self),
     copy = interp2app(W_GenericBox.descr_copy),
 
@@ -582,7 +576,6 @@ W_GenericBox.typedef = TypeDef("generic",
     ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
     T = GetSetProperty(W_GenericBox.descr_self),
     flags = GetSetProperty(W_GenericBox.descr_get_flags),
->>>>>>> other
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
