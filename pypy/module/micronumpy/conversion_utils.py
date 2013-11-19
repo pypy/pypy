@@ -1,6 +1,27 @@
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.constants import *
 
+
+def byteorder_converter(space, new_order):
+    endian = new_order[0]
+    if endian not in (NPY_BIG, NPY_LITTLE, NPY_NATIVE, NPY_IGNORE, NPY_SWAP):
+        ch = endian
+        if ch in ('b', 'B'):
+            endian = NPY_BIG
+        elif ch in ('l', 'L'):
+            endian = NPY_LITTLE
+        elif ch in ('n', 'N'):
+            endian = NPY_NATIVE
+        elif ch in ('i', 'I'):
+            endian = NPY_IGNORE
+        elif ch in ('s', 'S'):
+            endian = NPY_SWAP
+        else:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "%s is an unrecognized byteorder" % new_order))
+    return endian
+
+
 def clipmode_converter(space, w_mode):
     if space.is_none(w_mode):
         return NPY_RAISE
@@ -18,6 +39,7 @@ def clipmode_converter(space, w_mode):
             return mode
     raise OperationError(space.w_TypeError,
                          space.wrap("clipmode not understood"))
+
 
 def order_converter(space, w_order, default):
     if space.is_none(w_order):
@@ -40,3 +62,25 @@ def order_converter(space, w_order, default):
         else:
             raise OperationError(space.w_TypeError, space.wrap(
                 "order not understood"))
+
+
+def multi_axis_converter(space, w_axis, ndim):
+    if space.is_none(w_axis):
+        return [True] * ndim
+    out = [False] * ndim
+    if not space.isinstance_w(w_axis, space.w_tuple):
+        w_axis = space.newtuple([w_axis])
+    for w_item in space.fixedview(w_axis):
+        item = space.int_w(w_item)
+        axis = item
+        if axis < 0:
+            axis += ndim
+        if axis < 0 or axis >= ndim:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "'axis' entry %d is out of bounds [-%d, %d)" %
+                (item, ndim, ndim)))
+        if out[axis]:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "duplicate value in 'axis'"))
+        out[axis] = True
+    return out

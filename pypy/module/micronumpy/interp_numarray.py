@@ -19,7 +19,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
-from pypy.module.micronumpy.conversion_utils import order_converter
+from pypy.module.micronumpy.conversion_utils import order_converter, multi_axis_converter
 from pypy.module.micronumpy.constants import *
 
 def _find_shape(space, w_size, dtype):
@@ -85,15 +85,19 @@ class __extend__(W_NDimArray):
         return space.wrap(len(self.get_shape()))
 
     def descr_get_itemsize(self, space):
-        return space.wrap(self.get_dtype().itemtype.get_element_size())
+        return space.wrap(self.get_dtype().get_size())
 
     def descr_get_nbytes(self, space):
-        return space.wrap(self.get_size() * self.get_dtype().itemtype.get_element_size())
+        return space.wrap(self.get_size() * self.get_dtype().get_size())
 
     def descr_fill(self, space, w_value):
         self.fill(self.get_dtype().coerce(space, w_value))
 
-    def descr_tostring(self, space):
+    def descr_tostring(self, space, w_order=None):
+        order = order_converter(space, w_order, NPY_CORDER)
+        if order == NPY_FORTRANORDER:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "unsupported value for order"))
         return space.wrap(loop.tostring(space, self))
 
     def getitem_filter(self, space, arr):
@@ -198,7 +202,8 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
+                and len(w_idx.get_shape()) > 0:
             return self.getitem_filter(space, w_idx)
         try:
             return self.implementation.descr_getitem(space, self, w_idx)
@@ -212,11 +217,9 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type():
-            try:
-                self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
-            except ValueError, e:
-                raise OperationError(space.w_ValueError, space.wrap(str(e)))
+        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
+                and len(w_idx.get_shape()) > 0:
+            self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
             return
         try:
             self.implementation.descr_setitem(space, self, w_idx, w_value)
@@ -522,13 +525,7 @@ class __extend__(W_NDimArray):
         # by converting nonnative byte order.
         if self.is_scalar():
             return space.wrap(0)
-        if not self.get_dtype().is_flexible_type():
-            s = self.get_dtype().name
-            if not self.get_dtype().is_native():
-                s = s[1:]
-            dtype = interp_dtype.get_dtype_cache(space).dtypes_by_name[s]
-        else:
-            dtype = self.get_dtype()
+        dtype = self.get_dtype().descr_newbyteorder(space, NPY_NATIVE)
         contig = self.implementation.astype(space, dtype)
         return contig.argsort(space, w_axis)
 
@@ -628,10 +625,10 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "itemset not implemented yet"))
 
-    @unwrap_spec(neworder=str)
-    def descr_newbyteorder(self, space, neworder):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "newbyteorder not implemented yet"))
+    @unwrap_spec(new_order=str)
+    def descr_newbyteorder(self, space, new_order=NPY_SWAP):
+        return self.descr_view(space,
+            self.get_dtype().descr_newbyteorder(space, new_order))
 
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None))
@@ -695,16 +692,25 @@ class __extend__(W_NDimArray):
         return self.implementation.sort(space, w_axis, w_order)
 
     def descr_squeeze(self, space, w_axis=None):
-        if not space.is_none(w_axis):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "axis unsupported for squeeze"))
         cur_shape = self.get_shape()
-        new_shape = [s for s in cur_shape if s != 1]
+        if not space.is_none(w_axis):
+            axes = multi_axis_converter(space, w_axis, len(cur_shape))
+            new_shape = []
+            for i in range(len(cur_shape)):
+                if axes[i]:
+                    if cur_shape[i] != 1:
+                        raise OperationError(space.w_ValueError, space.wrap(
+                            "cannot select an axis to squeeze out " \
+                            "which has size greater than one"))
+                else:
+                    new_shape.append(cur_shape[i])
+        else:
+            new_shape = [s for s in cur_shape if s != 1]
         if len(cur_shape) == len(new_shape):
             return self
         return wrap_impl(space, space.type(self), self,
                          self.implementation.get_view(
-                             self, self.get_dtype(), new_shape))
+                             space, self, self.get_dtype(), new_shape))
 
     def descr_strides(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -733,11 +739,14 @@ class __extend__(W_NDimArray):
         impl = self.implementation
         new_shape = self.get_shape()[:]
         dims = len(new_shape)
+        if new_itemsize == 0:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "data-type must not be 0-sized"))
         if dims == 0:
             # Cannot resize scalars
             if old_itemsize != new_itemsize:
                 raise OperationError(space.w_ValueError, space.wrap(
-                    "new type not compatible with array shape"))
+                    "new type not compatible with array."))
         else:
             if dims == 1 or impl.get_strides()[0] < impl.get_strides()[-1]:
                 # Column-major, resize first dimension
@@ -751,7 +760,7 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 new_shape[-1] = new_shape[-1] * old_itemsize / new_itemsize
-        v = impl.get_view(self, dtype, new_shape)
+        v = impl.get_view(space, self, dtype, new_shape)
         w_ret = wrap_impl(space, w_type, self, v)
         return w_ret
 
@@ -1262,6 +1271,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     diagonal = interp2app(W_NDimArray.descr_diagonal),
     trace = interp2app(W_NDimArray.descr_trace),
     view = interp2app(W_NDimArray.descr_view),
+    newbyteorder = interp2app(W_NDimArray.descr_newbyteorder),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
@@ -1334,7 +1344,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     # not an array or incorrect dtype
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (
-                 dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1):
+                 dtype.is_str_or_unicode() and dtype.get_size() < 1):
         for w_elem in elems_w:
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
@@ -1343,7 +1353,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
-    if dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1:
+    if dtype.is_str_or_unicode() and dtype.get_size() < 1:
         # promote S0 -> S1, U0 -> U1
         dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     if ndmin > len(shape):

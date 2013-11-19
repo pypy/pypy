@@ -255,7 +255,10 @@ class W_GenericBox(W_Root):
         return convert_to_array(space, w_values)
 
     @unwrap_spec(decimals=int)
-    def descr_round(self, space, decimals=0):
+    def descr_round(self, space, decimals=0, w_out=None):
+        if not space.is_none(w_out):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "out not supported"))
         v = self.convert_to(self.get_dtype(space))
         return self.get_dtype(space).itemtype.round(v, decimals)
 
@@ -269,17 +272,28 @@ class W_GenericBox(W_Root):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
         dtype = space.interp_w(W_Dtype,
             space.call_function(space.gettypefor(W_Dtype), w_dtype))
+        if dtype.get_size() == 0:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "data-type must not be 0-sized"))
         if dtype.get_size() != self.get_dtype(space).get_size():
             raise OperationError(space.w_ValueError, space.wrap(
                 "new type not compatible with array."))
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "view not implelemnted yet"))
+        if dtype.is_str_or_unicode():
+            return dtype.coerce(space, space.wrap(self.raw_str()))
+        elif dtype.is_record_type():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "viewing scalar as record not implemented"))
+        else:
+            return dtype.itemtype.runpack_str(space, self.raw_str())
 
     def descr_self(self, space):
         return self
 
     def descr_get_dtype(self, space):
         return self.get_dtype(space)
+
+    def descr_get_size(self, space):
+        return space.wrap(1)
 
     def descr_get_itemsize(self, space):
         return self.get_dtype(space).descr_get_itemsize(space)
@@ -406,6 +420,9 @@ class W_FlexibleBox(W_GenericBox):
 
     def get_dtype(self, space):
         return self.arr.dtype
+
+    def raw_str(self):
+        return self.arr.dtype.itemtype.to_str(self)
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
@@ -551,6 +568,7 @@ W_GenericBox.typedef = TypeDef("generic",
     copy = interp2app(W_GenericBox.descr_copy),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
+    size = GetSetProperty(W_GenericBox.descr_get_size),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
     nbytes = GetSetProperty(W_GenericBox.descr_get_itemsize),
     shape = GetSetProperty(W_GenericBox.descr_get_shape),

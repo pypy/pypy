@@ -21,3 +21,4 @@ class TestDLOperations:
                            lltype.Signed)), dlsym(lib, 'abs'))
         assert 1 == handle(1)
         assert 1 == handle(-1)
+        dlclose(lib)

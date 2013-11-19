@@ -18,6 +18,22 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
 class AppTestDtypes(BaseAppTestDtypes):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
+    def test_typeinfo(self):
+        import numpy as np
+        try:
+            from numpy.core.multiarray import typeinfo
+        except ImportError:
+            # running on dummy module
+            from numpypy import typeinfo
+        assert typeinfo['Number'] == np.number
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L,
+                                        -9223372036854775808L, np.longlong)
+        assert typeinfo['VOID'] == ('V', 20, 0, 1, np.void)
+        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, np.bool_)
+        assert typeinfo['CFLOAT'] == ('F', 14, 64, 8, np.complex64)
+        assert typeinfo['CDOUBLE'] == ('D', 15, 128, 16, np.complex128)
+        assert typeinfo['HALF'] == ('e', 23, 16, 2, np.float16)
+
     def test_dtype_basic(self):
         from numpypy import dtype
 
@@ -32,6 +48,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype('int8').name == 'int8'
         assert dtype(int).fields is None
         assert dtype(int).names is None
+        assert dtype(int).hasobject is False
 
         assert dtype(None) is dtype(float)
 
@@ -287,6 +304,49 @@ class AppTestDtypes(BaseAppTestDtypes):
         else:
             assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
+
+    def test_newbyteorder(self):
+        import numpypy as np
+        import sys
+        sys_is_le = sys.byteorder == 'little'
+        native_code = sys_is_le and '<' or '>'
+        swapped_code = sys_is_le and '>' or '<'
+        native_dt = np.dtype(native_code+'i2')
+        swapped_dt = np.dtype(swapped_code+'i2')
+        assert native_dt.newbyteorder('S') == swapped_dt
+        assert native_dt.newbyteorder() == swapped_dt
+        assert native_dt == swapped_dt.newbyteorder('S')
+        assert native_dt == swapped_dt.newbyteorder('=')
+        assert native_dt == swapped_dt.newbyteorder('N')
+        assert native_dt == native_dt.newbyteorder('|')
+        assert np.dtype('<i2') == native_dt.newbyteorder('<')
+        assert np.dtype('<i2') == native_dt.newbyteorder('L')
+        assert np.dtype('>i2') == native_dt.newbyteorder('>')
+        assert np.dtype('>i2') == native_dt.newbyteorder('B')
+
+        for t in [np.int_, np.float_]:
+            dt = np.dtype(t)
+            dt1 = dt.newbyteorder().newbyteorder()
+            dt2 = dt.newbyteorder("<")
+            dt3 = dt.newbyteorder(">")
+            assert dt.byteorder != dt1.byteorder
+            #assert hash(dt) == hash(dt1)
+            if dt == dt2:
+                assert dt.byteorder != dt2.byteorder
+                #assert hash(dt) == hash(dt2)
+            else:
+                assert dt.byteorder != dt3.byteorder
+                #assert hash(dt) == hash(dt3)
+
+            exc = raises(ValueError, dt.newbyteorder, 'XX')
+            assert exc.value[0] == 'XX is an unrecognized byteorder'
+
+        for t in [np.int_, np.float_]:
+            dt1 = np.dtype(t)
+            dt2 = dt1.newbyteorder()
+            s1 = np.array(123, dtype=dt1).tostring()
+            s2 = np.array(123, dtype=dt2).byteswap().tostring()
+            assert s1 == s2
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -722,8 +782,8 @@ class AppTestTypes(BaseAppTestDtypes):
         # strange
         assert dtype('string').str == '|S0'
         assert dtype('unicode').str == byteorder + 'U0'
-        #assert dtype(('string', 7)).str == '|S7'
-        #assert dtype(('unicode', 7)).str == '<U7'
+        assert dtype(('string', 7)).str == '|S7'
+        assert dtype(('unicode', 7)).str == '<U7'
 
     def test_intp(self):
         from numpypy import dtype
@@ -772,25 +832,44 @@ class AppTestTypes(BaseAppTestDtypes):
         assert x.dtype == int8
         assert (x == array(42)).all()
 
-class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
-    def test_str_unicode(self):
-        skip('numpypy differs from numpy')
-        from numpypy import str_, unicode_, character, flexible, generic
+    def test_descr(self):
+        import numpy as np
+        assert np.dtype('<i8').descr == [('', '<i8')]
+        assert np.dtype('|S4').descr == [('', '|S4')]
+        d = [('test', '<i8'), ('blah', '<i2', (2, 3))]
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, "np.dtype(d).descr")
+        else:
+            assert np.dtype(d).descr == d
 
-        assert str_.mro() == [str_, str, basestring, character, flexible, generic, object]
-        assert unicode_.mro() == [unicode_, unicode, basestring, character, flexible, generic, object]
+class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
+    def test_mro(self):
+        from numpypy import str_, unicode_, character, flexible, generic
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            assert str_.mro() == [str_, character, flexible, generic,
+                                  str, basestring, object]
+            assert unicode_.mro() == [unicode_, character, flexible, generic,
+                                      unicode, basestring, object]
+        else:
+            assert str_.mro() == [str_, str, basestring, character, flexible,
+                                  generic, object]
+            assert unicode_.mro() == [unicode_, unicode, basestring, character,
+                                      flexible, generic, object]
 
     def test_str_dtype(self):
         from numpypy import dtype, str_
 
         raises(TypeError, "dtype('Sx')")
-        d = dtype('S8')
-        assert d.itemsize == 8
-        assert dtype(str) == dtype('S')
-        assert d.kind == 'S'
-        assert d.type is str_
-        assert d.name == "string64"
-        assert d.num == 18
+        for t in ['S8', '|S8', '=S8']:
+            d = dtype(t)
+            assert d.itemsize == 8
+            assert dtype(str) == dtype('S')
+            assert d.kind == 'S'
+            assert d.type is str_
+            assert d.name == "string64"
+            assert d.num == 18
         for i in [1, 2, 3]:
             d = dtype('c%d' % i)
             assert d.itemsize == 1
@@ -818,12 +897,12 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
 
     def test_unicode_boxes(self):
         from numpypy import unicode_
-        try:
-            u = unicode_(3)
-        except NotImplementedError, e:
-            if e.message.find('not supported yet') >= 0:
-                skip('unicode box not implemented')
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, unicode_, 3)
+            assert exc.value.message.find('not supported yet') >= 0
         else:
+            u = unicode_(3)
             assert isinstance(u, unicode)
 
     def test_character_dtype(self):
@@ -954,35 +1033,15 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
 
-class AppTestPyPyOnly(BaseNumpyAppTest):
-    def setup_class(cls):
-        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("pypy only test")
-        BaseNumpyAppTest.setup_class.im_func(cls)
-
-    def test_typeinfo(self):
-        from numpypy import void, number, int64, bool_, complex64, complex128, float16
-        try:
-            from numpy.core.multiarray import typeinfo
-        except ImportError:
-            # running on dummy module
-            from numpypy import typeinfo
-        assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
-        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
-        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
-        assert typeinfo['CFLOAT'] == ('F', 14, 64, 4, complex64)
-        assert typeinfo['CDOUBLE'] == ('D', 15, 128, 8, complex128)
-        assert typeinfo['HALF'] == ('e', 23, 16, 2, float16)
-
 class AppTestObjectDtypes(BaseNumpyAppTest):
     def test_scalar_from_object(self):
         from numpypy import array
+        import sys
         class Polynomial(object):
             pass
-        try:
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, array, Polynomial())
+            assert exc.value.message.find('unable to create dtype from objects') >= 0
+        else:
             a = array(Polynomial())
             assert a.shape == ()
-        except NotImplementedError, e:
-            if e.message.find('unable to create dtype from objects')>=0:
-                skip('creating ojbect dtype not supported yet')

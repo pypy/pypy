@@ -27,6 +27,7 @@ corresponding Unix manual entries for more information on calls."""
             'popen2': 'app_posix.popen2',
             'popen3': 'app_posix.popen3',
             'popen4': 'app_posix.popen4',
+            'startfile': 'app_startfile.startfile',
         })
 
     if hasattr(os, 'wait'):

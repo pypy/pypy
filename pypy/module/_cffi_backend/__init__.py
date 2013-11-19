@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload
 
@@ -43,6 +44,8 @@ class Module(MixedModule):
         'FFI_DEFAULT_ABI': 'ctypefunc._get_abi(space, "FFI_DEFAULT_ABI")',
         'FFI_CDECL': 'ctypefunc._get_abi(space,"FFI_DEFAULT_ABI")',#win32 name
         }
+    if sys.platform == 'win32':
+        interpleveldefs['getwinerror'] = 'cerrno.getwinerror'
 
 for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
               "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:

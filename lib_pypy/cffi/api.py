@@ -347,6 +347,9 @@ class FFI(object):
     errno = property(_get_errno, _set_errno, None,
                      "the value of 'errno' from/to the C calls")
 
+    def getwinerror(self, code=-1):
+        return self._backend.getwinerror(code)
+
     def _pointer_to(self, ctype):
         from . import model
         with self._lock:

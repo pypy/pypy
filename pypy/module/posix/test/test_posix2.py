@@ -52,6 +52,7 @@ class AppTestPosix:
 
     def setup_class(cls):
         cls.space = space
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
@@ -1107,6 +1108,28 @@ class AppTestPosix:
         else:
             assert False, "urandom() always returns the same string"
             # Or very unlucky
+
+    if hasattr(os, 'startfile'):
+        def test_startfile(self):
+            if not self.runappdirect:
+                skip("should not try to import cffi at app-level")
+            startfile = self.posix.startfile
+            for t1 in [str, unicode]:
+                for t2 in [str, unicode]:
+                    e = raises(WindowsError, startfile, t1("\\"), t2("close"))
+                    assert e.value.args[0] == 1155
+                    assert e.value.args[1] == (
+                        "No application is associated with the "
+                        "specified file for this operation")
+                    if len(e.value.args) > 2:
+                        assert e.value.args[2] == t1("\\")
+            #
+            e = raises(WindowsError, startfile, "\\foo\\bar\\baz")
+            assert e.value.args[0] == 2
+            assert e.value.args[1] == (
+                "The system cannot find the file specified")
+            if len(e.value.args) > 2:
+                assert e.value.args[2] == "\\foo\\bar\\baz"
 
 
 class AppTestEnvironment(object):

@@ -53,6 +53,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
+        assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
         assert b.round(decimals=5) is b
 
@@ -84,6 +85,7 @@ class AppTestScalar(BaseNumpyAppTest):
         import numpypy as np
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
+        assert value.size == 1
         assert value.itemsize == 8
         assert value.nbytes == 8
         assert value.shape == ()
@@ -99,6 +101,39 @@ class AppTestScalar(BaseNumpyAppTest):
             assert b.shape == ()
             assert b == v
         raises(IndexError, "v['blah']")
+
+    def test_view(self):
+        import numpy as np
+        import sys
+        s = np.dtype('int64').type(12)
+        exc = raises(ValueError, s.view, 'int8')
+        assert exc.value[0] == "new type not compatible with array."
+        t = s.view('double')
+        assert type(t) is np.double
+        assert t < 7e-323
+        t = s.view('complex64')
+        assert type(t) is np.complex64
+        assert 0 < t.real < 1
+        assert t.imag == 0
+        exc = raises(TypeError, s.view, 'string')
+        assert exc.value[0] == "data-type must not be 0-sized"
+        t = s.view('S8')
+        assert type(t) is np.string_
+        assert t == '\x0c'
+        s = np.dtype('string').type('abc1')
+        assert s.view('S4') == 'abc1'
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, s.view, [('a', 'i2'), ('b', 'i2')])
+        else:
+            b = s.view([('a', 'i2'), ('b', 'i2')])
+            assert b.shape == ()
+            assert b[0] == 25185
+            assert b[1] == 12643
+        if '__pypy__' in sys.builtin_module_names:
+            raises(TypeError, "np.dtype([('a', 'int64'), ('b', 'int64')]).type('a' * 16)")
+        else:
+            s = np.dtype([('a', 'int64'), ('b', 'int64')]).type('a' * 16)
+            assert s.view('S16') == 'a' * 16
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np

@@ -3,20 +3,22 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
-    interp_attrproperty, interp_attrproperty_w)
+                                      interp_attrproperty, interp_attrproperty_w)
 from pypy.module.micronumpy import types, interp_boxes, base
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import jit
+from pypy.module.micronumpy.conversion_utils import byteorder_converter
 from pypy.module.micronumpy.constants import *
 
 
 def decode_w_dtype(space, w_dtype):
     if space.is_none(w_dtype):
         return None
-    return space.interp_w(W_Dtype,
-          space.call_function(space.gettypefor(W_Dtype), w_dtype))
+    return space.interp_w(
+        W_Dtype, space.call_function(space.gettypefor(W_Dtype), w_dtype))
+
 
 @jit.unroll_safe
 def dtype_agreement(space, w_arr_list, shape, out=None):
@@ -33,11 +35,14 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     out = base.W_NDimArray.from_shape(space, shape, dtype)
     return out
 
+
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char", "w_box_type", "byteorder", "float_type"]
+    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char",
+                          "w_box_type", "byteorder", "size?", "float_type",
+                          "fields?", "fieldnames?", "shape", "subdtype", "base"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type, byteorder=NPY_NATIVE,
-                 alternate_constructors=[], aliases=[], float_type=None,
+                 size=1, alternate_constructors=[], aliases=[], float_type=None,
                  fields=None, fieldnames=None, shape=[], subdtype=None):
         self.itemtype = itemtype
         self.num = num
@@ -46,6 +51,7 @@ class W_Dtype(W_Root):
         self.char = char
         self.w_box_type = w_box_type
         self.byteorder = byteorder
+        self.size = size
         self.alternate_constructors = alternate_constructors
         self.aliases = aliases
         self.float_type = float_type
@@ -77,19 +83,6 @@ class W_Dtype(W_Root):
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 
-    def getitem(self, arr, i):
-        item = self.itemtype.read(arr, i, 0)
-        return item
-
-    def getitem_bool(self, arr, i):
-        return self.itemtype.read_bool(arr, i, 0)
-
-    def setitem(self, arr, i, box):
-        self.itemtype.store(arr, i, 0, box)
-
-    def fill(self, storage, box, start, stop):
-        self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)
-
     def is_int_type(self):
         return (self.kind == NPY_SIGNEDLTR or self.kind == NPY_UNSIGNEDLTR or
                 self.kind == NPY_GENBOOLLTR)
@@ -101,7 +94,7 @@ class W_Dtype(W_Root):
         return self.kind == NPY_COMPLEXLTR
 
     def is_float_type(self):
-        return (self.kind == NPY_FLOATINGLTR or self.float_type is not None)
+        return self.kind == NPY_FLOATINGLTR or self.kind == NPY_COMPLEXLTR
 
     def is_bool_type(self):
         return self.kind == NPY_GENBOOLLTR
@@ -122,7 +115,7 @@ class W_Dtype(W_Root):
         return self.byteorder in (NPY_NATIVE, NPY_NATBYTE)
 
     def get_size(self):
-        return self.itemtype.get_element_size()
+        return self.size * self.itemtype.get_element_size()
 
     def get_name(self):
         if self.char == 'S':
@@ -136,7 +129,7 @@ class W_Dtype(W_Root):
         return space.wrap("dtype('%s')" % self.get_name())
 
     def descr_get_itemsize(self, space):
-        return space.wrap(self.itemtype.get_element_size())
+        return space.wrap(self.get_size())
 
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
@@ -150,13 +143,21 @@ class W_Dtype(W_Root):
         if basic == NPY_UNICODELTR:
             size >>= 2
             endian = NPY_NATBYTE
-        elif size <= 1:
+        elif size // (self.size or 1) <= 1:
             endian = NPY_IGNORE
         else:
             endian = self.byteorder
             if endian == NPY_NATIVE:
                 endian = NPY_NATBYTE
         return space.wrap("%s%s%s" % (endian, basic, size))
+
+    def descr_get_descr(self, space):
+        if not self.is_record_type():
+            return space.newlist([space.newtuple([space.wrap(""),
+                                                  self.descr_get_str(space)])])
+        else:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "descr not implemented for record types"))
 
     def descr_get_base(self, space):
         return space.wrap(self.base)
@@ -196,7 +197,6 @@ class W_Dtype(W_Root):
             self.fields = None
         else:
             self.fields = {}
-            ofs_and_items = []
             size = 0
             for key in space.listview(w_fields):
                 value = space.getitem(w_fields, key)
@@ -207,11 +207,11 @@ class W_Dtype(W_Root):
                 offset = space.int_w(space.getitem(value, space.wrap(1)))
                 self.fields[space.str_w(key)] = offset, dtype
 
-                ofs_and_items.append((offset, dtype.itemtype))
-                size += dtype.itemtype.get_element_size()
+                size += dtype.get_size()
 
-            self.itemtype = types.RecordType(ofs_and_items, size)
-            self.name = "void" + str(8 * self.itemtype.get_element_size())
+            self.itemtype = types.RecordType()
+            self.size = size
+            self.name = "void" + str(8 * self.get_size())
 
     def descr_get_names(self, space):
         if self.fieldnames is None:
@@ -231,6 +231,9 @@ class W_Dtype(W_Root):
                     if not e.match(space, space.w_StopIteration):
                         raise
                     break
+
+    def descr_get_hasobject(self, space):
+        return space.w_False
 
     def descr_getitem(self, space, w_item):
         if self.fields is None:
@@ -263,7 +266,7 @@ class W_Dtype(W_Root):
         w_class = space.type(self)
 
         kind = self.kind
-        elemsize = self.itemtype.get_element_size()
+        elemsize = self.get_size()
         builder_args = space.newtuple([space.wrap("%s%d" % (kind, elemsize)), space.wrap(0), space.wrap(1)])
 
         version = space.wrap(3)
@@ -308,11 +311,24 @@ class W_Dtype(W_Root):
         fields = space.getitem(w_data, space.wrap(4))
         self.set_fields(space, fields)
 
+    @unwrap_spec(new_order=str)
+    def descr_newbyteorder(self, space, new_order=NPY_SWAP):
+        newendian = byteorder_converter(space, new_order)
+        endian = self.byteorder
+        if endian != NPY_IGNORE:
+            if newendian == NPY_SWAP:
+                endian = NPY_OPPBYTE if self.is_native() else NPY_NATBYTE
+            elif newendian != NPY_IGNORE:
+                endian = newendian
+        itemtype = self.itemtype.__class__(endian in (NPY_NATIVE, NPY_NATBYTE))
+        return W_Dtype(itemtype, self.num, self.kind, self.name, self.char,
+                       self.w_box_type, endian, size=self.size)
+
+
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
     fields = {}
     offset = 0
-    ofs_and_items = []
     fieldnames = []
     for w_elem in lst_w:
         size = 1
@@ -320,7 +336,7 @@ def dtype_from_list(space, w_lst):
         if space.len_w(w_elem) == 3:
             w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
             if not base.issequence_w(space, w_shape):
-                w_shape = space.newtuple([w_shape,])
+                w_shape = space.newtuple([w_shape])
         else:
             w_fldname, w_flddesc = space.fixedview(w_elem, 2)
         subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
@@ -329,27 +345,31 @@ def dtype_from_list(space, w_lst):
             raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
-        ofs_and_items.append((offset, subdtype.itemtype))
-        offset += subdtype.itemtype.get_element_size() * size
+        offset += subdtype.get_size() * size
         fieldnames.append(fldname)
-    itemtype = types.RecordType(ofs_and_items, offset)
-    return W_Dtype(itemtype, NPY_VOID, NPY_VOIDLTR, "void" + str(8 * itemtype.get_element_size()),
-                   NPY_VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox), fields=fields,
-                   fieldnames=fieldnames)
+    itemtype = types.RecordType()
+    return W_Dtype(itemtype, NPY_VOID, NPY_VOIDLTR,
+                   "void" + str(8 * offset * itemtype.get_element_size()),
+                   NPY_VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox),
+                   fields=fields, fieldnames=fieldnames, size=offset)
+
 
 def dtype_from_dict(space, w_dict):
     raise OperationError(space.w_NotImplementedError, space.wrap(
         "dtype from dict"))
 
+
 def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dtype from spec"))
+
 
 def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
     # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
 
-    if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or space.len_w(w_shape) > 0):
+    if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or
+                                space.len_w(w_shape) > 0):
         subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
         assert isinstance(subdtype, W_Dtype)
         size = 1
@@ -360,8 +380,11 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             dim = space.int_w(w_dim)
             shape.append(dim)
             size *= dim
-        return W_Dtype(types.VoidType(subdtype.itemtype.get_element_size() * size), NPY_VOID, NPY_VOIDLTR, "void" + str(8 * subdtype.itemtype.get_element_size() * size),
-                    NPY_VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox), shape=shape, subdtype=subdtype)
+        return W_Dtype(types.VoidType(), NPY_VOID, NPY_VOIDLTR,
+                       "void" + str(8 * subdtype.get_size() * size),
+                       NPY_VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox),
+                       shape=shape, subdtype=subdtype,
+                       size=subdtype.get_size() * size)
 
     if space.is_none(w_dtype):
         return cache.w_float64dtype
@@ -375,10 +398,10 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return cache.dtypes_by_name[name]
         except KeyError:
             pass
-        if name[0] in 'VSUc' or name[0] in '<>=' and name[1] in 'VSUc':
+        if name[0] in 'VSUc' or name[0] in '<>=|' and name[1] in 'VSUc':
             return variable_dtype(space, name)
         raise OperationError(space.w_TypeError, space.wrap(
-                       "data type %s not understood" % name))
+            "data type %s not understood" % name))
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
     elif space.isinstance_w(w_dtype, space.w_tuple):
@@ -413,6 +436,7 @@ W_Dtype.typedef = TypeDef("dtype",
 
     __reduce__ = interp2app(W_Dtype.descr_reduce),
     __setstate__ = interp2app(W_Dtype.descr_setstate),
+    newbyteorder = interp2app(W_Dtype.descr_newbyteorder),
 
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
@@ -430,12 +454,14 @@ W_Dtype.typedef = TypeDef("dtype",
     isnative = GetSetProperty(W_Dtype.descr_get_isnative),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
+    hasobject = GetSetProperty(W_Dtype.descr_get_hasobject),
+    descr = GetSetProperty(W_Dtype.descr_get_descr),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
 
 def variable_dtype(space, name):
-    if name[0] in '<>=':
+    if name[0] in '<>=|':
         name = name[1:]
     char = name[0]
     if len(name) == 1:
@@ -450,17 +476,17 @@ def variable_dtype(space, name):
         size = 1
 
     if char == NPY_STRINGLTR:
-        itemtype = types.StringType(size)
+        itemtype = types.StringType()
         basename = 'string'
         num = NPY_STRING
         w_box_type = space.gettypefor(interp_boxes.W_StringBox)
     elif char == NPY_VOIDLTR:
-        itemtype = types.VoidType(size)
+        itemtype = types.VoidType()
         basename = 'void'
         num = NPY_VOID
         w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
     elif char == NPY_UNICODELTR:
-        itemtype = types.UnicodeType(size)
+        itemtype = types.UnicodeType()
         basename = 'unicode'
         num = NPY_UNICODE
         w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox)
@@ -468,27 +494,31 @@ def variable_dtype(space, name):
         assert False
 
     return W_Dtype(itemtype, num, char,
-                   basename + str(8 * itemtype.get_element_size()),
-                   char, w_box_type)
+                   basename + str(8 * size * itemtype.get_element_size()),
+                   char, w_box_type, size=size)
+
 
 def new_string_dtype(space, size):
-    itemtype = types.StringType(size)
+    itemtype = types.StringType()
     return W_Dtype(
         itemtype,
+        size=size,
         num=NPY_STRING,
         kind=NPY_STRINGLTR,
-        name='string' + str(8 * itemtype.get_element_size()),
+        name='string' + str(8 * size * itemtype.get_element_size()),
         char=NPY_STRINGLTR,
         w_box_type = space.gettypefor(interp_boxes.W_StringBox),
     )
 
+
 def new_unicode_dtype(space, size):
-    itemtype = types.UnicodeType(size)
+    itemtype = types.UnicodeType()
     return W_Dtype(
         itemtype,
+        size=size,
         num=NPY_UNICODE,
         kind=NPY_UNICODELTR,
-        name='unicode' + str(8 * itemtype.get_element_size()),
+        name='unicode' + str(8 * size * itemtype.get_element_size()),
         char=NPY_UNICODELTR,
         w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox),
     )
@@ -549,7 +579,7 @@ class DtypeCache(object):
             name="int32",
             char=NPY_INTLTR,
             w_box_type=space.gettypefor(interp_boxes.W_Int32Box),
-       )
+        )
         self.w_uint32dtype = W_Dtype(
             types.UInt32(),
             num=NPY_UINT,
@@ -568,7 +598,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_int,
                                     space.gettypefor(interp_boxes.W_IntegerBox),
                                     space.gettypefor(interp_boxes.W_SignedIntegerBox),
-                                   ],
+                                    ],
             aliases=['int'],
         )
         self.w_ulongdtype = W_Dtype(
@@ -578,8 +608,8 @@ class DtypeCache(object):
             name="uint%d" % LONG_BIT,
             char=NPY_ULONGLTR,
             w_box_type=space.gettypefor(interp_boxes.W_ULongBox),
-            alternate_constructors=[ space.gettypefor(interp_boxes.W_UnsignedIntegerBox),
-                                   ],
+            alternate_constructors=[space.gettypefor(interp_boxes.W_UnsignedIntegerBox),
+                                    ],
             aliases=['uint'],
         )
         self.w_int64dtype = W_Dtype(
@@ -619,7 +649,7 @@ class DtypeCache(object):
             w_box_type = space.gettypefor(interp_boxes.W_Float64Box),
             alternate_constructors=[space.w_float,
                                     space.gettypefor(interp_boxes.W_NumberBox),
-                                   ],
+                                    ],
             aliases=["float", "double"],
         )
         self.w_floatlongdtype = W_Dtype(
@@ -663,7 +693,8 @@ class DtypeCache(object):
             float_type = self.w_floatlongdtype,
         )
         self.w_stringdtype = W_Dtype(
-            types.StringType(0),
+            types.StringType(),
+            size=0,
             num=NPY_STRING,
             kind=NPY_STRINGLTR,
             name='string',
@@ -673,7 +704,8 @@ class DtypeCache(object):
             aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(
-            types.UnicodeType(0),
+            types.UnicodeType(),
+            size=0,
             num=NPY_UNICODE,
             kind=NPY_UNICODELTR,
             name='unicode',
@@ -682,7 +714,8 @@ class DtypeCache(object):
             alternate_constructors=[space.w_unicode],
         )
         self.w_voiddtype = W_Dtype(
-            types.VoidType(0),
+            types.VoidType(),
+            size=0,
             num=NPY_VOID,
             kind=NPY_VOIDLTR,
             name='void',
@@ -750,7 +783,7 @@ class DtypeCache(object):
             self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
-            (dtype.itemtype.get_element_size(), dtype)
+            (dtype.get_size(), dtype)
             for dtype in float_dtypes
         )
         self.dtypes_by_num = {}
@@ -760,25 +793,25 @@ class DtypeCache(object):
         for dtype in reversed(self.builtin_dtypes):
             self.dtypes_by_num[dtype.num] = dtype
             self.dtypes_by_name[dtype.name] = dtype
-            can_name = dtype.kind + str(dtype.itemtype.get_element_size())
+            can_name = dtype.kind + str(dtype.get_size())
             self.dtypes_by_name[can_name] = dtype
             self.dtypes_by_name[NPY_NATBYTE + can_name] = dtype
             self.dtypes_by_name[NPY_NATIVE + can_name] = dtype
             new_name = NPY_OPPBYTE + can_name
             itemtype = type(dtype.itemtype)(False)
             self.dtypes_by_name[new_name] = W_Dtype(
-                itemtype,
-                dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
-                byteorder=NPY_OPPBYTE, float_type=dtype.float_type)
+                itemtype, dtype.num, dtype.kind, new_name, dtype.char,
+                dtype.w_box_type, byteorder=NPY_OPPBYTE,
+                float_type=dtype.float_type)
             if dtype.kind != dtype.char:
                 can_name = dtype.char
                 self.dtypes_by_name[NPY_NATBYTE + can_name] = dtype
                 self.dtypes_by_name[NPY_NATIVE + can_name] = dtype
                 new_name = NPY_OPPBYTE + can_name
                 self.dtypes_by_name[new_name] = W_Dtype(
-                    itemtype,
-                    dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
-                    byteorder=NPY_OPPBYTE, float_type=dtype.float_type)
+                    itemtype, dtype.num, dtype.kind, new_name, dtype.char,
+                    dtype.w_box_type, byteorder=NPY_OPPBYTE,
+                    float_type=dtype.float_type)
 
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
@@ -830,27 +863,27 @@ class DtypeCache(object):
         for k, v in typeinfo_partial.iteritems():
             space.setitem(w_typeinfo, space.wrap(k), space.gettypefor(v))
         for k, dtype in typeinfo_full.iteritems():
-            itemsize = dtype.itemtype.get_element_size()
+            itembits = dtype.get_size() * 8
             items_w = [space.wrap(dtype.char),
                        space.wrap(dtype.num),
-                       space.wrap(itemsize * 8), # in case of changing
-                       # number of bits per byte in the future
-                       space.wrap(itemsize / (2 if dtype.kind == NPY_COMPLEXLTR else 1) or 1)]
+                       space.wrap(itembits),
+                       space.wrap(dtype.itemtype.get_element_size())]
             if dtype.is_int_type():
                 if dtype.kind == NPY_GENBOOLLTR:
                     w_maxobj = space.wrap(1)
                     w_minobj = space.wrap(0)
                 elif dtype.is_signed():
-                    w_maxobj = space.wrap(r_longlong((1 << (itemsize*8 - 1))
+                    w_maxobj = space.wrap(r_longlong((1 << (itembits - 1))
                                           - 1))
-                    w_minobj = space.wrap(r_longlong(-1) << (itemsize*8 - 1))
+                    w_minobj = space.wrap(r_longlong(-1) << (itembits - 1))
                 else:
-                    w_maxobj = space.wrap(r_ulonglong(1 << (itemsize*8)) - 1)
+                    w_maxobj = space.wrap(r_ulonglong(1 << itembits) - 1)
                     w_minobj = space.wrap(0)
                 items_w = items_w + [w_maxobj, w_minobj]
             items_w = items_w + [dtype.w_box_type]
             space.setitem(w_typeinfo, space.wrap(k), space.newtuple(items_w))
         self.w_typeinfo = w_typeinfo
+
 
 def get_dtype_cache(space):
     return space.fromcache(DtypeCache)

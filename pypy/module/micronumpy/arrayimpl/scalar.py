@@ -68,9 +68,15 @@ class Scalar(base.BaseArrayImplementation):
     def transpose(self, _):
         return self
 
-    def get_view(self, orig_array, dtype, new_shape):
+    def get_view(self, space, orig_array, dtype, new_shape):
         scalar = Scalar(dtype)
-        scalar.value = self.value.convert_to(dtype)
+        if dtype.is_str_or_unicode():
+            scalar.value = dtype.coerce(space, space.wrap(self.value.raw_str()))
+        elif dtype.is_record_type():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "viewing scalar as record not implemented"))
+        else:
+            scalar.value = dtype.itemtype.runpack_str(space, self.value.raw_str())
         return scalar
 
     def get_real(self, orig_array):
@@ -123,20 +129,24 @@ class Scalar(base.BaseArrayImplementation):
                             )
 
     def descr_getitem(self, space, _, w_idx):
+        if space.isinstance_w(w_idx, space.w_tuple):
+            if space.len_w(w_idx) == 0:
+                return self.get_scalar_value()
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def getitem_index(self, space, idx):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def descr_setitem(self, space, _, w_idx, w_val):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def setitem_index(self, space, idx, w_val):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
+
     def set_shape(self, space, orig_array, new_shape):
         if not new_shape:
             return self

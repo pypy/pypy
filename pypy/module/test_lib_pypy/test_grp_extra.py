@@ -16,7 +16,7 @@ class AppTestGrp:
             except KeyError:
                 continue
             assert g.gr_gid == 0
-            assert g.gr_mem == ['root'] or g.gr_mem == []
+            assert 'root' in g.gr_mem or g.gr_mem == []
             assert g.gr_name == name
             assert isinstance(g.gr_passwd, str)    # usually just 'x', don't hope :-)
             break
