@@ -1,3 +1,5 @@
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
@@ -1065,13 +1067,27 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, order='C'):
     from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
     from pypy.module.micronumpy.support import calc_strides
-    if (offset != 0 or not space.is_none(w_strides) or
-        not space.is_none(w_buffer)):
+    if (offset != 0 or not space.is_none(w_strides)):
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("unsupported param"))
+
     dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
+
+    if not space.is_none(w_buffer):
+        buf = space.buffer_w(w_buffer)
+        try:
+            raw_ptr = buf.get_raw_address()
+        except ValueError:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "Only raw buffers are supported"))
+        if not shape:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "numpy scalars from buffers not supported yet"))
+        storage = rffi.cast(RAW_STORAGE_PTR, raw_ptr)
+        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype)
+
     if not shape:
         return W_NDimArray.new_scalar(space, dtype)
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
@@ -1091,8 +1107,6 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtyp
     Create an array from an existing buffer, given its address as int.
     PyPy-only implementation detail.
     """
-    from rpython.rtyper.lltypesystem import rffi
-    from rpython.rlib.rawstorage import RAW_STORAGE_PTR
     storage = rffi.cast(RAW_STORAGE_PTR, addr)
     dtype = space.interp_w(interp_dtype.W_Dtype,
                      space.call_function(space.gettypefor(interp_dtype.W_Dtype),

@@ -218,7 +218,7 @@ class TestNumArrayDirect(object):
         assert get(1, 1) == 3
 
 class AppTestNumArray(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii", "array"])
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
@@ -2086,6 +2086,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         import numpypy as np
         a = np.ndarray([1], dtype=bool)
         assert a[0] == True
+
+    def test_ndarray_from_buffer(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*3)
+        a = np.ndarray((3,), buffer=buf, dtype='i2')
+        a[0] = ord('b')
+        a[1] = ord('a')
+        a[2] = ord('r')
+        assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
+        
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
