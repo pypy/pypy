@@ -10,6 +10,6 @@ What's new in PyPy 2.2+
 .. branch: numpy-newbyteorder
 Clean up numpy types, add newbyteorder functionality
 
-.. branch windows-packaging
+.. branch: windows-packaging
 Package tk/tcl runtime with win32
 
