@@ -42,7 +42,7 @@ gcptr stm_allocate_immutable(size_t size, unsigned long tid);
    called on the result (push roots!) */
 intptr_t stm_allocate_public_integer_address(gcptr);
 void stm_unregister_integer_address(intptr_t); /* push roots too! */
-
+_Bool stm_is_registered(gcptr);
 
 /* returns a never changing hash for the object */
 revision_t stm_hash(gcptr);

@@ -38,6 +38,13 @@ long stmgcpage_count(int quantity)
     }
 }
 
+static void check_consistent(gcptr obj) {
+    if ((obj->h_revision & 3) == 2)
+        assert(stm_pointer_equal(obj, (gcptr)(obj->h_revision-2)));
+    else if ((obj->h_revision & 1) == 0)
+        assert(stm_pointer_equal(obj, (gcptr)(obj->h_revision)));
+}
+
 
 /***** Support code *****/
 
@@ -218,6 +225,22 @@ void stmgcpage_free(gcptr obj)
 
 /***** registering of small stubs as integer addresses *****/
 
+_Bool stm_is_registered(gcptr obj)
+{
+    wlog_t *found;
+    _Bool res = 0;
+
+    stmgcpage_acquire_global_lock();
+    /* find and increment refcount; or insert */
+    G2L_FIND(registered_objs, obj, found, goto finish);
+    found->val = (gcptr)(((revision_t)found->val) + 1);
+    goto finish;
+    res = 1;
+ finish:
+    stmgcpage_release_global_lock();
+    return res;
+}
+
 void stm_register_integer_address(intptr_t adr)
 {                               /* needs to be inevitable! */
     wlog_t *found;
@@ -254,6 +277,7 @@ void stm_unregister_integer_address(intptr_t adr)
     /* become inevitable because we would have to re-register them
        on abort, but make sure only to re-register if not registered
        in the same aborted transaction (XXX) */
+    /* (obj will not move) */
     stm_become_inevitable("stm_unregister_integer_address()");
 
     stmgcpage_acquire_global_lock();
@@ -280,6 +304,10 @@ static struct GcPtrList objects_to_trace;
 
 static gcptr copy_over_original(gcptr obj, gcptr id_copy)
 {
+    /* no obj->h_revision = obj->h_original = id_copy */
+    assert(!((obj->h_revision <= ((revision_t)id_copy + 2)) && 
+             (obj->h_revision >= ((revision_t)id_copy))));
+
     assert(obj != id_copy);
     assert(id_copy == (gcptr)obj->h_original);
     assert(!(id_copy->h_revision & 1)); /* not head-revision itself */
@@ -541,11 +569,6 @@ static void mark_registered_objs(void)
                    == (GCFLAG_MARKED|GCFLAG_VISITED|GCFLAG_PUBLIC));
             continue;
         }
-        /* else if (R->h_original == 0) { */
-        /*     /\* the obj is an original and will therefore survive: *\/ */
-        /*     gcptr V = visit_public(R, NULL); */
-        /*     assert(V == R); */
-        /* } */
         else {
             assert(R->h_tid & GCFLAG_SMALLSTUB); /* only case for now */
             /* make sure R stays valid: */

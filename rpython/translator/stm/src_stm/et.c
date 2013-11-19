@@ -184,7 +184,8 @@ gcptr stm_DirectReadBarrier(gcptr G)
               if (v & 2)
                 goto follow_stub;
 
-              /* we update P_prev->h_revision as a shortcut */
+              /* we update P_prev->h_revision as a shortcut
+                 P_prev->P->v  =>  P_prev->v */
               /* XXX check if this really gives a worse performance than only
                  doing this write occasionally based on a counter in d */
               P_prev->h_revision = v;
@@ -577,6 +578,7 @@ static gcptr LocalizeProtected(struct tx_descriptor *d, gcptr P)
   B = stmgc_duplicate_old(P);
   B->h_tid |= GCFLAG_BACKUP_COPY;
   B->h_tid &= ~GCFLAG_HAS_ID;
+
   if (!(P->h_original) && (P->h_tid & GCFLAG_OLD)) {
     /* if P is old, it must be the original
        if P is young, it will create a shadow original later

@@ -84,6 +84,7 @@ static void replace_ptr_to_protected_with_stub(gcptr *pobj)
         obj->h_original = (revision_t)stub; 
         stub->h_original = 0;   /* stub_malloc does not set to 0... */
         if (obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED) {
+            assert(!(((gcptr)obj->h_revision)->h_original));
             ((gcptr)obj->h_revision)->h_original = (revision_t)stub;
         }
     }

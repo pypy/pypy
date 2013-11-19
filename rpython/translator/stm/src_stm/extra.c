@@ -90,21 +90,30 @@ intptr_t stm_allocate_public_integer_address(gcptr obj)
     }
     assert(obj->h_tid & GCFLAG_OLD);
 
+    if (stm_is_registered(obj)) {
+        /* prevents stub->stub->stub->... */
+        /* only increment refcount: */
+        stm_register_integer_address((intptr_t)obj);
+        return (intptr_t)obj;
+    }
+
     spinlock_acquire(d->public_descriptor->collection_lock, 'P');
 
     /* it must have a h_original */
     gcptr orig;
-    if (obj->h_original == 0 || obj->h_tid & GCFLAG_PREBUILT_ORIGINAL) {
+    if ((!obj->h_original) || (obj->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
         orig = obj;
     } else {
         orig = (gcptr)obj->h_original;
     }
     
-    if ((orig->h_tid & (GCFLAG_PUBLIC | GCFLAG_PREBUILT_ORIGINAL))
-        == (GCFLAG_PUBLIC | GCFLAG_PREBUILT_ORIGINAL)) {
-        /* public is not enough as public stubs may get replaced
-           by the protected object they point to, if they are in the 
-           same thread (I think...) */
+    if ((orig->h_tid & GCFLAG_PUBLIC) 
+        && (obj->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
+        /* we can't just use *any* public original because their
+           h_revision is not kept up-to-date during major collections.
+           Meaning it can point to some long gone object.
+           Prebuilt originals, however, always get visited in major
+           collections. */
         result = (intptr_t)orig;
     }
     else {
@@ -234,10 +243,11 @@ revision_t stm_id(gcptr p)
         /* must create shadow original object XXX: or use
            backup, if exists */
         gcptr O = (gcptr)stmgcpage_malloc(stmgc_size(p));
-        memcpy(O, p, stmgc_size(p)); /* at least major collections
-                                      depend on some content of id_copy.
-                                      remove after fixing that XXX */
+        memcpy(O, p, sizeof(struct stm_object_s));
+
         O->h_tid |= GCFLAG_OLD;
+        assert(O->h_original == 0);
+        assert(O->h_revision = -1);     /* debugging */
 
         p->h_original = (revision_t)O;
         p->h_tid |= GCFLAG_HAS_ID;
@@ -246,6 +256,7 @@ revision_t stm_id(gcptr p)
             gcptr B = (gcptr)p->h_revision;
             /* not stolen already: */
             assert(!(B->h_tid & GCFLAG_PUBLIC));
+            assert(!B->h_original);
             B->h_original = (revision_t)O;
         }
         

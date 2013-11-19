@@ -187,6 +187,9 @@ static void visit_if_young(gcptr *root)
 
             /* priv_from_prot's backup->h_originals already point
                to id_obj */
+            assert(IMPLIES(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED,
+                           ((gcptr)obj->h_revision)->h_original
+                           == obj->h_original));
         } 
         else {
             /* make a copy of it outside */
