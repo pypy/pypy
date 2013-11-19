@@ -374,7 +374,7 @@ class AppTestSupport(BaseNumpyAppTest):
         raises(TypeError, log, a, out=c)
 
     def test___array_prepare__reduce(self):
-        from numpypy import ndarray, array, sum, ones, add
+        from numpypy import ndarray, array, ones, add
         class with_prepare(ndarray):
             def __array_prepare__(self, arr, context):
                 x = array(arr).view(type=with_prepare)
@@ -382,7 +382,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 print 'called_prepare',arr
                 return x
         a = ones(2).view(type=with_prepare)
-        x = sum(a)
+        x = a.sum()
         assert type(x) == with_prepare
         assert x.shape == ()
         # reduce functions do not call prepare, is this a numpy 'feature'?
@@ -391,6 +391,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert type(x) == with_prepare
         assert not getattr(x, 'called_prepare',False)
         a = ones((2,3)).view(type=with_prepare)
-        x = sum(a, axis=0)
+        x = a.sum(axis=0)
         assert type(x) == with_prepare
         assert not getattr(x, 'called_prepare',False)
