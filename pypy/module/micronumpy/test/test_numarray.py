@@ -68,7 +68,8 @@ class TestNumArrayDirect(object):
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
+                                         Chunk(1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
@@ -2052,7 +2053,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([1, 2], dtype="int64")
         data = a.__reduce__()
 
-        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
+        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00' \
+                             '\x02\x00\x00\x00\x00\x00\x00\x00'
 
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
@@ -2800,9 +2802,11 @@ class AppTestSupport(BaseNumpyAppTest):
         assert k[0] == dtype('float16').type(5.)
         dt =  array([5],dtype='longfloat').dtype
         if dt.itemsize == 12:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype='float96')
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00',
+                           dtype='float96')
         elif dt.itemsize == 16:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype='float128')
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00' \
+                           '\x00\x00\x00\x00', dtype='float128')
         elif dt.itemsize == 8:
             skip('longfloat is float64')
         else:
@@ -3027,7 +3031,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import dtype, array, zeros
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
-        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
+                   ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         for v in ['x', u'x', 0, -2]:
             assert (a[0][v] == [1, 2, 3]).all()
@@ -3037,7 +3042,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             assert (a[1][v] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
         for v in [-3, 2]:
             exc = raises(IndexError, "a[0][%d]" % v)
-            assert exc.value.message == "invalid index (%d)" % (v + 2 if v < 0 else v)
+            assert exc.value.message == "invalid index (%d)" % \
+                                        (v + 2 if v < 0 else v)
         exc = raises(IndexError, "a[0]['z']")
         assert exc.value.message == "invalid index"
         exc = raises(IndexError, "a[0][None]")
@@ -3107,7 +3113,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import dtype, array
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
-        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
+                   ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
 
