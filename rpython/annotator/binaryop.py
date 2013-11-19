@@ -6,7 +6,8 @@ import py
 import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import SomeObject, SomeInteger, SomeBool, s_Bool
-from rpython.annotator.model import SomeString, SomeChar, SomeList, SomeDict
+from rpython.annotator.model import SomeString, SomeChar, SomeList, SomeDict,\
+     SomeOrderedDict
 from rpython.annotator.model import SomeUnicodeCodePoint, SomeUnicodeString
 from rpython.annotator.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from rpython.annotator.model import SomeInstance, SomeBuiltin, SomeIterator
@@ -581,7 +582,8 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 class __extend__(pairtype(SomeDict, SomeDict)):
 
     def union((dic1, dic2)):
-        return SomeDict(dic1.dictdef.union(dic2.dictdef))
+        assert dic1.__class__ == dic2.__class__
+        return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
 
 class __extend__(pairtype(SomeDict, SomeObject)):
@@ -825,14 +827,14 @@ def _make_none_union(classname, constructor_args='', glob=None):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
 
         class __extend__(pairtype(SomePBC, %(classname)s)):
             def union((pbc, obj)):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
     """ % loc)
     exec source.compile() in glob
 
@@ -840,6 +842,7 @@ _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
 _make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
+_make_none_union('SomeOrderedDict',          'obj.dictdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeWeakRef',         'obj.classdef')
 

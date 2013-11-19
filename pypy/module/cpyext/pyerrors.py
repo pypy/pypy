@@ -103,11 +103,13 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
     exc_p[0] = make_ref(space, operr.w_type)
     val_p[0] = make_ref(space, operr.get_w_value(space))
 
-@cpython_api([], lltype.Void)
+@cpython_api([], rffi.INT_real, error=0)
 def PyErr_BadArgument(space):
     """This is a shorthand for PyErr_SetString(PyExc_TypeError, message), where
     message indicates that a built-in operation was invoked with an illegal
-    argument.  It is mostly for internal use."""
+    argument.  It is mostly for internal use. In CPython this function always
+    raises an exception and returns 0 in all cases, hence the (ab)use of the
+    error indicator."""
     raise OperationError(space.w_TypeError,
             space.wrap("bad argument type for built-in operation"))
 

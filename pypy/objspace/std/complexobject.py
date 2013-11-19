@@ -52,16 +52,16 @@ class W_ComplexObject(W_AbstractComplexObject):
     from pypy.objspace.std.complextype import complex_typedef as typedef
     _immutable_fields_ = ['realval', 'imagval']
 
-    def __init__(w_self, realval=0.0, imgval=0.0):
-        w_self.realval = float(realval)
-        w_self.imagval = float(imgval)
+    def __init__(self, realval=0.0, imgval=0.0):
+        self.realval = float(realval)
+        self.imagval = float(imgval)
 
-    def unwrap(w_self, space):   # for tests only
-        return complex(w_self.realval, w_self.imagval)
+    def unwrap(self, space):   # for tests only
+        return complex(self.realval, self.imagval)
 
-    def __repr__(w_self):
+    def __repr__(self):
         """ representation for debugging purposes """
-        return "<W_ComplexObject(%f,%f)>" % (w_self.realval, w_self.imagval)
+        return "<W_ComplexObject(%f,%f)>" % (self.realval, self.imagval)
 
     def as_tuple(self):
         return (self.realval, self.imagval)

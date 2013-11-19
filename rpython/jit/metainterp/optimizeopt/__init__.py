@@ -32,7 +32,6 @@ assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
     'please fix rlib/jit.py to say ENABLE_ALL_OPTS = %r' % (ALL_OPTS_NAMES,))
 
 def build_opt_chain(metainterp_sd, enable_opts):
-    config = metainterp_sd.config
     optimizations = []
     unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
     for name, opt in unroll_all_opts:

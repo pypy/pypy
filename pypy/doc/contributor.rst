@@ -17,24 +17,24 @@ appropriate measure but it's something)::
   David Schneider
   Holger Krekel
   Christian Tismer
+  Matti Picus
   Hakan Ardo
   Benjamin Peterson
-  Matti Picus
   Philip Jenvey
   Anders Chrigstrom
   Brian Kearns
+  Manuel Jacob
   Eric van Riet Paap
+  Wim Lavrijsen
   Richard Emslie
   Alexander Schremmer
-  Wim Lavrijsen
   Dan Villiom Podlaski Christiansen
-  Manuel Jacob
+  Ronan Lamy
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
   Aurelien Campeas
   Niklaus Haldimann
-  Ronan Lamy
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
@@ -45,8 +45,10 @@ appropriate measure but it's something)::
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
+  Romain Guillebert
   Guido Wesdorp
   Lawrence Oluyede
+  Remi Meier
   Bartosz Skowron
   Daniel Roberts
   Niko Matsakis
@@ -54,18 +56,17 @@ appropriate measure but it's something)::
   Ludovic Aubry
   Alexander Hesse
   Jacob Hallen
-  Romain Guillebert
   Jason Creighton
   Alex Martelli
   Michal Bendowski
   Jan de Mooij
+  stian
   Michael Foord
   Stephan Diehl
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
   Patrick Maupin
-  stian
   Bob Ippolito
   Bruno Gola
   Jean-Paul Calderone
@@ -74,29 +75,33 @@ appropriate measure but it's something)::
   Simon Burton
   Marius Gedminas
   John Witulski
+  Konstantin Lopuhin
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
-  Konstantin Lopuhin
   Andreas Stührk
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
   Adrian Kuhn
   Boris Feigin
+  Stefano Rivera
   tav
+  Taavi Burns
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
-  Stefano Rivera
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
-  Taavi Burns
   Oscar Nierstrasz
+  Stefan H. Muller
+  Laurence Tratt
+  Rami Chowdhury
   David Malcolm
   Eugene Oden
   Henry Mason
@@ -105,14 +110,15 @@ appropriate measure but it's something)::
   David Ripton
   Dusty Phillips
   Lukas Renggli
+  Edd Barrett
   Guenter Jantzen
   Tobias Oberstein
-  Remi Meier
   Ned Batchelder
   Amit Regmi
   Ben Young
   Nicolas Chauvat
   Andrew Durdin
+  Andrew Chambers
   Michael Schneider
   Nicholas Riley
   Jason Chu
@@ -128,10 +134,13 @@ appropriate measure but it's something)::
   Olivier Dormond
   Jared Grubb
   Karl Bartel
+  Tobias Pape
   Brian Dorsey
   Victor Stinner
+  Andrews Medina
   Stuart Williams
   Jasper Schulz
+  Christian Hudon
   Toby Watson
   Antoine Pitrou
   Aaron Iles
@@ -141,7 +150,6 @@ appropriate measure but it's something)::
   Neil Shepperd
   Mikael Schönenberg
   Elmo Mäntynen
-  Tobias Pape
   Jonathan David Riehl
   Stanislaw Halik
   Anders Qvist
@@ -153,19 +161,15 @@ appropriate measure but it's something)::
   Alexander Sedov
   Corbin Simpson
   Christopher Pope
-  Laurence Tratt
-  Guillebert Romain
   Christian Tismer 
   Dan Stromberg
   Stefano Parmesan
-  Christian Hudon
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
   Gabriel
-  Paweł Piotr Przeradowski
   Andrew Dalke
   Sylvain Thenault
   Nathan Taylor
@@ -189,13 +193,15 @@ appropriate measure but it's something)::
   Martin Blais
   Lene Wagner
   Tomo Cocoa
-  Andrews Medina
   roberto@goyle
+  Yury V. Zaytsev
+  Anna Katrina Dominguez
   William Leslie
   Bobby Impollonia
   timo@eistee.fritz.box
   Andrew Thompson
   Yusei Tahara
+  Ben Darnell
   Roberto De Ioris
   Juan Francisco Cantero Hurtado
   Godefroid Chappelle
@@ -209,7 +215,7 @@ appropriate measure but it's something)::
   Akira Li
   Gustavo Niemeyer
   Stephan Busemann
-  Anna Katrina Dominguez
+  Rafał Gałczyński
   Christian Muirhead
   James Lan
   shoma hosaka
@@ -219,6 +225,7 @@ appropriate measure but it's something)::
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
+  w31rd0
   Jim Baker
   Rodrigo Araújo
   Armin Ronacher
@@ -234,12 +241,12 @@ appropriate measure but it's something)::
   Even Wiik Thomassen
   jbs
   soareschen
+  Mike Bayer
   Flavio Percoco
   Kristoffer Kleine
   yasirs
   Michael Chermside
   Anna Ravencroft
-  Andrew Chambers
   Julien Phalip
   Dan Loewenherz
 

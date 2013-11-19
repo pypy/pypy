@@ -79,7 +79,7 @@ class PtrRepr(Repr):
             return hop.genop('getarraysize', vlist,
                              resulttype = hop.r_result.lowleveltype)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         vlist = hop.inputargs(self)
         return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 

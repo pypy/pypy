@@ -15,10 +15,10 @@ class AppTestSupport(BaseNumpyAppTest):
                     self.called_finalize = True
             return NoNew ''')
         cls.w_SubType = cls.space.appexec([], '''():
-            from numpypy import ndarray, asarray
+            from numpypy import ndarray, array
             class SubType(ndarray):
                 def __new__(obj, input_array):
-                    obj = asarray(input_array).view(obj)
+                    obj = array(input_array, copy=False).view(obj)
                     obj.called_new = True
                     return obj
                 def __array_finalize__(self, obj):
@@ -106,9 +106,9 @@ class AppTestSupport(BaseNumpyAppTest):
         assert not isinstance(b, self.NoNew)
 
     def test_sub_repeat(self):
-        from numpypy import repeat, array
+        from numpypy import array
         a = self.SubType(array([[1, 2], [3, 4]]))
-        b =  repeat(a, 3)
+        b = a.repeat(3)
         assert (b == [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]).all()
         assert isinstance(b, self.SubType)
 
@@ -220,4 +220,29 @@ class AppTestSupport(BaseNumpyAppTest):
         a = array(range(12)).view(self.NoNew)
         b = a.reshape(3, 4)
         assert b.called_finalize == True
+
+    def test___array__(self):
+        import sys
+        from numpypy import ndarray, array, dtype
+        class D(ndarray):
+            def __new__(subtype, shape, dtype):
+                self = ndarray.__new__(subtype, shape, dtype)
+                self.id = 'subtype'
+                return self
+        class C(object):
+            def __init__(self, val, dtype):
+                self.val = val
+                self.dtype = dtype
+            def __array__(self, dtype=None):
+                retVal = D(self.val, dtype)
+                return retVal
+
+        a = C([2, 2], int)
+        b = array(a)
+        assert b.shape == (2, 2)
+        if '__pypy__' in sys.builtin_module_names:
+            assert b.id == 'subtype'
+            assert isinstance(b, D)
+        c = array(a, float)
+        assert c.dtype is dtype(float)
 

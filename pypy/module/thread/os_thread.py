@@ -182,7 +182,6 @@ printed unless the exception is SystemExit."""
     bootstrapper.acquire(space, w_callable, args)
     try:
         try:
-            rthread.gc_thread_prepare()     # (this has no effect any more)
             ident = rthread.start_new_thread(bootstrapper.bootstrap, ())
         except Exception:
             bootstrapper.release()     # normally called by the new thread

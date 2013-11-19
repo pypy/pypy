@@ -268,10 +268,18 @@ def _has_load_extension():
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
 
-_lib = _ffi.verify("""
-#include <sqlite3.h>
-""", libraries=['sqlite3']
-)
+if sys.platform.startswith('freebsd'):
+    _lib = _ffi.verify("""
+    #include <sqlite3.h>
+    """, libraries=['sqlite3'],
+         include_dirs=['/usr/local/include'],
+         library_dirs=['/usr/local/lib']
+    )
+else:
+    _lib = _ffi.verify("""
+    #include <sqlite3.h>
+    """, libraries=['sqlite3']
+    )
 
 exported_sqlite_symbols = [
     'SQLITE_ALTER_TABLE',
@@ -363,9 +371,11 @@ class NotSupportedError(DatabaseError):
     pass
 
 
-def connect(database, **kwargs):
-    factory = kwargs.get("factory", Connection)
-    return factory(database, **kwargs)
+def connect(database, timeout=5.0, detect_types=0, isolation_level="",
+                 check_same_thread=True, factory=None, cached_statements=100):
+    factory = Connection if not factory else factory
+    return factory(database, timeout, detect_types, isolation_level,
+                    check_same_thread, factory, cached_statements)
 
 
 def _unicode_text_factory(x):

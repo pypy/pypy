@@ -472,6 +472,15 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_int()
         return None
 
+    def listview_float(self, w_obj):
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_float()
+        # dict and set don't have FloatStrategy, so we can just ignore them
+        # for now
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_float()
+        return None
+
     def view_as_kwargs(self, w_dict):
         if type(w_dict) is W_DictMultiObject:
             return w_dict.view_as_kwargs()
@@ -591,10 +600,7 @@ class StdObjSpace(ObjSpace):
         return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
 
     def call_method(self, w_obj, methname, *arg_w):
-        if self.config.objspace.opcodes.CALL_METHOD:
-            return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
-        else:
-            return ObjSpace.call_method(self, w_obj, methname, *arg_w)
+        return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
 
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):

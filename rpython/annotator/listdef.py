@@ -1,12 +1,12 @@
 from rpython.annotator.model import s_ImpossibleValue
 from rpython.annotator.model import SomeList, SomeString
-from rpython.annotator.model import unionof, TLS, UnionError
+from rpython.annotator.model import unionof, TLS, UnionError, AnnotatorError
 
 
-class TooLateForChange(Exception):
+class TooLateForChange(AnnotatorError):
     pass
 
-class ListChangeUnallowed(Exception):
+class ListChangeUnallowed(AnnotatorError):
     pass
 
 class ListItem(object):

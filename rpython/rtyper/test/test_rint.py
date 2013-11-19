@@ -85,6 +85,14 @@ class TestRint(BaseRtypingTest):
         res = self.ll_to_string(res)
         assert res == '-0x8' + '0' * (len(res)-4)
 
+    def test_hex_of_uint(self):
+        def dummy(i):
+            return hex(r_uint(i))
+
+        res = self.interpret(dummy, [-5])
+        res = self.ll_to_string(res)
+        assert res == '0x' + 'f' * (len(res)-3) + 'b'
+
     def test_oct_of_int(self):
         def dummy(i):
             return oct(i)

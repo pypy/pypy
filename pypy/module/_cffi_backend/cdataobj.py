@@ -19,9 +19,9 @@ class W_CData(W_Root):
     _cdata = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, space, cdata, ctype):
-        from pypy.module._cffi_backend import ctypeprim
+        from pypy.module._cffi_backend import ctypeobj
         assert lltype.typeOf(cdata) == rffi.CCHARP
-        assert isinstance(ctype, ctypeprim.W_CType)
+        assert isinstance(ctype, ctypeobj.W_CType)
         self.space = space
         self._cdata = cdata    # don't forget keepalive_until_here!
         self.ctype = ctype
@@ -211,7 +211,21 @@ class W_CData(W_Root):
                 keepalive_until_here(w_value)
                 return
         #
+        # A fast path for <char[]>[0:N] = "somestring".
+        from pypy.module._cffi_backend import ctypeprim
         space = self.space
+        if (space.isinstance_w(w_value, space.w_str) and
+                isinstance(ctitem, ctypeprim.W_CTypePrimitiveChar)):
+            from rpython.rtyper.annlowlevel import llstr
+            from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+            value = space.str_w(w_value)
+            if len(value) != length:
+                raise operationerrfmt(space.w_ValueError,
+                                      "need a string of length %d, got %d",
+                                      length, len(value))
+            copy_string_to_raw(llstr(value), cdata, 0, length)
+            return
+        #
         w_iter = space.iter(w_value)
         for i in range(length):
             try:
@@ -245,19 +259,22 @@ class W_CData(W_Root):
         space = self.space
         if isinstance(w_other, W_CData):
             from pypy.module._cffi_backend import ctypeptr, ctypearray
+            from pypy.module._cffi_backend import ctypevoid
             ct = w_other.ctype
             if isinstance(ct, ctypearray.W_CTypeArray):
                 ct = ct.ctptr
             #
             if (ct is not self.ctype or
                    not isinstance(ct, ctypeptr.W_CTypePointer) or
-                   ct.ctitem.size <= 0):
+                   (ct.ctitem.size <= 0 and not ct.is_void_ptr)):
                 raise operationerrfmt(space.w_TypeError,
                     "cannot subtract cdata '%s' and cdata '%s'",
                     self.ctype.name, ct.name)
             #
+            itemsize = ct.ctitem.size
+            if itemsize <= 0: itemsize = 1
             diff = (rffi.cast(lltype.Signed, self._cdata) -
-                    rffi.cast(lltype.Signed, w_other._cdata)) // ct.ctitem.size
+                    rffi.cast(lltype.Signed, w_other._cdata)) // itemsize
             return space.wrap(diff)
         #
         return self._add_or_sub(w_other, -1)
@@ -281,6 +298,20 @@ class W_CData(W_Root):
 
     def iter(self):
         return self.ctype.iter(self)
+
+    def unpackiterable_int(self, space):
+        from pypy.module._cffi_backend import ctypearray
+        ctype = self.ctype
+        if isinstance(ctype, ctypearray.W_CTypeArray):
+            return ctype.ctitem.unpack_list_of_int_items(self)
+        return None
+
+    def unpackiterable_float(self, space):
+        from pypy.module._cffi_backend import ctypearray
+        ctype = self.ctype
+        if isinstance(ctype, ctypearray.W_CTypeArray):
+            return ctype.ctitem.unpack_list_of_float_items(self)
+        return None
 
     @specialize.argtype(1)
     def write_raw_signed_data(self, source):
@@ -427,6 +458,7 @@ W_CData.typedef = TypeDef(
     __getitem__ = interp2app(W_CData.getitem),
     __setitem__ = interp2app(W_CData.setitem),
     __add__ = interp2app(W_CData.add),
+    __radd__ = interp2app(W_CData.add),
     __sub__ = interp2app(W_CData.sub),
     __getattr__ = interp2app(W_CData.getattr),
     __setattr__ = interp2app(W_CData.setattr),
