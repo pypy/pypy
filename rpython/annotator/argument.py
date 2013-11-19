@@ -167,20 +167,6 @@ class ArgumentsForTranslation(CallSpec):
         return cls(args_w, dict(zip(shape_keys, data_w[shape_cnt:end_keys])),
                 w_star)
 
-    def flatten(self):
-        """ Argument <-> list of w_objects together with "shape" information """
-        shape_cnt, shape_keys, shape_star = self._rawshape()
-        data_w = self.arguments_w + [self.keywords[key] for key in shape_keys]
-        if shape_star:
-            data_w.append(self.w_stararg)
-        return (shape_cnt, shape_keys, shape_star), data_w
-
-    def _rawshape(self):
-        shape_cnt = len(self.arguments_w)
-        shape_keys = tuple(sorted(self.keywords))
-        shape_star = self.w_stararg is not None   # Flag: presence of *arg
-        return shape_cnt, shape_keys, shape_star
-
 
 def rawshape(args):
     return args._rawshape()

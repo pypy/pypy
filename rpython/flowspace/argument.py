@@ -93,13 +93,17 @@ class CallSpec(object):
 
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """
-        shape_cnt  = len(self.arguments_w)    # Number of positional args
-        shape_keys = tuple(sorted(self.keywords))
-        shape_star = self.w_stararg is not None   # Flag: presence of *arg
+        shape_cnt, shape_keys, shape_star = self._rawshape()
         data_w = self.arguments_w + [self.keywords[key] for key in shape_keys]
         if shape_star:
             data_w.append(self.w_stararg)
         return (shape_cnt, shape_keys, shape_star), data_w
+
+    def _rawshape(self):
+        shape_cnt = len(self.arguments_w)
+        shape_keys = tuple(sorted(self.keywords))
+        shape_star = self.w_stararg is not None   # Flag: presence of *arg
+        return shape_cnt, shape_keys, shape_star
 
     def as_list(self):
         assert not self.keywords
