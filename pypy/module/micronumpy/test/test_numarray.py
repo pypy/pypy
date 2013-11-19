@@ -2098,6 +2098,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
         assert a.base is buf
 
+    def test_ndarray_from_buffer_and_offset(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*7)
+        buf[0] = 'X'
+        a = np.ndarray((3,), buffer=buf, offset=1, dtype='i2')
+        a[0] = ord('b')
+        a[1] = ord('a')
+        a[2] = ord('r')
+        assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

@@ -1067,15 +1067,15 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, order='C'):
     from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
     from pypy.module.micronumpy.support import calc_strides
-    if (offset != 0 or not space.is_none(w_strides)):
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("unsupported param"))
-
     dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
 
     if not space.is_none(w_buffer):
+        if (not space.is_none(w_strides)):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("unsupported param"))
+
         buf = space.buffer_w(w_buffer)
         try:
             raw_ptr = buf.get_raw_address()
@@ -1086,6 +1086,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
             raise OperationError(space.w_TypeError, space.wrap(
                 "numpy scalars from buffers not supported yet"))
         storage = rffi.cast(RAW_STORAGE_PTR, raw_ptr)
+        storage = rffi.ptradd(storage, offset)
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                                                   w_base=w_buffer)
 
