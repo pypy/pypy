@@ -2109,6 +2109,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[2] = ord('r')
         assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
 
+    def test_ndarray_from_buffer_out_of_bounds(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*10) # 20 bytes
+        info = raises(TypeError, "np.ndarray((11,), buffer=buf, dtype='i2')")
+        assert str(info.value).startswith('buffer is too small')
+        info = raises(TypeError, "np.ndarray((5,), buffer=buf, offset=15, dtype='i2')")
+        assert str(info.value).startswith('buffer is too small')
+        
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

@@ -22,6 +22,7 @@ from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 from pypy.module.micronumpy.conversion_utils import order_converter, multi_axis_converter
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy.constants import *
 
 def _find_shape(space, w_size, dtype):
@@ -1085,6 +1086,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         if not shape:
             raise OperationError(space.w_TypeError, space.wrap(
                 "numpy scalars from buffers not supported yet"))
+        totalsize = support.product(shape) * dtype.get_size()
+        if totalsize+offset > buf.getlength():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "buffer is too small for requested array"))
         storage = rffi.cast(RAW_STORAGE_PTR, raw_ptr)
         storage = rffi.ptradd(storage, offset)
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
