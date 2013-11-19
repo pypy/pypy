@@ -1,11 +1,12 @@
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs, constants
+from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement,\
      shape_agreement_multiple
-from pypy.module.micronumpy.constants import clipmode_converter
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.micronumpy.conversion_utils import clipmode_converter
+from pypy.module.micronumpy.constants import *
 
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
@@ -90,11 +91,11 @@ def where(space, w_arr, w_x=None, w_y=None):
     out = W_NDimArray.from_shape(space, shape, dtype)
     return loop.where(out, shape, arr, x, y, dtype)
 
-def dot(space, w_obj1, w_obj2):
+def dot(space, w_obj1, w_obj2, w_out=None):
     w_arr = convert_to_array(space, w_obj1)
     if w_arr.is_scalar():
-        return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
-    return w_arr.descr_dot(space, w_obj2)
+        return convert_to_array(space, w_obj2).descr_dot(space, w_arr, w_out)
+    return w_arr.descr_dot(space, w_obj2, w_out)
 
 
 @unwrap_spec(axis=int)
@@ -105,16 +106,26 @@ def concatenate(space, w_args, axis=0):
     args_w = [convert_to_array(space, w_arg) for w_arg in args_w]
     dtype = args_w[0].get_dtype()
     shape = args_w[0].get_shape()[:]
-    _axis = axis
+    ndim = len(shape)
+    orig_axis = axis
     if axis < 0:
-        _axis = len(shape) + axis
+        axis = ndim + axis
+    if ndim == 1 and axis != 0:
+        axis = 0
+    if axis < 0 or axis >= ndim:
+        raise operationerrfmt(space.w_IndexError,
+            "axis %d out of bounds [0, %d)", orig_axis, ndim)
     for arr in args_w[1:]:
+        if len(arr.get_shape()) != ndim:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "all the input arrays must have same number of dimensions"))
         for i, axis_size in enumerate(arr.get_shape()):
-            if len(arr.get_shape()) != len(shape) or (i != _axis and axis_size != shape[i]):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "all the input arrays must have same number of dimensions"))
-            elif i == _axis:
+            if i == axis:
                 shape[i] += axis_size
+            elif axis_size != shape[i]:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "all the input array dimensions except for the "
+                    "concatenation axis must match exactly"))
         a_dt = arr.get_dtype()
         if dtype.is_record_type() and a_dt.is_record_type():
             # Record types must match
@@ -128,19 +139,17 @@ def concatenate(space, w_args, axis=0):
                         space.wrap("invalid type promotion"))
         dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
-        if _axis < 0 or len(arr.get_shape()) <= _axis:
-            raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
     res = W_NDimArray.from_shape(space, shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
-        if arr.get_shape()[_axis] == 0:
+        if arr.get_shape()[axis] == 0:
             continue
-        chunks[_axis] = Chunk(axis_start, axis_start + arr.get_shape()[_axis], 1,
-                             arr.get_shape()[_axis])
+        chunks[axis] = Chunk(axis_start, axis_start + arr.get_shape()[axis], 1,
+                             arr.get_shape()[axis])
         Chunks(chunks).apply(space, res).implementation.setslice(space, arr)
-        axis_start += arr.get_shape()[_axis]
+        axis_start += arr.get_shape()[axis]
     return res
 
 @unwrap_spec(repeats=int)
@@ -190,7 +199,7 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
     return out
 
 def put(space, w_arr, w_indices, w_values, w_mode):
-    from pypy.module.micronumpy.support import int_w
+    from pypy.module.micronumpy.support import index_w
 
     arr = convert_to_array(space, w_arr)
     mode = clipmode_converter(space, w_mode)
@@ -216,20 +225,21 @@ def put(space, w_arr, w_indices, w_values, w_mode):
 
     v_idx = 0
     for idx in indices:
-        index = int_w(space, idx)
+        index = index_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
-            if mode == constants.MODE_RAISE:
+            if mode == NPY_RAISE:
                 raise OperationError(space.w_IndexError, space.wrap(
                     "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
-            elif mode == constants.MODE_WRAP:
+            elif mode == NPY_WRAP:
                 index = index % arr.get_size()
-            else:
-                assert mode == constants.MODE_CLIP
+            elif mode == NPY_CLIP:
                 if index < 0:
                     index = 0
                 else:
                     index = arr.get_size() - 1
+            else:
+                assert False
 
         value = values[v_idx]
 

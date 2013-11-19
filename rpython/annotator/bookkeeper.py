@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import sys, types, inspect, weakref
 
 from rpython.flowspace.model import Constant
-from rpython.annotator.model import (
+from rpython.annotator.model import (SomeOrderedDict,
     SomeString, SomeChar, SomeFloat, SomePtr, unionof, SomeInstance, SomeDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
@@ -370,7 +370,7 @@ class Bookkeeper(object):
                 for e in x:
                     listdef.generalize(self.immutablevalue(e, False))
                 result = SomeList(listdef)
-        elif tp is dict or tp is r_dict:
+        elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
             if need_const:
                 key = Constant(x)
                 try:
@@ -412,7 +412,10 @@ class Bookkeeper(object):
                     dictdef.generalize_key(self.immutablevalue(ek, False))
                     dictdef.generalize_value(self.immutablevalue(ev, False))
                     dictdef.seen_prebuilt_key(ek)
-                result = SomeDict(dictdef)
+                if tp is SomeOrderedDict.knowntype:
+                    result = SomeOrderedDict(dictdef)
+                else:
+                    result = SomeDict(dictdef)
         elif tp is weakref.ReferenceType:
             x1 = x()
             if x1 is None:

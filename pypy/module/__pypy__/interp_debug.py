@@ -23,3 +23,8 @@ def debug_print_once(space, category, args_w):
     debug_start(space, category)
     debug_print(space, args_w)
     debug_stop(space, category)
+
+
+@jit.dont_look_inside
+def debug_flush(space):
+    debug.debug_flush()

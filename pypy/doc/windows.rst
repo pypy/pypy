@@ -73,11 +73,11 @@ from
 https://bitbucket.org/pypy/pypy/downloads/local.zip
 Then expand it into the base directory (base_dir) and modify your environment to reflect this::
 
-    set PATH=<base_dir>\bin;%PATH%
-    set INCLUDE=<base_dir>\include;%INCLUDE%
-    set LIB=<base_dir>\lib;%LIB%
+    set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
+    set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
+    set LIB=<base_dir>\lib;<base_dir>\tcltk\lib;%LIB%
 
-Now you should be good to go. Read on for more information.
+Now you should be good to go. Read on for more information. 
 
 The Boehm garbage collector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -109,24 +109,17 @@ the base directory.  Then compile::
 The bz2 compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Download http://bzip.org/1.0.5/bzip2-1.0.5.tar.gz and extract it in
-the base directory.  Then compile::
-
-    cd bzip2-1.0.5
+    svn export http://svn.python.org/projects/external/bzip2-1.0.6
+    cd bzip2-1.0.6
     nmake -f makefile.msc
+    copy bzip.dll <somewhere in the PATH>\bzip.dll
     
 The sqlite3 database library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Download http://www.sqlite.org/2013/sqlite-amalgamation-3071601.zip and extract
-it into a directory under the base directory. Also get 
-http://www.sqlite.org/2013/sqlite-dll-win32-x86-3071601.zip and extract the dll
-into the bin directory, and the sqlite3.def into the sources directory.
-Now build the import library so cffi can use the header and dll::
-
-    lib /DEF:sqlite3.def" /OUT:sqlite3.lib"
-    copy sqlite3.lib path\to\libs
-
+PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
+wrapper is compiled when the module is imported for the first time.
+The sqlite3.dll should be version 3.6.21 for CPython2.7 compatablility.
 
 The expat XML parser
 ~~~~~~~~~~~~~~~~~~~~
@@ -150,12 +143,32 @@ OpenSSL needs a Perl interpreter to configure its makefile.  You may
 use the one distributed by ActiveState, or the one from cygwin.  In
 both case the perl interpreter must be found on the PATH.
 
-Get http://www.openssl.org/source/openssl-0.9.8k.tar.gz and extract it
-in the base directory. Then compile::
-
+    svn export http://svn.python.org/projects/external/openssl-0.9.8y
+    cd openssl-0.9.8y
     perl Configure VC-WIN32
     ms\do_ms.bat
     nmake -f ms\nt.mak install
+
+TkInter module support
+~~~~~~~~~~~~~~~~~~~~~~
+
+Note that much of this is taken from the cpython build process.
+Tkinter is imported via cffi, so the module is optional. To recreate the tcltk
+directory found for the release script, create the dlls, libs, headers and
+runtime by running::
+
+	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85 
+	svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
+	cd tcl85\win 
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all 
+	nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
+	cd ..\..\tk85\win 
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all 
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
+
+Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
+for use. The release packaging script will pick up the tcltk runtime in the lib
+directory and put it in the archive.
 
 Using the mingw compiler
 ------------------------

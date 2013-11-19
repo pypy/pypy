@@ -1,4 +1,5 @@
 import types
+from .lock import allocate_lock
 
 try:
     callable
@@ -61,6 +62,7 @@ class FFI(object):
             # rely on it!  It's probably not going to work well.)
 
         self._backend = backend
+        self._lock = allocate_lock()
         self._parser = cparser.Parser()
         self._cached_btypes = {}
         self._parsed_types = types.ModuleType('parsed_types').__dict__
@@ -74,7 +76,8 @@ class FFI(object):
             if name.startswith('RTLD_'):
                 setattr(self, name, getattr(backend, name))
         #
-        self.BVoidP = self._get_cached_btype(model.voidp_type)
+        with self._lock:
+            self.BVoidP = self._get_cached_btype(model.voidp_type)
         if isinstance(backend, types.ModuleType):
             # _cffi_backend: attach these constants to the class
             if not hasattr(FFI, 'NULL'):
@@ -95,11 +98,12 @@ class FFI(object):
             if not isinstance(csource, basestring):
                 raise TypeError("cdef() argument must be a string")
             csource = csource.encode('ascii')
-        self._parser.parse(csource, override=override)
-        self._cdefsources.append(csource)
-        if override:
-            for cache in self._function_caches:
-                cache.clear()
+        with self._lock:
+            self._parser.parse(csource, override=override)
+            self._cdefsources.append(csource)
+            if override:
+                for cache in self._function_caches:
+                    cache.clear()
 
     def dlopen(self, name, flags=0):
         """Load and return a dynamic library identified by 'name'.
@@ -109,31 +113,47 @@ class FFI(object):
         library we only look for the actual (untyped) symbols.
         """
         assert isinstance(name, basestring) or name is None
-        lib, function_cache = _make_ffi_library(self, name, flags)
-        self._function_caches.append(function_cache)
-        self._libraries.append(lib)
+        with self._lock:
+            lib, function_cache = _make_ffi_library(self, name, flags)
+            self._function_caches.append(function_cache)
+            self._libraries.append(lib)
         return lib
+
+    def _typeof_locked(self, cdecl):
+        # call me with the lock!
+        key = cdecl
+        if key in self._parsed_types:
+            return self._parsed_types[key]
+        #
+        if not isinstance(cdecl, str):    # unicode, on Python 2
+            cdecl = cdecl.encode('ascii')
+        #
+        type = self._parser.parse_type(cdecl)
+        really_a_function_type = type.is_raw_function
+        if really_a_function_type:
+            type = type.as_function_pointer()
+        btype = self._get_cached_btype(type)
+        result = btype, really_a_function_type
+        self._parsed_types[key] = result
+        return result
 
     def _typeof(self, cdecl, consider_function_as_funcptr=False):
         # string -> ctype object
         try:
-            btype, cfaf = self._parsed_types[cdecl]
-            if consider_function_as_funcptr and not cfaf:
-                raise KeyError
+            result = self._parsed_types[cdecl]
         except KeyError:
-            key = cdecl
-            if not isinstance(cdecl, str):    # unicode, on Python 2
-                cdecl = cdecl.encode('ascii')
-            cfaf = consider_function_as_funcptr
-            type = self._parser.parse_type(cdecl,
-                       consider_function_as_funcptr=cfaf)
-            btype = self._get_cached_btype(type)
-            self._parsed_types[key] = btype, cfaf
+            with self._lock:
+                result = self._typeof_locked(cdecl)
+        #
+        btype, really_a_function_type = result
+        if really_a_function_type and not consider_function_as_funcptr:
+            raise CDefError("the type %r is a function type, not a "
+                            "pointer-to-function type" % (cdecl,))
         return btype
 
     def typeof(self, cdecl):
         """Parse the C type given as a string and return the
-        corresponding Python type: <class 'ffi.CData<...>'>.
+        corresponding <ctype> object.
         It can also be used on 'cdata' instance to get its C type.
         """
         if isinstance(cdecl, basestring):
@@ -144,6 +164,10 @@ class FFI(object):
             res = _builtin_function_type(cdecl)
             if res is not None:
                 return res
+        if (isinstance(cdecl, types.FunctionType)
+                and hasattr(cdecl, '_cffi_base_type')):
+            with self._lock:
+                return self._get_cached_btype(cdecl._cffi_base_type)
         raise TypeError(type(cdecl))
 
     def sizeof(self, cdecl):
@@ -280,14 +304,17 @@ class FFI(object):
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
         """
-        try:
-            gc_weakrefs = self.gc_weakrefs
-        except AttributeError:
-            from .gc_weakref import GcWeakrefs
-            gc_weakrefs = self.gc_weakrefs = GcWeakrefs(self)
-        return gc_weakrefs.build(cdata, destructor)
+        with self._lock:
+            try:
+                gc_weakrefs = self.gc_weakrefs
+            except AttributeError:
+                from .gc_weakref import GcWeakrefs
+                gc_weakrefs = self.gc_weakrefs = GcWeakrefs(self)
+            return gc_weakrefs.build(cdata, destructor)
 
     def _get_cached_btype(self, type):
+        assert self._lock.acquire(False) is False
+        # call me with the lock!
         try:
             BType = self._cached_btypes[type]
         except KeyError:
@@ -320,9 +347,13 @@ class FFI(object):
     errno = property(_get_errno, _set_errno, None,
                      "the value of 'errno' from/to the C calls")
 
+    def getwinerror(self, code=-1):
+        return self._backend.getwinerror(code)
+
     def _pointer_to(self, ctype):
         from . import model
-        return model.pointer_cache(self, ctype)
+        with self._lock:
+            return model.pointer_cache(self, ctype)
 
     def addressof(self, cdata, field=None):
         """Return the address of a <cdata 'struct-or-union'>.
@@ -342,10 +373,12 @@ class FFI(object):
         variables, which must anyway be accessed directly from the
         lib object returned by the original FFI instance.
         """
-        self._parser.include(ffi_to_include._parser)
-        self._cdefsources.append('[')
-        self._cdefsources.extend(ffi_to_include._cdefsources)
-        self._cdefsources.append(']')
+        with ffi_to_include._lock:
+            with self._lock:
+                self._parser.include(ffi_to_include._parser)
+                self._cdefsources.append('[')
+                self._cdefsources.extend(ffi_to_include._cdefsources)
+                self._cdefsources.append(']')
 
     def new_handle(self, x):
         return self._backend.newp_handle(self.BVoidP, x)
@@ -372,7 +405,7 @@ def _make_ffi_library(ffi, libname, flags):
         backendlib = backend.load_library(path, flags)
     copied_enums = []
     #
-    def make_accessor(name):
+    def make_accessor_locked(name):
         key = 'function ' + name
         if key in ffi._parser._declarations:
             tp = ffi._parser._declarations[key]
@@ -404,10 +437,16 @@ def _make_ffi_library(ffi, libname, flags):
                     if enumname not in library.__dict__:
                         library.__dict__[enumname] = enumval
             copied_enums.append(True)
+            if name in library.__dict__:
+                return
         #
-        if name in library.__dict__:   # copied from an enum value just above,
-            return                     # or multithread's race condition
         raise AttributeError(name)
+    #
+    def make_accessor(name):
+        with ffi._lock:
+            if name in library.__dict__ or name in FFILibrary.__dict__:
+                return    # added by another thread while waiting for the lock
+            make_accessor_locked(name)
     #
     class FFILibrary(object):
         def __getattr__(self, name):
@@ -444,4 +483,5 @@ def _builtin_function_type(func):
     except (KeyError, AttributeError, TypeError):
         return None
     else:
-        return ffi._get_cached_btype(tp)
+        with ffi._lock:
+            return ffi._get_cached_btype(tp)

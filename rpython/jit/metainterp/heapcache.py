@@ -6,7 +6,7 @@ class HeapCache(object):
     def __init__(self):
         self.reset()
 
-    def reset(self):
+    def reset(self, reset_virtuals=True):
         # contains boxes where the class is already known
         self.known_class_boxes = {}
         # store the boxes that contain newly allocated objects, this maps the
@@ -14,7 +14,8 @@ class HeapCache(object):
         # escaped the trace or not (True means the box never escaped, False
         # means it did escape), its presences in the mapping shows that it was
         # allocated inside the trace
-        self.new_boxes = {}
+        if reset_virtuals:
+            self.new_boxes = {}
         # Tracks which boxes should be marked as escaped when the key box
         # escapes.
         self.dependencies = {}
@@ -81,6 +82,7 @@ class HeapCache(object):
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
         elif (opnum != rop.GETFIELD_GC and
+              opnum != rop.GETFIELD_GC_PURE and
               opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
@@ -94,8 +96,13 @@ class HeapCache(object):
                 idx += 1
 
     def _escape(self, box):
-        if box in self.new_boxes:
-            self.new_boxes[box] = False
+        try:
+            unescaped = self.new_boxes[box]
+        except KeyError:
+            pass
+        else:
+            if unescaped:
+                self.new_boxes[box] = False
         try:
             deps = self.dependencies.pop(box)
         except KeyError:

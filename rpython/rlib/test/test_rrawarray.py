@@ -1,4 +1,5 @@
-from rpython.rlib.rarray import copy_list_to_raw_array, populate_list_from_raw_array
+from rpython.rlib.rrawarray import copy_list_to_raw_array, \
+                                   populate_list_from_raw_array
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.test.tool import BaseRtypingTest
 

@@ -56,7 +56,7 @@ class AppTestThreadSignal(GenericTestThread):
                 interrupted = []
                 print('--- start ---')
                 thread.start_new_thread(subthread, ())
-                for j in range(10):
+                for j in range(30):
                     if len(done): break
                     print('.')
                     time.sleep(0.25)

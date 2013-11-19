@@ -1,5 +1,4 @@
 from rpython.annotator import model as annmodel
-from rpython.annotator.listdef import ListDef
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, llmemory

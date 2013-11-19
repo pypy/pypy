@@ -4,7 +4,7 @@ import weakref
 from rpython.jit.codewriter import support, heaptracker, longlong
 from rpython.jit.metainterp import history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.jit import PARAMETERS, BaseJitCell
+from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask
@@ -124,15 +124,14 @@ def hash_whatever(TYPE, x):
         return rffi.cast(lltype.Signed, x)
 
 
-class JitCell(BaseJitCell):
-    # the counter can mean the following things:
-    #     counter >=  0: not yet traced, wait till threshold is reached
-    #     counter == -1: there is an entry bridge for this cell
-    #     counter == -2: tracing is currently going on for this cell
-    counter = 0
-    dont_trace_here = False
-    extra_delay = chr(0)
+JC_TRACING         = 0x01
+JC_DONT_TRACE_HERE = 0x02
+JC_TEMPORARY       = 0x04
+
+class BaseJitCell(object):
+    flags = 0     # JC_xxx flags
     wref_procedure_token = None
+    next = None
 
     def get_procedure_token(self):
         if self.wref_procedure_token is not None:
@@ -141,18 +140,28 @@ class JitCell(BaseJitCell):
                 return token
         return None
 
-    def set_procedure_token(self, token):
+    def set_procedure_token(self, token, tmp=False):
         self.wref_procedure_token = self._makeref(token)
+        if tmp:
+            self.flags |= JC_TEMPORARY
+        else:
+            self.flags &= ~JC_TEMPORARY
 
     def _makeref(self, token):
         assert token is not None
         return weakref.ref(token)
 
+    def should_remove_jitcell(self):
+        if self.get_procedure_token() is not None:
+            return False    # don't remove JitCells with a procedure_token
+        # don't remove JitCells that are being traced, or JitCells with
+        # the "don't trace here" flag.  Other JitCells can be removed.
+        return (self.flags & (JC_TRACING | JC_DONT_TRACE_HERE)) == 0
+
 # ____________________________________________________________
 
 
 class WarmEnterState(object):
-    THRESHOLD_LIMIT = sys.maxint // 2
 
     def __init__(self, warmrunnerdesc, jitdriver_sd):
         "NOT_RPYTHON"
@@ -166,17 +175,13 @@ class WarmEnterState(object):
             self.profiler = None
         # initialize the state with the default values of the
         # parameters specified in rlib/jit.py
-        for name, default_value in PARAMETERS.items():
-            meth = getattr(self, 'set_param_' + name)
-            meth(default_value)
+        if self.warmrunnerdesc is not None:
+            for name, default_value in PARAMETERS.items():
+                meth = getattr(self, 'set_param_' + name)
+                meth(default_value)
 
     def _compute_threshold(self, threshold):
-        if threshold <= 0:
-            return 0 # never reach the THRESHOLD_LIMIT
-        if threshold < 2:
-            threshold = 2
-        return (self.THRESHOLD_LIMIT // threshold) + 1
-        # the number is at least 1, and at most about half THRESHOLD_LIMIT
+        return self.warmrunnerdesc.jitcounter.compute_threshold(threshold)
 
     def set_param_threshold(self, threshold):
         self.increment_threshold = self._compute_threshold(threshold)
@@ -185,10 +190,13 @@ class WarmEnterState(object):
         self.increment_function_threshold = self._compute_threshold(threshold)
 
     def set_param_trace_eagerness(self, value):
-        self.trace_eagerness = value
+        self.increment_trace_eagerness = self._compute_threshold(value)
 
     def set_param_trace_limit(self, value):
         self.trace_limit = value
+
+    def set_param_decay(self, decay):
+        self.warmrunnerdesc.jitcounter.set_decay(decay)
 
     def set_param_inlining(self, value):
         self.inlining = value
@@ -230,18 +238,17 @@ class WarmEnterState(object):
                 self.warmrunnerdesc.memory_manager.max_unroll_loops = value
 
     def disable_noninlinable_function(self, greenkey):
-        cell = self.jit_cell_at_key(greenkey)
-        cell.dont_trace_here = True
+        cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
+        cell.flags |= JC_DONT_TRACE_HERE
         debug_start("jit-disableinlining")
         loc = self.get_location_str(greenkey)
         debug_print("disabled inlining", loc)
         debug_stop("jit-disableinlining")
 
     def attach_procedure_to_interp(self, greenkey, procedure_token):
-        cell = self.jit_cell_at_key(greenkey)
+        cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         old_token = cell.get_procedure_token()
         cell.set_procedure_token(procedure_token)
-        cell.counter = -1       # valid procedure bridge attached
         if old_token is not None:
             self.cpu.redirect_call_assembler(old_token, procedure_token)
             # procedure_token is also kept alive by any loop that used
@@ -262,7 +269,7 @@ class WarmEnterState(object):
         vinfo = jitdriver_sd.virtualizable_info
         index_of_virtualizable = jitdriver_sd.index_of_virtualizable
         num_green_args = jitdriver_sd.num_green_args
-        get_jitcell = self.make_jitcell_getter()
+        JitCell = self.make_jitcell_subclass()
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
         range_red_args = unrolling_iterable(
@@ -280,6 +287,7 @@ class WarmEnterState(object):
                 assert 0, kind
         func_execute_token = self.cpu.make_execute_token(*ARGS)
         cpu = self.cpu
+        jitcounter = self.warmrunnerdesc.jitcounter
 
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
@@ -304,74 +312,72 @@ class WarmEnterState(object):
             #
             assert 0, "should have raised"
 
-        def bound_reached(cell, *args):
-            # bound reached, but we do a last check: if it is the first
-            # time we reach the bound, or if another loop or bridge was
-            # compiled since the last time we reached it, then decrease
-            # the counter by a few percents instead.  It should avoid
-            # sudden bursts of JIT-compilation, and also corner cases
-            # where we suddenly compile more than one loop because all
-            # counters reach the bound at the same time, but where
-            # compiling all but the first one is pointless.
-            curgen = warmrunnerdesc.memory_manager.current_generation
-            curgen = chr(intmask(curgen) & 0xFF)    # only use 8 bits
-            if we_are_translated() and curgen != cell.extra_delay:
-                cell.counter = int(self.THRESHOLD_LIMIT * 0.98)
-                cell.extra_delay = curgen
-                return
-            #
+        def bound_reached(index, cell, *args):
             if not confirm_enter_jit(*args):
-                cell.counter = 0
                 return
+            jitcounter.decay_all_counters()
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-            # set counter to -2, to mean "tracing in effect"
-            cell.counter = -2
+            greenargs = args[:num_green_args]
+            if cell is None:
+                cell = JitCell(*greenargs)
+                jitcounter.install_new_cell(index, cell)
+            cell.flags |= JC_TRACING
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
-                if cell.counter == -2:
-                    cell.counter = 0
+                cell.flags &= ~JC_TRACING
 
-        def maybe_compile_and_run(threshold, *args):
+        def maybe_compile_and_run(increment_threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
-            # look for the cell corresponding to the current greenargs
+            # Look for the cell corresponding to the current greenargs.
+            # Search for the JitCell that is of the correct subclass of
+            # BaseJitCell, and that stores a key that compares equal.
+            # These few lines inline some logic that is also on the
+            # JitCell class, to avoid computing the hash several times.
             greenargs = args[:num_green_args]
-            cell = get_jitcell(True, *greenargs)
-
-            if cell.counter >= 0:
-                # update the profiling counter
-                n = cell.counter + threshold
-                if n <= self.THRESHOLD_LIMIT:       # bound not reached
-                    cell.counter = n
-                    return
-                else:
-                    bound_reached(cell, *args)
-                    return
+            index = JitCell.get_index(*greenargs)
+            cell = jitcounter.lookup_chain(index)
+            while cell is not None:
+                if isinstance(cell, JitCell) and cell.comparekey(*greenargs):
+                    break    # found
+                cell = cell.next
             else:
-                if cell.counter != -1:
-                    assert cell.counter == -2
+                # not found. increment the counter
+                if jitcounter.tick(index, increment_threshold):
+                    bound_reached(index, None, *args)
+                return
+
+            # Here, we have found 'cell'.
+            #
+            if cell.flags & (JC_TRACING | JC_TEMPORARY):
+                if cell.flags & JC_TRACING:
                     # tracing already happening in some outer invocation of
                     # this function. don't trace a second time.
                     return
-                if not confirm_enter_jit(*args):
-                    return
-                # machine code was already compiled for these greenargs
-                procedure_token = cell.get_procedure_token()
-                if procedure_token is None:   # it was a weakref that has been freed
-                    cell.counter = 0
-                    return
-                # extract and unspecialize the red arguments to pass to
-                # the assembler
-                execute_args = ()
-                for i in range_red_args:
-                    execute_args += (unspecialize_value(args[i]), )
-                # run it!  this executes until interrupted by an exception
-                execute_assembler(procedure_token, *execute_args)
-            #
+                # attached by compile_tmp_callback().  count normally
+                if jitcounter.tick(index, increment_threshold):
+                    bound_reached(index, cell, *args)
+                return
+            # machine code was already compiled for these greenargs
+            procedure_token = cell.get_procedure_token()
+            if procedure_token is None:
+                # it was an aborted compilation, or maybe a weakref that
+                # has been freed
+                jitcounter.cleanup_chain(index)
+                return
+            if not confirm_enter_jit(*args):
+                return
+            # extract and unspecialize the red arguments to pass to
+            # the assembler
+            execute_args = ()
+            for i in range_red_args:
+                execute_args += (unspecialize_value(args[i]), )
+            # run it!  this executes until interrupted by an exception
+            execute_assembler(procedure_token, *execute_args)
             assert 0, "should not reach this point"
 
         maybe_compile_and_run._dont_inline_ = True
@@ -406,144 +412,77 @@ class WarmEnterState(object):
 
     # ----------
 
-    def make_jitcell_getter(self):
+    def make_jitcell_subclass(self):
         "NOT_RPYTHON"
-        if hasattr(self, 'jit_getter'):
-            return self.jit_getter
+        if hasattr(self, 'JitCell'):
+            return self.JitCell
         #
-        if self.jitdriver_sd._get_jitcell_at_ptr is None:
-            jit_getter = self._make_jitcell_getter_default()
-        else:
-            jit_getter = self._make_jitcell_getter_custom()
-        #
-        unwrap_greenkey = self.make_unwrap_greenkey()
-        #
-        def jit_cell_at_key(greenkey):
-            greenargs = unwrap_greenkey(greenkey)
-            return jit_getter(True, *greenargs)
-        self.jit_cell_at_key = jit_cell_at_key
-        self.jit_getter = jit_getter
-        #
-        return jit_getter
-
-    def _make_jitcell_getter_default(self):
-        "NOT_RPYTHON"
+        jitcounter = self.warmrunnerdesc.jitcounter
         jitdriver_sd = self.jitdriver_sd
-        green_args_spec = unrolling_iterable(jitdriver_sd._green_args_spec)
+        green_args_name_spec = unrolling_iterable([('g%d' % i, TYPE)
+                     for i, TYPE in enumerate(jitdriver_sd._green_args_spec)])
+        unwrap_greenkey = self.make_unwrap_greenkey()
+        random_initial_value = hash(self)
         #
-        def comparekey(greenargs1, greenargs2):
-            i = 0
-            for TYPE in green_args_spec:
-                if not equal_whatever(TYPE, greenargs1[i], greenargs2[i]):
-                    return False
-                i = i + 1
-            return True
-        #
-        def hashkey(greenargs):
-            x = 0x345678
-            i = 0
-            for TYPE in green_args_spec:
-                item = greenargs[i]
-                y = hash_whatever(TYPE, item)
-                x = intmask((1000003 * x) ^ y)
-                i = i + 1
-            return x
-        #
-        jitcell_dict = r_dict(comparekey, hashkey)
-        try:
-            self.warmrunnerdesc.stats.jitcell_dicts.append(jitcell_dict)
-        except AttributeError:
-            pass
-        #
-        def _cleanup_dict():
-            minimum = self.THRESHOLD_LIMIT // 20     # minimum 5%
-            killme = []
-            for key, cell in jitcell_dict.iteritems():
-                if cell.counter >= 0:
-                    cell.counter = int(cell.counter * 0.92)
-                    if cell.counter < minimum:
-                        killme.append(key)
-                elif (cell.counter == -1
-                      and cell.get_procedure_token() is None):
-                    killme.append(key)
-            for key in killme:
-                del jitcell_dict[key]
-        #
-        def _maybe_cleanup_dict():
-            # Once in a while, rarely, when too many entries have
-            # been put in the jitdict_dict, we do a cleanup phase:
-            # we decay all counters and kill entries with a too
-            # low counter.
-            self._trigger_automatic_cleanup += 1
-            if self._trigger_automatic_cleanup > 20000:
-                self._trigger_automatic_cleanup = 0
-                _cleanup_dict()
-        #
-        self._trigger_automatic_cleanup = 0
-        self._jitcell_dict = jitcell_dict       # for tests
-        #
-        def get_jitcell(build, *greenargs):
-            try:
-                cell = jitcell_dict[greenargs]
-            except KeyError:
-                if not build:
-                    return None
-                _maybe_cleanup_dict()
-                cell = JitCell()
-                jitcell_dict[greenargs] = cell
-            return cell
-        return get_jitcell
+        class JitCell(BaseJitCell):
+            def __init__(self, *greenargs):
+                i = 0
+                for attrname, _ in green_args_name_spec:
+                    setattr(self, attrname, greenargs[i])
+                    i = i + 1
 
-    def _make_jitcell_getter_custom(self):
-        "NOT_RPYTHON"
-        rtyper = self.warmrunnerdesc.rtyper
-        get_jitcell_at_ptr = self.jitdriver_sd._get_jitcell_at_ptr
-        set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
-        lltohlhack = {}
-        # note that there is no equivalent of _maybe_cleanup_dict()
-        # in the case of custom getters.  We assume that the interpreter
-        # stores the JitCells on some objects that can go away by GC,
-        # like the PyCode objects in PyPy.
+            def comparekey(self, *greenargs2):
+                i = 0
+                for attrname, TYPE in green_args_name_spec:
+                    item1 = getattr(self, attrname)
+                    if not equal_whatever(TYPE, item1, greenargs2[i]):
+                        return False
+                    i = i + 1
+                return True
+
+            @staticmethod
+            def get_index(*greenargs):
+                x = random_initial_value
+                i = 0
+                for _, TYPE in green_args_name_spec:
+                    item = greenargs[i]
+                    y = hash_whatever(TYPE, item)
+                    x = intmask((x ^ y) * 1405695061)  # prime number, 2**30~31
+                    i = i + 1
+                return jitcounter.get_index(x)
+
+            @staticmethod
+            def get_jitcell(*greenargs):
+                index = JitCell.get_index(*greenargs)
+                cell = jitcounter.lookup_chain(index)
+                while cell is not None:
+                    if (isinstance(cell, JitCell) and
+                            cell.comparekey(*greenargs)):
+                        return cell
+                    cell = cell.next
+                return None
+
+            @staticmethod
+            def get_jit_cell_at_key(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                return JitCell.get_jitcell(*greenargs)
+
+            @staticmethod
+            def ensure_jit_cell_at_key(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                index = JitCell.get_index(*greenargs)
+                cell = jitcounter.lookup_chain(index)
+                while cell is not None:
+                    if (isinstance(cell, JitCell) and
+                            cell.comparekey(*greenargs)):
+                        return cell
+                    cell = cell.next
+                newcell = JitCell(*greenargs)
+                jitcounter.install_new_cell(index, newcell)
+                return newcell
         #
-        def get_jitcell(build, *greenargs):
-            fn = support.maybe_on_top_of_llinterp(rtyper, get_jitcell_at_ptr)
-            cellref = fn(*greenargs)
-            # <hacks>
-            if we_are_translated():
-                BASEJITCELL = lltype.typeOf(cellref)
-                cell = cast_base_ptr_to_instance(JitCell, cellref)
-            else:
-                if isinstance(cellref, (BaseJitCell, type(None))):
-                    BASEJITCELL = None
-                    cell = cellref
-                else:
-                    BASEJITCELL = lltype.typeOf(cellref)
-                    if cellref:
-                        cell = lltohlhack[rtyper.type_system.deref(cellref)]
-                    else:
-                        cell = None
-            if not build:
-                return cell
-            if cell is None:
-                cell = JitCell()
-                # <hacks>
-                if we_are_translated():
-                    cellref = cast_object_to_ptr(BASEJITCELL, cell)
-                else:
-                    if BASEJITCELL is None:
-                        cellref = cell
-                    else:
-                        if isinstance(BASEJITCELL, lltype.Ptr):
-                            cellref = lltype.malloc(BASEJITCELL.TO)
-                        else:
-                            assert False, "no clue"
-                        lltohlhack[rtyper.type_system.deref(cellref)] = cell
-                # </hacks>
-                fn = support.maybe_on_top_of_llinterp(rtyper,
-                                                      set_jitcell_at_ptr)
-                fn(cellref, *greenargs)
-            return cell
-        return get_jitcell
+        self.JitCell = JitCell
+        return JitCell
 
     # ----------
 
@@ -553,15 +492,15 @@ class WarmEnterState(object):
         #
         warmrunnerdesc = self.warmrunnerdesc
         unwrap_greenkey = self.make_unwrap_greenkey()
-        jit_getter = self.make_jitcell_getter()
+        JitCell = self.make_jitcell_subclass()
         jd = self.jitdriver_sd
         cpu = self.cpu
 
         def can_inline_greenargs(*greenargs):
             if can_never_inline(*greenargs):
                 return False
-            cell = jit_getter(False, *greenargs)
-            if cell is not None and cell.dont_trace_here:
+            cell = JitCell.get_jitcell(*greenargs)
+            if cell is not None and (cell.flags & JC_DONT_TRACE_HERE) != 0:
                 return False
             return True
         def can_inline_callable(greenkey):
@@ -585,16 +524,14 @@ class WarmEnterState(object):
         redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
 
         def get_assembler_token(greenkey):
-            cell = self.jit_cell_at_key(greenkey)
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
                 from rpython.jit.metainterp.compile import compile_tmp_callback
-                if cell.counter == -1:    # used to be a valid entry bridge,
-                    cell.counter = 0      # but was freed in the meantime.
                 memmgr = warmrunnerdesc.memory_manager
                 procedure_token = compile_tmp_callback(cpu, jd, greenkey,
                                                        redargtypes, memmgr)
-                cell.set_procedure_token(procedure_token)
+                cell.set_procedure_token(procedure_token, tmp=True)
             return procedure_token
         self.get_assembler_token = get_assembler_token
 

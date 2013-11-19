@@ -408,3 +408,20 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [300])
         loop, = log.loops_by_id("long_op")
         assert len(loop.ops_by_id("long_op")) == 0
+
+    def test_settrace(self):
+        def main(n):
+            import sys
+            sys.settrace(lambda *args, **kwargs: None)
+
+            def f():
+                return 1
+
+            while n:
+                n -= f()
+
+        log = self.run(main, [300])
+        loops = log.loops_by_filename(self.filepath)
+        # the following assertion fails if the loop was cancelled due
+        # to "abort: vable escape"
+        assert len(loops) == 1
