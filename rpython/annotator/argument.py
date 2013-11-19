@@ -175,15 +175,15 @@ class ArgumentsForTranslation(CallSpec):
             data_w.append(self.w_stararg)
         return (shape_cnt, shape_keys, shape_star), data_w
 
-    def _rawshape(self, nextra=0):
-        shape_cnt = len(self.arguments_w) + nextra  # Number of positional args
+    def _rawshape(self):
+        shape_cnt = len(self.arguments_w)
         shape_keys = tuple(sorted(self.keywords))
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
         return shape_cnt, shape_keys, shape_star
 
 
-def rawshape(args, nextra=0):
-    return args._rawshape(nextra)
+def rawshape(args):
+    return args._rawshape()
 
 
 #

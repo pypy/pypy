@@ -67,9 +67,6 @@ class TestArgumentsForTranslation(object):
         args = MockArgs([1, 2, 3])
         assert rawshape(args) == (3, (), False)
 
-        args = MockArgs([1])
-        assert rawshape(args, 2) == (3, (), False)
-
         args = MockArgs([1, 2, 3, 4, 5])
         assert rawshape(args) == (5, (), False)
 
