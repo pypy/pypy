@@ -252,6 +252,23 @@ class Block(object):
         from rpython.translator.tool.graphpage import try_show
         try_show(self)
 
+    def get_graph(self):
+        import gc
+        pending = [self]   # pending blocks
+        seen = {self: True, None: True}
+        for x in pending:
+            for y in gc.get_referrers(x):
+                if isinstance(y, FunctionGraph):
+                    return y
+                elif isinstance(y, Link):
+                    block = y.prevblock
+                    if block not in seen:
+                        pending.append(block)
+                        seen[block] = True
+                elif isinstance(y, dict):
+                    pending.append(y)   # go back from the dict to the real obj
+        return pending
+
     view = show
 
 

@@ -7,17 +7,20 @@ from pypy.module.test_lib_pypy.cffi_tests.support import *
 
 if sys.platform == 'win32':
     pass      # no obvious -Werror equivalent on MSVC
-elif (sys.platform == 'darwin' and
-      [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
-    pass      # recent MacOSX come with clang by default, and passing some
-              # flags from the interpreter (-mno-fused-madd) generates a
-              # warning --- which is interpreted as an error with -Werror
 else:
-    # assume a standard GCC
+    if (sys.platform == 'darwin' and
+          [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
+        # special things for clang
+        extra_compile_args = [
+            '-Werror', '-Qunused-arguments', '-Wno-error=shorten-64-to-32']
+    else:
+        # assume a standard gcc
+        extra_compile_args = ['-Werror']
+
     class FFI(FFI):
         def verify(self, *args, **kwds):
             return super(FFI, self).verify(
-                *args, extra_compile_args=['-Werror'], **kwds)
+                *args, extra_compile_args=extra_compile_args, **kwds)
 
 def setup_module():
     import cffi.verifier
@@ -477,32 +480,71 @@ def test_struct_array_field():
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s.a) == 17 * ffi.sizeof('int')
 
-def test_struct_array_guess_length():
+def test_struct_array_no_length():
     ffi = FFI()
-    ffi.cdef("struct foo_s { int a[]; ...; };")    # <= no declared length
-    ffi.verify("struct foo_s { int x; int a[17]; int y; };")
-    assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
-    s = ffi.new("struct foo_s *")
-    assert ffi.sizeof(s.a) == 17 * ffi.sizeof('int')
-
-def test_struct_array_guess_length_2():
-    ffi = FFI()
-    ffi.cdef("struct foo_s { int a[]; ...; };\n"    # <= no declared length
+    ffi.cdef("struct foo_s { int a[]; int y; ...; };\n"
              "int bar(struct foo_s *);\n")
     lib = ffi.verify("struct foo_s { int x; int a[17]; int y; };\n"
                      "int bar(struct foo_s *f) { return f->a[14]; }\n")
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
+    assert ffi.typeof(s.a) is ffi.typeof('int *')   # because no length
     s.a[14] = 4242
     assert lib.bar(s) == 4242
+    # with no declared length, out-of-bound accesses are not detected
+    s.a[17] = -521
+    assert s.y == s.a[17] == -521
+    #
+    s = ffi.new("struct foo_s *", {'a': list(range(17))})
+    assert s.a[16] == 16
+    # overflows at construction time not detected either
+    s = ffi.new("struct foo_s *", {'a': list(range(18))})
+    assert s.y == s.a[17] == 17
 
-def test_struct_array_guess_length_3():
+def test_struct_array_guess_length():
     ffi = FFI()
     ffi.cdef("struct foo_s { int a[...]; };")
     ffi.verify("struct foo_s { int x; int a[17]; int y; };")
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s.a) == 17 * ffi.sizeof('int')
+    py.test.raises(IndexError, 's.a[17]')
+
+def test_struct_array_c99_1():
+    if sys.platform == 'win32':
+        py.test.skip("requires C99")
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int x; int a[]; };")
+    ffi.verify("struct foo_s { int x; int a[]; };")
+    assert ffi.sizeof('struct foo_s') == 1 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242, 4])
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')   # the same in C
+    assert s.a[3] == 0
+    s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+    assert s.a[3] == -10
+    s = ffi.new("struct foo_s *")
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242])
+    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+
+def test_struct_array_c99_2():
+    if sys.platform == 'win32':
+        py.test.skip("requires C99")
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int x; int a[]; ...; };")
+    ffi.verify("struct foo_s { int x, y; int a[]; };")
+    assert ffi.sizeof('struct foo_s') == 2 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242, 4])
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert s.a[3] == 0
+    s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert s.a[3] == -10
+    s = ffi.new("struct foo_s *")
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *", [424242])
+    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
 
 def test_struct_ptr_to_array_field():
     ffi = FFI()
@@ -614,6 +656,21 @@ def test_enum_usage():
     s.x = 17
     assert s.x == 17
 
+def test_anonymous_enum():
+    ffi = FFI()
+    ffi.cdef("enum { EE1 }; enum { EE2, EE3 };")
+    lib = ffi.verify("enum { EE1 }; enum { EE2, EE3 };")
+    assert lib.EE1 == 0
+    assert lib.EE2 == 0
+    assert lib.EE3 == 1
+
+def test_nonfull_anonymous_enum():
+    ffi = FFI()
+    ffi.cdef("enum { EE1, ... }; enum { EE3, ... };")
+    lib = ffi.verify("enum { EE2, EE1 }; enum { EE3 };")
+    assert lib.EE1 == 1
+    assert lib.EE3 == 0
+
 def test_nonfull_enum_syntax2():
     ffi = FFI()
     ffi.cdef("enum ee { EE1, EE2=\t..., EE3 };")
@@ -651,11 +708,14 @@ def test_get_set_errno():
 def test_define_int():
     ffi = FFI()
     ffi.cdef("#define FOO ...\n"
-             "\t#\tdefine\tBAR\t...\t")
+             "\t#\tdefine\tBAR\t...\t\n"
+             "#define BAZ ...\n")
     lib = ffi.verify("#define FOO 42\n"
-                     "#define BAR (-44)\n")
+                     "#define BAR (-44)\n"
+                     "#define BAZ 0xffffffffffffffffULL\n")
     assert lib.FOO == 42
     assert lib.BAR == -44
+    assert lib.BAZ == 0xffffffffffffffff
 
 def test_access_variable():
     ffi = FFI()
@@ -1160,6 +1220,36 @@ def test_ffi_union():
     ffi.cdef("union foo_u { char x; long *z; };")
     ffi.verify("union foo_u { char x; int y; long *z; };")
 
+def test_ffi_union_partial():
+    ffi = FFI()
+    ffi.cdef("union foo_u { char x; ...; };")
+    ffi.verify("union foo_u { char x; int y; };")
+    assert ffi.sizeof("union foo_u") == 4
+
+def test_ffi_union_with_partial_struct():
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int x; ...; }; union foo_u { struct foo_s s; };")
+    ffi.verify("struct foo_s { int a; int x; }; "
+               "union foo_u { char b[32]; struct foo_s s; };")
+    assert ffi.sizeof("struct foo_s") == 8
+    assert ffi.sizeof("union foo_u") == 32
+
+def test_ffi_union_partial_2():
+    ffi = FFI()
+    ffi.cdef("typedef union { char x; ...; } u1;")
+    ffi.verify("typedef union { char x; int y; } u1;")
+    assert ffi.sizeof("u1") == 4
+
+def test_ffi_union_with_partial_struct_2():
+    ffi = FFI()
+    ffi.cdef("typedef struct { int x; ...; } s1;"
+             "typedef union { s1 s; } u1;")
+    ffi.verify("typedef struct { int a; int x; } s1; "
+               "typedef union { char b[32]; s1 s; } u1;")
+    assert ffi.sizeof("s1") == 8
+    assert ffi.sizeof("u1") == 32
+    assert ffi.offsetof("u1", "s") == 0
+
 def test_ffi_struct_packed():
     if sys.platform == 'win32':
         py.test.skip("needs a GCC extension")
@@ -1423,7 +1513,12 @@ def test_global_array_with_dotdotdot_length():
     ffi = FFI()
     ffi.cdef("int fooarray[...];")
     lib = ffi.verify("int fooarray[50];")
-    assert repr(lib.fooarray).startswith("<cdata 'int *'")
+    assert repr(lib.fooarray).startswith("<cdata 'int[50]'")
+
+def test_bad_global_array_with_dotdotdot_length():
+    ffi = FFI()
+    ffi.cdef("int fooarray[...];")
+    py.test.raises(VerificationError, ffi.verify, "char fooarray[23];")
 
 def test_struct_containing_struct():
     ffi = FFI()
@@ -1501,6 +1596,21 @@ def test_enum_size():
 ##        assert ffi.sizeof("enum foo_e") == expected_size
 ##        assert int(ffi.cast("enum foo_e", -1)) == expected_minus1
 
+def test_enum_bug118():
+    maxulong = 256 ** FFI().sizeof("unsigned long") - 1
+    for c1, c2, c2c in [(0xffffffff, -1, ''),
+                        (maxulong, -1, ''),
+                        (-1, 0xffffffff, 'U'),
+                        (-1, maxulong, 'UL')]:
+        if c2c and sys.platform == 'win32':
+            continue     # enums may always be signed with MSVC
+        ffi = FFI()
+        ffi.cdef("enum foo_e { AA=%s };" % c1)
+        e = py.test.raises(VerificationError, ffi.verify,
+                           "enum foo_e { AA=%s%s };" % (c2, c2c))
+        assert str(e.value) == ('enum foo_e: AA has the real value %d, not %d'
+                                % (c2, c1))
+
 def test_string_to_voidp_arg():
     ffi = FFI()
     ffi.cdef("int myfunc(void *);")
@@ -1528,7 +1638,11 @@ def test_callback_indirection():
         #include <malloc.h>
         #define alloca _alloca
         #else
-        #include <alloca.h>
+        # ifdef __FreeBSD__
+        #  include <stdlib.h>
+        # else
+        #  include <alloca.h>
+        # endif
         #endif
         static int (*python_callback)(int how_many, int *values);
         static int c_callback(int how_many, ...) {
@@ -1635,3 +1749,110 @@ def test_dir():
                         #define FOO 42""")
     assert dir(lib) == ['AA', 'BB', 'FOO', 'somearray',
                         'somefunc', 'somevar', 'sv2']
+
+def test_typeof_func_with_struct_argument():
+    ffi = FFI()
+    ffi.cdef("""struct s { int a; }; int foo(struct s);""")
+    lib = ffi.verify("""struct s { int a; };
+                        int foo(struct s x) { return x.a; }""")
+    s = ffi.new("struct s *", [-1234])
+    m = lib.foo(s[0])
+    assert m == -1234
+    assert repr(ffi.typeof(lib.foo)) == "<ctype 'int(*)(struct s)'>"
+
+def test_bug_const_char_ptr_array_1():
+    ffi = FFI()
+    ffi.cdef("""const char *a[...];""")
+    lib = ffi.verify("""const char *a[5];""")
+    assert repr(ffi.typeof(lib.a)) == "<ctype 'char *[5]'>"
+
+def test_bug_const_char_ptr_array_2():
+    from cffi import FFI     # ignore warnings
+    ffi = FFI()
+    ffi.cdef("""const int a[];""")
+    lib = ffi.verify("""const int a[5];""")
+    assert repr(ffi.typeof(lib.a)) == "<ctype 'int *'>"
+
+def _test_various_calls(force_libffi):
+    cdef_source = """
+    int xvalue;
+    long long ivalue, rvalue;
+    float fvalue;
+    double dvalue;
+    long double Dvalue;
+    signed char tf_bb(signed char x, signed char c);
+    unsigned char tf_bB(signed char x, unsigned char c);
+    short tf_bh(signed char x, short c);
+    unsigned short tf_bH(signed char x, unsigned short c);
+    int tf_bi(signed char x, int c);
+    unsigned int tf_bI(signed char x, unsigned int c);
+    long tf_bl(signed char x, long c);
+    unsigned long tf_bL(signed char x, unsigned long c);
+    long long tf_bq(signed char x, long long c);
+    float tf_bf(signed char x, float c);
+    double tf_bd(signed char x, double c);
+    long double tf_bD(signed char x, long double c);
+    """
+    if force_libffi:
+        cdef_source = (cdef_source
+            .replace('tf_', '(*const tf_')
+            .replace('(signed char x', ')(signed char x'))
+    ffi = FFI()
+    ffi.cdef(cdef_source)
+    lib = ffi.verify("""
+    int xvalue;
+    long long ivalue, rvalue;
+    float fvalue;
+    double dvalue;
+    long double Dvalue;
+
+    #define S(letter)  xvalue = x; letter##value = c; return rvalue;
+
+    signed char tf_bb(signed char x, signed char c) { S(i) }
+    unsigned char tf_bB(signed char x, unsigned char c) { S(i) }
+    short tf_bh(signed char x, short c) { S(i) }
+    unsigned short tf_bH(signed char x, unsigned short c) { S(i) }
+    int tf_bi(signed char x, int c) { S(i) }
+    unsigned int tf_bI(signed char x, unsigned int c) { S(i) }
+    long tf_bl(signed char x, long c) { S(i) }
+    unsigned long tf_bL(signed char x, unsigned long c) { S(i) }
+    long long tf_bq(signed char x, long long c) { S(i) }
+    float tf_bf(signed char x, float c) { S(f) }
+    double tf_bd(signed char x, double c) { S(d) }
+    long double tf_bD(signed char x, long double c) { S(D) }
+    """)
+    lib.rvalue = 0x7182838485868788
+    for kind, cname in [('b', 'signed char'),
+                        ('B', 'unsigned char'),
+                        ('h', 'short'),
+                        ('H', 'unsigned short'),
+                        ('i', 'int'),
+                        ('I', 'unsigned int'),
+                        ('l', 'long'),
+                        ('L', 'unsigned long'),
+                        ('q', 'long long'),
+                        ('f', 'float'),
+                        ('d', 'double'),
+                        ('D', 'long double')]:
+        sign = +1 if 'unsigned' in cname else -1
+        lib.xvalue = 0
+        lib.ivalue = 0
+        lib.fvalue = 0
+        lib.dvalue = 0
+        lib.Dvalue = 0
+        fun = getattr(lib, 'tf_b' + kind)
+        res = fun(-42, sign * 99)
+        if kind == 'D':
+            res = float(res)
+        assert res == int(ffi.cast(cname, 0x7182838485868788))
+        assert lib.xvalue == -42
+        if kind in 'fdD':
+            assert float(getattr(lib, kind + 'value')) == -99.0
+        else:
+            assert lib.ivalue == sign * 99
+
+def test_various_calls_direct():
+    _test_various_calls(force_libffi=False)
+
+def test_various_calls_libffi():
+    _test_various_calls(force_libffi=True)

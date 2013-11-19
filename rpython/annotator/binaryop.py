@@ -7,12 +7,13 @@ import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
-    SomeDict, SomeUnicodeCodePoint, SomeUnicodeString, SomeTuple,
-    SomeImpossibleValue, s_ImpossibleValue, SomeInstance, SomeBuiltin,
-    SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray, SomeWeakRef,
-    SomeAddress, SomeTypedAddressAccess, SomeSingleFloat, SomeLongFloat,
-    SomeType, SomeConstantType, unionof, UnionError, missing_operation,
-    read_can_only_throw, add_knowntypedata, merge_knowntypedata,)
+    SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
+    SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
+    SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
+    SomeWeakRef, SomeAddress, SomeTypedAddressAccess, SomeSingleFloat,
+    SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
+    missing_operation, read_can_only_throw, add_knowntypedata,
+    merge_knowntypedata,)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.rlib import rarithmetic
@@ -579,7 +580,8 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 class __extend__(pairtype(SomeDict, SomeDict)):
 
     def union((dic1, dic2)):
-        return SomeDict(dic1.dictdef.union(dic2.dictdef))
+        assert dic1.__class__ == dic2.__class__
+        return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
 
 class __extend__(pairtype(SomeDict, SomeObject)):
@@ -838,6 +840,7 @@ _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
 _make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
+_make_none_union('SomeOrderedDict',          'obj.dictdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeWeakRef',         'obj.classdef')
 

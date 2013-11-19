@@ -180,12 +180,12 @@ class W_Kqueue(W_Root):
                         i = 0
                         for w_ev in space.listview(w_changelist):
                             ev = space.interp_w(W_Kevent, w_ev)
-                            changelist[i].c_ident = ev.event.c_ident
-                            changelist[i].c_filter = ev.event.c_filter
-                            changelist[i].c_flags = ev.event.c_flags
-                            changelist[i].c_fflags = ev.event.c_fflags
-                            changelist[i].c_data = ev.event.c_data
-                            changelist[i].c_udata = ev.event.c_udata
+                            changelist[i].c_ident = ev.ident
+                            changelist[i].c_filter = ev.filter
+                            changelist[i].c_flags = ev.flags
+                            changelist[i].c_fflags = ev.fflags
+                            changelist[i].c_data = ev.data
+                            changelist[i].c_udata = ev.udata
                             i += 1
                         pchangelist = changelist
                     else:
@@ -206,13 +206,12 @@ class W_Kqueue(W_Root):
                             evt = eventlist[i]
 
                             w_event = W_Kevent(space)
-                            w_event.event = lltype.malloc(kevent, flavor="raw")
-                            w_event.event.c_ident = evt.c_ident
-                            w_event.event.c_filter = evt.c_filter
-                            w_event.event.c_flags = evt.c_flags
-                            w_event.event.c_fflags = evt.c_fflags
-                            w_event.event.c_data = evt.c_data
-                            w_event.event.c_udata = evt.c_udata
+                            w_event.ident = evt.c_ident
+                            w_event.filter = evt.c_filter
+                            w_event.flags = evt.c_flags
+                            w_event.fflags = evt.c_fflags
+                            w_event.data = evt.c_data
+                            w_event.udata = evt.c_udata
 
                             elist_w[i] = w_event
 
@@ -234,11 +233,12 @@ W_Kqueue.typedef.acceptable_as_base_class = False
 
 class W_Kevent(W_Root):
     def __init__(self, space):
-        self.event = lltype.nullptr(kevent)
-
-    def __del__(self):
-        if self.event:
-            lltype.free(self.event, flavor="raw")
+        self.ident = rffi.cast(kevent.c_ident, 0)
+        self.filter = rffi.cast(kevent.c_filter, 0)
+        self.flags = rffi.cast(kevent.c_flags, 0)
+        self.fflags = rffi.cast(kevent.c_fflags, 0)
+        self.data = rffi.cast(kevent.c_data, 0)
+        self.udata = lltype.nullptr(rffi.VOIDP.TO)
 
     @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata=r_uint)
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=r_uint(0)):
@@ -247,35 +247,34 @@ class W_Kevent(W_Root):
         else:
             ident = r_uint(space.c_filedescriptor_w(w_ident))
 
-        self.event = lltype.malloc(kevent, flavor="raw")
-        rffi.setintfield(self.event, "c_ident", ident)
-        rffi.setintfield(self.event, "c_filter", filter)
-        rffi.setintfield(self.event, "c_flags", flags)
-        rffi.setintfield(self.event, "c_fflags", fflags)
-        rffi.setintfield(self.event, "c_data", data)
-        self.event.c_udata = rffi.cast(rffi.VOIDP, udata)
+        self.ident = rffi.cast(kevent.c_ident, ident)
+        self.filter = rffi.cast(kevent.c_filter, filter)
+        self.flags = rffi.cast(kevent.c_flags, flags)
+        self.fflags = rffi.cast(kevent.c_fflags, fflags)
+        self.data = rffi.cast(kevent.c_data, data)
+        self.udata = rffi.cast(rffi.VOIDP, udata)
 
     def _compare_all_fields(self, other, op):
         if IDENT_UINT:
-            l_ident = rffi.cast(lltype.Unsigned, self.event.c_ident)
-            r_ident = rffi.cast(lltype.Unsigned, other.event.c_ident)
+            l_ident = rffi.cast(lltype.Unsigned, self.ident)
+            r_ident = rffi.cast(lltype.Unsigned, other.ident)
         else:
-            l_ident = self.event.c_ident
-            r_ident = other.event.c_ident
-        l_filter = rffi.cast(lltype.Signed, self.event.c_filter)
-        r_filter = rffi.cast(lltype.Signed, other.event.c_filter)
-        l_flags = rffi.cast(lltype.Unsigned, self.event.c_flags)
-        r_flags = rffi.cast(lltype.Unsigned, other.event.c_flags)
-        l_fflags = rffi.cast(lltype.Unsigned, self.event.c_fflags)
-        r_fflags = rffi.cast(lltype.Unsigned, other.event.c_fflags)
+            l_ident = self.ident
+            r_ident = other.ident
+        l_filter = rffi.cast(lltype.Signed, self.filter)
+        r_filter = rffi.cast(lltype.Signed, other.filter)
+        l_flags = rffi.cast(lltype.Unsigned, self.flags)
+        r_flags = rffi.cast(lltype.Unsigned, other.flags)
+        l_fflags = rffi.cast(lltype.Unsigned, self.fflags)
+        r_fflags = rffi.cast(lltype.Unsigned, other.fflags)
         if IDENT_UINT:
-            l_data = rffi.cast(lltype.Signed, self.event.c_data)
-            r_data = rffi.cast(lltype.Signed, other.event.c_data)
+            l_data = rffi.cast(lltype.Signed, self.data)
+            r_data = rffi.cast(lltype.Signed, other.data)
         else:
-            l_data = self.event.c_data
-            r_data = other.event.c_data
-        l_udata = rffi.cast(lltype.Unsigned, self.event.c_udata)
-        r_udata = rffi.cast(lltype.Unsigned, other.event.c_udata)
+            l_data = self.data
+            r_data = other.data
+        l_udata = rffi.cast(lltype.Unsigned, self.udata)
+        r_udata = rffi.cast(lltype.Unsigned, other.udata)
 
         if op == "eq":
             return l_ident == r_ident and \
@@ -330,22 +329,22 @@ class W_Kevent(W_Root):
         return space.wrap(self.compare_all_fields(space, w_other, "gt"))
 
     def descr_get_ident(self, space):
-        return space.wrap(self.event.c_ident)
+        return space.wrap(self.ident)
 
     def descr_get_filter(self, space):
-        return space.wrap(self.event.c_filter)
+        return space.wrap(self.filter)
 
     def descr_get_flags(self, space):
-        return space.wrap(self.event.c_flags)
+        return space.wrap(self.flags)
 
     def descr_get_fflags(self, space):
-        return space.wrap(self.event.c_fflags)
+        return space.wrap(self.fflags)
 
     def descr_get_data(self, space):
-        return space.wrap(self.event.c_data)
+        return space.wrap(self.data)
 
     def descr_get_udata(self, space):
-        return space.wrap(rffi.cast(rffi.UINTPTR_T, self.event.c_udata))
+        return space.wrap(rffi.cast(rffi.UINTPTR_T, self.udata))
 
 
 W_Kevent.typedef = TypeDef("select.kevent",

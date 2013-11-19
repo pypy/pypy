@@ -197,10 +197,10 @@ class W_AbstractTupleObject(W_Root):
 
 W_AbstractTupleObject.typedef = StdTypeDef(
     "tuple",
-    __doc__ = '''tuple() -> an empty tuple
+    __doc__ = """tuple() -> an empty tuple
 tuple(sequence) -> tuple initialized from sequence's items
 
-If the argument is a tuple, the return value is the same object.''',
+If the argument is a tuple, the return value is the same object.""",
     __new__ = interp2app(W_AbstractTupleObject.descr_new),
     __repr__ = interp2app(W_AbstractTupleObject.descr_repr),
     __hash__ = interpindirect2app(W_AbstractTupleObject.descr_hash),

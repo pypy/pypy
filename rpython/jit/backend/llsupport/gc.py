@@ -357,7 +357,8 @@ class GcLLDescr_framework(GcLLDescription):
     def _check_valid_gc(self):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
         # to work.  'hybrid' could work but isn't tested with the JIT.
-        if self.gcdescr.config.translation.gc not in ('minimark',):
+        if self.gcdescr.config.translation.gc not in ('minimark',
+                                                      'incminimark'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (self.gcdescr.config.translation.gc,))
 
@@ -368,7 +369,9 @@ class GcLLDescr_framework(GcLLDescription):
         translator = self.translator
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
-        translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
+        if not hasattr(translator, '_jit2gc'):
+            translator._jit2gc = {}
+        translator._jit2gc['layoutbuilder'] = self.layoutbuilder
 
     def _setup_gcclass(self):
         from rpython.memory.gcheader import GCHeaderBuilder

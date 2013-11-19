@@ -942,7 +942,8 @@ class AppTestAppMain:
 
         self.w_tmp_dir = self.space.wrap(tmp_dir)
 
-        foo_py = prefix.join('foo.py').write("pass")
+        foo_py = prefix.join('foo.py')
+        foo_py.write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))
 
     def test_setup_bootstrap_path(self):
@@ -954,6 +955,8 @@ class AppTestAppMain:
 
         sys.path.append(self.goal_dir)
         # make sure cwd does not contain a stdlib
+        if self.tmp_dir.startswith(self.trunkdir):
+            skip('TMPDIR is inside the PyPy source')
         os.chdir(self.tmp_dir)
         tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
         try:

@@ -225,6 +225,15 @@ class TestW_ListStrategies(TestW_ListObject):
         l.setslice(0, 1, 2, W_ListObject(space, [w('a'), w(2), w(3)]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
+    def test_setslice_int_range(self):
+        space = self.space
+        w = space.wrap
+        l = W_ListObject(space, [w(1), w(2), w(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.setslice(0, 1, 2, make_range_list(space, 5, 1, 4))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+
     def test_setslice_List(self):
         space = self.space
 
@@ -467,6 +476,12 @@ class TestW_ListStrategies(TestW_ListObject):
         l4 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert self.space.eq_w(l3, l4)
 
+    def test_add_of_range_and_int(self):
+        l1 = make_range_list(self.space, 0, 1, 100)
+        l2 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l3 = self.space.add(l2, l1)
+        assert l3.strategy is l2.strategy
+
     def test_mul(self):
         l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         l2 = l1.mul(2)
@@ -629,6 +644,20 @@ class TestW_ListStrategies(TestW_ListObject):
         space = self.space
         w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
         assert self.space.listview_int(w_l) == [1, 2, 3]
+
+    def test_listview_float_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1.1), space.wrap(2.2), space.wrap(3.3)])
+        assert self.space.listview_float(w_l) == [1.1, 2.2, 3.3]
+
+    def test_unpackiterable_int_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
+        list_orig = self.space.listview_int(w_l)
+        list_copy = self.space.unpackiterable_int(w_l)
+        assert list_orig == list_copy == [1, 2, 3]
+        list_copy[0] = 42
+        assert list_orig == [1, 2, 3]
 
 
 class TestW_ListStrategiesDisabled:

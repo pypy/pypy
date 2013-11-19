@@ -45,6 +45,8 @@ class GCTest(object):
     taggedpointers = False
 
     def setup_class(cls):
+        cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
+                                   flavor='raw', zero=True)
         funcs0 = []
         funcs2 = []
         cleanups = []
@@ -744,12 +746,18 @@ class GenericMovingGCTests(GenericGCTests):
     def ensure_layoutbuilder(cls, translator):
         jit2gc = getattr(translator, '_jit2gc', None)
         if jit2gc:
+            assert 'invoke_after_minor_collection' in jit2gc
             return jit2gc['layoutbuilder']
+        marker = cls.marker
         GCClass = cls.gcpolicy.transformerclass.GCClass
         layoutbuilder = framework.TransformerLayoutBuilder(translator, GCClass)
         layoutbuilder.delay_encoding()
+
+        def seeme():
+            marker[0] += 1
         translator._jit2gc = {
             'layoutbuilder': layoutbuilder,
+            'invoke_after_minor_collection': seeme,
         }
         return layoutbuilder
 
@@ -768,6 +776,15 @@ class GenericMovingGCTests(GenericGCTests):
                 g()
                 i += 1
             return 0
+
+        if cls.gcname == 'incminimark':
+            marker = cls.marker
+            def cleanup():
+                assert marker[0] > 0
+                marker[0] = 0
+        else:
+            cleanup = None
+
         def fix_graph_of_g(translator):
             from rpython.translator.translator import graphof
             from rpython.flowspace.model import Constant
@@ -788,7 +805,7 @@ class GenericMovingGCTests(GenericGCTests):
                     break
             else:
                 assert 0, "oups, not found"
-        return f, None, fix_graph_of_g
+        return f, cleanup, fix_graph_of_g
 
     def test_do_malloc_operations(self):
         run = self.runner("do_malloc_operations")
@@ -1257,6 +1274,24 @@ class TestMiniMarkGC(TestHybridGC):
         run = self.runner("no_clean_setarrayitems")
         res = run([])
         assert res == 123
+
+class TestIncrementalMiniMarkGC(TestMiniMarkGC):
+    gcname = "incminimark"
+
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
+            from rpython.memory.gc.incminimark import IncrementalMiniMarkGC \
+                                                      as GCClass
+            GC_PARAMS = {'nursery_size': 32*WORD,
+                         'page_size': 16*WORD,
+                         'arena_size': 64*WORD,
+                         'small_request_threshold': 5*WORD,
+                         'large_object': 8*WORD,
+                         'card_page_indices': 4,
+                         'translated_to_c': False,
+                         }
+            root_stack_depth = 200
+
 
 # ________________________________________________________________
 # tagged pointers

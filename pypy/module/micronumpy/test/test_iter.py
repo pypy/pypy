@@ -13,7 +13,7 @@ class TestIterDirect(object):
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
-        i = MultiDimViewIterator(MockArray, None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next()
         i.next()
         i.next()
@@ -31,7 +31,7 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        i = MultiDimViewIterator(MockArray, None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next()
         i.next()
         i.next()
@@ -52,7 +52,7 @@ class TestIterDirect(object):
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
-        i = MultiDimViewIterator(MockArray, None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next_skip_x(2)
         i.next_skip_x(2)
         i.next_skip_x(2)
@@ -75,7 +75,7 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        i = MultiDimViewIterator(MockArray, None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next_skip_x(2)
         i.next_skip_x(2)
         i.next_skip_x(2)

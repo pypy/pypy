@@ -1,3 +1,4 @@
+import os
 from rpython.flowspace.model import Constant, const
 
 SPECIAL_CASES = {}
@@ -42,6 +43,18 @@ def sc_getattr(space, w_obj, w_index, w_default=None):
         return space.appcall(getattr, w_obj, w_index, w_default)
     else:
         return space.getattr(w_obj, w_index)
+
+@register_flow_sc(open)
+def sc_open(space, *args_w):
+    from rpython.rlib.rfile import create_file
+
+    return space.frame.do_operation("simple_call", const(create_file), *args_w)
+
+@register_flow_sc(os.tmpfile)
+def sc_os_tmpfile(space):
+    from rpython.rlib.rfile import create_temp_rfile
+
+    return space.frame.do_operation("simple_call", const(create_temp_rfile))
 
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs

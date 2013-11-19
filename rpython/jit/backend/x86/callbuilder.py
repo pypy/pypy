@@ -304,8 +304,12 @@ class CallBuilder64(CallBuilderX86):
         except IndexError:
             return None
         if hint in self.DONT_MOVE_GPR:
-            self.ARGUMENTS_GPR[i] = hint
-            res = hint
+            for j in range(i):
+                if hint is self.ARGUMENTS_GPR[j]:
+                    break
+            else:
+                self.ARGUMENTS_GPR[i] = hint
+                res = hint
         return res
 
     def _unused_xmm(self):

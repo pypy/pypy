@@ -1,4 +1,3 @@
-
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import support
@@ -18,6 +17,9 @@ class ScalarIterator(base.BaseArrayIterator):
 
     def getitem(self):
         return self.v.get_scalar_value()
+
+    def getitem_bool(self):
+        return self.v.dtype.itemtype.bool(self.v.value)
 
     def setitem(self, v):
         self.v.set_scalar_value(v)
@@ -45,7 +47,7 @@ class Scalar(base.BaseArrayImplementation):
     def get_backstrides(self):
         return []
 
-    def create_iter(self, shape=None, backward_broadcast=False):
+    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         return ScalarIterator(self)
 
     def get_scalar_value(self):
@@ -66,9 +68,15 @@ class Scalar(base.BaseArrayImplementation):
     def transpose(self, _):
         return self
 
-    def get_view(self, orig_array, dtype, new_shape):
+    def get_view(self, space, orig_array, dtype, new_shape):
         scalar = Scalar(dtype)
-        scalar.value = self.value.convert_to(dtype)
+        if dtype.is_str_or_unicode():
+            scalar.value = dtype.coerce(space, space.wrap(self.value.raw_str()))
+        elif dtype.is_record_type():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "viewing scalar as record not implemented"))
+        else:
+            scalar.value = dtype.itemtype.runpack_str(space, self.value.raw_str())
         return scalar
 
     def get_real(self, orig_array):
@@ -121,20 +129,24 @@ class Scalar(base.BaseArrayImplementation):
                             )
 
     def descr_getitem(self, space, _, w_idx):
+        if space.isinstance_w(w_idx, space.w_tuple):
+            if space.len_w(w_idx) == 0:
+                return self.get_scalar_value()
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def getitem_index(self, space, idx):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def descr_setitem(self, space, _, w_idx, w_val):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
 
     def setitem_index(self, space, idx, w_val):
         raise OperationError(space.w_IndexError,
-                             space.wrap("scalars cannot be indexed"))
+                             space.wrap("0-d arrays can't be indexed"))
+
     def set_shape(self, space, orig_array, new_shape):
         if not new_shape:
             return self
@@ -155,6 +167,13 @@ class Scalar(base.BaseArrayImplementation):
     def swapaxes(self, space, orig_array, axis1, axis2):
         raise Exception("should not be called")
 
+    def nonzero(self, space, index_type):
+        s = self.dtype.itemtype.bool(self.value)
+        w_res = W_NDimArray.from_shape(space, [s], index_type)
+        if s == 1:
+            w_res.implementation.setitem(0, index_type.itemtype.box(0)) 
+        return space.newtuple([w_res])
+
     def fill(self, w_value):
         self.value = w_value
 
@@ -174,4 +193,3 @@ class Scalar(base.BaseArrayImplementation):
     def get_buffer(self, space):
         raise OperationError(space.w_ValueError, space.wrap(
             "cannot point buffer to a scalar"))
-
