@@ -5,8 +5,8 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
 from pypy.interpreter.buffer import StringBuffer, SubBuffer
 from pypy.interpreter.error import OperationError
-from pypy.module.array.interp_array import ArrayBuffer
 from pypy.module.__builtin__.interp_memoryview import W_Buffer
+from pypy.module.array.interp_array import ArrayBuffer
 
 
 PyBufferObjectStruct = lltype.ForwardReference()

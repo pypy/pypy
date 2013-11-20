@@ -43,7 +43,7 @@ class LLBuffer(RWBuffer):
 
 class MiniBuffer(W_Buffer):
     def __init__(self, buffer, keepalive=None):
-        W_Buffer. __init__(self, buffer)
+        W_Buffer.__init__(self, buffer)
         self.keepalive = keepalive
 
 MiniBuffer.typedef = TypeDef(
