@@ -1343,6 +1343,7 @@ class FunctionWriter(object):
     def op_raw_store(self, result, addr, offset, value):
         addr = self._get_addr(value.type_, addr, offset)
         self.w('store {value.TV}, {addr.TV}'.format(**locals()))
+    op_bare_raw_store = op_raw_store
 
     def op_raw_memclear(self, result, ptr, size):
         self.op_direct_call(result, get_repr(llvm_memset), ptr, null_char,
