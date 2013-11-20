@@ -283,8 +283,7 @@ class AppTestSysModulePortedFromCPython:
             def getvalue(self):
                 return ''.join(self.output)
 
-        for input, expectedoutput in [(u"\u013a", "\xe5"),
-                                      (u"\u1111", "\\u1111")]:
+        for input in ("\u013a", "\u1111"):
             err = MyStringIO()
             err.encoding = 'iso-8859-2'
             sys.stderr = err
@@ -292,12 +291,12 @@ class AppTestSysModulePortedFromCPython:
             eh = sys.__excepthook__
             try:
                 raise ValueError(input)
-            except ValueError, exc:
+            except ValueError as exc:
                 eh(*sys.exc_info())
 
             sys.stderr = savestderr
-            print repr(err.getvalue())
-            assert err.getvalue().endswith("ValueError: %s\n" % expectedoutput)
+            print(ascii(err.getvalue()))
+            assert err.getvalue().endswith("ValueError: %s\n" % input)
 
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
