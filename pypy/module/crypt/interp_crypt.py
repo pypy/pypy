@@ -8,7 +8,7 @@ if sys.platform.startswith('darwin'):
 else:
     eci = ExternalCompilationInfo(libraries=['crypt'])
 c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,
-                          compilation_info=eci, threadsafe=False)
+                          compilation_info=eci, releasegil=False)
 
 @unwrap_spec(word=str, salt=str)
 def crypt(space, word, salt):

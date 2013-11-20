@@ -167,6 +167,8 @@ class W_MMap(W_Root):
         if step == 0:  # index only
             return space.wrap(self.mmap.getitem(start))
         elif step == 1:
+            if stop - start < 0:
+                return space.wrap("")
             return space.wrap(self.mmap.getslice(start, stop - start))
         else:
             res = "".join([self.mmap.getitem(i)
@@ -288,9 +290,6 @@ class MMapBuffer(RWBuffer):
     def __init__(self, space, mmap):
         self.space = space
         self.mmap = mmap
-
-    def get_raw_address(self):
-        return self.mmap.data
 
     def getlength(self):
         return self.mmap.size

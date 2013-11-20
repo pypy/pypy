@@ -117,7 +117,6 @@ class AbstractThreadTests(AbstractGCTestClass):
         def g(i, j):
             state.bootstrapping.acquire(True)
             state.z = Z(i, j)
-            gc_thread_prepare()
             start_new_thread(bootstrap, ())
 
         def f():

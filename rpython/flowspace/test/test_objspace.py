@@ -1063,7 +1063,6 @@ class TestFlowObjSpace(Base):
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock
 
-
     def test_global_variable(self):
         def global_var_missing():
             return a

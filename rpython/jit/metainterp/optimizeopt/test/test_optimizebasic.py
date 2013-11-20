@@ -3670,6 +3670,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_add_commutative(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_add(i1, i0)
+        jump(i2, i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        jump(i2, i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_framestackdepth_overhead(self):
         ops = """
         [p0, i22]
@@ -3732,6 +3746,33 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_no_overflow() []
         i2 = int_add(i1, 5)
         jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_sub_identity(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, i0)
+        i2 = int_sub(i1, i0)
+        jump(i1, i2)
+        """
+        expected = """
+        [i0]
+        i2 = int_neg(i0)
+        jump(0, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_shift_zero(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(0, i0)
+        i2 = int_rshift(0, i0)
+        jump(i1, i2)
+        """
+        expected = """
+        [i0]
+        jump(0, 0)
         """
         self.optimize_loop(ops, expected)
 
@@ -5078,6 +5119,42 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         []
         finish(s"abcdefghij")
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_str_copy_virtual_src_concrete_dst(self):
+        ops = """
+        [p0]
+        p1 = newstr(2)
+        strsetitem(p1, 0, 101)
+        strsetitem(p1, 1, 102)
+        copystrcontent(p1, p0, 0, 0, 2)
+        finish(p0)
+        """
+        expected = """
+        [p0]
+        strsetitem(p0, 0, 101)
+        strsetitem(p0, 1, 102)
+        finish(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_str_copy_bug1(self):
+        ops = """
+        [i0]
+        p1 = newstr(1)
+        strsetitem(p1, 0, i0)
+        p2 = newstr(1)
+        escape(p2)
+        copystrcontent(p1, p2, 0, 0, 1)
+        finish()
+        """
+        expected = """
+        [i0]
+        p2 = newstr(1)
+        escape(p2)
+        strsetitem(p2, 0, i0)
+        finish()
         """
         self.optimize_strunicode_loop(ops, expected)
 

@@ -93,6 +93,8 @@ class Transformer(object):
         block.exitswitch = renamings.get(block.exitswitch, block.exitswitch)
         self.follow_constant_exit(block)
         self.optimize_goto_if_not(block)
+        if isinstance(block.exitswitch, tuple):
+            self._check_no_vable_array(block.exitswitch)
         for link in block.exits:
             self._check_no_vable_array(link.args)
             self._do_renaming_on_link(renamings, link)
@@ -688,6 +690,10 @@ class Transformer(object):
         kind = getkind(RESULT)[0]
         op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
                              [v_inst, descr], op.result)
+        if op1.opname == 'getfield_raw_r':
+            # note: 'getfield_raw_r_pure' is used e.g. to load class
+            # attributes that are GC objects, so that one is supported.
+            raise Exception("getfield_raw_r (without _pure) not supported")
         #
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             descr1 = self.cpu.fielddescrof(
@@ -720,6 +726,8 @@ class Transformer(object):
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
+        if argname == 'raw' and kind == 'r':
+            raise Exception("setfield_raw_r not supported")
         return SpaceOperation('setfield_%s_%s' % (argname, kind),
                               [v_inst, v_value, descr],
                               None)
@@ -1154,10 +1162,19 @@ class Transformer(object):
                                   v_result)
 
     def rewrite_op_direct_ptradd(self, op):
-        # xxx otherwise, not implemented:
-        assert op.args[0].concretetype == rffi.CCHARP
+        v_shift = op.args[1]
+        assert v_shift.concretetype == lltype.Signed
+        ops = []
         #
-        return SpaceOperation('int_add', [op.args[0], op.args[1]], op.result)
+        if op.args[0].concretetype != rffi.CCHARP:
+            v_prod = varoftype(lltype.Signed)
+            by = llmemory.sizeof(op.args[0].concretetype.TO.OF)
+            c_by = Constant(by, lltype.Signed)
+            ops.append(SpaceOperation('int_mul', [v_shift, c_by], v_prod))
+            v_shift = v_prod
+        #
+        ops.append(SpaceOperation('int_add', [op.args[0], v_shift], op.result))
+        return ops
 
     # ----------
     # Long longs, for 32-bit only.  Supported operations are left unmodified,

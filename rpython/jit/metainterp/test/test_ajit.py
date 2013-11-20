@@ -1411,7 +1411,6 @@ class BasicTests:
         self.check_resops(call=2)
 
     def test_merge_guardclass_guardvalue(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1438,7 +1437,6 @@ class BasicTests:
         self.check_resops(guard_class=0, guard_value=6)
 
     def test_merge_guardnonnull_guardclass(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1468,7 +1466,6 @@ class BasicTests:
 
 
     def test_merge_guardnonnull_guardvalue(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1497,7 +1494,6 @@ class BasicTests:
 
 
     def test_merge_guardnonnull_guardvalue_2(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1526,7 +1522,6 @@ class BasicTests:
 
 
     def test_merge_guardnonnull_guardclass_guardvalue(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -3237,7 +3232,7 @@ class BaseLLtypeTests(BasicTests):
             py.test.skip("needs 'time'")
         T = rffi.CArrayPtr(rffi.TIME_T)
 
-        external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
         # Not a real lock, has all the same properties with respect to GIL
         # release though, so good for this test.
         class Lock(object):
@@ -3363,6 +3358,33 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [1], enable_opts='')
         assert res == main(1)
         self.check_resops(call=0, getfield_gc=0)
+
+    def test_isvirtual_call_assembler(self):
+        driver = JitDriver(greens = ['code'], reds = ['n', 's'])
+
+        @look_inside_iff(lambda t1, t2: isvirtual(t1))
+        def g(t1, t2):
+            return t1[0] == t2[0]
+
+        def create(n):
+            return (1, 2, n)
+        create._dont_inline_ = True
+
+        def f(code, n):
+            s = 0
+            while n > 0:
+                driver.can_enter_jit(code=code, n=n, s=s)
+                driver.jit_merge_point(code=code, n=n, s=s)
+                t = create(n)
+                if code:
+                    f(0, 3)
+                s += t[2]
+                g(t, (1, 2, n))
+                n -= 1
+            return s
+
+        self.meta_interp(f, [1, 10], inline=True)
+        self.check_resops(call=0, call_may_force=0, call_assembler=2)
 
     def test_reuse_elidable_result(self):
         driver = JitDriver(reds=['n', 's'], greens = [])

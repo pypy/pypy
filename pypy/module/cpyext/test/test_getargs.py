@@ -3,9 +3,11 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestGetargs(AppTestCpythonExtensionBase):
-    def w_import_parser(self, implementation, argstyle='METH_VARARGS'):
+    def w_import_parser(self, implementation, argstyle='METH_VARARGS',
+                        PY_SSIZE_T_CLEAN=False):
         mod = self.import_extension(
-            'modname', [('funcname', argstyle, implementation)])
+            'modname', [('funcname', argstyle, implementation)],
+            PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
         return mod.funcname
 
     def test_pyarg_parse_int(self):
@@ -179,3 +181,34 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             ''')
         raises(TypeError, "charbuf(10)")
         assert 'foo\0bar\0baz' == charbuf('foo\0bar\0baz')
+
+    def test_pyarg_parse_without_py_ssize_t(self):
+        import sys
+        charbuf = self.import_parser(
+            '''
+            char *buf;
+            Py_ssize_t y = -1;
+            if (!PyArg_ParseTuple(args, "s#", &buf, &y)) {
+                return NULL;
+            }
+            return PyInt_FromSsize_t(y);
+            ''')
+        if sys.maxsize < 2**32:
+            expected = 5
+        elif sys.byteorder == 'little':
+            expected = -0xfffffffb
+        else:
+            expected = 0x5ffffffff
+        assert charbuf('12345') == expected
+
+    def test_pyarg_parse_with_py_ssize_t(self):
+        charbuf = self.import_parser(
+            '''
+            char *buf;
+            Py_ssize_t y = -1;
+            if (!PyArg_ParseTuple(args, "s#", &buf, &y)) {
+                return NULL;
+            }
+            return PyInt_FromSsize_t(y);
+            ''', PY_SSIZE_T_CLEAN=True)
+        assert charbuf('12345') == 5

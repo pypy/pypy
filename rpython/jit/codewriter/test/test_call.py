@@ -181,7 +181,7 @@ def test_releases_gil_analyzer():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
     T = rffi.CArrayPtr(rffi.TIME_T)
-    external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+    external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
 
     @jit.dont_look_inside
     def f():
@@ -203,7 +203,7 @@ def test_call_release_gil():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
     T = rffi.CArrayPtr(rffi.TIME_T)
-    external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+    external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
 
     # no jit.dont_look_inside in this test
     def f():

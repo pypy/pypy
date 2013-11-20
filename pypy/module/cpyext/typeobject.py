@@ -4,7 +4,7 @@ import sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
@@ -574,33 +574,7 @@ def solid_base(space, w_type):
 def best_base(space, bases_w):
     if not bases_w:
         return None
-
-    w_winner = None
-    w_base = None
-    for w_base_i in bases_w:
-        if isinstance(w_base_i, W_ClassObject):
-            # old-style base
-            continue
-        assert isinstance(w_base_i, W_TypeObject)
-        w_candidate = solid_base(space, w_base_i)
-        if not w_winner:
-            w_winner = w_candidate
-            w_base = w_base_i
-        elif space.abstract_issubclass_w(w_winner, w_candidate):
-            pass
-        elif space.abstract_issubclass_w(w_candidate, w_winner):
-            w_winner = w_candidate
-            w_base = w_base_i
-        else:
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("multiple bases have instance lay-out conflict"))
-    if w_base is None:
-        raise OperationError(
-            space.w_TypeError,
-                space.wrap("a new-style class can't have only classic bases"))
-
-    return w_base
+    return find_best_base(space, bases_w)
 
 def inherit_slots(space, pto, w_base):
     # XXX missing: nearly everything

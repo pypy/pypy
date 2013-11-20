@@ -597,8 +597,8 @@ def _cmp(space, w_obj1, w_obj2, symbol):
         if num1 != num2:
             lt = num1      # if obj1 is a number, it is Lower Than obj2
         else:
-            name1 = w_typ1.getname(space, "")
-            name2 = w_typ2.getname(space, "")
+            name1 = w_typ1.getname(space)
+            name2 = w_typ2.getname(space)
             if name1 != name2:
                 lt = name1 < name2
             else:

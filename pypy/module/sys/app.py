@@ -16,8 +16,13 @@ def excepthook(exctype, value, traceback):
         pass
 
     try:
+        encoding = sys.stderr.encoding
+    except:
+        encoding = None
+
+    try:
         from traceback import print_exception
-        print_exception(exctype, value, traceback)
+        print_exception(exctype, value, traceback, _encoding=encoding)
     except:
         if not excepthook_failsafe(exctype, value):
             raise

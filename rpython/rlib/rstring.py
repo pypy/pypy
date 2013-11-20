@@ -149,6 +149,7 @@ def rsplit(value, by=None, maxsplit=-1):
 
 
 @specialize.argtype(0)
+@jit.elidable
 def replace(input, sub, by, maxsplit=-1):
     if isinstance(input, str):
         assert isinstance(sub, str)
@@ -370,6 +371,7 @@ class AbstractStringBuilder(object):
         self._grow(times)
 
     def append_charpsize(self, s, size):
+        assert size >= 0
         l = []
         for i in xrange(size):
             l.append(s[i])

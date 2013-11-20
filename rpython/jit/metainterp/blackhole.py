@@ -52,10 +52,12 @@ class BlackholeInterpBuilder(object):
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
         self.num_interpreters = 0
-        self._cleanup_()
+        self.blackholeinterps = []
 
     def _cleanup_(self):
-        self.blackholeinterps = []
+        # XXX don't assign a different list to blackholeinterp here,
+        # it confuses the annotator a lot
+        del self.blackholeinterps[:]
 
     def setup_insns(self, insns):
         assert len(insns) <= 256, "too many instructions!"
@@ -1263,14 +1265,15 @@ class BlackholeInterpreter(object):
     def bhimpl_getfield_raw_i(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_i(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="r")
-    def bhimpl_getfield_raw_r(cpu, struct, fielddescr):
+    def _bhimpl_getfield_raw_r(cpu, struct, fielddescr):
+        # only for 'getfield_raw_r_pure'
         return cpu.bh_getfield_raw_r(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="f")
     def bhimpl_getfield_raw_f(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_f(struct, fielddescr)
 
     bhimpl_getfield_raw_i_pure = bhimpl_getfield_raw_i
-    bhimpl_getfield_raw_r_pure = bhimpl_getfield_raw_r
+    bhimpl_getfield_raw_r_pure = _bhimpl_getfield_raw_r
     bhimpl_getfield_raw_f_pure = bhimpl_getfield_raw_f
 
     @arguments("cpu", "r", "i", "d")
@@ -1290,9 +1293,6 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "i", "d")
     def bhimpl_setfield_raw_i(cpu, struct, newvalue, fielddescr):
         cpu.bh_setfield_raw_i(struct, newvalue, fielddescr)
-    @arguments("cpu", "i", "r", "d")
-    def bhimpl_setfield_raw_r(cpu, struct, newvalue, fielddescr):
-        cpu.bh_setfield_raw_r(struct, newvalue, fielddescr)
     @arguments("cpu", "i", "f", "d")
     def bhimpl_setfield_raw_f(cpu, struct, newvalue, fielddescr):
         cpu.bh_setfield_raw_f(struct, newvalue, fielddescr)

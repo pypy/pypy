@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-import py
 from pypy.module._pypyjson.interp_decoder import JSONDecoder
 
 def test_skip_whitespace():
@@ -178,11 +177,9 @@ class AppTest(object):
         raises(ValueError, "_pypyjson.loads('[1: 2]')")
         raises(ValueError, "_pypyjson.loads('[1, 2')")
         raises(ValueError, """_pypyjson.loads('["extra comma",]')""")
-        
+
     def test_unicode_surrogate_pair(self):
         import _pypyjson
         expected = u'z\U0001d120x'
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
-
-

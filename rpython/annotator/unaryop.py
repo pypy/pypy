@@ -10,7 +10,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
     SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString)
+    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -333,12 +333,13 @@ class __extend__(SomeList):
         check_negative_slice(s_start, s_stop)
         lst.listdef.resize()
 
-def check_negative_slice(s_start, s_stop):
+def check_negative_slice(s_start, s_stop, error="slicing"):
     if isinstance(s_start, SomeInteger) and not s_start.nonneg:
-        raise AnnotatorError("slicing: not proven to have non-negative start")
+        raise AnnotatorError("%s: not proven to have non-negative start" %
+                             error)
     if isinstance(s_stop, SomeInteger) and not s_stop.nonneg and \
            getattr(s_stop, 'const', 0) != -1:
-        raise AnnotatorError("slicing: not proven to have non-negative stop")
+        raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
 class __extend__(SomeDict):
@@ -448,21 +449,24 @@ class __extend__(SomeString,
         return s_Bool
 
     def method_find(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "find")
         return SomeInteger()
 
     def method_rfind(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "rfind")
         return SomeInteger()
 
     def method_count(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "count")
         return SomeInteger(nonneg=True)
 
-    def method_strip(str, chr):
+    def method_strip(str, chr=None):
         return str.basestringclass(no_nul=str.no_nul)
 
-    def method_lstrip(str, chr):
+    def method_lstrip(str, chr=None):
         return str.basestringclass(no_nul=str.no_nul)
 
-    def method_rstrip(str, chr):
+    def method_rstrip(str, chr=None):
         return str.basestringclass(no_nul=str.no_nul)
 
     def method_join(str, s_list):
@@ -519,6 +523,14 @@ class __extend__(SomeString,
             return SomeObject.op_contains(str, s_element)
     op_contains.can_only_throw = []
 
+    def method_format(self, *args):
+        raise AnnotatorError("Method format() is not RPython")
+
+
+class __extend__(SomeByteArray):
+    def getslice(ba, s_start, s_stop):
+        check_negative_slice(s_start, s_stop)
+        return SomeByteArray()
 
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
