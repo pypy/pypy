@@ -174,7 +174,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s#", &buf, &y)) {
                 return NULL;
             }
-            return PyInt_FromSsize_t(y);
+            return PyLong_FromSsize_t(y);
             ''')
         if sys.maxsize < 2**32:
             expected = 5
@@ -182,7 +182,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             expected = -0xfffffffb
         else:
             expected = 0x5ffffffff
-        assert charbuf('12345') == expected
+        assert charbuf(b'12345') == expected
 
     def test_pyarg_parse_with_py_ssize_t(self):
         charbuf = self.import_parser(
@@ -192,6 +192,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s#", &buf, &y)) {
                 return NULL;
             }
-            return PyInt_FromSsize_t(y);
+            return PyLong_FromSsize_t(y);
             ''', PY_SSIZE_T_CLEAN=True)
-        assert charbuf('12345') == 5
+        assert charbuf(b'12345') == 5
