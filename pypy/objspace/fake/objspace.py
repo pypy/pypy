@@ -290,6 +290,11 @@ class FakeObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
+    def buffer_w(self, w_obj):
+        from pypy.interpreter.buffer import Buffer
+        is_root(w_obj)
+        return Buffer()
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
