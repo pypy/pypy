@@ -10,7 +10,7 @@ from rpython.rlib.test.test_longlong2float import enum_floats, fn, fnsingle
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, llgroup
 from rpython.rtyper.lltypesystem.ll2ctypes import (force_cast, get_ctypes_type,
      lltype2ctypes, ctypes2lltype)
-from rpython.rtyper.lltypesystem.rtuple import TupleRepr
+from rpython.rtyper.rtuple import TupleRepr
 from rpython.rtyper.lltypesystem.rstr import StringRepr, UnicodeRepr
 from rpython.rtyper.lltypesystem.test.test_rffi import BaseTestRffi
 from rpython.rtyper.module.support import LLSupport
@@ -18,7 +18,7 @@ from rpython.rtyper.test import (test_annlowlevel, test_exception,
      test_generator, test_rbool, test_rbuilder, test_rbuiltin, test_rclass,
      test_rconstantdict, test_rdict, test_remptydict, test_rfloat,
      test_rint, test_rlist, test_rpbc, test_rrange, test_rstr,
-     test_rtuple, test_runicode, test_rvirtualizable2, test_rweakref)
+     test_rtuple, test_runicode, test_rvirtualizable, test_rweakref)
 from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.backendopt.raisingop2direct_call import (
@@ -750,46 +750,46 @@ class TestRefcountLLVM(_LLVMMixin, test_refcount.TestRefcount):
 class TestRtypingLLVM(_LLVMMixin, test_annlowlevel.TestLLType):
     pass
 
-class TestExceptionLLVM(_LLVMMixin, test_exception.TestLLtype):
+class TestExceptionLLVM(_LLVMMixin, test_exception.TestException):
     def test_raise_and_catch_other(self):
         py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
     def test_raise_prebuilt_and_catch_other(self):
         py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
-class TestGeneratorLLVM(_LLVMMixin, test_generator.TestLLtype):
+class TestGeneratorLLVM(_LLVMMixin, test_generator.TestGenerator):
     pass
 
-class TestRboolLLVM(_LLVMMixin, test_rbool.TestLLtype):
+class TestRboolLLVM(_LLVMMixin, test_rbool.TestRbool):
     pass
 
-class TestStringBuilderLLVM(_LLVMMixin, test_rbuilder.TestLLtype):
+class TestStringBuilderLLVM(_LLVMMixin, test_rbuilder.TestStringBuilder):
     pass
 
-class TestRbuiltinLLVM(_LLVMMixin, test_rbuiltin.TestLLtype):
+class TestRbuiltinLLVM(_LLVMMixin, test_rbuiltin.TestRbuiltin):
     def test_debug_llinterpcall(self):
         py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
-class TestRclassLLVM(_LLVMMixin, test_rclass.TestLLtype):
+class TestRclassLLVM(_LLVMMixin, test_rclass.TestRclass):
     pass
 
-class TestRconstantdictLLVM(_LLVMMixin, test_rconstantdict.TestLLtype):
+class TestRconstantdictLLVM(_LLVMMixin, test_rconstantdict.TestRconstantdict):
     pass
 
-class TestRdictLLVM(_LLVMMixin, test_rdict.TestLLtype):
+class TestRdictLLVM(_LLVMMixin, test_rdict.TestRDict):
     def test_memoryerror_should_not_insert(self):
         py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
-class TestRemptydictLLVM(_LLVMMixin, test_remptydict.TestLLtype):
+class TestRemptydictLLVM(_LLVMMixin, test_remptydict.TestRemptydict):
     pass
 
-class TestRfloatLLVM(_LLVMMixin, test_rfloat.TestLLtype):
+class TestRfloatLLVM(_LLVMMixin, test_rfloat.TestRfloat):
     pass
 
-class TestRintLLVM(_LLVMMixin, test_rint.TestLLtype):
+class TestRintLLVM(_LLVMMixin, test_rint.TestRint):
     pass
 
-class TestRlistLLVM(_LLVMMixin, test_rlist.TestLLtype):
+class TestRlistLLVM(_LLVMMixin, test_rlist.TestRlist):
     def test_iterate_over_immutable_list(self):
         py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
@@ -809,7 +809,7 @@ class TestRlistLLVM(_LLVMMixin, test_rlist.TestLLtype):
                 return False
         return True
 
-class TestRPBCLLVM(_LLVMMixin, test_rpbc.TestLLtype):
+class TestRPBCLLVM(_LLVMMixin, test_rpbc.TestRPBC):
     def read_attr(self, value, attr_name):
         class_name = 'pypy.rpython.test.test_rpbc.' + self.class_name(value)
         for (cd, _), ir in self._translator.rtyper.instance_reprs.items():
@@ -825,27 +825,27 @@ class TestRPBCLLVM(_LLVMMixin, test_rpbc.TestLLtype):
                 return attr
         raise AttributeError()
 
-class TestRPBCExtraLLVM(_LLVMMixin, test_rpbc.TestExtraLLtype):
+class TestRPBCExtraLLVM(_LLVMMixin, test_rpbc.TestRPBCExtra):
     pass
 
-class TestRrangeLLVM(_LLVMMixin, test_rrange.TestLLtype):
+class TestRrangeLLVM(_LLVMMixin, test_rrange.TestRrange):
     pass
 
-class TestRstrLLVM(_LLVMMixin, test_rstr.TestLLtype):
+class TestRstrLLVM(_LLVMMixin, test_rstr.TestRstr):
     def test_getitem_exc(self):
         py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
-class TestRtupleLLVM(_LLVMMixin, test_rtuple.TestLLtype):
+class TestRtupleLLVM(_LLVMMixin, test_rtuple.TestRtuple):
     pass
 
-class TestRUnicodeLLVM(_LLVMMixin, test_runicode.TestLLtype):
+class TestRUnicodeLLVM(_LLVMMixin, test_runicode.TestRUnicode):
     def test_getitem_exc(self):
         py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
-class TestRvirtualizableLLVM(_LLVMMixin, test_rvirtualizable2.TestLLtype):
+class TestRvirtualizableLLVM(_LLVMMixin, test_rvirtualizable.TestVirtualizable):
     pass
 
-class TestRweakrefLLVM(_LLVMMixin, test_rweakref.TestLLtype):
+class TestRweakrefLLVM(_LLVMMixin, test_rweakref.TestRweakref):
     def _compile(self, *args, **kwds):
         kwds['gcpolicy'] = 'minimark'
         return _LLVMMixin._compile(self, *args, **kwds)
