@@ -56,6 +56,9 @@ void stmgc_done_nursery(void)
            || *d->nursery_current_ref == d->nursery_end);
     stm_free(d->nursery_base);
 
+    assert(d->public_with_young_copy.size == 0);
+    assert(d->old_objects_to_trace.size == 0);
+    assert(d->young_weakrefs.size == 0);
     gcptrlist_delete(&d->old_objects_to_trace);
     gcptrlist_delete(&d->public_with_young_copy);
     gcptrlist_delete(&d->young_weakrefs);
@@ -279,7 +282,19 @@ static void mark_private_from_protected(struct tx_descriptor *d)
 
 static void trace_stub(struct tx_descriptor *d, gcptr S)
 {
-    revision_t w = ACCESS_ONCE(S->h_revision);
+    /* ignore stub if it is outdated, because then the transaction
+       will abort (or has been aborted long ago) */
+
+    revision_t w;
+
+ retry:
+    w = ACCESS_ONCE(S->h_revision);    
+    if (!IS_POINTER(w) && w >= LOCKED) {
+        /* check again when unlocked */
+        SpinLoop(SPLP_LOCKED_COLLECT);
+        goto retry;
+    }
+
     if ((w & 3) != 2) {
         /* P has a ptr in h_revision, but this object is not a stub
            with a protected pointer.  It has likely been the case
@@ -333,6 +348,7 @@ static void mark_public_to_young(struct tx_descriptor *d)
     */
     long i, size = d->public_with_young_copy.size;
     gcptr *items = d->public_with_young_copy.items;
+    revision_t v;
 
     for (i = 0; i < size; i++) {
         gcptr P = items[i];
@@ -340,7 +356,7 @@ static void mark_public_to_young(struct tx_descriptor *d)
         assert(P->h_tid & GCFLAG_OLD);
         assert(P->h_tid & GCFLAG_PUBLIC_TO_PRIVATE);
 
-        revision_t v = ACCESS_ONCE(P->h_revision);
+        v = ACCESS_ONCE(P->h_revision);
         wlog_t *item;
         G2L_FIND(d->public_to_private, P, item, goto not_in_public_to_private);
 
@@ -361,10 +377,19 @@ static void mark_public_to_young(struct tx_descriptor *d)
                  item->addr, item->val));
         assert(_stm_is_private(item->val));
         visit_if_young(&item->val);
+        assert(item->val->h_tid & GCFLAG_OLD);
         continue;
 
     not_in_public_to_private:
+        /* re-read because of possible spinloop */
+        v = ACCESS_ONCE(P->h_revision);
+
         if (!IS_POINTER(v)) {
+            if (v >= LOCKED) {
+                /* check again when unlocked */
+                SpinLoop(SPLP_LOCKED_COLLECT);
+                goto not_in_public_to_private;
+            }
             /* P is neither a key in public_to_private nor outdated.
                It must come from an older transaction that aborted.
                Nothing to do now.
@@ -384,7 +409,8 @@ static void visit_all_outside_objects(struct tx_descriptor *d)
 {
     while (gcptrlist_size(&d->old_objects_to_trace) > 0) {
         gcptr obj = gcptrlist_pop(&d->old_objects_to_trace);
-
+        if (!obj)
+            continue;
         assert(obj->h_tid & GCFLAG_OLD);
         assert(!(obj->h_tid & GCFLAG_WRITE_BARRIER));
 

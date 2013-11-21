@@ -40,10 +40,13 @@ void stm_move_young_weakrefs(struct tx_descriptor *d)
 
         if (stmgc_is_in_nursery(d, pointing_to)) {
             if (pointing_to->h_tid & GCFLAG_MOVED) {
+                gcptr to = (gcptr)pointing_to->h_revision;
                 dprintf(("weakref ptr moved %p->%p\n", 
-                         *WEAKREF_PTR(weakref, size),
-                         (gcptr)pointing_to->h_revision));
-                *WEAKREF_PTR(weakref, size) = (gcptr)pointing_to->h_revision;
+                         *WEAKREF_PTR(weakref, size), to));
+                *WEAKREF_PTR(weakref, size) = to;
+                assert(to->h_tid & GCFLAG_OLD);
+                assert(!(to->h_tid & GCFLAG_MOVED));
+                assert(!(pointing_to->h_tid & GCFLAG_OLD));
             }
             else {
                 assert(!IS_POINTER(pointing_to->h_revision));

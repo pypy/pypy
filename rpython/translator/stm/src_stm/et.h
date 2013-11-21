@@ -141,7 +141,8 @@ static const revision_t GCFLAG_WEAKREF                = STM_FIRST_GCFLAG << 14;
 #define SPLP_LOCKED_INFLIGHT      1
 #define SPLP_LOCKED_VALIDATE      2
 #define SPLP_LOCKED_COMMIT        3
-#define SPINLOOP_REASONS      4
+#define SPLP_LOCKED_COLLECT       4
+#define SPINLOOP_REASONS      5
 
 /* this struct contains thread-local data that may be occasionally
  * accessed by a foreign thread and that must stay around after the

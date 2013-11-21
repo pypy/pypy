@@ -89,6 +89,7 @@ int stm_enter_callback_call(void)
            XXX: remove again when sure it is not needed
                 (interaction with stop_all_other_threads()) */
         start_exclusivelock();
+        assert(stm_active == 0);
         stmgcpage_acquire_global_lock();
 #ifdef STM_BARRIER_COUNT
         static int seen = 0;
@@ -117,6 +118,7 @@ void stm_leave_callback_call(int token)
 
     if (token == 1) {
         start_exclusivelock();
+        assert(stm_active == 0);
         stmgcpage_acquire_global_lock();
         done_shadowstack();
         stmgc_done_nursery();
@@ -385,6 +387,14 @@ void stm_start_single_thread(void)
     ACCESS_ONCE(sync_required) = -1;
     stm_stop_sharedlock();
     start_exclusivelock();
+    if (stm_active < 0) {
+        /* we have to give up and abort. Another thread did
+           a major collect and makes us abort now */
+        stop_exclusivelock();
+        stm_start_sharedlock();
+        assert(stm_active < 0);
+        AbortNowIfDelayed();
+    }
     ACCESS_ONCE(sync_required) = 0;
 
     assert(in_single_thread == NULL);
@@ -401,6 +411,10 @@ void stm_stop_single_thread(void)
 
     stop_exclusivelock();
     stm_start_sharedlock();
+
+    /* another thread may commit, start a major collect, and
+       make us abort */
+    AbortNowIfDelayed();
 }
 
 void stm_possible_safe_point(void)
