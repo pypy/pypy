@@ -61,10 +61,24 @@ class RecordChunk(BaseChunk):
     def apply(self, space, orig_arr):
         arr = orig_arr.implementation
         ofs, subdtype = arr.dtype.fields[self.name]
-        # strides backstrides are identical, ofs only changes start
-        return W_NDimArray.new_slice(space, arr.start + ofs, arr.get_strides(),
-                                     arr.get_backstrides(),
-                                     arr.shape, arr, orig_arr, subdtype)
+        # ofs only changes start
+        # create a view of the original array by extending
+        # the shape, strides, backstrides of the array
+        from pypy.module.micronumpy.support import calc_strides
+        strides, backstrides = calc_strides(subdtype.shape,
+                                            subdtype.subdtype, arr.order)
+        final_shape = arr.shape + subdtype.shape
+        final_strides = arr.get_strides()[:]
+        final_strides += strides
+        final_backstrides = arr.get_backstrides()[:]
+        final_backstrides += backstrides
+        final_dtype = subdtype
+        print self.name,'strides',arr.get_strides(),strides
+        if subdtype.subdtype:
+            final_dtype = subdtype.subdtype
+        return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,
+                                     final_backstrides,
+                                     final_shape, arr, orig_arr, final_dtype)
 
 class Chunks(BaseChunk):
     def __init__(self, l):

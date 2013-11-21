@@ -3069,7 +3069,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             ]
         h = np.array(buf, dtype=descr)
         assert len(h) == 2
-        skip('broken')  # XXX
+        assert h['x'].shape == (2, 2)
+        assert h['y'].strides == (41, 16, 8)
+        assert h['z'].shape == (2,)
         for v in (h, h[0], h['x']):
             repr(v)  # check for crash in repr
         assert (h['x'] == np.array([buf[0][0],
@@ -3107,8 +3109,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
                                        [[7, 8, 9], [10, 11, 12]]])],
                   dtype=dt)
         s = str(a)
-        assert s.endswith("[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], " \
+        assert s.endswith("[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], "
                           "[[7, 8, 9], [10, 11, 12]]])]")
+
 
     def test_issue_1589(self):
         import numpypy as numpy
