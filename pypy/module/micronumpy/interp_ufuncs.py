@@ -429,13 +429,7 @@ W_Ufunc.typedef = TypeDef("ufunc",
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         promote_bools=False):
     # dt1.num should be <= dt2.num
-    dt1num = dt1.num
-    dt2num = dt2.num
-    if dt1num == 20: #void type
-        dt1num = dt1.subdtype.num
-    if dt2num == 20:
-        dt2num = dt2.subdtype.num
-    if dt1num > dt2num:
+    if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == NPY_GENBOOLLTR):
@@ -443,11 +437,11 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
     # Everything numeric promotes to complex
     if dt2.is_complex_type() or dt1.is_complex_type():
-        if dt2num == NPY_CFLOAT:
+        if dt2.num == NPY_CFLOAT:
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
-        elif dt2num == NPY_CDOUBLE:
+        elif dt2.num == NPY_CDOUBLE:
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
-        elif dt2num == NPY_CLONGDOUBLE:
+        elif dt2.num == NPY_CLONGDOUBLE:
             return interp_dtype.get_dtype_cache(space).w_complexlongdtype
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
@@ -461,7 +455,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == NPY_FLOATINGLTR or dt1.kind == NPY_GENBOOLLTR:
         # Float32 + 8-bit int = Float64
-        if dt2num == NPY_FLOAT and dt1.itemtype.get_element_size() >= 4:
+        if dt2.num == NPY_FLOAT and dt1.itemtype.get_element_size() >= 4:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
         return dt2
 
@@ -471,8 +465,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         if dt1.itemtype.get_element_size() < dt2.itemtype.get_element_size():
             return dt2
         # we need to promote both dtypes
-        dtypenum = dt2num + 2
-    elif dt2num == NPY_ULONGLONG or (LONG_BIT == 64 and dt2num == NPY_ULONG):
+        dtypenum = dt2.num + 2
+    elif dt2.num == NPY_ULONGLONG or (LONG_BIT == 64 and dt2.num == NPY_ULONG):
         # UInt64 + signed = Float64
         dtypenum = NPY_DOUBLE
     elif dt2.is_flexible_type():
@@ -487,7 +481,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return dt2
     else:
         # increase to the next signed type
-        dtypenum = dt2num + 1
+        dtypenum = dt2.num + 1
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
