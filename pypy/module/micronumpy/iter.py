@@ -68,10 +68,8 @@ class RecordChunk(BaseChunk):
         strides, backstrides = calc_strides(subdtype.shape,
                                             subdtype.subdtype, arr.order)
         final_shape = arr.shape + subdtype.shape
-        final_strides = arr.get_strides()[:]
-        final_strides += strides
-        final_backstrides = arr.get_backstrides()[:]
-        final_backstrides += backstrides
+        final_strides = arr.get_strides() + strides
+        final_backstrides = arr.get_backstrides() + backstrides
         final_dtype = subdtype
         print self.name,'strides',arr.get_strides(),strides
         if subdtype.subdtype:
