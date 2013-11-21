@@ -439,6 +439,12 @@ class SpaceOperation(object):
         newresult = mapping.get(self.result, self.result)
         return type(self)(self.opname, newargs, newresult, self.offset)
 
+    def consider(self, annotator, *argcells):
+        consider_meth = getattr(annotator, 'consider_op_' + self.opname, None)
+        if not consider_meth:
+            raise Exception("unknown op: %r" % op)
+        return consider_meth(*argcells)
+
 class Atom(object):
     def __init__(self, name):
         self.__name__ = name # make save_global happy
