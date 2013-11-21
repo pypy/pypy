@@ -36,7 +36,11 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return backstrides
 
     def getitem(self, index):
-        return self.dtype.itemtype.read(self, index, 0)
+        from pypy.module.micronumpy.types import VoidType
+        it = self.dtype.itemtype
+        if isinstance(it, VoidType):
+            return it.readarray(self, index, 0, self.dtype)
+        return it.read(self, index, 0)
 
     def getitem_bool(self, index):
         return self.dtype.itemtype.read_bool(self, index, 0)
