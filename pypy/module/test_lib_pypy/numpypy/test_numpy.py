@@ -1,6 +1,6 @@
 from pypy.conftest import option
 import py, sys
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module.test_lib_pypy.numpypy.test_base import BaseNumpyAppTest
 
 class AppTestNumpy(BaseNumpyAppTest):
     def test_min_max_after_import(self):
@@ -59,10 +59,9 @@ class AppTestNumpy(BaseNumpyAppTest):
         assert 'numpypy' not in dir(numpypy)
 
     def test_get_include(self):
-        import sys
-        if not hasattr(sys, 'pypy_translation_info'):
-            skip("pypy white-box test")
-        import numpypy, os
+        import numpypy, os, sys
         assert 'get_include' in dir(numpypy)
         path = numpypy.get_include()
+        if not hasattr(sys, 'pypy_translation_info'):
+            skip("pypy white-box test")
         assert os.path.exists(path + '/numpy/arrayobject.h')

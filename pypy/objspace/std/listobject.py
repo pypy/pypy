@@ -139,6 +139,8 @@ def list_unroll_condition(w_list1, space, w_list2):
 
 class W_ListObject(W_Root):
 
+    strategy = None
+
     def __init__(self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
         self.space = space
@@ -290,6 +292,11 @@ class W_ListObject(W_Root):
         """Return the items in the list as unwrapped ints. If the list does not
         use the list strategy, return None."""
         return self.strategy.getitems_int(self)
+
+    def getitems_float(self):
+        """Return the items in the list as unwrapped floats. If the list does not
+        use the list strategy, return None."""
+        return self.strategy.getitems_float(self)
     # ___________________________________________________
 
     def mul(self, times):
@@ -755,6 +762,9 @@ class ListStrategy(object):
     def getitems_int(self, w_list):
         return None
 
+    def getitems_float(self, w_list):
+        return None
+
     def getstorage_copy(self, w_list):
         raise NotImplementedError
 
@@ -939,11 +949,16 @@ class EmptyListStrategy(ListStrategy):
             w_list.__init__(space, w_iterable.getitems_copy())
             return
 
-        intlist = space.listview_int(w_iterable)
+        intlist = space.unpackiterable_int(w_iterable)
         if intlist is not None:
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
-            # need to copy because intlist can share with w_iterable
-            w_list.lstorage = strategy.erase(intlist[:])
+            w_list.lstorage = strategy.erase(intlist)
+            return
+
+        floatlist = space.unpackiterable_float(w_iterable)
+        if floatlist is not None:
+            w_list.strategy = strategy = space.fromcache(FloatListStrategy)
+            w_list.lstorage = strategy.erase(floatlist)
             return
 
         strlist = space.listview_str(w_iterable)
@@ -1572,6 +1587,9 @@ class FloatListStrategy(ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    def getitems_float(self, w_list):
+        return self.unerase(w_list.lstorage)
 
 
 class StringListStrategy(ListStrategy):

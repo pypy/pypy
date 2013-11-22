@@ -28,15 +28,16 @@ config = get_pypy_config(translating=True)
 config.translation.backendopt.inline_threshold = 0.1
 config.translation.gc = 'boehm'
 config.translating = True
+config.translation.rweakref = False
 set_opt_level(config, level='jit')
 config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
 config.objspace.usemodules.array = False
-config.objspace.usemodules._weakref = True
+config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
 config.objspace.usemodules._lsprof = False
 #
-config.objspace.usemodules._ffi = True
+config.objspace.usemodules._ffi = False
 config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')
@@ -101,7 +102,7 @@ def test_run_translation():
 
     from rpython.jit.codewriter.codewriter import CodeWriter
     CodeWriter.debug = True
-    from rpython.jit.tl.pypyjit_child import run_child
+    from pypy.tool.pypyjit_child import run_child
     run_child(globals(), locals())
 
 

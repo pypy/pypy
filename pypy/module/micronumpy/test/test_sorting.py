@@ -1,33 +1,27 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-class AppTestSupport(BaseNumpyAppTest):
-    def setup_class(cls):
-        import struct
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
-        cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
-        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
-        cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
-        cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
-        cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
-
+class AppTestSorting(BaseNumpyAppTest):
     def test_argsort_dtypes(self):
         from numpypy import array, arange
         assert array(2.0).argsort() == 0
         nnp = self.non_native_prefix
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        nnp + 'i2', complex]:
+                      nnp + 'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
+            exp = list(a)
+            exp = sorted(range(len(exp)), key=exp.__getitem__)
             c = a.copy()
             res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all(), \
-                'a,res,dtype %r,%r,%r' % (a,res,dtype)
+            assert (res == exp).all(), '%r\n%r\n%r' % (a,res,exp)
             assert (a == c).all() # not modified
-            a = arange(100)
-            assert (a.argsort() == a).all()
-        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
-    def test_argsort_nd(self):
+            a = arange(100, dtype=dtype)
+            assert (a.argsort() == a).all()
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
+
+    def test_argsort_ndim(self):
         from numpypy import array
         a = array([[4, 2], [1, 3]])
         assert (a.argsort() == [[1, 0], [0, 1]]).all()
@@ -63,30 +57,31 @@ class AppTestSupport(BaseNumpyAppTest):
     def test_sort_dtypes(self):
         from numpypy import array, arange
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        'i2', complex]:
+                      'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
-            b = array([-1, 3, 3, 4, 6, 8, 100, 101, 256+20], dtype=dtype)
+            exp = sorted(list(a))
+            res = a.copy()
+            res.sort()
+            assert (res == exp).all(), '%r\n%r\n%r' % (a,res,exp)
+
+            a = arange(100, dtype=dtype)
             c = a.copy()
             a.sort()
-            assert (a == b).all(), \
-                'a,orig,dtype %r,%r,%r' % (a,c,dtype)
-        a = arange(100)
-        c = a.copy()
-        a.sort()
-        assert (a == c).all()
+            assert (a == c).all()
 
-    def test_sort_dtypesi_nonnative(self):
+    def test_sort_nonnative(self):
         from numpypy import array
         nnp = self.non_native_prefix
         for dtype in [ nnp + 'i2']:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
             b = array([-1, 3, 3, 4, 6, 8, 100, 101, 256+20], dtype=dtype)
             c = a.copy()
-            exc = raises(NotImplementedError, a.sort)
-            assert exc.value[0].find('supported') >= 0
+            import sys
+            if '__pypy__' in sys.builtin_module_names:
+                exc = raises(NotImplementedError, a.sort)
+                assert exc.value[0].find('supported') >= 0
             #assert (a == b).all(), \
             #    'a,orig,dtype %r,%r,%r' % (a,c,dtype)
-
 
 # tests from numpy/tests/test_multiarray.py
     def test_sort_corner_cases(self):
@@ -96,22 +91,29 @@ class AppTestSupport(BaseNumpyAppTest):
         # test doubles and complex doubles as the logic is the same.
 
         # check doubles
-        from numpypy import array, nan, zeros, complex128, arange
+        from numpypy import array, zeros, arange
         from math import isnan
+        nan = float('nan')
         a = array([nan, 1, 0])
         b = a.copy()
         b.sort()
         assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:2] == a[::-1][:2]).all()
 
+        b = a.argsort()
+        assert (b == [2, 1, 0]).all()
+
         # check complex
-        a = zeros(9, dtype=complex128)
+        a = zeros(9, dtype='complex128')
         a.real += [nan, nan, nan, 1, 0, 1, 1, 0, 0]
         a.imag += [nan, 1, 0, nan, nan, 1, 0, 1, 0]
         b = a.copy()
         b.sort()
         assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:4] == a[::-1][:4]).all()
+
+        b = a.argsort()
+        assert (b == [8, 7, 6, 5, 4, 3, 2, 1, 0]).all()
 
         # all c scalar sorts use the same code with different types
         # so it suffices to run a quick check with one type. The number
@@ -302,8 +304,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (r == array([('a', 1), ('c', 3), ('b', 255), ('d', 258)],
                                  dtype=mydtype)).all()
 
-
-# tests from numpy/tests/test_regression.py
+# tests from numpy/core/tests/test_regression.py
     def test_sort_bigendian(self):
         skip('not implemented yet')
         from numpypy import array, dtype
@@ -312,11 +313,37 @@ class AppTestSupport(BaseNumpyAppTest):
         c.sort()
         assert max(abs(a-c)) < 1e-32
 
+    def test_string_argsort_with_zeros(self):
+        import numpy as np
+        import sys
+        x = np.fromstring("\x00\x02\x00\x01", dtype="|S2")
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "x.argsort(kind='m')")
+            assert 'non-numeric types' in exc.value.message
+            exc = raises(NotImplementedError, "x.argsort(kind='q')")
+            assert 'non-numeric types' in exc.value.message
+        else:
+            assert (x.argsort(kind='m') == np.array([1, 0])).all()
+            assert (x.argsort(kind='q') == np.array([1, 0])).all()
+
     def test_string_sort_with_zeros(self):
-        skip('not implemented yet')
-        from numpypy import fromstring
-        """Check sort for strings containing zeros."""
-        x = fromstring("\x00\x02\x00\x01", dtype="S2")
-        y = fromstring("\x00\x01\x00\x02", dtype="S2")
-        x.sort(kind='q')
-        assert (x == y).all()
+        import numpy as np
+        import sys
+        x = np.fromstring("\x00\x02\x00\x01", dtype="S2")
+        y = np.fromstring("\x00\x01\x00\x02", dtype="S2")
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "x.sort(kind='q')")
+            assert 'non-numeric types' in exc.value.message
+        else:
+            x.sort(kind='q')
+            assert (x == y).all()
+
+    def test_string_mergesort(self):
+        import numpypy as np
+        import sys
+        x = np.array(['a'] * 32)
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "x.argsort(kind='m')")
+            assert 'non-numeric types' in exc.value.message
+        else:
+            assert (x.argsort(kind='m') == np.arange(32)).all()

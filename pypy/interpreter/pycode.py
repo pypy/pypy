@@ -189,9 +189,8 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(None, fresh_frame.locals_stack_w,
-                                             func.name,
-                                             sig, func.defs_w)
+        args.parse_into_scope(None, fresh_frame.locals_stack_w, func.name,
+                              sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -202,9 +201,8 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(w_obj, fresh_frame.locals_stack_w,
-                                             func.name,
-                                             sig, func.defs_w)
+        args.parse_into_scope(w_obj, fresh_frame.locals_stack_w, func.name,
+                              sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -253,7 +251,6 @@ class PyCode(eval.Code):
     def exec_host_bytecode(self, w_globals, w_locals):
         if sys.version_info < (2, 7):
             raise Exception("PyPy no longer supports Python 2.6 or lower")
-        from pypy.interpreter.pyframe import PyFrame
         frame = self.space.FrameClass(self.space, self, w_globals, None)
         frame.setdictscope(w_locals)
         return frame.run()

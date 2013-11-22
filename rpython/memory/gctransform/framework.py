@@ -142,8 +142,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
+            finished_minor_collection = translator._jit2gc.get(
+                'invoke_after_minor_collection', None)
         else:
             self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
+            finished_minor_collection = None
         self.layoutbuilder.transformer = self
         self.get_type_id = self.layoutbuilder.get_type_id
 
@@ -167,6 +170,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
         root_walker = self.build_root_walker()
+        root_walker.finished_minor_collection_func = finished_minor_collection
         self.root_walker = root_walker
         gcdata.set_query_functions(gcdata.gc)
         gcdata.gc.set_root_walker(root_walker)
@@ -1285,6 +1289,7 @@ sizeofaddr = llmemory.sizeof(llmemory.Address)
 
 class BaseRootWalker(object):
     thread_setup = None
+    finished_minor_collection_func = None
 
     def __init__(self, gctransformer):
         self.gcdata = gctransformer.gcdata
@@ -1321,6 +1326,11 @@ class BaseRootWalker(object):
                 addr += sizeofaddr
         if collect_stack_root:
             self.walk_stack_roots(collect_stack_root)     # abstract
+
+    def finished_minor_collection(self):
+        func = self.finished_minor_collection_func
+        if func is not None:
+            func()
 
     def need_stacklet_support(self):
         raise Exception("%s does not support stacklets" % (

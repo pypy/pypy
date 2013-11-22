@@ -47,3 +47,7 @@ Release Steps
 * post announcement on morepypy.blogspot.com
 * send announcements to pypy-dev, python-list,
   python-announce, python-dev ...
+
+* add a tag on the pypy/jitviewer repo that corresponds to pypy release
+* add a tag on the codespeed web site that corresponds to pypy release
+

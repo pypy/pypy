@@ -131,8 +131,9 @@ def test_typedef_array_convert_array_to_pointer():
     ffi.cdef("""
         typedef int (*fn_t)(int[5]);
         """)
-    type = ffi._parser.parse_type("fn_t")
-    BType = ffi._get_cached_btype(type)
+    with ffi._lock:
+        type = ffi._parser.parse_type("fn_t")
+        BType = ffi._get_cached_btype(type)
     assert str(BType) == '<func (<pointer to <int>>), <int>, False>'
 
 def test_remove_comments():
@@ -191,7 +192,7 @@ def test_cannot_have_only_variadic_part():
 def test_parse_error():
     ffi = FFI()
     e = py.test.raises(CDefError, ffi.cdef, " x y z ")
-    assert re.match(r'cannot parse " x y z "\n:\d+:', str(e.value))
+    assert re.match(r'cannot parse "x y z"\n:\d+:', str(e.value))
 
 def test_cannot_declare_enum_later():
     ffi = FFI()
@@ -256,3 +257,27 @@ def test_WPARAM_on_windows():
         py.test.skip("Only for Windows")
     ffi = FFI()
     ffi.cdef("void f(WPARAM);")
+
+def test__is_constant_globalvar():
+    from cffi.cparser import Parser, _get_parser
+    for input, expected_output in [
+        ("int a;",          False),
+        ("const int a;",    True),
+        ("int *a;",         False),
+        ("const int *a;",   False),
+        ("int const *a;",   False),
+        ("int *const a;",   True),
+        ("int a[5];",       False),
+        ("const int a[5];", False),
+        ("int *a[5];",      False),
+        ("const int *a[5];", False),
+        ("int const *a[5];", False),
+        ("int *const a[5];", False),
+        ("int a[5][6];",       False),
+        ("const int a[5][6];", False),
+        ]:
+        p = Parser()
+        ast = _get_parser().parse(input)
+        decl = ast.children()[0][1]
+        node = decl.type
+        assert p._is_constant_globalvar(node) == expected_output

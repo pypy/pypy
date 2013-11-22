@@ -371,6 +371,7 @@ class AbstractStringBuilder(object):
         self._grow(times)
 
     def append_charpsize(self, s, size):
+        assert size >= 0
         l = []
         for i in xrange(size):
             l.append(s[i])

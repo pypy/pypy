@@ -3463,7 +3463,7 @@ class TestAnnotateTestCase:
         py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
         a.build_types(f, [annmodel.SomeInteger(nonneg=True),
                           annmodel.SomeInteger(nonneg=True)])
-        
+
 
     def test_setslice(self):
         def f():
@@ -4139,6 +4139,27 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.AnnotatorError) as exc:
             a.build_types(f, [str])
         assert ("Cannot prove that the object is callable" in exc.value.msg)
+
+    def test_str_format_error(self):
+        def f(s, x):
+            return s.format(x)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str, str])
+        assert ("format() is not RPython" in exc.value.msg)
+
+    def test_prebuilt_ordered_dict(self):
+        try:
+            from collections import OrderedDict
+        except ImportError:
+            py.test.skip("Please upgrade to python 2.7")
+        d = OrderedDict([("aa", 1)])
+
+        def f():
+            return d
+
+        a = self.RPythonAnnotator()
+        assert isinstance(a.build_types(f, []), annmodel.SomeOrderedDict)
 
 
 def g(n):
