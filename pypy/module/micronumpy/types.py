@@ -1800,6 +1800,28 @@ class VoidType(FlexibleType):
         arr = self.readarray(box.arr, box.ofs, 0, box.dtype)
         return arr.dump_data(prefix='', suffix='')
 
+    def to_builtin_type(self, space, item):
+        ''' From the documentation of ndarray.item():
+        "Void arrays return a buffer object for item(),
+         unless fields are defined, in which case a tuple is returned."
+        '''
+        dt = item.arr.dtype
+        tpl =()
+        for name in dt.fieldnames:
+            ofs, dtype = dt.fields[name]
+            if isinstance(dtype.itemtype, VoidType):
+                read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
+            else:
+                read_val = dtype.itemtype.read(item.arr, ofs, 0, dtype)
+            if isinstance (read_val, interp_boxes.W_StringBox):
+                # StringType returns a str
+                read_val = space.wrap(dtype.itemtype.to_str(read_val))
+            tpl = tpl + (read_val,)
+        if len(tpl) == 0:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                    "item() for Void aray with no fields not implemented"))
+        return space.wrap(tpl)
+
 class RecordType(FlexibleType):
     T = lltype.Char
 
