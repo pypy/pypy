@@ -1805,8 +1805,9 @@ class VoidType(FlexibleType):
         "Void arrays return a buffer object for item(),
          unless fields are defined, in which case a tuple is returned."
         '''
+        assert isinstance(item, interp_boxes.W_VoidBox)
         dt = item.arr.dtype
-        tpl =()
+        ret_unwrapped = []
         for name in dt.fieldnames:
             ofs, dtype = dt.fields[name]
             if isinstance(dtype.itemtype, VoidType):
@@ -1816,11 +1817,11 @@ class VoidType(FlexibleType):
             if isinstance (read_val, interp_boxes.W_StringBox):
                 # StringType returns a str
                 read_val = space.wrap(dtype.itemtype.to_str(read_val))
-            tpl = tpl + (read_val,)
-        if len(tpl) == 0:
+            ret_unwrapped = ret_unwrapped + [read_val,]
+        if len(ret_unwrapped) == 0:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                     "item() for Void aray with no fields not implemented"))
-        return space.wrap(tpl)
+        return space.newtuple(ret_unwrapped)
 
 class RecordType(FlexibleType):
     T = lltype.Char
