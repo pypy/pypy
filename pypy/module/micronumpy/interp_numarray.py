@@ -249,12 +249,13 @@ class __extend__(W_NDimArray):
             return space.wrap(self.dump_data())
         return space.call_function(cache.w_array_str, self)
 
-    def dump_data(self):
+    def dump_data(self, prefix='array(', suffix=')'):
         i = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
-        s.append('array([')
+        s.append(prefix)
+        s.append('[')
         while not i.done():
             if first:
                 first = False
@@ -262,7 +263,8 @@ class __extend__(W_NDimArray):
                 s.append(', ')
             s.append(dtype.itemtype.str_format(i.getitem()))
             i.next()
-        s.append('])')
+        s.append(']')
+        s.append(suffix)
         return s.build()
 
     def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
