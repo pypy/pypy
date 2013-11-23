@@ -151,6 +151,14 @@ class W_Dtype(W_Root):
                 endian = NPY_NATBYTE
         return space.wrap("%s%s%s" % (endian, basic, size))
 
+    def descr_get_descr(self, space):
+        if not self.is_record_type():
+            return space.newlist([space.newtuple([space.wrap(""),
+                                                  self.descr_get_str(space)])])
+        else:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "descr not implemented for record types"))
+
     def descr_get_base(self, space):
         return space.wrap(self.base)
 
@@ -447,6 +455,7 @@ W_Dtype.typedef = TypeDef("dtype",
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
     hasobject = GetSetProperty(W_Dtype.descr_get_hasobject),
+    descr = GetSetProperty(W_Dtype.descr_get_descr),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 

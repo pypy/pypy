@@ -49,7 +49,7 @@ if __name__ == '__main__':
         sys.stdout.flush()
 
 
-if sys.platform != 'win32' and hasattr(os, 'fork'):
+if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_RUN_SUBPROCESS", None):
     # do this at import-time, when the process is still tiny
     _source = os.path.dirname(os.path.abspath(__file__))
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'
