@@ -6,7 +6,7 @@ simplify_graph() applies all simplifications defined in this file.
 """
 import py
 
-from rpython.flowspace.model import (SpaceOperation, Variable, Constant,
+from rpython.flowspace.model import (Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
 from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
@@ -814,10 +814,10 @@ class ListComprehensionDetector(object):
 
     def run(self, vlist, vmeth, appendblock):
         # first check that the 'append' method object doesn't escape
-        for op in appendblock.operations:
-            if op.opname == 'simple_call' and op.args[0] is vmeth:
+        for hlop in appendblock.operations:
+            if hlop.opname == 'simple_call' and hlop.args[0] is vmeth:
                 pass
-            elif vmeth in op.args:
+            elif vmeth in hlop.args:
                 raise DetectorFailed      # used in another operation
         for link in appendblock.exits:
             if vmeth in link.args:
@@ -922,20 +922,19 @@ class ListComprehensionDetector(object):
         link = iterblock.exits[0]
         vlist = self.contains_vlist(link.args)
         assert vlist
-        for op in iterblock.operations:
-            res = self.variable_families.find_rep(op.result)
+        for hlop in iterblock.operations:
+            res = self.variable_families.find_rep(hlop.result)
             if res is viterfamily:
                 break
         else:
             raise AssertionError("lost 'iter' operation")
-        vlist2 = Variable(vlist)
         chint = Constant({'maxlength': True})
-        iterblock.operations += [
-            SpaceOperation('hint', [vlist, op.args[0], chint], vlist2)]
+        hint = op.hint(vlist, hlop.args[0], chint)
+        iterblock.operations.append(hint)
         link.args = list(link.args)
         for i in range(len(link.args)):
             if link.args[i] is vlist:
-                link.args[i] = vlist2
+                link.args[i] = hint.result
 
         # - wherever the list exits the loop body, add a 'hint({fence})'
         for block in loopbody:
@@ -954,8 +953,9 @@ class ListComprehensionDetector(object):
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)
                     newblock.inputargs[index] = vlist3
-                    newblock.operations.append(
-                        SpaceOperation('hint', [vlist3, chints], vlist2))
+                    hint = op.hint(vlist3, chints)
+                    hint.result = vlist2
+                    newblock.operations.append(hint)
         # done!
 
 

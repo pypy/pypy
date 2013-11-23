@@ -83,6 +83,12 @@ class HLOperation(SpaceOperation):
     def constfold(self):
         return None
 
+    def consider(self, annotator, *argcells):
+        consider_meth = getattr(annotator, 'consider_op_' + self.opname, None)
+        if not consider_meth:
+            raise Exception("unknown op: %r" % op)
+        return consider_meth(*argcells)
+
 class PureOperation(HLOperation):
     pure = True
 
@@ -333,6 +339,7 @@ add_operator('newdict', 0)
 add_operator('newtuple', None, pure=True, pyfunc=lambda *args:args)
 add_operator('newlist', None)
 add_operator('newslice', 3)
+add_operator('hint', None)
 
 
 class Pow(PureOperation):
