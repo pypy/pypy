@@ -832,6 +832,17 @@ class AppTestTypes(BaseAppTestDtypes):
         assert x.dtype == int8
         assert (x == array(42)).all()
 
+    def test_descr(self):
+        import numpy as np
+        assert np.dtype('<i8').descr == [('', '<i8')]
+        assert np.dtype('|S4').descr == [('', '|S4')]
+        d = [('test', '<i8'), ('blah', '<i2', (2, 3))]
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, "np.dtype(d).descr")
+        else:
+            assert np.dtype(d).descr == d
+
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_mro(self):
         from numpypy import str_, unicode_, character, flexible, generic

@@ -574,6 +574,22 @@ def test_recursive_llhelper():
     fn = compile(chooser, [bool])
     assert fn(True)
 
+def test_ordered_dict():
+    try:
+        from collections import OrderedDict
+    except ImportError:
+        py.test.skip("Please update to Python 2.7")
+
+    expected = [('ea', 1), ('bb', 2), ('c', 3), ('d', 4), ('e', 5),
+                ('ef', 6)]
+    d = OrderedDict(expected)
+
+    def f():
+        assert d.items() == expected
+
+    fn = compile(f, [])
+    fn()
+
 def test_inhibit_tail_call():
     def foobar_fn(n):
         return 42

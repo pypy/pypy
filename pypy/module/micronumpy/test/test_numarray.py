@@ -68,7 +68,8 @@ class TestNumArrayDirect(object):
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
+                                         Chunk(1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
@@ -1862,14 +1863,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(IndexError, "arange(10)[array([10])] = 3")
         raises(IndexError, "arange(10)[[-11]] = 3")
 
-    def test_bool_single_index(self):
+    def test_array_scalar_index(self):
         import numpypy as np
         a = np.array([[1, 2, 3],
                       [4, 5, 6],
                       [7, 8, 9]])
-        a[np.array(True)]; skip("broken")  # check for crash but skip rest of test until correct
+        assert (a[np.array(0)] == a[0]).all()
+        assert (a[np.array(1)] == a[1]).all()
         assert (a[np.array(True)] == a[1]).all()
         assert (a[np.array(False)] == a[0]).all()
+        exc = raises(IndexError, "a[np.array(1.1)]")
+        assert exc.value.message == 'arrays used as indices must be of ' \
+                                    'integer (or boolean) type'
+
+        a[np.array(1)] = a[2]
+        assert a[1][1] == 8
+        a[np.array(True)] = a[0]
+        assert a[1][1] == 2
+        exc = raises(IndexError, "a[np.array(1.1)] = a[2]")
+        assert exc.value.message == 'arrays used as indices must be of ' \
+                                    'integer (or boolean) type'
 
     def test_bool_array_index(self):
         from numpypy import arange, array
@@ -2040,7 +2053,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([1, 2], dtype="int64")
         data = a.__reduce__()
 
-        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
+        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00' \
+                             '\x02\x00\x00\x00\x00\x00\x00\x00'
 
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
@@ -2788,9 +2802,11 @@ class AppTestSupport(BaseNumpyAppTest):
         assert k[0] == dtype('float16').type(5.)
         dt =  array([5],dtype='longfloat').dtype
         if dt.itemsize == 12:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype='float96')
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00',
+                           dtype='float96')
         elif dt.itemsize == 16:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype='float128')
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00' \
+                           '\x00\x00\x00\x00', dtype='float128')
         elif dt.itemsize == 8:
             skip('longfloat is float64')
         else:
@@ -2813,6 +2829,15 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
+        a = array([[1, 2], [3, 4]], dtype='i1')
+        for order in (None, False, 'C', 'K', 'a'):
+            assert a.tostring(order) == '\x01\x02\x03\x04'
+        import sys
+        for order in (True, 'F'):
+            if '__pypy__' in sys.builtin_module_names:
+                raises(NotImplementedError, a.tostring, order)
+            else:
+                assert a.tostring(order) == '\x01\x03\x02\x04'
 
 
 class AppTestRepr(BaseNumpyAppTest):
@@ -3015,7 +3040,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import dtype, array, zeros
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
-        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
+                   ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         for v in ['x', u'x', 0, -2]:
             assert (a[0][v] == [1, 2, 3]).all()
@@ -3025,7 +3051,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             assert (a[1][v] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
         for v in [-3, 2]:
             exc = raises(IndexError, "a[0][%d]" % v)
-            assert exc.value.message == "invalid index (%d)" % (v + 2 if v < 0 else v)
+            assert exc.value.message == "invalid index (%d)" % \
+                                        (v + 2 if v < 0 else v)
         exc = raises(IndexError, "a[0]['z']")
         assert exc.value.message == "invalid index"
         exc = raises(IndexError, "a[0][None]")
@@ -3097,7 +3124,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import dtype, array
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
-        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
+                   ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
 
