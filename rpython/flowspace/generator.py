@@ -98,10 +98,6 @@ def tweak_generator_body_graph(Entry, graph):
     # First, always run simplify_graph in order to reduce the number of
     # variables passed around
     simplify_graph(graph)
-    #
-    assert graph.startblock.operations[0].opname == 'generator_mark'
-    graph.startblock.operations.pop(0)
-    #
     insert_empty_startblock(None, graph)
     _insert_reads(graph.startblock, Entry.varnames)
     Entry.block = graph.startblock
