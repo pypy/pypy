@@ -2329,7 +2329,7 @@ __Py_dg_freedtoa(char *s)
 
 static char *
 __Py_dg_dtoa(double dd, int mode, int ndigits,
-            Signed *decpt, Signed *sign, char **rve)
+             int *decpt, int *sign, char **rve)
 {
     /*  Arguments ndigits, decpt, sign are similar to those
         of ecvt and fcvt; trailing zeros are suppressed from
@@ -2952,7 +2952,7 @@ double _PyPy_dg_strtod(const char *s00, char **se)
 }
 
 char * _PyPy_dg_dtoa(double dd, int mode, int ndigits,
-                   Signed *decpt, Signed *sign, char **rve)
+                     int *decpt, int *sign, char **rve)
 {
     char* result;
     _PyPy_SET_53BIT_PRECISION_HEADER;
