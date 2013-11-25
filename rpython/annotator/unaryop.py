@@ -460,13 +460,13 @@ class __extend__(SomeString,
         check_negative_slice(start, end, "count")
         return SomeInteger(nonneg=True)
 
-    def method_strip(str, chr):
+    def method_strip(str, chr=None):
         return str.basestringclass(no_nul=str.no_nul)
 
-    def method_lstrip(str, chr):
+    def method_lstrip(str, chr=None):
         return str.basestringclass(no_nul=str.no_nul)
 
-    def method_rstrip(str, chr):
+    def method_rstrip(str, chr=None):
         return str.basestringclass(no_nul=str.no_nul)
 
     def method_join(str, s_list):

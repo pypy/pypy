@@ -9,6 +9,7 @@ from rpython.rtyper.lltypesystem.rstr import LLHelpers, STR
 from rpython.rtyper.rstr import AbstractLLHelpers
 from rpython.rtyper.rtyper import TyperError
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.annlowlevel import llstr, hlstr
 
 
 def test_parse_fmt():
@@ -448,6 +449,29 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('a  ').strip(' ')
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('ab')
+        res = self.interpret(left, [])
+        assert self.ll_to_string(res) == const('ab!')
+        res = self.interpret(right, [])
+        assert self.ll_to_string(res) == const('!ab')
+        res = self.interpret(empty, [])
+        assert self.ll_to_string(res) == const('')
+        res = self.interpret(left2, [])
+        assert self.ll_to_string(res) == const('a')
+
+    def test_strip_multiple_chars(self):
+        const = self.const
+        def both():
+            return const('!ab!').strip(const('!a'))
+        def left():
+            return const('!+ab!').lstrip(const('!+'))
+        def right():
+            return const('!ab!+').rstrip(const('!+'))
+        def empty():
+            return const(' \t\t   ').strip('\t ')
+        def left2():
+            return const('a  ').strip(' \t')
+        res = self.interpret(both, [])
+        assert self.ll_to_string(res) == const('b')
         res = self.interpret(left, [])
         assert self.ll_to_string(res) == const('ab!')
         res = self.interpret(right, [])
@@ -1143,3 +1167,16 @@ class TestRstr(AbstractTestRstr):
         self.interpret(f, [array, 4])
         assert list(array) == list('abc'*4)
         lltype.free(array, flavor='raw')
+
+    def test_strip_no_arg(self):
+        strings = ["  xyz  ", "", "\t\vx"]
+
+        def f(i):
+            return strings[i].strip()
+
+        res = self.interpret(f, [0])
+        assert hlstr(res) == "xyz"
+        res = self.interpret(f, [1])
+        assert hlstr(res) == ""
+        res = self.interpret(f, [2])
+        assert hlstr(res) == "x"

@@ -3,8 +3,6 @@
 #include "numpy/arrayobject.h"
 #include <string.h>   /* memset, memcpy */
 
-PyTypeObject PyArray_Type;
-
 void 
 _PyArray_FILLWBYTE(PyObject* obj, int val) {
     memset(PyArray_DATA(obj), val, PyArray_NBYTES(obj));

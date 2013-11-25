@@ -371,15 +371,19 @@ class Bookkeeper(object):
                     listdef.generalize(self.immutablevalue(e, False))
                 result = SomeList(listdef)
         elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
+            if tp is SomeOrderedDict.knowntype:
+                cls = SomeOrderedDict
+            else:
+                cls = SomeDict
             if need_const:
                 key = Constant(x)
                 try:
                     return self.immutable_cache[key]
                 except KeyError:
-                    result = SomeDict(DictDef(self,
-                                              s_ImpossibleValue,
-                                              s_ImpossibleValue,
-                                              is_r_dict = tp is r_dict))
+                    result = cls(DictDef(self,
+                                         s_ImpossibleValue,
+                                         s_ImpossibleValue,
+                                         is_r_dict = tp is r_dict))
                     self.immutable_cache[key] = result
                     if tp is r_dict:
                         s_eqfn = self.immutablevalue(x.key_eq)
@@ -412,10 +416,7 @@ class Bookkeeper(object):
                     dictdef.generalize_key(self.immutablevalue(ek, False))
                     dictdef.generalize_value(self.immutablevalue(ev, False))
                     dictdef.seen_prebuilt_key(ek)
-                if tp is SomeOrderedDict.knowntype:
-                    result = SomeOrderedDict(dictdef)
-                else:
-                    result = SomeDict(dictdef)
+                result = cls(dictdef)
         elif tp is weakref.ReferenceType:
             x1 = x()
             if x1 is None:

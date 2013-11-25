@@ -1789,6 +1789,40 @@ class VoidType(FlexibleType):
                                     dtype.subdtype)
         return W_NDimArray(implementation)
 
+    def read(self, arr, i, offset, dtype=None):
+        if dtype is None:
+            dtype = arr.dtype
+        return interp_boxes.W_VoidBox(arr, i + offset, dtype)
+
+    @jit.unroll_safe
+    def str_format(self, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        arr = self.readarray(box.arr, box.ofs, 0, box.dtype)
+        return arr.dump_data(prefix='', suffix='')
+
+    def to_builtin_type(self, space, item):
+        ''' From the documentation of ndarray.item():
+        "Void arrays return a buffer object for item(),
+         unless fields are defined, in which case a tuple is returned."
+        '''
+        assert isinstance(item, interp_boxes.W_VoidBox)
+        dt = item.arr.dtype
+        ret_unwrapped = []
+        for name in dt.fieldnames:
+            ofs, dtype = dt.fields[name]
+            if isinstance(dtype.itemtype, VoidType):
+                read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
+            else:
+                read_val = dtype.itemtype.read(item.arr, ofs, 0, dtype)
+            if isinstance (read_val, interp_boxes.W_StringBox):
+                # StringType returns a str
+                read_val = space.wrap(dtype.itemtype.to_str(read_val))
+            ret_unwrapped = ret_unwrapped + [read_val,]
+        if len(ret_unwrapped) == 0:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                    "item() for Void aray with no fields not implemented"))
+        return space.newtuple(ret_unwrapped)
+
 class RecordType(FlexibleType):
     T = lltype.Char
 
@@ -1848,7 +1882,8 @@ class RecordType(FlexibleType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
+            val = tp.read(box.arr, box.ofs, ofs, subdtype)
+            pieces.append(tp.str_format(val))
         pieces.append(")")
         return "".join(pieces)
 
