@@ -287,7 +287,6 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
 
 
     def test_pass_ndarray_object_to_c(self):
-        skip('fixme')
         from _numpypy.multiarray import ndarray
         mod = self.import_extension('foo', [
                 ("check_array", "METH_VARARGS",
