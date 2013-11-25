@@ -81,15 +81,9 @@ If only globals is given, locals defaults to it.
         source, flags = source_as_str(space, w_prog, 'eval',
                                       "string, bytes or code",
                                       consts.PyCF_SOURCE_IS_UTF8)
-        # source.lstrip(' \t')
-        for i, c in enumerate(source):
-            if c not in ' \t':
-                if i:
-                    source = source[i:]
-                break
-
         ec = space.getexecutioncontext()
-        code = ec.compiler.compile(source, "<string>", 'eval', flags)
+        code = ec.compiler.compile(source.lstrip(' \t'), "<string>", 'eval',
+                                   flags)
 
     # XXX: skip adding of __builtins__ to w_globals. it requires a
     # costly gettopframe_nohidden() here and nobody seems to miss its
