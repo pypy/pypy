@@ -9,3 +9,12 @@ What's new in PyPy 2.2+
 
 .. branch: numpy-newbyteorder
 Clean up numpy types, add newbyteorder functionality
+
+.. branch: windows-packaging
+Package tk/tcl runtime with win32
+
+.. branch: armhf-singlefloat
+JIT support for singlefloats on ARM using the hardfloat ABI
+
+.. branch: voidtype_strformat
+Better support for record numpy arrays

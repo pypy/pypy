@@ -68,7 +68,8 @@ class TestNumArrayDirect(object):
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
+                                         Chunk(1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
@@ -661,15 +662,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[newaxis] == [[2, 3, 4]]).all()
 
     def test_scalar(self):
-        from numpypy import array, dtype, int64
+        from numpypy import array, dtype, int_
         a = array(3)
-        raises(IndexError, "a[0]")
-        raises(IndexError, "a[0] = 5")
+        exc = raises(IndexError, "a[0]")
+        assert exc.value[0] == "0-d arrays can't be indexed"
+        exc = raises(IndexError, "a[0] = 5")
+        assert exc.value[0] == "0-d arrays can't be indexed"
         assert a.size == 1
         assert a.shape == ()
         assert a.dtype is dtype(int)
         b = a[()]
-        assert type(b) is int64
+        assert type(b) is int_
         assert b == 3
 
     def test_len(self):
@@ -1520,7 +1523,36 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert arange(4, dtype='>c8').real.max() == 3.0
         assert arange(4, dtype='<c8').real.max() == 3.0
 
-    def test_view(self):
+    def test_scalar_view(self):
+        from numpypy import array
+        a = array(3, dtype='int32')
+        b = a.view(dtype='float32')
+        assert b.shape == ()
+        assert b < 1
+        exc = raises(ValueError, a.view, 'int8')
+        assert exc.value[0] == "new type not compatible with array."
+        exc = raises(TypeError, a.view, 'string')
+        assert exc.value[0] == "data-type must not be 0-sized"
+        assert a.view('S4') == '\x03'
+        a = array('abc1', dtype='c')
+        assert a.view('S4') == 'abc1'
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.view, [('a', 'i2'), ('b', 'i2')])
+        else:
+            b = a.view([('a', 'i2'), ('b', 'i2')])
+            assert b.shape == (1,)
+            assert b[0][0] == 25185
+            assert b[0][1] == 12643
+        a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])[0]
+        assert a.shape == ()
+        assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
+        a = array(2, dtype='int64')
+        b = a.view('complex64')
+        assert 0 < b.real < 1
+        assert b.imag == 0
+
+    def test_array_view(self):
         from numpypy import array, dtype
         x = array((1, 2), dtype='int8')
         assert x.shape == (2,)
@@ -1538,26 +1570,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array(range(15), dtype='i2').reshape(3,5)
         exc = raises(ValueError, x.view, dtype='i4')
         assert exc.value[0] == "new type not compatible with array."
+        exc = raises(TypeError, x.view, 'string')
+        assert exc.value[0] == "data-type must not be 0-sized"
         assert x.view('int8').shape == (3, 10)
         x = array(range(15), dtype='int16').reshape(3,5).T
         assert x.view('int8').shape == (10, 3)
+        #assert x.view('S2')[1][1] == '\x06'
+        x = array(['abc', 'defg'], dtype='c')
+        assert x.view('S1')[0] == 'a'
+        assert x.view('S1')[1] == 'd'
+        x = array(['abc', 'defg'], dtype='string')
+        assert x.view('S4')[0] == 'abc'
+        assert x.view('S4')[1] == 'defg'
+        a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])
+        assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
     def test_ndarray_view_empty(self):
         from numpypy import array, dtype
         x = array([], dtype=[('a', 'int8'), ('b', 'int8')])
         y = x.view(dtype='int16')
-
-    def test_scalar_view(self):
-        from numpypy import dtype, array
-        a = array(0, dtype='int32')
-        b = a.view(dtype='float32')
-        assert b.shape == ()
-        assert b == 0
-        s = dtype('int64').type(12)
-        exc = raises(ValueError, s.view, 'int8')
-        assert exc.value[0] == "new type not compatible with array."
-        skip('not implemented yet')
-        assert s.view('double') < 7e-323
 
     def test_tolist_scalar(self):
         from numpypy import dtype
@@ -1607,9 +1638,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(a) == 6
         assert (a == [0,1,2,3,4,5]).all()
         assert a.dtype is dtype(int)
-        if 0: # XXX why does numpy allow this?
-            a = concatenate((a1, a2), axis=1)
-            assert (a == [0,1,2,3,4,5]).all()
+        a = concatenate((a1, a2), axis=1)
+        assert (a == [0,1,2,3,4,5]).all()
         a = concatenate((a1, a2), axis=-1)
         assert (a == [0,1,2,3,4,5]).all()
 
@@ -1644,6 +1674,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(exc.value) == \
                 "all the input arrays must have same number of dimensions"
+
+        exc = raises(ValueError, concatenate, (b1, b2), axis=1)
+        assert str(exc.value) == \
+                "all the input array dimensions except for the " \
+                "concatenation axis must match exactly"
 
         g1 = array([0,1,2])
         g2 = array([[3,4,5]])
@@ -1828,14 +1863,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(IndexError, "arange(10)[array([10])] = 3")
         raises(IndexError, "arange(10)[[-11]] = 3")
 
-    def test_bool_single_index(self):
+    def test_array_scalar_index(self):
         import numpypy as np
         a = np.array([[1, 2, 3],
                       [4, 5, 6],
                       [7, 8, 9]])
-        a[np.array(True)]; skip("broken")  # check for crash but skip rest of test until correct
+        assert (a[np.array(0)] == a[0]).all()
+        assert (a[np.array(1)] == a[1]).all()
         assert (a[np.array(True)] == a[1]).all()
         assert (a[np.array(False)] == a[0]).all()
+        exc = raises(IndexError, "a[np.array(1.1)]")
+        assert exc.value.message == 'arrays used as indices must be of ' \
+                                    'integer (or boolean) type'
+
+        a[np.array(1)] = a[2]
+        assert a[1][1] == 8
+        a[np.array(True)] = a[0]
+        assert a[1][1] == 2
+        exc = raises(IndexError, "a[np.array(1.1)] = a[2]")
+        assert exc.value.message == 'arrays used as indices must be of ' \
+                                    'integer (or boolean) type'
 
     def test_bool_array_index(self):
         from numpypy import arange, array
@@ -2006,7 +2053,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([1, 2], dtype="int64")
         data = a.__reduce__()
 
-        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
+        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00' \
+                             '\x02\x00\x00\x00\x00\x00\x00\x00'
 
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
@@ -2556,6 +2604,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array([1]).item() == 1
         a = array('x')
         assert a.item() == 'x'
+        a = array([(1, 'abc')], dtype=[('a', int), ('b', 'S2')])
+        b = a.item(0)
+        assert type(b) is tuple
+        assert type(b[0]) is int
+        assert type(b[1]) is str
+        assert b[0] == 1
+        assert b[1] == 'ab'
 
     def test_int_array_index(self):
         from numpypy import array
@@ -2747,9 +2802,11 @@ class AppTestSupport(BaseNumpyAppTest):
         assert k[0] == dtype('float16').type(5.)
         dt =  array([5],dtype='longfloat').dtype
         if dt.itemsize == 12:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype='float96')
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00',
+                           dtype='float96')
         elif dt.itemsize == 16:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype='float128')
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00' \
+                           '\x00\x00\x00\x00', dtype='float128')
         elif dt.itemsize == 8:
             skip('longfloat is float64')
         else:
@@ -2772,6 +2829,15 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
+        a = array([[1, 2], [3, 4]], dtype='i1')
+        for order in (None, False, 'C', 'K', 'a'):
+            assert a.tostring(order) == '\x01\x02\x03\x04'
+        import sys
+        for order in (True, 'F'):
+            if '__pypy__' in sys.builtin_module_names:
+                raises(NotImplementedError, a.tostring, order)
+            else:
+                assert a.tostring(order) == '\x01\x03\x02\x04'
 
 
 class AppTestRepr(BaseNumpyAppTest):
@@ -2974,7 +3040,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import dtype, array, zeros
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
-        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
+                   ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         for v in ['x', u'x', 0, -2]:
             assert (a[0][v] == [1, 2, 3]).all()
@@ -2984,7 +3051,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             assert (a[1][v] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
         for v in [-3, 2]:
             exc = raises(IndexError, "a[0][%d]" % v)
-            assert exc.value.message == "invalid index (%d)" % (v + 2 if v < 0 else v)
+            assert exc.value.message == "invalid index (%d)" % \
+                                        (v + 2 if v < 0 else v)
         exc = raises(IndexError, "a[0]['z']")
         assert exc.value.message == "invalid index"
         exc = raises(IndexError, "a[0][None]")
@@ -3028,13 +3096,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             ]
         h = np.array(buf, dtype=descr)
         assert len(h) == 2
-        skip('broken')  # XXX
-        assert np.array_equal(h['x'], np.array([buf[0][0],
-                                                buf[1][0]], dtype='i4'))
-        assert np.array_equal(h['y'], np.array([buf[0][1],
-                                                buf[1][1]], dtype='f8'))
-        assert np.array_equal(h['z'], np.array([buf[0][2],
-                                                buf[1][2]], dtype='u1'))
+        assert h['x'].shape == (2, 2)
+        assert h['y'].strides == (41, 16, 8)
+        assert h['z'].shape == (2,)
+        for v in (h, h[0], h['x']):
+            repr(v)  # check for crash in repr
+        assert (h['x'] == np.array([buf[0][0],
+                                    buf[1][0]], dtype='i4')).all()
+        assert (h['y'] == np.array([buf[0][1],
+                                    buf[1][1]], dtype='f8')).all()
+        assert (h['z'] == np.array([buf[0][2],
+                                    buf[1][2]], dtype='u1')).all()
 
     def test_multidim_subarray(self):
         from numpypy import dtype, array
@@ -3052,9 +3124,26 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import dtype, array
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
-        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
+                   ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
+
+    def test_3d_record(self):
+        from numpypy import dtype, array
+        dt = dtype([('name', 'S4'), ('x', float), ('y', float),
+                    ('block', int, (2, 2, 3))])
+        a = array([('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]],
+                                       [[7, 8, 9], [10, 11, 12]]])],
+                  dtype=dt)
+        s = str(a)
+        i = a.item()
+        assert isinstance(i, tuple)
+        assert len(i) == 4
+        skip('incorrect formatting via dump_data')
+        assert s.endswith("[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], "
+                          "[[7, 8, 9], [10, 11, 12]]])]")
+
 
     def test_issue_1589(self):
         import numpypy as numpy

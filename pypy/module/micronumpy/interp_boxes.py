@@ -272,11 +272,19 @@ class W_GenericBox(W_Root):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
         dtype = space.interp_w(W_Dtype,
             space.call_function(space.gettypefor(W_Dtype), w_dtype))
+        if dtype.get_size() == 0:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "data-type must not be 0-sized"))
         if dtype.get_size() != self.get_dtype(space).get_size():
             raise OperationError(space.w_ValueError, space.wrap(
                 "new type not compatible with array."))
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "view not implelemnted yet"))
+        if dtype.is_str_or_unicode():
+            return dtype.coerce(space, space.wrap(self.raw_str()))
+        elif dtype.is_record_type():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "viewing scalar as record not implemented"))
+        else:
+            return dtype.itemtype.runpack_str(space, self.raw_str())
 
     def descr_self(self, space):
         return self
@@ -412,6 +420,9 @@ class W_FlexibleBox(W_GenericBox):
 
     def get_dtype(self, space):
         return self.arr.dtype
+
+    def raw_str(self):
+        return self.arr.dtype.itemtype.to_str(self)
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):

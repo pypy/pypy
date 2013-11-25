@@ -942,7 +942,8 @@ class AppTestAppMain:
 
         self.w_tmp_dir = self.space.wrap(tmp_dir)
 
-        foo_py = prefix.join('foo.py').write("pass")
+        foo_py = prefix.join('foo.py')
+        foo_py.write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))
 
     def test_setup_bootstrap_path(self):

@@ -197,7 +197,7 @@ class Primitive(object):
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value)
 
-    def runpack_str(self, s):
+    def runpack_str(self, space, s):
         v = runpack(self.format_code, s)
         return self.box(v)
 
@@ -961,7 +961,7 @@ class Float16(BaseType, Float):
     def box(self, value):
         return self.BoxType(rffi.cast(rffi.DOUBLE, value))
 
-    def runpack_str(self, s):
+    def runpack_str(self, space, s):
         assert len(s) == 2
         fval = unpack_float(s, native_is_bigendian)
         return self.box(fval)
@@ -1043,6 +1043,13 @@ class ComplexFloating(object):
             raw_storage_setitem(storage, i+offset, real)
             raw_storage_setitem(storage,
                     i+offset+rffi.sizeof(self.T), imag)
+
+    def runpack_str(self, space, s):
+        comp = self.ComponentBoxType._get_dtype(space).itemtype
+        l = len(s) // 2
+        real = comp.runpack_str(space, s[:l])
+        imag = comp.runpack_str(space, s[l:])
+        return self.composite(real, imag)
 
     @staticmethod
     def for_computation(v):
@@ -1570,7 +1577,7 @@ elif interp_boxes.long_double_size in (12, 16):
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_FloatLongBox
 
-        def runpack_str(self, s):
+        def runpack_str(self, space, s):
             assert len(s) == interp_boxes.long_double_size
             fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)
@@ -1586,9 +1593,23 @@ elif interp_boxes.long_double_size in (12, 16):
         BoxType = interp_boxes.W_ComplexLongBox
         ComponentBoxType = interp_boxes.W_FloatLongBox
 
-class BaseStringType(BaseType):
+class FlexibleType(BaseType):
     def get_element_size(self):
         return rffi.sizeof(self.T)
+
+    @jit.unroll_safe
+    def to_str(self, item):
+        builder = StringBuilder()
+        assert isinstance(item, interp_boxes.W_FlexibleBox)
+        i = item.ofs
+        end = i + item.dtype.get_size()
+        while i < end:
+            assert isinstance(item.arr.storage[i], str)
+            if item.arr.storage[i] == '\x00':
+                break
+            builder.append(item.arr.storage[i])
+            i += 1
+        return builder.build()
 
 def str_unary_op(func):
     specialize.argtype(1)(func)
@@ -1607,7 +1628,7 @@ def str_binary_op(func):
         )
     return dispatcher
 
-class StringType(BaseStringType):
+class StringType(FlexibleType):
     T = lltype.Char
 
     @jit.unroll_safe
@@ -1623,7 +1644,7 @@ class StringType(BaseStringType):
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        size = min(arr.dtype.size, box.arr.size - box.ofs)
+        size = min(arr.dtype.size - offset, box.arr.size - box.ofs)
         return self._store(arr.storage, i, offset, box, size)
 
     @jit.unroll_safe
@@ -1636,20 +1657,6 @@ class StringType(BaseStringType):
         if dtype is None:
             dtype = arr.dtype
         return interp_boxes.W_StringBox(arr, i + offset, dtype)
-
-    @jit.unroll_safe
-    def to_str(self, item):
-        builder = StringBuilder()
-        assert isinstance(item, interp_boxes.W_StringBox)
-        i = item.ofs
-        end = i + item.dtype.get_size()
-        while i < end:
-            assert isinstance(item.arr.storage[i], str)
-            if item.arr.storage[i] == '\x00':
-                break
-            builder.append(item.arr.storage[i])
-            i += 1
-        return builder.build()
 
     def str_format(self, item):
         builder = StringBuilder()
@@ -1726,7 +1733,7 @@ class StringType(BaseStringType):
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box, width)
 
-class UnicodeType(BaseStringType):
+class UnicodeType(FlexibleType):
     T = lltype.UniChar
 
     @jit.unroll_safe
@@ -1736,7 +1743,7 @@ class UnicodeType(BaseStringType):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "coerce (probably from set_item) not implemented for unicode type"))
 
-class VoidType(BaseStringType):
+class VoidType(FlexibleType):
     T = lltype.Char
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
@@ -1775,16 +1782,49 @@ class VoidType(BaseStringType):
         from pypy.module.micronumpy.base import W_NDimArray
         if dtype is None:
             dtype = arr.dtype
-        strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
+        strides, backstrides = support.calc_strides(dtype.shape,
+                                                    dtype.subdtype, arr.order)
         implementation = SliceArray(i + offset, strides, backstrides,
-                             dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
+                                    dtype.shape, arr, W_NDimArray(arr),
+                                    dtype.subdtype)
         return W_NDimArray(implementation)
 
-class RecordType(BaseType):
-    T = lltype.Char
+    def read(self, arr, i, offset, dtype=None):
+        if dtype is None:
+            dtype = arr.dtype
+        return interp_boxes.W_VoidBox(arr, i + offset, dtype)
 
-    def get_element_size(self):
-        return rffi.sizeof(self.T)
+    @jit.unroll_safe
+    def str_format(self, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        arr = self.readarray(box.arr, box.ofs, 0, box.dtype)
+        return arr.dump_data(prefix='', suffix='')
+
+    def to_builtin_type(self, space, item):
+        ''' From the documentation of ndarray.item():
+        "Void arrays return a buffer object for item(),
+         unless fields are defined, in which case a tuple is returned."
+        '''
+        assert isinstance(item, interp_boxes.W_VoidBox)
+        dt = item.arr.dtype
+        ret_unwrapped = []
+        for name in dt.fieldnames:
+            ofs, dtype = dt.fields[name]
+            if isinstance(dtype.itemtype, VoidType):
+                read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
+            else:
+                read_val = dtype.itemtype.read(item.arr, ofs, 0, dtype)
+            if isinstance (read_val, interp_boxes.W_StringBox):
+                # StringType returns a str
+                read_val = space.wrap(dtype.itemtype.to_str(read_val))
+            ret_unwrapped = ret_unwrapped + [read_val,]
+        if len(ret_unwrapped) == 0:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                    "item() for Void aray with no fields not implemented"))
+        return space.newtuple(ret_unwrapped)
+
+class RecordType(FlexibleType):
+    T = lltype.Char
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
@@ -1819,6 +1859,17 @@ class RecordType(BaseType):
         for k in range(box.arr.dtype.get_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
 
+    def to_builtin_type(self, space, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        items = []
+        dtype = box.dtype
+        for name in dtype.fieldnames:
+            ofs, subdtype = dtype.fields[name]
+            itemtype = subdtype.itemtype
+            subbox = itemtype.read(box.arr, box.ofs, ofs, subdtype)
+            items.append(itemtype.to_builtin_type(space, subbox))
+        return space.newtuple(items)
+
     @jit.unroll_safe
     def str_format(self, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
@@ -1831,7 +1882,8 @@ class RecordType(BaseType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
+            val = tp.read(box.arr, box.ofs, ofs, subdtype)
+            pieces.append(tp.str_format(val))
         pieces.append(")")
         return "".join(pieces)
 

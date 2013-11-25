@@ -231,11 +231,22 @@ class __extend__(AbstractStringRepr):
     def rtype_method_strip(self, hop, left=True, right=True):
         rstr = hop.args_r[0].repr
         v_str = hop.inputarg(rstr.repr, arg=0)
-        v_char = hop.inputarg(rstr.char_repr, arg=1)
-        v_left = hop.inputconst(Bool, left)
-        v_right = hop.inputconst(Bool, right)
+        args_v = [v_str]
+        if len(hop.args_s) == 2:
+            if isinstance(hop.args_s[1], annmodel.SomeString):
+                v_stripstr = hop.inputarg(rstr.repr, arg=1)
+                args_v.append(v_stripstr)
+                func = self.ll.ll_strip_multiple
+            else:
+                v_char = hop.inputarg(rstr.char_repr, arg=1)
+                args_v.append(v_char)
+                func = self.ll.ll_strip
+        else:
+            func = self.ll.ll_strip_default
+        args_v.append(hop.inputconst(Bool, left))
+        args_v.append(hop.inputconst(Bool, right))
         hop.exception_is_here()
-        return hop.gendirectcall(self.ll.ll_strip, v_str, v_char, v_left, v_right)
+        return hop.gendirectcall(func, *args_v)
 
     def rtype_method_lstrip(self, hop):
         return self.rtype_method_strip(hop, left=True, right=False)

@@ -56,6 +56,8 @@ class W_Dtype(W_Root):
         self.aliases = aliases
         self.float_type = float_type
         self.fields = fields
+        if fieldnames is None:
+            fieldnames = []
         self.fieldnames = fieldnames
         self.shape = list(shape)
         self.subdtype = subdtype
@@ -151,6 +153,14 @@ class W_Dtype(W_Root):
                 endian = NPY_NATBYTE
         return space.wrap("%s%s%s" % (endian, basic, size))
 
+    def descr_get_descr(self, space):
+        if not self.is_record_type():
+            return space.newlist([space.newtuple([space.wrap(""),
+                                                  self.descr_get_str(space)])])
+        else:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "descr not implemented for record types"))
+
     def descr_get_base(self, space):
         return space.wrap(self.base)
 
@@ -206,15 +216,15 @@ class W_Dtype(W_Root):
             self.name = "void" + str(8 * self.get_size())
 
     def descr_get_names(self, space):
-        if self.fieldnames is None:
+        if len(self.fieldnames) == 0:
             return space.w_None
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
 
     def set_names(self, space, w_names):
+        self.fieldnames = []
         if w_names == space.w_None:
-            self.fieldnames = None
+            return
         else:
-            self.fieldnames = []
             iter = space.iter(w_names)
             while True:
                 try:
@@ -447,6 +457,7 @@ W_Dtype.typedef = TypeDef("dtype",
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
     hasobject = GetSetProperty(W_Dtype.descr_get_hasobject),
+    descr = GetSetProperty(W_Dtype.descr_get_descr),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
@@ -854,24 +865,21 @@ class DtypeCache(object):
         for k, v in typeinfo_partial.iteritems():
             space.setitem(w_typeinfo, space.wrap(k), space.gettypefor(v))
         for k, dtype in typeinfo_full.iteritems():
-            itemsize = dtype.get_size()
+            itembits = dtype.get_size() * 8
             items_w = [space.wrap(dtype.char),
                        space.wrap(dtype.num),
-                       space.wrap(itemsize * 8),  # in case of changing
-                       # number of bits per byte in the future
-                       space.wrap(itemsize /
-                                  (2 if dtype.kind == NPY_COMPLEXLTR else 1)
-                                  or 1)]
+                       space.wrap(itembits),
+                       space.wrap(dtype.itemtype.get_element_size())]
             if dtype.is_int_type():
                 if dtype.kind == NPY_GENBOOLLTR:
                     w_maxobj = space.wrap(1)
                     w_minobj = space.wrap(0)
                 elif dtype.is_signed():
-                    w_maxobj = space.wrap(r_longlong((1 << (itemsize*8 - 1))
+                    w_maxobj = space.wrap(r_longlong((1 << (itembits - 1))
                                           - 1))
-                    w_minobj = space.wrap(r_longlong(-1) << (itemsize*8 - 1))
+                    w_minobj = space.wrap(r_longlong(-1) << (itembits - 1))
                 else:
-                    w_maxobj = space.wrap(r_ulonglong(1 << (itemsize*8)) - 1)
+                    w_maxobj = space.wrap(r_ulonglong(1 << itembits) - 1)
                     w_minobj = space.wrap(0)
                 items_w = items_w + [w_maxobj, w_minobj]
             items_w = items_w + [dtype.w_box_type]
