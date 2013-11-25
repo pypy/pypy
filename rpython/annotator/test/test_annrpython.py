@@ -4148,6 +4148,19 @@ class TestAnnotateTestCase:
             a.build_types(f, [str, str])
         assert ("format() is not RPython" in exc.value.msg)
 
+    def test_prebuilt_ordered_dict(self):
+        try:
+            from collections import OrderedDict
+        except ImportError:
+            py.test.skip("Please upgrade to python 2.7")
+        d = OrderedDict([("aa", 1)])
+
+        def f():
+            return d
+
+        a = self.RPythonAnnotator()
+        assert isinstance(a.build_types(f, []), annmodel.SomeOrderedDict)
+
 
 def g(n):
     return [0, 1, 2, n]

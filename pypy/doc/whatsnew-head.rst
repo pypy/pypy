@@ -15,3 +15,6 @@ Package tk/tcl runtime with win32
 
 .. branch: armhf-singlefloat
 JIT support for singlefloats on ARM using the hardfloat ABI
+
+.. branch: voidtype_strformat
+Better support for record numpy arrays

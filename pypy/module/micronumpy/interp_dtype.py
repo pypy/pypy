@@ -56,6 +56,8 @@ class W_Dtype(W_Root):
         self.aliases = aliases
         self.float_type = float_type
         self.fields = fields
+        if fieldnames is None:
+            fieldnames = []
         self.fieldnames = fieldnames
         self.shape = list(shape)
         self.subdtype = subdtype
@@ -214,15 +216,15 @@ class W_Dtype(W_Root):
             self.name = "void" + str(8 * self.get_size())
 
     def descr_get_names(self, space):
-        if self.fieldnames is None:
+        if len(self.fieldnames) == 0:
             return space.w_None
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
 
     def set_names(self, space, w_names):
+        self.fieldnames = []
         if w_names == space.w_None:
-            self.fieldnames = None
+            return
         else:
-            self.fieldnames = []
             iter = space.iter(w_names)
             while True:
                 try:

@@ -16,8 +16,13 @@ if platform.machine() == 'i386':
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
+elif platform.machine() == 'x86_64':
+    host_factory = Darwin_x86_64
 else:
     host_factory = Darwin_PowerPC
+
+def is_x86():
+    return platform.machine() == 'i386' or platform.machine() == 'x86_64'
 
 class TestDarwin(BasicTest):
     platform = host_factory()
@@ -47,8 +52,39 @@ class TestDarwin(BasicTest):
         res = self.platform.execute(executable)
         self.check_res(res)
 
+    def test_frameworks_with_makefile(self):
+        from StringIO import StringIO
+        tmpdir = udir.join('fw_mk' + self.__class__.__name__).ensure(dir=1)
+        objcfile = tmpdir.join('test_simple.m')
+        objcfile.write(r'''
+        #import <Foundation/Foundation.h>
+        int main (int argc, const char * argv[]) {
+            NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+            NSArray *args = [[NSProcessInfo processInfo] arguments];
+            NSCountedSet *cset = [[NSCountedSet alloc] initWithArray:args];
+
+            printf("%d\n", 23);
+
+            [cset release];
+            [pool release];
+            return 0;
+        }
+        ''')
+        eci = ExternalCompilationInfo(frameworks=('Cocoa',))
+        mk = self.platform.gen_makefile([objcfile], eci, path=tmpdir)
+        # The framework should end up in the Makefile
+        out = StringIO()
+        mk.write(out)
+        assert "-framework Cocoa" in out.getvalue()
+        # check that it actually works
+        mk.write()
+        self.platform.execute_makefile(mk)
+        res = self.platform.execute(tmpdir.join('test_simple'))
+        self.check_res(res, expected="23\n")
+
+
     def test_64_32_results(self):
-        if platform.machine() != 'i386':
+        if not is_x86():
             py.test.skip("i386 only")
         plat32 = Darwin_i386()
         plat64 = Darwin_x86_64()
@@ -72,7 +108,7 @@ class TestDarwin(BasicTest):
             self.check_res(res, '1\n')
 
     def test_longsize(self):
-        if platform.machine() != 'i386':
+        if not is_x86():
             py.test.skip("i386 only")
         cfile = udir.join('test_int_size.c')
         cfile.write(r'''
@@ -88,9 +124,9 @@ class TestDarwin(BasicTest):
         executable = self.platform.compile([cfile], eci)
         res = self.platform.execute(executable)
         self.check_res(res, str(sys.maxint) + '\n')
-        
+
     def test_32bit_makefile(self):
-        if platform.machine() != 'i386':
+        if not is_x86():
             py.test.skip("i386 only")
         plat32 = Darwin_i386()
         plat64 = Darwin_x86_64()
@@ -124,4 +160,3 @@ class TestDarwin(BasicTest):
             plat64.execute_makefile(mk)
             res = plat64.execute(tmpdir.join('test_int_size'))
             self.check_res(res, '1\n')
-
