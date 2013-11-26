@@ -166,6 +166,16 @@ class W_AbstractLongObject(W_Object):
         # XXX: consider stian's branch where he optimizes long + ints
         return space.newtuple([self, w_other])
 
+    def descr_get_numerator(self, space):
+        return space.long(self)
+    descr_get_real = func_with_new_name(descr_get_numerator, 'descr_get_real')
+
+    def descr_get_denominator(self, space):
+        return space.newlong(1)
+
+    def descr_get_imag(self, space):
+        return space.newlong(0)
+
 
 class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
@@ -241,19 +251,6 @@ class W_LongObject(W_AbstractLongObject):
 
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
-
-    # XXX: make these indirect
-    def descr_get_numerator(self, space):
-        return space.long(self)
-
-    def descr_get_denominator(self, space):
-        return space.newlong(1)
-
-    def descr_get_real(self, space):
-        return space.long(self)
-
-    def descr_get_imag(self, space):
-        return space.newlong(0)
 
     def descr_long(self, space):
         # long__Long is supposed to do nothing, unless it has a derived
@@ -620,12 +617,14 @@ string representation of a floating point number!)  When converting a
 string, use the optional base.  It is an error to supply a base when
 converting a non-string.""",
     __new__ = interp2app(descr__new__),
+
+    numerator = typedef.GetSetProperty(
+        W_AbstractLongObject.descr_get_numerator),
+    denominator = typedef.GetSetProperty(
+        W_AbstractLongObject.descr_get_denominator),
+    real = typedef.GetSetProperty(W_AbstractLongObject.descr_get_real),
+    imag = typedef.GetSetProperty(W_AbstractLongObject.descr_get_imag),
     conjugate = interp2app(W_AbstractLongObject.descr_conjugate),
-                                          # XXX: need indirect for these
-    numerator = typedef.GetSetProperty(W_LongObject.descr_get_numerator),
-    denominator = typedef.GetSetProperty(W_LongObject.descr_get_denominator),
-    real = typedef.GetSetProperty(W_LongObject.descr_get_real),
-    imag = typedef.GetSetProperty(W_LongObject.descr_get_imag),
     bit_length = interp2app(W_AbstractLongObject.descr_bit_length),
 
     # XXX: likely need indirect everything for SmallLong

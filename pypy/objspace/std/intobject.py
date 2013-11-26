@@ -342,6 +342,11 @@ class W_AbstractIntObject(W_Object):
     def descr_getnewargs(self, space):
         return space.newtuple([wrapint(space, space.int_w(self))])
 
+    def descr_repr(self, space):
+        res = str(self.int_w(space))
+        return space.wrap(res)
+    descr_str = func_with_new_name(descr_repr, 'descr_str')
+
     def descr_conjugate(self, space):
         "Returns self, the complex conjugate of any int."
         return space.int(self)
@@ -364,32 +369,15 @@ class W_AbstractIntObject(W_Object):
             val >>= 1
         return space.wrap(bits)
 
-    """
     def descr_get_numerator(self, space):
         return space.int(self)
+    descr_get_real = func_with_new_name(descr_get_numerator, 'descr_get_real')
 
     def descr_get_denominator(self, space):
         return space.wrap(1)
 
-    def descr_get_real(self, space):
-        return space.int(self)
-
     def descr_get_imag(self, space):
         return space.wrap(0)
-        """
-
-# XXX:
-def descr_get_numerator(space, w_obj):
-    return space.int(w_obj)
-
-def descr_get_denominator(space, w_obj):
-    return space.wrap(1)
-
-def descr_get_real(space, w_obj):
-    return space.int(w_obj)
-
-def descr_get_imag(space, w_obj):
-    return space.wrap(0)
 
 
 class W_IntObject(W_AbstractIntObject):
@@ -446,11 +434,6 @@ class W_IntObject(W_AbstractIntObject):
             return self
         a = self.intval
         return space.newint(a)
-
-    def descr_repr(self, space):
-        res = str(self.intval)
-        return space.wrap(res)
-    descr_str = func_with_new_name(descr_repr, 'descr_str')
 
 def _delegate_Int2Long(space, w_intobj):
     from pypy.objspace.std.longobject import W_LongObject
@@ -624,7 +607,7 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
 # ____________________________________________________________
 
 
-W_IntObject.typedef = StdTypeDef("int",
+W_AbstractIntObject.typedef = StdTypeDef("int",
     __doc__ = '''int(x[, base]) -> integer
 
 Convert a string or number to an integer, if possible.  A floating point
@@ -635,17 +618,15 @@ non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
     __new__ = interp2app(descr__new__),
 
+    numerator = typedef.GetSetProperty(
+        W_AbstractIntObject.descr_get_numerator),
+    denominator = typedef.GetSetProperty(
+        W_AbstractIntObject.descr_get_denominator),
+    real = typedef.GetSetProperty(W_AbstractIntObject.descr_get_real),
+    imag = typedef.GetSetProperty(W_AbstractIntObject.descr_get_imag),
     conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
     bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),
-    # XXX: need a GetSetIndirectProperty
-    #numerator = typedef.GetSetProperty(W_IntObject.descr_get_numerator),
-    #denominator = typedef.GetSetProperty(W_IntObject.descr_get_denominator),
-    #real = typedef.GetSetProperty(W_IntObject.descr_get_real),
-    #imag = typedef.GetSetProperty(W_IntObject.descr_get_imag),
-    numerator = typedef.GetSetProperty(descr_get_numerator),
-    denominator = typedef.GetSetProperty(descr_get_denominator),
-    real = typedef.GetSetProperty(descr_get_real),
-    imag = typedef.GetSetProperty(descr_get_imag),
+
     __int__ = interpindirect2app(W_AbstractIntObject.int),
     __long__ = interpindirect2app(W_AbstractIntObject.descr_long),
 
@@ -695,6 +676,6 @@ will be returned instead.''',
     __hex__ = interpindirect2app(W_AbstractIntObject.descr_hex),
     __getnewargs__ = interpindirect2app(W_AbstractIntObject.descr_getnewargs),
 
-    __repr__ = interp2app(W_IntObject.descr_repr),
-    __str__ = interp2app(W_IntObject.descr_str),
+    __repr__ = interp2app(W_AbstractIntObject.descr_repr),
+    __str__ = interp2app(W_AbstractIntObject.descr_str),
 )
