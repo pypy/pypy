@@ -34,19 +34,8 @@ class W_CTypeArray(W_CTypePtrOrArray):
         datasize = self.size
         #
         if datasize < 0:
-            if (space.isinstance_w(w_init, space.w_list) or
-                space.isinstance_w(w_init, space.w_tuple)):
-                length = space.int_w(space.len(w_init))
-            elif space.isinstance_w(w_init, space.w_basestring):
-                # from a string, we add the null terminator
-                length = space.int_w(space.len(w_init)) + 1
-            else:
-                length = space.getindex_w(w_init, space.w_OverflowError)
-                if length < 0:
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("negative array length"))
-                w_init = space.w_None
-            #
+            from pypy.module._cffi_backend import misc
+            w_init, length = misc.get_new_array_length(space, w_init)
             try:
                 datasize = ovfcheck(length * self.ctitem.size)
             except OverflowError:
@@ -104,26 +93,6 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
     def iter(self, cdata):
         return W_CDataIter(self.space, self.ctitem, cdata)
-
-    def aslist_int(self, cdata):
-        from rpython.rlib.rarray import populate_list_from_raw_array
-        if self.ctitem.is_long():
-            res = []
-            buf = rffi.cast(rffi.LONGP, cdata._cdata)
-            length = cdata.get_array_length()
-            populate_list_from_raw_array(res, buf, length)
-            return res
-        return None
-
-    def aslist_float(self, cdata):
-        from rpython.rlib.rarray import populate_list_from_raw_array
-        if self.ctitem.is_double():
-            res = []
-            buf = rffi.cast(rffi.DOUBLEP, cdata._cdata)
-            length = cdata.get_array_length()
-            populate_list_from_raw_array(res, buf, length)
-            return res
-        return None
 
     def get_vararg_type(self):
         return self.ctptr

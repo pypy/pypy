@@ -9,6 +9,7 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import ll_str, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
     typeOf, staticAdtMethod, GcForwardReference)
@@ -106,10 +107,26 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw._always_inline_ = True
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
-    return copy_string_to_raw, copy_string_contents
+    @jit.dont_look_inside
+    def copy_raw_to_string(ptrsrc, dst, dststart, length):
+        # xxx Warning: same note as above apply: don't do this at home
+        assert length >= 0
+        # from here, no GC operations can happen
+        dst = _get_raw_buf(SRC_TP, dst, dststart)
+        adr = llmemory.cast_ptr_to_adr(ptrsrc)
 
-copy_string_to_raw, copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
-copy_unicode_to_raw, copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE,
+        srcbuf = adr + llmemory.itemoffsetof(typeOf(ptrsrc).TO, 0)
+        llmemory.raw_memcopy(srcbuf, dst, llmemory.sizeof(CHAR_TP) * length)
+        # end of "no GC" section
+        keepalive_until_here(dst)
+    copy_raw_to_string._always_inline_ = True
+    copy_raw_to_string = func_with_new_name(copy_raw_to_string,
+                                              'copy_raw_to_%s' % name)
+
+    return copy_string_to_raw, copy_raw_to_string, copy_string_contents
+
+copy_string_to_raw, copy_raw_to_string, copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
+copy_unicode_to_raw, copy_raw_to_unicode, copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE,
                                                                     UniChar, 'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()
@@ -377,6 +394,46 @@ class LLHelpers(AbstractLLHelpers):
                 lpos += 1
         if right:
             while lpos < rpos + 1 and s.chars[rpos] == ch:
+                rpos -= 1
+        if rpos < lpos:
+            return s.empty()
+        r_len = rpos - lpos + 1
+        result = s.malloc(r_len)
+        s.copy_contents(s, result, lpos, 0, r_len)
+        return result
+
+    @jit.elidable
+    def ll_strip_default(s, left, right):
+        s_len = len(s.chars)
+        if s_len == 0:
+            return s.empty()
+        lpos = 0
+        rpos = s_len - 1
+        if left:
+            while lpos < rpos and s.chars[lpos].isspace():
+                lpos += 1
+        if right:
+            while lpos < rpos + 1 and s.chars[rpos].isspace():
+                rpos -= 1
+        if rpos < lpos:
+            return s.empty()
+        r_len = rpos - lpos + 1
+        result = s.malloc(r_len)
+        s.copy_contents(s, result, lpos, 0, r_len)
+        return result
+
+    @jit.elidable
+    def ll_strip_multiple(s, s2, left, right):
+        s_len = len(s.chars)
+        if s_len == 0:
+            return s.empty()
+        lpos = 0
+        rpos = s_len - 1
+        if left:
+            while lpos < rpos and LLHelpers.ll_contains(s2, s.chars[lpos]):
+                lpos += 1
+        if right:
+            while lpos < rpos + 1 and LLHelpers.ll_contains(s2, s.chars[rpos]):
                 rpos -= 1
         if rpos < lpos:
             return s.empty()

@@ -355,6 +355,22 @@ class SomeDict(SomeObject):
         else:
             return '{...%s...}' % (len(const),)
 
+class SomeOrderedDict(SomeDict):
+    try:
+        from collections import OrderedDict as knowntype
+    except ImportError:    # Python 2.6
+        class PseudoOrderedDict(dict): pass
+        knowntype = PseudoOrderedDict
+
+    def method_copy(dct):
+        return SomeOrderedDict(dct.dictdef)
+
+    def method_update(dct1, dct2):
+        if s_None.contains(dct2):
+            return SomeImpossibleValue()
+        assert isinstance(dct2, SomeOrderedDict), "OrderedDict.update(dict) not allowed"
+        dct1.dictdef.union(dct2.dictdef)
+
 
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects from a given container."

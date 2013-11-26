@@ -137,7 +137,8 @@ instances hold the following state:
   control flow of a function (such as ``while`` and ``try`` constructs)
 
 - a value stack where bytecode interpretation pulls object
-  from and puts results on.
+  from and puts results on.  (``locals_stack_w`` is actually a single
+  list containing both the local scope and the value stack.)
 
 - a reference to the *globals* dictionary, containing
   module-level name-value bindings
@@ -151,10 +152,7 @@ class are added in various files:
 
 - the class ``PyFrame`` is defined in `pypy/interpreter/pyframe.py`_.
 
-- the file `pypy/interpreter/pyopcode.py`_ add support for all Python opcode.
-
-- nested scope support is added to the ``PyFrame`` class in
-  `pypy/interpreter/nestedscope.py`_.
+- the file `pypy/interpreter/pyopcode.py`_ add support for all Python opcodes.
 
 .. _Code:
 
@@ -183,12 +181,6 @@ to a code object. Here is a list of Code attributes:
 * ``co_firstlineno`` the first linenumber of the code object in its source file
 * ``co_name`` name of the code object (often the function name)
 * ``co_lnotab`` a helper table to compute the line-numbers corresponding to bytecodes
-
-In PyPy, code objects also have the responsibility of creating their Frame_ objects
-via the `'create_frame()`` method.  With proper parser and compiler support this would
-allow to create custom Frame objects extending the execution of functions
-in various ways.  The several Frame_ classes already utilize this flexibility
-in order to implement Generators and Nested Scopes.
 
 .. _Function:
 

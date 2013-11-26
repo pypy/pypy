@@ -342,10 +342,8 @@ class W_ISlice(W_Root):
             if space.is_w(w_startstop, space.w_None):
                 start = 0
             else:
-                start = space.int_w(w_startstop)
-                if start < 0:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                       "Indicies for islice() must be non-negative integers."))
+                start = self.arg_int_w(w_startstop, 0,
+                 "Indicies for islice() must be None or non-negative integers")
             w_stop = args_w[0]
         else:
             raise OperationError(space.w_TypeError, space.wrap("islice() takes at most 4 arguments (" + str(num_args) + " given)"))
@@ -353,10 +351,8 @@ class W_ISlice(W_Root):
         if space.is_w(w_stop, space.w_None):
             stop = -1
         else:
-            stop = space.int_w(w_stop)
-            if stop < 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "Stop argument must be a non-negative integer or None."))
+            stop = self.arg_int_w(w_stop, 0,
+                "Stop argument must be a non-negative integer or None.")
             stop = max(start, stop)    # for obscure CPython compatibility
 
         if num_args == 2:
@@ -364,16 +360,26 @@ class W_ISlice(W_Root):
             if space.is_w(w_step, space.w_None):
                 step = 1
             else:
-                step = space.int_w(w_step)
-                if step < 1:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "Step must be one or lager for islice()."))
+                step = self.arg_int_w(w_step, 1,
+                    "Step for islice() must be a positive integer or None")
         else:
             step = 1
 
         self.ignore = step - 1
         self.start = start
         self.stop = stop
+
+    def arg_int_w(self, w_obj, minimum, errormsg):
+        space = self.space
+        try:
+            result = space.int_w(w_obj)
+        except OperationError, e:
+            if e.async(space):
+                raise
+            result = -1
+        if result < minimum:
+            raise OperationError(space.w_ValueError, space.wrap(errormsg))
+        return result
 
     def iter_w(self):
         return self.space.wrap(self)

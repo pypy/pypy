@@ -6,7 +6,7 @@ good assembler
 import py
 from rpython.jit.metainterp import pyjitpl
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.jit.metainterp.warmspot import reset_stats, get_stats
+from rpython.jit.metainterp.warmspot import reset_jit, get_stats
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
@@ -67,8 +67,7 @@ class TestNumpyJIt(LLJitMixin):
 
     def run(self, name):
         self.compile_graph()
-        reset_stats()
-        pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
+        reset_jit()
         i = self.code_mapping[name]
         retval = self.interp.eval_graph(self.graph, [i])
         py.test.skip("don't run for now")
@@ -147,8 +146,7 @@ class TestNumpyJIt(LLJitMixin):
 
     def test_reduce_compile_only_once(self):
         self.compile_graph()
-        reset_stats()
-        pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
+        reset_jit()
         i = self.code_mapping['reduce']
         # run it twice
         retval = self.interp.eval_graph(self.graph, [i])
@@ -158,8 +156,7 @@ class TestNumpyJIt(LLJitMixin):
 
     def test_reduce_axis_compile_only_once(self):
         self.compile_graph()
-        reset_stats()
-        pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
+        reset_jit()
         i = self.code_mapping['axissum']
         # run it twice
         retval = self.interp.eval_graph(self.graph, [i])

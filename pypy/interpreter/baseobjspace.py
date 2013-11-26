@@ -10,7 +10,7 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
-    UserDelAction, FrameTraceAction)
+    UserDelAction)
 from pypy.interpreter.error import (OperationError, operationerrfmt,
     new_exception_class)
 from pypy.interpreter.argument import Arguments
@@ -326,14 +326,10 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        # import extra modules for side-effects
-        import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
-
         self.interned_strings = {}
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
-        self.frame_trace_action = FrameTraceAction(self)
         self._code_of_sys_exc_info = None
 
         from pypy.interpreter.pycode import cpython_magic, default_magic

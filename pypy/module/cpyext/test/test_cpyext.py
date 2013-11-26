@@ -229,9 +229,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return space.wrap(pydname)
 
         @unwrap_spec(name=str, init='str_or_None', body=str,
-                     load_it=bool, filename='str_or_None')
+                     load_it=bool, filename='str_or_None',
+                     PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='',
-                          load_it=True, filename=None):
+                          load_it=True, filename=None,
+                          PY_SSIZE_T_CLEAN=False):
             """
             init specifies the overall template of the module.
 
@@ -243,15 +245,19 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             """
             if init is not None:
                 code = """
+                %(PY_SSIZE_T_CLEAN)s
                 #include <Python.h>
                 %(body)s
 
                 void init%(name)s(void) {
                 %(init)s
                 }
-                """ % dict(name=name, init=init, body=body)
+                """ % dict(name=name, init=init, body=body,
+                           PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
+                                            if PY_SSIZE_T_CLEAN else '')
                 kwds = dict(separate_module_sources=[code])
             else:
+                assert not PY_SSIZE_T_CLEAN
                 if filename is None:
                     filename = name
                 filename = py.path.local(pypydir) / 'module' \
@@ -276,8 +282,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @unwrap_spec(modname=str, prologue=str)
-        def import_extension(space, modname, w_functions, prologue=""):
+        @unwrap_spec(modname=str, prologue=str, PY_SSIZE_T_CLEAN=bool)
+        def import_extension(space, modname, w_functions, prologue="",
+                             PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             methods_table = []
             codes = []
@@ -300,7 +307,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             };
             """ % ('\n'.join(methods_table),)
             init = """Py_InitModule("%s", methods);""" % (modname,)
-            return import_module(space, name=modname, init=init, body=body)
+            return import_module(space, name=modname, init=init, body=body,
+                                 PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 
         @unwrap_spec(name=str)
         def record_imported_module(name):

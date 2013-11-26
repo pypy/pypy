@@ -59,7 +59,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
     return space.wrap(a)
 
 def _fromstring_bin(space, s, count, length, dtype):
-    itemsize = dtype.itemtype.get_element_size()
+    itemsize = dtype.get_size()
     assert itemsize >= 0
     if count == -1:
         count = length / itemsize
@@ -72,7 +72,7 @@ def _fromstring_bin(space, s, count, length, dtype):
             "string is smaller than requested size"))
 
     a = W_NDimArray.from_shape(space, [count], dtype=dtype)
-    loop.fromstring_loop(a, dtype, itemsize, s)
+    loop.fromstring_loop(space, a, dtype, itemsize, s)
     return space.wrap(a)
 
 @unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))

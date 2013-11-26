@@ -26,6 +26,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
+from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
 from rpython.rlib.unroll import unrolling_iterable
@@ -386,12 +387,17 @@ SYMBOLS_C = [
     'PyString_FromFormat', 'PyString_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
+    '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
+    '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
+    '_PyArg_VaParseTupleAndKeywords_SizeT',
+    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
+    '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
     'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', 'init_bufferobject',
@@ -464,6 +470,7 @@ def build_exported_objects():
         "Complex": "space.w_complex",
         "ByteArray": "space.w_bytearray",
         "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
+        "Array": "space.gettypeobject(W_NDimArray.typedef)",
         "BaseObject": "space.w_object",
         'None': 'space.type(space.w_None)',
         'NotImplemented': 'space.type(space.w_NotImplemented)',

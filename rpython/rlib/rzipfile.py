@@ -67,20 +67,12 @@ crc_32_tab = [
 ]
 crc_32_tab = map(r_uint, crc_32_tab)
 
-# XXX hack to get crc32 to work
-
-rcrc_32_tab = [r_uint(i) for i in crc_32_tab]
-
-def crc32(s, crc=0):
-    result = 0
-    crc = ~r_uint(crc) & r_uint(0xffffffffL)
+def crc32(s, crc=r_uint(0)):
+    crc = ~crc & r_uint(0xffffffffL)
     for c in s:
-        crc = rcrc_32_tab[(crc ^ r_uint(ord(c))) & 0xffL] ^ (crc >> 8)
+        crc = crc_32_tab[(crc ^ r_uint(ord(c))) & 0xffL] ^ (crc >> 8)
         #/* Note:  (crc >> 8) MUST zero fill on left
-
-        result = crc ^ r_uint(0xffffffffL)
-
-    return result
+    return crc ^ r_uint(0xffffffffL)
 
 # parts copied from zipfile library implementation
 

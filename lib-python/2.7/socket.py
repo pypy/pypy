@@ -335,9 +335,10 @@ class _fileobject(object):
             s = self._sock
             self._sock = None
             if s is not None:
-                s._drop()
                 if self._close:
                     s.close()
+                else:
+                    s._drop()
 
     def __del__(self):
         try:

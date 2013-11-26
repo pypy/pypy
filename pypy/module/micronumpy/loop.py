@@ -10,8 +10,8 @@ from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
-from pypy.module.micronumpy import constants
-from pypy.module.micronumpy.support import int_w
+from pypy.module.micronumpy.support import index_w
+from pypy.module.micronumpy.constants import *
 
 call2_driver = jit.JitDriver(name='numpy_call2',
                              greens = ['shapelen', 'func', 'calc_dtype',
@@ -159,10 +159,16 @@ reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
                                   greens = ['shapelen', 'func', 'dtype'],
                                   reds = 'auto')
 
-def compute_reduce_cumultative(obj, out, calc_dtype, func, identity):
+def compute_reduce_cumulative(obj, out, calc_dtype, func, identity):
     obj_iter = obj.create_iter()
     out_iter = out.create_iter()
-    cur_value = identity.convert_to(calc_dtype)
+    if identity is None:
+        cur_value = obj_iter.getitem().convert_to(calc_dtype)
+        out_iter.setitem(cur_value)
+        out_iter.next()
+        obj_iter.next()
+    else:
+        cur_value = identity.convert_to(calc_dtype)
     shapelen = len(obj.get_shape())
     while not obj_iter.done():
         reduce_cum_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -218,10 +224,10 @@ axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
                                             'func', 'dtype'],
                                     reds='auto')
 
-def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
+def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumulative,
                    temp):
-    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumultative)
-    if cumultative:
+    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumulative)
+    if cumulative:
         temp_iter = temp.create_axis_iter(arr.get_shape(), axis, False)
     else:
         temp_iter = out_iter # hack
@@ -240,7 +246,7 @@ def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
             cur = temp_iter.getitem()
             w_val = func(dtype, cur, w_val)
         out_iter.setitem(w_val)
-        if cumultative:
+        if cumulative:
             temp_iter.setitem(w_val)
             temp_iter.next()
         arr_iter.next()
@@ -392,7 +398,7 @@ setitem_filter_driver = jit.JitDriver(name = 'numpy_setitem_bool',
                                                 'index_dtype'],
                                       reds = 'auto')
 
-def setitem_filter(arr, index, value, size):
+def setitem_filter(space, arr, index, value, size):
     arr_iter = arr.create_iter()
     shapelen = len(arr.get_shape())
     if shapelen > 1 and len(index.get_shape()) < 2:
@@ -408,7 +414,7 @@ def setitem_filter(arr, index, value, size):
                                               arr_dtype=arr_dtype,
                                              )
         if index_iter.getitem_bool():
-            arr_iter.setitem(value_iter.getitem())
+            arr_iter.setitem(arr_dtype.coerce(space, value_iter.getitem()))
             value_iter.next()
         arr_iter.next()
         index_iter.next()
@@ -475,12 +481,16 @@ fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
                                   greens = ['itemsize', 'dtype'],
                                   reds = 'auto')
 
-def fromstring_loop(a, dtype, itemsize, s):
+def fromstring_loop(space, a, dtype, itemsize, s):
     i = 0
     ai = a.create_iter()
     while not ai.done():
         fromstring_driver.jit_merge_point(dtype=dtype, itemsize=itemsize)
-        val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
+        sub = s[i*itemsize:i*itemsize + itemsize]
+        if dtype.is_str_or_unicode():
+            val = dtype.coerce(space, space.wrap(sub))
+        else:
+            val = dtype.itemtype.runpack_str(space, sub)
         ai.setitem(val)
         ai.next()
         i += 1
@@ -489,7 +499,7 @@ def tostring(space, arr):
     builder = StringBuilder()
     iter = arr.create_iter()
     w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
-    itemsize = arr.get_dtype().itemtype.get_element_size()
+    itemsize = arr.get_dtype().get_size()
     res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
                                w_res_str.implementation.get_storage_as_int(space))
     while not iter.done():
@@ -581,15 +591,15 @@ def choose(space, arr, choices, shape, dtype, out, mode):
     while not arr_iter.done():
         choose_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
                                       mode=mode)
-        index = int_w(space, arr_iter.getitem())
+        index = index_w(space, arr_iter.getitem())
         if index < 0 or index >= len(iterators):
-            if mode == constants.MODE_RAISE:
+            if mode == NPY_RAISE:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "invalid entry in choice array"))
-            elif mode == constants.MODE_WRAP:
+            elif mode == NPY_WRAP:
                 index = index % (len(iterators))
             else:
-                assert mode == constants.MODE_CLIP
+                assert mode == NPY_CLIP
                 if index < 0:
                     index = 0
                 else:

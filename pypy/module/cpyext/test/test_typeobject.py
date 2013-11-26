@@ -360,8 +360,8 @@ class TestTypes(BaseApiTest):
 
     def test_ndarray_ref(self, space, api):
         w_obj = space.appexec([], """():
-            import numpypy as np
-            return np.int64(2)""")
+            import _numpypy
+            return _numpypy.multiarray.dtype('int64').type(2)""")
         ref = make_ref(space, w_obj)
         api.Py_DecRef(ref)
 

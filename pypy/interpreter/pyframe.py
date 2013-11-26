@@ -1,19 +1,21 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
+from rpython.rlib import jit
+from rpython.rlib.debug import make_sure_not_resized, check_nonneg
+from rpython.rlib.jit import hint
+from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
-from pypy.interpreter import eval, pycode
+
+from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.astcompiler import consts
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter import pytraceback
-from rpython.rlib.objectmodel import we_are_translated, instantiate
-from rpython.rlib.jit import hint
-from rpython.rlib.debug import make_sure_not_resized, check_nonneg
-from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib import jit
+from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
-from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
@@ -21,11 +23,10 @@ POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
-class PyFrame(eval.Frame):
+
+class PyFrame(W_Root):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
-
-    See also pyopcode.PyStandardFrame and nestedscope.PyNestedScopeFrame.
 
     Public fields:
      * 'space' is the object space this frame is running in
@@ -34,6 +35,12 @@ class PyFrame(eval.Frame):
      * 'w_globals' is the attached globals dictionary
      * 'builtin' is the attached built-in module
      * 'valuestack_w', 'blockstack', control the interpretation
+
+    Cell Vars:
+        my local variables that are exposed to my inner functions
+    Free Vars:
+        variables coming from a parent function in which i'm nested
+    'closure' is a list of Cell instances: the received free vars.
     """
 
     __metaclass__ = extendabletype
@@ -56,8 +63,10 @@ class PyFrame(eval.Frame):
                 "use space.FrameClass(), not directly PyFrame()")
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
+        self.space = space
+        self.w_globals = w_globals
+        self.w_locals = None
         self.pycode = code
-        eval.Frame.__init__(self, space, w_globals)
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
@@ -116,6 +125,7 @@ class PyFrame(eval.Frame):
         else:
             return self.space.builtin
 
+    @jit.unroll_safe
     def initialize_frame_scopes(self, outer_func, code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
@@ -123,13 +133,36 @@ class PyFrame(eval.Frame):
         # CO_OPTIMIZED: no locals dict needed at all
         # NB: this method is overridden in nestedscope.py
         flags = code.co_flags
-        if flags & pycode.CO_OPTIMIZED:
-            return
-        if flags & pycode.CO_NEWLOCALS:
-            self.w_locals = self.space.newdict(module=True)
+        if not (flags & pycode.CO_OPTIMIZED):
+            if flags & pycode.CO_NEWLOCALS:
+                self.w_locals = self.space.newdict(module=True)
+            else:
+                assert self.w_globals is not None
+                self.w_locals = self.w_globals
+
+        ncellvars = len(code.co_cellvars)
+        nfreevars = len(code.co_freevars)
+        if not nfreevars:
+            if not ncellvars:
+                self.cells = []
+                return            # no self.cells needed - fast path
+        elif outer_func is None:
+            space = self.space
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("directly executed code object "
+                                            "may not contain free variables"))
+        if outer_func and outer_func.closure:
+            closure_size = len(outer_func.closure)
         else:
-            assert self.w_globals is not None
-            self.w_locals = self.w_globals
+            closure_size = 0
+        if closure_size != nfreevars:
+            raise ValueError("code object received a closure with "
+                                 "an unexpected number of free variables")
+        self.cells = [None] * (ncellvars + nfreevars)
+        for i in range(ncellvars):
+            self.cells[i] = Cell()
+        for i in range(nfreevars):
+            self.cells[i + ncellvars] = outer_func.closure[i]
 
     def run(self):
         """Start this frame's execution."""
@@ -317,7 +350,7 @@ class PyFrame(eval.Frame):
         w = space.wrap
         nt = space.newtuple
 
-        cells = self._getcells()
+        cells = self.cells
         if cells is None:
             w_cells = space.w_None
         else:
@@ -431,8 +464,6 @@ class PyFrame(eval.Frame):
         new_frame.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
 
         self._setcellvars(cellvars)
-        # XXX what if the frame is in another thread??
-        space.frame_trace_action.fire()
 
     def hide(self):
         return self.pycode.hidden_applevel
@@ -440,12 +471,7 @@ class PyFrame(eval.Frame):
     def getcode(self):
         return hint(self.pycode, promote=True)
 
-    @jit.dont_look_inside
-    def getfastscope(self):
-        "Get the fast locals as a list."
-        return self.locals_stack_w
-
-    @jit.dont_look_inside
+    @jit.look_inside_iff(lambda self, scope_w: jit.isvirtual(scope_w))
     def setfastscope(self, scope_w):
         """Initialize the fast locals from a list of values,
         where the order is according to self.pycode.signature()."""
@@ -458,22 +484,116 @@ class PyFrame(eval.Frame):
             self.locals_stack_w[i] = scope_w[i]
         self.init_cells()
 
-    def init_cells(self):
-        """Initialize cellvars from self.locals_stack_w.
-        This is overridden in nestedscope.py"""
-        pass
+    def getdictscope(self):
+        """
+        Get the locals as a dictionary
+        """
+        self.fast2locals()
+        return self.w_locals
 
-    def getfastscopelength(self):
-        return self.pycode.co_nlocals
+    def setdictscope(self, w_locals):
+        """
+        Initialize the locals from a dictionary.
+        """
+        self.w_locals = w_locals
+        self.locals2fast()
+
+    @jit.unroll_safe
+    def fast2locals(self):
+        # Copy values from the fastlocals to self.w_locals
+        if self.w_locals is None:
+            self.w_locals = self.space.newdict()
+        varnames = self.getcode().getvarnames()
+        for i in range(min(len(varnames), self.getcode().co_nlocals)):
+            name = varnames[i]
+            w_value = self.locals_stack_w[i]
+            w_name = self.space.wrap(name)
+            if w_value is not None:
+                self.space.setitem(self.w_locals, w_name, w_value)
+            else:
+                try:
+                    self.space.delitem(self.w_locals, w_name)
+                except OperationError as e:
+                    if not e.match(self.space, self.space.w_KeyError):
+                        raise
+
+        # cellvars are values exported to inner scopes
+        # freevars are values coming from outer scopes
+        freevarnames = list(self.pycode.co_cellvars)
+        if self.pycode.co_flags & consts.CO_OPTIMIZED:
+            freevarnames.extend(self.pycode.co_freevars)
+        for i in range(len(freevarnames)):
+            name = freevarnames[i]
+            cell = self.cells[i]
+            try:
+                w_value = cell.get()
+            except ValueError:
+                pass
+            else:
+                w_name = self.space.wrap(name)
+                self.space.setitem(self.w_locals, w_name, w_value)
+
+
+    @jit.unroll_safe
+    def locals2fast(self):
+        # Copy values from self.w_locals to the fastlocals
+        assert self.w_locals is not None
+        varnames = self.getcode().getvarnames()
+        numlocals = self.getcode().co_nlocals
+
+        new_fastlocals_w = [None] * numlocals
+
+        for i in range(min(len(varnames), numlocals)):
+            w_name = self.space.wrap(varnames[i])
+            try:
+                w_value = self.space.getitem(self.w_locals, w_name)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_KeyError):
+                    raise
+            else:
+                new_fastlocals_w[i] = w_value
+
+        self.setfastscope(new_fastlocals_w)
+
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        for i in range(len(freevarnames)):
+            name = freevarnames[i]
+            cell = self.cells[i]
+            w_name = self.space.wrap(name)
+            try:
+                w_value = self.space.getitem(self.w_locals, w_name)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_KeyError):
+                    raise
+            else:
+                cell.set(w_value)
+
+    @jit.unroll_safe
+    def init_cells(self):
+        """
+        Initialize cellvars from self.locals_stack_w.
+        """
+        args_to_copy = self.pycode._args_as_cellvars
+        for i in range(len(args_to_copy)):
+            argnum = args_to_copy[i]
+            if argnum >= 0:
+                self.cells[i].set(self.locals_stack_w[argnum])
 
     def getclosure(self):
         return None
 
-    def _getcells(self):
-        return None
-
     def _setcellvars(self, cellvars):
-        pass
+        ncellvars = len(self.pycode.co_cellvars)
+        if len(cellvars) != ncellvars:
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap("bad cellvars"))
+        self.cells[:ncellvars] = cellvars
+
+    def fget_code(self, space):
+        return space.wrap(self.getcode())
+
+    def fget_getdictscope(self, space):
+        return self.getdictscope()
 
     ### line numbers ###
 
@@ -488,7 +608,7 @@ class PyFrame(eval.Frame):
         "Returns the line number of the instruction currently being executed."
         try:
             new_lineno = space.int_w(w_new_lineno)
-        except OperationError, e:
+        except OperationError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("lineno must be an integer"))
 
@@ -637,7 +757,6 @@ class PyFrame(eval.Frame):
         else:
             self.w_f_trace = w_trace
             self.f_lineno = self.get_last_lineno()
-            space.frame_trace_action.fire()
 
     def fdel_f_trace(self, space):
         self.w_f_trace = None
