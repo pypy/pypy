@@ -865,6 +865,8 @@ class LowLevelOpList(list):
                 raise TyperError("bug in conversion from %r to %r: "
                                  "returned a %r" % (r_from, r_to,
                                                     v.concretetype))
+        else:
+            v = orig_v
         return v
 
     def genop(self, opname, args_v, resulttype=None):
