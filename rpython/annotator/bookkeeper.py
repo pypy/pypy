@@ -12,13 +12,13 @@ from rpython.annotator.model import (SomeOrderedDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray)
+    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray, SomeConstantType)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
-from rpython.annotator.argument import ArgumentsForTranslation, RPythonCallsSpace
+from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -436,11 +436,7 @@ class Bookkeeper(object):
         elif isinstance(x, llmemory.fakeaddress):
             result = SomeAddress()
         elif tp is type:
-            if (x is type(None) or      # add cases here if needed
-                x.__module__ == 'rpython.rtyper.lltypesystem.lltype'):
-                result = SomeType()
-            else:
-                result = SomePBC([self.getdesc(x)])
+            result = SomeConstantType(x, self)
         elif callable(x):
             if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
@@ -700,12 +696,11 @@ class Bookkeeper(object):
         return op
 
     def build_args(self, op, args_s):
-        space = RPythonCallsSpace()
         if op == "simple_call":
-            return ArgumentsForTranslation(space, list(args_s))
+            return ArgumentsForTranslation(list(args_s))
         elif op == "call_args":
             return ArgumentsForTranslation.fromshape(
-                    space, args_s[0].const, # shape
+                    args_s[0].const, # shape
                     list(args_s[1:]))
 
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
