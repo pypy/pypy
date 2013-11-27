@@ -854,10 +854,10 @@ class LowLevelOpList(list):
                 callee_graph = graph,
                 position_tag = object())
 
-    def convertvar(self, v, r_from, r_to):
-        assert isinstance(v, (Variable, Constant))
+    def convertvar(self, orig_v, r_from, r_to):
+        assert isinstance(orig_v, (Variable, Constant))
         if r_from != r_to:
-            v = pair(r_from, r_to).convert_from_to(v, self)
+            v = pair(r_from, r_to).convert_from_to(orig_v, self)
             if v is NotImplemented:
                 raise TyperError("don't know how to convert from %r to %r" %
                                  (r_from, r_to))
