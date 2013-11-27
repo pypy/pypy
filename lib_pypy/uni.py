@@ -52,6 +52,13 @@ class Engine(CoreEngine):
         self.db = Database(self)
         self.terms = TermPool()
 
+    @staticmethod
+    def _convert_to_prolog(e):
+        return Predicate._convert_to_prolog(e)
+
+    @staticmethod
+    def _back_to_py(e):
+        return Predicate._back_to_py(e)
 
 class SolutionIterator(object):
     """ A wrapper around unipycation.CoreSolutionIterator. """
@@ -180,3 +187,4 @@ def unrolling_map(fun, sequence):
         return [fun(sequence[0]), fun(sequence[1]), fun(sequence[2]),
                 fun(sequence[3]), fun(sequence[4])]
     return map(fun, sequence)
+

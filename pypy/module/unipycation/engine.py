@@ -263,7 +263,8 @@ class W_CoreEngine(W_Root):
                     space.w_TypeError,
                     space.wrap("at least one argument (return value) is required"))
         returnarg = p_term.argument_at(numargs - 1)
-        args_w = [conversion.w_of_p(space, p_term.argument_at(i))
+        args_w = [self._postprocess_w_of_p(
+                        conversion.w_of_p(space, p_term.argument_at(i)))
                     for i in range(numargs - 1)]
         return args_w, returnarg
 
@@ -284,8 +285,20 @@ class W_CoreEngine(W_Root):
             # many solutions
             return continue_python_iter(
                 self.engine, scont, fcont, heap, returnarg, space, w_res)
+        w_res = self._preprocess_p_of_w(w_res)
         returnarg.unify(conversion.p_of_w(space, w_res), heap)
         return scont, fcont, heap
+
+    def _preprocess_p_of_w(self, w_res):
+        return self.space.call_method(self, "_convert_to_prolog", w_res)
+
+    def _postprocess_w_of_p(self, w_res):
+        return self.space.call_method(self, "_back_to_py", w_res)
+
+    def _back_to_py(self, w_res):
+        return w_res
+    def _convert_to_prolog(self, w_res):
+        return w_res
 
 @continuation.make_failure_continuation
 def continue_python_iter(Choice, engine, scont, fcont, heap, resultvar, space, w_iter):
@@ -321,5 +334,7 @@ W_CoreEngine.typedef = TypeDef("CoreEngine",
     from_file = interp2app(W_CoreEngine.from_file, as_classmethod=True),
     query_iter = interp2app(W_CoreEngine.query_iter),
     query_single = interp2app(W_CoreEngine.query_single),
+    _convert_to_prolog = interp2app(W_CoreEngine._convert_to_prolog),
+    _back_to_py = interp2app(W_CoreEngine._back_to_py),
 )
 

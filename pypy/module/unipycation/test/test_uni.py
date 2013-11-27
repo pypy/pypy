@@ -198,6 +198,23 @@ Undefined procedure: willsmith/3"""
         x, = e.db.f(None)
         assert x == 16
 
+    def test_call_python_convert_arg(self):
+        import uni
+
+        e = uni.Engine("f(X) :- python:len([1, 2, 3, 4, 5], X).", locals())
+        x, = e.db.f(None)
+        assert x == 5
+
+    def test_call_python_convert_result(self):
+        import uni
+
+        def f(x):
+            return len(x)
+
+        e = uni.Engine("f(X) :- python:range(5, Y), length(Y, X).", locals())
+        x, = e.db.f(None)
+        assert x == 5
+
     def test_paper_cls_example(self):
         import uni
 
