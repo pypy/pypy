@@ -28,7 +28,7 @@ class AppTestObjects(object):
 
         e = u.CoreEngine("f(g(a, b, c, d)).")
         X = u.Var()
-        
+
         t = u.CoreTerm("f", [X])
         x_val = e.query_single(t, [X])[X]
 
