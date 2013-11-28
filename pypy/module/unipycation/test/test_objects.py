@@ -109,3 +109,12 @@ class AppTestObjects(object):
         t = unipycation.CoreTerm("f", [1, "abc"])
         assert list(t) == [1, "abc"]
         assert t[-1] == "abc"
+
+    def test_term_unpacking(self):
+        import unipycation
+        t = unipycation.CoreTerm("f", [1, "abc"])
+        assert len(t) == 2
+
+        (x, y) = t
+        assert x == 1
+        assert y == "abc"
