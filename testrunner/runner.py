@@ -160,7 +160,7 @@ def interpret_exitcode(exitcode, test, logdata=""):
                 msg = "Killed by %s." % getsignalname(-exitcode)
             extralog = "! %s\n %s\n" % (test, msg)
         else:
-            extralog = " somefailed=True in %s\n" % (test,)
+            extralog = "  (somefailed=True in %s)\n" % (test,)
     else:
         failure = False
     return failure, extralog
