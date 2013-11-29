@@ -159,6 +159,8 @@ def interpret_exitcode(exitcode, test, logdata=""):
             else:
                 msg = "Killed by %s." % getsignalname(-exitcode)
             extralog = "! %s\n %s\n" % (test, msg)
+        else:
+            extralog = " somefailed=True in %s\n" % (test,)
     else:
         failure = False
     return failure, extralog
@@ -261,7 +263,8 @@ def execute_tests(run_param, testdirs, logfile, out):
         done += 1
         failure = failure or somefailed
 
-        heading = "__ %s [%d done in total] " % (testname, done)
+        heading = "__ %s [%d done in total, somefailed=%s] " % (
+            testname, done, somefailed)
         
         out.write(heading + (79-len(heading))*'_'+'\n')
 
