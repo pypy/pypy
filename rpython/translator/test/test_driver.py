@@ -49,7 +49,7 @@ def test_ctr():
 
 def test_create_exe():
     if not os.name == 'nt':
-        py.skip('Windows only test')
+        py.test.skip('Windows only test')
 
     dst_name = udir.join('dst/pypy.exe')
     src_name = udir.join('src/dydy2.exe')
