@@ -25,3 +25,6 @@ OSX: Ensure frameworks end up in Makefile when specified in External compilation
 .. branch: less-stringly-ops
 Use subclasses of SpaceOperation instead of SpaceOperator objects.
 Random cleanups in flowspace and annotator.
+
+.. branch: ndarray-buffer
+adds support for the buffer= argument to the ndarray ctor
