@@ -1,10 +1,16 @@
 import sys
-from rpython.tool.gcc_cache import *
+import cStringIO
+import py
 from rpython.tool.udir import udir
-import md5, cStringIO
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import CompilationError
+from rpython.tool.gcc_cache import (
+    cache_file_path, build_executable_cache, try_compile_cache)
 
 localudir = udir.join('test_gcc_cache').ensure(dir=1)
+
+from rpython.conftest import cache_dir
+cache_root = py.path.local(cache_dir).ensure(dir=1)
 
 def test_gcc_exec():
     f = localudir.join("x.c")
@@ -23,7 +29,7 @@ def test_gcc_exec():
     dir2.join('test_gcc_exec.h').write('#define ANSWER 42\n')
     eci = ExternalCompilationInfo(include_dirs=[str(dir1)])
     # remove cache
-    path = cache_file_path([f], eci, 'build_executable_cache')
+    path = cache_file_path([f], eci, cache_root, 'build_executable_cache')
     if path.check():
         path.remove()
     res = build_executable_cache([f], eci)
@@ -54,7 +60,7 @@ def test_gcc_ask():
     dir2.join('test_gcc_ask.h').write('#error boom\n')
     eci = ExternalCompilationInfo(include_dirs=[str(dir1)])
     # remove cache
-    path = cache_file_path([f], eci, 'try_compile_cache')
+    path = cache_file_path([f], eci, cache_root, 'try_compile_cache')
     if path.check():
         path.remove()
     assert try_compile_cache([f], eci)
@@ -90,4 +96,3 @@ def test_execute_code_ignore_errors():
     finally:
         sys.stderr = oldstderr
     assert 'ERROR' not in capture.getvalue().upper()
-    
