@@ -424,6 +424,12 @@ class W_CDataSliced(W_CData):
     def get_array_length(self):
         return self.length
 
+    def _sizeof(self):
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+        ctype = self.ctype
+        assert isinstance(ctype, W_CTypePtrOrArray)
+        return self.length * ctype.ctitem.size
+
 
 class W_CDataHandle(W_CData):
     _attrs_ = ['w_keepalive']

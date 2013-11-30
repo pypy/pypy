@@ -18,3 +18,7 @@ JIT support for singlefloats on ARM using the hardfloat ABI
 
 .. branch: voidtype_strformat
 Better support for record numpy arrays
+
+.. branch: osx-eci-frameworks-makefile
+OSX: Ensure frameworks end up in Makefile when specified in External compilation info
+
