@@ -9,9 +9,6 @@ from rpython.tool.gcc_cache import (
 
 localudir = udir.join('test_gcc_cache').ensure(dir=1)
 
-from rpython.conftest import cache_dir
-cache_root = py.path.local(cache_dir).ensure(dir=1)
-
 def test_gcc_exec():
     f = localudir.join("x.c")
     f.write("""
@@ -29,7 +26,7 @@ def test_gcc_exec():
     dir2.join('test_gcc_exec.h').write('#define ANSWER 42\n')
     eci = ExternalCompilationInfo(include_dirs=[str(dir1)])
     # remove cache
-    path = cache_file_path([f], eci, cache_root, 'build_executable_cache')
+    path = cache_file_path([f], eci, 'build_executable_cache')
     if path.check():
         path.remove()
     res = build_executable_cache([f], eci)
@@ -60,7 +57,7 @@ def test_gcc_ask():
     dir2.join('test_gcc_ask.h').write('#error boom\n')
     eci = ExternalCompilationInfo(include_dirs=[str(dir1)])
     # remove cache
-    path = cache_file_path([f], eci, cache_root, 'try_compile_cache')
+    path = cache_file_path([f], eci, 'try_compile_cache')
     if path.check():
         path.remove()
     assert try_compile_cache([f], eci)

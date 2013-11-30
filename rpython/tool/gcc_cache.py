@@ -1,10 +1,12 @@
 from hashlib import md5
 import py, os
 
-def cache_file_path(c_files, eci, cache_root, cachename):
+def cache_file_path(c_files, eci, cachename):
     "Builds a filename to cache compilation data"
     # Import 'platform' every time, the compiler may have been changed
     from rpython.translator.platform import platform
+    from rpython.config.translationoption import CACHE_DIR
+    cache_root = py.path.local(CACHE_DIR).ensure(dir=1)
     cache_dir = cache_root.join(cachename).ensure(dir=1)
     filecontents = [c_file.read() for c_file in c_files]
     key = repr((filecontents, eci, platform.key()))
@@ -15,9 +17,7 @@ def build_executable_cache(c_files, eci, ignore_errors=False):
     "Builds and run a program; caches the result"
     # Import 'platform' every time, the compiler may have been changed
     from rpython.translator.platform import platform
-    from rpython.conftest import cache_dir
-    cache_root = py.path.local(cache_dir).ensure(dir=1)
-    path = cache_file_path(c_files, eci, cache_root, 'build_executable_cache')
+    path = cache_file_path(c_files, eci, 'build_executable_cache')
     try:
         return path.read()
     except py.error.Error:
@@ -54,9 +54,7 @@ def try_compile_cache(c_files, eci):
     "Try to compile a program.  If it works, caches this fact."
     # Import 'platform' every time, the compiler may have been changed
     from rpython.translator.platform import platform
-    from rpython.conftest import cache_dir
-    cache_root = py.path.local(cache_dir).ensure(dir=1)
-    path = cache_file_path(c_files, eci, cache_root, 'try_compile_cache')
+    path = cache_file_path(c_files, eci, 'try_compile_cache')
     try:
         data = path.read()
         if data == 'True':
