@@ -132,7 +132,7 @@ class MixLevelHelperAnnotator(object):
         self.rtyper = rtyper
         self.policy = MixLevelAnnotatorPolicy(self)
         self.pending = []     # list of (ll_function, graph, args_s, s_result)
-        self.delayedreprs = {}
+        self.delayedreprs = set()
         self.delayedconsts = []
         self.delayedfuncs = []
         self.newgraphs = set()
@@ -193,7 +193,7 @@ class MixLevelHelperAnnotator(object):
         else:
             delayed = r.set_setup_maybe_delayed()
         if delayed:
-            self.delayedreprs[r] = True
+            self.delayedreprs.add(r)
         return r
 
     def s_r_instanceof(self, cls, can_be_None=True, check_never_seen=True):
