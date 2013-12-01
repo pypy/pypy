@@ -22,3 +22,6 @@ Better support for record numpy arrays
 .. branch: osx-eci-frameworks-makefile
 OSX: Ensure frameworks end up in Makefile when specified in External compilation info
 
+.. branch: less-stringly-ops
+Use subclasses of SpaceOperation instead of SpaceOperator objects.
+Random cleanups in flowspace and annotator.
