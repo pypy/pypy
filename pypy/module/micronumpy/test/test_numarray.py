@@ -219,6 +219,7 @@ class TestNumArrayDirect(object):
 
 class AppTestNumArray(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
@@ -381,6 +382,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = arange(3, 7, 2)
         assert (a == [3, 5]).all()
+        a = arange(3, 8, 2)
+        assert (a == [3, 5, 7]).all()
         a = arange(3, dtype=float)
         assert (a == [0., 1., 2.]).all()
         assert a.dtype is dtype(float)
@@ -2086,6 +2089,69 @@ class AppTestNumArray(BaseNumpyAppTest):
         import numpypy as np
         a = np.ndarray([1], dtype=bool)
         assert a[0] == True
+
+
+class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
+
+    def setup_class(cls):
+        from rpython.tool.udir import udir
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        cls.w_tmpname = cls.space.wrap(str(udir.join('mmap-')))
+
+    def test_ndarray_from_buffer(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*3)
+        a = np.ndarray((3,), buffer=buf, dtype='i2')
+        a[0] = ord('b')
+        a[1] = ord('a')
+        a[2] = ord('r')
+        assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
+        assert a.base is buf
+
+    def test_ndarray_subclass_from_buffer(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*3)
+        class X(np.ndarray):
+            pass
+        a = X((3,), buffer=buf, dtype='i2')
+        assert type(a) is X
+
+    def test_ndarray_from_buffer_and_offset(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*7)
+        buf[0] = 'X'
+        a = np.ndarray((3,), buffer=buf, offset=1, dtype='i2')
+        a[0] = ord('b')
+        a[1] = ord('a')
+        a[2] = ord('r')
+        assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
+
+    def test_ndarray_from_buffer_out_of_bounds(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*10) # 20 bytes
+        info = raises(TypeError, "np.ndarray((11,), buffer=buf, dtype='i2')")
+        assert str(info.value).startswith('buffer is too small')
+        info = raises(TypeError, "np.ndarray((5,), buffer=buf, offset=15, dtype='i2')")
+        assert str(info.value).startswith('buffer is too small')
+
+    def test_ndarray_from_readonly_buffer(self):
+        import numpypy as np
+        from mmap import mmap, ACCESS_READ
+        f = open(self.tmpname, "w+")
+        f.write("hello")
+        f.flush()
+        buf = mmap(f.fileno(), 5, access=ACCESS_READ)
+        a = np.ndarray((5,), buffer=buf, dtype='c')
+        raises(ValueError, "a[0] = 'X'")
+        buf.close()
+        f.close()
+
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
