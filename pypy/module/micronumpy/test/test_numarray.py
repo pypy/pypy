@@ -381,6 +381,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = arange(3, 7, 2)
         assert (a == [3, 5]).all()
+        a = arange(3, 8, 2)
+        assert (a == [3, 5, 7]).all()
         a = arange(3, dtype=float)
         assert (a == [0., 1., 2.]).all()
         assert a.dtype is dtype(float)
