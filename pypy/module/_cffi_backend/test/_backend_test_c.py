@@ -3125,6 +3125,12 @@ def test_void_p_arithmetic():
     py.test.raises(TypeError, "p + cast(new_primitive_type('int'), 42)")
     py.test.raises(TypeError, "p - cast(new_primitive_type('int'), 42)")
 
+def test_sizeof_sliced_array():
+    BInt = new_primitive_type("int")
+    BArray = new_array_type(new_pointer_type(BInt), 10)
+    p = newp(BArray, None)
+    assert sizeof(p[2:9]) == 7 * sizeof(BInt)
+
 
 def test_version():
     # this test is here mostly for PyPy

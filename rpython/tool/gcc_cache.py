@@ -1,15 +1,13 @@
-from rpython.translator.platform import CompilationError
-from rpython.conftest import cache_dir
 from hashlib import md5
 import py, os
-
-cache_dir_root = py.path.local(cache_dir).ensure(dir=1)
 
 def cache_file_path(c_files, eci, cachename):
     "Builds a filename to cache compilation data"
     # Import 'platform' every time, the compiler may have been changed
     from rpython.translator.platform import platform
-    cache_dir = cache_dir_root.join(cachename).ensure(dir=1)
+    from rpython.config.translationoption import CACHE_DIR
+    cache_root = py.path.local(CACHE_DIR).ensure(dir=1)
+    cache_dir = cache_root.join(cachename).ensure(dir=1)
     filecontents = [c_file.read() for c_file in c_files]
     key = repr((filecontents, eci, platform.key()))
     hash = md5(key).hexdigest()

@@ -5,6 +5,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import Block, Link, Variable, SpaceOperation
 from rpython.flowspace.model import checkgraph
+from rpython.flowspace.operation import op
 from rpython.annotator import model as annmodel
 from rpython.flowspace.argument import Signature
 
@@ -33,7 +34,8 @@ def flatten_star_args(funcdesc, args_s):
             argscopy = [Variable(v) for v in graph.getargs()]
             starargs = [Variable('stararg%d'%i) for i in range(nb_extra_args)]
             newstartblock = Block(argscopy[:-1] + starargs)
-            newtup = SpaceOperation('newtuple', starargs, argscopy[-1])
+            newtup = op.newtuple(*starargs)
+            newtup.result = argscopy[-1]
             newstartblock.operations.append(newtup)
             newstartblock.closeblock(Link(argscopy, graph.startblock))
             graph.startblock = newstartblock
