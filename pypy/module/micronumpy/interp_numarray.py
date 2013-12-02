@@ -1096,7 +1096,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         storage = rffi.ptradd(storage, offset)
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                                                   w_subtype=w_subtype,
-                                                  w_base=w_buffer)
+                                                  w_base=w_buffer,
+                                                  writable=buf.is_writable())
 
     if not shape:
         return W_NDimArray.new_scalar(space, dtype)

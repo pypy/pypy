@@ -218,7 +218,8 @@ class TestNumArrayDirect(object):
         assert get(1, 1) == 3
 
 class AppTestNumArray(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii", "array"])
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
@@ -2087,6 +2088,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.ndarray([1], dtype=bool)
         assert a[0] == True
 
+
+class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
+
+    def setup_class(cls):
+        from rpython.tool.udir import udir
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        cls.w_tmpname = cls.space.wrap(str(udir.join('mmap-')))
+
     def test_ndarray_from_buffer(self):
         import numpypy as np
         import array
@@ -2126,7 +2136,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert str(info.value).startswith('buffer is too small')
         info = raises(TypeError, "np.ndarray((5,), buffer=buf, offset=15, dtype='i2')")
         assert str(info.value).startswith('buffer is too small')
-        
+
+    def test_ndarray_from_readonly_buffer(self):
+        import numpypy as np
+        from mmap import mmap, ACCESS_READ
+        f = open(self.tmpname, "w+")
+        f.write("hello")
+        f.flush()
+        buf = mmap(f.fileno(), 5, access=ACCESS_READ)
+        a = np.ndarray((5,), buffer=buf, dtype='c')
+        raises(ValueError, "a[0] = 'X'")
+        buf.close()
+        f.close()
+
 
 
 class AppTestMultiDim(BaseNumpyAppTest):

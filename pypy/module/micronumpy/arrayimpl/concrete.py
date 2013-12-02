@@ -400,7 +400,14 @@ class ConcreteArrayWithBase(ConcreteArrayNotOwning):
 
     def base(self):
         return self.orig_base
-        
+
+
+class ConcreteNonWritableArrayWithBase(ConcreteArrayWithBase):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
+
+
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(

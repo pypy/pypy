@@ -50,7 +50,7 @@ class W_NDimArray(W_Root):
 
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False,
-                               w_subtype=None, w_base=None):
+                               w_subtype=None, w_base=None, writable=True):
         from pypy.module.micronumpy.arrayimpl import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
@@ -58,8 +58,14 @@ class W_NDimArray(W_Root):
             if owning:
                 raise OperationError(space.w_ValueError, 
                         space.wrap("Cannot have owning=True when specifying a buffer"))
-            impl = concrete.ConcreteArrayWithBase(shape, dtype, order, strides,
-                                                  backstrides, storage, w_base)
+            if writable:
+                impl = concrete.ConcreteArrayWithBase(shape, dtype, order, strides,
+                                                      backstrides, storage, w_base)
+            else:
+                impl = concrete.ConcreteNonWritableArrayWithBase(shape, dtype, order,
+                                                                 strides, backstrides,
+                                                                 storage, w_base)
+
         elif owning:
             # Will free storage when GCd
             impl = concrete.ConcreteArray(shape, dtype, order, strides,

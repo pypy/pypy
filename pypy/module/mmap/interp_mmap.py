@@ -314,6 +314,14 @@ class MMapBuffer(RWBuffer):
         self.check_valid_writeable()
         self.mmap.setslice(start, string)
 
+    def is_writable(self):
+        try:
+            self.mmap.check_writeable()
+        except RMMapError:
+            return False
+        else:
+            return True
+
     def get_raw_address(self):
         self.check_valid()
         return self.mmap.data
