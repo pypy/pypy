@@ -400,16 +400,16 @@ SYMBOLS_C = [
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', 'init_bufferobject',
+    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_init_bufferobject',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', 'init_pycobject',
+    'PyCObject_Type', '_Py_init_pycobject',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
+    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -687,11 +687,11 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci, translating):
-    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void,
+    init_buffer = rffi.llexternal('_PyPy_init_bufferobject', [], lltype.Void,
                                   compilation_info=eci, _nowrapper=True)
-    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
+    init_pycobject = rffi.llexternal('_PyPy_init_pycobject', [], lltype.Void,
                                      compilation_info=eci, _nowrapper=True)
-    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void,
+    init_capsule = rffi.llexternal('_PyPy_init_capsule', [], lltype.Void,
                                    compilation_info=eci, _nowrapper=True)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
@@ -871,6 +871,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
             continue
         name = name.replace("#", "")
         newname = name.replace('Py', 'PyPy')
+        assert newname != name
         if not rename:
             newname = name
         pypy_macros.append('#define %s %s' % (name, newname))
@@ -1041,7 +1042,7 @@ def setup_library(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=False, do_deref=False)
+    generate_macros(export_symbols, rename=True, do_deref=False)
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False)
     code = "#include <Python.h>\n" + "\n".join(functions)
