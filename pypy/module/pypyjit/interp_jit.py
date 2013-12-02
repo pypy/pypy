@@ -1,6 +1,6 @@
 """This is not the JIT :-)
 
-This is transformed to become a JIT by code elsewhere: pypy/jit/*
+This is transformed to become a JIT by code elsewhere: rpython/jit/*
 """
 
 from rpython.rlib.rarithmetic import r_uint, intmask
