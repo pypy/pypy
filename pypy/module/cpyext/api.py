@@ -687,11 +687,15 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci, translating):
-    init_buffer = rffi.llexternal('_PyPy_init_bufferobject', [], lltype.Void,
+    if translating:
+        prefix = 'PyPy'
+    else:
+        prefix = 'cpyexttest'
+    init_buffer = rffi.llexternal('_%s_init_bufferobject' % prefix, [], lltype.Void,
                                   compilation_info=eci, _nowrapper=True)
-    init_pycobject = rffi.llexternal('_PyPy_init_pycobject', [], lltype.Void,
+    init_pycobject = rffi.llexternal('_%s_init_pycobject' % prefix, [], lltype.Void,
                                      compilation_info=eci, _nowrapper=True)
-    init_capsule = rffi.llexternal('_PyPy_init_capsule', [], lltype.Void,
+    init_capsule = rffi.llexternal('_%s_init_capsule' % prefix, [], lltype.Void,
                                    compilation_info=eci, _nowrapper=True)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
@@ -699,12 +703,8 @@ def setup_init_functions(eci, translating):
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    if translating:
-        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
-    else:
-        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
+    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
+                                 compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
@@ -746,7 +746,7 @@ def build_bridge(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=True, do_deref=True)
+    generate_macros(export_symbols, prefix='cpyexttest')
 
     # Structure declaration code
     members = []
@@ -812,7 +812,7 @@ def build_bridge(space):
 
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', 'PyPy')
+        name = name.replace('Py', 'cpyexttest')
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
             if typ == 'PyObject*':
@@ -824,7 +824,7 @@ def build_bridge(space):
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
         elif typ in ('PyObject*', 'PyTypeObject*'):
-            if name.startswith('PyPyExc_'):
+            if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
@@ -859,29 +859,23 @@ def build_bridge(space):
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
-def generate_macros(export_symbols, rename=True, do_deref=True):
+def generate_macros(export_symbols, prefix):
     "NOT_RPYTHON"
     pypy_macros = []
     renamed_symbols = []
     for name in export_symbols:
-        if name.startswith("PyPy"):
-            renamed_symbols.append(name)
-            continue
-        if not rename:
-            continue
         name = name.replace("#", "")
-        newname = name.replace('Py', 'PyPy')
-        assert newname != name
-        if not rename:
-            newname = name
+        if name.startswith('Py'):
+            newname = prefix + name[2:]
+        elif name.startswith('_Py'):
+            newname = '_' + prefix + name[3:]
+        else:
+            assert False, name
         pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
         renamed_symbols.append(newname)
-    if rename:
-        export_symbols[:] = renamed_symbols
-    else:
-        export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
+    export_symbols[:] = renamed_symbols
 
     # Generate defines
     for macro_name, size in [
@@ -1042,7 +1036,7 @@ def setup_library(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=True, do_deref=False)
+    generate_macros(export_symbols, prefix='PyPy')
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False)
     code = "#include <Python.h>\n" + "\n".join(functions)
