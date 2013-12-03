@@ -859,18 +859,22 @@ def build_bridge(space):
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
+def mangle_name(prefix, name):
+    if name.startswith('Py'):
+        return prefix + name[2:]
+    elif name.startswith('_Py'):
+        return '_' + prefix + name[3:]
+    else:
+        return None
+
 def generate_macros(export_symbols, prefix):
     "NOT_RPYTHON"
     pypy_macros = []
     renamed_symbols = []
     for name in export_symbols:
         name = name.replace("#", "")
-        if name.startswith('Py'):
-            newname = prefix + name[2:]
-        elif name.startswith('_Py'):
-            newname = '_' + prefix + name[3:]
-        else:
-            assert False, name
+        newname = mangle_name(prefix, name)
+        assert newname, name
         pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
@@ -1066,7 +1070,8 @@ def setup_library(space):
         export_struct(name, struct)
 
     for name, func in FUNCTIONS.iteritems():
-        deco = entrypoint_lowlevel("cpyext", func.argtypes, name, relax=True)
+        newname = mangle_name('PyPy', name) or name
+        deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, relax=True)
         deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)
