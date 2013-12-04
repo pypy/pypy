@@ -28,3 +28,7 @@ Random cleanups in flowspace and annotator.
 
 .. branch: ndarray-buffer
 adds support for the buffer= argument to the ndarray ctor
+
+.. branch: better_ftime_detect2
+On OpenBSD do not pull in libcompat.a as it is about to be removed.
+And more generally, if you have gettimeofday(2) you will not need ftime(3).

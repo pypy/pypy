@@ -71,7 +71,6 @@ class RecordChunk(BaseChunk):
         final_strides = arr.get_strides() + strides
         final_backstrides = arr.get_backstrides() + backstrides
         final_dtype = subdtype
-        print self.name,'strides',arr.get_strides(),strides
         if subdtype.subdtype:
             final_dtype = subdtype.subdtype
         return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,

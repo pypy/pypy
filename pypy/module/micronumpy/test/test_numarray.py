@@ -3124,9 +3124,6 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         exc = raises(IndexError, "a[0][None]")
         assert exc.value.message == "invalid index"
 
-        exc = raises(IndexError, "a[0][None]")
-        assert exc.value.message == 'invalid index'
-
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
 
