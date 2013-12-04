@@ -316,9 +316,4 @@ Miscellaneous
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
 
-* ``ctypes.pythonapi`` lets you access the CPython C API emulation layer
-  of PyPy, at your own risks and without doing anything sensible about
-  e.g. the GIL.  Since PyPy 2.3, the functions are called with an extra
-  "Py", for example ``PyPyInt_FromLong()``.
-
 .. include:: _ref.txt
