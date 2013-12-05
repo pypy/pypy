@@ -24,8 +24,12 @@ else:
     FTIME = 'ftime'
     STRUCT_TIMEB = 'struct timeb'
     includes = [TIME_H, 'time.h', 'errno.h', 'sys/select.h',
-                'sys/types.h', 'unistd.h', 'sys/timeb.h',
+                'sys/types.h', 'unistd.h',
                 'sys/time.h', 'sys/resource.h']
+
+    if not sys.platform.startswith("openbsd"):
+        includes.append('sys/timeb.h')
+
     need_rusage = True
 
 
