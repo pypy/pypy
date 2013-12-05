@@ -72,13 +72,13 @@ Papers
 
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
 .. _`Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
-.. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: http://codespeak.net/svn/pypy/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
-.. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/publications/bolz-prolog-jit.pdf
+.. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: http://www.stups.uni-duesseldorf.de/mediawiki/images/b/b0/Pub-BoCuFiLePeRi2011.pdf
+.. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
 .. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
 .. _`How to *not* write Virtual Machines for Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
-.. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`:  http://www.stups.uni-duesseldorf.de/thesis/final-master.pdf
+.. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`: http://wwwold.cobra.cs.uni-duesseldorf.de/thesis/final-master.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
 .. _`EU Reports`: index-report.html
 .. _`Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`: http://sabi.net/nriley/pubs/dls6-riley.pdf
