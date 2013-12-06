@@ -1212,6 +1212,39 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
         assert 'getattr' in self.all_operations(graph)
 
+    def test_empty_cell_unused(self):
+        def test(flag):
+            if flag:
+                b = 5
+            def g():
+                if flag:
+                    return b
+                else:
+                    return 1
+            return g
+        g1 = test(False)
+        graph = self.codetest(g1)
+        assert not self.all_operations(graph)
+        g2 = test(True)
+        graph = self.codetest(g2)
+        assert not self.all_operations(graph)
+
+    def test_empty_cell_error(self):
+        def test(flag):
+            if not flag:
+                b = 5
+            def g():
+                if flag:
+                    return b
+                else:
+                    return 1
+            return g
+        g = test(True)
+        with py.test.raises(FlowingError) as excinfo:
+            graph = self.codetest(g)
+        assert "Undefined closure variable 'b'" in str(excinfo.value)
+
+
 DATA = {'x': 5,
         'y': 6}
 

@@ -329,7 +329,7 @@ class FlowSpaceFrame(object):
         if closure is None:
             self.closure = []
         else:
-            self.closure = [const(c.cell_contents) for c in closure]
+            self.closure = list(closure)
         assert len(self.closure) == len(self.pycode.co_freevars)
 
     def init_locals_stack(self, code):
@@ -846,7 +846,13 @@ class FlowSpaceFrame(object):
     LOOKUP_METHOD = LOAD_ATTR
 
     def LOAD_DEREF(self, varindex):
-        self.pushvalue(self.closure[varindex])
+        cell = self.closure[varindex]
+        try:
+            content = cell.cell_contents
+        except ValueError:
+            name = self.pycode.co_freevars[varindex]
+            raise FlowingError("Undefined closure variable '%s'" % name)
+        self.pushvalue(const(content))
 
     def STORE_FAST(self, varindex):
         w_newvalue = self.popvalue()
