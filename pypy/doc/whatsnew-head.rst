@@ -36,3 +36,6 @@ And more generally, if you have gettimeofday(2) you will not need ftime(3).
 .. branch: timeb_h
 Remove dependency upon <sys/timeb.h> on OpenBSD. This will be disappearing
 along with libcompat.a.
+
+.. branch: OlivierBlanvillain/fix-3-broken-links-on-pypy-published-pap-1386250839215
+Fix 3 broken links on PyPy published papers in docs.
