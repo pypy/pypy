@@ -72,8 +72,8 @@ math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
-math_sin = llexternal('sin', [rffi.DOUBLE], rffi.DOUBLE)
-math_cos = llexternal('cos', [rffi.DOUBLE], rffi.DOUBLE)
+math_sin = llexternal('sin', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
+math_cos = llexternal('cos', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 
 @jit.elidable
 def sqrt_nonneg(x):
