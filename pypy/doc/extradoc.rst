@@ -72,7 +72,7 @@ Papers
 
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
 .. _`Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
-.. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: http://www.stups.uni-duesseldorf.de/mediawiki/images/b/b0/Pub-BoCuFiLePeRi2011.pdf
+.. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
 .. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
 .. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
 .. _`How to *not* write Virtual Machines for Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
