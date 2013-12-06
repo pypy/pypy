@@ -1300,6 +1300,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.sum() == 105
         assert a.max() == 14
         assert array([]).sum() == 0.0
+        assert array([]).reshape(0, 2).sum() == 0.
+        assert (array([]).reshape(0, 2).sum(0) == [0., 0.]).all()
         raises(ValueError, 'array([]).max()')
         assert (a.sum(0) == [30, 35, 40]).all()
         assert (a.sum(axis=0) == [30, 35, 40]).all()

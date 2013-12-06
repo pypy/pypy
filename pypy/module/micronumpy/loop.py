@@ -238,13 +238,16 @@ def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumulative,
     while not out_iter.done():
         axis_reduce__driver.jit_merge_point(shapelen=shapelen, func=func,
                                             dtype=dtype)
-        w_val = arr_iter.getitem().convert_to(dtype)
-        if out_iter.first_line:
-            if identity is not None:
-                w_val = func(dtype, identity, w_val)
+        if arr_iter.done():
+            w_val = identity
         else:
-            cur = temp_iter.getitem()
-            w_val = func(dtype, cur, w_val)
+            w_val = arr_iter.getitem().convert_to(dtype)
+            if out_iter.first_line:
+                if identity is not None:
+                    w_val = func(dtype, identity, w_val)
+            else:
+                cur = temp_iter.getitem()
+                w_val = func(dtype, cur, w_val)
         out_iter.setitem(w_val)
         if cumulative:
             temp_iter.setitem(w_val)
