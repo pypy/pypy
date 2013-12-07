@@ -8,7 +8,7 @@ Low-level implementations for the external functions of the 'os' module.
 import os, sys, errno
 import py
 from rpython.rtyper.module.support import (
-    _WIN32, StringTraits, UnicodeTraits, underscore_on_windows)
+    UNDERSCORE_ON_WIN32, _WIN32, StringTraits, UnicodeTraits)
 from rpython.tool.sourcetools import func_renamer
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.extfunc import (
@@ -138,9 +138,9 @@ class CConfig:
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = platform.DefinedConstantInteger('SEEK_END')
 
-    UTIMBUF     = platform.Struct('struct '+underscore_on_windows+'utimbuf',
-                                  [('actime', rffi.INT),
-                                   ('modtime', rffi.INT)])
+    UTIMBUF = platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
+                              [('actime', rffi.INT),
+                               ('modtime', rffi.INT)])
 
 
 class RegisterOs(BaseLazyRegistering):
@@ -347,7 +347,8 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.dup)
     def register_os_dup(self):
-        os_dup = self.llexternal(underscore_on_windows+'dup', [rffi.INT], rffi.INT)
+        os_dup = self.llexternal(UNDERSCORE_ON_WIN32 + 'dup',
+                                 [rffi.INT], rffi.INT)
 
         def dup_llimpl(fd):
             rposix.validate_fd(fd)
@@ -360,7 +361,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.dup2)
     def register_os_dup2(self):
-        os_dup2 = self.llexternal(underscore_on_windows+'dup2',
+        os_dup2 = self.llexternal(UNDERSCORE_ON_WIN32 + 'dup2',
                                   [rffi.INT, rffi.INT], rffi.INT)
 
         def dup2_llimpl(fd, newfd):
@@ -1002,7 +1003,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.read)
     def register_os_read(self):
-        os_read = self.llexternal(underscore_on_windows+'read',
+        os_read = self.llexternal(UNDERSCORE_ON_WIN32 + 'read',
                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
                                   rffi.SIZE_T)
 
@@ -1027,7 +1028,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.write)
     def register_os_write(self):
-        os_write = self.llexternal(underscore_on_windows+'write',
+        os_write = self.llexternal(UNDERSCORE_ON_WIN32 + 'write',
                                    [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
                                    rffi.SIZE_T)
 
@@ -1050,7 +1051,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.close)
     def register_os_close(self):
-        os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT],
+        os_close = self.llexternal(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT],
                                    rffi.INT, releasegil=False)
 
         def close_llimpl(fd):
@@ -1199,7 +1200,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.getcwd)
     def register_os_getcwd(self):
-        os_getcwd = self.llexternal(underscore_on_windows + 'getcwd',
+        os_getcwd = self.llexternal(UNDERSCORE_ON_WIN32 + 'getcwd',
                                     [rffi.CCHARP, rffi.SIZE_T],
                                     rffi.CCHARP)
 
@@ -1227,7 +1228,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.getcwdu, condition=sys.platform=='win32')
     def register_os_getcwdu(self):
-        os_wgetcwd = self.llexternal(underscore_on_windows + 'wgetcwd',
+        os_wgetcwd = self.llexternal(UNDERSCORE_ON_WIN32 + 'wgetcwd',
                                      [rffi.CWCHARP, rffi.SIZE_T],
                                      rffi.CWCHARP)
 
@@ -1479,7 +1480,8 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.isatty)
     def register_os_isatty(self):
-        os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
+        os_isatty = self.llexternal(UNDERSCORE_ON_WIN32 + 'isatty',
+                                    [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
             if not rposix.is_valid_fd(fd):
@@ -1672,7 +1674,8 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.umask)
     def register_os_umask(self):
-        os_umask = self.llexternal(underscore_on_windows+'umask', [rffi.MODE_T], rffi.MODE_T)
+        os_umask = self.llexternal(UNDERSCORE_ON_WIN32 + 'umask',
+                                   [rffi.MODE_T], rffi.MODE_T)
 
         def umask_llimpl(newmask):
             res = os_umask(rffi.cast(rffi.MODE_T, newmask))

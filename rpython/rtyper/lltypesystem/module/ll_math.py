@@ -10,6 +10,7 @@ from rpython.rlib import jit, rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 from rpython.rlib.rfloat import isfinite, isinf, isnan, INFINITY, NAN
+from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 
 use_library_isinf_isnan = False
 if sys.platform == "win32":
@@ -50,16 +51,11 @@ def math_llexternal(name, ARGS, RESULT):
                            compilation_info=math_eci,
                            sandboxsafe=True)
 
-if sys.platform == 'win32':
-    underscore = '_'
-else:
-    underscore = ''
-
 math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
 math_log1p = math_llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
-math_copysign = llexternal(underscore + 'copysign',
+math_copysign = llexternal(UNDERSCORE_ON_WIN32 + 'copysign',
                            [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
@@ -68,7 +64,7 @@ math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
 math_ldexp = llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE)
 math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_hypot = llexternal(underscore + 'hypot',
+math_hypot = llexternal(UNDERSCORE_ON_WIN32 + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
