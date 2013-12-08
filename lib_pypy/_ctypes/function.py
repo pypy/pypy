@@ -377,7 +377,7 @@ class CFuncPtr(_CData):
                 set_last_error(tmp)
         #
         try:
-            return self._build_result(self._restype_, result, newargs)
+            return self._build_result(self._restype_, result)
         finally:
             funcptr.free_temp_buffers()
 
@@ -601,7 +601,7 @@ class CFuncPtr(_CData):
         retval = restype._CData_retval(buf)
         return retval
 
-    def _build_result(self, restype, result, argsandobjs):
+    def _build_result(self, restype, result):
         """Build the function result:
            If there is no OUT parameter, return the actual function result
            If there is one OUT parameter, return it
@@ -611,11 +611,6 @@ class CFuncPtr(_CData):
         # i.e. an array of ints. Now it takes a result, which is already a
         # python object. All places that do "resbuffer[0]" should check that
         # result is actually an int and just use it.
-        #
-        # Also, argsandobjs used to be "args" in __call__, now it's "newargs"
-        # (i.e., the already unwrapped objects). It's used only when we have a
-        # PARAMFLAG_FOUT and it's probably wrong, I'll fix it when I find a
-        # failing test
 
         retval = None
 
