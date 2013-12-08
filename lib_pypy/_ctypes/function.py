@@ -328,21 +328,23 @@ class CFuncPtr(_CData):
                 raise ValueError(
                     "native COM method call without 'this' parameter"
                     )
-            thisarg = cast(args[0], POINTER(POINTER(c_void_p)))
-            keepalives, newargs, argtypes, outargs = self._convert_args(argtypes,
-                                                                        args[1:], kwargs)
-            newargs.insert(0, args[0].value)
+            thisvalue = args.pop(0)
+            thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
+            keepalives, newargs, argtypes, outargs, errcheckargs = (
+                        self._convert_args(argtypes, args, kwargs))
+            args.insert(0, thisvalue)
+            newargs.insert(0, thisvalue.value)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
-            keepalives, newargs, argtypes, outargs = self._convert_args(argtypes,
-                                                                        args, kwargs)
+            keepalives, newargs, argtypes, outargs, errcheckargs = (
+                        self._convert_args(argtypes, args, kwargs))
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)
-        result = self._do_errcheck(result, args)
+        result, forced = self._do_errcheck(result, errcheckargs)
 
-        if not outargs:
+        if not outargs or forced:
             return result
 
         from ctypes import c_void_p
@@ -384,15 +386,15 @@ class CFuncPtr(_CData):
     def _do_errcheck(self, result, args):
         # The 'errcheck' protocol
         if self._errcheck_:
-            v = self._errcheck_(result, self, args)
+            v = self._errcheck_(result, self, tuple(args))
             # If the errcheck funtion failed, let it throw
             # If the errcheck function returned newargs unchanged,
             # continue normal processing.
             # If the errcheck function returned something else,
             # use that as result.
             if v is not args:
-                return v
-        return result
+                return v, True
+        return result, False
 
     def _getfuncptr_fromaddress(self, argtypes, restype):
         address = self._get_address()
@@ -495,16 +497,16 @@ class CFuncPtr(_CData):
         newargtypes = []
         total = len(args)
         paramflags = self._paramflags
-        inargs_idx = 0
 
         if not paramflags and total < len(argtypes):
             raise TypeError("not enough arguments")
 
-        for i, argtype in enumerate(argtypes):
-            flag = 0
-            name = None
-            defval = marker
-            if paramflags:
+        if paramflags:
+            errcheckargs = []
+            inargs_idx = 0
+            for i, argtype in enumerate(argtypes):
+                flag = 0
+                defval = marker
                 paramflag = paramflags[i]
                 paramlen = len(paramflag)
                 name = None
@@ -519,6 +521,7 @@ class CFuncPtr(_CData):
                     val = defval
                     if val is marker:
                         val = 0
+                    errcheckargs.append(val)
                     keepalive, newarg, newargtype = self._conv_param(argtype, val)
                     keepalives.append(keepalive)
                     newargs.append(newarg)
@@ -536,27 +539,31 @@ class CFuncPtr(_CData):
                         raise TypeError("required argument '%s' missing" % name)
                     else:
                         raise TypeError("not enough arguments")
+                    errcheckargs.append(val)
                     keepalive, newarg, newargtype = self._conv_param(argtype, val)
                     keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 elif flag == PARAMFLAG_FOUT:
                     if defval is not marker:
-                        outargs.append(defval)
+                        val = defval
                         keepalive, newarg, newargtype = self._conv_param(argtype, defval)
                     else:
                         import ctypes
                         val = argtype._type_()
-                        outargs.append(val)
                         keepalive = None
                         newarg = ctypes.byref(val)
                         newargtype = type(newarg)
+                    errcheckargs.append(val)
+                    outargs.append(val)
                     keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 else:
                     raise ValueError("paramflag %d not yet implemented" % flag)
-            else:
+        else:
+            errcheckargs = args
+            for i, argtype in enumerate(argtypes):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
                 except (UnicodeError, TypeError, ValueError), e:
@@ -564,7 +571,6 @@ class CFuncPtr(_CData):
                 keepalives.append(keepalive)
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
-                inargs_idx += 1
 
         if len(newargs) < len(args):
             extra = args[len(newargs):]
@@ -576,7 +582,7 @@ class CFuncPtr(_CData):
                 keepalives.append(keepalive)
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
-        return keepalives, newargs, newargtypes, outargs
+        return keepalives, newargs, newargtypes, outargs, errcheckargs
 
     @staticmethod
     def _is_primitive(argtype):
@@ -699,7 +705,7 @@ def make_fastpath_subclass(CFuncPtr):
             funcptr = self._getfuncptr(argtypes, restype, thisarg)
             try:
                 result = self._call_funcptr(funcptr, *args)
-                result = self._do_errcheck(result, args)
+                result, _ = self._do_errcheck(result, args)
             except (TypeError, ArgumentError, UnicodeDecodeError):
                 assert self._slowpath_allowed
                 return CFuncPtr.__call__(self, *args)
