@@ -68,6 +68,8 @@ class TestTypeConversion(object):
 
         assert unwrap1 == unwrap2
 
+    # XXX test_p_callable_of_w_term missing
+
     # -------------------------------------
     # Test conversion from Prolog to Python
     # -------------------------------------
@@ -127,9 +129,9 @@ class TestTypeConversion(object):
                 space.is_true(space.eq(w_term.prop_getname(space), space.wrap("someterm"))) and \
                 unwrap == ["x", "y", "z"] == unwrap2
 
-    # --------------------------
-    # Test high level converions
-    # --------------------------
+    # ---------------------------
+    # Test high level conversions
+    # ---------------------------
 
     def test_w_of_p_atom(self):
         p_atom = pterm.Atom("Wibble")
