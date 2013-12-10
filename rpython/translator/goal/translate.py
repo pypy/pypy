@@ -7,19 +7,17 @@ Command-line options for translate:
 
 import os
 import sys
-from rpython.conftest import cache_dir
-
 import py
-# clean up early rpython/_cache
-try:
-    py.path.local(cache_dir).remove()
-except Exception:
-    pass
-
 from rpython.config.config import (to_optparse, OptionDescription, BoolOption,
     ArbitraryOption, StrOption, IntOption, Config, ChoiceOption, OptHelpFormatter)
 from rpython.config.translationoption import (get_combined_translation_config,
-    set_opt_level, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform)
+    set_opt_level, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform, CACHE_DIR)
+
+# clean up early rpython/_cache
+try:
+    py.path.local(CACHE_DIR).remove()
+except Exception:
+    pass
 
 
 GOALS = [

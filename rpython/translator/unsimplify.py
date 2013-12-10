@@ -63,7 +63,7 @@ def split_block(annotator, block, index, _forcelink=None):
     #but only for variables that are produced in the old block and needed in
     #the new one
     varmap = {}
-    vars_produced_in_new_block = {}
+    vars_produced_in_new_block = set()
     def get_new_name(var):
         if var is None:
             return None
@@ -77,11 +77,10 @@ def split_block(annotator, block, index, _forcelink=None):
     moved_operations = block.operations[index:]
     new_moved_ops = []
     for op in moved_operations:
-        newop = SpaceOperation(op.opname,
-                               [get_new_name(arg) for arg in op.args],
-                               op.result)
+        repl = dict((arg, get_new_name(arg)) for arg in op.args)
+        newop = op.replace(repl)
         new_moved_ops.append(newop)
-        vars_produced_in_new_block[op.result] = True
+        vars_produced_in_new_block.add(op.result)
     moved_operations = new_moved_ops
     links = block.exits
     block.exits = None

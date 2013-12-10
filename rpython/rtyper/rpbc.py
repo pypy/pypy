@@ -268,8 +268,8 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
                                   # lowleveltype wouldn't be Void otherwise
         funcdesc, = self.s_pbc.descriptions
         tables = []        # find the simple call in the calltable
-        for key, table in self.callfamily.calltables.items():
-            if not key[1] and not key[2] and not key[3]:
+        for shape, table in self.callfamily.calltables.items():
+            if not shape[1] and not shape[2]:
                 tables.append(table)
         if len(tables) != 1:
             raise TyperError("cannot pass a function with various call shapes")

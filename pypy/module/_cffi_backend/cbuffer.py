@@ -59,6 +59,9 @@ class MiniBuffer(W_Root):
     def descr__buffer__(self, space):
         return self.buffer.descr__buffer__(space)
 
+    def descr_str(self, space):
+        return space.wrap(self.buffer.as_str())
+
 
 MiniBuffer.typedef = TypeDef(
     "buffer",
@@ -68,6 +71,7 @@ MiniBuffer.typedef = TypeDef(
     __setitem__ = interp2app(MiniBuffer.descr_setitem),
     __buffer__ = interp2app(MiniBuffer.descr__buffer__),
     __weakref__ = make_weakref_descr(MiniBuffer),
+    __str__ = interp2app(MiniBuffer.descr_str),
     )
 MiniBuffer.typedef.acceptable_as_base_class = False
 

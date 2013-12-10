@@ -47,6 +47,9 @@ class Buffer(W_Root):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
+    def is_writable(self):
+        return False
+
     # __________ app-level support __________
 
     def descr_len(self, space):
@@ -134,6 +137,9 @@ class RWBuffer(Buffer):
     """Abstract base class for read-write memory views."""
 
     __slots__ = ()     # no extra slot here
+
+    def is_writable(self):
+        return True
 
     def setitem(self, index, char):
         "Write a character into the buffer."

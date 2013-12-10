@@ -48,6 +48,7 @@ def fix_permissions(basedir):
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir=None, override_pypy_c=None, nostrip=False,
             withouttk=False):
+    assert '/' not in rename_pypy_c
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'

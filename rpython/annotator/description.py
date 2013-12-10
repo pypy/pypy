@@ -879,11 +879,12 @@ class MethodDesc(Desc):
                                              self.name,
                                              flags)
 
+    @staticmethod
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
-        shape = rawshape(args, nextra=1)     # account for the extra 'self'
+        cnt, keys, star = rawshape(args)
+        shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
-    consider_call_site = staticmethod(consider_call_site)
 
     def rowkey(self):
         # we are computing call families and call tables that always contain
@@ -1039,11 +1040,12 @@ class MethodOfFrozenDesc(Desc):
         args = args.prepend(s_self)
         return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
+    @staticmethod
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
-        shape = rawshape(args, nextra=1)    # account for the extra 'self'
+        cnt, keys, star = rawshape(args)
+        shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
-    consider_call_site = staticmethod(consider_call_site)
 
     def rowkey(self):
         return self.funcdesc

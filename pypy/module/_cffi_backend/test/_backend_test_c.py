@@ -2143,7 +2143,13 @@ def test_buffer():
     c = newp(BCharArray, b"hi there")
     #
     buf = buffer(c)
-    assert str(buf).startswith('<_cffi_backend.buffer object at 0x')
+    assert repr(buf).startswith('<_cffi_backend.buffer object at 0x')
+    assert bytes(buf) == b"hi there\x00"
+    if sys.version_info < (3,):
+        assert str(buf) == "hi there\x00"
+        assert unicode(buf) == u+"hi there\x00"
+    else:
+        assert str(buf) == repr(buf)
     # --mb_length--
     assert len(buf) == len(b"hi there\x00")
     # --mb_item--
@@ -3124,6 +3130,12 @@ def test_void_p_arithmetic():
     py.test.raises(TypeError, "q - p")
     py.test.raises(TypeError, "p + cast(new_primitive_type('int'), 42)")
     py.test.raises(TypeError, "p - cast(new_primitive_type('int'), 42)")
+
+def test_sizeof_sliced_array():
+    BInt = new_primitive_type("int")
+    BArray = new_array_type(new_pointer_type(BInt), 10)
+    p = newp(BArray, None)
+    assert sizeof(p[2:9]) == 7 * sizeof(BInt)
 
 
 def test_version():

@@ -559,3 +559,25 @@ class TestFunctions(BaseCTypesTestChecker):
         assert (res, n) == (42, 43)
         set_errno(0)
         assert get_errno() == 0
+
+    def test_issue1655(self):
+        def ret_list_p(icount):
+            def sz_array_p(obj, func, args):
+                assert ('.LP_c_int object' in repr(obj) or
+                        '.LP_c_long object' in repr(obj))
+                assert repr(args) in ("('testing!', c_int(4))",
+                                      "('testing!', c_long(4))")
+                assert args[icount].value == 4
+                return [ obj[i] for i in range(args[icount].value) ]
+            return sz_array_p
+
+        get_data_prototype = CFUNCTYPE(POINTER(c_int),
+                                       c_char_p, POINTER(c_int))
+        get_data_paramflag = ((1,), (2,))
+        get_data_signature = ('test_issue1655', dll)
+
+        get_data = get_data_prototype( get_data_signature, get_data_paramflag )
+        assert get_data('testing!') == 4
+
+        get_data.errcheck = ret_list_p(1)
+        assert get_data('testing!') == [-1, -2, -3, -4]

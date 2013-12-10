@@ -406,12 +406,12 @@ SYMBOLS_C = [
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', 'init_pycobject',
+    'PyCObject_Type', '_Py_init_pycobject',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
+    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -688,20 +688,22 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci, translating):
-    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
-                                     compilation_info=eci, _nowrapper=True)
-    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void,
+    if translating:
+        prefix = 'PyPy'
+    else:
+        prefix = 'cpyexttest'
+    init_pycobject = rffi.llexternal('_%s_init_pycobject' % prefix, [], lltype.Void,
+    init_capsule = rffi.llexternal('_%s_init_capsule' % prefix, [], lltype.Void,
                                    compilation_info=eci, _nowrapper=True)
     INIT_FUNCTIONS.extend([
         lambda space: init_pycobject(),
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    prefix = 'Py' if translating else 'PyPy'
-    reinit_tls = rffi.llexternal(prefix + 'Thread_ReInitTLS', [], lltype.Void,
+    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
                                  compilation_info=eci)
     global py_fatalerror
-    py_fatalerror = rffi.llexternal(prefix + '_FatalError',
+    py_fatalerror = rffi.llexternal('%s_FatalError' % prefix,
                                     [CONST_STRING], lltype.Void,
                                     compilation_info=eci)
     add_fork_hook('child', reinit_tls)
@@ -745,7 +747,7 @@ def build_bridge(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=True, do_deref=True)
+    generate_macros(export_symbols, prefix='cpyexttest')
 
     # Structure declaration code
     members = []
@@ -811,7 +813,7 @@ def build_bridge(space):
 
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', 'PyPy')
+        name = name.replace('Py', 'cpyexttest')
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
             if typ == 'PyObject*':
@@ -823,7 +825,7 @@ def build_bridge(space):
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
         elif typ in ('PyObject*', 'PyTypeObject*'):
-            if name.startswith('PyPyExc_'):
+            if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
@@ -858,28 +860,27 @@ def build_bridge(space):
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
-def generate_macros(export_symbols, rename=True, do_deref=True):
+def mangle_name(prefix, name):
+    if name.startswith('Py'):
+        return prefix + name[2:]
+    elif name.startswith('_Py'):
+        return '_' + prefix + name[3:]
+    else:
+        return None
+
+def generate_macros(export_symbols, prefix):
     "NOT_RPYTHON"
     pypy_macros = []
     renamed_symbols = []
     for name in export_symbols:
-        if name.startswith("PyPy"):
-            renamed_symbols.append(name)
-            continue
-        if not rename:
-            continue
         name = name.replace("#", "")
-        newname = name.replace('Py', 'PyPy')
-        if not rename:
-            newname = name
+        newname = mangle_name(prefix, name)
+        assert newname, name
         pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
         renamed_symbols.append(newname)
-    if rename:
-        export_symbols[:] = renamed_symbols
-    else:
-        export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
+    export_symbols[:] = renamed_symbols
 
     # Generate defines
     for macro_name, size in [
@@ -1039,7 +1040,7 @@ def setup_library(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=False, do_deref=False)
+    generate_macros(export_symbols, prefix='PyPy')
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False)
     code = "#include <Python.h>\n" + "\n".join(functions)
@@ -1069,7 +1070,8 @@ def setup_library(space):
         export_struct(name, struct)
 
     for name, func in FUNCTIONS.iteritems():
-        deco = entrypoint_lowlevel("cpyext", func.argtypes, name, relax=True)
+        newname = mangle_name('PyPy', name) or name
+        deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, relax=True)
         deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)
