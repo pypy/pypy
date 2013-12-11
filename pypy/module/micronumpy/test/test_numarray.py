@@ -271,6 +271,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test uninitialized value crash?
         assert len(str(a)) > 0
 
+        import sys
+        for order in [False, True, 'C', 'F']:
+            a = ndarray.__new__(ndarray, (2, 3), float, order=order)
+            assert a.shape == (2, 3)
+            if order in [True, 'F'] and '__pypy__' not in sys.builtin_module_names:
+                assert a.flags['F']
+                assert not a.flags['C']
+            else:
+                assert a.flags['C']
+                assert not a.flags['F']
+
     def test_ndmin(self):
         from numpypy import array
 
