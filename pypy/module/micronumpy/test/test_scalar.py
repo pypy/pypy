@@ -18,6 +18,15 @@ class AppTestScalar(BaseNumpyAppTest):
         #raises(TypeError, np.complex_, '1+2j')
         assert math.isnan(np.complex_(None))
 
+    def test_builtin(self):
+        import numpy as np
+        assert oct(np.int32(11)) == '013'
+        assert oct(np.float32(11.6)) == '013'
+        assert oct(np.complex64(11-12j)) == '013'
+        assert hex(np.int32(11)) == '0xb'
+        assert hex(np.float32(11.6)) == '0xb'
+        assert hex(np.complex64(11-12j)) == '0xb'
+
     def test_pickle(self):
         from numpypy import dtype, zeros
         try:

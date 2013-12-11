@@ -163,6 +163,12 @@ class W_GenericBox(W_Root):
         assert isinstance(box, W_Float64Box)
         return space.wrap(box.value)
 
+    def descr_oct(self, space):
+        return space.oct(self.descr_int(space))
+
+    def descr_hex(self, space):
+        return space.hex(self.descr_int(space))
+
     def descr_nonzero(self, space):
         dtype = self.get_dtype(space)
         return space.wrap(dtype.itemtype.bool(self))
@@ -511,6 +517,8 @@ W_GenericBox.typedef = TypeDef("generic",
     __long__ = interp2app(W_GenericBox.descr_long),
     __float__ = interp2app(W_GenericBox.descr_float),
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
+    __oct__ = interp2app(W_GenericBox.descr_oct),
+    __hex__ = interp2app(W_GenericBox.descr_hex),
 
     __add__ = interp2app(W_GenericBox.descr_add),
     __sub__ = interp2app(W_GenericBox.descr_sub),
