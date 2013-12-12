@@ -444,7 +444,7 @@ patch the generated machine code.
 So the position of the core PyPy developers is that if anyone wants to
 make an N+1'th attempt with LLVM, they are welcome, and will be happy to
 provide help in the IRC channel, but they are left with the burden of proof
-that it works.
+that (a) it works and (b) it gives important benefits.
 
 ----------------------
 How do I compile PyPy?

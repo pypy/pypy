@@ -1,4 +1,5 @@
 import sys
+import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from rpython.config.config import ChoiceOption, StrOption, Config
 from rpython.config.config import ConfigError
@@ -19,6 +20,9 @@ else:
     DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
+
+MAINDIR = os.path.dirname(os.path.dirname(__file__))
+CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
 PLATFORMS = [
     'maemo',

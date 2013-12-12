@@ -18,6 +18,16 @@ class W_FlagsObject(W_Root):
     def descr_get_writeable(self, space):
         return space.w_True
 
+    def descr_get_fnc(self, space):
+        return space.wrap(
+            space.is_true(self.descr_get_fortran(space)) and not
+            space.is_true(self.descr_get_contiguous(space)))
+
+    def descr_get_forc(self, space):
+        return space.wrap(
+            space.is_true(self.descr_get_fortran(space)) or
+            space.is_true(self.descr_get_contiguous(space)))
+
     def descr_getitem(self, space, w_item):
         key = space.str_w(w_item)
         if key == "C" or key == "CONTIGUOUS" or key == "C_CONTIGUOUS":
@@ -26,6 +36,10 @@ class W_FlagsObject(W_Root):
             return self.descr_get_fortran(space)
         if key == "W" or key == "WRITEABLE":
             return self.descr_get_writeable(space)
+        if key == "FNC":
+            return self.descr_get_fnc(space)
+        if key == "FORC":
+            return self.descr_get_forc(space)
         raise OperationError(space.w_KeyError, space.wrap(
             "Unknown flag"))
 
@@ -56,4 +70,6 @@ W_FlagsObject.typedef = TypeDef("flagsobj",
     f_contiguous = GetSetProperty(W_FlagsObject.descr_get_fortran),
     fortran = GetSetProperty(W_FlagsObject.descr_get_fortran),
     writeable = GetSetProperty(W_FlagsObject.descr_get_writeable),
+    fnc = GetSetProperty(W_FlagsObject.descr_get_fnc),
+    forc = GetSetProperty(W_FlagsObject.descr_get_forc),
 )

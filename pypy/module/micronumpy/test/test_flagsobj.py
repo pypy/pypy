@@ -12,6 +12,10 @@ class AppTestFlagsObj(BaseNumpyAppTest):
         a = np.array([1,2,3])
         assert a.flags.c_contiguous == True
         assert a.flags['W'] == True
+        assert a.flags.fnc == False
+        assert a.flags.forc == True
+        assert a.flags['FNC'] == False
+        assert a.flags['FORC'] == True
         raises(KeyError, "a.flags['blah']")
         raises(KeyError, "a.flags['C_CONTIGUOUS'] = False")
         raises((TypeError, AttributeError), "a.flags.c_contiguous = False")

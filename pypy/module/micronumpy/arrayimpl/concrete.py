@@ -392,6 +392,21 @@ class ConcreteArray(ConcreteArrayNotOwning):
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
 
+class ConcreteArrayWithBase(ConcreteArrayNotOwning):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage, orig_base):
+        ConcreteArrayNotOwning.__init__(self, shape, dtype, order,
+                                        strides, backstrides, storage)
+        self.orig_base = orig_base
+
+    def base(self):
+        return self.orig_base
+
+
+class ConcreteNonWritableArrayWithBase(ConcreteArrayWithBase):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
+
 
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):

@@ -502,6 +502,14 @@ class SomePBC(SomeObject):
         else:
             return kt.__name__
 
+class SomeConstantType(SomePBC):
+    can_be_None = False
+    subset_of = None
+    def __init__(self, x, bk):
+        self.descriptions = set([bk.getdesc(x)])
+        self.knowntype = type(x)
+        self.const = x
+
 
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
