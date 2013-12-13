@@ -96,6 +96,27 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
         if type(w_value) is W_IntObject:
             value = w_value.intval
             ok = True
+        elif space.lookup(w_value, '__int__') is not None or \
+                space.lookup(w_value, '__trunc__') is not None:
+            # otherwise, use the __int__() or the __trunc__() methods
+            w_obj = w_value
+            if space.lookup(w_obj, '__int__') is None:
+                w_obj = space.trunc(w_obj)
+            w_obj = space.int(w_obj)
+            # 'int(x)' should return what x.__int__() returned, which should
+            # be an int or long or a subclass thereof.
+            if space.is_w(w_inttype, space.w_int):
+                return w_obj
+            # int_w is effectively what we want in this case,
+            # we cannot construct a subclass of int instance with an
+            # an overflowing long
+            try:
+                value = space.int_w(w_obj)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+            else:
+                ok = True
         elif space.isinstance_w(w_value, space.w_str):
             value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
             ok = True
@@ -117,30 +138,9 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
                 ok = True
 
         if not ok:
-            # otherwise, use the __int__() or the __trunc__() methods
-            w_obj = w_value
-            if space.lookup(w_obj, '__int__') is None:
-                if space.lookup(w_obj, '__trunc__') is not None:
-                    w_obj = space.trunc(w_obj)
-                else:
-                    raise operationerrfmt(space.w_TypeError,
-                        "int() argument must be a string or a number, not '%T'",
-                        w_obj)
-            w_obj = space.int(w_obj)
-            # 'int(x)' should return what x.__int__() returned, which should
-            # be an int or long or a subclass thereof.
-            if space.is_w(w_inttype, space.w_int):
-                return w_obj
-            # int_w is effectively what we want in this case,
-            # we cannot construct a subclass of int instance with an
-            # an overflowing long
-            try:
-                value = space.int_w(w_obj)
-            except OperationError, e:
-                if e.match(space, space.w_TypeError):
-                    raise OperationError(space.w_ValueError,
-                        space.wrap("value can't be converted to int"))
-                raise e
+            raise operationerrfmt(space.w_TypeError,
+                "int() argument must be a string or a number, not '%T'",
+                w_value)
     else:
         base = space.int_w(w_base)
 
