@@ -493,8 +493,11 @@ class __extend__(W_NDimArray):
         if not space.is_none(w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "__array__(dtype) not implemented"))
-        # stub implementation of __array__()
-        return self
+        if type(self) is W_NDimArray:
+            return self
+        return W_NDimArray.from_shape_and_storage(
+            space, self.get_shape(), self.implementation.storage,
+            self.get_dtype(), w_base=self)
 
     def descr_array_iface(self, space):
         addr = self.implementation.get_storage_as_int(space)
@@ -1065,9 +1068,9 @@ class __extend__(W_NDimArray):
         return w_obj
         pass
 
-@unwrap_spec(offset=int, order=str)
+@unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
-                    offset=0, w_strides=None, order='C'):
+                    offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
     from pypy.module.micronumpy.support import calc_strides
     dtype = space.interp_w(interp_dtype.W_Dtype,
@@ -1101,6 +1104,11 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
 
     if not shape:
         return W_NDimArray.new_scalar(space, dtype)
+    order = order_converter(space, w_order, NPY_CORDER)
+    if order == NPY_CORDER:
+        order = 'C'
+    else:
+        order = 'F'
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
@@ -1172,6 +1180,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __int__ = interp2app(W_NDimArray.descr_int),
     __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
+    __buffer__ = interp2app(W_NDimArray.descr_get_data),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
     __neg__ = interp2app(W_NDimArray.descr_neg),

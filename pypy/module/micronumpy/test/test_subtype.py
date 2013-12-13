@@ -50,6 +50,14 @@ class AppTestSupport(BaseNumpyAppTest):
         b[0]=100
         assert a[0,0] == 100
 
+        assert type(a) is not ndarray
+        assert a[0,0] == 100
+        assert a.base is not None
+        b = a.__array__()
+        assert type(b) is ndarray
+        assert b[0,0] == 100
+        assert b.base is a
+
     def test_subtype_view(self):
         from numpypy import ndarray, array
         class matrix(ndarray):
@@ -62,6 +70,11 @@ class AppTestSupport(BaseNumpyAppTest):
         assert isinstance(b, matrix)
         assert (b == a).all()
 
+    def test_subtype_like_matrix(self):
+        import numpy as np
+        arr = np.array([1,2,3])
+        ret = np.ndarray.__new__(np.ndarray, arr.shape, arr.dtype, buffer=arr)
+        assert (arr == ret).all()
 
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
@@ -245,4 +258,3 @@ class AppTestSupport(BaseNumpyAppTest):
             assert isinstance(b, D)
         c = array(a, float)
         assert c.dtype is dtype(float)
-
