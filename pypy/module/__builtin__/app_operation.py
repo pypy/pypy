@@ -1,4 +1,8 @@
 def bin(x):
-    if not isinstance(x, (int, long)):
-        raise TypeError("must be int or long")
-    return x.__format__("#b")
+    if isinstance(x, (int, long)):
+        value = x
+    elif hasattr(x, '__index__'):
+        value = x.__index__()
+    else:
+        raise TypeError("object cannot be interpreted as an index")
+    return value.__format__("#b")
