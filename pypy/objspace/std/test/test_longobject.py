@@ -291,6 +291,12 @@ class AppTestLong:
                 return Integral()
         assert long(TruncReturnsNonLong()) == 42
 
+    def test_long_before_string(self):
+        class A(str):
+            def __long__(self):
+                return 42
+        assert long(A('abc')) == 42
+
     def test_conjugate(self):
         assert (7L).conjugate() == 7L
         assert (-7L).conjugate() == -7L
