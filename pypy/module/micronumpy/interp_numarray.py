@@ -1177,6 +1177,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __int__ = interp2app(W_NDimArray.descr_int),
     __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
+    __buffer__ = interp2app(W_NDimArray.descr_get_data),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
     __neg__ = interp2app(W_NDimArray.descr_neg),

@@ -320,6 +320,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         e = d.repeat(3, 0)
         assert e.shape == (9, 4, 0)
 
+    def test_buffer(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        b = buffer(a)
+        assert type(b) is buffer
+
     def test_type(self):
         from numpypy import array
         ar = array(range(5))
