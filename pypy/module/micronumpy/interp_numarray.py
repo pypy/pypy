@@ -493,8 +493,10 @@ class __extend__(W_NDimArray):
         if not space.is_none(w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "__array__(dtype) not implemented"))
-        # stub implementation of __array__()
-        return self
+        if type(self) is W_NDimArray:
+            return self
+        return W_NDimArray.from_shape_and_storage(
+            space, self.get_shape(), self.implementation.storage, self.get_dtype())
 
     def descr_array_iface(self, space):
         addr = self.implementation.get_storage_as_int(space)
