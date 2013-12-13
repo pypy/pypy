@@ -52,9 +52,11 @@ class AppTestSupport(BaseNumpyAppTest):
 
         assert type(a) is not ndarray
         assert a[0,0] == 100
+        assert a.base is not None
         b = a.__array__()
         assert type(b) is ndarray
         assert b[0,0] == 100
+        assert b.base is a
 
     def test_subtype_view(self):
         from numpypy import ndarray, array
