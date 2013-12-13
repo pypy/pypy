@@ -625,28 +625,29 @@ class RPythonAnnotator(object):
         return self.bookkeeper.newdict()
 
 
-    def _registeroperations(cls, unary_ops, binary_ops):
-        # All unary operations
-        d = {}
-        for opname in unary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
+def _register_unary():
+    d = {}
+    for opname in unaryop.UNARY_OPERATIONS:
+        fnname = 'consider_op_' + opname
+        exec py.code.Source("""
 def consider_op_%s(self, arg, *args):
     return arg.%s(*args)
 """ % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-        # All binary operations
-        for opname in binary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
+        setattr(RPythonAnnotator, fnname, d[fnname])
+
+def _register_binary():
+    d = {}
+    for opname in binaryop.BINARY_OPERATIONS:
+        fnname = 'consider_op_' + opname
+        exec py.code.Source("""
 def consider_op_%s(self, arg1, arg2, *args):
     return pair(arg1,arg2).%s(*args)
 """ % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-    _registeroperations = classmethod(_registeroperations)
+        setattr(RPythonAnnotator, fnname, d[fnname])
 
 # register simple operations handling
-RPythonAnnotator._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
+_register_unary()
+_register_binary()
 
 
 class BlockedInference(Exception):
