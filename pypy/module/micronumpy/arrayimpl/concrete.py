@@ -502,3 +502,6 @@ class ArrayBuffer(RWBuffer):
 
     def getlength(self):
         return self.impl.size
+
+    def get_raw_address(self):
+        return self.impl.storage
