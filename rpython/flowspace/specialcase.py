@@ -54,6 +54,12 @@ def sc_os_tmpfile(space):
     from rpython.rlib.rfile import create_temp_rfile
     return space.appcall(create_temp_rfile)
 
+@register_flow_sc(os.remove)
+def sc_os_remove(space, *args_w):
+    # on top of PyPy only: 'os.remove != os.unlink'
+    # (on CPython they are '==', but not identical either)
+    return space.appcall(os.unlink, *args_w)
+
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs
 class StdOutBuffer:
