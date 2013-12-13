@@ -1958,11 +1958,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.itemsize == 3
         a = array(3.1415).astype('S3').dtype
         assert a.itemsize == 3
-        try:
+
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
             a = array(['1', '2','3']).astype(float)
             assert a[2] == 3.0
-        except NotImplementedError:
-            skip('astype("float") not implemented for str arrays')
+        else:
+            raises(NotImplementedError, array(['1', '2', '3']).astype, float)
 
     def test_base(self):
         from numpypy import array
