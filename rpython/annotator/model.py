@@ -798,11 +798,7 @@ def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
 
 def missing_operation(cls, name):
     def default_op(*args):
-        if args and isinstance(args[0], tuple):
-            flattened = tuple(args[0]) + args[1:]
-        else:
-            flattened = args
-        for arg in flattened:
+        for arg in args:
             if arg.__class__ is SomeObject and arg.knowntype is not type:
                 return SomeObject()
         bookkeeper = rpython.annotator.bookkeeper.getbookkeeper()
