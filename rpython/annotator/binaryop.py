@@ -16,6 +16,7 @@ from rpython.annotator.model import (
     merge_knowntypedata,)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
 from rpython.annotator.model import AnnotatorError
 
@@ -23,26 +24,8 @@ from rpython.annotator.model import AnnotatorError
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-# XXX unify this with ObjSpace.MethodTable
-BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
-                         'truediv', 'floordiv', 'divmod',
-                         'and_', 'or_', 'xor',
-                         'lshift', 'rshift',
-                         'getitem', 'setitem', 'delitem',
-                         'getitem_idx', 'getitem_key', 'getitem_idx_key',
-                         'inplace_add', 'inplace_sub', 'inplace_mul',
-                         'inplace_truediv', 'inplace_floordiv', 'inplace_div',
-                         'inplace_mod',
-                         'inplace_lshift', 'inplace_rshift',
-                         'inplace_and', 'inplace_or', 'inplace_xor',
-                         'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_', 'cmp',
-                         'coerce',
-                         ]
-                        +[opname+'_ovf' for opname in
-                          """add sub mul floordiv div mod lshift
-                           """.split()
-                          ])
-
+BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
+                        if oper.dispatch == 2])
 for opname in BINARY_OPERATIONS:
     missing_operation(pairtype(SomeObject, SomeObject), opname)
 
