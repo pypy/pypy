@@ -8,6 +8,7 @@ import __future__
 import operator
 import sys
 import types
+from rpython.tool.pairtype import pair
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
@@ -138,11 +139,19 @@ class SingleDispatchMixin(object):
         impl = getattr(arg, self.opname)
         return impl(*other_args)
 
+class DoubleDispatchMixin(object):
+    dispatch = 2
+    def consider(self, annotator, arg1, arg2, *other_args):
+        impl = getattr(pair(arg1, arg2), self.opname)
+        return impl(*other_args)
+
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
     if dispatch == 1:
         bases = [SingleDispatchMixin]
+    elif dispatch == 2:
+        bases = [DoubleDispatchMixin]
     else:
         bases = []
     if ovf:

@@ -9,7 +9,7 @@ from rpython.tool.error import (format_blocked_annotation_error,
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
-from rpython.annotator import model as annmodel, signature, binaryop
+from rpython.annotator import model as annmodel, signature
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -455,7 +455,7 @@ class RPythonAnnotator(object):
         # occour for this specific, typed operation.
         if block.exitswitch == c_last_exception:
             op = block.operations[-1]
-            if op.opname in binaryop.BINARY_OPERATIONS:
+            if op.dispatch == 2:
                 arg1 = self.binding(op.args[0])
                 arg2 = self.binding(op.args[1])
                 binop = getattr(pair(arg1, arg2), op.opname, None)
@@ -623,20 +623,6 @@ class RPythonAnnotator(object):
 
     def consider_op_newdict(self):
         return self.bookkeeper.newdict()
-
-
-def _register_binary():
-    d = {}
-    for opname in binaryop.BINARY_OPERATIONS:
-        fnname = 'consider_op_' + opname
-        exec py.code.Source("""
-def consider_op_%s(self, arg1, arg2, *args):
-    return pair(arg1,arg2).%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-        setattr(RPythonAnnotator, fnname, d[fnname])
-
-# register simple operations handling
-_register_binary()
 
 
 class BlockedInference(Exception):
