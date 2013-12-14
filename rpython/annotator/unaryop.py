@@ -131,6 +131,9 @@ class __extend__(SomeObject):
         raise AnnotatorError("Cannot find attribute %r on %r" % (attr, self))
     getattr.can_only_throw = []
 
+    def setattr(self, *args):
+        return s_ImpossibleValue
+
     def bind_callables_under(self, classdef, name):
         return self   # default unbound __get__ implementation
 
@@ -149,6 +152,20 @@ class __extend__(SomeObject):
 
     def hint(self, *args_s):
         return self
+
+    def getslice(self, *args):
+        return s_ImpossibleValue
+
+    def setslice(self, *args):
+        return s_ImpossibleValue
+
+    def delslice(self, *args):
+        return s_ImpossibleValue
+
+    def pos(self):
+        return s_ImpossibleValue
+    neg = abs = ord = invert = long = iter = next = pos
+
 
 class __extend__(SomeFloat):
 

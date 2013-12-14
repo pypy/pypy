@@ -14,7 +14,7 @@ from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.annotator.model import s_ImpossibleValue
+
 
 NOT_REALLY_CONST = {
     Constant(sys): {
@@ -137,19 +137,13 @@ class OverflowingOperation(PureOperation):
 class SingleDispatchMixin(object):
     dispatch = 1
     def consider(self, annotator, arg, *other_args):
-        try:
-            impl = getattr(arg, self.opname)
-        except AttributeError:
-            return s_ImpossibleValue
+        impl = getattr(arg, self.opname)
         return impl(*other_args)
 
 class DoubleDispatchMixin(object):
     dispatch = 2
     def consider(self, annotator, arg1, arg2, *other_args):
-        try:
-            impl = getattr(pair(arg1, arg2), self.opname)
-        except AttributeError:
-            return s_ImpossibleValue
+        impl = getattr(pair(arg1, arg2), self.opname)
         return impl(*other_args)
 
 
