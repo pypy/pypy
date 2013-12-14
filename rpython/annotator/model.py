@@ -796,12 +796,6 @@ def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
     assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2)
 
 
-def missing_operation(cls, name):
-    def default_op(*args):
-        return s_ImpossibleValue
-    setattr(cls, name, default_op)
-
-
 class HarmlesslyBlocked(Exception):
     """Raised by the unaryop/binaryop to signal a harmless kind of
     BlockedInference: the current block is blocked, but not in a way

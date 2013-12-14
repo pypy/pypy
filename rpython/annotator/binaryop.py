@@ -12,7 +12,7 @@ from rpython.annotator.model import (
     SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
     SomeWeakRef, SomeAddress, SomeTypedAddressAccess, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
-    missing_operation, read_can_only_throw, add_knowntypedata,
+    read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
@@ -26,8 +26,7 @@ def immutablevalue(x):
 
 BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 2])
-for opname in BINARY_OPERATIONS:
-    missing_operation(pairtype(SomeObject, SomeObject), opname)
+
 
 class __extend__(pairtype(SomeObject, SomeObject)):
 
