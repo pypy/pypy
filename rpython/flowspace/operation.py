@@ -132,9 +132,19 @@ class OverflowingOperation(PureOperation):
         ovf.offset = self.offset
         return ovf
 
+class SingleDispatchMixin(object):
+    dispatch = 1
+    def consider(self, annotator, arg, *other_args):
+        impl = getattr(arg, self.opname)
+        return impl(*other_args)
+
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
+    if dispatch == 1:
+        bases = [SingleDispatchMixin]
+    else:
+        bases = []
     if ovf:
         assert pure
         base_cls = OverflowingOperation
@@ -142,7 +152,8 @@ def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False)
         base_cls = PureOperation
     else:
         base_cls = HLOperation
-    cls = HLOperationMeta(name, (base_cls,), {'opname': name, 'arity': arity,
+    bases.append(base_cls)
+    cls = HLOperationMeta(name, tuple(bases), {'opname': name, 'arity': arity,
                                               'canraise': [],
                                               'dispatch': dispatch})
     if pyfunc is not None:
@@ -358,10 +369,9 @@ class Pow(PureOperation):
         self.offset = -1
 
 
-class Iter(HLOperation):
+class Iter(SingleDispatchMixin, HLOperation):
     opname = 'iter'
     arity = 1
-    dispatch = 1
     can_overflow = False
     canraise = []
     pyfunc = staticmethod(iter)
@@ -373,10 +383,9 @@ class Iter(HLOperation):
             if isinstance(iterable, unrolling_iterable):
                 return const(iterable.get_unroller())
 
-class Next(HLOperation):
+class Next(SingleDispatchMixin, HLOperation):
     opname = 'next'
     arity = 1
-    dispatch = 1
     can_overflow = False
     canraise = []
     pyfunc = staticmethod(next)
@@ -398,10 +407,9 @@ class Next(HLOperation):
         frame.guessexception([StopIteration, RuntimeError], force=True)
         return w_item
 
-class GetAttr(HLOperation):
+class GetAttr(SingleDispatchMixin, HLOperation):
     opname = 'getattr'
     arity = 2
-    dispatch = 1
     can_overflow = False
     canraise = []
     pyfunc = staticmethod(getattr)
@@ -442,13 +450,11 @@ class CallOp(HLOperation):
         # *any* exception for non-builtins
         return [Exception]
 
-class SimpleCall(CallOp):
+class SimpleCall(SingleDispatchMixin, CallOp):
     opname = 'simple_call'
-    dispatch = 1
 
-class CallArgs(CallOp):
+class CallArgs(SingleDispatchMixin, CallOp):
     opname = 'call_args'
-    dispatch = 1
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type

@@ -9,7 +9,7 @@ from rpython.tool.error import (format_blocked_annotation_error,
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
-from rpython.annotator import model as annmodel, signature, unaryop, binaryop
+from rpython.annotator import model as annmodel, signature, binaryop
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -460,7 +460,7 @@ class RPythonAnnotator(object):
                 arg2 = self.binding(op.args[1])
                 binop = getattr(pair(arg1, arg2), op.opname, None)
                 can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
-            elif op.opname in unaryop.UNARY_OPERATIONS:
+            elif op.dispatch == 1:
                 arg1 = self.binding(op.args[0])
                 opname = op.opname
                 if opname == 'contains': opname = 'op_contains'
@@ -625,16 +625,6 @@ class RPythonAnnotator(object):
         return self.bookkeeper.newdict()
 
 
-def _register_unary():
-    d = {}
-    for opname in unaryop.UNARY_OPERATIONS:
-        fnname = 'consider_op_' + opname
-        exec py.code.Source("""
-def consider_op_%s(self, arg, *args):
-    return arg.%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-        setattr(RPythonAnnotator, fnname, d[fnname])
-
 def _register_binary():
     d = {}
     for opname in binaryop.BINARY_OPERATIONS:
@@ -646,7 +636,6 @@ def consider_op_%s(self, arg1, arg2, *args):
         setattr(RPythonAnnotator, fnname, d[fnname])
 
 # register simple operations handling
-_register_unary()
 _register_binary()
 
 
