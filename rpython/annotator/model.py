@@ -798,11 +798,6 @@ def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
 
 def missing_operation(cls, name):
     def default_op(*args):
-        for arg in args:
-            if arg.__class__ is SomeObject and arg.knowntype is not type:
-                return SomeObject()
-        bookkeeper = rpython.annotator.bookkeeper.getbookkeeper()
-        bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
         return s_ImpossibleValue
     setattr(cls, name, default_op)
 
