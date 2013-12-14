@@ -54,6 +54,8 @@ class HLOperation(SpaceOperation):
     __metaclass__ = HLOperationMeta
     pure = False
     can_overflow = False
+    dispatch = None  # number of arguments to dispatch on
+                     # (None means special handling)
 
     def __init__(self, *args):
         self.args = list(args)
@@ -131,7 +133,7 @@ class OverflowingOperation(PureOperation):
         return ovf
 
 
-def add_operator(name, arity, pyfunc=None, pure=False, ovf=False):
+def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
     if ovf:
         assert pure
@@ -141,7 +143,8 @@ def add_operator(name, arity, pyfunc=None, pure=False, ovf=False):
     else:
         base_cls = HLOperation
     cls = HLOperationMeta(name, (base_cls,), {'opname': name, 'arity': arity,
-                                              'canraise': []})
+                                              'canraise': [],
+                                              'dispatch': dispatch})
     if pyfunc is not None:
         func2op[pyfunc] = cls
     if operator_func:
@@ -153,7 +156,7 @@ def add_operator(name, arity, pyfunc=None, pure=False, ovf=False):
     if ovf:
         from rpython.rlib.rarithmetic import ovfcheck
         ovf_func = lambda *args: ovfcheck(cls.pyfunc(*args))
-        add_operator(name + '_ovf', arity, pyfunc=ovf_func)
+        add_operator(name + '_ovf', arity, dispatch, pyfunc=ovf_func)
         cls.ovf_variant = getattr(op, name + '_ovf')
 
 # ____________________________________________________________
@@ -261,35 +264,35 @@ def unsupported(*args):
 
 
 add_operator('is_', 2, pure=True)
-add_operator('id', 1, pyfunc=id)
-add_operator('type', 1, pyfunc=new_style_type, pure=True)
-add_operator('issubtype', 2, pyfunc=issubclass, pure=True)  # not for old-style classes
-add_operator('repr', 1, pyfunc=repr, pure=True)
-add_operator('str', 1, pyfunc=str, pure=True)
+add_operator('id', 1, dispatch=1, pyfunc=id)
+add_operator('type', 1, dispatch=1, pyfunc=new_style_type, pure=True)
+add_operator('issubtype', 2, dispatch=1, pyfunc=issubclass, pure=True)  # not for old-style classes
+add_operator('repr', 1, dispatch=1, pyfunc=repr, pure=True)
+add_operator('str', 1, dispatch=1, pyfunc=str, pure=True)
 add_operator('format', 2, pyfunc=unsupported)
-add_operator('len', 1, pyfunc=len, pure=True)
-add_operator('hash', 1, pyfunc=hash)
-add_operator('setattr', 3, pyfunc=setattr)
-add_operator('delattr', 2, pyfunc=delattr)
+add_operator('len', 1, dispatch=1, pyfunc=len, pure=True)
+add_operator('hash', 1, dispatch=1, pyfunc=hash)
+add_operator('setattr', 3, dispatch=1, pyfunc=setattr)
+add_operator('delattr', 2, dispatch=1, pyfunc=delattr)
 add_operator('getitem', 2, pure=True)
 add_operator('getitem_idx', 2, pure=True)
 add_operator('getitem_key', 2, pure=True)
 add_operator('getitem_idx_key', 2, pure=True)
 add_operator('setitem', 3)
 add_operator('delitem', 2)
-add_operator('getslice', 3, pyfunc=do_getslice, pure=True)
-add_operator('setslice', 4, pyfunc=do_setslice)
-add_operator('delslice', 3, pyfunc=do_delslice)
+add_operator('getslice', 3, dispatch=1, pyfunc=do_getslice, pure=True)
+add_operator('setslice', 4, dispatch=1, pyfunc=do_setslice)
+add_operator('delslice', 3, dispatch=1, pyfunc=do_delslice)
 add_operator('trunc', 1, pyfunc=unsupported)
-add_operator('pos', 1, pure=True)
-add_operator('neg', 1, pure=True, ovf=True)
-add_operator('bool', 1, pyfunc=bool, pure=True)
+add_operator('pos', 1, dispatch=1, pure=True)
+add_operator('neg', 1, dispatch=1, pure=True, ovf=True)
+add_operator('bool', 1, dispatch=1, pyfunc=bool, pure=True)
 op.is_true = op.nonzero = op.bool  # for llinterp
-add_operator('abs', 1, pyfunc=abs, pure=True, ovf=True)
-add_operator('hex', 1, pyfunc=hex, pure=True)
-add_operator('oct', 1, pyfunc=oct, pure=True)
-add_operator('ord', 1, pyfunc=ord, pure=True)
-add_operator('invert', 1, pure=True)
+add_operator('abs', 1, dispatch=1, pyfunc=abs, pure=True, ovf=True)
+add_operator('hex', 1, dispatch=1, pyfunc=hex, pure=True)
+add_operator('oct', 1, dispatch=1, pyfunc=oct, pure=True)
+add_operator('ord', 1, dispatch=1, pyfunc=ord, pure=True)
+add_operator('invert', 1, dispatch=1, pure=True)
 add_operator('add', 2, pure=True, ovf=True)
 add_operator('sub', 2, pure=True, ovf=True)
 add_operator('mul', 2, pure=True, ovf=True)
@@ -303,10 +306,10 @@ add_operator('rshift', 2, pure=True)
 add_operator('and_', 2, pure=True)
 add_operator('or_', 2, pure=True)
 add_operator('xor', 2, pure=True)
-add_operator('int', 1, pyfunc=do_int, pure=True)
+add_operator('int', 1, dispatch=1, pyfunc=do_int, pure=True)
 add_operator('index', 1, pyfunc=do_index, pure=True)
-add_operator('float', 1, pyfunc=do_float, pure=True)
-add_operator('long', 1, pyfunc=do_long, pure=True)
+add_operator('float', 1, dispatch=1, pyfunc=do_float, pure=True)
+add_operator('long', 1, dispatch=1, pyfunc=do_long, pure=True)
 add_operator('inplace_add', 2, pyfunc=inplace_add)
 add_operator('inplace_sub', 2, pyfunc=inplace_sub)
 add_operator('inplace_mul', 2, pyfunc=inplace_mul)
@@ -339,7 +342,7 @@ add_operator('newdict', 0)
 add_operator('newtuple', None, pure=True, pyfunc=lambda *args:args)
 add_operator('newlist', None)
 add_operator('newslice', 3)
-add_operator('hint', None)
+add_operator('hint', None, dispatch=1)
 
 
 class Pow(PureOperation):
@@ -358,6 +361,7 @@ class Pow(PureOperation):
 class Iter(HLOperation):
     opname = 'iter'
     arity = 1
+    dispatch = 1
     can_overflow = False
     canraise = []
     pyfunc = staticmethod(iter)
@@ -372,6 +376,7 @@ class Iter(HLOperation):
 class Next(HLOperation):
     opname = 'next'
     arity = 1
+    dispatch = 1
     can_overflow = False
     canraise = []
     pyfunc = staticmethod(next)
@@ -396,6 +401,7 @@ class Next(HLOperation):
 class GetAttr(HLOperation):
     opname = 'getattr'
     arity = 2
+    dispatch = 1
     can_overflow = False
     canraise = []
     pyfunc = staticmethod(getattr)
@@ -438,9 +444,11 @@ class CallOp(HLOperation):
 
 class SimpleCall(CallOp):
     opname = 'simple_call'
+    dispatch = 1
 
 class CallArgs(CallOp):
     opname = 'call_args'
+    dispatch = 1
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type

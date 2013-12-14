@@ -5,6 +5,7 @@ Unary operations on SomeValues.
 from __future__ import absolute_import
 
 from types import MethodType
+from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
@@ -20,15 +21,8 @@ from rpython.annotator.model import AnnotatorError
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'bool', 'getattr', 'setattr', 'delattr',
-                        'simple_call', 'call_args', 'str', 'repr',
-                        'iter', 'next', 'invert', 'type', 'issubtype',
-                        'pos', 'neg', 'abs', 'hex', 'oct',
-                        'ord', 'int', 'float', 'long',
-                        'hash', 'id',    # <== not supported any more
-                        'getslice', 'setslice', 'delslice',
-                        'neg_ovf', 'abs_ovf', 'hint', 'unicode', 'unichr'])
-
+UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
+                        if oper.dispatch == 1])
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
 
