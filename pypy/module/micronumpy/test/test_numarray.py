@@ -1888,6 +1888,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0, 1, 1, 0, 4, 0, 6, 7, 8, 9]).all()
         raises(IndexError, "arange(10)[array([10])] = 3")
         raises(IndexError, "arange(10)[[-11]] = 3")
+        a = zeros(10)
+        b = array([3,4,5])
+        a[b] = 1
+        assert (a == [0, 0, 0, 1, 1, 1, 0, 0, 0, 0]).all()
 
     def test_array_scalar_index(self):
         import numpypy as np
