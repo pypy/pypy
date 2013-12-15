@@ -258,3 +258,46 @@ class AppTestSupport(BaseNumpyAppTest):
             assert isinstance(b, D)
         c = array(a, float)
         assert c.dtype is dtype(float)
+
+    def test__getitem_modifies_shape(self):
+        import numpypy as N
+        # numpy's matrix class caused an infinite loop
+        class matrix(N.ndarray):
+            getcnt = 0
+            def __new__(subtype, data, dtype=None, copy=True):
+                arr = N.array(data, dtype=dtype, copy=copy)
+                shape = arr.shape
+
+                ret = N.ndarray.__new__(subtype, shape, arr.dtype,
+                                        buffer=arr,
+                                        order=True)
+                return ret
+
+            def __getitem__(self, index):
+                matrix.getcnt += 1
+                if matrix.getcnt > 10:
+                    # XXX strides.find_shape_and_elems is sensitive
+                    # to shape modification
+                    xxx
+                out = N.ndarray.__getitem__(self, index)
+
+                if not isinstance(out, N.ndarray):
+                    return out
+                    # Determine when we should have a column array
+                old_shape = out.shape
+                if out.ndim < 2:
+                    sh = out.shape[0]
+                    try:
+                        n = len(index)
+                    except:
+                        n = 0
+                    if n > 1:
+                        out.shape = (sh, 1)
+                    else:
+                        out.shape = (1, sh)
+                print 'out, shape was',old_shape,'now',out.shape
+                return out
+        a = matrix([[1., 2.]])
+        b = N.array([a])
+
+
