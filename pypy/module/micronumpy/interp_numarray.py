@@ -1021,8 +1021,8 @@ class __extend__(W_NDimArray):
         multiarray = numpypy.get("multiarray")
         assert isinstance(multiarray, MixedModule)
         reconstruct = multiarray.get("_reconstruct")
-
-        parameters = space.newtuple([space.gettypefor(W_NDimArray), space.newtuple([space.wrap(0)]), space.wrap("b")])
+        parameters = space.newtuple([self.getclass(space),
+                        space.newtuple([space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
         if isinstance(self.implementation, SliceArray):
@@ -1045,14 +1045,22 @@ class __extend__(W_NDimArray):
         return space.newtuple([reconstruct, parameters, state])
 
     def descr_setstate(self, space, w_state):
-        from rpython.rtyper.lltypesystem import rffi
-
-        shape = space.getitem(w_state, space.wrap(1))
-        dtype = space.getitem(w_state, space.wrap(2))
-        assert isinstance(dtype, interp_dtype.W_Dtype)
-        isfortran = space.getitem(w_state, space.wrap(3))
-        storage = space.getitem(w_state, space.wrap(4))
-
+        lens = space.len_w(w_state)
+        # numpy compatability, see multiarray/methods.c
+        if lens == 5:
+            base_index = 1
+        elif lens == 4:
+            base_index = 0
+        else:
+            raise OperationError(space.w_ValueError, space.wrap(
+                 "__setstate__ called with len(args[1])==%d, not 5 or 4" % lens))
+        shape = space.getitem(w_state, space.wrap(base_index))
+        dtype = space.getitem(w_state, space.wrap(base_index+1))
+        isfortran = space.getitem(w_state, space.wrap(base_index+2))
+        storage = space.getitem(w_state, space.wrap(base_index+3))
+        if not isinstance(dtype, interp_dtype.W_Dtype):
+            raise OperationError(space.w_ValueError, space.wrap(
+                 "__setstate__(self, (shape, dtype, .. called with improper dtype '%r'" % dtype))
         self.implementation = W_NDimArray.from_shape_and_storage(space,
                 [space.int_w(i) for i in space.listview(shape)],
                 rffi.str2charp(space.str_w(storage), track_allocation=False),
