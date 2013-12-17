@@ -250,3 +250,25 @@ class AppTestCoreEngine(object):
         assert len(sols[1]) == 2
         assert sols[1][0] == 6
         assert sols[1][1] == "c"
+
+    def test_term_reuse(self):
+        import unipycation as u
+
+        e = u.CoreEngine("f(card(5, D)) :- g(D). g(d). g(c).")
+
+        # f(X).
+        X = u.Var()
+        t = u.CoreTerm("f", [X])
+
+        sols = [ sol[X] for sol in e.query_iter(t, [X]) ]
+
+        assert sols[0].name == "card"
+        assert len(sols[0]) == 2
+        assert sols[0][0] == 5
+        print(sols[0][1]) # prints "c"
+        assert sols[0][1] == "d" # BOOM
+
+        assert sols[1].name == "card"
+        assert len(sols[1]) == 2
+        assert sols[1][0] == 5
+        assert sols[1][1] == "c"
