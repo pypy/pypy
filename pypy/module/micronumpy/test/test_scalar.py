@@ -28,7 +28,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert hex(np.complex64(11-12j)) == '0xb'
         assert bin(np.int32(11)) == '0b1011'
         exc = raises(TypeError, "bin(np.float32(11.6))")
-        assert exc.value.message.find('object cannot be interpreted as an index') != -1
+        assert "index" in exc.value.message
 
     def test_pickle(self):
         from numpypy import dtype, zeros
