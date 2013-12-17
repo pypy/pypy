@@ -54,7 +54,7 @@ class AppTestBuiltinApp:
             def __int__(self):
                 return 42
         exc = raises(TypeError, bin, D())
-        assert exc.value.message.find("object cannot be interpreted as an index") != -1
+        assert "index" in exc.value.message
 
     def test_unichr(self):
         import sys
