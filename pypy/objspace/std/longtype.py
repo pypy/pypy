@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
      interpindirect2app
+from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib.rstring import ParseStringError
@@ -46,9 +47,17 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
         else:
-            raise operationerrfmt(space.w_TypeError,
-                "long() argument must be a string or a number, not '%T'",
-                w_value)
+            try:
+                w_buffer = space.buffer(w_value)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise operationerrfmt(space.w_TypeError,
+                    "long() argument must be a string or a number, not '%T'",
+                    w_value)
+            else:
+                buf = space.interp_w(Buffer, w_buffer)
+                return string_to_w_long(space, w_longtype, buf.as_str())
     else:
         base = space.int_w(w_base)
 

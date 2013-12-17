@@ -249,6 +249,8 @@ class AppTestLong:
         n = -sys.maxint-1
         assert long(n) == n
         assert str(long(n)) == str(n)
+        a = buffer('123')
+        assert long(a) == 123L
 
     def test_huge_longs(self):
         import operator
