@@ -806,7 +806,6 @@ class date(object):
             month = self._month
         if day is None:
             day = self._day
-        year, month, day = _check_date_fields(year, month, day)
         return date(year, month, day)
 
     # Comparisons of date objects with other.
@@ -1270,8 +1269,6 @@ class time(object):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
-        _check_tzinfo_arg(tzinfo)
         return time(hour, minute, second, microsecond, tzinfo)
 
     def __bool__(self):
@@ -1486,9 +1483,6 @@ class datetime(date):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
-        _check_tzinfo_arg(tzinfo)
         return datetime(year, month, day, hour, minute, second, microsecond,
                         tzinfo)
 
