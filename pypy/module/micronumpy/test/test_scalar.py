@@ -92,6 +92,15 @@ class AppTestScalar(BaseNumpyAppTest):
         assert b == a
         assert b is not a
 
+    def test_buffer(self):
+        import numpy as np
+        a = np.int32(123)
+        b = buffer(a)
+        assert type(b) is buffer
+        a = np.string_('abc')
+        b = buffer(a)
+        assert str(b) == a
+
     def test_squeeze(self):
         import numpy as np
         assert np.True_.squeeze() is np.True_

@@ -313,6 +313,9 @@ class W_GenericBox(W_Root):
     def descr_copy(self, space):
         return self.convert_to(space, self.get_dtype(space))
 
+    def descr_buffer(self, space):
+        return self.descr_ravel(space).descr_get_data(space)
+
     w_flags = None
     def descr_get_flags(self, space):
         if self.w_flags is None:
@@ -518,6 +521,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
     __oct__ = interp2app(W_GenericBox.descr_oct),
     __hex__ = interp2app(W_GenericBox.descr_hex),
+    __buffer__ = interp2app(W_GenericBox.descr_buffer),
 
     __add__ = interp2app(W_GenericBox.descr_add),
     __sub__ = interp2app(W_GenericBox.descr_sub),
