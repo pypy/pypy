@@ -483,6 +483,9 @@ class W_CharacterBox(W_FlexibleBox):
     def convert_to(self, space, dtype):
         return dtype.coerce(space, space.wrap(self.raw_str()))
 
+    def descr_len(self, space):
+        return space.len(self.item(space))
+
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
@@ -756,9 +759,11 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
 W_StringBox.typedef = TypeDef("string_", (W_CharacterBox.typedef, str_typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
+    __len__ = interp2app(W_StringBox.descr_len),
 )
 
 W_UnicodeBox.typedef = TypeDef("unicode_", (W_CharacterBox.typedef, unicode_typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
+    __len__ = interp2app(W_UnicodeBox.descr_len),
 )

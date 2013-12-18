@@ -32,6 +32,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert bin(np.int32(11)) == '0b1011'
         exc = raises(TypeError, "bin(np.float32(11.6))")
         assert "index" in exc.value.message
+        exc = raises(TypeError, "len(np.int32(11))")
+        assert "has no len" in exc.value.message
+        assert len(np.string_('123')) == 3
 
     def test_pickle(self):
         from numpypy import dtype, zeros
