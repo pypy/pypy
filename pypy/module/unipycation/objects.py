@@ -117,10 +117,13 @@ class W_Var(W_Root):
     #    return space.wrap(W_Var._UNIQUE_PREFIX)
 
     def descr_str(self, space): return self.w_name
+    def descr_repr(self, space):
+        return space.wrap("Var(%s)" % space.str_w(self.w_name))
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
     __str__ = interp2app(W_Var.descr_str),
+    __repr__ = interp2app(W_Var.descr_repr),
     #UNIQUE_PREFIX = GetSetProperty(W_Var.descr_unique_prefix),
     #UNIQUE_PREFIX = interp2app(W_Var.descr_unique_prefix, as_classmethod=True),
 )
