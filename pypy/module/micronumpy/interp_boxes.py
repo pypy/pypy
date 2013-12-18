@@ -265,8 +265,7 @@ class W_GenericBox(W_Root):
         if not space.is_none(w_out):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "out not supported"))
-        v = self.convert_to(space, self.get_dtype(space))
-        return self.get_dtype(space).itemtype.round(v, decimals)
+        return self.get_dtype(space).itemtype.round(self, decimals)
 
     def descr_astype(self, space, w_dtype):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
