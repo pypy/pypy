@@ -1044,6 +1044,7 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "only integer arrays with one element "
                 "can be converted to an index"))
+        assert isinstance(value, interp_boxes.W_GenericBox)
         return value.item(space)
 
     def descr_reduce(self, space):
