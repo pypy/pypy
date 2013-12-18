@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import libffi, rdynload
+from rpython.tool.udir import udir
 
 from pypy.module.cppyy.capi.capi_types import C_OBJECT
 
@@ -22,13 +23,13 @@ if os.environ.get("ROOTSYS"):
     import commands
     (stat, incdir) = commands.getstatusoutput("root-config --incdir")
     if stat != 0:
-        rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
+        rootincpath = [os.path.join(os.environ["ROOTSYS"], "include"), py.path.local(udir)]
         rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib64"), os.path.join(os.environ["ROOTSYS"], "lib")]
     else:
-        rootincpath = [incdir]
+        rootincpath = [incdir, py.path.local(udir)]
         rootlibpath = commands.getoutput("root-config --libdir").split()
 else:
-    rootincpath = []
+    rootincpath = [py.path.local(udir)]
     rootlibpath = []
 
 def identify():
@@ -422,7 +423,7 @@ def pythonize(space, name, w_pycppclass):
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
 
 @cpython_api([rffi.VOIDP], lltype.Void, error=CANNOT_FAIL)
-def cppyy_recursive_remove(space, cppobject):
+def _Py_cppyy_recursive_remove(space, cppobject):
     from pypy.module.cppyy.interp_cppyy import memory_regulator
     from pypy.module.cppyy.capi import C_OBJECT, C_NULL_OBJECT
 

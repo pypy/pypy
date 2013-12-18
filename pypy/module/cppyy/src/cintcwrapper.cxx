@@ -37,6 +37,9 @@
 #include <string>
 #include <utility>
 
+// for recursive_remove callback
+#include "pypy_macros.h"
+
 
 /* ROOT/CINT internals --------------------------------------------------- */
 extern long G__store_struct_offset;
@@ -61,12 +64,12 @@ public:
 };
 
 // memory regulation (cppyy_recursive_remove is generated as a cpyext capi call)
-extern "C" void cppyy_recursive_remove(void*);
+extern "C" void _Py_cppyy_recursive_remove(void*);
 
 class Cppyy_MemoryRegulator : public TObject {
 public:
     virtual void RecursiveRemove(TObject* object) {
-        cppyy_recursive_remove((void*)object);
+        _Py_cppyy_recursive_remove((void*)object);
     }
 };
 
