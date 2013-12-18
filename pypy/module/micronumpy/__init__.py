@@ -106,8 +106,6 @@ class UMathModule(MixedModule):
         ('logaddexp2', 'logaddexp2'),
         ('real', 'real'),
         ('imag', 'imag'),
-        ('ones_like', 'ones_like'),
-        ('zeros_like', 'zeros_like'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
