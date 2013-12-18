@@ -47,7 +47,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def setslice(self, space, arr):
         impl = arr.implementation
         if impl.is_scalar():
-            self.fill(impl.get_scalar_value())
+            self.fill(space, impl.get_scalar_value())
             return
         shape = shape_agreement(space, self.get_shape(), arr)
         if impl.storage == self.storage:
@@ -100,7 +100,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         tmp = self.get_real(orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
-    def get_imag(self, orig_array):
+    def get_imag(self, space, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
@@ -110,11 +110,11 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
         if not self.dtype.is_flexible_type():
-            impl.fill(self.dtype.box(0))
+            impl.fill(space, self.dtype.box(0))
         return impl
 
     def set_imag(self, space, orig_array, w_value):
-        tmp = self.get_imag(orig_array)
+        tmp = self.get_imag(space, orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
     # -------------------- applevel get/setitem -----------------------
@@ -357,7 +357,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                                          self.get_backstrides(),
                                          self.get_shape())
 
-    def fill(self, box):
+    def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.get_size(),
                                  box, 0, self.size, 0)
 
@@ -435,8 +435,8 @@ class SliceArray(BaseConcreteArray):
     def base(self):
         return self.orig_arr
 
-    def fill(self, box):
-        loop.fill(self, box.convert_to(self.dtype))
+    def fill(self, space, box):
+        loop.fill(self, box.convert_to(space, self.dtype))
 
     def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         if shape is not None and \

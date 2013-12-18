@@ -20,6 +20,9 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_builtin(self):
         import numpy as np
+        assert int(np.str_('12')) == 12
+        exc = raises(ValueError, "int(np.str_('abc'))")
+        assert exc.value.message.startswith('invalid literal for int()')
         assert oct(np.int32(11)) == '013'
         assert oct(np.float32(11.6)) == '013'
         assert oct(np.complex64(11-12j)) == '013'
@@ -77,6 +80,9 @@ class AppTestScalar(BaseNumpyAppTest):
         a = np.bool_(True).astype('int32')
         assert type(a) is np.int32
         assert a == 1
+        a = np.str_('123').astype('int32')
+        assert type(a) is np.int32
+        assert a == 123
 
     def test_copy(self):
         import numpy as np

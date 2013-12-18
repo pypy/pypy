@@ -1973,6 +1973,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         else:
             raises(NotImplementedError, array(['1', '2', '3']).astype, float)
 
+        a = array('123')
+        assert a.astype('i8') == 123
+        a = array('abcdefgh')
+        exc = raises(ValueError, a.astype, 'i8')
+        assert exc.value.message.startswith('invalid literal for int()')
+
     def test_base(self):
         from numpypy import array
         assert array(1).base is None

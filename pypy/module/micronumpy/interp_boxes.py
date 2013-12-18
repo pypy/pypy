@@ -66,7 +66,7 @@ class PrimitiveBox(Box):
     def __init__(self, value):
         self.value = value
 
-    def convert_to(self, dtype):
+    def convert_to(self, space, dtype):
         return dtype.box(self.value)
 
     def __repr__(self):
@@ -91,7 +91,7 @@ class ComplexBox(Box):
         self.real = real
         self.imag = imag
 
-    def convert_to(self, dtype):
+    def convert_to(self, space, dtype):
         return dtype.box_complex(self.real, self.imag)
 
     def convert_real_to(self, dtype):
@@ -149,17 +149,17 @@ class W_GenericBox(W_Root):
         return space.index(self.item(space))
 
     def descr_int(self, space):
-        box = self.convert_to(W_LongBox._get_dtype(space))
+        box = self.convert_to(space, W_LongBox._get_dtype(space))
         assert isinstance(box, W_LongBox)
         return space.wrap(box.value)
 
     def descr_long(self, space):
-        box = self.convert_to(W_Int64Box._get_dtype(space))
+        box = self.convert_to(space, W_Int64Box._get_dtype(space))
         assert isinstance(box, W_Int64Box)
         return space.wrap(box.value)
 
     def descr_float(self, space):
-        box = self.convert_to(W_Float64Box._get_dtype(space))
+        box = self.convert_to(space, W_Float64Box._get_dtype(space))
         assert isinstance(box, W_Float64Box)
         return space.wrap(box.value)
 
@@ -265,14 +265,14 @@ class W_GenericBox(W_Root):
         if not space.is_none(w_out):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "out not supported"))
-        v = self.convert_to(self.get_dtype(space))
+        v = self.convert_to(space, self.get_dtype(space))
         return self.get_dtype(space).itemtype.round(v, decimals)
 
     def descr_astype(self, space, w_dtype):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
         dtype = space.interp_w(W_Dtype,
             space.call_function(space.gettypefor(W_Dtype), w_dtype))
-        return self.convert_to(dtype)
+        return self.convert_to(space, dtype)
 
     def descr_view(self, space, w_dtype):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
@@ -311,7 +311,7 @@ class W_GenericBox(W_Root):
         return space.wrap(0)
 
     def descr_copy(self, space):
-        return self.convert_to(self.get_dtype(space))
+        return self.convert_to(space, self.get_dtype(space))
 
     w_flags = None
     def descr_get_flags(self, space):
@@ -472,14 +472,13 @@ class W_VoidBox(W_FlexibleBox):
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
-    def convert_to(self, dtype):
+    def convert_to(self, space, dtype):
         # if we reach here, the record fields are guarenteed to match.
         return self
 
 class W_CharacterBox(W_FlexibleBox):
-    def convert_to(self, dtype):
-        # XXX assert dtype is str type
-        return self
+    def convert_to(self, space, dtype):
+        return dtype.coerce(space, space.wrap(self.raw_str()))
 
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):

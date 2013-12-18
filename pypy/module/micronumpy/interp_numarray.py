@@ -94,7 +94,7 @@ class __extend__(W_NDimArray):
         return space.wrap(self.get_size() * self.get_dtype().get_size())
 
     def descr_fill(self, space, w_value):
-        self.fill(self.get_dtype().coerce(space, w_value))
+        self.fill(space, self.get_dtype().coerce(space, w_value))
 
     def descr_tostring(self, space, w_order=None):
         order = order_converter(space, w_order, NPY_CORDER)
@@ -288,8 +288,8 @@ class __extend__(W_NDimArray):
     def set_scalar_value(self, w_val):
         self.implementation.set_scalar_value(w_val)
 
-    def fill(self, box):
-        self.implementation.fill(box)
+    def fill(self, space, box):
+        self.implementation.fill(space, box)
 
     def descr_get_size(self, space):
         return space.wrap(self.get_size())
@@ -314,7 +314,7 @@ class __extend__(W_NDimArray):
                          self.implementation.get_real(self))
 
     def descr_get_imag(self, space):
-        ret = self.implementation.get_imag(self)
+        ret = self.implementation.get_imag(space, self)
         return wrap_impl(space, space.type(self), self, ret)
 
     def descr_set_real(self, space, w_value):
@@ -1427,7 +1427,7 @@ def ones(space, w_shape, w_dtype=None, order='C'):
         return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
     w_arr = W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
     one = dtype.box(1)
-    w_arr.fill(one)
+    w_arr.fill(space, one)
     return space.wrap(w_arr)
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
