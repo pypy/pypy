@@ -956,8 +956,7 @@ class __extend__(W_NDimArray):
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
                     promote_to_largest, cumulative))
 
-    descr_sum = _reduce_ufunc_impl("add")
-    descr_sum_promote = _reduce_ufunc_impl("add", True)
+    descr_sum = _reduce_ufunc_impl("add", True)
     descr_prod = _reduce_ufunc_impl("multiply", True)
     descr_max = _reduce_ufunc_impl("maximum")
     descr_min = _reduce_ufunc_impl("minimum")

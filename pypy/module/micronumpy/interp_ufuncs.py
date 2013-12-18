@@ -496,6 +496,15 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
+    if promote_to_largest:
+        if dt.kind == NPY_GENBOOLLTR or dt.kind == NPY_SIGNEDLTR:
+            return interp_dtype.get_dtype_cache(space).w_int64dtype
+        elif dt.kind == NPY_UNSIGNEDLTR:
+            return interp_dtype.get_dtype_cache(space).w_uint64dtype
+        elif dt.kind == NPY_FLOATINGLTR or dt.kind == NPY_COMPLEXLTR:
+            return dt
+        else:
+            assert False
     if promote_bools and (dt.kind == NPY_GENBOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
     if promote_to_float:
@@ -507,15 +516,6 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
             if (dtype.kind == NPY_FLOATINGLTR and
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype
-    if promote_to_largest:
-        if dt.kind == NPY_GENBOOLLTR or dt.kind == NPY_SIGNEDLTR:
-            return interp_dtype.get_dtype_cache(space).w_float64dtype
-        elif dt.kind == NPY_FLOATINGLTR:
-            return interp_dtype.get_dtype_cache(space).w_float64dtype
-        elif dt.kind == NPY_UNSIGNEDLTR:
-            return interp_dtype.get_dtype_cache(space).w_uint64dtype
-        else:
-            assert False
     return dt
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):

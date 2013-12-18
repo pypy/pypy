@@ -1344,13 +1344,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_sum(self):
-        from numpypy import array, zeros
+        from numpypy import array, zeros, float16, complex64, str_
         a = array(range(5))
         assert a.sum() == 10
         assert a[:4].sum() == 6
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
+
+        assert array([True, False] * 200).sum() == 200
+        assert array([True, False] * 200, dtype='int8').sum() == 200
+        assert array([True, False] * 200).sum(dtype='int8') == -56
+        assert type(array([True, False] * 200, dtype='float16').sum()) is float16
+        assert type(array([True, False] * 200, dtype='complex64').sum()) is complex64
 
         raises(TypeError, 'a.sum(axis=0, out=3)')
         raises(ValueError, 'a.sum(axis=2)')
@@ -1394,10 +1400,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_prod(self):
-        from numpypy import array
+        from numpypy import array, int_, dtype
         a = array(range(1, 6))
         assert a.prod() == 120.0
         assert a[:4].prod() == 24.0
+        a = array([True, False])
+        assert a.prod() == 0
+        assert type(a.prod()) is int_
+        a = array([True, False], dtype='uint')
+        assert a.prod() == 0
+        assert type(a.prod()) is dtype('uint').type
 
     def test_max(self):
         from numpypy import array, zeros
