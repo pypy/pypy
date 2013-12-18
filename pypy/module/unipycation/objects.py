@@ -63,12 +63,12 @@ class W_CoreTerm(W_Root):
             args_strs.append(space.str_w(space.call_method(x, "__str__")))
         return space.wrap("%s(%s)" % (space.str_w(self.w_name), ", ".join(args_strs)))
 
-    # XXX needed?
-    #def descr_repr(self, space):
-    #    name = space.str_w(space.repr(space.wrap(self.p_term.signature().name)))
-    #    argsstr = space.str_w(space.repr(self.prop_getargs(space)))
-    #    res = "%s(%s, %s)" % (space.type(self).getname(space), name, argsstr)
-    #    return space.wrap(res)
+    def descr_repr(self, space):
+        return space.wrap("%s(%s, %s)" % (
+                space.type(self).getname(space),
+                space.str_w(space.repr(self.w_name)),
+                space.str_w(space.repr(self.prop_getargs(space))),
+                ))
 
     @staticmethod
     def _from_term(space, w_subtype, w_term):
@@ -86,7 +86,7 @@ W_CoreTerm.typedef = TypeDef("CoreTerm",
     __ne__ = interp2app(W_CoreTerm.descr_ne),
     __new__ = interp2app(term_new__),
     __str__ = interp2app(W_CoreTerm.descr_str),
-    #__repr__ = interp2app(W_CoreTerm.descr_repr),
+    __repr__ = interp2app(W_CoreTerm.descr_repr),
     args = GetSetProperty(W_CoreTerm.prop_getargs),
     name = GetSetProperty(W_CoreTerm.prop_getname),
     _from_term = interp2app(W_CoreTerm._from_term, as_classmethod=True),

@@ -118,6 +118,8 @@ class AppTestObjects(object):
     def test_term_repr(self):
         import unipycation as u
         t = u.CoreTerm("x", [1,2,666])
+        print(72 * "-")
+        print(repr(t))
         assert repr(t) == "CoreTerm('x', [1, 2, 666])"
 
     def test_var_repr(self):
