@@ -345,7 +345,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         # TypeError
         raises((TypeError, AttributeError), 'x.ndim = 3')
 
-    def test_init(self):
+    def test_zeros(self):
         from numpypy import zeros
         a = zeros(15)
         # Check that storage was actually zero'd.
@@ -354,6 +354,33 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[13] = 5.3
         assert a[13] == 5.3
         assert zeros(()).shape == ()
+
+    def test_empty_like(self):
+        import numpy as np
+        a = np.zeros((2, 3))
+        assert a.shape == (2, 3)
+        a[0,0] = 1
+        b = np.empty_like(a)
+        assert b.shape == a.shape
+        assert b.dtype == a.dtype
+        assert b[0,0] != 1
+        b = np.empty_like(a, dtype='i4')
+        assert b.shape == a.shape
+        assert b.dtype == np.dtype('i4')
+        assert b[0,0] != 1
+        b = np.empty_like([1,2,3])
+        assert b.shape == (3,)
+        assert b.dtype == np.int_
+
+        class A(np.ndarray):
+            pass
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            b = np.empty_like(A((2, 3)))
+            assert b.shape == (2, 3)
+            assert type(b) is A
+        else:
+            raises(NotImplementedError, np.empty_like, A((2, 3)))
 
     def test_size(self):
         from numpypy import array,arange,cos
