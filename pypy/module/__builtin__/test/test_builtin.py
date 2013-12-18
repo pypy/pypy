@@ -84,6 +84,15 @@ class AppTestBuiltinApp:
         assert bin(-2) == "-0b10"
         assert bin(Foo()) == "0b100"
         raises(TypeError, bin, 0.)
+        class C(object):
+            def __index__(self):
+                return 42
+        assert bin(C()) == bin(42)
+        class D(object):
+            def __int__(self):
+                return 42
+        exc = raises(TypeError, bin, D())
+        assert "index" in exc.value.message
 
     def test_oct(self):
         class Foo:

@@ -564,8 +564,11 @@ def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr,
                 index_w[i] = indexes_w[i]
         w_idx = space.newtuple(prefix_w[:prefixlen] + iter.get_index(space,
                                                                   shapelen))
-        arr.descr_setitem(space, space.newtuple(index_w),
-                          val_arr.descr_getitem(space, w_idx))
+        if val_arr.is_scalar():
+            w_value = val_arr.get_scalar_value()
+        else:
+            w_value = val_arr.descr_getitem(space, w_idx)
+        arr.descr_setitem(space, space.newtuple(index_w), w_value)
         iter.next()
 
 byteswap_driver = jit.JitDriver(name='numpy_byteswap_driver',

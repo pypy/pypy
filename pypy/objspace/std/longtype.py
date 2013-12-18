@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, interpindirect2app, unwrap_spec)
+from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib.rstring import ParseStringError
@@ -27,6 +28,13 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             return w_value
         elif type(w_value) is W_LongObject:
             return newbigint(space, w_longtype, w_value.num)
+        elif space.lookup(w_value, '__int__') is not None:
+            w_obj = space.int(w_value)
+            return newbigint(space, w_longtype, space.bigint_w(w_obj))
+        elif space.lookup(w_value, '__trunc__') is not None:
+            w_obj = space.trunc(w_value)
+            w_obj = space.int(w_obj)
+            return newbigint(space, w_longtype, space.bigint_w(w_obj))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             return string_to_w_long(space, w_longtype,
@@ -36,21 +44,17 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             strvalue = space.bufferstr_w(w_value)
             return string_to_w_long(space, w_longtype, strvalue.decode('latin-1'))
         else:
-            # otherwise, use the __int__() or the __trunc__ methods
-            w_obj = w_value
-            if space.lookup(w_obj, '__int__') is not None:
-                w_obj = space.int(w_obj)
-            elif space.lookup(w_obj, '__trunc__') is not None:
-                w_obj = space.trunc(w_obj)
-                w_obj = space.int(w_obj)
-            else:
+            try:
+                w_buffer = space.buffer(w_value)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
                 raise operationerrfmt(space.w_TypeError,
                     "int() argument must be a string or a number, not '%T'",
-                    w_obj)
-            if space.is_w(w_longtype, space.w_int):
-                return w_obj
-            bigint = space.bigint_w(w_obj)
-            return newbigint(space, w_longtype, bigint)
+                    w_value)
+            else:
+                buf = space.interp_w(Buffer, w_buffer)
+                return string_to_w_long(space, w_longtype, buf.as_str())
     else:
         try:
             base = space.int_w(w_base)

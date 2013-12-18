@@ -461,9 +461,15 @@ class AppTestInt:
                 return Integral()
         assert int(TruncReturnsNonInt()) == 42
 
+    def test_int_before_string(self):
+        class Integral(str):
+            def __int__(self):
+                return 42
+        assert int(Integral('abc')) == 42
+
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)
-    
+
     def test_bit_length(self):
         for val, bits in [
             (0, 0),

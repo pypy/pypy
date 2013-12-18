@@ -271,6 +271,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test uninitialized value crash?
         assert len(str(a)) > 0
 
+        import sys
+        for order in [False, True, 'C', 'F']:
+            a = ndarray.__new__(ndarray, (2, 3), float, order=order)
+            assert a.shape == (2, 3)
+            if order in [True, 'F'] and '__pypy__' not in sys.builtin_module_names:
+                assert a.flags['F']
+                assert not a.flags['C']
+            else:
+                assert a.flags['C']
+                assert not a.flags['F']
+
     def test_ndmin(self):
         from numpypy import array
 
@@ -308,6 +319,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = c.reshape(3, 4, 0)
         e = d.repeat(3, 0)
         assert e.shape == (9, 4, 0)
+
+    def test_buffer(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        b = buffer(a)
+        assert type(b) is buffer
 
     def test_type(self):
         from numpypy import array
@@ -623,6 +640,9 @@ class AppTestNumArray(BaseNumpyAppTest):
             for y in range(2):
                 expected[x, y] = math.cos(a[x]) * math.cos(b[y])
         assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
+        a = array(1)[newaxis]
+        assert a == array([1])
+        assert a.shape == (1,)
 
     def test_newaxis_slice(self):
         from numpypy import array, newaxis
@@ -1868,6 +1888,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0, 1, 1, 0, 4, 0, 6, 7, 8, 9]).all()
         raises(IndexError, "arange(10)[array([10])] = 3")
         raises(IndexError, "arange(10)[[-11]] = 3")
+        a = zeros(10)
+        b = array([3,4,5])
+        a[b] = 1
+        assert (a == [0, 0, 0, 1, 1, 1, 0, 0, 0, 0]).all()
 
     def test_array_scalar_index(self):
         import numpypy as np
@@ -1941,11 +1965,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.itemsize == 3
         a = array(3.1415).astype('S3').dtype
         assert a.itemsize == 3
-        try:
+
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
             a = array(['1', '2','3']).astype(float)
             assert a[2] == 3.0
-        except NotImplementedError:
-            skip('astype("float") not implemented for str arrays')
+        else:
+            raises(NotImplementedError, array(['1', '2', '3']).astype, float)
 
     def test_base(self):
         from numpypy import array

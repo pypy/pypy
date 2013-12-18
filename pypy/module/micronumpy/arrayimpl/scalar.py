@@ -132,6 +132,12 @@ class Scalar(base.BaseArrayImplementation):
         if space.isinstance_w(w_idx, space.w_tuple):
             if space.len_w(w_idx) == 0:
                 return self.get_scalar_value()
+        if space.is_none(w_idx):
+            new_shape = [1]
+            arr = W_NDimArray.from_shape(space, new_shape, self.dtype)
+            arr_iter = arr.create_iter(new_shape)
+            arr_iter.setitem(self.value)
+            return arr
         raise OperationError(space.w_IndexError,
                              space.wrap("0-d arrays can't be indexed"))
 

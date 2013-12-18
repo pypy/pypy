@@ -259,6 +259,8 @@ class AppTestLong:
         n = -sys.maxsize-1
         assert int(n) == n
         assert str(int(n)) == str(n)
+        a = memoryview(b'123')
+        assert int(a) == 123
 
     def test_huge_longs(self):
         import operator
@@ -296,6 +298,12 @@ class AppTestLong:
             def __trunc__(self):
                 return Integral()
         assert int(TruncReturnsNonInt()) == 42
+
+    def test_long_before_string(self):
+        class A(str):
+            def __long__(self):
+                return 42
+        assert int(A('abc')) == 42
 
     def test_conjugate(self):
         assert (7).conjugate() == 7

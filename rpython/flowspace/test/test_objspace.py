@@ -1244,6 +1244,20 @@ class TestFlowObjSpace(Base):
             graph = self.codetest(g)
         assert "Undefined closure variable 'b'" in str(excinfo.value)
 
+    def call_os_remove(msg):
+        os.remove(msg)
+        os.unlink(msg)
+
+    def test_call_os_remove(self):
+        x = self.codetest(self.call_os_remove)
+        simplify_graph(x)
+        self.show(x)
+        ops = x.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        assert ops[0].args[0].value is os.unlink
+        assert ops[1].opname == 'simple_call'
+        assert ops[1].args[0].value is os.unlink
+
 
 DATA = {'x': 5,
         'y': 6}

@@ -1,7 +1,9 @@
 import sys
 
 def factorial(x):
-    """Find x!."""
+    """factorial(x) -> Integral
+
+    "Find x!. Raise a ValueError if x is negative or non-integral."""
     if isinstance(x, float):
         fl = int(x)
         if fl != x:
@@ -18,15 +20,15 @@ def factorial(x):
             res *= i
         return res
 
-    #Experimentally this gap seems good
-    gap = max(100, x>>7)
+    # Experimentally this gap seems good
+    gap = max(100, x >> 7)
     def _fac_odd(low, high):
-        if low+gap >= high:
+        if low + gap >= high:
             t = 1
             for i in range(low, high, 2):
                 t *= i
             return t
-        
+
         mid = ((low + high) >> 1) | 1
         return _fac_odd(low, mid) * _fac_odd(mid, high)
 

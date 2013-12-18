@@ -206,8 +206,7 @@ class W_CData(W_Root):
                 w_value.get_array_length() == length):
                 # fast path: copying from exactly the correct type
                 s = w_value._cdata
-                for i in range(ctitemsize * length):
-                    cdata[i] = s[i]
+                rffi.c_memcpy(cdata, s, ctitemsize * length)
                 keepalive_until_here(w_value)
                 return
         #
@@ -259,7 +258,6 @@ class W_CData(W_Root):
         space = self.space
         if isinstance(w_other, W_CData):
             from pypy.module._cffi_backend import ctypeptr, ctypearray
-            from pypy.module._cffi_backend import ctypevoid
             ct = w_other.ctype
             if isinstance(ct, ctypearray.W_CTypeArray):
                 ct = ct.ctptr

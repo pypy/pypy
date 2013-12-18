@@ -5,7 +5,9 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
 class LLBuffer(RWBuffer):
@@ -34,8 +36,7 @@ class LLBuffer(RWBuffer):
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)
-        for i in range(len(string)):
-            raw_cdata[i] = string[i]
+        copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
 
 
 class MiniBuffer(W_Root):
