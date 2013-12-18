@@ -1146,8 +1146,6 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                                                   w_base=w_buffer,
                                                   writable=buf.is_writable())
 
-    if not shape:
-        return W_NDimArray.new_scalar(space, dtype)
     order = order_converter(space, w_order, NPY_CORDER)
     if order == NPY_CORDER:
         order = 'C'
