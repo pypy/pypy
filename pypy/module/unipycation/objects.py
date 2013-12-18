@@ -92,34 +92,37 @@ W_CoreTerm.typedef = TypeDef("CoreTerm",
     _from_term = interp2app(W_CoreTerm._from_term, as_classmethod=True),
 )
 
-
 # ---
 
 def var_new__(space, w_subtype, __args__): # __args__ unused
-    p_var = pterm.BindingVar()
-    return W_Var(space, p_var)
+    return W_Var(space)
 
 class W_Var(W_Root):
     """
     Represents an unbound variable in a query.
     """
-    _immutable_fields_ = ["p_var"]
 
-    def __init__(self, space, p_var):
+    NEXT_UNIQUE = 0
+    _UNIQUE_PREFIX = "_V"
+
+    def __init__(self, space):
         self.space = space
-        self.p_var = p_var
+        # just for the sake of printing a variable, give it a name.
+        self.w_name = space.wrap("%s%d" % (W_Var._UNIQUE_PREFIX, W_Var.NEXT_UNIQUE))
+        W_Var.NEXT_UNIQUE += 1
 
-    def descr_str(self, space):
+    # XXX broken
+    #@classmethod
+    #def descr_unique_prefix(cls, space):
+    #    return space.wrap(W_Var._UNIQUE_PREFIX)
 
-        # XXX Hackarama XXX.
-        # TermFormatter needs an engine, so we just make a new one.
-        tmp_engine = pcont.Engine()
-        fmtr = pfmt.TermFormatter(tmp_engine)
-        return self.space.wrap(fmtr.format(self.p_var))
+    def descr_str(self, space): return self.w_name
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
     __str__ = interp2app(W_Var.descr_str),
+    #UNIQUE_PREFIX = GetSetProperty(W_Var.descr_unique_prefix),
+    #UNIQUE_PREFIX = interp2app(W_Var.descr_unique_prefix, as_classmethod=True),
 )
 
 W_Var.typedef.acceptable_as_base_class = False
