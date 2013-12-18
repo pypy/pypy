@@ -539,7 +539,7 @@ class __extend__(W_NDimArray):
 
     def descr_astype(self, space, w_dtype):
         dtype = space.interp_w(interp_dtype.W_Dtype,
-          space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         impl = self.implementation
         if isinstance(impl, scalar.Scalar):
             return W_NDimArray.new_scalar(space, dtype, impl.value)
@@ -1445,25 +1445,18 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 @unwrap_spec(order=str)
 def zeros(space, w_shape, w_dtype=None, order='C'):
     dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    if not shape:
-        return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    return space.wrap(W_NDimArray.from_shape(space, shape, dtype=dtype, order=order))
+    return W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
 
 @unwrap_spec(order=str)
 def ones(space, w_shape, w_dtype=None, order='C'):
     dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    if not shape:
-        return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
     w_arr = W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
-    one = dtype.box(1)
-    w_arr.fill(space, one)
-    return space.wrap(w_arr)
+    w_arr.fill(space, dtype.box(1))
+    return w_arr
 
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
