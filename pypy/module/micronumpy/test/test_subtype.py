@@ -33,6 +33,11 @@ class AppTestSupport(BaseNumpyAppTest):
                 self = ndarray.__new__(subtype, shape, dtype)
                 self.id = 'subtype'
                 return self
+        a = C((), int)
+        assert type(a) is C
+        assert a.shape == ()
+        assert a.dtype is dtype(int)
+        assert a.id == 'subtype'
         a = C([2, 2], int)
         assert isinstance(a, C)
         assert isinstance(a, ndarray)
