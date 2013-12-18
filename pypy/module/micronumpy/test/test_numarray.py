@@ -2718,6 +2718,17 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[0] == 1
         assert b[1] == 'ab'
 
+    def test_index(self):
+        import numpy as np
+        a = np.array([1], np.uint16)
+        i = a.__index__()
+        assert type(i) is int
+        assert i == 1
+        for a in [np.array('abc'), np.array([1,2]), np.array([True])]:
+            exc = raises(TypeError, a.__index__)
+            assert exc.value.message == 'only integer arrays with one element ' \
+                                        'can be converted to an index'
+
     def test_int_array_index(self):
         from numpypy import array
         assert (array([])[[]] == []).all()

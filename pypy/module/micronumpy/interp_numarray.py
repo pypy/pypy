@@ -992,7 +992,8 @@ class __extend__(W_NDimArray):
         elif shape == [1]:
             value = self.descr_getitem(space, space.wrap(0))
         else:
-            raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only length-1 arrays can be converted to Python scalars"))
         if self.get_dtype().is_str_or_unicode():
             raise OperationError(space.w_TypeError, space.wrap(
                 "don't know how to convert scalar number to int"))
@@ -1006,7 +1007,8 @@ class __extend__(W_NDimArray):
         elif shape == [1]:
             value = self.descr_getitem(space, space.wrap(0))
         else:
-            raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only length-1 arrays can be converted to Python scalars"))
         if self.get_dtype().is_str_or_unicode():
             raise OperationError(space.w_TypeError, space.wrap(
                 "don't know how to convert scalar number to long"))
@@ -1020,11 +1022,29 @@ class __extend__(W_NDimArray):
         elif shape == [1]:
             value = self.descr_getitem(space, space.wrap(0))
         else:
-            raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only length-1 arrays can be converted to Python scalars"))
         if self.get_dtype().is_str_or_unicode():
             raise OperationError(space.w_TypeError, space.wrap(
                 "don't know how to convert scalar number to float"))
         return space.float(value)
+
+    def descr_index(self, space):
+        shape = self.get_shape()
+        if len(shape) == 0:
+            assert isinstance(self.implementation, scalar.Scalar)
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only integer arrays with one element "
+                "can be converted to an index"))
+        if not self.get_dtype().is_int_type() or self.get_dtype().is_bool_type():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only integer arrays with one element "
+                "can be converted to an index"))
+        return value.item(space)
 
     def descr_reduce(self, space):
         from rpython.rlib.rstring import StringBuilder
@@ -1204,6 +1224,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
     __buffer__ = interp2app(W_NDimArray.descr_get_data),
+    __index__ = interp2app(W_NDimArray.descr_index),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
     __neg__ = interp2app(W_NDimArray.descr_neg),
