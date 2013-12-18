@@ -62,8 +62,9 @@ def is_single_elem(space, w_elem, is_rec_type):
     if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
         return True
     if (space.isinstance_w(w_elem, space.w_tuple) or
-        isinstance(w_elem, W_NDimArray) or
         space.isinstance_w(w_elem, space.w_list)):
+        return False
+    if isinstance(w_elem, W_NDimArray) and not w_elem.is_scalar():
         return False
     return True
 
@@ -72,7 +73,6 @@ def find_shape_and_elems(space, w_iterable, dtype):
     batch = space.listview(w_iterable)
     is_rec_type = dtype is not None and dtype.is_record_type()
     while True:
-        new_batch = []
         if not batch:
             return shape[:], []
         if is_single_elem(space, batch[0], is_rec_type):
@@ -81,6 +81,7 @@ def find_shape_and_elems(space, w_iterable, dtype):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "setting an array element with a sequence"))
             return shape[:], batch
+        new_batch = []
         size = space.len_w(batch[0])
         for w_elem in batch:
             if (is_single_elem(space, w_elem, is_rec_type) or

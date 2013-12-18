@@ -455,6 +455,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         assert a[3] == 3
 
+    def test_list_of_array_init(self):
+        import numpy as np
+        a = np.array([np.array(True), np.array(False)])
+        assert a.shape == (2,)
+        assert a.dtype == np.bool_
+        assert (a == [True, False]).all()
+        a = np.array([np.array(True), np.array(2)])
+        assert a.shape == (2,)
+        assert a.dtype == np.int_
+        assert (a == [1, 2]).all()
+        a = np.array([np.array(True), np.int_(2)])
+        assert a.shape == (2,)
+        assert a.dtype == np.int_
+        assert (a == [1, 2]).all()
+        a = np.array([np.array([True]), np.array([2])])
+        assert a.shape == (2, 1)
+        assert a.dtype == np.int_
+        assert (a == [[1], [2]]).all()
+
     def test_getitem(self):
         from numpypy import array
         a = array(range(5))

@@ -1425,6 +1425,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if dtype is None or (
                  dtype.is_str_or_unicode() and dtype.get_size() < 1):
         for w_elem in elems_w:
+            if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
+                w_elem = w_elem.get_scalar_value()
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
             #if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
