@@ -988,28 +988,43 @@ class __extend__(W_NDimArray):
         shape = self.get_shape()
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
-            return space.int(space.wrap(self.implementation.get_scalar_value()))
-        if shape == [1]:
-            return space.int(self.descr_getitem(space, space.wrap(0)))
-        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+        if self.get_dtype().is_str_or_unicode():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "don't know how to convert scalar number to int"))
+        return space.int(value)
 
     def descr_long(self, space):
         shape = self.get_shape()
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
-            return space.long(space.wrap(self.implementation.get_scalar_value()))
-        if shape == [1]:
-            return space.int(self.descr_getitem(space, space.wrap(0)))
-        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+        if self.get_dtype().is_str_or_unicode():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "don't know how to convert scalar number to long"))
+        return space.long(value)
 
     def descr_float(self, space):
         shape = self.get_shape()
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
-            return space.float(space.wrap(self.implementation.get_scalar_value()))
-        if shape == [1]:
-            return space.float(self.descr_getitem(space, space.wrap(0)))
-        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+        if self.get_dtype().is_str_or_unicode():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "don't know how to convert scalar number to float"))
+        return space.float(value)
 
     def descr_reduce(self, space):
         from rpython.rlib.rstring import StringBuilder

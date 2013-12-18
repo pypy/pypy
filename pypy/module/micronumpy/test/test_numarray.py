@@ -2083,6 +2083,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert int(array([1])) == 1
         assert raises(TypeError, "int(array([1, 2]))")
         assert int(array([1.5])) == 1
+        for op in ["int", "float", "long"]:
+            for a in [array('123'), array(['123'])]:
+                exc = raises(TypeError, "%s(a)" % op)
+                assert exc.value.message == "don't know how to convert " \
+                                            "scalar number to %s" % op
 
     def test__reduce__(self):
         from numpypy import array, dtype
