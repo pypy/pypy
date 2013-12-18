@@ -118,15 +118,13 @@ class AppTestObjects(object):
     def test_term_repr(self):
         import unipycation as u
         t = u.CoreTerm("x", [1,2,666])
-        print(72 * "-")
-        print(repr(t))
         assert repr(t) == "CoreTerm('x', [1, 2, 666])"
 
     def test_var_repr(self):
         import unipycation as u, re
         V = u.Var()
         # XXX hardcoded _V, fix Var.UNIQUE_PREFIX
-        assert re.match("^Var\(_V[0-9]*\)", repr(V))
+        assert re.match("^Var\('_V[0-9]*'\)", repr(V))
 
     def test_nested_term_repr(self):
         import unipycation as u

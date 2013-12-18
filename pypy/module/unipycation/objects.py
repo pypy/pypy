@@ -63,6 +63,8 @@ class W_CoreTerm(W_Root):
             args_strs.append(space.str_w(space.call_method(x, "__str__")))
         return space.wrap("%s(%s)" % (space.str_w(self.w_name), ", ".join(args_strs)))
 
+    # XXX repr is not very consistent.
+    # Integers and stuff in args will print the interp-level wrapper instance.
     def descr_repr(self, space):
         return space.wrap("%s(%s, %s)" % (
                 space.type(self).getname(space),
@@ -118,7 +120,7 @@ class W_Var(W_Root):
 
     def descr_str(self, space): return self.w_name
     def descr_repr(self, space):
-        return space.wrap("Var(%s)" % space.str_w(self.w_name))
+        return space.wrap("Var(%s)" % repr(space.str_w(self.w_name)))
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
