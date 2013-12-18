@@ -1405,38 +1405,34 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     # arrays with correct dtype
     dtype = interp_dtype.decode_w_dtype(space, w_dtype)
     if isinstance(w_object, W_NDimArray) and \
-        (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
+            (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
         shape = w_object.get_shape()
         if copy:
             w_ret = w_object.descr_copy(space)
         else:
-            if ndmin<= len(shape):
+            if ndmin <= len(shape):
                 return w_object
             new_impl = w_object.implementation.set_shape(space, w_object, shape)
             w_ret = W_NDimArray(new_impl)
         if ndmin > len(shape):
             shape = [1] * (ndmin - len(shape)) + shape
             w_ret.implementation = w_ret.implementation.set_shape(space,
-                                            w_ret, shape)
+                                                                  w_ret, shape)
         return w_ret
 
     # not an array or incorrect dtype
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
-    if dtype is None or (
-                 dtype.is_str_or_unicode() and dtype.get_size() < 1):
+    if dtype is None or (dtype.is_str_or_unicode() and dtype.get_size() < 1):
         for w_elem in elems_w:
             if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
                 w_elem = w_elem.get_scalar_value()
-            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
-                                                        dtype)
-            #if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
-            #    break
-
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem, dtype)
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
-    if dtype.is_str_or_unicode() and dtype.get_size() < 1:
-        # promote S0 -> S1, U0 -> U1
-        dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
+        elif dtype.is_str_or_unicode() and dtype.get_size() < 1:
+            # promote S0 -> S1, U0 -> U1
+            dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
+
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
