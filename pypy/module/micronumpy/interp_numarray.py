@@ -1468,12 +1468,13 @@ def ones(space, w_shape, w_dtype=None, order='C'):
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     w_a = convert_to_array(space, w_a)
-    if subok and type(w_a) is not W_NDimArray:
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "subtypes not implemented"))
     if w_dtype is None:
-        w_dtype = w_a.get_dtype()
-    return zeros(space, w_a.descr_get_shape(space), w_dtype)
+        dtype = w_a.get_dtype()
+    else:
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    return W_NDimArray.from_shape(space, w_a.get_shape(), dtype=dtype,
+                                  w_instance=w_a if subok else None)
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)

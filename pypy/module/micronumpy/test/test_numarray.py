@@ -357,6 +357,9 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_empty_like(self):
         import numpy as np
+        a = np.empty_like(np.zeros(()))
+        assert a.shape == ()
+        assert a.dtype == np.float_
         a = np.zeros((2, 3))
         assert a.shape == (2, 3)
         a[0,0] = 1
@@ -371,16 +374,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = np.empty_like([1,2,3])
         assert b.shape == (3,)
         assert b.dtype == np.int_
-
         class A(np.ndarray):
             pass
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            b = np.empty_like(A((2, 3)))
-            assert b.shape == (2, 3)
-            assert type(b) is A
-        else:
-            raises(NotImplementedError, np.empty_like, A((2, 3)))
+        b = np.empty_like(A((2, 3)))
+        assert b.shape == (2, 3)
+        assert type(b) is A
+        b = np.empty_like(A((2, 3)), subok=False)
+        assert b.shape == (2, 3)
+        assert type(b) is np.ndarray
 
     def test_size(self):
         from numpypy import array,arange,cos
