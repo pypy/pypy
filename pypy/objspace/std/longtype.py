@@ -29,12 +29,10 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         elif type(w_value) is W_LongObject:
             return newbigint(space, w_longtype, w_value.num)
         elif space.lookup(w_value, '__int__') is not None:
-            w_obj = space.int(w_value)
-            return newbigint(space, w_longtype, space.bigint_w(w_obj))
+            return _from_intlike(space, w_longtype, w_value)
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
-            w_obj = space.int(w_obj)
-            return newbigint(space, w_longtype, space.bigint_w(w_obj))
+            return _from_intlike(space, w_longtype, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             return string_to_w_long(space, w_longtype,
@@ -54,7 +52,8 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                     w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
-                return string_to_w_long(space, w_longtype, buf.as_str())
+                return string_to_w_long(space, w_longtype,
+                                        buf.as_str().decode('latin-1'))
     else:
         try:
             base = space.int_w(w_base)
@@ -75,6 +74,13 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                                      space.wrap("int() can't convert non-string "
                                                 "with explicit base"))
         return string_to_w_long(space, w_longtype, s, base)
+
+
+def _from_intlike(space, w_longtype, w_intlike):
+    w_obj = space.int(w_intlike)
+    if space.is_w(w_longtype, space.w_int):
+        return w_obj
+    return newbigint(space, w_longtype, space.bigint_w(w_obj))
 
 
 def string_to_w_long(space, w_longtype, s, base=10):
