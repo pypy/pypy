@@ -10,7 +10,6 @@ class MultiArrayModule(MixedModule):
         'array': 'interp_numarray.array',
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
-        'ones': 'interp_numarray.ones',
         'empty_like': 'interp_numarray.empty_like',
         '_reconstruct' : 'interp_numarray._reconstruct',
         'scalar' : 'interp_numarray.build_scalar',
