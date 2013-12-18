@@ -499,6 +499,21 @@ class TestStandalone(StandaloneTests):
         assert 'foo}' in lines[2]
         assert len(lines) == 3
 
+    def test_debug_flush_at_exit(self):
+        def entry_point(argv):
+            debug_start("mycat")
+            os._exit(0)
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        path = udir.join('test_debug_flush_at_exit.log')
+        cbuilder.cmdexec("", env={'PYPYLOG': ':%s' % path})
+        #
+        f = open(str(path), 'r')
+        lines = f.readlines()
+        f.close()
+        assert lines[0].endswith('{mycat\n')
+
     def test_fatal_error(self):
         def g(x):
             if x == 1:

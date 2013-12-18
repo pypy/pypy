@@ -381,6 +381,8 @@ class LLGraphCPU(model.AbstractCPU):
             res = self.llinterp.eval_graph(ptr._obj.graph, args)
         else:
             res = ptr._obj._callable(*args)
+        if RESULT is lltype.Void:
+            return None
         return support.cast_result(RESULT, res)
 
     def _do_call(self, func, args_i, args_r, args_f, calldescr):

@@ -171,6 +171,9 @@ class BaseArrayTests:
         a = self.array('c')
         a.fromstring('Hi!')
         assert a[0] == 'H' and a[1] == 'i' and a[2] == '!' and len(a) == 3
+        a = self.array('c')
+        a.fromstring('')
+        assert not len(a)
 
         for t in 'bBhHiIlLfd':
             a = self.array(t)

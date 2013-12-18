@@ -24,8 +24,12 @@ else:
     FTIME = 'ftime'
     STRUCT_TIMEB = 'struct timeb'
     includes = [TIME_H, 'time.h', 'errno.h', 'sys/select.h',
-                'sys/types.h', 'unistd.h', 'sys/timeb.h',
+                'sys/types.h', 'unistd.h',
                 'sys/time.h', 'sys/resource.h']
+
+    if not sys.platform.startswith("openbsd"):
+        includes.append('sys/timeb.h')
+
     need_rusage = True
 
 
@@ -86,16 +90,18 @@ class RegisterTime(BaseLazyRegistering):
                 c_gettimeofday = self.llexternal('gettimeofday',
                                  [self.TIMEVALP, rffi.VOIDP], rffi.INT,
                                   _nowrapper=True, releasegil=False)
+            c_ftime = None # We have gettimeofday(2), so force ftime(3) OFF.
         else:
             c_gettimeofday = None
 
-        if self.HAVE_FTIME:
-            self.configure(CConfigForFTime)
-            c_ftime = self.llexternal(FTIME, [lltype.Ptr(self.TIMEB)],
-                                      lltype.Void,
-                                      _nowrapper=True, releasegil=False)
-        else:
-            c_ftime = None    # to not confuse the flow space
+            # Only look for ftime(3) if gettimeofday(2) was not found.
+            if self.HAVE_FTIME:
+                self.configure(CConfigForFTime)
+                c_ftime = self.llexternal(FTIME, [lltype.Ptr(self.TIMEB)],
+                                          lltype.Void,
+                                          _nowrapper=True, releasegil=False)
+            else:
+                c_ftime = None    # to not confuse the flow space
 
         c_time = self.llexternal('time', [rffi.VOIDP], rffi.TIME_T,
                                  _nowrapper=True, releasegil=False)
@@ -115,9 +121,9 @@ class RegisterTime(BaseLazyRegistering):
                 if rffi.cast(rffi.LONG, errcode) == 0:
                     result = decode_timeval(t)
                 lltype.free(t, flavor='raw')
-            if result != -1:
-                return result
-            if self.HAVE_FTIME:
+                if result != -1:
+                    return result
+            else: # assume using ftime(3)
                 t = lltype.malloc(self.TIMEB, flavor='raw')
                 c_ftime(t)
                 result = (float(intmask(t.c_time)) +

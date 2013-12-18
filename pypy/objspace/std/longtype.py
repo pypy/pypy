@@ -1,7 +1,8 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
      interpindirect2app
+from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib.rstring import ParseStringError
@@ -27,6 +28,18 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             return w_value
         elif type(w_value) is W_LongObject:
             return newbigint(space, w_longtype, w_value.num)
+        elif (space.lookup(w_value, '__long__') is not None or
+              space.lookup(w_value, '__int__') is not None):
+            w_obj = space.long(w_value)
+            return newbigint(space, w_longtype, space.bigint_w(w_obj))
+        elif space.lookup(w_value, '__trunc__') is not None:
+            w_obj = space.trunc(w_value)
+            # :-(  blame CPython 2.7
+            if space.lookup(w_obj, '__long__') is not None:
+                w_obj = space.long(w_obj)
+            else:
+                w_obj = space.int(w_obj)
+            return newbigint(space, w_longtype, space.bigint_w(w_obj))
         elif space.isinstance_w(w_value, space.w_str):
             return string_to_w_long(space, w_longtype, space.str_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
@@ -34,20 +47,17 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
         else:
-            # otherwise, use the __long__() or the __trunc__ methods
-            w_obj = w_value
-            if (space.lookup(w_obj, '__long__') is not None or
-                space.lookup(w_obj, '__int__') is not None):
-                w_obj = space.long(w_obj)
+            try:
+                w_buffer = space.buffer(w_value)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise operationerrfmt(space.w_TypeError,
+                    "long() argument must be a string or a number, not '%T'",
+                    w_value)
             else:
-                w_obj = space.trunc(w_obj)
-                # :-(  blame CPython 2.7
-                if space.lookup(w_obj, '__long__') is not None:
-                    w_obj = space.long(w_obj)
-                else:
-                    w_obj = space.int(w_obj)
-            bigint = space.bigint_w(w_obj)
-            return newbigint(space, w_longtype, bigint)
+                buf = space.interp_w(Buffer, w_buffer)
+                return string_to_w_long(space, w_longtype, buf.as_str())
     else:
         base = space.int_w(w_base)
 

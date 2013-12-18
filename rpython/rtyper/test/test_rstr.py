@@ -3,11 +3,13 @@ import random
 import py
 
 from rpython.flowspace.model import summary
+from rpython.annotator.model import AnnotatorError
 from rpython.rtyper.lltypesystem.lltype import typeOf, Signed, malloc
 from rpython.rtyper.lltypesystem.rstr import LLHelpers, STR
 from rpython.rtyper.rstr import AbstractLLHelpers
 from rpython.rtyper.rtyper import TyperError
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.annlowlevel import llstr, hlstr
 
 
 def test_parse_fmt():
@@ -361,16 +363,16 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
 
-    def test_find_TyperError(self):
+    def test_find_AnnotatorError(self):
         const = self.const
         def f():
             s = const('abc')
             s.find(s, 0, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.find(s, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
 
     def test_find_empty_string(self):
         const = self.const
@@ -416,6 +418,13 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(f, [i])
             assert res == expected
 
+    def test_rfind_error_message(self):
+        const = self.const
+        def f(i):
+            return const("abc").rfind(const(''), i)
+        e = py.test.raises(AnnotatorError, self.interpret, f, [-5])
+        assert "rfind: not proven to have non-negative start" in str(e.value)
+
     def test_find_char(self):
         const = self.const
         def fn(ch):
@@ -440,6 +449,29 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('a  ').strip(' ')
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('ab')
+        res = self.interpret(left, [])
+        assert self.ll_to_string(res) == const('ab!')
+        res = self.interpret(right, [])
+        assert self.ll_to_string(res) == const('!ab')
+        res = self.interpret(empty, [])
+        assert self.ll_to_string(res) == const('')
+        res = self.interpret(left2, [])
+        assert self.ll_to_string(res) == const('a')
+
+    def test_strip_multiple_chars(self):
+        const = self.const
+        def both():
+            return const('!ab!').strip(const('!a'))
+        def left():
+            return const('!+ab!').lstrip(const('!+'))
+        def right():
+            return const('!ab!+').rstrip(const('!+'))
+        def empty():
+            return const(' \t\t   ').strip('\t ')
+        def left2():
+            return const('a  ').strip(' \t')
+        res = self.interpret(both, [])
+        assert self.ll_to_string(res) == const('b')
         res = self.interpret(left, [])
         assert self.ll_to_string(res) == const('ab!')
         res = self.interpret(right, [])
@@ -892,16 +924,16 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [])
         assert res == 1
 
-    def test_count_TyperError(self):
+    def test_count_AnnotatorError(self):
         const = self.const
         def f():
             s = const('abc')
             s.count(s, 0, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.count(s, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
 
     def test_getitem_exc(self):
         const = self.const
@@ -1135,3 +1167,16 @@ class TestRstr(AbstractTestRstr):
         self.interpret(f, [array, 4])
         assert list(array) == list('abc'*4)
         lltype.free(array, flavor='raw')
+
+    def test_strip_no_arg(self):
+        strings = ["  xyz  ", "", "\t\vx"]
+
+        def f(i):
+            return strings[i].strip()
+
+        res = self.interpret(f, [0])
+        assert hlstr(res) == "xyz"
+        res = self.interpret(f, [1])
+        assert hlstr(res) == ""
+        res = self.interpret(f, [2])
+        assert hlstr(res) == "x"

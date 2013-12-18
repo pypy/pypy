@@ -1,7 +1,7 @@
 """
 Arguments objects.
 """
-
+from rpython.flowspace.model import const
 
 class Signature(object):
     _immutable_ = True
@@ -77,21 +77,37 @@ class CallSpec(object):
     """Represents the arguments passed into a function call, i.e. the
     `a, b, *c, **d` part in `return func(a, b, *c, **d)`.
     """
-    def __init__(self, args_w, keywords=None, w_stararg=None,
-            w_starstararg=None):
+    def __init__(self, args_w, keywords=None, w_stararg=None):
         self.w_stararg = w_stararg
-        assert w_starstararg is None, "No **-unpacking in RPython"
         assert isinstance(args_w, list)
         self.arguments_w = args_w
         self.keywords = keywords or {}
 
+    def __repr__(self):
+        """ NOT_RPYTHON """
+        name = self.__class__.__name__
+        if not self.keywords:
+            return '%s(%s)' % (name, self.arguments_w,)
+        else:
+            return '%s(%s, %s)' % (name, self.arguments_w, self.keywords)
+
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """
-        shape_cnt  = len(self.arguments_w)    # Number of positional args
-        shape_keys = tuple(sorted(self.keywords))
-        shape_star = self.w_stararg is not None   # Flag: presence of *arg
-        shape_stst = False # Flag: presence of **kwds
+        shape_cnt, shape_keys, shape_star = self._rawshape()
         data_w = self.arguments_w + [self.keywords[key] for key in shape_keys]
         if shape_star:
             data_w.append(self.w_stararg)
-        return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
+        return (shape_cnt, shape_keys, shape_star), data_w
+
+    def _rawshape(self):
+        shape_cnt = len(self.arguments_w)
+        shape_keys = tuple(sorted(self.keywords))
+        shape_star = self.w_stararg is not None   # Flag: presence of *arg
+        return shape_cnt, shape_keys, shape_star
+
+    def as_list(self):
+        assert not self.keywords
+        if self.w_stararg is None:
+            return self.arguments_w
+        else:
+            return self.arguments_w + [const(x) for x in self.w_stararg.value]

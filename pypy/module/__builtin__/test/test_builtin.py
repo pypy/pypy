@@ -46,6 +46,15 @@ class AppTestBuiltinApp:
         assert bin(2L) == "0b10"
         assert bin(-2L) == "-0b10"
         raises(TypeError, bin, 0.)
+        class C(object):
+            def __index__(self):
+                return 42
+        assert bin(C()) == bin(42)
+        class D(object):
+            def __int__(self):
+                return 42
+        exc = raises(TypeError, bin, D())
+        assert "index" in exc.value.message
 
     def test_unichr(self):
         import sys
@@ -83,10 +92,21 @@ class AppTestBuiltinApp:
     def test_locals(self):
         def f():
             return locals()
+
         def g(c=0, b=0, a=0):
             return locals()
+
         assert f() == {}
-        assert g() == {'a':0, 'b':0, 'c':0}
+        assert g() == {'a': 0, 'b': 0, 'c': 0}
+
+    def test_locals_deleted_local(self):
+        def f():
+            a = 3
+            locals()
+            del a
+            return locals()
+
+        assert f() == {}
 
     def test_dir(self):
         def f():
@@ -252,25 +272,9 @@ class AppTestBuiltinApp:
         assert next(x) == 3
 
     def test_xrange_args(self):
-##        # xrange() attributes are deprecated and were removed in Python 2.3.
-##        x = xrange(2)
-##        assert x.start == 0
-##        assert x.stop == 2
-##        assert x.step == 1
-
-##        x = xrange(2,10,2)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
-##        x = xrange(2.3, 10.5, 2.4)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
         raises(ValueError, xrange, 0, 1, 0)
 
-    def test_xrange_repr(self): 
+    def test_xrange_repr(self):
         assert repr(xrange(1)) == 'xrange(1)'
         assert repr(xrange(1,2)) == 'xrange(1, 2)'
         assert repr(xrange(1,2,3)) == 'xrange(1, 4, 3)'
@@ -329,7 +333,7 @@ class AppTestBuiltinApp:
         raises(TypeError, xrange, 1, 3+2j)
         raises(TypeError, xrange, 1, 2, '1')
         raises(TypeError, xrange, 1, 2, 3+2j)
-    
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
@@ -348,7 +352,7 @@ class AppTestBuiltinApp:
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
         raises(TypeError, sorted, [], reverse=None)
-        
+
     def test_reversed_simple_sequences(self):
         l = range(5)
         rev = reversed(l)
@@ -364,8 +368,8 @@ class AppTestBuiltinApp:
                 return 42
         obj = SomeClass()
         assert reversed(obj) == 42
-    
-        
+
+
     def test_cmp(self):
         assert cmp(9,9) == 0
         assert cmp(0,9) < 0
@@ -398,7 +402,7 @@ class AppTestBuiltinApp:
         raises(RuntimeError, cmp, a, c)
         # okay, now break the cycles
         a.pop(); b.pop(); c.pop()
-        
+
     def test_coerce(self):
         assert coerce(1, 2)    == (1, 2)
         assert coerce(1L, 2L)  == (1L, 2L)
@@ -465,7 +469,7 @@ class AppTestBuiltinApp:
         assert eval("1+2") == 3
         assert eval(" \t1+2\n") == 3
         assert eval("len([])") == 0
-        assert eval("len([])", {}) == 0        
+        assert eval("len([])", {}) == 0
         # cpython 2.4 allows this (raises in 2.3)
         assert eval("3", None, None) == 3
         i = 4
@@ -683,15 +687,15 @@ class TestInternal:
         w_value = space.getitem(w_dict, space.wrap('i'))
         assert space.eq_w(w_value, space.wrap(42))
 
-    def test_execfile_different_lineendings(self, space): 
+    def test_execfile_different_lineendings(self, space):
         from rpython.tool.udir import udir
         d = udir.ensure('lineending', dir=1)
-        dos = d.join('dos.py') 
-        f = dos.open('wb') 
+        dos = d.join('dos.py')
+        f = dos.open('wb')
         f.write("x=3\r\n\r\ny=4\r\n")
-        f.close() 
+        f.close()
         space.appexec([space.wrap(str(dos))], """
-            (filename): 
+            (filename):
                 d = {}
                 execfile(filename, d)
                 assert d['x'] == 3
@@ -699,12 +703,12 @@ class TestInternal:
         """)
 
         unix = d.join('unix.py')
-        f = unix.open('wb') 
+        f = unix.open('wb')
         f.write("x=5\n\ny=6\n")
-        f.close() 
+        f.close()
 
         space.appexec([space.wrap(str(unix))], """
-            (filename): 
+            (filename):
                 d = {}
                 execfile(filename, d)
                 assert d['x'] == 5

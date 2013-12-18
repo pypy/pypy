@@ -304,6 +304,11 @@ class AppTestItertools:
 
         raises(TypeError, itertools.islice, [], 0, 0, 0, 0)
 
+        # why not TypeError? Because CPython
+        raises(ValueError, itertools.islice, [], "a", 1, 2)
+        raises(ValueError, itertools.islice, [], 0, "a", 2)
+        raises(ValueError, itertools.islice, [], 0, 1, "a")
+
     def test_chain(self):
         import itertools
         

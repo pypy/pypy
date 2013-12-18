@@ -3,7 +3,8 @@ import new
 import py
 from contextlib import contextmanager
 
-from rpython.flowspace.model import Constant, mkentrymap, c_last_exception
+from rpython.flowspace.model import (
+    Constant, mkentrymap, c_last_exception, const)
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
@@ -387,6 +388,28 @@ class TestFlowObjSpace(Base):
         assert x.startblock.exits[0].args == [ops[1].result, ops[0].result]
         assert x.startblock.exits[0].target is x.exceptblock
 
+    def test_simple_raise(self):
+        def f():
+            raise ValueError('ouch')
+        x = self.codetest(f)
+        simplify_graph(x)
+        self.show(x)
+        ops = x.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        assert ops[0].args == [Constant(ValueError), Constant('ouch')]
+
+    def test_raise_prebuilt(self):
+        error = ValueError('ouch')
+        def g(x): return x
+        def f():
+            raise g(error)
+        x = self.codetest(f)
+        simplify_graph(x)
+        self.show(x)
+        ops = x.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        assert ops[0].args == [const(g), const(error)]
+
     #__________________________________________________________
     def raise2(msg):
         raise IndexError, msg
@@ -725,8 +748,7 @@ class TestFlowObjSpace(Base):
         for block in graph.iterblocks():
             for op in block.operations:
                 assert op.opname == "call_args"
-                assert op.args == map(Constant,
-                        [g, (0, ('x',), False, False), 2])
+                assert op.args == map(Constant, [g, (0, ('x',), False), 2])
 
     def test_catch_importerror_1(self):
         def f():
@@ -1063,7 +1085,6 @@ class TestFlowObjSpace(Base):
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock
 
-
     def test_global_variable(self):
         def global_var_missing():
             return a
@@ -1190,6 +1211,53 @@ class TestFlowObjSpace(Base):
             return modules
         graph = self.codetest(f)
         assert 'getattr' in self.all_operations(graph)
+
+    def test_empty_cell_unused(self):
+        def test(flag):
+            if flag:
+                b = 5
+            def g():
+                if flag:
+                    return b
+                else:
+                    return 1
+            return g
+        g1 = test(False)
+        graph = self.codetest(g1)
+        assert not self.all_operations(graph)
+        g2 = test(True)
+        graph = self.codetest(g2)
+        assert not self.all_operations(graph)
+
+    def test_empty_cell_error(self):
+        def test(flag):
+            if not flag:
+                b = 5
+            def g():
+                if flag:
+                    return b
+                else:
+                    return 1
+            return g
+        g = test(True)
+        with py.test.raises(FlowingError) as excinfo:
+            graph = self.codetest(g)
+        assert "Undefined closure variable 'b'" in str(excinfo.value)
+
+    def call_os_remove(msg):
+        os.remove(msg)
+        os.unlink(msg)
+
+    def test_call_os_remove(self):
+        x = self.codetest(self.call_os_remove)
+        simplify_graph(x)
+        self.show(x)
+        ops = x.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        assert ops[0].args[0].value is os.unlink
+        assert ops[1].opname == 'simple_call'
+        assert ops[1].args[0].value is os.unlink
+
 
 DATA = {'x': 5,
         'y': 6}

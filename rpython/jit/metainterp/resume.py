@@ -284,7 +284,10 @@ class ResumeDataVirtualAdder(object):
         return VArrayStructInfo(arraydescr, fielddescrs)
 
     def make_vrawbuffer(self, size, offsets, descrs):
-        return VRawBufferStateInfo(size, offsets, descrs)
+        return VRawBufferInfo(size, offsets, descrs)
+
+    def make_vrawslice(self, offset):
+        return VRawSliceInfo(offset)
 
     def make_vstrplain(self, is_unicode=False):
         if is_unicode:
@@ -554,9 +557,12 @@ class VArrayInfo(AbstractVirtualInfo):
             debug_print("\t\t", str(untag(i)))
 
 
-class VRawBufferStateInfo(AbstractVirtualInfo):
+class VAbstractRawInfo(AbstractVirtualInfo):
     kind = INT
     is_about_raw = True
+
+
+class VRawBufferInfo(VAbstractRawInfo):
 
     def __init__(self, size, offsets, descrs):
         self.size = size
@@ -576,6 +582,25 @@ class VRawBufferStateInfo(AbstractVirtualInfo):
 
     def debug_prints(self):
         debug_print("\tvrawbufferinfo", " at ",  compute_unique_id(self))
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
+
+class VRawSliceInfo(VAbstractRawInfo):
+
+    def __init__(self, offset):
+        self.offset = offset
+
+    @specialize.argtype(1)
+    def allocate_int(self, decoder, index):
+        assert len(self.fieldnums) == 1
+        base_buffer = decoder.decode_int(self.fieldnums[0])
+        buffer = decoder.int_add_const(base_buffer, self.offset)
+        decoder.virtuals_cache.set_int(index, buffer)
+        return buffer
+
+    def debug_prints(self):
+        debug_print("\tvrawsliceinfo", " at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -783,7 +808,8 @@ class AbstractResumeDataReader(object):
         v = self.virtuals_cache.get_int(index)
         if not v:
             v = self.rd_virtuals[index]
-            assert v.is_about_raw and isinstance(v, VRawBufferStateInfo)
+            ll_assert(bool(v), "resume.py: null rd_virtuals[index]")
+            assert v.is_about_raw and isinstance(v, VAbstractRawInfo)
             v = v.allocate_int(self, index)
             ll_assert(v == self.virtuals_cache.get_int(index), "resume.py: bad cache")
         return v
@@ -1116,6 +1142,10 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def write_a_float(self, index, box):
         self.boxes_f[index] = box
 
+    def int_add_const(self, intbox, offset):
+        return self.metainterp.execute_and_record(rop.INT_ADD, None, intbox,
+                                                  ConstInt(offset))
+
 # ---------- when resuming for blackholing, get direct values ----------
 
 def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
@@ -1406,6 +1436,9 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
 
     def write_a_float(self, index, float):
         self.blackholeinterp.setarg_f(index, float)
+
+    def int_add_const(self, base, offset):
+        return base + offset
 
 # ____________________________________________________________
 

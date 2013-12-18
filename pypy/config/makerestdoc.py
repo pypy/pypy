@@ -1,6 +1,6 @@
 import py
 from pypy.tool.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
-from pypy.tool.rest.rst import Directive, Em, Quote, Text
+from pypy.tool.rest.rst import Directive, Text
 
 from rpython.config.config import ChoiceOption, BoolOption, StrOption, IntOption
 from rpython.config.config import FloatOption, OptionDescription, Option, Config
@@ -45,7 +45,7 @@ class __extend__(ChoiceOption):
             content.add(ListItem(Strong("default:"), str(self.default)))
 
         requirements = []
-        
+
         for val in self.values:
             if val not in self._requires:
                 continue
@@ -138,9 +138,6 @@ class __extend__(OptionDescription):
         content.join(
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc))
-        stack = []
-        curr = content
-        config = Config(self)
         return content
 
 
@@ -166,7 +163,6 @@ def make_cmdline_overview(descr, title=True):
     for path in config.getpaths(include_groups=False):
         subconf, step = config._cfgimpl_get_home_by_path(path)
         fullpath = (descr._name + "." + path)
-        prefix = fullpath.rsplit(".", 1)[0]
         subdescr = getattr(subconf._cfgimpl_descr, step)
         cmdline = get_cmdline(subdescr.cmdline, fullpath)
         if cmdline is not None:
@@ -183,7 +179,7 @@ def make_cmdline_overview(descr, title=True):
         curr.add(ListItem(Link(cmdline + ":", fullpath + ".html"),
                           Text(subdescr.doc)))
     return content
-    
+
 
 def register_config_role(docdir):
     """ register a :config: ReST link role for use in documentation. """

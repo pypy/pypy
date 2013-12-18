@@ -207,6 +207,36 @@ class AppTestSysModulePortedFromCPython:
 
         assert err.getvalue() == "ValueError: 42\n"
 
+    def test_original_excepthook_pypy_encoding(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only on PyPy")
+        savestderr = sys.stderr
+        class MyStringIO(object):
+            def __init__(self):
+                self.output = []
+            def write(self, s):
+                assert isinstance(s, str)
+                self.output.append(s)
+            def getvalue(self):
+                return ''.join(self.output)
+
+        for input, expectedoutput in [(u"\u013a", "\xe5"),
+                                      (u"\u1111", "\\u1111")]:
+            err = MyStringIO()
+            err.encoding = 'iso-8859-2'
+            sys.stderr = err
+
+            eh = sys.__excepthook__
+            try:
+                raise ValueError(input)
+            except ValueError, exc:
+                eh(*sys.exc_info())
+
+            sys.stderr = savestderr
+            print repr(err.getvalue())
+            assert err.getvalue().endswith("ValueError: %s\n" % expectedoutput)
+
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
 

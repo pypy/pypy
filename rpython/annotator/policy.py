@@ -1,30 +1,18 @@
 # base annotation policy for specialization
 from rpython.annotator.specialize import default_specialize as default
-from rpython.annotator.specialize import specialize_argvalue, specialize_argtype, specialize_arglistitemtype, specialize_arg_or_var
-from rpython.annotator.specialize import memo, specialize_call_location
+from rpython.annotator.specialize import (
+    specialize_argvalue, specialize_argtype, specialize_arglistitemtype,
+    specialize_arg_or_var, memo, specialize_call_location)
 
 
-class BasicAnnotatorPolicy(object):
+class AnnotatorPolicy(object):
+    """
+    Possibly subclass and pass an instance to the annotator to control
+    special-casing during annotation
+    """
 
     def event(pol, bookkeeper, what, *args):
         pass
-
-    def get_specializer(pol, tag):
-        return pol.no_specialization
-
-    def no_specialization(pol, funcdesc, args_s):
-        return funcdesc.cachedgraph(None)
-
-    def no_more_blocks_to_annotate(pol, annotator):
-        # hint to all pending specializers that we are done
-        for callback in annotator.bookkeeper.pending_specializations:
-            callback()
-        del annotator.bookkeeper.pending_specializations[:]
-
-class AnnotatorPolicy(BasicAnnotatorPolicy):
-    """
-    Possibly subclass and pass an instance to the annotator to control special casing during annotation
-    """
 
     def get_specializer(pol, directive):
         if directive is None:
@@ -74,3 +62,9 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     def specialize__ll_and_arg(pol, *args):
         from rpython.rtyper.annlowlevel import LowLevelAnnotatorPolicy
         return LowLevelAnnotatorPolicy.specialize__ll_and_arg(*args)
+
+    def no_more_blocks_to_annotate(pol, annotator):
+        # hint to all pending specializers that we are done
+        for callback in annotator.bookkeeper.pending_specializations:
+            callback()
+        del annotator.bookkeeper.pending_specializations[:]

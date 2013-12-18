@@ -86,15 +86,17 @@ class FfiCallTests(object):
             data = rffi.ptradd(exchange_buffer, ofs)
             rffi.cast(lltype.Ptr(TYPE), data)[0] = write_rvalue
 
-        def f():
+        def f(i):
             exbuf = lltype.malloc(rffi.CCHARP.TO, (len(avalues)+2) * 16,
-                                  flavor='raw', zero=True)
-            ofs = 16
+                                  flavor='raw')
+
+            targetptr = rffi.ptradd(exbuf, 16)
             for avalue in unroll_avalues:
                 TYPE = rffi.CArray(lltype.typeOf(avalue))
-                data = rffi.ptradd(exbuf, ofs)
-                rffi.cast(lltype.Ptr(TYPE), data)[0] = avalue
-                ofs += 16
+                if i >= 9:    # a guard that can fail
+                    pass
+                rffi.cast(lltype.Ptr(TYPE), targetptr)[0] = avalue
+                targetptr = rffi.ptradd(targetptr, 16)
 
             jit_ffi_call(cif_description, func_addr, exbuf)
 
@@ -102,8 +104,7 @@ class FfiCallTests(object):
                 res = 654321
             else:
                 TYPE = rffi.CArray(lltype.typeOf(rvalue))
-                data = rffi.ptradd(exbuf, ofs)
-                res = rffi.cast(lltype.Ptr(TYPE), data)[0]
+                res = rffi.cast(lltype.Ptr(TYPE), targetptr)[0]
             lltype.free(exbuf, flavor='raw')
             if lltype.typeOf(res) is lltype.SingleFloat:
                 res = float(res)
@@ -117,9 +118,9 @@ class FfiCallTests(object):
             return res == rvalue
 
         with FakeFFI(fake_call_impl_any):
-            res = f()
+            res = f(-42)
             assert matching_result(res, rvalue)
-            res = self.interp_operations(f, [],
+            res = self.interp_operations(f, [-42],
                             supports_floats = supports_floats,
                           supports_longlong = supports_longlong,
                       supports_singlefloats = supports_singlefloats)
@@ -131,6 +132,19 @@ class FfiCallTests(object):
             assert matching_result(res, rvalue)
             self.check_operations_history(call_may_force=0,
                                           call_release_gil=expected_call_release_gil)
+
+            ##################################################
+            driver = jit.JitDriver(reds=['i'], greens=[])
+            def main():
+                i = 0
+                while 1:
+                    driver.jit_merge_point(i=i)
+                    res = f(i)
+                    i += 1
+                    if i == 12:
+                        return res
+            self.meta_interp(main, [])
+
 
     def test_simple_call_int(self):
         self._run([types.signed] * 2, types.signed, [456, 789], -42)

@@ -1,6 +1,7 @@
 import types
 
 from rpython.flowspace.model import Constant
+from rpython.flowspace.operation import op
 from rpython.annotator import description, model as annmodel
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Void
@@ -401,7 +402,8 @@ class AbstractInstanceRepr(Repr):
         r_method = self.rtyper.getrepr(s_attr)
         r_method.get_method_from_instance(self, vinst, hop.llops)
         hop2 = hop.copy()
-        hop2.spaceop.opname = 'simple_call'
+        hop2.spaceop = op.simple_call(hop.spaceop.args[0])
+        hop2.spaceop.result = hop.spaceop.result
         hop2.args_r = [r_method]
         hop2.args_s = [s_attr]
         return hop2.dispatch()

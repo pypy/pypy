@@ -1,4 +1,5 @@
 import sys
+import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from rpython.config.config import ChoiceOption, StrOption, Config
 from rpython.config.config import ConfigError
@@ -11,7 +12,7 @@ DEFL_PROF_BASED_INLINE_THRESHOLD = 32.4
 DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
-DEFL_GC = "minimark"
+DEFL_GC = "incminimark"   # XXX
 
 if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
@@ -19,6 +20,9 @@ else:
     DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
+
+MAINDIR = os.path.dirname(os.path.dirname(__file__))
+CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
 PLATFORMS = [
     'maemo',
@@ -50,7 +54,7 @@ translation_optiondescription = OptionDescription(
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
                  ["boehm", "ref", "semispace", "statistics",
-                  "generation", "hybrid", "minimark", "none"],
+                  "generation", "hybrid", "minimark",'incminimark', "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
@@ -63,6 +67,7 @@ translation_optiondescription = OptionDescription(
                      "boehm": [("translation.continuation", False),  # breaks
                                ("translation.gctransformer", "boehm")],
                      "minimark": [("translation.gctransformer", "framework")],
+                     "incminimark": [("translation.gctransformer", "framework")],
                      },
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",

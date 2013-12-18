@@ -1,8 +1,7 @@
 """
 Implements flow graphs for Python callables
 """
-from rpython.flowspace.model import (FunctionGraph, Constant, Variable,
-        SpaceOperation)
+from rpython.flowspace.model import FunctionGraph, Constant, Variable
 from rpython.flowspace.framestate import FrameState
 
 class PyGraph(FunctionGraph):
@@ -17,10 +16,6 @@ class PyGraph(FunctionGraph):
             data[i] = Variable()
         state = FrameState(data + [Constant(None), Constant(None)], [], 0)
         initialblock = SpamBlock(state)
-        if code.is_generator:
-            initialblock.operations.append(
-                SpaceOperation('generator_mark', [], Variable()))
-
         super(PyGraph, self).__init__(self._sanitize_funcname(func), initialblock)
         self.func = func
         self.signature = code.signature

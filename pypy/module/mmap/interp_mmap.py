@@ -163,6 +163,8 @@ class W_MMap(W_Root):
         if step == 0:  # index only
             return space.wrap(self.mmap.getitem(start))
         elif step == 1:
+            if stop - start < 0:
+                return space.wrap("")
             return space.wrap(self.mmap.getslice(start, stop - start))
         else:
             res = "".join([self.mmap.getitem(i)
@@ -290,9 +292,6 @@ class MMapBuffer(RWBuffer):
         self.space = space
         self.mmap = mmap
 
-    def get_raw_address(self):
-        return self.mmap.data
-
     def getlength(self):
         return self.mmap.size
 
@@ -314,6 +313,14 @@ class MMapBuffer(RWBuffer):
     def setslice(self, start, string):
         self.check_valid_writeable()
         self.mmap.setslice(start, string)
+
+    def is_writable(self):
+        try:
+            self.mmap.check_writeable()
+        except RMMapError:
+            return False
+        else:
+            return True
 
     def get_raw_address(self):
         self.check_valid()

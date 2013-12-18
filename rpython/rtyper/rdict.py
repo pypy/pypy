@@ -4,8 +4,12 @@ from rpython.rtyper.lltypesystem import lltype
 
 
 class __extend__(annmodel.SomeDict):
-    def rtyper_makerepr(self, rtyper):
+    def get_dict_repr(self):
         from rpython.rtyper.lltypesystem.rdict import DictRepr
+
+        return DictRepr
+
+    def rtyper_makerepr(self, rtyper):
         dictkey = self.dictdef.dictkey
         dictvalue = self.dictdef.dictvalue
         s_key = dictkey.s_value
@@ -16,7 +20,7 @@ class __extend__(annmodel.SomeDict):
                                       rtyper.getrepr(dictkey.s_rdict_hashfn))
         else:
             custom_eq_hash = None
-        return DictRepr(rtyper, lambda: rtyper.getrepr(s_key),
+        return self.get_dict_repr()(rtyper, lambda: rtyper.getrepr(s_key),
                         lambda: rtyper.getrepr(s_value), dictkey, dictvalue,
                         custom_eq_hash, force_non_null)
 
@@ -25,6 +29,11 @@ class __extend__(annmodel.SomeDict):
         self.dictdef.dictvalue.dont_change_any_more = True
         return (self.__class__, self.dictdef.dictkey, self.dictdef.dictvalue)
 
+class __extend__(annmodel.SomeOrderedDict):
+    def get_dict_repr(self):
+        from rpython.rtyper.lltypesystem.rordereddict import OrderedDictRepr
+
+        return OrderedDictRepr
 
 class AbstractDictRepr(rmodel.Repr):
 
