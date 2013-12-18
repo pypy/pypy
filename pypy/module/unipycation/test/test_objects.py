@@ -9,6 +9,29 @@ class AppTestObjects(object):
         X = upy.Var()
         assert str(X) == "_G0"
 
+    def test_term_comparison(self):
+        import unipycation as u
+        X = u.CoreTerm("f", [1,2,3])
+
+        assert len(X) == 3
+        assert X.name == "f"
+        assert X.args == [1,2,3]
+        assert all(X[i] == i + 1 for i in range(3))
+
+        assert str(X) == "f(1, 2, 3)"
+
+        # Why does raises not work here???
+        #raises(IndexError, X["jibblets"])
+        try:
+            X["jibblets"]
+        except IndexError:
+            pass
+
+        assert X == X
+        Y = u.CoreTerm("f", [1,2,4])
+
+        assert X != Y
+
     def test_list(self):
         import unipycation as u
 
