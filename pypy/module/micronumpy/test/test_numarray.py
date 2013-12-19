@@ -217,6 +217,7 @@ class TestNumArrayDirect(object):
         assert get(1, 0) == 2
         assert get(1, 1) == 3
 
+
 class AppTestNumArray(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
@@ -2185,12 +2186,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[b] = 1.
         assert (a == [[1., 1., 1.]]).all()
 
-    @py.test.mark.xfail
-    def test_boolean_array(self):
-        import numpypy as np
-        a = np.ndarray([1], dtype=bool)
-        assert a[0] == True
-
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
@@ -2251,7 +2246,6 @@ class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
         raises(ValueError, "a[0] = 'X'")
         buf.close()
         f.close()
-
 
 
 class AppTestMultiDim(BaseNumpyAppTest):
@@ -3333,6 +3327,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         import numpypy as np
         a = np.array([1,2,3], dtype='int16')
         assert (a * 2).dtype == np.dtype('int16')
+
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
