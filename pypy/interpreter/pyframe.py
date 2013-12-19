@@ -576,8 +576,6 @@ class PyFrame(W_Root):
         """
         Initialize cellvars from self.locals_stack_w.
         """
-        if self.cells is None:
-            return
         args_to_copy = self.pycode._args_as_cellvars
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
