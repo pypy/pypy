@@ -350,28 +350,22 @@ class W_UInt16Box(W_UnsignedIntegerBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("uint16")
 
 class W_Int32Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("int32")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("i")
 
 class W_UInt32Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("uint32")
-
-class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("long")
-
-class W_ULongBox(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("ulong")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("I")
 
 class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("int64")
-
-class W_LongLongBox(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter('longlong')
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("q")
 
 class W_UInt64Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("uint64")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("Q")
 
-class W_ULongLongBox(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter('ulonglong')
+class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("l")
+
+class W_ULongBox(W_UnsignedIntegerBox, PrimitiveBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("L")
 
 class W_InexactBox(W_NumberBox):
     pass
@@ -663,18 +657,27 @@ W_Int64Box.typedef = TypeDef("int64", (W_SignedIntegerBox.typedef,) + MIXIN_64,
     __reduce__ = interp2app(W_Int64Box.descr_reduce),
 )
 
-if LONG_BIT == 32:
-    W_LongBox = W_Int32Box
-    W_ULongBox = W_UInt32Box
-elif LONG_BIT == 64:
-    W_LongBox = W_Int64Box
-    W_ULongBox = W_UInt64Box
-
 W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntegerBox.typedef,
     __module__ = "numpy",
     __new__ = interp2app(W_UInt64Box.descr__new__.im_func),
     __index__ = interp2app(W_UInt64Box.descr_index),
     __reduce__ = interp2app(W_UInt64Box.descr_reduce),
+)
+
+W_LongBox.typedef = TypeDef("int%d" % LONG_BIT,
+    (W_SignedIntegerBox.typedef, int_typedef),
+    __module__ = "numpy",
+    __new__ = interp2app(W_LongBox.descr__new__.im_func),
+    __index__ = interp2app(W_LongBox.descr_index),
+    __reduce__ = interp2app(W_LongBox.descr_reduce),
+)
+
+W_ULongBox.typedef = TypeDef("uint%d" % LONG_BIT,
+    (W_UnsignedIntegerBox.typedef, int_typedef),
+    __module__ = "numpy",
+    __new__ = interp2app(W_ULongBox.descr__new__.im_func),
+    __index__ = interp2app(W_ULongBox.descr_index),
+    __reduce__ = interp2app(W_ULongBox.descr_reduce),
 )
 
 W_InexactBox.typedef = TypeDef("inexact", W_NumberBox.typedef,

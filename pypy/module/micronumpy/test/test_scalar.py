@@ -4,7 +4,7 @@ class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
     def test_init(self):
-        import numpypy as np
+        import numpy as np
         import math
         assert np.intp() == np.intp(0)
         assert np.intp('123') == np.intp(123)
@@ -17,6 +17,8 @@ class AppTestScalar(BaseNumpyAppTest):
         assert np.complex_() == np.complex_(0)
         #raises(TypeError, np.complex_, '1+2j')
         assert math.isnan(np.complex_(None))
+        for c in ['i', 'I', 'l', 'L', 'q', 'Q']:
+            assert np.dtype(c).type().dtype.char == c
 
     def test_builtin(self):
         import numpy as np
@@ -37,7 +39,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert len(np.string_('123')) == 3
 
     def test_pickle(self):
-        from numpypy import dtype, zeros
+        from numpy import dtype, zeros
         try:
             from numpy.core.multiarray import scalar
         except ImportError:
@@ -112,7 +114,7 @@ class AppTestScalar(BaseNumpyAppTest):
         raises(TypeError, a.squeeze, 2)
 
     def test_attributes(self):
-        import numpypy as np
+        import numpy as np
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
         assert value.size == 1
