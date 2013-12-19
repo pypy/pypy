@@ -54,8 +54,7 @@ class Scalar(base.BaseArrayImplementation):
         return self.value
 
     def set_scalar_value(self, w_val):
-        assert isinstance(w_val, W_GenericBox)
-        self.value = w_val.convert_to(self.dtype)
+        self.value = w_val
 
     def copy(self, space):
         scalar = Scalar(self.dtype)
@@ -96,12 +95,12 @@ class Scalar(base.BaseArrayImplementation):
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         if self.dtype.is_complex_type():
             self.value = self.dtype.itemtype.composite(
-                               w_arr.get_scalar_value().convert_to(dtype),
+                               w_arr.get_scalar_value().convert_to(space, dtype),
                                self.value.convert_imag_to(dtype))
         else:
             self.value = w_arr.get_scalar_value()
 
-    def get_imag(self, orig_array):
+    def get_imag(self, space, orig_array):
         if self.dtype.is_complex_type():
             scalar = Scalar(self.dtype.float_type)
             scalar.value = self.value.convert_imag_to(scalar.dtype)
@@ -125,13 +124,19 @@ class Scalar(base.BaseArrayImplementation):
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         self.value = self.dtype.itemtype.composite(
                             self.value.convert_real_to(dtype),
-                            w_arr.get_scalar_value().convert_to(dtype),
+                            w_arr.get_scalar_value().convert_to(space, dtype),
                             )
 
     def descr_getitem(self, space, _, w_idx):
         if space.isinstance_w(w_idx, space.w_tuple):
             if space.len_w(w_idx) == 0:
                 return self.get_scalar_value()
+        if space.is_none(w_idx):
+            new_shape = [1]
+            arr = W_NDimArray.from_shape(space, new_shape, self.dtype)
+            arr_iter = arr.create_iter(new_shape)
+            arr_iter.setitem(self.value)
+            return arr
         raise OperationError(space.w_IndexError,
                              space.wrap("0-d arrays can't be indexed"))
 
@@ -174,7 +179,7 @@ class Scalar(base.BaseArrayImplementation):
             w_res.implementation.setitem(0, index_type.itemtype.box(0)) 
         return space.newtuple([w_res])
 
-    def fill(self, w_value):
+    def fill(self, space, w_value):
         self.value = w_value
 
     def get_storage_as_int(self, space):

@@ -18,6 +18,24 @@ class AppTestScalar(BaseNumpyAppTest):
         #raises(TypeError, np.complex_, '1+2j')
         assert math.isnan(np.complex_(None))
 
+    def test_builtin(self):
+        import numpy as np
+        assert int(np.str_('12')) == 12
+        exc = raises(ValueError, "int(np.str_('abc'))")
+        assert exc.value.message.startswith('invalid literal for int()')
+        assert oct(np.int32(11)) == '013'
+        assert oct(np.float32(11.6)) == '013'
+        assert oct(np.complex64(11-12j)) == '013'
+        assert hex(np.int32(11)) == '0xb'
+        assert hex(np.float32(11.6)) == '0xb'
+        assert hex(np.complex64(11-12j)) == '0xb'
+        assert bin(np.int32(11)) == '0b1011'
+        exc = raises(TypeError, "bin(np.float32(11.6))")
+        assert "index" in exc.value.message
+        exc = raises(TypeError, "len(np.int32(11))")
+        assert "has no len" in exc.value.message
+        assert len(np.string_('123')) == 3
+
     def test_pickle(self):
         from numpypy import dtype, zeros
         try:
@@ -65,6 +83,9 @@ class AppTestScalar(BaseNumpyAppTest):
         a = np.bool_(True).astype('int32')
         assert type(a) is np.int32
         assert a == 1
+        a = np.str_('123').astype('int32')
+        assert type(a) is np.int32
+        assert a == 123
 
     def test_copy(self):
         import numpy as np
@@ -73,6 +94,15 @@ class AppTestScalar(BaseNumpyAppTest):
         assert type(b) is type(a)
         assert b == a
         assert b is not a
+
+    def test_buffer(self):
+        import numpy as np
+        a = np.int32(123)
+        b = buffer(a)
+        assert type(b) is buffer
+        a = np.string_('abc')
+        b = buffer(a)
+        assert str(b) == a
 
     def test_squeeze(self):
         import numpy as np

@@ -149,6 +149,14 @@ class FunctionGcRootTracker(object):
             else:
                 del self.insns[i]
 
+        # the remaining instructions must have their 'previous_insns' list
+        # trimmed of dead previous instructions
+        all_remaining_insns = set(self.insns)
+        assert self.insns[0].previous_insns == ()
+        for insn in self.insns[1:]:
+            insn.previous_insns = [previnsn for previnsn in insn.previous_insns
+                                            if previnsn in all_remaining_insns]
+
     def find_noncollecting_calls(self):
         cannot_collect = {}
         for line in self.lines:
@@ -285,6 +293,17 @@ class FunctionGcRootTracker(object):
                             (insn1,))
                     else:
                         insn1.framesize = size_at_insn1
+
+        # trim: instructions with no framesize are removed from self.insns,
+        # and from the 'previous_insns' lists
+        assert hasattr(self.insns[0], 'framesize')
+        old = self.insns[1:]
+        del self.insns[1:]
+        for insn in old:
+            if hasattr(insn, 'framesize'):
+                self.insns.append(insn)
+                insn.previous_insns = [previnsn for previnsn in insn.previous_insns
+                                                if hasattr(previnsn, 'framesize')]
 
     def fixlocalvars(self):
         def fixvar(localvar):

@@ -226,7 +226,7 @@ class W_Ufunc(W_Root):
                 dtype = out.get_dtype()
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
-            return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
+            return loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis, out,
                                        self.identity, cumulative, temp)
         if cumulative:
             if out:
@@ -235,7 +235,7 @@ class W_Ufunc(W_Root):
                         "out of incompatible size"))
             else:
                 out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, w_instance=obj)
-            loop.compute_reduce_cumulative(obj, out, dtype, self.func,
+            loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
                                             self.identity)
             return out
         if out:
@@ -244,7 +244,7 @@ class W_Ufunc(W_Root):
                               "for reduction operation %s has too many"
                               " dimensions",self.name)
             dtype = out.get_dtype()
-        res = loop.compute_reduce(obj, dtype, self.func, self.done_func,
+        res = loop.compute_reduce(space, obj, dtype, self.func, self.done_func,
                                   self.identity)
         if out:
             out.set_scalar_value(res)
@@ -303,13 +303,13 @@ class W_Ufunc1(W_Ufunc):
                     res_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
         if w_obj.is_scalar():
             w_val = self.func(calc_dtype,
-                              w_obj.get_scalar_value().convert_to(calc_dtype))
+                              w_obj.get_scalar_value().convert_to(space, calc_dtype))
             if out is None:
                 return w_val
             if out.is_scalar():
                 out.set_scalar_value(w_val)
             else:
-                out.fill(res_dtype.coerce(space, w_val))
+                out.fill(space, res_dtype.coerce(space, w_val))
             return out
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
@@ -395,14 +395,14 @@ class W_Ufunc2(W_Ufunc):
             res_dtype = calc_dtype
         if w_lhs.is_scalar() and w_rhs.is_scalar():
             arr = self.func(calc_dtype,
-                w_lhs.get_scalar_value().convert_to(calc_dtype),
-                w_rhs.get_scalar_value().convert_to(calc_dtype)
+                w_lhs.get_scalar_value().convert_to(space, calc_dtype),
+                w_rhs.get_scalar_value().convert_to(space, calc_dtype)
             )
             if isinstance(out, W_NDimArray):
                 if out.is_scalar():
                     out.set_scalar_value(arr)
                 else:
-                    out.fill(arr)
+                    out.fill(space, arr)
             else:
                 out = arr
             return out
@@ -496,6 +496,15 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
+    if promote_to_largest:
+        if dt.kind == NPY_GENBOOLLTR or dt.kind == NPY_SIGNEDLTR:
+            return interp_dtype.get_dtype_cache(space).w_int64dtype
+        elif dt.kind == NPY_UNSIGNEDLTR:
+            return interp_dtype.get_dtype_cache(space).w_uint64dtype
+        elif dt.kind == NPY_FLOATINGLTR or dt.kind == NPY_COMPLEXLTR:
+            return dt
+        else:
+            assert False
     if promote_bools and (dt.kind == NPY_GENBOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
     if promote_to_float:
@@ -507,15 +516,6 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
             if (dtype.kind == NPY_FLOATINGLTR and
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype
-    if promote_to_largest:
-        if dt.kind == NPY_GENBOOLLTR or dt.kind == NPY_SIGNEDLTR:
-            return interp_dtype.get_dtype_cache(space).w_float64dtype
-        elif dt.kind == NPY_FLOATINGLTR:
-            return interp_dtype.get_dtype_cache(space).w_float64dtype
-        elif dt.kind == NPY_UNSIGNEDLTR:
-            return interp_dtype.get_dtype_cache(space).w_uint64dtype
-        else:
-            assert False
     return dt
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
@@ -690,9 +690,6 @@ class UfuncState(object):
                                        "allow_complex": False}),
             ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True,
                                        "allow_complex": False}),
-
-            ("ones_like", "ones_like", 1),
-            ("zeros_like", "zeros_like", 1),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

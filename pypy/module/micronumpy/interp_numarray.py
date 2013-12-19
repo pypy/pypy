@@ -1,3 +1,5 @@
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
@@ -20,6 +22,7 @@ from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 from pypy.module.micronumpy.conversion_utils import order_converter, multi_axis_converter
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy.constants import *
 
 def _find_shape(space, w_size, dtype):
@@ -91,7 +94,7 @@ class __extend__(W_NDimArray):
         return space.wrap(self.get_size() * self.get_dtype().get_size())
 
     def descr_fill(self, space, w_value):
-        self.fill(self.get_dtype().coerce(space, w_value))
+        self.fill(space, self.get_dtype().coerce(space, w_value))
 
     def descr_tostring(self, space, w_order=None):
         order = order_converter(space, w_order, NPY_CORDER)
@@ -285,8 +288,8 @@ class __extend__(W_NDimArray):
     def set_scalar_value(self, w_val):
         self.implementation.set_scalar_value(w_val)
 
-    def fill(self, box):
-        self.implementation.fill(box)
+    def fill(self, space, box):
+        self.implementation.fill(space, box)
 
     def descr_get_size(self, space):
         return space.wrap(self.get_size())
@@ -311,7 +314,7 @@ class __extend__(W_NDimArray):
                          self.implementation.get_real(self))
 
     def descr_get_imag(self, space):
-        ret = self.implementation.get_imag(self)
+        ret = self.implementation.get_imag(space, self)
         return wrap_impl(space, space.type(self), self, ret)
 
     def descr_set_real(self, space, w_value):
@@ -490,8 +493,11 @@ class __extend__(W_NDimArray):
         if not space.is_none(w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "__array__(dtype) not implemented"))
-        # stub implementation of __array__()
-        return self
+        if type(self) is W_NDimArray:
+            return self
+        return W_NDimArray.from_shape_and_storage(
+            space, self.get_shape(), self.implementation.storage,
+            self.get_dtype(), w_base=self)
 
     def descr_array_iface(self, space):
         addr = self.implementation.get_storage_as_int(space)
@@ -533,7 +539,7 @@ class __extend__(W_NDimArray):
 
     def descr_astype(self, space, w_dtype):
         dtype = space.interp_w(interp_dtype.W_Dtype,
-          space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         impl = self.implementation
         if isinstance(impl, scalar.Scalar):
             return W_NDimArray.new_scalar(space, dtype, impl.value)
@@ -950,8 +956,7 @@ class __extend__(W_NDimArray):
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
                     promote_to_largest, cumulative))
 
-    descr_sum = _reduce_ufunc_impl("add")
-    descr_sum_promote = _reduce_ufunc_impl("add", True)
+    descr_sum = _reduce_ufunc_impl("add", True)
     descr_prod = _reduce_ufunc_impl("multiply", True)
     descr_max = _reduce_ufunc_impl("maximum")
     descr_min = _reduce_ufunc_impl("minimum")
@@ -982,28 +987,64 @@ class __extend__(W_NDimArray):
         shape = self.get_shape()
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
-            return space.int(space.wrap(self.implementation.get_scalar_value()))
-        if shape == [1]:
-            return space.int(self.descr_getitem(space, space.wrap(0)))
-        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only length-1 arrays can be converted to Python scalars"))
+        if self.get_dtype().is_str_or_unicode():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "don't know how to convert scalar number to int"))
+        return space.int(value)
 
     def descr_long(self, space):
         shape = self.get_shape()
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
-            return space.long(space.wrap(self.implementation.get_scalar_value()))
-        if shape == [1]:
-            return space.int(self.descr_getitem(space, space.wrap(0)))
-        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only length-1 arrays can be converted to Python scalars"))
+        if self.get_dtype().is_str_or_unicode():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "don't know how to convert scalar number to long"))
+        return space.long(value)
 
     def descr_float(self, space):
         shape = self.get_shape()
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
-            return space.float(space.wrap(self.implementation.get_scalar_value()))
-        if shape == [1]:
-            return space.float(self.descr_getitem(space, space.wrap(0)))
-        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only length-1 arrays can be converted to Python scalars"))
+        if self.get_dtype().is_str_or_unicode():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "don't know how to convert scalar number to float"))
+        return space.float(value)
+
+    def descr_index(self, space):
+        shape = self.get_shape()
+        if len(shape) == 0:
+            assert isinstance(self.implementation, scalar.Scalar)
+            value = space.wrap(self.implementation.get_scalar_value())
+        elif shape == [1]:
+            value = self.descr_getitem(space, space.wrap(0))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only integer arrays with one element "
+                "can be converted to an index"))
+        if not self.get_dtype().is_int_type() or self.get_dtype().is_bool_type():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "only integer arrays with one element "
+                "can be converted to an index"))
+        assert isinstance(value, interp_boxes.W_GenericBox)
+        return value.item(space)
 
     def descr_reduce(self, space):
         from rpython.rlib.rstring import StringBuilder
@@ -1015,8 +1056,8 @@ class __extend__(W_NDimArray):
         multiarray = numpypy.get("multiarray")
         assert isinstance(multiarray, MixedModule)
         reconstruct = multiarray.get("_reconstruct")
-
-        parameters = space.newtuple([space.gettypefor(W_NDimArray), space.newtuple([space.wrap(0)]), space.wrap("b")])
+        parameters = space.newtuple([self.getclass(space),
+                        space.newtuple([space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
         if isinstance(self.implementation, SliceArray):
@@ -1039,14 +1080,22 @@ class __extend__(W_NDimArray):
         return space.newtuple([reconstruct, parameters, state])
 
     def descr_setstate(self, space, w_state):
-        from rpython.rtyper.lltypesystem import rffi
-
-        shape = space.getitem(w_state, space.wrap(1))
-        dtype = space.getitem(w_state, space.wrap(2))
-        assert isinstance(dtype, interp_dtype.W_Dtype)
-        isfortran = space.getitem(w_state, space.wrap(3))
-        storage = space.getitem(w_state, space.wrap(4))
-
+        lens = space.len_w(w_state)
+        # numpy compatability, see multiarray/methods.c
+        if lens == 5:
+            base_index = 1
+        elif lens == 4:
+            base_index = 0
+        else:
+            raise OperationError(space.w_ValueError, space.wrap(
+                 "__setstate__ called with len(args[1])==%d, not 5 or 4" % lens))
+        shape = space.getitem(w_state, space.wrap(base_index))
+        dtype = space.getitem(w_state, space.wrap(base_index+1))
+        isfortran = space.getitem(w_state, space.wrap(base_index+2))
+        storage = space.getitem(w_state, space.wrap(base_index+3))
+        if not isinstance(dtype, interp_dtype.W_Dtype):
+            raise OperationError(space.w_ValueError, space.wrap(
+                 "__setstate__(self, (shape, dtype, .. called with improper dtype '%r'" % dtype))
         self.implementation = W_NDimArray.from_shape_and_storage(space,
                 [space.int_w(i) for i in space.listview(shape)],
                 rffi.str2charp(space.str_w(storage), track_allocation=False),
@@ -1062,20 +1111,45 @@ class __extend__(W_NDimArray):
         return w_obj
         pass
 
-@unwrap_spec(offset=int, order=str)
+@unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
-                    offset=0, w_strides=None, order='C'):
+                    offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
     from pypy.module.micronumpy.support import calc_strides
-    if (offset != 0 or not space.is_none(w_strides) or
-        not space.is_none(w_buffer)):
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("unsupported param"))
     dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    if not shape:
-        return W_NDimArray.new_scalar(space, dtype)
+
+    if not space.is_none(w_buffer):
+        if (not space.is_none(w_strides)):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("unsupported param"))
+
+        buf = space.buffer_w(w_buffer)
+        try:
+            raw_ptr = buf.get_raw_address()
+        except ValueError:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "Only raw buffers are supported"))
+        if not shape:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "numpy scalars from buffers not supported yet"))
+        totalsize = support.product(shape) * dtype.get_size()
+        if totalsize+offset > buf.getlength():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "buffer is too small for requested array"))
+        storage = rffi.cast(RAW_STORAGE_PTR, raw_ptr)
+        storage = rffi.ptradd(storage, offset)
+        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
+                                                  w_subtype=w_subtype,
+                                                  w_base=w_buffer,
+                                                  writable=buf.is_writable())
+
+    order = order_converter(space, w_order, NPY_CORDER)
+    if order == NPY_CORDER:
+        order = 'C'
+    else:
+        order = 'F'
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
@@ -1093,8 +1167,6 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtyp
     Create an array from an existing buffer, given its address as int.
     PyPy-only implementation detail.
     """
-    from rpython.rtyper.lltypesystem import rffi
-    from rpython.rlib.rawstorage import RAW_STORAGE_PTR
     storage = rffi.cast(RAW_STORAGE_PTR, addr)
     dtype = space.interp_w(interp_dtype.W_Dtype,
                      space.call_function(space.gettypefor(interp_dtype.W_Dtype),
@@ -1149,6 +1221,8 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __int__ = interp2app(W_NDimArray.descr_int),
     __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
+    __buffer__ = interp2app(W_NDimArray.descr_get_data),
+    __index__ = interp2app(W_NDimArray.descr_index),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
     __neg__ = interp2app(W_NDimArray.descr_neg),
@@ -1328,36 +1402,34 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     # arrays with correct dtype
     dtype = interp_dtype.decode_w_dtype(space, w_dtype)
     if isinstance(w_object, W_NDimArray) and \
-        (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
+            (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
         shape = w_object.get_shape()
         if copy:
             w_ret = w_object.descr_copy(space)
         else:
-            if ndmin<= len(shape):
+            if ndmin <= len(shape):
                 return w_object
             new_impl = w_object.implementation.set_shape(space, w_object, shape)
             w_ret = W_NDimArray(new_impl)
         if ndmin > len(shape):
             shape = [1] * (ndmin - len(shape)) + shape
             w_ret.implementation = w_ret.implementation.set_shape(space,
-                                            w_ret, shape)
+                                                                  w_ret, shape)
         return w_ret
 
     # not an array or incorrect dtype
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
-    if dtype is None or (
-                 dtype.is_str_or_unicode() and dtype.get_size() < 1):
+    if dtype is None or (dtype.is_str_or_unicode() and dtype.get_size() < 1):
         for w_elem in elems_w:
-            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
-                                                        dtype)
-            #if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
-            #    break
-
+            if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
+                w_elem = w_elem.get_scalar_value()
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem, dtype)
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
-    if dtype.is_str_or_unicode() and dtype.get_size() < 1:
-        # promote S0 -> S1, U0 -> U1
-        dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
+        elif dtype.is_str_or_unicode() and dtype.get_size() < 1:
+            # promote S0 -> S1, U0 -> U1
+            dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
+
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
@@ -1370,25 +1442,20 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 @unwrap_spec(order=str)
 def zeros(space, w_shape, w_dtype=None, order='C'):
     dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    if not shape:
-        return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    return space.wrap(W_NDimArray.from_shape(space, shape, dtype=dtype, order=order))
+    return W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
 
-@unwrap_spec(order=str)
-def ones(space, w_shape, w_dtype=None, order='C'):
-    dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
-    shape = _find_shape(space, w_shape, dtype)
-    if not shape:
-        return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    w_arr = W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
-    one = dtype.box(1)
-    w_arr.fill(one)
-    return space.wrap(w_arr)
+@unwrap_spec(subok=bool)
+def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
+    w_a = convert_to_array(space, w_a)
+    if w_dtype is None:
+        dtype = w_a.get_dtype()
+    else:
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    return W_NDimArray.from_shape(space, w_a.get_shape(), dtype=dtype,
+                                  w_instance=w_a if subok else None)
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)

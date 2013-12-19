@@ -15,6 +15,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.annotator.annrpython import RPythonAnnotator
+from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 from rpython.rlib.rarithmetic import is_valid_int
@@ -744,7 +745,6 @@ class TestLL2Ctypes(object):
     def test_get_errno(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
-            underscore_on_windows = '_'
             # Note that cpython before 2.7 installs an _invalid_parameter_handler,
             # which is why the test passes there, but this is no longer
             # accepted practice.
@@ -753,11 +753,9 @@ class TestLL2Ctypes(object):
             old_err_mode = ctypes.windll.kernel32.GetErrorMode()
             new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
             ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        else:
-            underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
                                  compilation_info=eci)
-        os_write = rffi.llexternal(underscore_on_windows+'write',
+        os_write = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'write',
                                    [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                    rffi.SIZE_T)
         buffer = lltype.malloc(rffi.CCHARP.TO, 5, flavor='raw')

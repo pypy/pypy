@@ -15,6 +15,7 @@ from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
 from rpython.flowspace.objspace import build_flow, FlowingError
+from rpython.flowspace.operation import op
 
 from rpython.translator.test import snippet
 
@@ -69,12 +70,11 @@ class TestAnnotateTestCase:
             return x+1
         """
         x = Variable("x")
-        result = Variable("result")
-        op = SpaceOperation("add", [x, Constant(1)], result)
+        oper = op.add(x, Constant(1))
         block = Block([x])
         fun = FunctionGraph("f", block)
-        block.operations.append(op)
-        block.closeblock(Link([result], fun.returnblock))
+        block.operations.append(oper)
+        block.closeblock(Link([oper.result], fun.returnblock))
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
         a.complete()
@@ -90,20 +90,18 @@ class TestAnnotateTestCase:
         """
         i1 = Variable("i1")
         i2 = Variable("i2")
-        i3 = Variable("i3")
-        conditionres = Variable("conditionres")
-        conditionop = SpaceOperation("gt", [i1, Constant(0)], conditionres)
-        decop = SpaceOperation("add", [i2, Constant(-1)], i3)
+        conditionop = op.gt(i1, Constant(0))
+        decop = op.add(i2, Constant(-1))
         headerblock = Block([i1])
         whileblock = Block([i2])
 
         fun = FunctionGraph("f", headerblock)
         headerblock.operations.append(conditionop)
-        headerblock.exitswitch = conditionres
+        headerblock.exitswitch = conditionop.result
         headerblock.closeblock(Link([i1], fun.returnblock, False),
                                Link([i1], whileblock, True))
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([i3], headerblock))
+        whileblock.closeblock(Link([decop.result], headerblock))
 
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
@@ -123,15 +121,12 @@ class TestAnnotateTestCase:
         i1 = Variable("i1")
         i2 = Variable("i2")
         i3 = Variable("i3")
-        i4 = Variable("i4")
         sum2 = Variable("sum2")
         sum3 = Variable("sum3")
-        sum4 = Variable("sum4")
 
-        conditionres = Variable("conditionres")
-        conditionop = SpaceOperation("gt", [i2, Constant(0)], conditionres)
-        decop = SpaceOperation("add", [i3, Constant(-1)], i4)
-        addop = SpaceOperation("add", [i3, sum3], sum4)
+        conditionop = op.gt(i2, Constant(0))
+        decop = op.add(i3, Constant(-1))
+        addop = op.add(i3, sum3)
         startblock = Block([i1])
         headerblock = Block([i2, sum2])
         whileblock = Block([i3, sum3])
@@ -139,12 +134,12 @@ class TestAnnotateTestCase:
         fun = FunctionGraph("f", startblock)
         startblock.closeblock(Link([i1, Constant(0)], headerblock))
         headerblock.operations.append(conditionop)
-        headerblock.exitswitch = conditionres
+        headerblock.exitswitch = conditionop.result
         headerblock.closeblock(Link([sum2], fun.returnblock, False),
                                Link([i2, sum2], whileblock, True))
         whileblock.operations.append(addop)
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([i4, sum4], headerblock))
+        whileblock.closeblock(Link([decop.result, addop.result], headerblock))
 
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
@@ -1065,8 +1060,9 @@ class TestAnnotateTestCase:
         gf2 = graphof(a, f2)
         gf3 = graphof(a, f3)
 
-        assert fam1.calltables == {(2, (), False, False): [{fdesc1: gf1}], (1, (), False, False): [{fdesc1: gf1}]}
-        assert fam2.calltables == {(1, (), False, False): [{fdesc2: gf2, fdesc3: gf3}]}
+        assert fam1.calltables == {(2, (), False): [{fdesc1: gf1}],
+                                   (1, (), False): [{fdesc1: gf1}]}
+        assert fam2.calltables == {(1, (), False): [{fdesc2: gf2, fdesc3: gf3}]}
 
     def test_pbc_call_ins(self):
         class A(object):
@@ -1117,14 +1113,14 @@ class TestAnnotateTestCase:
         gfA_m = graphof(a, A.m.im_func)
         gfC_m = graphof(a, C.m.im_func)
 
-        assert famB_n.calltables == {(1, (), False, False): [{mdescB_n.funcdesc: gfB_n}] }
-        assert famA_m.calltables == {(1, (), False, False): [{mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }] }
+        assert famB_n.calltables == {(1, (), False): [{mdescB_n.funcdesc: gfB_n}] }
+        assert famA_m.calltables == {(1, (), False): [{mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }] }
 
         mdescCinit = getmdesc(C().__init__)
         famCinit = mdescCinit.getcallfamily()
         gfCinit = graphof(a, C.__init__.im_func)
 
-        assert famCinit.calltables == {(1, (), False, False): [{mdescCinit.funcdesc: gfCinit}] }
+        assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}] }
 
     def test_isinstance_usigned(self):
         def f(x):
@@ -2053,7 +2049,7 @@ class TestAnnotateTestCase:
 
         someint = annmodel.SomeInteger()
 
-        assert (fdesc.get_s_signatures((2,(),False,False))
+        assert (fdesc.get_s_signatures((2, (), False))
                 == [([someint,someint],someint)])
 
     def test_emulated_pbc_call_callback(self):

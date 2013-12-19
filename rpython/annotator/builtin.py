@@ -312,7 +312,7 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     r_func, nimplicitarg = s_repr.const.get_r_implfunc()
 
     nbargs = len(args_s) + nimplicitarg
-    s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
+    s_sigs = r_func.get_s_signatures((nbargs, (), False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
                          "annotations: %r" % (s_repr.const,

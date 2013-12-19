@@ -33,14 +33,13 @@ def compile_shared(csource, modulename):
     # set link options
     output_filename = modulename + _get_c_extension_suffix()
     if sys.platform == 'win32':
-        # XXX libpypy-c.lib is currently not installed automatically
-        library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
+        # XXX pyconfig.h uses a pragma to link to the import library,
+        #     which is currently python27.lib
+        library = os.path.join(thisdir, '..', 'include', 'python27')
         if not os.path.exists(library + '.lib'):
-            #For a nightly build
-            library = os.path.join(thisdir, '..', 'include', 'python27')
-        if not os.path.exists(library + '.lib'):
-            # For a local translation
-            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'libpypy-c')
+            # For a local translation or nightly build
+            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python27')
+        assert os.path.exists(library + '.lib'),'Could not find import library "%s"' % library
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST',  # needed for VC10
                         '/EXPORT:init' + modulename]

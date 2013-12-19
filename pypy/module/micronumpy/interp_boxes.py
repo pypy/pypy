@@ -66,7 +66,7 @@ class PrimitiveBox(Box):
     def __init__(self, value):
         self.value = value
 
-    def convert_to(self, dtype):
+    def convert_to(self, space, dtype):
         return dtype.box(self.value)
 
     def __repr__(self):
@@ -91,7 +91,7 @@ class ComplexBox(Box):
         self.real = real
         self.imag = imag
 
-    def convert_to(self, dtype):
+    def convert_to(self, space, dtype):
         return dtype.box_complex(self.real, self.imag)
 
     def convert_real_to(self, dtype):
@@ -149,19 +149,25 @@ class W_GenericBox(W_Root):
         return space.index(self.item(space))
 
     def descr_int(self, space):
-        box = self.convert_to(W_LongBox._get_dtype(space))
+        box = self.convert_to(space, W_LongBox._get_dtype(space))
         assert isinstance(box, W_LongBox)
         return space.wrap(box.value)
 
     def descr_long(self, space):
-        box = self.convert_to(W_Int64Box._get_dtype(space))
+        box = self.convert_to(space, W_Int64Box._get_dtype(space))
         assert isinstance(box, W_Int64Box)
         return space.wrap(box.value)
 
     def descr_float(self, space):
-        box = self.convert_to(W_Float64Box._get_dtype(space))
+        box = self.convert_to(space, W_Float64Box._get_dtype(space))
         assert isinstance(box, W_Float64Box)
         return space.wrap(box.value)
+
+    def descr_oct(self, space):
+        return space.oct(self.descr_int(space))
+
+    def descr_hex(self, space):
+        return space.hex(self.descr_int(space))
 
     def descr_nonzero(self, space):
         dtype = self.get_dtype(space)
@@ -259,14 +265,13 @@ class W_GenericBox(W_Root):
         if not space.is_none(w_out):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "out not supported"))
-        v = self.convert_to(self.get_dtype(space))
-        return self.get_dtype(space).itemtype.round(v, decimals)
+        return self.get_dtype(space).itemtype.round(self, decimals)
 
     def descr_astype(self, space, w_dtype):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
         dtype = space.interp_w(W_Dtype,
             space.call_function(space.gettypefor(W_Dtype), w_dtype))
-        return self.convert_to(dtype)
+        return self.convert_to(space, dtype)
 
     def descr_view(self, space, w_dtype):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
@@ -305,7 +310,10 @@ class W_GenericBox(W_Root):
         return space.wrap(0)
 
     def descr_copy(self, space):
-        return self.convert_to(self.get_dtype(space))
+        return self.convert_to(space, self.get_dtype(space))
+
+    def descr_buffer(self, space):
+        return self.descr_ravel(space).descr_get_data(space)
 
     w_flags = None
     def descr_get_flags(self, space):
@@ -466,14 +474,16 @@ class W_VoidBox(W_FlexibleBox):
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
-    def convert_to(self, dtype):
+    def convert_to(self, space, dtype):
         # if we reach here, the record fields are guarenteed to match.
         return self
 
 class W_CharacterBox(W_FlexibleBox):
-    def convert_to(self, dtype):
-        # XXX assert dtype is str type
-        return self
+    def convert_to(self, space, dtype):
+        return dtype.coerce(space, space.wrap(self.raw_str()))
+
+    def descr_len(self, space):
+        return space.len(self.item(space))
 
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
@@ -511,6 +521,9 @@ W_GenericBox.typedef = TypeDef("generic",
     __long__ = interp2app(W_GenericBox.descr_long),
     __float__ = interp2app(W_GenericBox.descr_float),
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
+    __oct__ = interp2app(W_GenericBox.descr_oct),
+    __hex__ = interp2app(W_GenericBox.descr_hex),
+    __buffer__ = interp2app(W_GenericBox.descr_buffer),
 
     __add__ = interp2app(W_GenericBox.descr_add),
     __sub__ = interp2app(W_GenericBox.descr_sub),
@@ -745,9 +758,11 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
 W_StringBox.typedef = TypeDef("string_", (W_CharacterBox.typedef, str_typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
+    __len__ = interp2app(W_StringBox.descr_len),
 )
 
 W_UnicodeBox.typedef = TypeDef("unicode_", (W_CharacterBox.typedef, unicode_typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
+    __len__ = interp2app(W_UnicodeBox.descr_len),
 )

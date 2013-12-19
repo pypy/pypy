@@ -48,6 +48,7 @@ def fix_permissions(basedir):
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir=None, override_pypy_c=None, nostrip=False,
             withouttk=False):
+    assert '/' not in rename_pypy_c
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
@@ -114,10 +115,11 @@ add --without-tk option to skip packaging binary CFFI extension."""
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        if pypy_c.dirpath().join("libpypy-c.lib").check():
-            shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+        importlib_name = 'python27.lib'    
+        if pypy_c.dirpath().join(importlib_name).check():
+            shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
                         str(pypydir.join('include/python27.lib')))
-            print "Picking %s as %s" % (pypy_c.dirpath().join("libpypy-c.lib"),
+            print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
                         pypydir.join('include/python27.lib'))
         else:
             pass

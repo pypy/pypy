@@ -300,14 +300,6 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
-    @simple_unary_op
-    def ones_like(self, v):
-        return 1
-
-    @simple_unary_op
-    def zeros_like(self, v):
-        return 0
-
     @raw_unary_op
     def rint(self, v):
         float64 = Float64()
@@ -1542,14 +1534,6 @@ class ComplexFloating(object):
             return -rfloat.INFINITY, 0
         except ValueError:
             return rfloat.NAN, rfloat.NAN
-
-    @complex_unary_op
-    def ones_like(self, v):
-        return 1, 0
-
-    @complex_unary_op
-    def zeros_like(self, v):
-        return 0, 0
 
 class Complex64(ComplexFloating, BaseType):
     T = rffi.FLOAT
