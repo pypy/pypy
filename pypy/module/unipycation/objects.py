@@ -11,7 +11,6 @@ import prolog.interpreter.continuation as pcont
 
 from rpython.rlib import jit
 
-#@unwrap_spec(name=str)
 @jit.unroll_safe
 def term_new__(space, w_subtype, w_name, w_args):
     from pypy.module.unipycation import conversion
@@ -103,25 +102,10 @@ class W_Var(W_Root):
     Represents an unbound variable in a query.
     """
 
-    NEXT_UNIQUE = 0
-    _UNIQUE_PREFIX = "_V"
-
     def __init__(self, space, p_var=None):
         self.space = space
-
         self.p_var = p_var if p_var is not None else pterm.BindingVar()
 
-        # XXX do we need this? Not sure.
-        # just for the sake of printing a variable, give it a name.
-        self.w_name = space.wrap("%s%d" % (W_Var._UNIQUE_PREFIX, W_Var.NEXT_UNIQUE))
-        W_Var.NEXT_UNIQUE += 1
-
-    # XXX broken
-    #@classmethod
-    #def descr_unique_prefix(cls, space):
-    #    return space.wrap(W_Var._UNIQUE_PREFIX)
-
-    #def descr_str(self, space): return self.w_name
     def descr_str(self, space):
         # XXX Hackarama XXX.
         # TermFormatter needs an engine, so we just make a new one.
@@ -129,15 +113,12 @@ class W_Var(W_Root):
         fmtr = pfmt.TermFormatter(tmp_engine)
         return self.space.wrap(fmtr.format(self.p_var))
 
-    def descr_repr(self, space):
-        return space.wrap("Var(%s)" % repr(space.str_w(self.w_name)))
+    def descr_repr(self, space): self.descr_str(space)
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
     __str__ = interp2app(W_Var.descr_str),
     __repr__ = interp2app(W_Var.descr_repr),
-    #UNIQUE_PREFIX = GetSetProperty(W_Var.descr_unique_prefix),
-    #UNIQUE_PREFIX = interp2app(W_Var.descr_unique_prefix, as_classmethod=True),
 )
 
 W_Var.typedef.acceptable_as_base_class = False
