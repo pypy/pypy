@@ -47,7 +47,7 @@ def p_atom_of_w_str(space, w_str):
 
 # XXX rename to be consistent
 def p_callable_of_w_term(space, w_term):
-    p_name = w_term.w_name
+    p_name = space.str_w(w_term.w_name)
     p_sig = signature.Signature.getsignature(p_name, w_term.w_args.length())
     p_args = [ p_of_w(space, x) for x in space.listview(w_term.w_args) ]
     return term.Callable.build(p_name, p_args, p_sig)

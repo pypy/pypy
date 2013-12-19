@@ -18,6 +18,12 @@ class AppTestObjects(object):
         assert X == X
         assert X != Y
 
+    def test_term(self):
+        import unipycation as u
+        X = u.CoreTerm("f", [1,2,3])
+        assert len(X) == 3
+        assert X.args == [1,2,3]
+
     @pytest.mark.xfail
     def test_list(self):
         import unipycation as u
