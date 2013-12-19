@@ -31,7 +31,7 @@ class W_CoreTerm(W_Root):
     def __init__(self, space, w_name, w_args):
         self.space = space
         self.w_args = w_args
-        self.w_name = w_name
+        self.w_name = w_name # not actually wrapped!
 
     # properties
     def descr_len(self, space): return self.space.newint(self.w_args.length())

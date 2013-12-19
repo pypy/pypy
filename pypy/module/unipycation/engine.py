@@ -84,7 +84,7 @@ class W_CoreSolutionIterator(W_Root):
             # for subsequent iterations.
             cont = UnipycationContinuation(
                     self.p_engine, self.continuation_holder)
-            p_goal_term = self.w_goal_term.p_term
+            p_goal_term = conversion.p_of_w(self.space, self.w_goal_term)
             self.w_goal_term = None # allow GC
         try:
             if first_iteration:

@@ -1,5 +1,6 @@
 from prolog.interpreter import term, helper
 from prolog.interpreter.term import BindingVar
+from prolog.interpreter import signature
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
@@ -44,9 +45,12 @@ def p_atom_of_w_str(space, w_str):
     val = space.str0_w(w_str)
     return term.Atom(val)
 
+# XXX rename to be consistent
 def p_term_of_w_term(space, w_term):
-    assert isinstance(w_term, objects.W_CoreTerm)
-    return w_term.p_term
+    p_name = w_term.w_name
+    p_sig = signature.Signature.getsignature(p_name, w_term.w_args.length())
+    p_args = [ p_of_w(space, x) for x in space.listview(w_term.w_args) ]
+    return term.Callable.build(p_name, p_args, p_sig)
 
 # XXX not sure. We are not always going to want a fresh variable
 # Perhaps we need to pass down a mapping.
