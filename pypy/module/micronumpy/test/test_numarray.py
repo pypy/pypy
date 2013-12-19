@@ -1407,11 +1407,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         for dt in ['bool', 'int8', 'uint8', 'int16', 'uint16']:
             a = array([True, False], dtype=dt)
             assert a.prod() == 0
-            assert a.prod().dtype == dtype('uint' if dt[0] == 'u' else 'int')
+            assert a.prod().dtype is dtype('uint' if dt[0] == 'u' else 'int')
         for dt in ['l', 'L', 'q', 'Q', 'e', 'f', 'd', 'F', 'D']:
             a = array([True, False], dtype=dt)
             assert a.prod() == 0
-            assert a.prod().dtype == dtype(dt)
+            assert a.prod().dtype is dtype(dt)
 
     def test_max(self):
         from numpypy import array, zeros
