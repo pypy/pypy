@@ -672,8 +672,7 @@ W_LongBox.typedef = TypeDef("int%d" % LONG_BIT,
     __reduce__ = interp2app(W_LongBox.descr_reduce),
 )
 
-W_ULongBox.typedef = TypeDef("uint%d" % LONG_BIT,
-    (W_UnsignedIntegerBox.typedef, int_typedef),
+W_ULongBox.typedef = TypeDef("uint%d" % LONG_BIT, W_UnsignedIntegerBox.typedef,
     __module__ = "numpy",
     __new__ = interp2app(W_ULongBox.descr__new__.im_func),
     __index__ = interp2app(W_ULongBox.descr_index),
