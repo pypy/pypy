@@ -159,10 +159,10 @@ class W_GenericBox(W_Root):
         return space.wrap(box.value)
 
     def descr_oct(self, space):
-        return space.oct(self.descr_int(space))
+        return space.call_method(space.builtin, 'oct', self.descr_int(space))
 
     def descr_hex(self, space):
-        return space.hex(self.descr_int(space))
+        return space.call_method(space.builtin, 'hex', self.descr_int(space))
 
     def descr_nonzero(self, space):
         dtype = self.get_dtype(space)
