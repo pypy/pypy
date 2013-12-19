@@ -2978,17 +2978,18 @@ class AppTestSupport(BaseNumpyAppTest):
         assert j[0] == 12
         k = fromstring(self.float16val, dtype='float16')
         assert k[0] == dtype('float16').type(5.)
-        dt =  array([5],dtype='longfloat').dtype
-        if dt.itemsize == 12:
+        dt =  array([5], dtype='longfloat').dtype
+        if dt.itemsize == 8:
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x14@',
+                           dtype='float64')
+        elif dt.itemsize == 12:
             m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00',
                            dtype='float96')
         elif dt.itemsize == 16:
             m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00' \
                            '\x00\x00\x00\x00', dtype='float128')
-        elif dt.itemsize == 8:
-            skip('longfloat is float64')
         else:
-            skip('unknown itemsize for longfloat')
+            assert False, 'unknown itemsize for longfloat'
         assert m[0] == dtype('longfloat').type(5.)
 
     def test_fromstring_invalid(self):
@@ -3311,14 +3312,16 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array([('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]],
                                        [[7, 8, 9], [10, 11, 12]]])],
                   dtype=dt)
-        s = str(a)
         i = a.item()
         assert isinstance(i, tuple)
         assert len(i) == 4
-        skip('incorrect formatting via dump_data')
-        assert s.endswith("[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], "
-                          "[[7, 8, 9], [10, 11, 12]]])]")
-
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            assert str(a) == "[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], " \
+                                                  "[[7, 8, 9], [10, 11, 12]]])]"
+        else:
+            assert str(a) == "array([('aaaa', 1.0, 8.0, [1, 2, 3, 4, 5, 6, " \
+                                                        "7, 8, 9, 10, 11, 12])])"
 
     def test_issue_1589(self):
         import numpypy as numpy

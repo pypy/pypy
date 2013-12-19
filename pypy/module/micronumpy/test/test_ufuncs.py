@@ -390,23 +390,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a == ref).all()
 
     def test_signbit(self):
-        from numpypy import signbit, add
-
+        from numpy import signbit, add
+        assert signbit(add.identity) == False
         assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
-            [False, False, False, False, False]).all()
+                [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
-            [False,  True,  True,  True,  True]).all()
-
-        a = add.identity
-        assert signbit(a) == False
-
-        skip('sign of nan is non-determinant')
+                [False,  True,  True,  True,  True]).all()
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
-            [False, True, True]).all()
+                [False, True, True]).all()
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal
-
+        from numpy import array, reciprocal
         inf = float('inf')
         nan = float('nan')
         reference = [-0.2, inf, -inf, 2.0, nan]
