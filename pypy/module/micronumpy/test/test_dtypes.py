@@ -33,10 +33,11 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert typeinfo['CFLOAT'] == ('F', 14, 64, 8, np.complex64)
         assert typeinfo['CDOUBLE'] == ('D', 15, 128, 16, np.complex128)
         assert typeinfo['HALF'] == ('e', 23, 16, 2, np.float16)
-        assert typeinfo['INTP'] == ('p', 7, 64, 8,
+        assert typeinfo['INTP'] == ('p', np.dtype('int').num,
+                                    self.ptr_size*8, self.ptr_size,
                                     2**(self.ptr_size*8 - 1) - 1,
                                     -2**(self.ptr_size*8 - 1),
-                                    np.int64)
+                                    np.dtype('int').type)
 
     def test_dtype_basic(self):
         from numpypy import dtype
