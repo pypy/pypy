@@ -76,7 +76,6 @@ class TestTypeConversion(object):
 
         p_args = p_term.arguments()
         assert len(p_args) == 3
-        print(p_args)
         for i in range(3):
             assert p_args[i].num == i + 1
 

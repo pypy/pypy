@@ -24,7 +24,6 @@ class AppTestObjects(object):
         assert len(X) == 3
         assert X.args == [1,2,3]
 
-    @pytest.mark.xfail
     def test_list(self):
         import unipycation as u
 
@@ -39,7 +38,6 @@ class AppTestObjects(object):
         assert x_val.args[1].args[0] == "x"
         assert x_val.args[1].args[1] == "[]"
 
-    @pytest.mark.xfail
     def test_functor(self):
         import unipycation as u
 
@@ -104,17 +102,10 @@ class AppTestObjects(object):
         vs = [X, Y, Z] = [ u.Var() for i in range(3) ]
         t = u.CoreTerm("x", vs)
 
-        # XXX if we get Var.UNIQUE_PREFIX working
-        #pat = "x\({0}([0-9]), {0}([0-9]), {0}([0-9])\)".format(u.Var.UNIQUE_PREFIX)
-        pat = "x\(_V([0-9]), _V([0-9]), _V([0-9])\)"
+        pat = "x\(_G([0-9]*), _G([0-9]*), _G([0-9]*)\)"
         m = re.match(pat, str(t))
         assert(m)
         
-        # names should be sequential
-        nums = [ int(x) for x in m.groups() ]
-        assert(nums[1] == nums[0] + 1)
-        assert(nums[2] == nums[0] + 2)
-
     def test_nested_term_str(self):
         import unipycation as u
         t2 = u.CoreTerm("y", ["blah", "123", "bobbins"])

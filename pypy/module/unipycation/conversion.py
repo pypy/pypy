@@ -54,7 +54,7 @@ def p_callable_of_w_term(space, w_term):
 
 # XXX not sure. We are not always going to want a fresh variable
 # Perhaps we need to pass down a mapping.
-def p_var_of_w_var(space, w_var): return BindingVar()
+def p_var_of_w_var(space, w_var): return w_var.p_var
 
 def p_of_w(space, w_anything):
     w_CoreTerm = util.get_from_module(space, "unipycation", "CoreTerm")

@@ -50,8 +50,7 @@ class W_CoreTerm(W_Root):
     def descr_eq(self, space, w_other):
         if not space.eq_w(space.type(self), space.type(w_other)):
             return space.w_False
-        other = space.interp_w(W_CoreTerm, w_other)
-        return space.w_True if self.w_args == other.w_args else space.w_False
+        return space.wrap(space.is_true(space.eq(self.w_args, w_other.w_args)))
 
     def descr_ne(self, space, w_other):
         return space.not_(self.descr_eq(space, w_other))
@@ -107,8 +106,12 @@ class W_Var(W_Root):
     NEXT_UNIQUE = 0
     _UNIQUE_PREFIX = "_V"
 
-    def __init__(self, space):
+    def __init__(self, space, p_var=None):
         self.space = space
+
+        self.p_var = p_var if p_var is not None else pterm.BindingVar()
+
+        # XXX do we need this? Not sure.
         # just for the sake of printing a variable, give it a name.
         self.w_name = space.wrap("%s%d" % (W_Var._UNIQUE_PREFIX, W_Var.NEXT_UNIQUE))
         W_Var.NEXT_UNIQUE += 1
@@ -118,7 +121,14 @@ class W_Var(W_Root):
     #def descr_unique_prefix(cls, space):
     #    return space.wrap(W_Var._UNIQUE_PREFIX)
 
-    def descr_str(self, space): return self.w_name
+    #def descr_str(self, space): return self.w_name
+    def descr_str(self, space):
+        # XXX Hackarama XXX.
+        # TermFormatter needs an engine, so we just make a new one.
+        tmp_engine = pcont.Engine()
+        fmtr = pfmt.TermFormatter(tmp_engine)
+        return self.space.wrap(fmtr.format(self.p_var))
+
     def descr_repr(self, space):
         return space.wrap("Var(%s)" % repr(space.str_w(self.w_name)))
 

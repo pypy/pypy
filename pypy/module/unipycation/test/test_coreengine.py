@@ -78,6 +78,7 @@ class AppTestCoreEngine(object):
         e = u.CoreEngine("f(a(1, 2), b(3, 4)).")
         vs = [X, Y] = [u.Var(), u.Var()]
 
+        # f(a(1, X), Y)
         t1 = u.CoreTerm('a', [1, X])
         t = u.CoreTerm('f', [t1, Y])
 
@@ -265,8 +266,7 @@ class AppTestCoreEngine(object):
         assert sols[0].name == "card"
         assert len(sols[0]) == 2
         assert sols[0][0] == 5
-        print(sols[0][1]) # prints "c"
-        assert sols[0][1] == "d" # BOOM
+        assert sols[0][1] == "d" # if shared, this booms
 
         assert sols[1].name == "card"
         assert len(sols[1]) == 2
