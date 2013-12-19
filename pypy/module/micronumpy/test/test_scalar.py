@@ -22,10 +22,10 @@ class AppTestScalar(BaseNumpyAppTest):
         import numpy as np
         assert int(np.str_('12')) == 12
         exc = raises(ValueError, "int(np.str_('abc'))")
-        assert exc.value.message.startswith('invalid literal for int()')
-        assert oct(np.int32(11)) == '013'
-        assert oct(np.float32(11.6)) == '013'
-        assert oct(np.complex64(11-12j)) == '013'
+        assert str(exc.value).startswith('invalid literal for int()')
+        assert oct(np.int32(11)) == '0o13'
+        assert oct(np.float32(11.6)) == '0o13'
+        assert oct(np.complex64(11-12j)) == '0o13'
         assert hex(np.int32(11)) == '0xb'
         assert hex(np.float32(11.6)) == '0xb'
         assert hex(np.complex64(11-12j)) == '0xb'
@@ -43,7 +43,7 @@ class AppTestScalar(BaseNumpyAppTest):
         except ImportError:
             # running on dummy module
             from numpy import scalar
-        from cPickle import loads, dumps
+        from pickle import loads, dumps
         i = dtype('int32').type(1337)
         f = dtype('float64').type(13.37)
         c = dtype('complex128').type(13 + 37.j)
@@ -98,10 +98,10 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_buffer(self):
         import numpy as np
         a = np.int32(123)
-        b = buffer(a)
-        assert type(b) is buffer
+        b = memoryview(a)
+        assert type(b) is memoryview
         a = np.string_('abc')
-        b = buffer(a)
+        b = memoryview(a)
         assert str(b) == a
 
     def test_squeeze(self):
@@ -137,7 +137,7 @@ class AppTestScalar(BaseNumpyAppTest):
         import sys
         s = np.dtype('int64').type(12)
         exc = raises(ValueError, s.view, 'int8')
-        assert exc.value[0] == "new type not compatible with array."
+        assert str(exc.value) == "new type not compatible with array."
         t = s.view('double')
         assert type(t) is np.double
         assert t < 7e-323
@@ -146,7 +146,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert 0 < t.real < 1
         assert t.imag == 0
         exc = raises(TypeError, s.view, 'string')
-        assert exc.value[0] == "data-type must not be 0-sized"
+        assert str(exc.value) == "data-type must not be 0-sized"
         t = s.view('S8')
         assert type(t) is np.string_
         assert t == '\x0c'
