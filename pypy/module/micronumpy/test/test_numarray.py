@@ -1400,18 +1400,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_prod(self):
-        from numpypy import array, int_, dtype
+        from numpypy import array, dtype
         a = array(range(1, 6))
         assert a.prod() == 120.0
         assert a[:4].prod() == 24.0
         for dt in ['bool', 'int8', 'uint8', 'int16', 'uint16']:
             a = array([True, False], dtype=dt)
             assert a.prod() == 0
-            assert a.prod().dtype is dtype('uint' if dt[0] == 'u' else 'int')
+            assert a.prod().dtype == dtype('uint' if dt[0] == 'u' else 'int')
         for dt in ['l', 'L', 'q', 'Q', 'e', 'f', 'd', 'F', 'D']:
             a = array([True, False], dtype=dt)
             assert a.prod() == 0
-            assert a.prod().dtype is dtype(dt)
+            assert a.prod().dtype == dtype(dt)
 
     def test_max(self):
         from numpypy import array, zeros
