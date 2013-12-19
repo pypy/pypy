@@ -1404,12 +1404,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(1, 6))
         assert a.prod() == 120.0
         assert a[:4].prod() == 24.0
-        a = array([True, False])
-        assert a.prod() == 0
-        assert type(a.prod()) is int_
-        a = array([True, False], dtype='uint')
-        assert a.prod() == 0
-        assert type(a.prod()) is dtype('uint').type
+        for dt in ['bool', 'int8', 'uint8', 'int16', 'uint16']:
+            a = array([True, False], dtype=dt)
+            assert a.prod() == 0
+            assert a.prod().dtype is dtype('uint' if dt[0] == 'u' else 'int')
+        for dt in ['l', 'L', 'q', 'Q', 'e', 'f', 'd', 'F', 'D']:
+            a = array([True, False], dtype=dt)
+            assert a.prod() == 0
+            assert a.prod().dtype is dtype(dt)
 
     def test_max(self):
         from numpypy import array, zeros
