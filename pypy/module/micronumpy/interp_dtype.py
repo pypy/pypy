@@ -735,38 +735,21 @@ class DtypeCache(object):
             char=NPY_HALFLTR,
             w_box_type=space.gettypefor(interp_boxes.W_Float16Box),
         )
-        ptr_size = rffi.sizeof(rffi.CCHARP)
-        if ptr_size == 4:
-            intp_box = interp_boxes.W_Int32Box
-            intp_type = types.Int32()
-            intp_num = NPY_INT
-            uintp_box = interp_boxes.W_UInt32Box
-            uintp_type = types.UInt32()
-            uintp_num = NPY_UINT
-        elif ptr_size == 8:
-            intp_box = interp_boxes.W_Int64Box
-            intp_type = types.Int64()
-            intp_num = NPY_LONG
-            uintp_box = interp_boxes.W_UInt64Box
-            uintp_type = types.UInt64()
-            uintp_num = NPY_ULONG
-        else:
-            raise ValueError('unknown point size %d' % ptr_size)
         self.w_intpdtype = W_Dtype(
-            intp_type,
-            num=intp_num,
-            kind=NPY_INTPLTR,
+            types.Long(),
+            num=NPY_LONG,
+            kind=NPY_SIGNEDLTR,
             name='intp',
             char=NPY_INTPLTR,
-            w_box_type = space.gettypefor(intp_box),
+            w_box_type = space.gettypefor(interp_boxes.W_LongBox),
         )
         self.w_uintpdtype = W_Dtype(
-            uintp_type,
-            num=uintp_num,
-            kind=NPY_UINTPLTR,
+            types.ULong(),
+            num=NPY_ULONG,
+            kind=NPY_UNSIGNEDLTR,
             name='uintp',
             char=NPY_UINTPLTR,
-            w_box_type = space.gettypefor(uintp_box),
+            w_box_type = space.gettypefor(interp_boxes.W_ULongBox),
         )
         float_dtypes = [self.w_float16dtype, self.w_float32dtype,
                         self.w_float64dtype, self.w_floatlongdtype]

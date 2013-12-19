@@ -715,10 +715,14 @@ class AppTestTypes(BaseAppTestDtypes):
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8
+        assert numpy.intp().dtype.num == 7
+        assert numpy.intp().dtype.char == 'l'
         if self.ptr_size == 4:
+            assert numpy.intp().dtype.name == 'int32'
             assert numpy.intp is numpy.int32
             assert numpy.uintp is numpy.uint32
         elif self.ptr_size == 8:
+            assert numpy.intp().dtype.name == 'int64'
             assert numpy.intp is numpy.int64
             assert numpy.uintp is numpy.uint64
 
@@ -787,8 +791,22 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_intp(self):
         from numpypy import dtype
-        assert dtype('p') == dtype('intp')
-        assert dtype('P') == dtype('uintp')
+        assert dtype('p') is dtype('intp')
+        assert dtype('P') is dtype('uintp')
+        #assert dtype('p') is dtype('int')
+        #assert dtype('P') is dtype('uint')
+        assert dtype('p').num == 7
+        assert dtype('P').num == 8
+        #assert dtype('p').char == 'l'
+        #assert dtype('P').char == 'L'
+        assert dtype('p').kind == 'i'
+        assert dtype('P').kind == 'u'
+        #if self.ptr_size == 4:
+        #    assert dtype('p').name == 'int32'
+        #    assert dtype('P').name == 'uint32'
+        #else:
+        #    assert dtype('p').name == 'int64'
+        #    assert dtype('P').name == 'uint64'
 
     def test_alignment(self):
         from numpypy import dtype
