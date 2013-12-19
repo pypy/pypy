@@ -301,7 +301,7 @@ class AppTestLong:
 
     def test_long_before_string(self):
         class A(str):
-            def __long__(self):
+            def __int__(self):
                 return 42
         assert int(A('abc')) == 42
 
