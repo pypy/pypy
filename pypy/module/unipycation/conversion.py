@@ -1,5 +1,5 @@
-from prolog.interpreter import term
-from prolog.interpreter import helper
+from prolog.interpreter import term, helper
+from prolog.interpreter.term import BindingVar
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
@@ -26,6 +26,8 @@ def _p_type_check(space, inst, typ):
 # Convert from Python to Prolog
 # -----------------------------
 
+# XXX dont need all the assertions
+
 def p_number_of_w_int(space, w_int):
     val = space.int_w(w_int)
     return term.Number(val)
@@ -46,9 +48,9 @@ def p_term_of_w_term(space, w_term):
     assert isinstance(w_term, objects.W_CoreTerm)
     return w_term.p_term
 
-def p_var_of_w_var(space, w_var):
-    assert isinstance(w_var, objects.W_Var)
-    return w_var.p_var
+# XXX not sure. We are not always going to want a fresh variable
+# Perhaps we need to pass down a mapping.
+def p_var_of_w_var(space, w_var): return BindingVar()
 
 def p_of_w(space, w_anything):
     w_CoreTerm = util.get_from_module(space, "unipycation", "CoreTerm")
@@ -88,7 +90,10 @@ def w_str_of_p_atom(space, p_atom):
     return space.wrap(helper.unwrap_atom(p_atom))
 
 def w_term_of_p_callable(space, p_callable):
-    return objects.W_CoreTerm(space, p_callable)
+    w_name = space.wrap(p_callable.name())
+    args = [ w_of_p(space, x) for x in p_callable.arguments() ]
+    w_args = space.newlist(args)
+    return objects.W_CoreTerm(space, w_name, w_args)
 
 def w_whatever_of_p_bindingvar(space, p_bindingvar):
     if p_bindingvar.binding is None:
