@@ -46,7 +46,7 @@ def p_atom_of_w_str(space, w_str):
     return term.Atom(val)
 
 # XXX rename to be consistent
-def p_term_of_w_term(space, w_term):
+def p_callable_of_w_term(space, w_term):
     p_name = w_term.w_name
     p_sig = signature.Signature.getsignature(p_name, w_term.w_args.length())
     p_args = [ p_of_w(space, x) for x in space.listview(w_term.w_args) ]
@@ -71,7 +71,7 @@ def p_of_w(space, w_anything):
     elif space.is_true(space.isinstance(w_anything, space.w_str)):
         return p_atom_of_w_str(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_CoreTerm)):
-        return p_term_of_w_term(space, w_anything)
+        return p_callable_of_w_term(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_Var)):
         return p_var_of_w_var(space, w_anything)
     else:

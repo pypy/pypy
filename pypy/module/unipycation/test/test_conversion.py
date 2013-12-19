@@ -68,11 +68,11 @@ class TestTypeConversion(object):
 
         assert unwrap1 == unwrap2
 
-    def test_p_term_of_w_term(self):
+    def test_p_callable_of_w_term(self):
         # f(1,2,3).
         w_args = self.space.newlist([ conv.w_of_p(self.space, pterm.Number(x)) for x in [1,2,3] ])
         w_term = objects.W_CoreTerm(self.space, "f", w_args)
-        p_term = conv.p_term_of_w_term(self.space, w_term)
+        p_term = conv.p_callable_of_w_term(self.space, w_term)
 
         p_args = p_term.arguments()
         assert len(p_args) == 3
