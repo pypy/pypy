@@ -45,7 +45,6 @@ def p_atom_of_w_str(space, w_str):
     val = space.str0_w(w_str)
     return term.Atom(val)
 
-# XXX rename to be consistent
 def p_callable_of_w_term(space, w_term):
     p_name = space.str_w(w_term.w_name)
     p_sig = signature.Signature.getsignature(p_name, w_term.w_args.length())

@@ -61,14 +61,7 @@ class W_CoreTerm(W_Root):
             args_strs.append(space.str_w(space.call_method(x, "__str__")))
         return space.wrap("%s(%s)" % (space.str_w(self.w_name), ", ".join(args_strs)))
 
-    # XXX repr is not very consistent.
-    # Integers and stuff in args will print the interp-level wrapper instance.
-    def descr_repr(self, space):
-        return space.wrap("%s(%s, %s)" % (
-                space.type(self).getname(space),
-                space.str_w(space.repr(self.w_name)),
-                space.str_w(space.repr(self.prop_getargs(space))),
-                ))
+    def descr_repr(self, space): return self.descr_str(space)
 
     @staticmethod
     def _from_term(space, w_subtype, w_term):
@@ -113,7 +106,7 @@ class W_Var(W_Root):
         fmtr = pfmt.TermFormatter(tmp_engine)
         return self.space.wrap(fmtr.format(self.p_var))
 
-    def descr_repr(self, space): self.descr_str(space)
+    def descr_repr(self, space): return self.descr_str(space)
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),

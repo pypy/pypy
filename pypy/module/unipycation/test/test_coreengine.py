@@ -193,6 +193,7 @@ class AppTestCoreEngine(object):
     # (Pdb) p exc
     # Generic1(error, [Generic2(existence_error, [Atom('procedure'), Generic2(/, [Atom('select'), Number(3)])])])
     # This does not belong here XXX
+    # XXX is this still a problem?
     def test_select(self):
         import uni
 

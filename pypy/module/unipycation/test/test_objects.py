@@ -112,23 +112,21 @@ class AppTestObjects(object):
         t = u.CoreTerm("x", [1, 2, t2])
         assert str(t) == "x(1, 2, y(blah, 123, bobbins))"
 
-    @pytest.mark.xfail
     def test_term_repr(self):
         import unipycation as u
         t = u.CoreTerm("x", [1,2,666])
-        assert repr(t) == "CoreTerm('x', [1, 2, 666])"
+        assert repr(t) == "x(1, 2, 666)"
 
-    @pytest.mark.xfail
     def test_var_repr(self):
         import unipycation as u, re
         V = u.Var()
-        assert re.match("^Var\('_G[0-9]*'\)", repr(V))
+        assert re.match("^_G[0-9]*$", repr(V))
 
     def test_nested_term_repr(self):
         import unipycation as u
         t2 = u.CoreTerm("y", ["blah", "123", "bobbins"])
         t = u.CoreTerm("x", [1, 2, t2])
-        assert repr(t) == "CoreTerm('x', [1, 2, CoreTerm('y', ['blah', '123', 'bobbins'])])"
+        assert repr(t) == "x(1, 2, y(blah, 123, bobbins))"
 
     def test_term_indexing(self):
         import unipycation
