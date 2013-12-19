@@ -154,6 +154,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.newops.append(op)
                 continue
             # ----------  fall-back  ----------
+            # Check that none of the ops handled here can_collect
+            # or cause a transaction break. This is not done by
+            # the fallback here
             self.fallback_inevitable(op)
             debug_print("fallback for", op.repr())
             #
@@ -316,6 +319,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def fallback_inevitable(self, op):
         self.known_category.clear()
         if not self.always_inevitable:
+            self.emitting_an_operation_that_can_collect()
             self._do_stm_call('stm_try_inevitable', [], None)
             self.always_inevitable = True
         self.newops.append(op)
