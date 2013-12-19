@@ -1187,10 +1187,11 @@ app_take = applevel(r"""
         if axis is None:
             res = a.ravel()[indices]
         else:
+            from operator import mul
             if axis < 0: axis += len(a.shape)
             s0, s1 = a.shape[:axis], a.shape[axis+1:]
-            l0 = prod(s0) if s0 else 1
-            l1 = prod(s1) if s1 else 1
+            l0 = reduce(mul, s0) if s0 else 1
+            l1 = reduce(mul, s1) if s1 else 1
             res = a.reshape((l0, -1, l1))[:,indices,:].reshape(s0 + (-1,) + s1)
         if out is not None:
             out[:] = res

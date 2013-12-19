@@ -2722,6 +2722,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, "arange(3).take([15])")
         a = arange(6).reshape(2, 3)
         assert (a.take([1, 0, 3]) == [1, 0, 3]).all()
+        assert (a.take([1], axis=0) == [[3, 4, 5]]).all()
+        assert (a.take([1], axis=1) == [[1], [4]]).all()
         assert ((a + a).take([3]) == [6]).all()
         a = arange(12).reshape(2, 6)
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
