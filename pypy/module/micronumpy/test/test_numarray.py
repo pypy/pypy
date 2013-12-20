@@ -3048,8 +3048,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
     def test_zeros(self):
-        from numpypy import zeros
+        from numpypy import zeros, void
         a = zeros((), dtype=[('x', int), ('y', float)])
+        assert type(a[()]) is void
+        assert type(a.item()) is tuple
         assert a[()]['x'] == 0
         assert a[()]['y'] == 0
         assert a.shape == ()
