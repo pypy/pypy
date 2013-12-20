@@ -45,6 +45,9 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_argsort_axis(self):
         from numpypy import array
+        a = array([])
+        for axis in [None, -1, 0]:
+            assert a.argsort(axis=axis).shape == (0,)
         a = array([[4, 2], [1, 3]])
         assert (a.argsort(axis=None) == [2, 1, 3, 0]).all()
         assert (a.argsort(axis=-1) == [[1, 0], [0, 1]]).all()
