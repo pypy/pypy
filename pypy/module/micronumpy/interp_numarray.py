@@ -1440,12 +1440,11 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         arr_iter.next()
     return w_arr
 
-@unwrap_spec(order=str)
-def zeros(space, w_shape, w_dtype=None, order='C'):
+def zeros(space, w_shape, w_dtype=None, w_order=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    return W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
+    return W_NDimArray.from_shape(space, shape, dtype=dtype)
 
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
