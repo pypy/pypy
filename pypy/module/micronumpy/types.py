@@ -1620,6 +1620,8 @@ class StringType(FlexibleType):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
         if isinstance(w_item, interp_boxes.W_StringBox):
             return w_item
+        if w_item is None:
+            w_item = space.wrap('')
         arg = space.str_w(space.str(w_item))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
@@ -1819,6 +1821,8 @@ class RecordType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
+        if w_item is None:
+            w_item = space.newtuple([None] * len(dtype.fields))
         # we treat every sequence as sequence, no special support
         # for arrays
         if not space.issequence_w(w_item):

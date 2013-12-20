@@ -354,7 +354,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         # And check that changes stick.
         a[13] = 5.3
         assert a[13] == 5.3
+        assert zeros(()) == 0
         assert zeros(()).shape == ()
+        assert zeros((), dtype='S') == ''
+        assert zeros((), dtype='S').shape == ()
 
     def test_empty_like(self):
         import numpy as np
@@ -3046,6 +3049,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_zeros(self):
         from numpypy import zeros
+        a = zeros((), dtype=[('x', int), ('y', float)])
+        assert a[()]['x'] == 0
+        assert a[()]['y'] == 0
+        assert a.shape == ()
         a = zeros(2, dtype=[('x', int), ('y', float)])
         raises(IndexError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0
