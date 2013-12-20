@@ -849,12 +849,12 @@ class AppTestTypes(BaseAppTestDtypes):
         import numpy as np
         assert np.dtype('<i8').descr == [('', '<i8')]
         assert np.dtype('|S4').descr == [('', '|S4')]
+        assert np.dtype(('<i8', (5,))).descr == [('', '|V40')]
         d = [('test', '<i8'), ('blah', '<i2', (2, 3))]
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, "np.dtype(d).descr")
-        else:
-            assert np.dtype(d).descr == d
+        assert np.dtype(d).descr == d
+        a = [('x', '<i8'), ('y', '<f8')]
+        b = [('x', '<i4'), ('y', a)]
+        assert np.dtype(b).descr == b
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_mro(self):

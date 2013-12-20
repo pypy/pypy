@@ -157,8 +157,20 @@ class W_Dtype(W_Root):
             return space.newlist([space.newtuple([space.wrap(""),
                                                   self.descr_get_str(space)])])
         else:
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "descr not implemented for record types"))
+            descr = []
+            for name in self.fieldnames:
+                subdtype = self.fields[name][1]
+                subdescr = [space.wrap(name)]
+                if subdtype.is_record_type():
+                    subdescr.append(subdtype.descr_get_descr(space))
+                elif subdtype.subdtype is not None:
+                    subdescr.append(subdtype.subdtype.descr_get_str(space))
+                else:
+                    subdescr.append(subdtype.descr_get_str(space))
+                if subdtype.shape != []:
+                    subdescr.append(subdtype.descr_get_shape(space))
+                descr.append(space.newtuple(subdescr))
+            return space.newlist(descr)
 
     def descr_get_base(self, space):
         return space.wrap(self.base)
