@@ -3227,11 +3227,14 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_subarrays(self):
         from numpypy import dtype, array, zeros
-
         d = dtype([("x", "int", 3), ("y", "float", 5)])
+
+        a = zeros((), dtype=d)
+        #assert a['x'].shape == (3,)
+        #assert (a['x'] == [0, 0, 0]).all()
+
         a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
                    ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
-
         for v in ['x', u'x', 0, -2]:
             assert (a[0][v] == [1, 2, 3]).all()
             assert (a[1][v] == [4, 5, 6]).all()
