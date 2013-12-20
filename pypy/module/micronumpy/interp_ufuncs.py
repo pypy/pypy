@@ -33,6 +33,9 @@ class W_Ufunc(W_Root):
         self.allow_complex = allow_complex
         self.complex_to_float = complex_to_float
 
+    def descr_get_name(self, space):
+        return space.wrap(self.name)
+
     def descr_repr(self, space):
         return space.wrap("<ufunc '%s'>" % self.name)
 
@@ -417,6 +420,7 @@ W_Ufunc.typedef = TypeDef("ufunc",
 
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
+    __name__ = GetSetProperty(W_Ufunc.descr_get_name),
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
     accumulate = interp2app(W_Ufunc.descr_accumulate),
