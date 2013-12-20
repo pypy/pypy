@@ -415,8 +415,8 @@ LL_OPERATIONS = {
     #       possible GC safe-points! (also sync with stmframework.py)
     # (some ops like stm_commit_transaction don't need it because there
     #  must be no gc-var access afterwards anyway)
-    'stm_initialize':         LLOp(),
-    'stm_finalize':           LLOp(),
+    'stm_initialize':         LLOp(canmallocgc=True),
+    'stm_finalize':           LLOp(canmallocgc=True),
     'stm_barrier':            LLOp(sideeffects=False),
     'stm_allocate':           LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
@@ -431,16 +431,16 @@ LL_OPERATIONS = {
     'stm_hash':               LLOp(sideeffects=False),
     'stm_push_root':          LLOp(),
     'stm_pop_root_into':      LLOp(),
-    'stm_commit_transaction': LLOp(),
-    'stm_begin_inevitable_transaction': LLOp(),
+    'stm_commit_transaction': LLOp(canmallocgc=True),
+    'stm_begin_inevitable_transaction': LLOp(canmallocgc=True),
     'stm_should_break_transaction': LLOp(sideeffects=False),
     'stm_set_transaction_length': LLOp(canmallocgc=True),
     'stm_change_atomic':      LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
     'stm_perform_transaction':LLOp(canmallocgc=True),
-    'stm_enter_callback_call':LLOp(),
-    'stm_leave_callback_call':LLOp(),
-    'stm_abort_and_retry':    LLOp(),
+    'stm_enter_callback_call':LLOp(canmallocgc=True),
+    'stm_leave_callback_call':LLOp(canmallocgc=True),
+    'stm_abort_and_retry':    LLOp(canmallocgc=True),
 
     'stm_weakref_allocate':   LLOp(sideeffects=False, canmallocgc=True),
     
@@ -524,7 +524,7 @@ LL_OPERATIONS = {
     'jit_assembler_call': LLOp(canrun=True,   # similar to an 'indirect_call'
                                canraise=(Exception,),
                                canmallocgc=True),
-    'jit_stm_transaction_break_point' : LLOp(),
+    'jit_stm_transaction_break_point' : LLOp(canmallocgc=True),
 
     # __________ GC operations __________
 
