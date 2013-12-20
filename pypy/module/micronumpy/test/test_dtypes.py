@@ -369,16 +369,22 @@ class AppTestTypes(BaseAppTestDtypes):
 
         # numpy allows abstract types in array creation
         a_n = numpy.array([4,4], numpy.number)
+        a_f = numpy.array([4,4], numpy.floating)
+        a_c = numpy.array([4,4], numpy.complexfloating)
         a_i = numpy.array([4,4], numpy.integer)
         a_s = numpy.array([4,4], numpy.signedinteger)
         a_u = numpy.array([4,4], numpy.unsignedinteger)
 
         assert a_n.dtype.num == 12
+        assert a_f.dtype.num == 12
+        assert a_c.dtype.num == 15
         assert a_i.dtype.num == 7
         assert a_s.dtype.num == 7
         assert a_u.dtype.num == 8
 
         assert a_n.dtype is numpy.dtype('float64')
+        assert a_f.dtype is numpy.dtype('float64')
+        assert a_c.dtype is numpy.dtype('complex128')
         if self.ptr_size == 4:
             assert a_i.dtype is numpy.dtype('int32')
             assert a_s.dtype is numpy.dtype('int32')

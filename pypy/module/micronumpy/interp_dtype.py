@@ -662,6 +662,7 @@ class DtypeCache(object):
             w_box_type = space.gettypefor(interp_boxes.W_Float64Box),
             alternate_constructors=[space.w_float,
                                     space.gettypefor(interp_boxes.W_NumberBox),
+                                    space.gettypefor(interp_boxes.W_FloatingBox),
                                     ],
             aliases=["float", "double"],
         )
@@ -691,7 +692,8 @@ class DtypeCache(object):
             name="complex128",
             char=NPY_CDOUBLELTR,
             w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
-            alternate_constructors=[space.w_complex],
+            alternate_constructors=[space.w_complex,
+                                    space.gettypefor(interp_boxes.W_ComplexFloatingBox)],
             aliases=["complex", 'cfloat', 'cdouble'],
             float_type = self.w_float64dtype,
         )
@@ -713,7 +715,8 @@ class DtypeCache(object):
             name='string',
             char=NPY_STRINGLTR,
             w_box_type = space.gettypefor(interp_boxes.W_StringBox),
-            alternate_constructors=[space.w_str, space.gettypefor(interp_boxes.W_CharacterBox)],
+            alternate_constructors=[space.w_str,
+                                    space.gettypefor(interp_boxes.W_CharacterBox)],
             aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(
