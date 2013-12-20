@@ -169,7 +169,7 @@ class W_Dtype(W_Root):
                     subdescr.append(subdtype.descr_get_str(space))
                 if subdtype.shape != []:
                     subdescr.append(subdtype.descr_get_shape(space))
-                descr.append(space.newtuple(subdescr))
+                descr.append(space.newtuple(subdescr[:]))
             return space.newlist(descr)
 
     def descr_get_base(self, space):
