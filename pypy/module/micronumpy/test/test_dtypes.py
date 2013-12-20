@@ -114,15 +114,11 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype(bool).num == 0
         if self.ptr_size == 4:
-            assert dtype('intp').num == 5
-            assert dtype('uintp').num == 6
             assert dtype('int32').num == 7
             assert dtype('uint32').num == 8
             assert dtype('int64').num == 9
             assert dtype('uint64').num == 10
         else:
-            assert dtype('intp').num == 7
-            assert dtype('uintp').num == 8
             assert dtype('int32').num == 5
             assert dtype('uint32').num == 6
             assert dtype('int64').num == 7
@@ -130,6 +126,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype(int).num == 7
         assert dtype('int').num == 7
         assert dtype('uint').num == 8
+        assert dtype('intp').num == 7
+        assert dtype('uintp').num == 8
         assert dtype(long).num == 9
         assert dtype(float).num == 12
         assert dtype('float').num == 12
