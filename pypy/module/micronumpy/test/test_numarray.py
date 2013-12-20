@@ -3069,7 +3069,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[1]['y'] == 2
 
     def test_views(self):
-        from numpypy import array
+        from numpypy import array, zeros, ndarray
+        a = zeros((), dtype=[('x', int), ('y', float)])
+        raises(IndexError, 'a[0]')
+        assert type(a['x']) is ndarray
+        assert a['x'] == 0
+        assert a['y'] == 0
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
         raises((IndexError, ValueError), 'array([1])["x"]')
         raises((IndexError, ValueError), 'a["z"]')

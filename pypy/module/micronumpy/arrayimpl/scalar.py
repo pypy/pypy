@@ -131,7 +131,10 @@ class Scalar(base.BaseArrayImplementation):
         if space.isinstance_w(w_idx, space.w_tuple):
             if space.len_w(w_idx) == 0:
                 return self.get_scalar_value()
-        if space.is_none(w_idx):
+        elif space.isinstance_w(w_idx, space.w_str):
+            if self.dtype.is_record_type():
+                return self.value.descr_getitem(space, w_idx).descr_ravel(space)
+        elif space.is_none(w_idx):
             new_shape = [1]
             arr = W_NDimArray.from_shape(space, new_shape, self.dtype)
             arr_iter = arr.create_iter(new_shape)
