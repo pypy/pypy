@@ -306,9 +306,8 @@ class AppTestSorting(BaseNumpyAppTest):
 
 # tests from numpy/core/tests/test_regression.py
     def test_sort_bigendian(self):
-        skip('not implemented yet')
-        from numpypy import array, dtype
-        a = array(range(11),dtype='float64')
+        from numpy import array, dtype
+        a = array(range(11), dtype='float64')
         c = a.astype(dtype('<f8'))
         c.sort()
         assert max(abs(a-c)) < 1e-32
