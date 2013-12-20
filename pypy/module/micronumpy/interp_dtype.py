@@ -136,6 +136,8 @@ class W_Dtype(W_Root):
         return space.wrap(self.itemtype.alignment)
 
     def descr_get_subdtype(self, space):
+        if self.subdtype is None:
+            return space.w_None
         return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
 
     def descr_get_str(self, space):

@@ -54,6 +54,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype(int).fields is None
         assert dtype(int).names is None
         assert dtype(int).hasobject is False
+        assert dtype(int).subdtype is None
 
         assert dtype(None) is dtype(float)
 
