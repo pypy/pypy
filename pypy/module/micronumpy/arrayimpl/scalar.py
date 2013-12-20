@@ -150,6 +150,12 @@ class Scalar(base.BaseArrayImplementation):
                              space.wrap("0-d arrays can't be indexed"))
 
     def descr_setitem(self, space, _, w_idx, w_val):
+        if space.isinstance_w(w_idx, space.w_tuple):
+            if space.len_w(w_idx) == 0:
+                return self.set_scalar_value(self.dtype.coerce(space, w_val))
+        elif space.isinstance_w(w_idx, space.w_str):
+            if self.dtype.is_record_type():
+                return self.value.descr_setitem(space, w_idx, w_val)
         raise OperationError(space.w_IndexError,
                              space.wrap("0-d arrays can't be indexed"))
 
@@ -181,7 +187,7 @@ class Scalar(base.BaseArrayImplementation):
         s = self.dtype.itemtype.bool(self.value)
         w_res = W_NDimArray.from_shape(space, [s], index_type)
         if s == 1:
-            w_res.implementation.setitem(0, index_type.itemtype.box(0)) 
+            w_res.implementation.setitem(0, index_type.itemtype.box(0))
         return space.newtuple([w_res])
 
     def fill(self, space, w_value):

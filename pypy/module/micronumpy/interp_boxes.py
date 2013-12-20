@@ -458,13 +458,17 @@ class W_VoidBox(W_FlexibleBox):
             return space.wrap(dtype.itemtype.to_str(read_val))
         return read_val
 
-    @unwrap_spec(item=str)
-    def descr_setitem(self, space, item, w_value):
+    def descr_setitem(self, space, w_item, w_value):
+        if space.isinstance_w(w_item, space.w_basestring):
+            item = space.str_w(w_item)
+        else:
+            raise OperationError(space.w_IndexError, space.wrap(
+                "invalid index"))
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("Field %s does not exist" % item))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("field named %s not found" % item))
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 

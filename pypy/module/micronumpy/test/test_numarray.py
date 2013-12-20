@@ -748,6 +748,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a[()]
         assert type(b) is int_
         assert b == 3
+        a[()] = 4
+        assert a == 4
 
     def test_len(self):
         from numpypy import array
@@ -3104,6 +3106,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         b = [('x', int), ('y', a)]
         arr = zeros((), dtype=b)
         assert arr['x'] == 0
+        arr['x'] = 2
+        assert arr['x'] == 2
+        exc = raises(IndexError, "arr[3L]")
+        assert exc.value.message == "0-d arrays can't be indexed"
+        exc = raises(ValueError, "arr['xx'] = 2")
+        assert exc.value.message == "field named xx not found"
         arr['y']
         #assert arr['y'].shape == ()
         #assert arr['y'][()][0] == 0
