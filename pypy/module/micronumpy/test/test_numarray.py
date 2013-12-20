@@ -3102,6 +3102,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import zeros
         a = [('x', int), ('y', float)]
         b = [('x', int), ('y', a)]
+        arr = zeros((), dtype=b)
+        assert arr['x'] == 0
+        arr['y']
+        #assert arr['y'].shape == ()
+        #assert arr['y'][()][0] == 0
+        #assert arr['y'][()][0] == 0
         arr = zeros(3, dtype=b)
         arr[1]['x'] = 15
         assert arr[1]['x'] == 15

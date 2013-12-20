@@ -1846,7 +1846,7 @@ class RecordType(FlexibleType):
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
-        for k in range(box.arr.dtype.get_size()):
+        for k in range(box.dtype.get_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
 
     def to_builtin_type(self, space, box):
