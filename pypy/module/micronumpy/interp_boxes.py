@@ -421,7 +421,7 @@ class W_FlexibleBox(W_GenericBox):
         self.dtype = dtype
 
     def get_dtype(self, space):
-        return self.arr.dtype
+        return self.dtype
 
     def raw_str(self):
         return self.arr.dtype.itemtype.to_str(self)

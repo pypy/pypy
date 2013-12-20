@@ -3112,10 +3112,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert exc.value.message == "0-d arrays can't be indexed"
         exc = raises(ValueError, "arr['xx'] = 2")
         assert exc.value.message == "field named xx not found"
-        arr['y']
-        #assert arr['y'].shape == ()
-        #assert arr['y'][()][0] == 0
-        #assert arr['y'][()][0] == 0
+        assert arr['y'].dtype == a
+        assert arr['y'].shape == ()
+        #assert arr['y'][()]['x'] == 0
+        #assert arr['y'][()]['y'] == 0
         arr = zeros(3, dtype=b)
         arr[1]['x'] = 15
         assert arr[1]['x'] == 15
