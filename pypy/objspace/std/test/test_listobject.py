@@ -1340,6 +1340,31 @@ class AppTestW_ListObject(object):
                 yield "ok"
         assert list(U(u"don't see me")) == ["ok"]
 
+    def test_extend_from_nonempty_list_with_subclasses(self):
+        l = ["hi!"]
+        class T(tuple):
+            def __iter__(self):
+                yield "okT"
+        l.extend(T([5, 6]))
+        #
+        class L(list):
+            def __iter__(self):
+                yield "okL"
+        l.extend(L([5, 6]))
+        l.extend(L([5.2, 6.3]))
+        #
+        class S(str):
+            def __iter__(self):
+                yield "okS"
+        l.extend(S("don't see me"))
+        #
+        class U(unicode):
+            def __iter__(self):
+                yield "okU"
+        l.extend(U(u"don't see me"))
+        #
+        assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
+
 
 class AppTestForRangeLists(AppTestW_ListObject):
     spaceconfig = {"objspace.std.withrangelist": True}
