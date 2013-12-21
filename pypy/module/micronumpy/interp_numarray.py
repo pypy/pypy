@@ -1185,7 +1185,9 @@ app_take = applevel(r"""
     def take(a, indices, axis, out, mode):
         assert mode == 'raise'
         if axis is None:
-            res = a.ravel()[indices]
+            from numpy import array
+            indices = array(indices)
+            res = a.ravel()[indices.ravel()].reshape(indices.shape)
         else:
             from operator import mul
             if axis < 0: axis += len(a.shape)
