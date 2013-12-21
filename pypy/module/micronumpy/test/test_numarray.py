@@ -3101,10 +3101,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert repr(a[0]) == '(1, 2.0)'
 
     def test_nested_dtype(self):
-        from numpypy import zeros
+        import numpy as np
         a = [('x', int), ('y', float)]
         b = [('x', int), ('y', a)]
-        arr = zeros((), dtype=b)
+        arr = np.zeros((), dtype=b)
         assert arr['x'] == 0
         arr['x'] = 2
         assert arr['x'] == 2
@@ -3114,9 +3114,13 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert exc.value.message == "field named xx not found"
         assert arr['y'].dtype == a
         assert arr['y'].shape == ()
-        #assert arr['y'][()]['x'] == 0
-        #assert arr['y'][()]['y'] == 0
-        arr = zeros(3, dtype=b)
+        assert arr['y'][()]['x'] == 0
+        assert arr['y'][()]['y'] == 0
+        arr['y'][()]['x'] = 2
+        arr['y'][()]['y'] = 3
+        assert arr['y'][()]['x'] == 2
+        assert arr['y'][()]['y'] == 3
+        arr = np.zeros(3, dtype=b)
         arr[1]['x'] = 15
         assert arr[1]['x'] == 15
         arr[1]['y']['y'] = 3.5

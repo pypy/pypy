@@ -1847,7 +1847,7 @@ class RecordType(FlexibleType):
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(box.dtype.get_size()):
-            arr.storage[k + i] = box.arr.storage[k + box.ofs]
+            arr.storage[k + i + ofs] = box.arr.storage[k + box.ofs]
 
     def to_builtin_type(self, space, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
