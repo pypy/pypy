@@ -3100,6 +3100,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_creation_and_repr(self):
         from numpypy import array
+        a = array((1, 2), dtype=[('x', int), ('y', float)])
+        assert a.shape == ()
+        assert repr(a[()]) == '(1, 2.0)'
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
         assert repr(a[0]) == '(1, 2.0)'
 
