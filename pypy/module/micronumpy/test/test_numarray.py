@@ -3106,6 +3106,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
         assert repr(a[0]) == '(1, 2.0)'
 
+    def test_void_copyswap(self):
+        import numpy as np
+        dt = np.dtype([('one', '<i4'), ('two', '<i4')])
+        x = np.array((1, 2), dtype=dt)
+        x = x.byteswap()
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            assert x['one'] > 0 and x['two'] > 2
+        else:
+            assert x['one'] == 1 and x['two'] == 2
+
     def test_nested_dtype(self):
         import numpy as np
         a = [('x', int), ('y', float)]

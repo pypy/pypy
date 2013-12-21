@@ -1852,6 +1852,10 @@ class RecordType(FlexibleType):
         for k in range(box.dtype.get_size()):
             arr.storage[k + i + ofs] = box.arr.storage[k + box.ofs]
 
+    def byteswap(self, w_v):
+        # XXX implement
+        return w_v
+
     def to_builtin_type(self, space, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
         items = []
