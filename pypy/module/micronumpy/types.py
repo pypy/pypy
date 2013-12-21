@@ -1734,11 +1734,13 @@ class VoidType(FlexibleType):
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
+        from interp_dtype import W_Dtype
         if w_items is not None:
             items_w = space.fixedview(w_items)
         else:
             items_w = [None] * shape[0]
         subdtype = dtype.subdtype
+        assert isinstance(subdtype, W_Dtype)
         itemtype = subdtype.itemtype
         if len(shape) <= 1:
             for i in range(len(items_w)):
