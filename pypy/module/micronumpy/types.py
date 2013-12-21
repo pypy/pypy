@@ -1762,7 +1762,9 @@ class VoidType(FlexibleType):
 
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):
+        assert i == 0
         assert isinstance(box, interp_boxes.W_VoidBox)
+        assert box.dtype is box.arr.dtype
         for k in range(box.arr.dtype.get_size()):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
 

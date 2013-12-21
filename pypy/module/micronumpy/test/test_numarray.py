@@ -3248,6 +3248,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         d = dtype([("x", "int", 3), ("y", "float", 5)])
 
         a = zeros((), dtype=d)
+        #assert a['x'].dtype == int
         #assert a['x'].shape == (3,)
         #assert (a['x'] == [0, 0, 0]).all()
 
@@ -3270,6 +3271,13 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
+        a[1]["x"][2] = 123
+        assert (a[1]["x"] == [4, 5, 123]).all()
+        a[1]['y'][3] = 4
+        assert a[1]['y'][3] == 4
+        assert a['y'][1][3] == 4
+        a['y'][1][4] = 5
+        assert a[1]['y'][4] == 5
 
         d = dtype([("x", "int64", (2, 3))])
         a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
