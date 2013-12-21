@@ -1734,16 +1734,15 @@ class VoidType(FlexibleType):
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
-        from interp_dtype import W_Dtype
-        if w_items is None:
-            w_items = space.newtuple([None] * shape[0])
-        items_w = space.fixedview(w_items)
+        if w_items is not None:
+            items_w = space.fixedview(w_items)
+        else:
+            items_w = [None] * shape[0]
         subdtype = dtype.subdtype
-        assert isinstance(subdtype, W_Dtype)
         itemtype = subdtype.itemtype
         if len(shape) <= 1:
             for i in range(len(items_w)):
-                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                w_box = itemtype.coerce(space, subdtype, items_w[i])
                 itemtype.store(arr, 0, ofs, w_box)
                 ofs += itemtype.get_element_size()
         else:
@@ -1825,23 +1824,23 @@ class RecordType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
-        if w_item is None:
-            w_item = space.newtuple([None] * len(dtype.fields))
-        # we treat every sequence as sequence, no special support
-        # for arrays
-        if not space.issequence_w(w_item):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "expected sequence"))
-        if len(dtype.fields) != space.len_w(w_item):
-            raise OperationError(space.w_ValueError, space.wrap(
-                "wrong length"))
-        items_w = space.fixedview(w_item)
+        if w_item is not None:
+            # we treat every sequence as sequence, no special support
+            # for arrays
+            if not space.issequence_w(w_item):
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "expected sequence"))
+            if len(dtype.fields) != space.len_w(w_item):
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "wrong length"))
+            items_w = space.fixedview(w_item)
+        else:
+            items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.get_size(), dtype)
         for i in range(len(items_w)):
             ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
             itemtype = subdtype.itemtype
-            w_item = items_w[i]
-            w_box = itemtype.coerce(space, subdtype, w_item)
+            w_box = itemtype.coerce(space, subdtype, items_w[i])
             itemtype.store(arr, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
