@@ -391,14 +391,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a == ref).all()
 
     def test_signbit(self):
-        from numpy import signbit, add
+        from numpy import signbit, add, copysign, nan
         assert signbit(add.identity) == False
         assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
                 [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
                 [False,  True,  True,  True,  True]).all()
-        assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
-                [False, True, True]).all()
+        assert (signbit([copysign(nan, 1), copysign(nan, -1)]) ==
+                [False, True]).all()
 
     def test_reciprocal(self):
         from numpy import array, reciprocal
