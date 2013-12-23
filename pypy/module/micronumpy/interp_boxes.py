@@ -7,7 +7,6 @@ from pypy.objspace.std.stringtype import str_typedef
 from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef
-from pypy.objspace.std.typeobject import W_TypeObject
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
@@ -277,8 +276,15 @@ class W_GenericBox(W_Root):
 
     def descr_view(self, space, w_dtype):
         from pypy.module.micronumpy.interp_dtype import W_Dtype
-        if type(w_dtype) is W_TypeObject and \
-                space.abstract_issubclass_w(w_dtype, space.gettypefor(W_NDimArray)):
+        try:
+            subclass = space.is_true(space.issubtype(
+                w_dtype, space.gettypefor(W_NDimArray)))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                subclass = False
+            else:
+                raise
+        if subclass:
             dtype = self.get_dtype(space)
         else:
             dtype = space.interp_w(W_Dtype,

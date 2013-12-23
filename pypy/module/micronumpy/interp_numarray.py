@@ -731,11 +731,15 @@ class __extend__(W_NDimArray):
     def descr_view(self, space, w_dtype=None, w_type=None):
         if not w_type and w_dtype:
             try:
-                if space.is_true(space.issubtype(w_dtype, space.gettypefor(W_NDimArray))):
+                if space.is_true(space.issubtype(
+                        w_dtype, space.gettypefor(W_NDimArray))):
                     w_type = w_dtype
                     w_dtype = None
-            except (OperationError, TypeError):
-                pass
+            except OperationError, e:
+                if e.match(space, space.w_TypeError):
+                    pass
+                else:
+                    raise
         if w_dtype:
             dtype = space.interp_w(interp_dtype.W_Dtype,
                 space.call_function(space.gettypefor(interp_dtype.W_Dtype),
