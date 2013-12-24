@@ -437,6 +437,8 @@ W_Ufunc.typedef = TypeDef("ufunc",
 
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         promote_bools=False):
+    if dt2 is None:
+        return dt1
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
@@ -533,44 +535,33 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     long_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
     uint64_dtype = interp_dtype.get_dtype_cache(space).w_uint64dtype
-    complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
-    float_type = interp_dtype.get_dtype_cache(space).w_float64dtype
+    complex_dtype = interp_dtype.get_dtype_cache(space).w_complex128dtype
+    float_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
     if isinstance(w_obj, interp_boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
-        if current_guess is None:
-            return dtype
         return find_binop_result_dtype(space, dtype, current_guess)
 
     if space.isinstance_w(w_obj, space.w_bool):
-        if current_guess is None or current_guess is bool_dtype:
-            return bool_dtype
-        return current_guess
+        return find_binop_result_dtype(space, bool_dtype, current_guess)
     elif space.isinstance_w(w_obj, space.w_int):
-        if (current_guess is None or current_guess is bool_dtype or
-            current_guess is long_dtype):
-            return long_dtype
-        return current_guess
+        return find_binop_result_dtype(space, long_dtype, current_guess)
     elif space.isinstance_w(w_obj, space.w_long):
-        if (current_guess is None or current_guess is bool_dtype or
-            current_guess is long_dtype or current_guess is int64_dtype):
-            try:
-                space.int_w(w_obj)
-            except OperationError, e:
-                if e.match(space, space.w_OverflowError):
-                    return uint64_dtype
-                else:
-                    raise
-            else:
-                return int64_dtype
-        return current_guess
+        try:
+            space.int_w(w_obj)
+        except OperationError, e:
+            if e.match(space, space.w_OverflowError):
+                return find_binop_result_dtype(space, uint64_dtype,
+                                               current_guess)
+            raise
+        return find_binop_result_dtype(space, int64_dtype, current_guess)
+    elif space.isinstance_w(w_obj, space.w_float):
+        return find_binop_result_dtype(space, float_dtype, current_guess)
     elif space.isinstance_w(w_obj, space.w_complex):
-        if (current_guess is None or current_guess is bool_dtype or
-            current_guess is long_dtype or current_guess is int64_dtype or
-            current_guess is complex_type or current_guess is float_type):
-            return complex_type
-        return current_guess
+        return complex_dtype
+    elif space.isinstance_w(w_obj, space.w_slice):
+        return long_dtype
     elif space.isinstance_w(w_obj, space.w_str):
-        if (current_guess is None):
+        if current_guess is None:
             return interp_dtype.variable_dtype(space,
                                                'S%d' % space.len_w(w_obj))
         elif current_guess.num == NPY_STRING:
@@ -578,12 +569,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
                 return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
-    if current_guess is complex_type:
-        return complex_type
-    if space.isinstance_w(w_obj, space.w_float):
-        return float_type
-    elif space.isinstance_w(w_obj, space.w_slice):
-        return long_dtype
     raise operationerrfmt(space.w_NotImplementedError,
         'unable to create dtype from objects, ' '"%T" instance not supported',
         w_obj)

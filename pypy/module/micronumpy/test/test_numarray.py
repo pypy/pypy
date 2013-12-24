@@ -1511,7 +1511,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([True, False]).dtype is dtype(bool)
         assert array([True, 1]).dtype is dtype(int)
         assert array([1, 2, 3]).dtype is dtype(int)
-        #assert array([1L, 2, 3]).dtype is dtype(long)
+        assert array([1L, 2, 3]).dtype is dtype('q')
         assert array([1.2, True]).dtype is dtype(float)
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
@@ -1523,6 +1523,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([bool_(True)]).dtype is dtype(bool)
         assert array([bool_(True), 3.0]).dtype is dtype(float)
         assert array(sys.maxint + 42).dtype is dtype('Q')
+        assert array([sys.maxint + 42] * 2).dtype is dtype('Q')
+        assert array([sys.maxint + 42, 123]).dtype is dtype(float)
+        assert array([sys.maxint + 42, 123L]).dtype is dtype(float)
+        assert array([1+2j, 123]).dtype is dtype(complex)
+        assert array([1+2j, 123L]).dtype is dtype(complex)
 
     def test_comparison(self):
         import operator
