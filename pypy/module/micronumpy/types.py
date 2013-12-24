@@ -12,7 +12,7 @@ from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -568,16 +568,6 @@ class UInt32(BaseType, Integer):
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
-class Long(BaseType, Integer):
-    T = rffi.LONG
-    BoxType = interp_boxes.W_LongBox
-    format_code = "l"
-
-class ULong(BaseType, Integer):
-    T = rffi.ULONG
-    BoxType = interp_boxes.W_ULongBox
-    format_code = "L"
-
 def _int64_coerce(self, space, w_item):
     try:
         return self._base_coerce(space, w_item)
@@ -617,6 +607,22 @@ class UInt64(BaseType, Integer):
     format_code = "Q"
 
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
+
+class Long(BaseType, Integer):
+    T = rffi.LONG
+    BoxType = interp_boxes.W_LongBox
+    format_code = "l"
+
+    if LONG_BIT == 64:
+        _coerce = func_with_new_name(_int64_coerce, '_coerce')
+
+class ULong(BaseType, Integer):
+    T = rffi.ULONG
+    BoxType = interp_boxes.W_ULongBox
+    format_code = "L"
+
+    if LONG_BIT == 64:
+        _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class Float(Primitive):
     _mixin_ = True

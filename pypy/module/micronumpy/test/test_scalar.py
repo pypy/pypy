@@ -6,6 +6,7 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_init(self):
         import numpy as np
         import math
+        import sys
         assert np.intp() == np.intp(0)
         assert np.intp('123') == np.intp(123)
         raises(TypeError, np.intp, None)
@@ -19,6 +20,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert math.isnan(np.complex_(None))
         for c in ['i', 'I', 'l', 'L', 'q', 'Q']:
             assert np.dtype(c).type().dtype.char == c
+        assert np.dtype('L').type(sys.maxint + 42)
 
     def test_builtin(self):
         import numpy as np
