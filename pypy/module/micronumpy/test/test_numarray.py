@@ -1506,7 +1506,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_dtype_guessing(self):
         from numpypy import array, dtype
-
+        import sys
         assert array([True]).dtype is dtype(bool)
         assert array([True, False]).dtype is dtype(bool)
         assert array([True, 1]).dtype is dtype(int)
@@ -1522,6 +1522,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([int8(3)]).dtype is dtype("int8")
         assert array([bool_(True)]).dtype is dtype(bool)
         assert array([bool_(True), 3.0]).dtype is dtype(float)
+        assert array(sys.maxint + 42).dtype is dtype('Q')
 
     def test_comparison(self):
         import operator

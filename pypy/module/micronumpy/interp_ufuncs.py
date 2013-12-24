@@ -532,6 +532,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
     long_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
+    uint64_dtype = interp_dtype.get_dtype_cache(space).w_uint64dtype
     complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
     float_type = interp_dtype.get_dtype_cache(space).w_float64dtype
     if isinstance(w_obj, interp_boxes.W_GenericBox):
@@ -552,7 +553,15 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     elif space.isinstance_w(w_obj, space.w_long):
         if (current_guess is None or current_guess is bool_dtype or
             current_guess is long_dtype or current_guess is int64_dtype):
-            return int64_dtype
+            try:
+                space.int_w(w_obj)
+            except OperationError, e:
+                if e.match(space, space.w_OverflowError):
+                    return uint64_dtype
+                else:
+                    raise
+            else:
+                return int64_dtype
         return current_guess
     elif space.isinstance_w(w_obj, space.w_complex):
         if (current_guess is None or current_guess is bool_dtype or
