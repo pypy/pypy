@@ -558,8 +558,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         return find_binop_result_dtype(space, float_dtype, current_guess)
     elif space.isinstance_w(w_obj, space.w_complex):
         return complex_dtype
-    elif space.isinstance_w(w_obj, space.w_slice):
-        return long_dtype
     elif space.isinstance_w(w_obj, space.w_str):
         if current_guess is None:
             return interp_dtype.variable_dtype(space,
