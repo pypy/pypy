@@ -1164,14 +1164,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (2 << a == [2, 4, 8]).all()
 
     def test_rshift(self):
-        from numpypy import arange, array
-
-        a = arange(10)
+        import numpy as np
+        a = np.arange(10)
         assert (a >> 2 == [0, 0, 0, 0, 1, 1, 1, 1, 2, 2]).all()
-        a = array([True, False])
+        a = np.array([True, False])
         assert (a >> 1 == [0, 0]).all()
-        a = arange(3, dtype=float)
+        a = np.arange(3, dtype=float)
         raises(TypeError, lambda: a >> 1)
+        a = np.array([123], dtype='uint64')
+        b = a >> 1
+        assert b == 61
+        assert b.dtype.type is np.uint64
+        a = np.array(123, dtype='uint64')
+        exc = raises(TypeError, "a >> 1")
+        assert 'not supported for the input types' in exc.value.message
 
     def test_rrshift(self):
         from numpypy import arange

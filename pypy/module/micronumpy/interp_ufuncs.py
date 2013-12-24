@@ -376,14 +376,19 @@ class W_Ufunc2(W_Ufunc):
                 w_rdtype = w_ldtype
             elif w_lhs.is_scalar() and not w_rhs.is_scalar():
                 w_ldtype = w_rdtype
-        if (self.int_only and (not w_ldtype.is_int_type() or not w_rdtype.is_int_type()) or
-                not self.allow_bool and (w_ldtype.is_bool_type() or w_rdtype.is_bool_type()) or
-                not self.allow_complex and (w_ldtype.is_complex_type() or w_rdtype.is_complex_type())):
-            raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
         calc_dtype = find_binop_result_dtype(space,
             w_ldtype, w_rdtype,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools)
+        if (self.int_only and (not w_ldtype.is_int_type() or
+                               not w_rdtype.is_int_type() or
+                               not calc_dtype.is_int_type()) or
+                not self.allow_bool and (w_ldtype.is_bool_type() or
+                                         w_rdtype.is_bool_type()) or
+                not self.allow_complex and (w_ldtype.is_complex_type() or
+                                            w_rdtype.is_complex_type())):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "ufunc '%s' not supported for the input types" % self.name))
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):

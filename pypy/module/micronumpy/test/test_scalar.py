@@ -113,6 +113,15 @@ class AppTestScalar(BaseNumpyAppTest):
         assert a.squeeze() is a
         raises(TypeError, a.squeeze, 2)
 
+    def test_bitshift(self):
+        import numpy as np
+        assert np.int32(123) >> 1 == 61
+        assert type(np.int32(123) >> 1) is np.int64
+        assert np.int64(123) << 1 == 246
+        assert type(np.int64(123) << 1) is np.int64
+        exc = raises(TypeError, "np.uint64(123) >> 1")
+        assert 'not supported for the input types' in exc.value.message
+
     def test_attributes(self):
         import numpy as np
         value = np.dtype('int64').type(12345)
