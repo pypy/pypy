@@ -3987,7 +3987,9 @@ class TestAnnotateTestCase:
             return bytearray("xyz")
 
         a = self.RPythonAnnotator()
-        assert isinstance(a.build_types(f, []), annmodel.SomeByteArray)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeByteArray)
+        assert not s.is_constant()   # never a constant!
 
     def test_bytearray_add(self):
         def f(a):

@@ -57,3 +57,17 @@ class TestByteArray(BaseRtypingTest):
 
         ll_res = self.interpret(f, [123])
         assert hlstr(ll_res) == "2"
+
+    def test_bytearray_not_constant(self):
+        for constant in ['f', 'foo']:
+            def f(x):
+                i = 0
+                total = 0
+                while i < x:
+                    b = bytearray(constant)
+                    b[0] = b[0] + 1
+                    total += b[0]
+                    i += 1
+                return total
+            ll_res = self.interpret(f, [5])
+            assert ll_res == f(5)
