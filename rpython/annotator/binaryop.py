@@ -412,10 +412,7 @@ class __extend__(pairtype(SomeByteArray, SomeByteArray)):
         return SomeByteArray(can_be_None=can_be_None)
 
     def add((b1, b2)):
-        result = SomeByteArray()
-        if b1.is_immutable_constant() and b2.is_immutable_constant():
-            result.const = b1.const + b2.const
-        return result
+        return SomeByteArray()
 
 class __extend__(pairtype(SomeByteArray, SomeInteger)):
     def getitem((s_b, s_i)):
@@ -429,10 +426,7 @@ class __extend__(pairtype(SomeString, SomeByteArray),
                  pairtype(SomeChar, SomeByteArray),
                  pairtype(SomeByteArray, SomeChar)):
     def add((b1, b2)):
-        result = SomeByteArray()
-        if b1.is_immutable_constant() and b2.is_immutable_constant():
-            result.const = b1.const + b2.const
-        return result
+        return SomeByteArray()
 
 class __extend__(pairtype(SomeChar, SomeChar)):
 
