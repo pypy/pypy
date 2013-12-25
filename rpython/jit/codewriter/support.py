@@ -14,6 +14,7 @@ from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper.lltypesystem import rordereddict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
 from rpython.translator.translator import TranslationContext
@@ -518,6 +519,33 @@ class LLtypeHelpers:
     _ll_1_dictiter_nextitems.need_result_type = True
 
     _ll_1_dict_resize = ll_rdict.ll_dict_resize
+
+    # ---------- ordered dict ----------
+
+    _ll_1_odict_copy = rordereddict.ll_dict_copy
+    _ll_1_odict_clear = rordereddict.ll_dict_clear
+    _ll_2_odict_update = rordereddict.ll_dict_update
+
+    _ll_1_odict_keys   = rordereddict.ll_dict_keys
+    _ll_1_odict_values = rordereddict.ll_dict_values
+    _ll_1_odict_items  = rordereddict.ll_dict_items
+    _ll_1_odict_keys  .need_result_type = True
+    _ll_1_odict_values.need_result_type = True
+    _ll_1_odict_items .need_result_type = True
+
+    _odictnext_keys   = staticmethod(rordereddict.ll_dictnext_group['keys'])
+    _odictnext_values = staticmethod(rordereddict.ll_dictnext_group['values'])
+    _odictnext_items  = staticmethod(rordereddict.ll_dictnext_group['items'])
+
+    def _ll_1_odictiter_nextkeys(iter):
+        return LLtypeHelpers._odictnext_keys(None, iter)
+    def _ll_1_odictiter_nextvalues(iter):
+        return LLtypeHelpers._odictnext_values(None, iter)
+    def _ll_1_odictiter_nextitems(RES, iter):
+        return LLtypeHelpers._odictnext_items(lltype.Ptr(RES), iter)
+    _ll_1_odictiter_nextitems.need_result_type = True
+
+    _ll_1_odict_resize = rordereddict.ll_dict_resize
 
     # ---------- strings and unicode ----------
 
