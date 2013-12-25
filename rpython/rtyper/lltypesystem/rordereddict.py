@@ -663,7 +663,7 @@ def ll_dict_resize(d):
         ll_dict_remove_deleted_items(d)
     else:
         ll_dict_reindex(d, new_size)
-ll_dict_resize.oopspec = 'dict.resize(d)'
+ll_dict_resize.oopspec = 'odict.resize(d)'
 
 def ll_dict_reindex(d, new_size):
     ll_malloc_indexes_and_choose_lookup(d, new_size)
@@ -899,7 +899,7 @@ def _make_ll_dictnext(kind):
     @jit.look_inside_iff(lambda RETURNTYPE, iter: jit.isvirtual(iter)
                          and (iter.dict is None or
                               jit.isvirtual(iter.dict)))
-    @jit.oopspec("dictiter.next%s(iter)" % kind)
+    @jit.oopspec("odictiter.next%s(iter)" % kind)
     def ll_dictnext(RETURNTYPE, iter):
         # note that RETURNTYPE is None for keys and values
         dict = iter.dict
@@ -984,7 +984,7 @@ def ll_dict_copy(dict):
 
     ll_dict_reindex(newdict, _ll_len_of_d_indexes(dict))
     return newdict
-ll_dict_copy.oopspec = 'dict.copy(dict)'
+ll_dict_copy.oopspec = 'odict.copy(dict)'
 
 def ll_dict_clear(d):
     if d.num_used_items == 0:
@@ -997,7 +997,7 @@ def ll_dict_clear(d):
     d.num_used_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     # old_entries.delete() XXX
-ll_dict_clear.oopspec = 'dict.clear(d)'
+ll_dict_clear.oopspec = 'odict.clear(d)'
 
 def ll_dict_update(dic1, dic2):
     i = 0
@@ -1011,7 +1011,7 @@ def ll_dict_update(dic1, dic2):
             index = dic1.lookup_function(dic1, key, hash, FLAG_STORE)
             _ll_dict_setitem_lookup_done(dic1, key, value, hash, index)
         i += 1
-ll_dict_update.oopspec = 'dict.update(dic1, dic2)'
+ll_dict_update.oopspec = 'odict.update(dic1, dic2)'
 
 # this is an implementation of keys(), values() and items()
 # in a single function.
@@ -1050,7 +1050,7 @@ def _make_ll_keys_values_items(kind):
             i += 1
         assert p == res.ll_length()
         return res
-    ll_kvi.oopspec = 'dict.%s(dic)' % kind
+    ll_kvi.oopspec = 'odict.%s(dic)' % kind
     return ll_kvi
 
 ll_dict_keys   = _make_ll_keys_values_items('keys')
