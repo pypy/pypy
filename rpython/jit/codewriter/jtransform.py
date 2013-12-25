@@ -644,6 +644,12 @@ class Transformer(object):
         return SpaceOperation('arraylen_gc', [op.args[0], arraydescr],
                               op.result)
 
+    def rewrite_op_getarraysubstruct(self, op):
+        ARRAY = op.args[0].concretetype.TO
+        assert ARRAY._gckind == 'raw'
+        assert ARRAY._hints.get('nolength') is True
+        return self.rewrite_op_direct_ptradd(op)
+
     def _array_of_voids(self, ARRAY):
         return ARRAY.OF == lltype.Void
 
