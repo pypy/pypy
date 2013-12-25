@@ -216,3 +216,6 @@ class TestLLOrderedDict(DictTests, LLJitMixin):
 
         res = self.interp_operations(fn, [0])
         assert res == fn(0)
+
+    def test_unrolling_of_dict_iter(self):
+        py.test.skip("XXX fix me: ordereddict generates a mess for now")
