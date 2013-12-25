@@ -62,6 +62,7 @@ class TestByteArray(LLJitMixin):
         assert res == 610478
 
     def test_slice(self):
+        py.test.skip("XXX later")
         def fn(n, m):
             x = bytearray(str(n))
             x = x[1:5]
@@ -69,3 +70,13 @@ class TestByteArray(LLJitMixin):
             return int(str(x))
         res = self.interp_operations(fn, [610978, 1])
         assert res == 1597
+
+    def test_bytearray_from_bytearray(self):
+        def fn(n, m):
+            x = bytearray(str(n))
+            y = bytearray(x)
+            x[m] = 0x34
+            return int(str(x)) + int(str(y))
+
+        res = self.interp_operations(fn, [610978, 3])
+        assert res == 610478 + 610978
