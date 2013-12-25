@@ -13,6 +13,7 @@ from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
+from rpython.rtyper.lltypesystem import rbytearray
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from rpython.translator.unsimplify import varoftype
 
@@ -850,6 +851,13 @@ class Transformer(object):
         elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodegetitem"
             return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        elif optype == lltype.Ptr(rbytearray.BYTEARRAY):
+            bytearraydescr = self.cpu.arraydescrof(rbytearray.BYTEARRAY)
+            v_index = op.args[2]
+            op = SpaceOperation('getarrayitem_gc_i',
+                                [op.args[0], v_index, bytearraydescr],
+                                op.result)
+            return op
         else:
             v_inst, v_index, c_field = op.args
             if op.result.concretetype is lltype.Void:

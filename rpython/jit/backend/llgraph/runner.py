@@ -125,10 +125,12 @@ def _is_signed_kind(TYPE):
 
 class ArrayDescr(AbstractDescr):
     def __init__(self, A):
-        self.A = A
+        self.A = self.OUTERA = A
+        if isinstance(A, lltype.Struct):
+            self.A = A._flds[A._arrayfld]
 
     def __repr__(self):
-        return 'ArrayDescr(%r)' % (self.A,)
+        return 'ArrayDescr(%r)' % (self.OUTERA,)
 
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'

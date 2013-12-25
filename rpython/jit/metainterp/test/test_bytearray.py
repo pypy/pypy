@@ -8,9 +8,17 @@ class TestByteArray(LLJitMixin):
     def test_getitem(self):
         x = bytearray("foobar")
         def fn(n):
+            assert n >= 0
             return x[n]
         res = self.interp_operations(fn, [3])
         assert res == ord('b')
+
+    def test_getitem_negative(self):
+        x = bytearray("foobar")
+        def fn(n):
+            return x[n]
+        res = self.interp_operations(fn, [-2])
+        assert res == ord('a')
 
     def test_len(self):
         x = bytearray("foobar")
@@ -22,11 +30,21 @@ class TestByteArray(LLJitMixin):
     def test_setitem(self):
         x = bytearray("foobar")
         def fn(n):
+            assert n >= 0
             x[n] = 3
             return x[3] + 1000 * x[4]
 
         res = self.interp_operations(fn, [3])
         assert res == 3 + 1000 * ord('a')
+
+    def test_setitem_negative(self):
+        x = bytearray("foobar")
+        def fn(n):
+            x[n] = 3
+            return x[3] + 1000 * x[4]
+
+        res = self.interp_operations(fn, [-2])
+        assert res == ord('b') + 1000 * 3
 
     def test_new_bytearray(self):
         def fn(n, m):
