@@ -1732,6 +1732,8 @@ class Transformer(object):
                     "stroruni.copy_string_to_raw": EffectInfo.OS_UNI_COPY_TO_RAW
                     }
             CHR = lltype.UniChar
+        elif SoU.TO == rbytearray.BYTEARRAY:
+            raise NotSupported("bytearray operation")
         else:
             assert 0, "args[0].concretetype must be STR or UNICODE"
         #
