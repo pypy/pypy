@@ -118,7 +118,7 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_bitshift(self):
         import numpy as np
         assert np.int32(123) >> 1 == 61
-        assert type(np.int32(123) >> 1) is np.int64
+        assert type(np.int32(123) >> 1) is np.int_
         assert np.int64(123) << 1 == 246
         assert type(np.int64(123) << 1) is np.int64
         exc = raises(TypeError, "np.uint64(123) >> 1")
