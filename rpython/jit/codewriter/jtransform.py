@@ -837,9 +837,14 @@ class Transformer(object):
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strlen"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodelen"
+        elif optype == lltype.Ptr(rbytearray.BYTEARRAY):
+            bytearraydescr = self.cpu.arraydescrof(rbytearray.BYTEARRAY)
+            return SpaceOperation('arraylen_gc', [op.args[0], bytearraydescr],
+                                  op.result)
+        else:
+            assert 0, "supported type %r" % (optype,)
         return SpaceOperation(opname, [op.args[0]], op.result)
 
     def rewrite_op_getinteriorfield(self, op):
@@ -854,10 +859,9 @@ class Transformer(object):
         elif optype == lltype.Ptr(rbytearray.BYTEARRAY):
             bytearraydescr = self.cpu.arraydescrof(rbytearray.BYTEARRAY)
             v_index = op.args[2]
-            op = SpaceOperation('getarrayitem_gc_i',
-                                [op.args[0], v_index, bytearraydescr],
-                                op.result)
-            return op
+            return SpaceOperation('getarrayitem_gc_i',
+                                  [op.args[0], v_index, bytearraydescr],
+                                  op.result)
         else:
             v_inst, v_index, c_field = op.args
             if op.result.concretetype is lltype.Void:

@@ -426,6 +426,8 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_arraylen_gc(self, a, descr):
         array = a._obj.container
+        if descr.A is not descr.OUTERA:
+            array = getattr(array, descr.OUTERA._arrayfld)
         return array.getlength()
 
     def bh_getarrayitem_gc(self, a, index, descr):
