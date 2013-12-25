@@ -53,10 +53,13 @@ class TestByteArray(BaseRtypingTest):
 
     def test_getslice(self):
         def f(x):
-            return str(bytearray(str(x))[1:2])
+            b = bytearray(str(x))
+            b = b[1:3]
+            b[0] += 5
+            return str(b)
 
-        ll_res = self.interpret(f, [123])
-        assert hlstr(ll_res) == "2"
+        ll_res = self.interpret(f, [12345])
+        assert hlstr(ll_res) == f(12345) == "73"
 
     def test_bytearray_not_constant(self):
         for constant in ['f', 'foo']:
