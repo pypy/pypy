@@ -110,7 +110,7 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
         entrymeths['fasthashfn'] = ll_fasthash_function
 
     # Build the lltype data structures
-    DICTENTRY = lltype.Struct("dictentry", *entryfields)
+    DICTENTRY = lltype.Struct("odictentry", *entryfields)
     DICTENTRYARRAY = lltype.GcArray(DICTENTRY,
                                     adtmeths=entrymeths)
     fields =          [ ("num_items", lltype.Signed),
