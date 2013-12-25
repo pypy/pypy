@@ -888,6 +888,11 @@ class Transformer(object):
             opname = "unicodesetitem"
             return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
                                   op.result)
+        elif optype == lltype.Ptr(rbytearray.BYTEARRAY):
+            bytearraydescr = self.cpu.arraydescrof(rbytearray.BYTEARRAY)
+            opname = "setarrayitem_gc_i"
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3],
+                                           bytearraydescr], op.result)
         else:
             v_inst, v_index, c_field, v_value = op.args
             if v_value.concretetype is lltype.Void:

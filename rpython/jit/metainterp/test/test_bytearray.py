@@ -1,7 +1,6 @@
 import py
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.rlib.jit import JitDriver
-
+from rpython.rlib.jit import JitDriver, dont_look_inside
 
 class TestByteArray(LLJitMixin):
 
@@ -28,9 +27,12 @@ class TestByteArray(LLJitMixin):
         assert res == 6
 
     def test_setitem(self):
-        x = bytearray("foobar")
+        @dont_look_inside
+        def make_me():
+            return bytearray("foobar")
         def fn(n):
             assert n >= 0
+            x = make_me()
             x[n] = 3
             return x[3] + 1000 * x[4]
 
@@ -38,8 +40,11 @@ class TestByteArray(LLJitMixin):
         assert res == 3 + 1000 * ord('a')
 
     def test_setitem_negative(self):
-        x = bytearray("foobar")
+        @dont_look_inside
+        def make_me():
+            return bytearray("foobar")
         def fn(n):
+            x = make_me()
             x[n] = 3
             return x[3] + 1000 * x[4]
 
@@ -49,17 +54,18 @@ class TestByteArray(LLJitMixin):
     def test_new_bytearray(self):
         def fn(n, m):
             x = bytearray(str(n))
-            x[m] = 4
+            x[m] = 0x34
             return int(str(x))
 
+        assert fn(610978, 3) == 610478
         res = self.interp_operations(fn, [610978, 3])
         assert res == 610478
 
     def test_slice(self):
-        def fn(n):
+        def fn(n, m):
             x = bytearray(str(n))
             x = x[1:5]
-            x[m] = 5
+            x[m] = 0x35
             return int(str(x))
         res = self.interp_operations(fn, [610978, 1])
         assert res == 1597
