@@ -215,7 +215,8 @@ class SomeBool(SomeInteger):
 
 
 class SomeStringOrUnicode(SomeObject):
-    """Base class for shared implementation of SomeString and SomeUnicodeString.
+    """Base class for shared implementation of SomeString,
+    SomeUnicodeString and SomeByteArray.
 
     Cannot be an annotation."""
 
@@ -228,6 +229,7 @@ class SomeStringOrUnicode(SomeObject):
         if can_be_None:
             self.can_be_None = True
         if no_nul:
+            assert self.immutable   #'no_nul' cannot be used with SomeByteArray
             self.no_nul = True
 
     def can_be_none(self):
@@ -263,6 +265,7 @@ class SomeUnicodeString(SomeStringOrUnicode):
 
 
 class SomeByteArray(SomeStringOrUnicode):
+    immutable = False
     knowntype = bytearray
 
 

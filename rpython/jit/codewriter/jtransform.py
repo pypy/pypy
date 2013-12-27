@@ -13,6 +13,7 @@ from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
+from rpython.rtyper.lltypesystem import rbytearray
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from rpython.translator.unsimplify import varoftype
 
@@ -643,6 +644,12 @@ class Transformer(object):
         return SpaceOperation('arraylen_gc', [op.args[0], arraydescr],
                               op.result)
 
+    def rewrite_op_getarraysubstruct(self, op):
+        ARRAY = op.args[0].concretetype.TO
+        assert ARRAY._gckind == 'raw'
+        assert ARRAY._hints.get('nolength') is True
+        return self.rewrite_op_direct_ptradd(op)
+
     def _array_of_voids(self, ARRAY):
         return ARRAY.OF == lltype.Void
 
@@ -836,9 +843,14 @@ class Transformer(object):
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strlen"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodelen"
+        elif optype == lltype.Ptr(rbytearray.BYTEARRAY):
+            bytearraydescr = self.cpu.arraydescrof(rbytearray.BYTEARRAY)
+            return SpaceOperation('arraylen_gc', [op.args[0], bytearraydescr],
+                                  op.result)
+        else:
+            assert 0, "supported type %r" % (optype,)
         return SpaceOperation(opname, [op.args[0]], op.result)
 
     def rewrite_op_getinteriorfield(self, op):
@@ -850,6 +862,12 @@ class Transformer(object):
         elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodegetitem"
             return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        elif optype == lltype.Ptr(rbytearray.BYTEARRAY):
+            bytearraydescr = self.cpu.arraydescrof(rbytearray.BYTEARRAY)
+            v_index = op.args[2]
+            return SpaceOperation('getarrayitem_gc_i',
+                                  [op.args[0], v_index, bytearraydescr],
+                                  op.result)
         else:
             v_inst, v_index, c_field = op.args
             if op.result.concretetype is lltype.Void:
@@ -876,6 +894,11 @@ class Transformer(object):
             opname = "unicodesetitem"
             return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
                                   op.result)
+        elif optype == lltype.Ptr(rbytearray.BYTEARRAY):
+            bytearraydescr = self.cpu.arraydescrof(rbytearray.BYTEARRAY)
+            opname = "setarrayitem_gc_i"
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3],
+                                           bytearraydescr], op.result)
         else:
             v_inst, v_index, c_field, v_value = op.args
             if v_value.concretetype is lltype.Void:
@@ -1709,6 +1732,8 @@ class Transformer(object):
                     "stroruni.copy_string_to_raw": EffectInfo.OS_UNI_COPY_TO_RAW
                     }
             CHR = lltype.UniChar
+        elif SoU.TO == rbytearray.BYTEARRAY:
+            raise NotSupported("bytearray operation")
         else:
             assert 0, "args[0].concretetype must be STR or UNICODE"
         #

@@ -4,8 +4,9 @@ class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
     def test_init(self):
-        import numpypy as np
+        import numpy as np
         import math
+        import sys
         assert np.intp() == np.intp(0)
         assert np.intp('123') == np.intp(123)
         raises(TypeError, np.intp, None)
@@ -17,6 +18,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert np.complex_() == np.complex_(0)
         #raises(TypeError, np.complex_, '1+2j')
         assert math.isnan(np.complex_(None))
+        for c in ['i', 'I', 'l', 'L', 'q', 'Q']:
+            assert np.dtype(c).type().dtype.char == c
+        assert np.dtype('L').type(sys.maxint + 42) == sys.maxint + 42
 
     def test_builtin(self):
         import numpy as np
@@ -37,7 +41,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert len(np.string_('123')) == 3
 
     def test_pickle(self):
-        from numpypy import dtype, zeros
+        from numpy import dtype, zeros
         try:
             from numpy.core.multiarray import scalar
         except ImportError:
@@ -111,8 +115,17 @@ class AppTestScalar(BaseNumpyAppTest):
         assert a.squeeze() is a
         raises(TypeError, a.squeeze, 2)
 
+    def test_bitshift(self):
+        import numpy as np
+        assert np.int32(123) >> 1 == 61
+        assert type(np.int32(123) >> 1) is np.int_
+        assert np.int64(123) << 1 == 246
+        assert type(np.int64(123) << 1) is np.int64
+        exc = raises(TypeError, "np.uint64(123) >> 1")
+        assert 'not supported for the input types' in exc.value.message
+
     def test_attributes(self):
-        import numpypy as np
+        import numpy as np
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
         assert value.size == 1
