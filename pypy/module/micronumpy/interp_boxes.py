@@ -681,7 +681,7 @@ W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntegerBox.typedef,
 )
 
 W_LongBox.typedef = TypeDef("int%d" % LONG_BIT,
-    (W_SignedIntegerBox.typedef, int_typedef),
+    (W_SignedIntegerBox.typedef, W_IntObject.typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_LongBox.descr__new__.im_func),
     __index__ = interp2app(W_LongBox.descr_index),
