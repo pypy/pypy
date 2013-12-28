@@ -28,6 +28,7 @@ from pypy.objspace.std.listobject    import W_ListObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
+from pypy.objspace.std.smalllongobject    import W_SmallLongObject
 from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
@@ -211,7 +212,7 @@ def marshal_w__Long(space, w_long, m):
     m.start(TYPE_LONG)
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
-    num = w_long.num
+    num = w_long.asbigint()
     sign = num.sign
     num = num.abs()
     total_length = (num.bit_length() + (SHIFT - 1)) / SHIFT
@@ -221,6 +222,7 @@ def marshal_w__Long(space, w_long, m):
         next = num.abs_rshift_and_mask(bigshiftcount, MASK)
         m.put_short(next)
         bigshiftcount += SHIFT
+marshal_w__SmallLong = marshal_w__Long
 
 def unmarshal_Long(space, u, tc):
     from rpython.rlib.rbigint import rbigint

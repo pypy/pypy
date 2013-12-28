@@ -62,7 +62,6 @@ def delegate_Int2Float(space, w_intobj):
 
 # long-to-float delegation
 def delegate_Long2Float(space, w_longobj):
-    # XXX: tofloat is not abstract (SmallLongs)
     return W_FloatObject(w_longobj.tofloat(space))
 
 
@@ -563,20 +562,3 @@ def float_is_integer__Float(space, w_float):
 
 from pypy.objspace.std import floattype
 register_all(vars(), floattype)
-
-# pow delegation for negative 2nd arg
-def pow_neg__Long_Long_None(space, w_int1, w_int2, thirdarg):
-    w_float1 = delegate_Long2Float(space, w_int1)
-    w_float2 = delegate_Long2Float(space, w_int2)
-    return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
-
-model.MM.pow.register(pow_neg__Long_Long_None, W_LongObject, W_LongObject,
-                      W_NoneObject, order=1)
-
-def pow_neg__Int_Int_None(space, w_int1, w_int2, thirdarg):
-    w_float1 = delegate_Int2Float(space, w_int1)
-    w_float2 = delegate_Int2Float(space, w_int2)
-    return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
-
-model.MM.pow.register(pow_neg__Int_Int_None, W_IntObject, W_IntObject,
-                      W_NoneObject, order=2)

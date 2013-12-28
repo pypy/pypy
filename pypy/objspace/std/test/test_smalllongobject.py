@@ -2,6 +2,7 @@ import py
 import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject
+from pypy.objspace.std.test.test_intobject import AppTestInt, TestW_IntObject
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.interpreter.error import OperationError
@@ -122,3 +123,11 @@ class AppTestSmallLong(test_longobject.AppTestLong):
             assert x << 64 == 18446744073709551616L
             assert (x << 31) << 31 == 4611686018427387904L
             assert (x << 32) << 32 == 18446744073709551616L
+
+
+class Test_W_IntObjectWithSmallLong(TestW_IntObject):
+    spaceconfig = {"objspace.std.withsmalllong": True}
+
+
+class AppTestIntWithSmallLong(AppTestInt):
+    spaceconfig = {"objspace.std.withsmalllong": True}

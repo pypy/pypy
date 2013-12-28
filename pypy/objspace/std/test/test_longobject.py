@@ -175,6 +175,7 @@ class AppTestLong:
     def test_pow(self):
         x = 0L
         assert pow(x, 0L, 1L) == 0L
+        assert pow(-1L, -1L) == -1.0
 
     def test_getnewargs(self):
         assert  0L .__getnewargs__() == (0L,)
