@@ -14,7 +14,8 @@ from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
 
-LONGLONG_MIN = r_longlong(-1 << (LONGLONG_BIT - 1))
+# XXX: breaks translation
+#LONGLONG_MIN = r_longlong(-1 << (LONGLONG_BIT - 1))
 
 
 class W_SmallLongObject(W_AbstractLongObject):
@@ -175,7 +176,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         x = self.longlong
         y = w_other.longlong
         try:
-            if y == -1 and x == LONGLONG_MIN:
+            if y == -1 and x == r_longlong(-1 << (LONGLONG_BIT-1)):
                 raise OverflowError
             z = x // y
         except ZeroDivisionError:
@@ -191,7 +192,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         x = self.longlong
         y = w_other.longlong
         try:
-            if y == -1 and x == LONGLONG_MIN:
+            if y == -1 and x == r_longlong(-1 << (LONGLONG_BIT-1)):
                 raise OverflowError
             z = x % y
         except ZeroDivisionError:
@@ -204,7 +205,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         x = self.longlong
         y = w_other.longlong
         try:
-            if y == -1 and x == LONGLONG_MIN:
+            if y == -1 and x == r_longlong(-1 << (LONGLONG_BIT-1)):
                 raise OverflowError
             z = x // y
         except ZeroDivisionError:
@@ -225,7 +226,8 @@ class W_SmallLongObject(W_AbstractLongObject):
 
         if space.is_none(w_modulus):
             try:
-                return _pow_impl(space, self.longlong, w_exponent)
+                return _pow_impl(space, self.longlong, w_exponent,
+                                 r_longlong(0))
             except ValueError:
                 self = self.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
@@ -323,7 +325,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     def descr_neg(self, space):
         a = self.longlong
         try:
-            if a == LONGLONG_MIN:
+            if a == r_longlong(-1 << (LONGLONG_BIT-1)):
                 raise OverflowError
             x = -a
         except OverflowError:
@@ -413,7 +415,7 @@ def divmod_ovr(space, w_int1, w_int2):
     return space.newtuple([div_ovr(space, w_int1, w_int2),
                            mod_ovr(space, w_int1, w_int2)])
 
-def _pow_impl(space, iv, w_int2, iz=r_longlong(0)):
+def _pow_impl(space, iv, w_int2, iz):
     iw = space.int_w(w_int2)
     if iw < 0:
         if iz != 0:
