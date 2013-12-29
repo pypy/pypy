@@ -744,6 +744,19 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(f, [i])
             assert res == True
 
+    def test_rsplit_multichar(self):
+        l = ["abc::z", "abc", "abc::def:::x"]
+        exp = [["abc", "z"], ["abc"], ["abc", "def:", "x"]]
+        exp2 = [["abc", "z"], ["abc"], ["abc::def:", "x"]]
+
+        def f(i):
+            s = l[i]
+            return s.rsplit("::") == exp[i] and s.rsplit("::", 1) == exp2[i]
+
+        for i in range(3):
+            res = self.interpret(f, [i])
+            assert res == True
+
     def test_rsplit(self):
         fn = self._make_split_test('rsplit')
         for i in range(5):
