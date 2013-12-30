@@ -1,6 +1,7 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
@@ -216,17 +217,21 @@ def eq__Complex_Long(space, w_complex1, w_long2):
     if w_complex1.imagval:
         return space.w_False
     return space.eq(space.newfloat(w_complex1.realval), w_long2)
+eq__Complex_Int = eq__Complex_Long
 
 def eq__Long_Complex(space, w_long1, w_complex2):
     return eq__Complex_Long(space, w_complex2, w_long1)
+eq__Int_Complex = eq__Long_Complex
 
 def ne__Complex_Long(space, w_complex1, w_long2):
     if w_complex1.imagval:
         return space.w_True
     return space.ne(space.newfloat(w_complex1.realval), w_long2)
+ne__Complex_Int = ne__Complex_Long
 
 def ne__Long_Complex(space, w_long1, w_complex2):
     return ne__Complex_Long(space, w_complex2, w_long1)
+ne__Int_Complex = ne__Long_Complex
 
 def lt__Complex_Complex(space, w_complex1, w_complex2):
     raise OperationError(space.w_TypeError, space.wrap('cannot compare complex numbers using <, <=, >, >='))
