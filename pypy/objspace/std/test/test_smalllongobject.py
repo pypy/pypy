@@ -125,7 +125,7 @@ class AppTestSmallLong(test_longobject.AppTestLong):
             assert (x << 32) << 32 == 18446744073709551616L
 
 
-class Test_W_IntObjectWithSmallLong(TestW_IntObject):
+class TestW_IntObjectWithSmallLong(TestW_IntObject):
     spaceconfig = {"objspace.std.withsmalllong": True}
 
 
