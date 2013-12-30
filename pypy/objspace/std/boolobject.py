@@ -1,5 +1,8 @@
+import operator
+
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rbigint import rbigint
+from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.objspace.std.intobject import W_AbstractIntObject
@@ -17,7 +20,7 @@ class W_BoolObject(W_AbstractIntObject):
         raise Exception("you cannot do that, you must use space.is_true()")
 
     def __repr__(self):
-        """ representation for debugging purposes """
+        """representation for debugging purposes"""
         return "%s(%s)" % (self.__class__.__name__, self.boolval)
 
     def unwrap(self, space):
@@ -46,23 +49,24 @@ class W_BoolObject(W_AbstractIntObject):
     def descr_nonzero(self, space):
         return self
 
-    def descr_and(self, space, w_other):
-        if not isinstance(w_other, W_BoolObject):
-            return W_AbstractIntObject.descr_and(self, space, w_other)
-        return space.newbool(self.boolval & w_other.boolval)
+    def make_bitwise_binop(opname):
+        descr_name = 'descr_' + opname
+        super_op = getattr(W_AbstractIntObject, descr_name)
+        op = getattr(operator,
+                     opname + '_' if opname in ('and', 'or') else opname)
+        @func_renamer(descr_name)
+        def descr_binop(self, space, w_other):
+            if not isinstance(w_other, W_BoolObject):
+                return super_op(self, space, w_other)
+            return space.newbool(op(self.boolval, w_other.boolval))
+        return descr_binop, func_with_new_name(descr_binop, 'descr_r' + opname)
 
-    def descr_or(self, space, w_other):
-        if not isinstance(w_other, W_BoolObject):
-            return W_AbstractIntObject.descr_or(self, space, w_other)
-        return space.newbool(self.boolval | w_other.boolval)
-
-    def descr_xor(self, space, w_other):
-        if not isinstance(w_other, W_BoolObject):
-            return W_AbstractIntObject.descr_xor(self, space, w_other)
-        return space.newbool(self.boolval ^ w_other.boolval)
+    descr_and, descr_rand = make_bitwise_binop('and')
+    descr_or, descr_ror = make_bitwise_binop('or')
+    descr_xor, descr_rxor = make_bitwise_binop('xor')
 
 W_BoolObject.w_False = W_BoolObject(False)
-W_BoolObject.w_True  = W_BoolObject(True)
+W_BoolObject.w_True = W_BoolObject(True)
 
 @unwrap_spec(w_obj=WrappedDefault(False))
 def descr__new__(space, w_booltype, w_obj):
@@ -81,12 +85,12 @@ The class bool is a subclass of the class int, and cannot be subclassed.""",
     __repr__ = interp2app(W_BoolObject.descr_repr),
     __str__ = interp2app(W_BoolObject.descr_str),
     __nonzero__ = interp2app(W_BoolObject.descr_nonzero),
-    # XXX: rsides
+
     __and__ = interp2app(W_BoolObject.descr_and),
-    #__rand__ = interp2app(W_BoolObject.descr_rand),
+    __rand__ = interp2app(W_BoolObject.descr_rand),
     __or__ = interp2app(W_BoolObject.descr_or),
-    #__ror__ = interp2app(W_BoolObject.descr_ror),
+    __ror__ = interp2app(W_BoolObject.descr_ror),
     __xor__ = interp2app(W_BoolObject.descr_xor),
-    #__rxor__ = interp2app(W_BoolObject.descr_rxor),
+    __rxor__ = interp2app(W_BoolObject.descr_rxor),
     )
 W_BoolObject.typedef.acceptable_as_base_class = False
