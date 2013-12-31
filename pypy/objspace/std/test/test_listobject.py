@@ -1274,6 +1274,57 @@ class AppTestW_ListObject(object):
         non_list = NonList()
         assert [] != non_list
 
+    def test_extend_from_empty_list_with_subclasses(self):
+        # some of these tests used to fail by ignoring the
+        # custom __iter__() --- but only if the list has so
+        # far the empty strategy, as opposed to .extend()ing
+        # a non-empty list.
+        class T(tuple):
+            def __iter__(self):
+                yield "ok"
+        assert list(T([5, 6])) == ["ok"]
+        #
+        class L(list):
+            def __iter__(self):
+                yield "ok"
+        assert list(L([5, 6])) == ["ok"]
+        assert list(L([5.2, 6.3])) == ["ok"]
+        #
+        class S(str):
+            def __iter__(self):
+                yield "ok"
+        assert list(S("don't see me")) == ["ok"]
+        #
+        class U(unicode):
+            def __iter__(self):
+                yield "ok"
+        assert list(U(u"don't see me")) == ["ok"]
+
+    def test_extend_from_nonempty_list_with_subclasses(self):
+        l = ["hi!"]
+        class T(tuple):
+            def __iter__(self):
+                yield "okT"
+        l.extend(T([5, 6]))
+        #
+        class L(list):
+            def __iter__(self):
+                yield "okL"
+        l.extend(L([5, 6]))
+        l.extend(L([5.2, 6.3]))
+        #
+        class S(str):
+            def __iter__(self):
+                yield "okS"
+        l.extend(S("don't see me"))
+        #
+        class U(unicode):
+            def __iter__(self):
+                yield "okU"
+        l.extend(U(u"don't see me"))
+        #
+        assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
+
     def test_issue1266(self):
         l = list(range(1))
         l.pop()
@@ -1302,6 +1353,94 @@ class AppTestW_ListObject(object):
         item11 = l[11]
         assert l[::11] == [-sys.maxsize, item11]
         assert item11 in l[::11]
+
+
+class AppTestForRangeLists(AppTestW_ListObject):
+    spaceconfig = {"objspace.std.withrangelist": True}
+
+    def test_range_simple_backwards(self):
+        x = range(5,1)
+        assert x == []
+
+    def test_range_big_start(self):
+        x = range(1,10)
+        x[22:0:-1] == range(1,10)
+
+    def test_range_list_invalid_slice(self):
+        x = [1,2,3,4]
+        assert x[10:0] == []
+        assert x[10:0:None] == []
+
+        x = range(1,5)
+        assert x[10:0] == []
+        assert x[10:0:None] == []
+
+        assert x[0:22] == [1,2,3,4]
+        assert x[-1:10] == [4]
+
+        assert x[0:22:None] == [1,2,3,4]
+        assert x[-1:10:None] == [4]
+
+    def test_range_backwards(self):
+        x = range(1,10)
+        assert x[22:-10] == []
+        assert x[22:-10:-1] == [9,8,7,6,5,4,3,2,1]
+        assert x[10:3:-1] == [9,8,7,6,5]
+        assert x[10:3:-2] == [9,7,5]
+        assert x[1:5:-1] == []
+
+    def test_sort_range(self):
+        l = range(3,10,3)
+        l.sort()
+        assert l == [3, 6, 9]
+        l.sort(reverse = True)
+        assert l == [9, 6, 3]
+        l.sort(reverse = True)
+        assert l == [9, 6, 3]
+        l.sort()
+        assert l == [3, 6, 9]
+
+    def test_slice(self):
+        l = []
+        l2 = range(3)
+        l.__setslice__(0,3,l2)
+        assert l == [0,1,2]
+
+    def test_getitem(self):
+        l = range(5)
+        raises(IndexError, "l[-10]")
+
+    def test_append(self):
+        l = range(5)
+        l.append(26)
+        assert l == [0,1,2,3,4,26]
+
+        l = range(5)
+        l.append("a")
+        assert l == [0,1,2,3,4,"a"]
+
+        l = range(5)
+        l.append(5)
+        assert l == [0,1,2,3,4,5]
+
+    def test_pop(self):
+        l = range(3)
+        assert l.pop(0) == 0
+
+    def test_setitem(self):
+        l = range(3)
+        l[0] = 1
+        assert l == [1,1,2]
+
+    def test_inset(self):
+        l = range(3)
+        l.insert(1,5)
+        assert l == [0,5,1,2]
+
+    def test_reverse(self):
+        l = range(3)
+        l.reverse()
+        assert l == [2,1,0]
 
 
 class AppTestWithoutStrategies(object):

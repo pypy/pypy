@@ -50,6 +50,13 @@ def list_iter(space):
     return w_iter
 list_iter._annspecialcase_ = 'specialize:memo'
 
+def tuple_iter(space):
+    "Utility that returns the app-level descriptor tuple.__iter__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_tuple,
+                                               '__iter__')
+    return w_iter
+tuple_iter._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, w_name, w_descr=None):
     # space.repr always returns an encodable string.
     if w_descr is None:

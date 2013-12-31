@@ -122,7 +122,7 @@ def builtin_unicode(s_unicode):
     return constpropagate(unicode, [s_unicode], SomeUnicodeString())
 
 def builtin_bytearray(s_str):
-    return constpropagate(bytearray, [s_str], SomeByteArray())
+    return SomeByteArray()
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""

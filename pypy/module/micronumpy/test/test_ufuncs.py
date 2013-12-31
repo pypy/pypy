@@ -82,6 +82,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinstance(add, ufunc)
         assert repr(add) == "<ufunc 'add'>"
         assert repr(ufunc) == "<type 'numpy.ufunc'>"
+        assert add.__name__ == 'add'
 
     def test_ufunc_attrs(self):
         from numpypy import add, multiply, sin
@@ -390,23 +391,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a == ref).all()
 
     def test_signbit(self):
-        from numpypy import signbit, add
-
+        from numpy import signbit, add, copysign, nan
+        assert signbit(add.identity) == False
         assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
-            [False, False, False, False, False]).all()
+                [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
-            [False,  True,  True,  True,  True]).all()
-
-        a = add.identity
-        assert signbit(a) == False
-
-        skip('sign of nan is non-determinant')
-        assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
-            [False, True, True]).all()
+                [False,  True,  True,  True,  True]).all()
+        assert (signbit([copysign(nan, 1), copysign(nan, -1)]) ==
+                [False, True]).all()
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal
-
+        from numpy import array, reciprocal
         inf = float('inf')
         nan = float('nan')
         reference = [-0.2, inf, -inf, 2.0, nan]
