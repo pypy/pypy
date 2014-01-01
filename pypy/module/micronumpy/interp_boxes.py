@@ -467,7 +467,8 @@ class W_VoidBox(W_FlexibleBox):
         return read_val
 
     def descr_setitem(self, space, w_item, w_value):
-        if space.isinstance_w(w_item, space.w_basestring):
+        if (space.isinstance_w(w_item, space.w_bytes) or
+            space.isinstance_w(w_item, space.w_unicode)):
             item = space.str_w(w_item)
         else:
             raise OperationError(space.w_IndexError, space.wrap(
