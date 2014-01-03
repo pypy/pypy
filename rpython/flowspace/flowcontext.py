@@ -14,6 +14,7 @@ from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
+from rpython.flowspace.operation import op
 
 
 class FlowingError(Exception):
@@ -213,60 +214,55 @@ class Replayer(Recorder):
 # ____________________________________________________________
 
 _unary_ops = [
-    ('UNARY_POSITIVE', "pos"),
-    ('UNARY_NEGATIVE', "neg"),
-    ('UNARY_NOT', "not_"),
-    ('UNARY_CONVERT', "repr"),
-    ('UNARY_INVERT', "invert"),
+    ('UNARY_POSITIVE', op.pos),
+    ('UNARY_NEGATIVE', op.neg),
+    ('UNARY_CONVERT', op.repr),
+    ('UNARY_INVERT', op.invert),
 ]
 
-def unaryoperation(OPCODE, op):
+def unaryoperation(OPCODE, operation):
     def UNARY_OP(self, *ignored):
-        operation = getattr(self.space, op)
         w_1 = self.popvalue()
-        w_result = operation(w_1)
+        w_result = operation(w_1).eval(self)
         self.pushvalue(w_result)
-    UNARY_OP.unaryop = op
     UNARY_OP.func_name = OPCODE
     return UNARY_OP
 
 _binary_ops = [
-    ('BINARY_MULTIPLY', "mul"),
-    ('BINARY_TRUE_DIVIDE', "truediv"),
-    ('BINARY_FLOOR_DIVIDE', "floordiv"),
-    ('BINARY_DIVIDE', "div"),
-    ('BINARY_MODULO', "mod"),
-    ('BINARY_ADD', "add"),
-    ('BINARY_SUBTRACT', "sub"),
-    ('BINARY_SUBSCR', "getitem"),
-    ('BINARY_LSHIFT', "lshift"),
-    ('BINARY_RSHIFT', "rshift"),
-    ('BINARY_AND', "and_"),
-    ('BINARY_XOR', "xor"),
-    ('BINARY_OR', "or_"),
-    ('INPLACE_MULTIPLY', "inplace_mul"),
-    ('INPLACE_TRUE_DIVIDE', "inplace_truediv"),
-    ('INPLACE_FLOOR_DIVIDE', "inplace_floordiv"),
-    ('INPLACE_DIVIDE', "inplace_div"),
-    ('INPLACE_MODULO', "inplace_mod"),
-    ('INPLACE_ADD', "inplace_add"),
-    ('INPLACE_SUBTRACT', "inplace_sub"),
-    ('INPLACE_LSHIFT', "inplace_lshift"),
-    ('INPLACE_RSHIFT', "inplace_rshift"),
-    ('INPLACE_AND', "inplace_and"),
-    ('INPLACE_XOR', "inplace_xor"),
-    ('INPLACE_OR', "inplace_or"),
+    ('BINARY_MULTIPLY', op.mul),
+    ('BINARY_TRUE_DIVIDE', op.truediv),
+    ('BINARY_FLOOR_DIVIDE', op.floordiv),
+    ('BINARY_DIVIDE', op.div),
+    ('BINARY_MODULO', op.mod),
+    ('BINARY_ADD', op.add),
+    ('BINARY_SUBTRACT', op.sub),
+    ('BINARY_SUBSCR', op.getitem),
+    ('BINARY_LSHIFT', op.lshift),
+    ('BINARY_RSHIFT', op.rshift),
+    ('BINARY_AND', op.and_),
+    ('BINARY_XOR', op.xor),
+    ('BINARY_OR', op.or_),
+    ('INPLACE_MULTIPLY', op.inplace_mul),
+    ('INPLACE_TRUE_DIVIDE', op.inplace_truediv),
+    ('INPLACE_FLOOR_DIVIDE', op.inplace_floordiv),
+    ('INPLACE_DIVIDE', op.inplace_div),
+    ('INPLACE_MODULO', op.inplace_mod),
+    ('INPLACE_ADD', op.inplace_add),
+    ('INPLACE_SUBTRACT', op.inplace_sub),
+    ('INPLACE_LSHIFT', op.inplace_lshift),
+    ('INPLACE_RSHIFT', op.inplace_rshift),
+    ('INPLACE_AND', op.inplace_and),
+    ('INPLACE_XOR', op.inplace_xor),
+    ('INPLACE_OR', op.inplace_or),
 ]
 
-def binaryoperation(OPCODE, op):
+def binaryoperation(OPCODE, operation):
     """NOT_RPYTHON"""
-    def BINARY_OP(self, *ignored):
-        operation = getattr(self.space, op)
+    def BINARY_OP(self, _):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
-        w_result = operation(w_1, w_2)
+        w_result = operation(w_1, w_2).eval(self)
         self.pushvalue(w_result)
-    BINARY_OP.binop = op
     BINARY_OP.func_name = OPCODE
     return BINARY_OP
 
@@ -585,6 +581,14 @@ class FlowSpaceFrame(object):
     def CONTINUE_LOOP(self, startofloop):
         raise Continue(startofloop)
 
+    def not_(self, w_obj):
+        w_bool = op.bool(w_obj).eval(self)
+        return const(not self.guessbool(w_bool))
+
+    def UNARY_NOT(self, _):
+        w_obj = self.popvalue()
+        self.pushvalue(self.not_(w_obj))
+
     def cmp_lt(self, w_1, w_2):
         return self.space.lt(w_1, w_2)
 
@@ -607,13 +611,13 @@ class FlowSpaceFrame(object):
         return self.space.contains(w_2, w_1)
 
     def cmp_not_in(self, w_1, w_2):
-        return self.space.not_(self.space.contains(w_2, w_1))
+        return self.not_(self.space.contains(w_2, w_1))
 
     def cmp_is(self, w_1, w_2):
-        return self.space.is_(w_1, w_2)
+        return op.is_(w_1, w_2).eval(self)
 
     def cmp_is_not(self, w_1, w_2):
-        return self.space.not_(self.space.is_(w_1, w_2))
+        return self.not_(op.is_(w_1, w_2).eval(self))
 
     def cmp_exc_match(self, w_1, w_2):
         return self.space.newbool(self.space.exception_match(w_1, w_2))
@@ -722,34 +726,35 @@ class FlowSpaceFrame(object):
     def JUMP_IF_FALSE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if not self.guessbool(self.space.bool(w_cond)):
+        if not self.guessbool(op.bool(w_cond).eval(self)):
             return target
 
     def JUMP_IF_TRUE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if self.guessbool(self.space.bool(w_cond)):
+        if self.guessbool(op.bool(w_cond).eval(self)):
             return target
 
     def POP_JUMP_IF_FALSE(self, target):
         w_value = self.popvalue()
-        if not self.guessbool(self.space.bool(w_value)):
+        if not self.guessbool(op.bool(w_value).eval(self)):
             return target
 
     def POP_JUMP_IF_TRUE(self, target):
         w_value = self.popvalue()
-        if self.guessbool(self.space.bool(w_value)):
+        if self.guessbool(op.bool(w_value).eval(self)):
             return target
 
     def JUMP_IF_FALSE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if not self.guessbool(self.space.bool(w_value)):
+        if not self.guessbool(op.bool(w_value).eval(self)):
             return target
         self.popvalue()
 
     def JUMP_IF_TRUE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if self.guessbool(self.space.bool(w_value)):
+        if self.guessbool(op.bool(w_value).eval(self)):
+            return target
             return target
         self.popvalue()
 
@@ -841,7 +846,7 @@ class FlowSpaceFrame(object):
         "obj.attributename"
         w_obj = self.popvalue()
         w_attributename = self.getname_w(nameindex)
-        w_value = self.space.getattr(w_obj, w_attributename)
+        w_value = op.getattr(w_obj, w_attributename).eval(self)
         self.pushvalue(w_value)
     LOOKUP_METHOD = LOAD_ATTR
 
@@ -965,7 +970,7 @@ class FlowSpaceFrame(object):
         w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setattr(w_obj, w_attributename, w_newvalue)
+        op.setattr(w_obj, w_attributename, w_newvalue).eval(self)
 
     def UNPACK_SEQUENCE(self, itemcount):
         w_iterable = self.popvalue()

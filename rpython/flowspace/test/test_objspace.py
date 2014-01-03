@@ -914,6 +914,13 @@ class TestFlowObjSpace(Base):
         simplify_graph(graph)
         assert self.all_operations(graph) == {'getitem': 1}
 
+    def test_delitem(self):
+        def f(c, x):
+            del c[x]
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'delitem': 1}
+
     def test_context_manager(self):
         def f(c, x):
             with x:

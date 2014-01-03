@@ -11,7 +11,7 @@ from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, checkgraph, const,
     FSException)
 from rpython.flowspace.bytecode import HostCode
-from rpython.flowspace.operation import op, NOT_REALLY_CONST
+from rpython.flowspace.operation import op
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FlowingError, Raise)
 from rpython.flowspace.generator import (tweak_generator_graph,
@@ -87,11 +87,11 @@ class FlowObjSpace(object):
                 "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
-            return frame.guessbool(self.issubtype(w_exc_type, w_check_class))
+            return frame.guessbool(op.issubtype(w_exc_type, w_check_class).eval(frame))
         # special case for StackOverflow (see rlib/rstackovf.py)
         if check_class == rstackovf.StackOverflow:
             w_real_class = const(rstackovf._StackOverflow)
-            return frame.guessbool(self.issubtype(w_exc_type, w_real_class))
+            return frame.guessbool(op.issubtype(w_exc_type, w_real_class).eval(frame))
         # checking a tuple of classes
         for klass in w_check_class.value:
             if self.exception_match(w_exc_type, const(klass)):
@@ -108,12 +108,12 @@ class FlowObjSpace(object):
         if frame.guessbool(self.call_function(const(isinstance), w_arg1,
                 self.w_type)):
             # this is for all cases of the form (Class, something)
-            if frame.guessbool(self.is_(w_arg2, self.w_None)):
+            if frame.guessbool(op.is_(w_arg2, self.w_None).eval(frame)):
                 # raise Type: we assume we have to instantiate Type
                 w_value = self.call_function(w_arg1)
             else:
-                w_valuetype = self.type(w_arg2)
-                if frame.guessbool(self.issubtype(w_valuetype, w_arg1)):
+                w_valuetype = op.type(w_arg2).eval(frame)
+                if frame.guessbool(op.issubtype(w_valuetype, w_arg1).eval(frame)):
                     # raise Type, Instance: let etype be the exact type of value
                     w_value = w_arg2
                 else:
@@ -121,7 +121,7 @@ class FlowObjSpace(object):
                     w_value = self.call_function(w_arg1, w_arg2)
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
-            if not frame.guessbool(self.is_(w_arg2, self.w_None)):
+            if not frame.guessbool(op.is_(w_arg2, self.w_None).eval(frame)):
                 exc = TypeError("instance exception may not have a "
                                 "separate value")
                 raise Raise(const(exc))
@@ -138,16 +138,13 @@ class FlowObjSpace(object):
         else:
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, const(expected_length))
-            if not self.frame.guessbool(self.bool(w_correct)):
+            if not self.frame.guessbool(op.bool(w_correct).eval(self.frame)):
                 w_exc = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise Raise(w_exc)
             return [self.getitem(w_iterable, const(i))
                         for i in range(expected_length)]
 
     # ____________________________________________________________
-    def not_(self, w_obj):
-        return const(not self.frame.guessbool(self.bool(w_obj)))
-
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
             mod = __import__(name, glob, loc, frm, level)
@@ -211,7 +208,11 @@ class FlowObjSpace(object):
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
 
-for cls in op.__dict__.values():
+
+for cls in [op.len, op.type, op.eq, op.ne, op.contains, op.getitem, op.getattr,
+            op.getslice, op.setslice, op.delslice, op.yield_, op.iter, op.next,
+            op.lt, op.gt, op.le, op.ge, op.str,
+            op.newlist, op.newtuple, op.newdict, op.setitem, op.delitem]:
     if getattr(FlowObjSpace, cls.opname, None) is None:
         setattr(FlowObjSpace, cls.opname, cls.make_sc())
 
