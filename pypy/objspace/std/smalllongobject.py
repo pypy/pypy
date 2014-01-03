@@ -13,6 +13,7 @@ from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
+from pypy.objspace.std.model import COMMUTATIVE_OPS
 
 # XXX: breaks translation
 #LONGLONG_MIN = r_longlong(-1 << (LONGLONG_BIT - 1))
@@ -83,6 +84,75 @@ class W_SmallLongObject(W_AbstractLongObject):
     def descr_float(self, space):
         return space.newfloat(float(self.longlong))
 
+    def descr_neg(self, space):
+        a = self.longlong
+        try:
+            if a == r_longlong(-1 << (LONGLONG_BIT-1)):
+                raise OverflowError
+            x = -a
+        except OverflowError:
+            self = _small2long(space, self)
+            return self.descr_neg(space)
+        return W_SmallLongObject(x)
+
+    def descr_abs(self, space):
+        return self if self.longlong >= 0 else self.descr_neg(space)
+
+    def descr_nonzero(self, space):
+        return space.newbool(bool(self.longlong))
+
+    def descr_invert(self, space):
+        x = ~self.longlong
+        return W_SmallLongObject(x)
+
+    @unwrap_spec(w_modulus=WrappedDefault(None))
+    def descr_pow(self, space, w_exponent, w_modulus=None):
+        if isinstance(w_exponent, W_AbstractLongObject):
+            self = _small2long(space, self)
+            return self.descr_pow(space, w_exponent, w_modulus)
+        elif not isinstance(w_exponent, W_AbstractIntObject):
+            return space.w_NotImplemented
+
+        if space.is_none(w_modulus):
+            try:
+                return _pow_impl(space, self.longlong, w_exponent,
+                                 r_longlong(0))
+            except ValueError:
+                self = self.descr_float(space)
+                return space.pow(self, w_exponent, space.w_None)
+            except OverflowError:
+                self = _small2long(space, self)
+                return self.descr_pow(space, w_exponent, w_modulus)
+        elif isinstance(w_modulus, W_AbstractIntObject):
+            w_modulus = _int2small(space, w_modulus)
+        elif not isinstance(w_modulus, W_AbstractLongObject):
+            return space.w_NotImplemented
+        elif not isinstance(w_modulus, W_SmallLongObject):
+            self = _small2long(space, self)
+            return self.descr_pow(space, w_exponent, w_modulus)
+
+        z = w_modulus.longlong
+        if z == 0:
+            raise operationerrfmt(space.w_ValueError,
+                                  "pow() 3rd argument cannot be 0")
+        try:
+            return _pow_impl(space, self.longlong, w_exponent, z)
+        except ValueError:
+            self = self.descr_float(space)
+            return space.pow(self, w_exponent, w_modulus)
+        except OverflowError:
+            self = _small2long(space, self)
+            return self.descr_pow(space, w_exponent, w_modulus)
+
+    @unwrap_spec(w_modulus=WrappedDefault(None))
+    def descr_rpow(self, space, w_base, w_modulus=None):
+        if isinstance(w_base, W_AbstractIntObject):
+            # Defer to w_base<W_SmallLongObject>.descr_pow
+            w_base = _int2small(space, w_base)
+        elif not isinstance(w_base, W_AbstractLongObject):
+            return space.w_NotImplemented
+        return w_base.descr_pow(space, self, w_modulus)
+
     def _make_descr_cmp(opname):
         op = getattr(operator, opname)
         bigint_op = getattr(rbigint, opname)
@@ -108,42 +178,46 @@ class W_SmallLongObject(W_AbstractLongObject):
 
     def _make_descr_binop(func):
         opname = func.__name__[1:]
-        descr_name = 'descr_' + opname
-        descr_rname = 'descr_r' + opname
+        descr_name, descr_rname = 'descr_' + opname, 'descr_r' + opname
+        long_op = getattr(W_LongObject, descr_name)
 
         @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
             if isinstance(w_other, W_AbstractIntObject):
-                w_other = delegate_Int2SmallLong(space, w_other)
+                w_other = _int2small(space, w_other)
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
             elif not isinstance(w_other, W_SmallLongObject):
-                self = delegate_SmallLong2Long(space, self)
-                return getattr(self, descr_name)(space, w_other)
+                self = _small2long(space, self)
+                return long_op(self, space, w_other)
 
             try:
                 return func(self, space, w_other)
             except OverflowError:
-                self = delegate_SmallLong2Long(space, self)
-                w_other = delegate_SmallLong2Long(space, w_other)
-                return getattr(self, descr_name)(space, w_other)
+                self = _small2long(space, self)
+                w_other = _small2long(space, w_other)
+                return long_op(self, space, w_other)
 
-        @func_renamer(descr_rname)
-        def descr_rbinop(self, space, w_other):
-            if isinstance(w_other, W_AbstractIntObject):
-                w_other = delegate_Int2SmallLong(space, w_other)
-            elif not isinstance(w_other, W_AbstractLongObject):
-                return space.w_NotImplemented
-            elif not isinstance(w_other, W_SmallLongObject):
-                self = delegate_SmallLong2Long(space, self)
-                return getattr(self, descr_rname)(space, w_other)
+        if opname in COMMUTATIVE_OPS:
+            descr_rbinop = func_with_new_name(descr_binop, descr_rname)
+        else:
+            long_rop = getattr(W_LongObject, descr_rname)
+            @func_renamer(descr_rname)
+            def descr_rbinop(self, space, w_other):
+                if isinstance(w_other, W_AbstractIntObject):
+                    w_other = _int2small(space, w_other)
+                elif not isinstance(w_other, W_AbstractLongObject):
+                    return space.w_NotImplemented
+                elif not isinstance(w_other, W_SmallLongObject):
+                    self = _small2long(space, self)
+                    return long_rop(self, space, w_other)
 
-            try:
-                return func(w_other, space, self)
-            except OverflowError:
-                self = delegate_SmallLong2Long(space, self)
-                w_other = delegate_SmallLong2Long(space, w_other)
-                return getattr(self, descr_rname)(space, w_other)
+                try:
+                    return func(w_other, space, self)
+                except OverflowError:
+                    self = _small2long(space, self)
+                    w_other = _small2long(space, w_other)
+                    return long_rop(self, space, w_other)
 
         return descr_binop, descr_rbinop
 
@@ -168,7 +242,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     def _mul(self, space, w_other):
         x = self.longlong
         y = w_other.longlong
-        z = llong_mul_ovf(x, y)
+        z = _llong_mul_ovf(x, y)
         return W_SmallLongObject(z)
     descr_mul, descr_rmul = _make_descr_binop(_mul)
 
@@ -215,57 +289,6 @@ class W_SmallLongObject(W_AbstractLongObject):
         m = x % y
         return space.newtuple([W_SmallLongObject(z), W_SmallLongObject(m)])
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
-
-    @unwrap_spec(w_modulus=WrappedDefault(None))
-    def descr_pow(self, space, w_exponent, w_modulus=None):
-        if isinstance(w_exponent, W_AbstractLongObject):
-            self = delegate_SmallLong2Long(space, self)
-            return self.descr_pow(space, w_exponent, w_modulus)
-        elif not isinstance(w_exponent, W_AbstractIntObject):
-            return space.w_NotImplemented
-
-        if space.is_none(w_modulus):
-            try:
-                return _pow_impl(space, self.longlong, w_exponent,
-                                 r_longlong(0))
-            except ValueError:
-                self = self.descr_float(space)
-                return space.pow(self, w_exponent, space.w_None)
-            except OverflowError:
-                self = delegate_SmallLong2Long(space, self)
-                return self.descr_pow(space, w_exponent, w_modulus)
-        elif isinstance(w_modulus, W_AbstractIntObject):
-            w_modulus = delegate_Int2SmallLong(space, w_modulus)
-        elif not isinstance(w_modulus, W_AbstractLongObject):
-            return space.w_NotImplemented
-        elif not isinstance(w_modulus, W_SmallLongObject):
-            self = delegate_SmallLong2Long(space, self)
-            return self.descr_pow(space, w_exponent, w_modulus)
-
-        z = w_modulus.longlong
-        if z == 0:
-            raise operationerrfmt(space.w_ValueError,
-                                  "pow() 3rd argument cannot be 0")
-        try:
-            return _pow_impl(space, self.longlong, w_exponent, z)
-        except ValueError:
-            self = self.descr_float(space)
-            return space.pow(self, w_exponent, w_modulus)
-        except OverflowError:
-            self = delegate_SmallLong2Long(space, self)
-            return self.descr_pow(space, w_exponent, w_modulus)
-
-    @unwrap_spec(w_modulus=WrappedDefault(None))
-    def descr_rpow(self, space, w_base, w_modulus=None):
-        if isinstance(w_base, W_AbstractIntObject):
-            # Defer to w_base<W_SmallLongObject>.descr_pow
-            # XXX: W_AbstractIntObject.descr_long could return
-            # SmallLongs then it could used instead of
-            # delegate_Int2SmallLong
-            w_base = delegate_Int2SmallLong(space, w_base)
-        elif not isinstance(w_base, W_AbstractLongObject):
-            return space.w_NotImplemented
-        return w_base.descr_pow(space, self, w_modulus)
 
     def _lshift(self, space, w_other):
         a = self.longlong
@@ -322,32 +345,10 @@ class W_SmallLongObject(W_AbstractLongObject):
         return W_SmallLongObject(res)
     descr_or, descr_ror = _make_descr_binop(_or)
 
-    def descr_neg(self, space):
-        a = self.longlong
-        try:
-            if a == r_longlong(-1 << (LONGLONG_BIT-1)):
-                raise OverflowError
-            x = -a
-        except OverflowError:
-            self = delegate_SmallLong2Long(space, self)
-            return self.descr_neg(space)
-        return W_SmallLongObject(x)
-
-    def descr_abs(self, space):
-        return self if self.longlong >= 0 else self.descr_neg(space)
-
-    def descr_nonzero(self, space):
-        return space.newbool(bool(self.longlong))
-
-    def descr_invert(self, space):
-        x = self.longlong
-        a = ~x
-        return W_SmallLongObject(a)
-
 
 # ____________________________________________________________
 
-def llong_mul_ovf(a, b):
+def _llong_mul_ovf(a, b):
     # xxx duplication of the logic from translator/c/src/int.h
     longprod = a * b
     doubleprod = float(a) * float(b)
@@ -373,17 +374,43 @@ def llong_mul_ovf(a, b):
 
 # ____________________________________________________________
 
-def delegate_Int2SmallLong(space, w_int):
-    return W_SmallLongObject(r_longlong(w_int.int_w(space)))
-
-def delegate_SmallLong2Long(space, w_small):
-    return W_LongObject(w_small.asbigint())
-
 def delegate_SmallLong2Float(space, w_small):
     return space.newfloat(float(w_small.longlong))
 
 def delegate_SmallLong2Complex(space, w_small):
     return space.newcomplex(float(w_small.longlong), 0.0)
+
+def _int2small(space, w_int):
+    # XXX: W_IntObject.descr_long should probably return W_SmallLongs
+    return W_SmallLongObject(r_longlong(w_int.int_w(space)))
+
+def _small2long(space, w_small):
+    return W_LongObject(w_small.asbigint())
+
+def _pow_impl(space, iv, w_int2, iz):
+    iw = space.int_w(w_int2)
+    if iw < 0:
+        if iz != 0:
+            raise operationerrfmt(space.w_TypeError,
+                                  "pow() 2nd argument cannot be negative when "
+                                  "3rd argument specified")
+        raise ValueError
+    temp = iv
+    ix = r_longlong(1)
+    while iw > 0:
+        if iw & 1:
+            ix = _llong_mul_ovf(ix, temp)
+        iw >>= 1   # Shift exponent down by 1 bit
+        if iw == 0:
+            break
+        temp = _llong_mul_ovf(temp, temp) # Square the value of temp
+        if iz:
+            # If we did a multiplication, perform a modulo
+            ix %= iz
+            temp %= iz
+    if iz:
+        ix %= iz
+    return W_SmallLongObject(ix)
 
 def add_ovr(space, w_int1, w_int2):
     x = r_longlong(space.int_w(w_int1))
@@ -415,31 +442,6 @@ def divmod_ovr(space, w_int1, w_int2):
     return space.newtuple([div_ovr(space, w_int1, w_int2),
                            mod_ovr(space, w_int1, w_int2)])
 
-def _pow_impl(space, iv, w_int2, iz):
-    iw = space.int_w(w_int2)
-    if iw < 0:
-        if iz != 0:
-            raise operationerrfmt(space.w_TypeError,
-                                  "pow() 2nd argument cannot be negative when "
-                                  "3rd argument specified")
-        raise ValueError
-    temp = iv
-    ix = r_longlong(1)
-    while iw > 0:
-        if iw & 1:
-            ix = llong_mul_ovf(ix, temp)
-        iw >>= 1   # Shift exponent down by 1 bit
-        if iw == 0:
-            break
-        temp = llong_mul_ovf(temp, temp) # Square the value of temp
-        if iz:
-            # If we did a multiplication, perform a modulo
-            ix %= iz
-            temp %= iz
-    if iz:
-        ix %= iz
-    return W_SmallLongObject(ix)
-
 def pow_ovr(space, w_int1, w_int2):
     try:
         return _pow_impl(space, r_longlong(space.int_w(w_int1)), w_int2)
@@ -459,5 +461,5 @@ def abs_ovr(space, w_int):
     return W_SmallLongObject(a)
 
 def lshift_ovr(space, w_int1, w_int2):
-    w_a = delegate_Int2SmallLong(space, w_int1)
+    w_a = _int2small(space, w_int1)
     return w_a.descr_lshift(space, w_int2)

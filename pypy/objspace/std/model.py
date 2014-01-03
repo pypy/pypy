@@ -232,8 +232,9 @@ def _op_swapped_negated(function):
         return space.not_(function(space, w_2, w_1))
     return op
 
-OPERATORS = ['lt', 'le', 'eq', 'ne', 'gt', 'ge']
-OP_CORRESPONDANCES = [
+
+CMP_OPS = dict(lt='<', le='<=', eq='==', ne='!=', gt='>', ge='>=')
+CMP_CORRESPONDANCES = [
     ('eq', 'ne', _op_negated),
     ('lt', 'gt', _op_swapped),
     ('le', 'ge', _op_swapped),
@@ -242,22 +243,27 @@ OP_CORRESPONDANCES = [
     ('lt', 'le', _op_swapped_negated),
     ('gt', 'ge', _op_swapped_negated),
     ]
-for op1, op2, value in OP_CORRESPONDANCES[:]:
-    i = OP_CORRESPONDANCES.index((op1, op2, value))
-    OP_CORRESPONDANCES.insert(i+1, (op2, op1, value))
+for op1, op2, value in CMP_CORRESPONDANCES[:]:
+    i = CMP_CORRESPONDANCES.index((op1, op2, value))
+    CMP_CORRESPONDANCES.insert(i+1, (op2, op1, value))
+BINARY_BITWISE_OPS = {'and': '&', 'lshift': '<<', 'or': '|', 'rshift': '>>',
+                      'xor': '^'}
+BINARY_OPS = dict(add='+', div='/', floordiv='//', mod='%', mul='*', sub='-',
+                  truediv='/', **BINARY_BITWISE_OPS)
+COMMUTATIVE_OPS = ('add', 'mul', 'and', 'or', 'xor')
 
 def add_extra_comparisons():
     """
     Add the missing comparison operators if they were not explicitly
     defined:  eq <-> ne  and  lt <-> le <-> gt <-> ge.
-    We try to add them in the order defined by the OP_CORRESPONDANCES
+    We try to add them in the order defined by the CMP_CORRESPONDANCES
     table, thus favouring swapping the arguments over negating the result.
     """
     originalentries = {}
-    for op in OPERATORS:
+    for op in CMP_OPS.iterkeys():
         originalentries[op] = getattr(MM, op).signatures()
 
-    for op1, op2, correspondance in OP_CORRESPONDANCES:
+    for op1, op2, correspondance in CMP_CORRESPONDANCES:
         mirrorfunc = getattr(MM, op2)
         for types in originalentries[op1]:
             t1, t2 = types
