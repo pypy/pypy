@@ -39,3 +39,5 @@ along with libcompat.a.
 
 .. branch: OlivierBlanvillain/fix-3-broken-links-on-pypy-published-pap-1386250839215
 Fix 3 broken links on PyPy published papers in docs.
+
+.. branch: jit-ordereddict

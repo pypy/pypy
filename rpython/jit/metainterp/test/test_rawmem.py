@@ -71,7 +71,11 @@ class RawMemTests(object):
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
 
+
+class TestRawMem(RawMemTests, LLJitMixin):
+
     def test_getarraysubstruct(self):
+        # NOTE: not for backend/*/test
         A2 = lltype.Array(('a', lltype.Signed), ('b', lltype.Signed),
                           hints={'nolength': True})
         p = lltype.malloc(A2, 10, flavor='raw', immortal=True, zero=True)
@@ -90,6 +94,3 @@ class RawMemTests(object):
         assert res == 66
         res = self.interp_operations(f, [2, 2], disable_optimizations=True)
         assert res == 44
-
-class TestRawMem(RawMemTests, LLJitMixin):
-    pass
