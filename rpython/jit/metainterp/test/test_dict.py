@@ -5,6 +5,10 @@ from rpython.rlib import objectmodel
 from collections import OrderedDict
 
 class DictTests:
+    @staticmethod
+    def newdict():   # overridden in TestLLOrderedDict
+        return {}
+
     def _freeze_(self):
         return True
 
@@ -191,9 +195,7 @@ class DictTests:
 
 
 class TestLLtype(DictTests, LLJitMixin):
-    @staticmethod
-    def newdict():
-        return {}
+    pass
 
 class TestLLOrderedDict(DictTests, LLJitMixin):
     @staticmethod
