@@ -446,8 +446,8 @@ def pow_ovr(space, w_int1, w_int2):
     try:
         return _pow_impl(space, r_longlong(space.int_w(w_int1)), w_int2)
     except (OverflowError, ValueError):
-        w_a = w_int1.descr_long(space)
-        w_b = w_int2.descr_long(space)
+        w_a = _small2long(space, w_int1)
+        w_b = _small2long(space, w_int2)
         return w_a.descr_pow(space, w_b, space.w_None)
 
 def neg_ovr(space, w_int):
