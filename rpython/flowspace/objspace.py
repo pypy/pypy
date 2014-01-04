@@ -98,52 +98,6 @@ class FlowObjSpace(object):
                 return True
         return False
 
-    def exc_from_raise(self, w_arg1, w_arg2):
-        """
-        Create a wrapped exception from the arguments of a raise statement.
-
-        Returns an FSException object whose w_value is an instance of w_type.
-        """
-        frame = self.frame
-        if frame.guessbool(self.call_function(const(isinstance), w_arg1,
-                self.w_type)):
-            # this is for all cases of the form (Class, something)
-            if frame.guessbool(op.is_(w_arg2, self.w_None).eval(frame)):
-                # raise Type: we assume we have to instantiate Type
-                w_value = self.call_function(w_arg1)
-            else:
-                w_valuetype = op.type(w_arg2).eval(frame)
-                if frame.guessbool(op.issubtype(w_valuetype, w_arg1).eval(frame)):
-                    # raise Type, Instance: let etype be the exact type of value
-                    w_value = w_arg2
-                else:
-                    # raise Type, X: assume X is the constructor argument
-                    w_value = self.call_function(w_arg1, w_arg2)
-        else:
-            # the only case left here is (inst, None), from a 'raise inst'.
-            if not frame.guessbool(op.is_(w_arg2, self.w_None).eval(frame)):
-                exc = TypeError("instance exception may not have a "
-                                "separate value")
-                raise Raise(const(exc))
-            w_value = w_arg1
-        w_type = op.type(w_value).eval(frame)
-        return FSException(w_type, w_value)
-
-    def unpack_sequence(self, w_iterable, expected_length):
-        if isinstance(w_iterable, Constant):
-            l = list(w_iterable.value)
-            if len(l) != expected_length:
-                raise ValueError
-            return [const(x) for x in l]
-        else:
-            w_len = op.len(w_iterable).eval(self.frame)
-            w_correct = op.eq(w_len, const(expected_length)).eval(self.frame)
-            if not self.frame.guessbool(op.bool(w_correct).eval(self.frame)):
-                w_exc = self.exc_from_raise(self.w_ValueError, self.w_None)
-                raise Raise(w_exc)
-            return [self.getitem(w_iterable, const(i))
-                        for i in range(expected_length)]
-
     # ____________________________________________________________
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:

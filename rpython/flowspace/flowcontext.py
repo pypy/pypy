@@ -628,6 +628,36 @@ class FlowSpaceFrame(object):
         w_result = getattr(self, compare_method[testnum])(w_1, w_2)
         self.pushvalue(w_result)
 
+    def exc_from_raise(self, w_arg1, w_arg2):
+        """
+        Create a wrapped exception from the arguments of a raise statement.
+
+        Returns an FSException object whose w_value is an instance of w_type.
+        """
+        if self.guessbool(self.space.call_function(const(isinstance), w_arg1,
+                const(type))):
+            # this is for all cases of the form (Class, something)
+            if self.guessbool(op.is_(w_arg2, self.space.w_None).eval(self)):
+                # raise Type: we assume we have to instantiate Type
+                w_value = self.space.call_function(w_arg1)
+            else:
+                w_valuetype = op.type(w_arg2).eval(self)
+                if self.guessbool(op.issubtype(w_valuetype, w_arg1).eval(self)):
+                    # raise Type, Instance: let etype be the exact type of value
+                    w_value = w_arg2
+                else:
+                    # raise Type, X: assume X is the constructor argument
+                    w_value = self.space.call_function(w_arg1, w_arg2)
+        else:
+            # the only case left here is (inst, None), from a 'raise inst'.
+            if not self.guessbool(op.is_(w_arg2, const(None)).eval(self)):
+                exc = TypeError("instance exception may not have a "
+                                "separate value")
+                raise Raise(const(exc))
+            w_value = w_arg1
+        w_type = op.type(w_value).eval(self)
+        return FSException(w_type, w_value)
+
     def RAISE_VARARGS(self, nbargs):
         space = self.space
         if nbargs == 0:
@@ -643,13 +673,10 @@ class FlowSpaceFrame(object):
         if nbargs >= 2:
             w_value = self.popvalue()
             w_type = self.popvalue()
-            operror = space.exc_from_raise(w_type, w_value)
+            operror = self.exc_from_raise(w_type, w_value)
         else:
             w_type = self.popvalue()
-            if isinstance(w_type, FSException):
-                operror = w_type
-            else:
-                operror = space.exc_from_raise(w_type, space.w_None)
+            operror = self.exc_from_raise(w_type, space.w_None)
         raise Raise(operror)
 
     def IMPORT_NAME(self, nameindex):
@@ -972,9 +999,18 @@ class FlowSpaceFrame(object):
         w_newvalue = self.popvalue()
         op.setattr(w_obj, w_attributename, w_newvalue).eval(self)
 
+    def unpack_sequence(self, w_iterable, expected_length):
+        w_len = op.len(w_iterable).eval(self)
+        w_correct = op.eq(w_len, const(expected_length)).eval(self)
+        if not self.guessbool(op.bool(w_correct).eval(self)):
+            w_exc = self.exc_from_raise(const(ValueError), const(None))
+            raise Raise(w_exc)
+        return [self.space.getitem(w_iterable, const(i))
+                    for i in range(expected_length)]
+
     def UNPACK_SEQUENCE(self, itemcount):
         w_iterable = self.popvalue()
-        items = self.space.unpack_sequence(w_iterable, itemcount)
+        items = self.unpack_sequence(w_iterable, itemcount)
         for w_item in reversed(items):
             self.pushvalue(w_item)
 
