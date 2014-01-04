@@ -586,7 +586,8 @@ class Int64(BaseType, Integer):
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
 
-    _coerce = func_with_new_name(_int64_coerce, '_coerce')
+    if LONG_BIT == 32:
+        _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
 def _uint64_coerce(self, space, w_item):
     try:
@@ -613,16 +614,25 @@ class Long(BaseType, Integer):
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
-    if LONG_BIT == 64:
-        _coerce = func_with_new_name(_int64_coerce, '_coerce')
+def _ulong_coerce(self, space, w_item):
+    try:
+        return self._base_coerce(space, w_item)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    bigint = space.bigint_w(w_item)
+    try:
+        value = bigint.touint()
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.w_None)
+    return self.box(value)
 
 class ULong(BaseType, Integer):
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
-    if LONG_BIT == 64:
-        _coerce = func_with_new_name(_uint64_coerce, '_coerce')
+    _coerce = func_with_new_name(_ulong_coerce, '_coerce')
 
 class Float(Primitive):
     _mixin_ = True

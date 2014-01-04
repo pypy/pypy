@@ -20,7 +20,10 @@ class AppTestScalar(BaseNumpyAppTest):
         assert math.isnan(np.complex_(None))
         for c in ['i', 'I', 'l', 'L', 'q', 'Q']:
             assert np.dtype(c).type().dtype.char == c
-        assert np.dtype('L').type(sys.maxint + 42) == sys.maxint + 42
+        for c in ['l', 'q']:
+            assert np.dtype(c).type(sys.maxint) == sys.maxint
+        for c in ['L', 'Q']:
+            assert np.dtype(c).type(sys.maxint + 42) == sys.maxint + 42
 
     def test_builtin(self):
         import numpy as np
