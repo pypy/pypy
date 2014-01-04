@@ -444,7 +444,8 @@ def divmod_ovr(space, w_int1, w_int2):
 
 def pow_ovr(space, w_int1, w_int2):
     try:
-        return _pow_impl(space, r_longlong(space.int_w(w_int1)), w_int2)
+        return _pow_impl(space, r_longlong(space.int_w(w_int1)), w_int2,
+                         r_longlong(0))
     except (OverflowError, ValueError):
         w_a = _small2long(space, w_int1)
         w_b = _small2long(space, w_int2)
