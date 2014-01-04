@@ -126,7 +126,7 @@ class FlowObjSpace(object):
                                 "separate value")
                 raise Raise(const(exc))
             w_value = w_arg1
-        w_type = self.type(w_value)
+        w_type = op.type(w_value).eval(frame)
         return FSException(w_type, w_value)
 
     def unpack_sequence(self, w_iterable, expected_length):
@@ -136,8 +136,8 @@ class FlowObjSpace(object):
                 raise ValueError
             return [const(x) for x in l]
         else:
-            w_len = self.len(w_iterable)
-            w_correct = self.eq(w_len, const(expected_length))
+            w_len = op.len(w_iterable).eval(self.frame)
+            w_correct = op.eq(w_len, const(expected_length)).eval(self.frame)
             if not self.frame.guessbool(op.bool(w_correct).eval(self.frame)):
                 w_exc = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise Raise(w_exc)
@@ -209,9 +209,8 @@ class FlowObjSpace(object):
         return const(value)
 
 
-for cls in [op.len, op.type, op.eq, op.ne, op.contains, op.getitem, op.getattr,
+for cls in [op.getitem, op.getattr,
             op.getslice, op.setslice, op.delslice, op.yield_, op.iter, op.next,
-            op.lt, op.gt, op.le, op.ge, op.str,
             op.newlist, op.newtuple, op.newdict, op.setitem, op.delitem]:
     if getattr(FlowObjSpace, cls.opname, None) is None:
         setattr(FlowObjSpace, cls.opname, cls.make_sc())

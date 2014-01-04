@@ -590,28 +590,28 @@ class FlowSpaceFrame(object):
         self.pushvalue(self.not_(w_obj))
 
     def cmp_lt(self, w_1, w_2):
-        return self.space.lt(w_1, w_2)
+        return op.lt(w_1, w_2).eval(self)
 
     def cmp_le(self, w_1, w_2):
-        return self.space.le(w_1, w_2)
+        return op.le(w_1, w_2).eval(self)
 
     def cmp_eq(self, w_1, w_2):
-        return self.space.eq(w_1, w_2)
+        return op.eq(w_1, w_2).eval(self)
 
     def cmp_ne(self, w_1, w_2):
-        return self.space.ne(w_1, w_2)
+        return op.ne(w_1, w_2).eval(self)
 
     def cmp_gt(self, w_1, w_2):
-        return self.space.gt(w_1, w_2)
+        return op.gt(w_1, w_2).eval(self)
 
     def cmp_ge(self, w_1, w_2):
-        return self.space.ge(w_1, w_2)
+        return op.ge(w_1, w_2).eval(self)
 
     def cmp_in(self, w_1, w_2):
-        return self.space.contains(w_2, w_1)
+        return op.contains(w_2, w_1).eval(self)
 
     def cmp_not_in(self, w_1, w_2):
-        return self.not_(self.space.contains(w_2, w_1))
+        return self.not_(self.cmp_in(w_1, w_2))
 
     def cmp_is(self, w_1, w_2):
         return op.is_(w_1, w_2).eval(self)
@@ -714,7 +714,7 @@ class FlowSpaceFrame(object):
 
     def PRINT_ITEM(self, oparg):
         w_item = self.popvalue()
-        w_s = self.space.str(w_item)
+        w_s = op.str(w_item).eval(self)
         self.space.appcall(rpython_print_item, w_s)
 
     def PRINT_NEWLINE(self, oparg):
