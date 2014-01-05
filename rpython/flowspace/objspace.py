@@ -8,8 +8,7 @@ import types
 from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.argument import CallSpec
-from rpython.flowspace.model import (Constant, Variable, checkgraph, const,
-    FSException)
+from rpython.flowspace.model import Constant, Variable, checkgraph, const
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.operation import op
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
@@ -110,13 +109,13 @@ class FlowObjSpace(object):
         assert isinstance(w_module, Constant)
         assert isinstance(w_name, Constant)
         try:
-            return self.getattr(w_module, w_name)
+            return op.getattr(w_module, w_name).eval(self.frame)
         except FlowingError:
             exc = ImportError("cannot import name '%s'" % w_name.value)
             raise Raise(const(exc))
 
     def call_method(self, w_obj, methname, *arg_w):
-        w_meth = self.getattr(w_obj, const(methname))
+        w_meth = op.getattr(w_obj, const(methname)).eval(self.frame)
         return self.call_function(w_meth, *arg_w)
 
     def call_function(self, w_func, *args_w):
@@ -161,13 +160,6 @@ class FlowObjSpace(object):
             except AttributeError:
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
-
-
-for cls in [op.getitem, op.getattr,
-            op.getslice, op.setslice, op.delslice, op.yield_, op.iter, op.next,
-            op.newlist, op.newtuple, op.newdict, op.setitem, op.delitem]:
-    if getattr(FlowObjSpace, cls.opname, None) is None:
-        setattr(FlowObjSpace, cls.opname, cls.make_sc())
 
 
 def build_flow(func, space=FlowObjSpace()):

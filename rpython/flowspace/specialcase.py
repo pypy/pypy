@@ -42,7 +42,8 @@ def sc_getattr(space, w_obj, w_index, w_default=None):
     if w_default is not None:
         return space.appcall(getattr, w_obj, w_index, w_default)
     else:
-        return space.getattr(w_obj, w_index)
+        from rpython.flowspace.operation import op
+        return op.getattr(w_obj, w_index).eval(space.frame)
 
 @register_flow_sc(open)
 def sc_open(space, *args_w):

@@ -730,7 +730,7 @@ class FlowSpaceFrame(object):
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
         w_result = self.popvalue()
-        self.space.yield_(w_result)
+        op.yield_(w_result).eval(self)
         # XXX yield expressions not supported. This will blow up if the value
         # isn't popped straightaway.
         self.pushvalue(None)
@@ -790,13 +790,13 @@ class FlowSpaceFrame(object):
 
     def GET_ITER(self, oparg):
         w_iterable = self.popvalue()
-        w_iterator = self.space.iter(w_iterable)
+        w_iterator = op.iter(w_iterable).eval(self)
         self.pushvalue(w_iterator)
 
     def FOR_ITER(self, target):
         w_iterator = self.peekvalue()
         try:
-            w_nextitem = self.space.next(w_iterator)
+            w_nextitem = op.next(w_iterator).eval(self)
         except Raise as e:
             w_exc = e.w_exc
             if not self.space.exception_match(w_exc.w_type,
@@ -825,7 +825,7 @@ class FlowSpaceFrame(object):
         # directly call manager.__enter__(), don't use special lookup functions
         # which don't make sense on the RPython type system.
         w_manager = self.peekvalue()
-        w_exit = self.space.getattr(w_manager, const("__exit__"))
+        w_exit = op.getattr(w_manager, const("__exit__")).eval(self)
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
         block = WithBlock(self, target)
@@ -949,7 +949,7 @@ class FlowSpaceFrame(object):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
         last_val = self.popvalue()
-        self.pushvalue(self.space.newlist())
+        self.pushvalue(op.newlist().eval(self))
         self.pushvalue(last_val)
 
     def call_function(self, oparg, w_star=None, w_starstar=None):
@@ -1005,7 +1005,7 @@ class FlowSpaceFrame(object):
         if not self.guessbool(op.bool(w_correct).eval(self)):
             w_exc = self.exc_from_raise(const(ValueError), const(None))
             raise Raise(w_exc)
-        return [self.space.getitem(w_iterable, const(i))
+        return [op.getitem(w_iterable, const(i)).eval(self)
                     for i in range(expected_length)]
 
     def UNPACK_SEQUENCE(self, itemcount):
@@ -1016,7 +1016,7 @@ class FlowSpaceFrame(object):
 
     def slice(self, w_start, w_end):
         w_obj = self.popvalue()
-        w_result = self.space.getslice(w_obj, w_start, w_end)
+        w_result = op.getslice(w_obj, w_start, w_end).eval(self)
         self.pushvalue(w_result)
 
     def SLICE_0(self, oparg):
@@ -1038,7 +1038,7 @@ class FlowSpaceFrame(object):
     def storeslice(self, w_start, w_end):
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setslice(w_obj, w_start, w_end, w_newvalue)
+        op.setslice(w_obj, w_start, w_end, w_newvalue).eval(self)
 
     def STORE_SLICE_0(self, oparg):
         self.storeslice(self.space.w_None, self.space.w_None)
@@ -1058,7 +1058,7 @@ class FlowSpaceFrame(object):
 
     def deleteslice(self, w_start, w_end):
         w_obj = self.popvalue()
-        self.space.delslice(w_obj, w_start, w_end)
+        op.delslice(w_obj, w_start, w_end).eval(self)
 
     def DELETE_SLICE_0(self, oparg):
         self.deleteslice(self.space.w_None, self.space.w_None)
@@ -1095,14 +1095,14 @@ class FlowSpaceFrame(object):
         w_key = self.popvalue()
         w_value = self.popvalue()
         w_dict = self.peekvalue()
-        self.space.setitem(w_dict, w_key, w_value)
+        op.setitem(w_dict, w_key, w_value).eval(self)
 
     def STORE_SUBSCR(self, oparg):
         "obj[subscr] = newvalue"
         w_subscr = self.popvalue()
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setitem(w_obj, w_subscr, w_newvalue)
+        op.setitem(w_obj, w_subscr, w_newvalue).eval(self)
 
     def BUILD_SLICE(self, numargs):
         if numargs == 3:
@@ -1113,27 +1113,27 @@ class FlowSpaceFrame(object):
             raise BytecodeCorruption
         w_end = self.popvalue()
         w_start = self.popvalue()
-        w_slice = self.space.newslice(w_start, w_end, w_step)
+        w_slice = op.newslice(w_start, w_end, w_step).eval(self)
         self.pushvalue(w_slice)
 
     def DELETE_SUBSCR(self, oparg):
         "del obj[subscr]"
         w_subscr = self.popvalue()
         w_obj = self.popvalue()
-        self.space.delitem(w_obj, w_subscr)
+        op.delitem(w_obj, w_subscr).eval(self)
 
     def BUILD_TUPLE(self, itemcount):
         items = self.popvalues(itemcount)
-        w_tuple = self.space.newtuple(*items)
+        w_tuple = op.newtuple(*items).eval(self)
         self.pushvalue(w_tuple)
 
     def BUILD_LIST(self, itemcount):
         items = self.popvalues(itemcount)
-        w_list = self.space.newlist(*items)
+        w_list = op.newlist(*items).eval(self)
         self.pushvalue(w_list)
 
     def BUILD_MAP(self, itemcount):
-        w_dict = self.space.newdict()
+        w_dict = op.newdict().eval(self)
         self.pushvalue(w_dict)
 
     def NOP(self, *args):
