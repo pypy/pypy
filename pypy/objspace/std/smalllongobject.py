@@ -176,7 +176,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     descr_gt = _make_descr_cmp('gt')
     descr_ge = _make_descr_cmp('ge')
 
-    def _make_descr_binop(func):
+    def _make_descr_binop(func, ovf=True):
         opname = func.__name__[1:]
         descr_name, descr_rname = 'descr_' + opname, 'descr_r' + opname
         long_op = getattr(W_LongObject, descr_name)
@@ -191,12 +191,15 @@ class W_SmallLongObject(W_AbstractLongObject):
                 self = _small2long(space, self)
                 return long_op(self, space, w_other)
 
-            try:
+            if ovf:
+                try:
+                    return func(self, space, w_other)
+                except OverflowError:
+                    self = _small2long(space, self)
+                    w_other = _small2long(space, w_other)
+                    return long_op(self, space, w_other)
+            else:
                 return func(self, space, w_other)
-            except OverflowError:
-                self = _small2long(space, self)
-                w_other = _small2long(space, w_other)
-                return long_op(self, space, w_other)
 
         if opname in COMMUTATIVE_OPS:
             descr_rbinop = func_with_new_name(descr_binop, descr_rname)
@@ -212,12 +215,15 @@ class W_SmallLongObject(W_AbstractLongObject):
                     self = _small2long(space, self)
                     return long_rop(self, space, w_other)
 
-                try:
+                if ovf:
+                    try:
+                        return func(w_other, space, self)
+                    except OverflowError:
+                        self = _small2long(space, self)
+                        w_other = _small2long(space, w_other)
+                        return long_rop(self, space, w_other)
+                else:
                     return func(w_other, space, self)
-                except OverflowError:
-                    self = _small2long(space, self)
-                    w_other = _small2long(space, w_other)
-                    return long_rop(self, space, w_other)
 
         return descr_binop, descr_rbinop
 
@@ -322,28 +328,28 @@ class W_SmallLongObject(W_AbstractLongObject):
         else:
             a = a >> b
         return W_SmallLongObject(a)
-    descr_rshift, descr_rrshift = _make_descr_binop(_rshift)
+    descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
     def _and(self, space, w_other):
         a = self.longlong
         b = w_other.longlong
         res = a & b
         return W_SmallLongObject(res)
-    descr_and, descr_rand = _make_descr_binop(_and)
+    descr_and, descr_rand = _make_descr_binop(_and, ovf=False)
 
     def _xor(self, space, w_other):
         a = self.longlong
         b = w_other.longlong
         res = a ^ b
         return W_SmallLongObject(res)
-    descr_xor, descr_rxor = _make_descr_binop(_xor)
+    descr_xor, descr_rxor = _make_descr_binop(_xor, ovf=False)
 
     def _or(self, space, w_other):
         a = self.longlong
         b = w_other.longlong
         res = a | b
         return W_SmallLongObject(res)
-    descr_or, descr_ror = _make_descr_binop(_or)
+    descr_or, descr_ror = _make_descr_binop(_or, ovf=False)
 
 
 # ____________________________________________________________

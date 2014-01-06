@@ -262,7 +262,7 @@ class W_AbstractIntObject(W_Root):
     descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
     descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
 
-    def _make_descr_binop(func):
+    def _make_descr_binop(func, ovf=True):
         opname = func.__name__[1:]
         oper = BINARY_OPS.get(opname)
         if oper == '%':
@@ -273,10 +273,13 @@ class W_AbstractIntObject(W_Root):
         def descr_binop(self, space, w_other):
             if not isinstance(w_other, W_AbstractIntObject):
                 return space.w_NotImplemented
-            try:
+            if ovf:
+                try:
+                    return func(self, space, w_other)
+                except OverflowError:
+                    return _ovf2long(space, opname, self, w_other)
+            else:
                 return func(self, space, w_other)
-            except OverflowError:
-                return _ovf2long(space, opname, self, w_other)
         descr_binop.__doc__ = "x.__%s__(y) <==> %s" % (opname,
                                                        oper % ('x', 'y'))
 
@@ -284,10 +287,13 @@ class W_AbstractIntObject(W_Root):
         def descr_rbinop(self, space, w_other):
             if not isinstance(w_other, W_AbstractIntObject):
                 return space.w_NotImplemented
-            try:
+            if ovf:
+                try:
+                    return func(w_other, space, self)
+                except OverflowError:
+                    return _ovf2long(space, opname, w_other, self)
+            else:
                 return func(w_other, space, self)
-            except OverflowError:
-                return _ovf2long(space, opname, w_other, self)
         descr_rbinop.__doc__ = "x.__r%s__(y) <==> %s" % (opname,
                                                          oper % ('y', 'x'))
 
@@ -314,7 +320,7 @@ class W_AbstractIntObject(W_Root):
             raise operationerrfmt(space.w_ZeroDivisionError,
                                   "division by zero")
         return space.wrap(x / y)
-    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv)
+    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
 
     def _mod(self, space, w_other):
         x = space.int_w(self)
@@ -369,7 +375,7 @@ class W_AbstractIntObject(W_Root):
         else:
             a = a >> b
         return wrapint(space, a)
-    descr_rshift, descr_rrshift = _make_descr_binop(_rshift)
+    descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
 
 class W_IntObject(W_AbstractIntObject):
