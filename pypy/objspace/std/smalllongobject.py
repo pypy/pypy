@@ -337,13 +337,6 @@ class W_SmallLongObject(W_AbstractLongObject):
         return W_SmallLongObject(res)
     descr_and, descr_rand = _make_descr_binop(_and, ovf=False)
 
-    def _xor(self, space, w_other):
-        a = self.longlong
-        b = w_other.longlong
-        res = a ^ b
-        return W_SmallLongObject(res)
-    descr_xor, descr_rxor = _make_descr_binop(_xor, ovf=False)
-
     def _or(self, space, w_other):
         a = self.longlong
         b = w_other.longlong
@@ -351,8 +344,13 @@ class W_SmallLongObject(W_AbstractLongObject):
         return W_SmallLongObject(res)
     descr_or, descr_ror = _make_descr_binop(_or, ovf=False)
 
+    def _xor(self, space, w_other):
+        a = self.longlong
+        b = w_other.longlong
+        res = a ^ b
+        return W_SmallLongObject(res)
+    descr_xor, descr_rxor = _make_descr_binop(_xor, ovf=False)
 
-# ____________________________________________________________
 
 def _llong_mul_ovf(a, b):
     # xxx duplication of the logic from translator/c/src/int.h
@@ -378,20 +376,23 @@ def _llong_mul_ovf(a, b):
         return longprod
     raise OverflowError("integer multiplication")
 
-# ____________________________________________________________
 
 def delegate_SmallLong2Float(space, w_small):
     return space.newfloat(float(w_small.longlong))
 
+
 def delegate_SmallLong2Complex(space, w_small):
     return space.newcomplex(float(w_small.longlong), 0.0)
+
 
 def _int2small(space, w_int):
     # XXX: W_IntObject.descr_long should probably return W_SmallLongs
     return W_SmallLongObject(r_longlong(w_int.int_w(space)))
 
+
 def _small2long(space, w_small):
     return W_LongObject(w_small.asbigint())
+
 
 def _pow_impl(space, iv, w_int2, iz):
     iw = space.int_w(w_int2)
@@ -417,6 +418,7 @@ def _pow_impl(space, iv, w_int2, iz):
     if iz:
         ix %= iz
     return W_SmallLongObject(ix)
+
 
 def add_ovr(space, w_int1, w_int2):
     x = r_longlong(space.int_w(w_int1))

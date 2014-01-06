@@ -258,6 +258,7 @@ class W_AbstractIntObject(W_Root):
     descr_add, descr_radd = _make_generic_descr_binop('add')
     descr_sub, descr_rsub = _make_generic_descr_binop('sub')
     descr_mul, descr_rmul = _make_generic_descr_binop('mul')
+
     descr_and, descr_rand = _make_generic_descr_binop('and', ovf=False)
     descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
     descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
