@@ -620,7 +620,7 @@ class FlowSpaceFrame(object):
         return self.not_(op.is_(w_1, w_2).eval(self))
 
     def cmp_exc_match(self, w_1, w_2):
-        return self.space.newbool(self.space.exception_match(w_1, w_2))
+        return const(self.space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum):
         w_2 = self.popvalue()

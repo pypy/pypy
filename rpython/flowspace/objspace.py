@@ -59,12 +59,6 @@ class FlowObjSpace(object):
     def build_flow(self, func):
         return build_flow(func, self)
 
-    def newbool(self, b):
-        if b:
-            return self.w_True
-        else:
-            return self.w_False
-
     def newfunction(self, w_code, w_globals, defaults_w):
         if not all(isinstance(value, Constant) for value in defaults_w):
             raise FlowingError("Dynamically created function must"
