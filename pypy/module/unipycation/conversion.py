@@ -70,8 +70,10 @@ def p_of_w(space, w_anything):
     elif space.is_true(space.isinstance(w_anything, space.w_str)):
         return p_atom_of_w_str(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_CoreTerm)):
+        assert isinstance(w_anything, objects.W_CoreTerm)
         return p_callable_of_w_term(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_Var)):
+        assert isinstance(w_anything, objects.W_Var)
         return p_var_of_w_var(space, w_anything)
     else:
         return prologobject.PythonBlackBox(space, w_anything)
