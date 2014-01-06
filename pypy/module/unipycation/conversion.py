@@ -47,8 +47,8 @@ def p_atom_of_w_str(space, w_str):
 
 def p_callable_of_w_term(space, w_term):
     p_name = space.str_w(w_term.w_name)
-    p_sig = signature.Signature.getsignature(p_name, w_term.w_args.length())
-    p_args = [ p_of_w(space, x) for x in space.listview(w_term.w_args) ]
+    p_args = [ p_of_w(space, x) for x in w_term.args_w ]
+    p_sig = signature.Signature.getsignature(p_name, len(w_term.args_w))
     return term.Callable.build(p_name, p_args, p_sig)
 
 # XXX not sure. We are not always going to want a fresh variable
@@ -94,9 +94,8 @@ def w_str_of_p_atom(space, p_atom):
 
 def w_term_of_p_callable(space, p_callable):
     w_name = space.wrap(p_callable.name())
-    args = [ w_of_p(space, x) for x in p_callable.arguments() ]
-    w_args = space.newlist(args)
-    return objects.W_CoreTerm(space, w_name, w_args)
+    args_w = [ w_of_p(space, x) for x in p_callable.arguments() ]
+    return objects.W_CoreTerm(space, w_name, args_w)
 
 def w_whatever_of_p_bindingvar(space, p_bindingvar):
     if p_bindingvar.binding is None:

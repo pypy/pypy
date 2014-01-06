@@ -16,7 +16,8 @@ def term_new__(space, w_subtype, w_name, w_args):
     from pypy.module.unipycation import conversion
 
     w_t = space.allocate_instance(W_CoreTerm, w_subtype)
-    W_CoreTerm.__init__(w_t, space, w_name, w_args)
+    args_w = space.unpackiterable(w_args)
+    W_CoreTerm.__init__(w_t, space, w_name, args_w)
     return w_t
 
 class W_CoreTerm(W_Root):
@@ -25,40 +26,45 @@ class W_CoreTerm(W_Root):
     """
 
     # Maybe later XXX
-    #_immutable_fields_ = ["w_name", "w_args"]
+    #_immutable_fields_ = ["w_name", "args_w[*]"]
 
-    def __init__(self, space, w_name, w_args):
+    def __init__(self, space, w_name, args_w):
         self.space = space
-        self.w_args = w_args
+        self.args_w = args_w
         self.w_name = w_name # not actually wrapped!
 
     # properties
-    def descr_len(self, space): return self.space.newint(self.w_args.length())
+    def descr_len(self, space): return self.space.newint(len(self.args_w))
     def prop_getname(self, space): return self.w_name
-    def prop_getargs(self, space): return self.w_args
+    def prop_getargs(self, space): return space.newlist(list(self.args_w))
 
     def descr_getitem(self, space, w_idx):
-        if not space.is_true(space.isinstance(w_idx, space.w_int)):
-            raise OperationError(space.w_IndexError, space.wrap("bad argument index"))
+        index = space.getindex_w(w_idx, space.w_IndexError, "term index")
+        try:
+            return self.args_w[index]
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("term index out of range"))
 
-        el = space.finditem(self.w_args, w_idx)
-        if el is None:
-            raise OperationError(space.w_IndexError, space.wrap("bad argument index"))
-        return el
 
     def descr_eq(self, space, w_other):
         if not space.eq_w(space.type(self), space.type(w_other)):
             return space.w_False
-        return space.wrap(space.is_true(space.eq(self.w_args, w_other.w_args)))
+        assert isinstance(w_other, W_CoreTerm)
+        if len(self.args_w) != len(w_other.args_w):
+            return space.w_False
+        for i, w_arg in enumerate(self.args_w):
+            if not space.eq_w(w_arg, w_other.args_w[i]):
+                return space.w_False
+        return space.w_True
 
     def descr_ne(self, space, w_other):
         return space.not_(self.descr_eq(space, w_other))
 
     def descr_str(self, space):
         args_strs = []
-        for i in range(space.len_w(self.w_args)):
-            x = space.finditem(self.w_args, space.wrap(i))
-            args_strs.append(space.str_w(space.call_method(x, "__str__")))
+        for i, w_arg in enumerate(self.args_w):
+            args_strs.append(space.str_w(space.str(w_arg)))
         return space.wrap("%s(%s)" % (space.str_w(self.w_name), ", ".join(args_strs)))
 
     def descr_repr(self, space): return self.descr_str(space)
@@ -68,7 +74,7 @@ class W_CoreTerm(W_Root):
         if not isinstance(w_term, W_CoreTerm):
             raise OperationError(space.w_TypeError, space.wrap("need a CoreTerm"))
         w_result = space.allocate_instance(W_CoreTerm, w_subtype)
-        W_CoreTerm.__init__(w_result, space, w_term.w_name, w_term.w_args)
+        W_CoreTerm.__init__(w_result, space, w_term.w_name, w_term.args_w)
         return w_result
 
 
