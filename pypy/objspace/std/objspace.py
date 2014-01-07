@@ -487,7 +487,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.listview_unicode()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_unicode()
-        if isinstance(w_obj, W_UnicodeObject) and self._uses_no_iter(w_obj):
+        if isinstance(w_obj, W_UnicodeObject) and self._uses_unicode_iter(w_obj):
             return w_obj.listview_unicode()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_unicode()
@@ -526,8 +526,9 @@ class StdObjSpace(ObjSpace):
         from pypy.objspace.descroperation import tuple_iter
         return self.lookup(w_obj, '__iter__') is tuple_iter(self)
 
-    def _uses_no_iter(self, w_obj):
-        return self.lookup(w_obj, '__iter__') is None
+    def _uses_unicode_iter(self, w_obj):
+        from pypy.objspace.descroperation import unicode_iter
+        return self.lookup(w_obj, '__iter__') is unicode_iter(self)
 
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
