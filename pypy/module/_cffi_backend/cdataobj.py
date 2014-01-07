@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 
-from rpython.rlib import objectmodel, rgc
+from rpython.rlib import rgc
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
