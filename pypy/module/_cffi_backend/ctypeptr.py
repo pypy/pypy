@@ -81,7 +81,7 @@ class W_CTypePtrOrArray(W_CType):
               (self.ctitem.is_primitive_integer and
                self.ctitem.size == rffi.sizeof(lltype.Char))):
             if not space.isinstance_w(w_ob, space.w_str):
-                raise self._convert_error("str or list or tuple", w_ob)
+                raise self._convert_error("bytes or list or tuple", w_ob)
             s = space.str_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
