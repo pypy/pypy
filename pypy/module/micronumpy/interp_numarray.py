@@ -731,11 +731,15 @@ class __extend__(W_NDimArray):
     def descr_view(self, space, w_dtype=None, w_type=None):
         if not w_type and w_dtype:
             try:
-                if space.is_true(space.issubtype(w_dtype, space.gettypefor(W_NDimArray))):
+                if space.is_true(space.issubtype(
+                        w_dtype, space.gettypefor(W_NDimArray))):
                     w_type = w_dtype
                     w_dtype = None
-            except (OperationError, TypeError):
-                pass
+            except OperationError, e:
+                if e.match(space, space.w_TypeError):
+                    pass
+                else:
+                    raise
         if w_dtype:
             dtype = space.interp_w(interp_dtype.W_Dtype,
                 space.call_function(space.gettypefor(interp_dtype.W_Dtype),
@@ -1185,12 +1189,15 @@ app_take = applevel(r"""
     def take(a, indices, axis, out, mode):
         assert mode == 'raise'
         if axis is None:
-            res = a.ravel()[indices]
+            from numpy import array
+            indices = array(indices)
+            res = a.ravel()[indices.ravel()].reshape(indices.shape)
         else:
+            from operator import mul
             if axis < 0: axis += len(a.shape)
             s0, s1 = a.shape[:axis], a.shape[axis+1:]
-            l0 = prod(s0) if s0 else 1
-            l1 = prod(s1) if s1 else 1
+            l0 = reduce(mul, s0) if s0 else 1
+            l1 = reduce(mul, s1) if s1 else 1
             res = a.reshape((l0, -1, l1))[:,indices,:].reshape(s0 + (-1,) + s1)
         if out is not None:
             out[:] = res
@@ -1439,12 +1446,11 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         arr_iter.next()
     return w_arr
 
-@unwrap_spec(order=str)
-def zeros(space, w_shape, w_dtype=None, order='C'):
+def zeros(space, w_shape, w_dtype=None, w_order=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    return W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
+    return W_NDimArray.from_shape(space, shape, dtype=dtype)
 
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):

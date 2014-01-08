@@ -75,6 +75,11 @@ class AppTestSupport(BaseNumpyAppTest):
         b = matrix(a)
         assert isinstance(b, matrix)
         assert (b == a).all()
+        a = array(5)[()]
+        for s in [matrix, ndarray]:
+            b = a.view(s)
+            assert b == a
+            assert type(b) is type(a)
 
     def test_subtype_like_matrix(self):
         import numpy as np

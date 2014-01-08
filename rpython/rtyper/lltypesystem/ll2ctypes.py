@@ -403,7 +403,12 @@ def convert_struct(container, cstruct=None, delayed_converters=None):
         # bigger structure at once
         parent, parentindex = lltype.parentlink(container)
         if parent is not None:
-            convert_struct(parent)
+            if isinstance(parent, lltype._struct):
+                convert_struct(parent)
+            elif isinstance(parent, lltype._array):
+                convert_array(parent)
+            else:
+                raise AssertionError(type(parent))
             return
         # regular case: allocate a new ctypes Structure of the proper type
         cls = get_ctypes_type(STRUCT)

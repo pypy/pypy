@@ -1433,3 +1433,14 @@ class TestPlatform(object):
     def test_llgcopaque_eq(self):
         assert _llgcopaque(1) != None
         assert _llgcopaque(0) == None
+
+    def test_array_of_struct(self):
+        A2 = lltype.Array(('a', lltype.Signed), ('b', lltype.Signed))
+        a = lltype.malloc(A2, 10, flavor='raw')
+        a[3].b = 42
+        ac = lltype2ctypes(a[3])
+        assert ac.contents.b == 42
+        ac.contents.a = 17
+        assert a[3].a == 17
+        #lltype.free(a, flavor='raw')
+        py.test.skip("free() not working correctly here...")
