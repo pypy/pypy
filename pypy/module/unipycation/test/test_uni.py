@@ -260,3 +260,21 @@ Undefined procedure: willsmith/3"""
         assert len(g) == 1
         assert g[0] == [uni.Term('c', [0, 0])]
         assert isinstance(g.args[0], list)
+
+    def test_term_reuse(self):
+        import uni
+
+        e = uni.Engine("f(card(5, D)) :- g(D). g(d). g(c).")
+
+        sols = [ x for x, in e.db.f.iter(None) ]
+
+        assert sols[0].name == "card"
+        assert len(sols[0]) == 2
+        assert sols[0][0] == 5
+        print(sols[0][1]) # prints "c"
+        assert sols[0][1] == "d" # BOOM
+
+        assert sols[1].name == "card"
+        assert len(sols[1]) == 2
+        assert sols[1][0] == 5
+        assert sols[1][1] == "c"
