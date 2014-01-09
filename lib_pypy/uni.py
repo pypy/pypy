@@ -3,14 +3,36 @@ from unipycation import CoreTerm, Var, CoreEngine, PrologError
 
 class InstantiationError(Exception): pass
 
-class Term(CoreTerm):
-    def __getitem__(self, i):
-        res = CoreTerm.__getitem__(self, i)
-        return Predicate._back_to_py(res)
+class Term(object):
+    def __init__(self, symbol, args):
+        self.name = symbol
+        self.args = tuple(args)
 
-    def _getargs(self):
-        return [Predicate._back_to_py(o) for o in CoreTerm.args.__get__(self)]
-    args = property(_getargs)
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        if self.name != other.name:
+            return False
+        return self.args == other.args
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __getitem__(self, index):
+        return self.args[index]
+
+    def __len__(self):
+        return len(self.args)
+
+    @staticmethod
+    def _from_term(t):
+        assert isinstance(t, CoreTerm)
+        args = tuple(unrolling_map(Predicate._back_to_py, t.args))
+        return Term(t.name, args)
+
+    def __str__(self):
+        return "%s(%s)" % (self.name, ", ".join([str(a) for a in self.args]))
+    __repr__ = __str__
 
 
 def build_prolog_list(elems):
@@ -20,7 +42,7 @@ def build_prolog_list(elems):
     e = "[]"
     i = n_elems - 1
     while i >= 0:
-        e = Term(".", [elems[i], e])
+        e = CoreTerm(".", [elems[i], e])
         i -= 1
     return e
 
@@ -82,6 +104,9 @@ class Predicate(object):
     def _convert_to_prolog(e):
         if isinstance(e, list):
             return build_prolog_list(e)
+        elif isinstance(e, Term):
+            args = unrolling_map(Predicate._convert_to_prolog, e.args)
+            return CoreTerm(name, args)
         else:
             return e
 
@@ -95,7 +120,8 @@ class Predicate(object):
             return unpack_prolog_list(e)
         else:
             # is a Term
-            return Term._from_term(e)
+            args = tuple(unrolling_map(Predicate._back_to_py, e.args))
+            return Term(e.name, args)
 
     @staticmethod
     def _make_result_tuple(sol):
@@ -111,7 +137,7 @@ class Predicate(object):
                 return var
             return self._convert_to_prolog(e)
         term_args = unrolling_map(_convert_arg, args)
-        t = Term(self.name, term_args)
+        t = CoreTerm(self.name, term_args)
         return self._actual_call(t, vs)
 
     def _actual_call(self, t, vs):
@@ -153,16 +179,9 @@ class Database(object):
 class TermPool(object):
     """ Represents the term pool, some magic to make term creation prettier """
 
-    @staticmethod
-    def _magic_convert(name, args):
-        """ For now this is where pylists become cons chains in term args """
-
-        new_args = unrolling_map(Predicate._convert_to_prolog, args)
-        return Term(name, new_args)
-
     def __getattr__(self, name):
         # Note that we cant memoise these due to the args being variable
-        return lambda *args : TermPool._magic_convert(name, args)
+        return lambda *args : Term(name, args)
 
 
 def unrolling_map(fun, sequence):
