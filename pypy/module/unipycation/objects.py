@@ -66,7 +66,6 @@ class W_CoreTerm(W_Root):
         for i, w_arg in enumerate(self.args_w):
             args_strs.append(space.str_w(space.str(w_arg)))
         return space.wrap("%s(%s)" % (space.str_w(self.w_name), ", ".join(args_strs)))
-
     def descr_repr(self, space): return self.descr_str(space)
 
 W_CoreTerm.typedef = TypeDef("CoreTerm",
