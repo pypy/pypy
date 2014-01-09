@@ -9,7 +9,6 @@ DIR=$(cd $(dirname $0); pwd -P)
 DEPSDIR=${DIR}/deps
 PYROBASE=${DEPSDIR}/pyrolog-unipycation
 SHAREDBASE=${DEPSDIR}/unipycation-shared
-MAKE=make
 ENV_SCRIPT=${DIR}/env.sh
 
 echo "\nRemoving existing deps (if any)..."
