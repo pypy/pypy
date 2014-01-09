@@ -84,14 +84,6 @@ class W_CoreTerm(W_Root):
         res = "%s(%s, %s)" % (space.type(self).getname(space), name, argsstr)
         return space.wrap(res)
 
-    @staticmethod
-    def _from_term(space, w_subtype, w_t):
-        if not isinstance(w_t, W_CoreTerm):
-            raise OperationError(space.w_TypeError, space.wrap("need a CoreTerm"))
-        w_result = space.allocate_instance(W_CoreTerm, w_subtype)
-        W_CoreTerm.__init__(w_result, space, w_t.p_term)
-        return w_result
-
 
 W_CoreTerm.typedef = TypeDef("CoreTerm",
     __eq__ = interp2app(W_CoreTerm.descr_eq),
@@ -103,7 +95,6 @@ W_CoreTerm.typedef = TypeDef("CoreTerm",
     __repr__ = interp2app(W_CoreTerm.descr_repr),
     args = GetSetProperty(W_CoreTerm.prop_getargs),
     name = GetSetProperty(W_CoreTerm.prop_getname),
-    _from_term = interp2app(W_CoreTerm._from_term, as_classmethod=True),
 )
 
 
