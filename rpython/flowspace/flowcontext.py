@@ -16,6 +16,7 @@ from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
 from rpython.flowspace.operation import op
 
+w_None = const(None)
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -472,7 +473,7 @@ class FlowSpaceFrame(object):
 
         except Raise as e:
             w_exc = e.w_exc
-            if w_exc.w_type == self.space.w_ImportError:
+            if w_exc.w_type == const(ImportError):
                 msg = 'import statement always raises %s' % e
                 raise ImportError(msg)
             link = Link([w_exc.w_type, w_exc.w_value], self.graph.exceptblock)
@@ -637,7 +638,7 @@ class FlowSpaceFrame(object):
         if self.guessbool(self.space.call_function(const(isinstance), w_arg1,
                 const(type))):
             # this is for all cases of the form (Class, something)
-            if self.guessbool(op.is_(w_arg2, self.space.w_None).eval(self)):
+            if self.guessbool(op.is_(w_arg2, w_None).eval(self)):
                 # raise Type: we assume we have to instantiate Type
                 w_value = self.space.call_function(w_arg1)
             else:
@@ -659,7 +660,6 @@ class FlowSpaceFrame(object):
         return FSException(w_type, w_value)
 
     def RAISE_VARARGS(self, nbargs):
-        space = self.space
         if nbargs == 0:
             if self.last_exception is not None:
                 w_exc = self.last_exception
@@ -676,7 +676,7 @@ class FlowSpaceFrame(object):
             operror = self.exc_from_raise(w_type, w_value)
         else:
             w_type = self.popvalue()
-            operror = self.exc_from_raise(w_type, space.w_None)
+            operror = self.exc_from_raise(w_type, w_None)
         raise Raise(operror)
 
     def IMPORT_NAME(self, nameindex):
@@ -708,7 +708,7 @@ class FlowSpaceFrame(object):
         # item (unlike CPython which can have 1, 2 or 3 items):
         #   [subclass of FlowSignal]
         w_top = self.popvalue()
-        if w_top == self.space.w_None:
+        if w_top == w_None:
             # finally: block with no unroller active
             return
         elif isinstance(w_top, FlowSignal):
@@ -799,8 +799,7 @@ class FlowSpaceFrame(object):
             w_nextitem = op.next(w_iterator).eval(self)
         except Raise as e:
             w_exc = e.w_exc
-            if not self.space.exception_match(w_exc.w_type,
-                                              self.space.w_StopIteration):
+            if not self.space.exception_match(w_exc.w_type, const(StopIteration)):
                 raise
             # iterator exhausted
             self.popvalue()
@@ -844,7 +843,6 @@ class FlowSpaceFrame(object):
             w_exitfunc = self.popvalue()
             unroller = self.peekvalue(0)
 
-        w_None = self.space.w_None
         if isinstance(unroller, Raise):
             w_exc = unroller.w_exc
             # The annotator won't allow to merge exception types with None.
@@ -1020,15 +1018,15 @@ class FlowSpaceFrame(object):
         self.pushvalue(w_result)
 
     def SLICE_0(self, oparg):
-        self.slice(self.space.w_None, self.space.w_None)
+        self.slice(w_None, w_None)
 
     def SLICE_1(self, oparg):
         w_start = self.popvalue()
-        self.slice(w_start, self.space.w_None)
+        self.slice(w_start, w_None)
 
     def SLICE_2(self, oparg):
         w_end = self.popvalue()
-        self.slice(self.space.w_None, w_end)
+        self.slice(w_None, w_end)
 
     def SLICE_3(self, oparg):
         w_end = self.popvalue()
@@ -1041,15 +1039,15 @@ class FlowSpaceFrame(object):
         op.setslice(w_obj, w_start, w_end, w_newvalue).eval(self)
 
     def STORE_SLICE_0(self, oparg):
-        self.storeslice(self.space.w_None, self.space.w_None)
+        self.storeslice(w_None, w_None)
 
     def STORE_SLICE_1(self, oparg):
         w_start = self.popvalue()
-        self.storeslice(w_start, self.space.w_None)
+        self.storeslice(w_start, w_None)
 
     def STORE_SLICE_2(self, oparg):
         w_end = self.popvalue()
-        self.storeslice(self.space.w_None, w_end)
+        self.storeslice(w_None, w_end)
 
     def STORE_SLICE_3(self, oparg):
         w_end = self.popvalue()
@@ -1061,15 +1059,15 @@ class FlowSpaceFrame(object):
         op.delslice(w_obj, w_start, w_end).eval(self)
 
     def DELETE_SLICE_0(self, oparg):
-        self.deleteslice(self.space.w_None, self.space.w_None)
+        self.deleteslice(w_None, w_None)
 
     def DELETE_SLICE_1(self, oparg):
         w_start = self.popvalue()
-        self.deleteslice(w_start, self.space.w_None)
+        self.deleteslice(w_start, w_None)
 
     def DELETE_SLICE_2(self, oparg):
         w_end = self.popvalue()
-        self.deleteslice(self.space.w_None, w_end)
+        self.deleteslice(w_None, w_end)
 
     def DELETE_SLICE_3(self, oparg):
         w_end = self.popvalue()
@@ -1108,7 +1106,7 @@ class FlowSpaceFrame(object):
         if numargs == 3:
             w_step = self.popvalue()
         elif numargs == 2:
-            w_step = self.space.w_None
+            w_step = w_None
         else:
             raise BytecodeCorruption
         w_end = self.popvalue()

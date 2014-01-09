@@ -3,7 +3,6 @@ with rpython.flowspace.flowcontext.
 """
 
 import __builtin__
-import sys
 import types
 from inspect import CO_NEWLOCALS
 
@@ -39,23 +38,6 @@ class FlowObjSpace(object):
     the space operations that the interpreter generates when it interprets
     (the bytecode of) some function.
     """
-    w_None = Constant(None)
-    sys = Constant(sys)
-    w_False = Constant(False)
-    w_True = Constant(True)
-    w_type = Constant(type)
-    w_tuple = Constant(tuple)
-    for exc in [KeyError, ValueError, IndexError, StopIteration,
-                AssertionError, TypeError, AttributeError, ImportError]:
-        clsname = exc.__name__
-        locals()['w_' + clsname] = Constant(exc)
-
-    # the following exceptions should not show up
-    # during flow graph construction
-    w_NameError = 'NameError'
-    w_UnboundLocalError = 'UnboundLocalError'
-    specialcases = SPECIAL_CASES
-
     def build_flow(self, func):
         return build_flow(func, self)
 
@@ -128,7 +110,7 @@ class FlowObjSpace(object):
                 fn = fn._flowspace_rewrite_directly_as_
                 w_callable = const(fn)
             try:
-                sc = self.specialcases[fn]   # TypeError if 'fn' not hashable
+                sc = SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
             except (KeyError, TypeError):
                 pass
             else:
