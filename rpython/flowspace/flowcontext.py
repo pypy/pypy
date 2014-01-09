@@ -4,9 +4,11 @@ with rpython.flowspace.objspace.
 
 import sys
 import collections
+import types
 
 from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
+from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
     c_last_exception, const, FSException)
@@ -620,8 +622,29 @@ class FlowSpaceFrame(object):
     def cmp_is_not(self, w_1, w_2):
         return self.not_(op.is_(w_1, w_2).eval(self))
 
+    def exception_match(self, w_exc_type, w_check_class):
+        """Checks if the given exception type matches 'w_check_class'."""
+        if not isinstance(w_check_class, Constant):
+            raise FlowingError("Non-constant except guard.")
+        check_class = w_check_class.value
+        if check_class in (NotImplementedError, AssertionError):
+            raise FlowingError(
+                "Catching %s is not valid in RPython" % check_class.__name__)
+        if not isinstance(check_class, tuple):
+            # the simple case
+            return self.guessbool(op.issubtype(w_exc_type, w_check_class).eval(self))
+        # special case for StackOverflow (see rlib/rstackovf.py)
+        if check_class == rstackovf.StackOverflow:
+            w_real_class = const(rstackovf._StackOverflow)
+            return self.guessbool(op.issubtype(w_exc_type, w_real_class).eval(self))
+        # checking a tuple of classes
+        for klass in w_check_class.value:
+            if self.exception_match(w_exc_type, const(klass)):
+                return True
+        return False
+
     def cmp_exc_match(self, w_1, w_2):
-        return const(self.space.exception_match(w_1, w_2))
+        return const(self.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum):
         w_2 = self.popvalue()
@@ -797,15 +820,13 @@ class FlowSpaceFrame(object):
         w_iterator = self.peekvalue()
         try:
             w_nextitem = op.next(w_iterator).eval(self)
-        except Raise as e:
-            w_exc = e.w_exc
-            if not self.space.exception_match(w_exc.w_type, const(StopIteration)):
-                raise
-            # iterator exhausted
-            self.popvalue()
-            return target
-        else:
             self.pushvalue(w_nextitem)
+        except Raise as e:
+            if self.exception_match(e.w_exc.w_type, const(StopIteration)):
+                self.popvalue()
+                return target
+            else:
+                raise
 
     def SETUP_LOOP(self, target):
         block = LoopBlock(self, target)
@@ -984,10 +1005,20 @@ class FlowSpaceFrame(object):
         w_varargs = self.popvalue()
         self.call_function(oparg, w_varargs, w_varkw)
 
+    def newfunction(self, w_code, defaults_w):
+        if not all(isinstance(value, Constant) for value in defaults_w):
+            raise FlowingError("Dynamically created function must"
+                    " have constant default values.")
+        code = w_code.value
+        globals = self.w_globals.value
+        defaults = tuple([default.value for default in defaults_w])
+        fn = types.FunctionType(code, globals, code.co_name, defaults)
+        return Constant(fn)
+
     def MAKE_FUNCTION(self, numdefaults):
         w_codeobj = self.popvalue()
         defaults = self.popvalues(numdefaults)
-        fn = self.space.newfunction(w_codeobj, self.w_globals, defaults)
+        fn = self.newfunction(w_codeobj, defaults)
         self.pushvalue(fn)
 
     def STORE_ATTR(self, nameindex):

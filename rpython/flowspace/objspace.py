@@ -16,7 +16,6 @@ from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
 from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.specialcase import SPECIAL_CASES
-from rpython.rlib import rstackovf
 
 
 
@@ -40,38 +39,6 @@ class FlowObjSpace(object):
     """
     def build_flow(self, func):
         return build_flow(func, self)
-
-    def newfunction(self, w_code, w_globals, defaults_w):
-        if not all(isinstance(value, Constant) for value in defaults_w):
-            raise FlowingError("Dynamically created function must"
-                    " have constant default values.")
-        code = w_code.value
-        globals = w_globals.value
-        defaults = tuple([default.value for default in defaults_w])
-        fn = types.FunctionType(code, globals, code.co_name, defaults)
-        return Constant(fn)
-
-    def exception_match(self, w_exc_type, w_check_class):
-        """Checks if the given exception type matches 'w_check_class'."""
-        frame = self.frame
-        if not isinstance(w_check_class, Constant):
-            raise FlowingError("Non-constant except guard.")
-        check_class = w_check_class.value
-        if check_class in (NotImplementedError, AssertionError):
-            raise FlowingError(
-                "Catching %s is not valid in RPython" % check_class.__name__)
-        if not isinstance(check_class, tuple):
-            # the simple case
-            return frame.guessbool(op.issubtype(w_exc_type, w_check_class).eval(frame))
-        # special case for StackOverflow (see rlib/rstackovf.py)
-        if check_class == rstackovf.StackOverflow:
-            w_real_class = const(rstackovf._StackOverflow)
-            return frame.guessbool(op.issubtype(w_exc_type, w_real_class).eval(frame))
-        # checking a tuple of classes
-        for klass in w_check_class.value:
-            if self.exception_match(w_exc_type, const(klass)):
-                return True
-        return False
 
     # ____________________________________________________________
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
