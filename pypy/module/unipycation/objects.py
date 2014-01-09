@@ -69,15 +69,6 @@ class W_CoreTerm(W_Root):
 
     def descr_repr(self, space): return self.descr_str(space)
 
-    @staticmethod
-    def _from_term(space, w_subtype, w_term):
-        if not isinstance(w_term, W_CoreTerm):
-            raise OperationError(space.w_TypeError, space.wrap("need a CoreTerm"))
-        w_result = space.allocate_instance(W_CoreTerm, w_subtype)
-        W_CoreTerm.__init__(w_result, space, w_term.w_name, w_term.args_w)
-        return w_result
-
-
 W_CoreTerm.typedef = TypeDef("CoreTerm",
     __eq__ = interp2app(W_CoreTerm.descr_eq),
     __getitem__ = interp2app(W_CoreTerm.descr_getitem),
@@ -88,7 +79,6 @@ W_CoreTerm.typedef = TypeDef("CoreTerm",
     __repr__ = interp2app(W_CoreTerm.descr_repr),
     args = GetSetProperty(W_CoreTerm.prop_getargs),
     name = GetSetProperty(W_CoreTerm.prop_getname),
-    _from_term = interp2app(W_CoreTerm._from_term, as_classmethod=True),
 )
 
 # ---
