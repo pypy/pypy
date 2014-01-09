@@ -3,7 +3,6 @@ with rpython.flowspace.flowcontext.
 """
 
 import __builtin__
-import types
 from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.argument import CallSpec
@@ -16,7 +15,6 @@ from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
 from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.specialcase import SPECIAL_CASES
-
 
 
 def _assert_rpythonic(func):
@@ -39,14 +37,6 @@ class FlowObjSpace(object):
     """
     def build_flow(self, func):
         return build_flow(func, self)
-
-    # ____________________________________________________________
-    def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
-        try:
-            mod = __import__(name, glob, loc, frm, level)
-        except ImportError as e:
-            raise Raise(const(e))
-        return const(mod)
 
     def import_from(self, w_module, w_name):
         assert isinstance(w_module, Constant)

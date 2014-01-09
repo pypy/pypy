@@ -702,13 +702,19 @@ class FlowSpaceFrame(object):
             operror = self.exc_from_raise(w_type, w_None)
         raise Raise(operror)
 
+    def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
+        try:
+            mod = __import__(name, glob, loc, frm, level)
+        except ImportError as e:
+            raise Raise(const(e))
+        return const(mod)
+
     def IMPORT_NAME(self, nameindex):
-        space = self.space
         modulename = self.getname_u(nameindex)
         glob = self.w_globals.value
         fromlist = self.popvalue().value
         level = self.popvalue().value
-        w_obj = space.import_name(modulename, glob, None, fromlist, level)
+        w_obj = self.import_name(modulename, glob, None, fromlist, level)
         self.pushvalue(w_obj)
 
     def IMPORT_FROM(self, nameindex):
