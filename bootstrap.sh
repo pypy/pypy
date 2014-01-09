@@ -26,7 +26,7 @@ cd ${DEPSDIR} && \
 	ln -sf ${SHAREDBASE}/unipycation_shared/uni.py ${DIR}/lib_pypy/
 
 echo "#!/bin/sh" > ${ENV_SCRIPT}
-echo "export PYTHONPATH=${PYTHONPATH}:${PYROBASE}:${SHAREDBASE}" >> ${ENV_SCRIPT}
+echo "export PYTHONPATH=\${PYTHONPATH}:${PYROBASE}:${SHAREDBASE}" >> ${ENV_SCRIPT}
 
 echo "\nDone!\n\nNow source ${ENV_SCRIPT} to setup your environment"
 echo "E.g. '. ./env.sh' or 'source ./env.sh'"
