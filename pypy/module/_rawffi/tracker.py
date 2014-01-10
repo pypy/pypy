@@ -4,7 +4,7 @@ by _rawffi. Used for debugging ctypes
 """
 
 class Tracker(object):
-    DO_TRACING = True
+    DO_TRACING = False      # make sure this stays False by default!
 
     def __init__(self):
         self.alloced = {}
