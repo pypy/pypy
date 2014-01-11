@@ -520,7 +520,7 @@ class OptString(optimizer.Optimization):
         elif ((src.is_virtual() or src.is_constant()) and
               srcstart.is_constant() and dststart.is_constant() and
               length.is_constant() and
-              (length.force_box(self).getint() < 20 or (src.is_virtual() and dst_virtual))):
+              (length.force_box(self).getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
             src_start = srcstart.force_box(self).getint()
             dst_start = dststart.force_box(self).getint()
             actual_length = length.force_box(self).getint()
