@@ -122,6 +122,7 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
                                               W_WeakrefBase.activate_callback,
                                               'weakref callback of ')
 
+    @jit.dont_look_inside
     def make_weakref_with_callback(self, w_subtype, w_obj, w_callable):
         space = self.space
         w_ref = space.allocate_instance(W_Weakref, w_subtype)
@@ -243,10 +244,11 @@ def getlifelinewithcallbacks(space, w_obj):
 def get_or_make_weakref(space, w_subtype, w_obj):
     return getlifeline(space, w_obj).get_or_make_weakref(w_subtype, w_obj)
 
-@jit.dont_look_inside
+
 def make_weakref_with_callback(space, w_subtype, w_obj, w_callable):
     lifeline = getlifelinewithcallbacks(space, w_obj)
     return lifeline.make_weakref_with_callback(w_subtype, w_obj, w_callable)
+
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
                         __args__=None):
