@@ -1278,8 +1278,8 @@ class RegAlloc(BaseRegalloc):
     def consider_stm_transaction_break(self, op):
         #
         # only save regs for the should_break_transaction call
-        self.xrm.before_call()
-        self.rm.before_call()
+        self.xrm.before_call(save_all_regs=1)
+        self.rm.before_call(save_all_regs=1)
         gcmap = self.get_gcmap() # allocate the gcmap *before*
         #
         self.assembler.stm_transaction_break(gcmap)

@@ -67,7 +67,7 @@ class __extend__(pyframe.PyFrame):
                         self=self, co_code=co_code,
                         next_instr=next_instr, ec=ec)
                     # nothing inbetween!
-                    if rstm.jit_should_break_transaction(False):
+                    if rstm.jit_stm_should_break_transaction(False):
                         rstm.jit_stm_transaction_break_point()
                     self = self._hints_for_stm()
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)

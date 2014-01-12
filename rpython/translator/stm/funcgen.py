@@ -50,6 +50,10 @@ def stm_initialize(funcgen, op):
 
 def jit_stm_transaction_break_point(funcgen, op):
     return '/* jit_stm_transaction_break_point */'
+
+def jit_stm_should_break_transaction(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = 0; /* jit_stm_should_break_transaction */' % (result, )
     
 def stm_finalize(funcgen, op):
     return 'stm_finalize();'

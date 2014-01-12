@@ -623,6 +623,7 @@ class FunctionCodeGenerator(object):
     OP_STM_CLEAR_EXCEPTION_DATA_ON_ABORT= _OP_STM
     OP_STM_ALLOCATE_NONMOVABLE_INT_ADR  = _OP_STM
     OP_JIT_STM_TRANSACTION_BREAK_POINT  = _OP_STM
+    OP_JIT_STM_SHOULD_BREAK_TRANSACTION = _OP_STM
 
     def OP_STM_IGNORED_START(self, op):
         return '/* stm_ignored_start */'

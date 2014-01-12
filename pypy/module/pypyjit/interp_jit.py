@@ -70,7 +70,7 @@ class __extend__(PyFrame):
                     frame=self, next_instr=next_instr, pycode=pycode,
                     is_being_profiled=is_being_profiled)
                 # nothing inbetween!
-                if rstm.jit_should_break_transaction(False):
+                if rstm.jit_stm_should_break_transaction(False):
                     rstm.jit_stm_transaction_break_point()
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
@@ -97,7 +97,7 @@ class __extend__(PyFrame):
             self.last_instr = intmask(jumpto)
             ec.bytecode_trace(self, decr_by)
             jumpto = r_uint(self.last_instr)
-            if rstm.jit_should_break_transaction(True):
+            if rstm.jit_stm_should_break_transaction(True):
                 rstm.jit_stm_transaction_break_point()
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
