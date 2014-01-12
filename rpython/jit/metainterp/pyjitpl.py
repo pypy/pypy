@@ -201,7 +201,7 @@ class MIFrame(object):
             funcaddr = llmemory.cast_ptr_to_adr(funcptr)
             mi._record_helper_nonpure_varargs(
                 rop.CALL, resbox, funcdescr,
-                [ConstInt(mi.cpu.cast_adr_to_int(funcaddr)),])
+                [ConstInt(heaptracker.adr2int(funcaddr)),])
             return resbox
         else:
             return ConstInt(0)
@@ -1502,8 +1502,10 @@ class MetaInterpStaticData(object):
         if warmrunnerdesc:
             self.config = warmrunnerdesc.translator.config
         else:
-            from rpython.config.translationoption import get_combined_translation_config
-            self.config = get_combined_translation_config(translating=True)
+            self.config = cpu.rtyper.annotator.translator.config
+        # else:
+        #     from rpython.config.translationoption import get_combined_translation_config
+        #     self.config = get_combined_translation_config(translating=True)
 
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]
@@ -1523,7 +1525,8 @@ class MetaInterpStaticData(object):
             self.stm_should_break_transaction = rffi.llexternal(
                 'stm_should_break_transaction',
                 [], lltype.Bool,
-                sandboxsafe=True, _nowrapper=True, transactionsafe=True)
+                sandboxsafe=True, _nowrapper=True, transactionsafe=True,
+                _callable=lambda : False)
             FUNC = lltype.typeOf(self.stm_should_break_transaction).TO
 
             ei = EffectInfo([], [], [], [],

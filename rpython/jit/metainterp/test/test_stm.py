@@ -14,6 +14,19 @@ class STMTests:
             return rstm.jit_stm_should_break_transaction(False)
         res = self.interp_operations(g, [])
         assert res == False
+        self.check_operations_history({})
+
+    def test_not_removed(self):
+        import time
+        def g():
+            time.sleep(0)
+            return rstm.jit_stm_should_break_transaction(False)
+        res = self.interp_operations(g, [], translationoptions={"stm":True})
+        assert res == False
+        self.check_operations_history(call=1, call_may_force=1)
+        
+            
+    
 
 class TestLLtype(STMTests, LLJitMixin):
     pass
