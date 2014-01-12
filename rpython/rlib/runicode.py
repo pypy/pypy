@@ -988,6 +988,8 @@ def str_decode_ascii(s, size, errors, final=False,
     return result.build(), pos
 
 
+# Specialize on the errorhandler when it's a constant
+@specialize.arg_or_var(3)
 def unicode_encode_ucs1_helper(p, size, errors,
                                errorhandler=None, limit=256):
     if errorhandler is None:
