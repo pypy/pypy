@@ -24,9 +24,23 @@ class STMTests:
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
         self.check_operations_history(call=1, call_may_force=1)
+
+    def test_transaction_break(self):
+        def g():
+            rstm.jit_stm_transaction_break_point()
+            return 42
+        self.interp_operations(g, [], translationoptions={"stm":True})
+        self.check_operations_history({'stm_transaction_break':1})
         
             
     
 
 class TestLLtype(STMTests, LLJitMixin):
     pass
+
+
+
+
+
+
+

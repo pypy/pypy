@@ -704,6 +704,10 @@ def op_jit_assembler_call(funcptr, *args):
 def op_jit_stm_should_break_transaction(if_there_is_no_other):
     return False
 
+def op_jit_stm_transaction_break_point():
+    pass
+
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

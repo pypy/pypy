@@ -206,8 +206,10 @@ class MIFrame(object):
         else:
             return ConstInt(0)
 
+    @arguments()
     def opimpl_stm_transaction_break(self):
-        self.execute(rop.STM_TRANSACTION_BREAK)
+        self.metainterp._record_helper_nonpure_varargs(
+            rop.STM_TRANSACTION_BREAK, None, None, [])
     
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',

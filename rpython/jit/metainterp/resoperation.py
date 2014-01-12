@@ -510,7 +510,7 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
     'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
     'KEEPALIVE/1',
-    'STM_TRANSACTION_BREAK/1',
+    'STM_TRANSACTION_BREAK/0',
     'STM_SET_REVISION_GC/1d', # not really GC, writes raw to the header
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----

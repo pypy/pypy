@@ -524,7 +524,7 @@ LL_OPERATIONS = {
     'jit_assembler_call': LLOp(canrun=True,   # similar to an 'indirect_call'
                                canraise=(Exception,),
                                canmallocgc=True),
-    'jit_stm_transaction_break_point' : LLOp(canmallocgc=True),
+    'jit_stm_transaction_break_point' : LLOp(canrun=True,canmallocgc=True),
     'jit_stm_should_break_transaction' : LLOp(canrun=True),
 
     # __________ GC operations __________
