@@ -363,6 +363,10 @@ def set_opt_level(config, level):
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
 
+    # disallow asmgcc on OS/X
+    if config.translation.gcrootfinder == "asmgcc":
+        assert sys.platform != "darwin"
+
 # ----------------------------------------------------------------
 
 def set_platform(config):
