@@ -289,6 +289,10 @@ class W_ZipImporter(W_Root):
             return w(data)
         except (KeyError, OSError, BadZipfile):
             raise OperationError(space.w_IOError, space.wrap("Error reading file"))
+        except RZlibError, e:
+            # in this case, CPython raises the direct exception coming
+            # from the zlib module: let's to the same
+            raise zlib_error(space, e.msg)
 
     @unwrap_spec(fullname=str)
     def get_code(self, space, fullname):
@@ -387,6 +391,11 @@ def descr_new_zipimporter(space, w_type, name):
     except (BadZipfile, OSError):
         raise operationerrfmt(get_error(space),
             "%s seems not to be a zipfile", filename)
+    except RZlibError, e:
+        # in this case, CPython raises the direct exception coming
+        # from the zlib module: let's to the same
+        raise zlib_error(space, e.msg)
+
     prefix = name[len(filename):]
     if prefix.startswith(os.path.sep) or prefix.startswith(ZIPSEP):
         prefix = prefix[1:]
