@@ -1157,7 +1157,7 @@ def hexescape(builder, s, pos, digits,
 # Specialize on the errorhandler when it's a constant
 @specialize.arg_or_var(4)
 def str_decode_unicode_escape(s, size, errors, final=False,
-                              errorhandler=False,
+                              errorhandler=None,
                               unicodedata_handler=None):
     if errorhandler is None:
         errorhandler = default_unicode_error_decode
