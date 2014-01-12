@@ -893,8 +893,14 @@ class BlackholeInterpreter(object):
     def bhimpl_ref_isvirtual(x):
         return False
 
-    @arguments("i")
-    def bhimpl_stm_transaction_break(if_there_is_no_other):
+
+    @arguments("i", returns="i")
+    def bhimpl_stm_should_break_transaction(if_there_is_no_other):
+        return False
+
+
+    @arguments()
+    def bhimpl_stm_transaction_break():
         pass
     
     # ----------

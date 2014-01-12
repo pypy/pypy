@@ -525,6 +525,7 @@ LL_OPERATIONS = {
                                canraise=(Exception,),
                                canmallocgc=True),
     'jit_stm_transaction_break_point' : LLOp(canmallocgc=True),
+    'jit_stm_should_break_transaction' : LLOp(canrun=True),
 
     # __________ GC operations __________
 

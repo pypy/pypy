@@ -250,7 +250,8 @@ def make_interp(supports_call, jitted=True):
                 myjitdriver.jit_merge_point(frame=frame,
                                             code=code, pc=pc, pool=pool)
                 # nothing inbetween!
-                rstm.jit_stm_transaction_break_point(False)
+                if rstm.jit_should_break_transaction(False):
+                    rstm.jit_stm_transaction_break_point()
             opcode = ord(code[pc])
             pc += 1
             stack = frame.stack
@@ -351,7 +352,8 @@ def make_interp(supports_call, jitted=True):
                 pc += char2int(code[pc])
                 pc += 1
                 if jitted and old_pc > pc:
-                    rstm.jit_stm_transaction_break_point(True)
+                    if rstm.jit_should_break_transaction(True):
+                        rstm.jit_stm_transaction_break_point()
                     myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                               pool=pool)
                 
@@ -361,7 +363,8 @@ def make_interp(supports_call, jitted=True):
                     old_pc = pc
                     pc += char2int(code[pc]) + 1
                     if jitted and old_pc > pc:
-                        rstm.jit_stm_transaction_break_point(True)
+                        if rstm.jit_should_break_transaction(True):
+                            rstm.jit_stm_transaction_break_point()
                         myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                                   pool=pool)
                 else:
@@ -373,7 +376,8 @@ def make_interp(supports_call, jitted=True):
                     old_pc = pc
                     pc += offset
                     if jitted and old_pc > pc:
-                        rstm.jit_stm_transaction_break_point(True)
+                        if rstm.jit_should_break_transaction(True):
+                            rstm.jit_stm_transaction_break_point()
                         myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                                   pool=pool)
                         

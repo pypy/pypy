@@ -18,8 +18,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_n
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
-
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
 
 
 # ____________________________________________________________
@@ -189,13 +188,26 @@ class MIFrame(object):
 
     # ------------------------------
     @arguments("int")
-    def opimpl_stm_transaction_break(self, if_there_is_no_other):
+    def opimpl_stm_should_break_transaction(self, if_there_is_no_other):
         val = bool(if_there_is_no_other)
         mi = self.metainterp
         if (mi.stm_break_wanted or (val and not mi.stm_break_done)):
             mi.stm_break_done = True
             mi.stm_break_wanted = False
-            self.execute(rop.STM_TRANSACTION_BREAK, ConstInt(val))
+            # insert a CALL
+            resbox = history.BoxInt(0)
+            funcptr = mi.staticdata.stm_should_break_transaction
+            funcdescr = mi.staticdata.stm_should_break_transaction_descr
+            funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+            mi._record_helper_nonpure_varargs(
+                rop.CALL, resbox, funcdescr,
+                [ConstInt(mi.cpu.cast_adr_to_int(funcaddr)),])
+            return resbox
+        else:
+            return ConstInt(0)
+
+    def opimpl_stm_transaction_break(self):
+        self.execute(rop.STM_TRANSACTION_BREAK)
     
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
@@ -1507,6 +1519,22 @@ class MetaInterpStaticData(object):
         d = self.exit_frame_with_exception_descr_ref
         self.cpu.exit_frame_with_exception_descr_ref = d
 
+        if self.config.translation.stm:
+            self.stm_should_break_transaction = rffi.llexternal(
+                'stm_should_break_transaction',
+                [], lltype.Bool,
+                sandboxsafe=True, _nowrapper=True, transactionsafe=True)
+            FUNC = lltype.typeOf(self.stm_should_break_transaction).TO
+
+            ei = EffectInfo([], [], [], [],
+                            EffectInfo.EF_CANNOT_RAISE,
+                            can_invalidate=False)
+            
+            self.stm_should_break_transaction_descr = (
+                self.cpu.calldescrof(FUNC, FUNC.ARGS,
+                                     FUNC.RESULT, ei))
+
+            
     def _freeze_(self):
         return True
 
@@ -2695,7 +2723,6 @@ class MetaInterp(object):
         # if the codewriter didn't produce any OS_LIBFFI_CALL at all.
         assert self.staticdata.has_libffi_call
         #
-        from rpython.rtyper.lltypesystem import llmemory
         from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
         from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
         #

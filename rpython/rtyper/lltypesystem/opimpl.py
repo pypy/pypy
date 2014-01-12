@@ -701,6 +701,9 @@ op_raw_load.need_result_type = True
 def op_jit_assembler_call(funcptr, *args):
     return funcptr(*args)
 
+def op_jit_stm_should_break_transaction(if_there_is_no_other):
+    return False
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

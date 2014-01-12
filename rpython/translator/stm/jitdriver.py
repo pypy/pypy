@@ -18,12 +18,13 @@ def find_jit_merge_point(graph, relaxed=False):
                 and op.args[0].value == 'jit_merge_point'):
                 jitdriver = op.args[1].value
                 if not jitdriver.autoreds:
-                    if (relaxed
-                        or (i + 1 < len(block.operations)
-                            and block.operations[i+1].opname == 'jit_stm_transaction_break_point')):
-                        found.append((block, i))
-                    else:
-                        log.WARNING("ignoring jitdriver without a transaction break point in %r" % (graph,))
+                    # XXX: BUG, redo the below code in order to ensure atomicity of bytecode instrs
+                    # if (relaxed
+                    #     or (i + 1 < len(block.operations)
+                    #         and block.operations[i+1].opname == 'jit_stm_transaction_break_point')):
+                    found.append((block, i))
+                    # else:
+                    #     log.WARNING("ignoring jitdriver without a transaction break point in %r" % (graph,))
                 else:
                     log.WARNING("ignoring jitdriver with autoreds in %r" % (
                         graph,))        # XXX XXX!
