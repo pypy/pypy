@@ -13,9 +13,6 @@ class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
 
-    def new(self):
-        return OptIntBounds()
-
     def propagate_forward(self, op):
         dispatch_opt(self, op)
 
