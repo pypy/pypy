@@ -41,10 +41,6 @@ class UnrollableOptimizer(Optimizer):
             self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
         self._emit_operation(op)
 
-    def new(self):
-        new = UnrollableOptimizer(self.metainterp_sd, self.loop)
-        return self._new(new)
-
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will

@@ -20,9 +20,6 @@ class OptRewrite(Optimization):
         self.loop_invariant_results = {}
         self.loop_invariant_producer = {}
 
-    def new(self):
-        return OptRewrite()
-
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_potential(op)

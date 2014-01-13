@@ -497,9 +497,6 @@ class OptVirtualize(optimizer.Optimization):
 
     _last_guard_not_forced_2 = None
 
-    def new(self):
-        return OptVirtualize()
-
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer.cpu, known_class, box, source_op)
         self.make_equal_to(box, vvalue)
