@@ -4,8 +4,9 @@ class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
     def test_init(self):
-        import numpypy as np
+        import numpy as np
         import math
+        import sys
         assert np.intp() == np.intp(0)
         assert np.intp('123') == np.intp(123)
         raises(TypeError, np.intp, None)
@@ -17,9 +18,33 @@ class AppTestScalar(BaseNumpyAppTest):
         assert np.complex_() == np.complex_(0)
         #raises(TypeError, np.complex_, '1+2j')
         assert math.isnan(np.complex_(None))
+        for c in ['i', 'I', 'l', 'L', 'q', 'Q']:
+            assert np.dtype(c).type().dtype.char == c
+        for c in ['l', 'q']:
+            assert np.dtype(c).type(sys.maxint) == sys.maxint
+        for c in ['L', 'Q']:
+            assert np.dtype(c).type(sys.maxint + 42) == sys.maxint + 42
+
+    def test_builtin(self):
+        import numpy as np
+        assert int(np.str_('12')) == 12
+        exc = raises(ValueError, "int(np.str_('abc'))")
+        assert exc.value.message.startswith('invalid literal for int()')
+        assert oct(np.int32(11)) == '013'
+        assert oct(np.float32(11.6)) == '013'
+        assert oct(np.complex64(11-12j)) == '013'
+        assert hex(np.int32(11)) == '0xb'
+        assert hex(np.float32(11.6)) == '0xb'
+        assert hex(np.complex64(11-12j)) == '0xb'
+        assert bin(np.int32(11)) == '0b1011'
+        exc = raises(TypeError, "bin(np.float32(11.6))")
+        assert "index" in exc.value.message
+        exc = raises(TypeError, "len(np.int32(11))")
+        assert "has no len" in exc.value.message
+        assert len(np.string_('123')) == 3
 
     def test_pickle(self):
-        from numpypy import dtype, zeros
+        from numpy import dtype, zeros
         try:
             from numpy.core.multiarray import scalar
         except ImportError:
@@ -65,6 +90,9 @@ class AppTestScalar(BaseNumpyAppTest):
         a = np.bool_(True).astype('int32')
         assert type(a) is np.int32
         assert a == 1
+        a = np.str_('123').astype('int32')
+        assert type(a) is np.int32
+        assert a == 123
 
     def test_copy(self):
         import numpy as np
@@ -74,6 +102,15 @@ class AppTestScalar(BaseNumpyAppTest):
         assert b == a
         assert b is not a
 
+    def test_buffer(self):
+        import numpy as np
+        a = np.int32(123)
+        b = buffer(a)
+        assert type(b) is buffer
+        a = np.string_('abc')
+        b = buffer(a)
+        assert str(b) == a
+
     def test_squeeze(self):
         import numpy as np
         assert np.True_.squeeze() is np.True_
@@ -81,8 +118,17 @@ class AppTestScalar(BaseNumpyAppTest):
         assert a.squeeze() is a
         raises(TypeError, a.squeeze, 2)
 
+    def test_bitshift(self):
+        import numpy as np
+        assert np.int32(123) >> 1 == 61
+        assert type(np.int32(123) >> 1) is np.int_
+        assert np.int64(123) << 1 == 246
+        assert type(np.int64(123) << 1) is np.int64
+        exc = raises(TypeError, "np.uint64(123) >> 1")
+        assert 'not supported for the input types' in exc.value.message
+
     def test_attributes(self):
-        import numpypy as np
+        import numpy as np
         value = np.dtype('int64').type(12345)
         assert value.dtype == np.dtype('int64')
         assert value.size == 1

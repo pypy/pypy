@@ -10,7 +10,7 @@ class MultiArrayModule(MixedModule):
         'array': 'interp_numarray.array',
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
-        'ones': 'interp_numarray.ones',
+        'empty_like': 'interp_numarray.empty_like',
         '_reconstruct' : 'interp_numarray._reconstruct',
         'scalar' : 'interp_numarray.build_scalar',
         'dot': 'interp_arrayops.dot',
@@ -106,8 +106,6 @@ class UMathModule(MixedModule):
         ('logaddexp2', 'logaddexp2'),
         ('real', 'real'),
         ('imag', 'imag'),
-        ('ones_like', 'ones_like'),
-        ('zeros_like', 'zeros_like'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 

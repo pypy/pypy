@@ -382,7 +382,7 @@ class StdObjSpace(ObjSpace):
                 self.wrap("expected length %d, got %d" % (expected, got)))
 
     def unpackiterable(self, w_obj, expected_length=-1):
-        if isinstance(w_obj, W_AbstractTupleObject):
+        if isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
             t = w_obj.getitems_copy()
         elif type(w_obj) is W_ListObject:
             t = w_obj.getitems_copy()
@@ -396,7 +396,7 @@ class StdObjSpace(ObjSpace):
     def fixedview(self, w_obj, expected_length=-1, unroll=False):
         """ Fast paths
         """
-        if isinstance(w_obj, W_AbstractTupleObject):
+        if isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
             t = w_obj.tolist()
         elif type(w_obj) is W_ListObject:
             if unroll:
@@ -421,7 +421,7 @@ class StdObjSpace(ObjSpace):
     def listview(self, w_obj, expected_length=-1):
         if type(w_obj) is W_ListObject:
             t = w_obj.getitems()
-        elif isinstance(w_obj, W_AbstractTupleObject):
+        elif isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
             t = w_obj.getitems_copy()
         elif isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             t = w_obj.getitems()
@@ -440,7 +440,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.listview_str()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_str()
-        if isinstance(w_obj, W_BytesObject):
+        if isinstance(w_obj, W_BytesObject) and self._uses_no_iter(w_obj):
             return w_obj.listview_str()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_str()
@@ -455,7 +455,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.listview_unicode()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_unicode()
-        if isinstance(w_obj, W_UnicodeObject):
+        if isinstance(w_obj, W_UnicodeObject) and self._uses_no_iter(w_obj):
             return w_obj.listview_unicode()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_unicode()
@@ -489,6 +489,13 @@ class StdObjSpace(ObjSpace):
     def _uses_list_iter(self, w_obj):
         from pypy.objspace.descroperation import list_iter
         return self.lookup(w_obj, '__iter__') is list_iter(self)
+
+    def _uses_tuple_iter(self, w_obj):
+        from pypy.objspace.descroperation import tuple_iter
+        return self.lookup(w_obj, '__iter__') is tuple_iter(self)
+
+    def _uses_no_iter(self, w_obj):
+        return self.lookup(w_obj, '__iter__') is None
 
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):

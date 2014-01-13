@@ -286,3 +286,19 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         assert dt.num == 11
 
 
+    def test_pass_ndarray_object_to_c(self):
+        from _numpypy.multiarray import ndarray
+        mod = self.import_extension('foo', [
+                ("check_array", "METH_VARARGS",
+                '''
+                    PyObject* obj;
+                    if (!PyArg_ParseTuple(args, "O!", &PyArray_Type, &obj))
+                        return NULL;
+                    Py_INCREF(obj);
+                    return obj;
+                '''),
+                ], prologue='#include <numpy/arrayobject.h>')
+        array = ndarray((3, 4), dtype='d')
+        assert mod.check_array(array) is array
+        raises(TypeError, "mod.check_array(42)")
+        

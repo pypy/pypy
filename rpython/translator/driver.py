@@ -470,7 +470,8 @@ class TranslationDriver(SimpleTaskEngine):
         return py.path.local(newexename)
 
     def create_exe(self):
-        """ Copy the compiled executable into translator/goal
+        """ Copy the compiled executable into current directory, which is
+            pypy/goal on nightly builds
         """
         if self.exe_name is not None:
             exename = self.c_entryp
@@ -482,8 +483,11 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil.copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
-                    shutil.copyfile(str(soname.new(ext='lib')),
-                                    str(newsoname.new(ext='lib')))
+                    # the import library is named python27.lib, according
+                    # to the pragma in pyconfig.h
+                    libname = str(newsoname.dirpath().join('python27.lib'))
+                    shutil.copyfile(str(soname.new(ext='lib')), libname)
+                    self.log.info("copied: %s" % (libname,))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))

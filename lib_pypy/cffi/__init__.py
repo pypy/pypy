@@ -4,5 +4,5 @@ __all__ = ['FFI', 'VerificationError', 'VerificationMissing', 'CDefError',
 from .api import FFI, CDefError, FFIError
 from .ffiplatform import VerificationError, VerificationMissing
 
-__version__ = "0.8"
-__version_info__ = (0, 8)
+__version__ = "0.8.1"
+__version_info__ = (0, 8, 1)

@@ -42,7 +42,7 @@ class CffiHandles:
             if self.handles[d]() is None:
                 self.look_distance = d + 1
                 return d
-        # full! extend, but don't use '!=' here
+        # full! extend, but don't use '+=' here
         self.handles = self.handles + [dead_ref] * (length // 3 + 5)
         self.look_distance = length + 1
         return length

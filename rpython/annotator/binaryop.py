@@ -5,19 +5,15 @@ Binary operations between SomeValues.
 import py
 import operator
 from rpython.tool.pairtype import pair, pairtype
-from rpython.annotator.model import SomeObject, SomeInteger, SomeBool, s_Bool
-from rpython.annotator.model import SomeString, SomeChar, SomeList, SomeDict,\
-     SomeOrderedDict
-from rpython.annotator.model import SomeUnicodeCodePoint, SomeUnicodeString
-from rpython.annotator.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
-from rpython.annotator.model import SomeInstance, SomeBuiltin, SomeIterator
-from rpython.annotator.model import SomePBC, SomeFloat, s_None, SomeByteArray
-from rpython.annotator.model import SomeWeakRef
-from rpython.annotator.model import SomeAddress, SomeTypedAddressAccess
-from rpython.annotator.model import SomeSingleFloat, SomeLongFloat, SomeType
-from rpython.annotator.model import unionof, UnionError, missing_operation
-from rpython.annotator.model import read_can_only_throw
-from rpython.annotator.model import add_knowntypedata, merge_knowntypedata
+from rpython.annotator.model import (
+    SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
+    SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
+    SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
+    SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
+    SomeWeakRef, SomeAddress, SomeTypedAddressAccess, SomeSingleFloat,
+    SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
+    missing_operation, read_can_only_throw, add_knowntypedata,
+    merge_knowntypedata,)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.rlib import rarithmetic
@@ -197,7 +193,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     getitem_key = getitem_idx_key
 
 
-class __extend__(pairtype(SomeType, SomeType)):
+class __extend__(pairtype(SomeType, SomeType),
+                 pairtype(SomeType, SomeConstantType),
+                 pairtype(SomeConstantType, SomeType),):
 
     def union((obj1, obj2)):
         result = SomeType()
@@ -414,10 +412,7 @@ class __extend__(pairtype(SomeByteArray, SomeByteArray)):
         return SomeByteArray(can_be_None=can_be_None)
 
     def add((b1, b2)):
-        result = SomeByteArray()
-        if b1.is_immutable_constant() and b2.is_immutable_constant():
-            result.const = b1.const + b2.const
-        return result
+        return SomeByteArray()
 
 class __extend__(pairtype(SomeByteArray, SomeInteger)):
     def getitem((s_b, s_i)):
@@ -431,10 +426,7 @@ class __extend__(pairtype(SomeString, SomeByteArray),
                  pairtype(SomeChar, SomeByteArray),
                  pairtype(SomeByteArray, SomeChar)):
     def add((b1, b2)):
-        result = SomeByteArray()
-        if b1.is_immutable_constant() and b2.is_immutable_constant():
-            result.const = b1.const + b2.const
-        return result
+        return SomeByteArray()
 
 class __extend__(pairtype(SomeChar, SomeChar)):
 

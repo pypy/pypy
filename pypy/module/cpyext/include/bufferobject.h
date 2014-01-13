@@ -37,7 +37,7 @@ PyObject* PyBuffer_FromReadWriteMemory(void *ptr, Py_ssize_t size);
 
 PyObject* PyBuffer_New(Py_ssize_t size);
 
-void init_bufferobject(void);
+void _Py_init_bufferobject(void);
 
 #ifdef __cplusplus
 }

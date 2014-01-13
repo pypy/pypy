@@ -945,7 +945,8 @@ class EmptyListStrategy(ListStrategy):
 
     def _extend_from_iterable(self, w_list, w_iterable):
         space = self.space
-        if isinstance(w_iterable, W_AbstractTupleObject):
+        if (isinstance(w_iterable, W_AbstractTupleObject)
+                and space._uses_tuple_iter(w_iterable)):
             w_list.__init__(space, w_iterable.getitems_copy())
             return
 
