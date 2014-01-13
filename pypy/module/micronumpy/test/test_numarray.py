@@ -217,8 +217,10 @@ class TestNumArrayDirect(object):
         assert get(1, 0) == 2
         assert get(1, 1) == 3
 
+
 class AppTestNumArray(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
@@ -270,6 +272,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test uninitialized value crash?
         assert len(str(a)) > 0
 
+        import sys
+        for order in [False, True, 'C', 'F']:
+            a = ndarray.__new__(ndarray, (2, 3), float, order=order)
+            assert a.shape == (2, 3)
+            if order in [True, 'F'] and '__pypy__' not in sys.builtin_module_names:
+                assert a.flags['F']
+                assert not a.flags['C']
+            else:
+                assert a.flags['C']
+                assert not a.flags['F']
+
     def test_ndmin(self):
         from numpypy import array
 
@@ -308,6 +321,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         e = d.repeat(3, 0)
         assert e.shape == (9, 4, 0)
 
+    def test_buffer(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        b = buffer(a)
+        assert type(b) is buffer
+
     def test_type(self):
         from numpypy import array
         ar = array(range(5))
@@ -327,7 +346,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         # TypeError
         raises((TypeError, AttributeError), 'x.ndim = 3')
 
-    def test_init(self):
+    def test_zeros(self):
         from numpypy import zeros
         a = zeros(15)
         # Check that storage was actually zero'd.
@@ -335,7 +354,38 @@ class AppTestNumArray(BaseNumpyAppTest):
         # And check that changes stick.
         a[13] = 5.3
         assert a[13] == 5.3
+        assert zeros(()) == 0
         assert zeros(()).shape == ()
+        assert zeros((), dtype='S') == ''
+        assert zeros((), dtype='S').shape == ()
+
+    def test_empty_like(self):
+        import numpy as np
+        a = np.empty_like(np.zeros(()))
+        assert a.shape == ()
+        assert a.dtype == np.float_
+        a = np.zeros((2, 3))
+        assert a.shape == (2, 3)
+        a[0,0] = 1
+        b = np.empty_like(a)
+        assert b.shape == a.shape
+        assert b.dtype == a.dtype
+        assert b[0,0] != 1
+        b = np.empty_like(a, dtype='i4')
+        assert b.shape == a.shape
+        assert b.dtype == np.dtype('i4')
+        assert b[0,0] != 1
+        b = np.empty_like([1,2,3])
+        assert b.shape == (3,)
+        assert b.dtype == np.int_
+        class A(np.ndarray):
+            pass
+        b = np.empty_like(A((2, 3)))
+        assert b.shape == (2, 3)
+        assert type(b) is A
+        b = np.empty_like(A((2, 3)), subok=False)
+        assert b.shape == (2, 3)
+        assert type(b) is np.ndarray
 
     def test_size(self):
         from numpypy import array,arange,cos
@@ -381,6 +431,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = arange(3, 7, 2)
         assert (a == [3, 5]).all()
+        a = arange(3, 8, 2)
+        assert (a == [3, 5, 7]).all()
         a = arange(3, dtype=float)
         assert (a == [0., 1., 2.]).all()
         assert a.dtype is dtype(float)
@@ -434,6 +486,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array
         a = array(range(5))
         assert a[3] == 3
+
+    def test_list_of_array_init(self):
+        import numpy as np
+        a = np.array([np.array(True), np.array(False)])
+        assert a.shape == (2,)
+        assert a.dtype == np.bool_
+        assert (a == [True, False]).all()
+        a = np.array([np.array(True), np.array(2)])
+        assert a.shape == (2,)
+        assert a.dtype == np.int_
+        assert (a == [1, 2]).all()
+        a = np.array([np.array(True), np.int_(2)])
+        assert a.shape == (2,)
+        assert a.dtype == np.int_
+        assert (a == [1, 2]).all()
+        a = np.array([np.array([True]), np.array([2])])
+        assert a.shape == (2, 1)
+        assert a.dtype == np.int_
+        assert (a == [[1], [2]]).all()
 
     def test_getitem(self):
         from numpypy import array
@@ -620,6 +691,9 @@ class AppTestNumArray(BaseNumpyAppTest):
             for y in range(2):
                 expected[x, y] = math.cos(a[x]) * math.cos(b[y])
         assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
+        a = array(1)[newaxis]
+        assert a == array([1])
+        assert a.shape == (1,)
 
     def test_newaxis_slice(self):
         from numpypy import array, newaxis
@@ -674,6 +748,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a[()]
         assert type(b) is int_
         assert b == 3
+        a[()] = 4
+        assert a == 4
 
     def test_len(self):
         from numpypy import array
@@ -1088,14 +1164,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (2 << a == [2, 4, 8]).all()
 
     def test_rshift(self):
-        from numpypy import arange, array
-
-        a = arange(10)
+        import numpy as np
+        a = np.arange(10)
         assert (a >> 2 == [0, 0, 0, 0, 1, 1, 1, 1, 2, 2]).all()
-        a = array([True, False])
+        a = np.array([True, False])
         assert (a >> 1 == [0, 0]).all()
-        a = arange(3, dtype=float)
+        a = np.arange(3, dtype=float)
         raises(TypeError, lambda: a >> 1)
+        a = np.array([123], dtype='uint64')
+        b = a >> 1
+        assert b == 61
+        assert b.dtype.type is np.uint64
+        a = np.array(123, dtype='uint64')
+        exc = raises(TypeError, "a >> 1")
+        assert 'not supported for the input types' in exc.value.message
 
     def test_rrshift(self):
         from numpypy import arange
@@ -1274,13 +1356,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_sum(self):
-        from numpypy import array, zeros
+        from numpypy import array, zeros, float16, complex64, str_
         a = array(range(5))
         assert a.sum() == 10
         assert a[:4].sum() == 6
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
+
+        assert array([True, False] * 200).sum() == 200
+        assert array([True, False] * 200, dtype='int8').sum() == 200
+        assert array([True, False] * 200).sum(dtype='int8') == -56
+        assert type(array([True, False] * 200, dtype='float16').sum()) is float16
+        assert type(array([True, False] * 200, dtype='complex64').sum()) is complex64
 
         raises(TypeError, 'a.sum(axis=0, out=3)')
         raises(ValueError, 'a.sum(axis=2)')
@@ -1297,6 +1385,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.sum() == 105
         assert a.max() == 14
         assert array([]).sum() == 0.0
+        assert array([]).reshape(0, 2).sum() == 0.
+        assert (array([]).reshape(0, 2).sum(0) == [0., 0.]).all()
+        assert (array([]).reshape(0, 2).prod(0) == [1., 1.]).all()
         raises(ValueError, 'array([]).max()')
         assert (a.sum(0) == [30, 35, 40]).all()
         assert (a.sum(axis=0) == [30, 35, 40]).all()
@@ -1321,10 +1412,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_prod(self):
-        from numpypy import array
+        from numpypy import array, dtype
         a = array(range(1, 6))
         assert a.prod() == 120.0
         assert a[:4].prod() == 24.0
+        for dt in ['bool', 'int8', 'uint8', 'int16', 'uint16']:
+            a = array([True, False], dtype=dt)
+            assert a.prod() == 0
+            assert a.prod().dtype is dtype('uint' if dt[0] == 'u' else 'int')
+        for dt in ['l', 'L', 'q', 'Q', 'e', 'f', 'd', 'F', 'D']:
+            a = array([True, False], dtype=dt)
+            assert a.prod() == 0
+            assert a.prod().dtype is dtype(dt)
 
     def test_max(self):
         from numpypy import array, zeros
@@ -1407,12 +1506,12 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_dtype_guessing(self):
         from numpypy import array, dtype
-
+        import sys
         assert array([True]).dtype is dtype(bool)
         assert array([True, False]).dtype is dtype(bool)
         assert array([True, 1]).dtype is dtype(int)
         assert array([1, 2, 3]).dtype is dtype(int)
-        #assert array([1L, 2, 3]).dtype is dtype(long)
+        assert array([1L, 2, 3]).dtype is dtype('q')
         assert array([1.2, True]).dtype is dtype(float)
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
@@ -1423,6 +1522,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([int8(3)]).dtype is dtype("int8")
         assert array([bool_(True)]).dtype is dtype(bool)
         assert array([bool_(True), 3.0]).dtype is dtype(float)
+        assert array(sys.maxint + 42).dtype is dtype('Q')
+        assert array([sys.maxint + 42] * 2).dtype is dtype('Q')
+        assert array([sys.maxint + 42, 123]).dtype is dtype(float)
+        assert array([sys.maxint + 42, 123L]).dtype is dtype(float)
+        assert array([1+2j, 123]).dtype is dtype(complex)
+        assert array([1+2j, 123L]).dtype is dtype(complex)
 
     def test_comparison(self):
         import operator
@@ -1862,6 +1967,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0, 1, 1, 0, 4, 0, 6, 7, 8, 9]).all()
         raises(IndexError, "arange(10)[array([10])] = 3")
         raises(IndexError, "arange(10)[[-11]] = 3")
+        a = zeros(10)
+        b = array([3,4,5])
+        a[b] = 1
+        assert (a == [0, 0, 0, 1, 1, 1, 0, 0, 0, 0]).all()
 
     def test_array_scalar_index(self):
         import numpypy as np
@@ -1935,11 +2044,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.itemsize == 3
         a = array(3.1415).astype('S3').dtype
         assert a.itemsize == 3
-        try:
+
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
             a = array(['1', '2','3']).astype(float)
             assert a[2] == 3.0
-        except NotImplementedError:
-            skip('astype("float") not implemented for str arrays')
+        else:
+            raises(NotImplementedError, array(['1', '2', '3']).astype, float)
+
+        a = array('123')
+        assert a.astype('i8') == 123
+        a = array('abcdefgh')
+        exc = raises(ValueError, a.astype, 'i8')
+        assert exc.value.message.startswith('invalid literal for int()')
 
     def test_base(self):
         from numpypy import array
@@ -2045,6 +2162,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert int(array([1])) == 1
         assert raises(TypeError, "int(array([1, 2]))")
         assert int(array([1.5])) == 1
+        for op in ["int", "float", "long"]:
+            for a in [array('123'), array(['123'])]:
+                exc = raises(TypeError, "%s(a)" % op)
+                assert exc.value.message == "don't know how to convert " \
+                                            "scalar number to %s" % op
 
     def test__reduce__(self):
         from numpypy import array, dtype
@@ -2081,11 +2203,67 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[b] = 1.
         assert (a == [[1., 1., 1.]]).all()
 
-    @py.test.mark.xfail
-    def test_boolean_array(self):
+
+class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
+
+    def setup_class(cls):
+        from rpython.tool.udir import udir
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        cls.w_tmpname = cls.space.wrap(str(udir.join('mmap-')))
+
+    def test_ndarray_from_buffer(self):
         import numpypy as np
-        a = np.ndarray([1], dtype=bool)
-        assert a[0] == True
+        import array
+        buf = array.array('c', ['\x00']*2*3)
+        a = np.ndarray((3,), buffer=buf, dtype='i2')
+        a[0] = ord('b')
+        a[1] = ord('a')
+        a[2] = ord('r')
+        assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
+        assert a.base is buf
+
+    def test_ndarray_subclass_from_buffer(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*3)
+        class X(np.ndarray):
+            pass
+        a = X((3,), buffer=buf, dtype='i2')
+        assert type(a) is X
+
+    def test_ndarray_from_buffer_and_offset(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*7)
+        buf[0] = 'X'
+        a = np.ndarray((3,), buffer=buf, offset=1, dtype='i2')
+        a[0] = ord('b')
+        a[1] = ord('a')
+        a[2] = ord('r')
+        assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
+
+    def test_ndarray_from_buffer_out_of_bounds(self):
+        import numpypy as np
+        import array
+        buf = array.array('c', ['\x00']*2*10) # 20 bytes
+        info = raises(TypeError, "np.ndarray((11,), buffer=buf, dtype='i2')")
+        assert str(info.value).startswith('buffer is too small')
+        info = raises(TypeError, "np.ndarray((5,), buffer=buf, offset=15, dtype='i2')")
+        assert str(info.value).startswith('buffer is too small')
+
+    def test_ndarray_from_readonly_buffer(self):
+        import numpypy as np
+        from mmap import mmap, ACCESS_READ
+        f = open(self.tmpname, "w+")
+        f.write("hello")
+        f.flush()
+        buf = mmap(f.fileno(), 5, access=ACCESS_READ)
+        a = np.ndarray((5,), buffer=buf, dtype='c')
+        raises(ValueError, "a[0] = 'X'")
+        buf.close()
+        f.close()
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -2560,7 +2738,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1]).all()
         raises(IndexError, "arange(3).take([15])")
         a = arange(6).reshape(2, 3)
+        assert a.take(3) == 3
+        assert a.take(3).shape == ()
         assert (a.take([1, 0, 3]) == [1, 0, 3]).all()
+        assert (a.take([[1, 0], [2, 3]]) == [[1, 0], [2, 3]]).all()
+        assert (a.take([1], axis=0) == [[3, 4, 5]]).all()
+        assert (a.take([1], axis=1) == [[1], [4]]).all()
         assert ((a + a).take([3]) == [6]).all()
         a = arange(12).reshape(2, 6)
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
@@ -2612,6 +2795,17 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[0] == 1
         assert b[1] == 'ab'
 
+    def test_index(self):
+        import numpy as np
+        a = np.array([1], np.uint16)
+        i = a.__index__()
+        assert type(i) is int
+        assert i == 1
+        for a in [np.array('abc'), np.array([1,2]), np.array([True])]:
+            exc = raises(TypeError, a.__index__)
+            assert exc.value.message == 'only integer arrays with one element ' \
+                                        'can be converted to an index'
+
     def test_int_array_index(self):
         from numpypy import array
         assert (array([])[[]] == []).all()
@@ -2646,7 +2840,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[35] == 200
         b[[slice(25, 30)]] = range(5)
         assert all(a[:5] == range(5))
-        raises(TypeError, 'b[[[slice(25, 125)]]]')
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            raises(TypeError, 'b[[[slice(25, 125)]]]')
+        else:
+            raises(NotImplementedError, 'b[[[slice(25, 125)]]]')
 
     def test_cumsum(self):
         from numpypy import arange
@@ -2800,17 +2998,18 @@ class AppTestSupport(BaseNumpyAppTest):
         assert j[0] == 12
         k = fromstring(self.float16val, dtype='float16')
         assert k[0] == dtype('float16').type(5.)
-        dt =  array([5],dtype='longfloat').dtype
-        if dt.itemsize == 12:
+        dt =  array([5], dtype='longfloat').dtype
+        if dt.itemsize == 8:
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x14@',
+                           dtype='float64')
+        elif dt.itemsize == 12:
             m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00',
                            dtype='float96')
         elif dt.itemsize == 16:
             m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00' \
                            '\x00\x00\x00\x00', dtype='float128')
-        elif dt.itemsize == 8:
-            skip('longfloat is float64')
         else:
-            skip('unknown itemsize for longfloat')
+            assert False, 'unknown itemsize for longfloat'
         assert m[0] == dtype('longfloat').type(5.)
 
     def test_fromstring_invalid(self):
@@ -2870,7 +3069,13 @@ class AppTestRecordDtype(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
     def test_zeros(self):
-        from numpypy import zeros
+        from numpypy import zeros, void
+        a = zeros((), dtype=[('x', int), ('y', float)])
+        assert type(a[()]) is void
+        assert type(a.item()) is tuple
+        assert a[()]['x'] == 0
+        assert a[()]['y'] == 0
+        assert a.shape == ()
         a = zeros(2, dtype=[('x', int), ('y', float)])
         raises(IndexError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0
@@ -2885,7 +3090,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[1]['y'] == 2
 
     def test_views(self):
-        from numpypy import array
+        from numpypy import array, zeros, ndarray
+        a = zeros((), dtype=[('x', int), ('y', float)])
+        raises(IndexError, 'a[0]')
+        assert type(a['x']) is ndarray
+        assert a['x'] == 0
+        assert a['y'] == 0
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
         raises((IndexError, ValueError), 'array([1])["x"]')
         raises((IndexError, ValueError), 'a["z"]')
@@ -2906,14 +3116,44 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_creation_and_repr(self):
         from numpypy import array
+        a = array((1, 2), dtype=[('x', int), ('y', float)])
+        assert a.shape == ()
+        assert repr(a[()]) == '(1, 2.0)'
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
         assert repr(a[0]) == '(1, 2.0)'
 
+    def test_void_copyswap(self):
+        import numpy as np
+        dt = np.dtype([('one', '<i4'), ('two', '<i4')])
+        x = np.array((1, 2), dtype=dt)
+        x = x.byteswap()
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            assert x['one'] > 0 and x['two'] > 2
+        else:
+            assert x['one'] == 1 and x['two'] == 2
+
     def test_nested_dtype(self):
-        from numpypy import zeros
+        import numpy as np
         a = [('x', int), ('y', float)]
         b = [('x', int), ('y', a)]
-        arr = zeros(3, dtype=b)
+        arr = np.zeros((), dtype=b)
+        assert arr['x'] == 0
+        arr['x'] = 2
+        assert arr['x'] == 2
+        exc = raises(IndexError, "arr[3L]")
+        assert exc.value.message == "0-d arrays can't be indexed"
+        exc = raises(ValueError, "arr['xx'] = 2")
+        assert exc.value.message == "field named xx not found"
+        assert arr['y'].dtype == a
+        assert arr['y'].shape == ()
+        assert arr['y'][()]['x'] == 0
+        assert arr['y'][()]['y'] == 0
+        arr['y'][()]['x'] = 2
+        arr['y'][()]['y'] = 3
+        assert arr['y'][()]['x'] == 2
+        assert arr['y'][()]['y'] == 3
+        arr = np.zeros(3, dtype=b)
         arr[1]['x'] = 15
         assert arr[1]['x'] == 15
         arr[1]['y']['y'] = 3.5
@@ -3038,11 +3278,15 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_subarrays(self):
         from numpypy import dtype, array, zeros
-
         d = dtype([("x", "int", 3), ("y", "float", 5)])
+
+        a = zeros((), dtype=d)
+        #assert a['x'].dtype == int
+        #assert a['x'].shape == (3,)
+        #assert (a['x'] == [0, 0, 0]).all()
+
         a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]),
                    ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
-
         for v in ['x', u'x', 0, -2]:
             assert (a[0][v] == [1, 2, 3]).all()
             assert (a[1][v] == [4, 5, 6]).all()
@@ -3058,11 +3302,15 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         exc = raises(IndexError, "a[0][None]")
         assert exc.value.message == "invalid index"
 
-        exc = raises(IndexError, "a[0][None]")
-        assert exc.value.message == 'invalid index'
-
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
+        a[1]["x"][2] = 123
+        assert (a[1]["x"] == [4, 5, 123]).all()
+        a[1]['y'][3] = 4
+        assert a[1]['y'][3] == 4
+        assert a['y'][1][3] == 4
+        a['y'][1][4] = 5
+        assert a[1]['y'][4] == 5
 
         d = dtype([("x", "int64", (2, 3))])
         a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
@@ -3096,7 +3344,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             ]
         h = np.array(buf, dtype=descr)
         assert len(h) == 2
-        skip('broken')  # XXX
+        assert h['x'].shape == (2, 2)
+        assert h['y'].strides == (41, 16, 8)
+        assert h['z'].shape == (2,)
         for v in (h, h[0], h['x']):
             repr(v)  # check for crash in repr
         assert (h['x'] == np.array([buf[0][0],
@@ -3127,6 +3377,24 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         assert len(list(a[0])) == 2
 
+    def test_3d_record(self):
+        from numpypy import dtype, array
+        dt = dtype([('name', 'S4'), ('x', float), ('y', float),
+                    ('block', int, (2, 2, 3))])
+        a = array([('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]],
+                                       [[7, 8, 9], [10, 11, 12]]])],
+                  dtype=dt)
+        i = a.item()
+        assert isinstance(i, tuple)
+        assert len(i) == 4
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            assert str(a) == "[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], " \
+                                                  "[[7, 8, 9], [10, 11, 12]]])]"
+        else:
+            assert str(a) == "array([('aaaa', 1.0, 8.0, [1, 2, 3, 4, 5, 6, " \
+                                                        "7, 8, 9, 10, 11, 12])])"
+
     def test_issue_1589(self):
         import numpypy as numpy
         c = numpy.array([[(1, 2, 'a'), (3, 4, 'b')], [(5, 6, 'c'), (7, 8, 'd')]],
@@ -3137,6 +3405,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         import numpypy as np
         a = np.array([1,2,3], dtype='int16')
         assert (a * 2).dtype == np.dtype('int16')
+
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

@@ -4,7 +4,6 @@
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 
@@ -80,38 +79,6 @@ if not _WIN32:
     RTLD_NOW = cConfig.RTLD_NOW
     RTLD_LAZY = cConfig.RTLD_LAZY
 
-    _t_opened = {}
-
-    def t_dlopen(name):
-        # for direct execution: can't use the regular way on FreeBSD :-(
-        # http://factor-language.blogspot.de/2009/02/note-about-libdl-functions-on-netbsd.html
-        import ctypes
-        if name:
-            name = rffi.charp2str(name)
-        else:
-            name = None
-        try:
-            res = ctypes.cdll.LoadLibrary(name)
-        except OSError, e:
-            raise DLOpenError(str(e))
-        h = rffi.cast(rffi.VOIDP, res._handle)
-        _t_opened[rffi.cast(rffi.LONG, h)] = res
-        return h
-
-    def t_dlclose(handle):
-        _t_opened.pop(rffi.cast(rffi.LONG, handle))
-        return rffi.cast(rffi.INT, 0)
-
-    def t_dldym(handle, name):
-        import ctypes
-        lib = _t_opened[rffi.cast(rffi.LONG, handle)]
-        try:
-            symbol = lib[name]
-        except AttributeError:
-            raise KeyError(name)
-        res = ctypes.cast(symbol, ctypes.c_void_p)
-        return rffi.cast(rffi.VOIDP, res.value or 0)
-
     def dlerror():
         # XXX this would never work on top of ll2ctypes, because
         # ctypes are calling dlerror itself, unsure if I can do much in this
@@ -124,8 +91,6 @@ if not _WIN32:
     def dlopen(name, mode=-1):
         """ Wrapper around C-level dlopen
         """
-        if not we_are_translated():
-            return t_dlopen(name)
         if mode == -1:
             if RTLD_LOCAL is not None:
                 mode = RTLD_LOCAL
@@ -139,16 +104,11 @@ if not _WIN32:
             raise DLOpenError(err)
         return res
 
-    def dlclose(handle):
-        if not we_are_translated():
-            return t_dlclose(handle)
-        return c_dlclose(handle)
+    dlclose = c_dlclose
 
     def dlsym(libhandle, name):
         """ Wrapper around C-level dlsym
         """
-        if not we_are_translated():
-            return t_dldym(libhandle, name)
         res = c_dlsym(libhandle, name)
         if not res:
             raise KeyError(name)

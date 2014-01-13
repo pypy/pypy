@@ -27,12 +27,8 @@ register_all(vars(), globals())
 def descr__new__(space, w_floattype, w_x):
     from pypy.objspace.std.floatobject import W_FloatObject
     w_value = w_x     # 'x' is the keyword argument name in CPython
-    w_special = space.lookup(w_value, "__float__")
-    if w_special is not None:
-        w_obj = space.get_and_call_function(w_special, w_value)
-        if not space.isinstance_w(w_obj, space.w_float):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("__float__ returned non-float"))
+    if space.lookup(w_value, "__float__") is not None:
+        w_obj = space.float(w_value)
         if space.is_w(w_floattype, space.w_float):
             return w_obj
         value = space.float_w(w_obj)

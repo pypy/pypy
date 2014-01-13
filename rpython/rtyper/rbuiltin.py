@@ -48,10 +48,8 @@ def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
-            None, hop.args_s[1].const, # shape
+            hop.args_s[1].const, # shape
             range(hop.nb_args-2))
-    if arguments.w_starstararg is not None:
-        raise TyperError("**kwds call not implemented")
     if arguments.w_stararg is not None:
         # expand the *arg in-place -- it must be a tuple
         from rpython.rtyper.rtuple import TupleRepr
@@ -75,10 +73,8 @@ def call_args_expand(hop, takes_kwds = True):
         raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
-    for i, key in enumerate(keywords):
-        index = arguments.keywords_w[i]
-        kwds_i['i_' + key] = index
-
+    for key in keywords:
+        kwds_i['i_' + key] = keywords[key]
     return hop, kwds_i
 
 
@@ -306,7 +302,7 @@ def rtype_hlinvoke(hop):
     s_callable = r_callable.get_s_callable()
 
     nbargs = len(hop.args_s) - 1 + nimplicitarg
-    s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
+    s_sigs = r_func.get_s_signatures((nbargs, (), False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
                          "annotations: %r" % (r_callable,

@@ -5031,6 +5031,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_copy_long_string_to_virtual(self):
+        ops = """
+        []
+        p0 = newstr(20)
+        copystrcontent(s"aaaaaaaaaaaaaaaaaaaa", p0, 0, 0, 20)
+        jump(p0)
+        """
+        expected = """
+        []
+        jump(s"aaaaaaaaaaaaaaaaaaaa")
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_ptr_eq_str_constant(self):
         ops = """
         []

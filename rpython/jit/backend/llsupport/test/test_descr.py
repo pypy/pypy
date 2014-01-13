@@ -424,3 +424,11 @@ def test_field_arraylen_descr():
                          " <Array of Char > > >")
     # caching:
     assert fielddescr is get_field_arraylen_descr(c0, rstr.STR)
+
+def test_bytearray_descr():
+    c0 = GcCache(False)
+    descr = get_array_descr(c0, rstr.STR)   # for bytearray
+    assert descr.flag == FLAG_UNSIGNED
+    assert descr.basesize == struct.calcsize("PP")         # hash, length
+    assert descr.lendescr.offset == struct.calcsize("P")   # hash
+    assert not descr.is_array_of_pointers()

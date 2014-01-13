@@ -8,7 +8,6 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 
 class AppTestSHA:
-
     spaceconfig = dict(usemodules=('struct',))
 
     def setup_class(cls):
@@ -37,3 +36,4 @@ class AppTestSHA:
         assert _sha.blocksize == 1
         assert _sha.new().digest_size == 20
         assert _sha.new().digestsize == 20
+        assert _sha.new().block_size == 64

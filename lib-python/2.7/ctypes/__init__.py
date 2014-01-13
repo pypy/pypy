@@ -371,10 +371,9 @@ class CDLL(object):
             self._handle = handle
 
     def __repr__(self):
-        return "<%s '%s', handle %r at %x>" % \
-               (self.__class__.__name__, self._name,
-                (self._handle),
-                id(self) & (_sys.maxint*2 + 1))
+        return "<%s '%s', handle %r at 0x%x>" % (
+            self.__class__.__name__, self._name, self._handle,
+            id(self) & (_sys.maxint * 2 + 1))
 
 
     def __getattr__(self, name):

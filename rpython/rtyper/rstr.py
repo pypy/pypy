@@ -231,11 +231,22 @@ class __extend__(AbstractStringRepr):
     def rtype_method_strip(self, hop, left=True, right=True):
         rstr = hop.args_r[0].repr
         v_str = hop.inputarg(rstr.repr, arg=0)
-        v_char = hop.inputarg(rstr.char_repr, arg=1)
-        v_left = hop.inputconst(Bool, left)
-        v_right = hop.inputconst(Bool, right)
+        args_v = [v_str]
+        if len(hop.args_s) == 2:
+            if isinstance(hop.args_s[1], annmodel.SomeString):
+                v_stripstr = hop.inputarg(rstr.repr, arg=1)
+                args_v.append(v_stripstr)
+                func = self.ll.ll_strip_multiple
+            else:
+                v_char = hop.inputarg(rstr.char_repr, arg=1)
+                args_v.append(v_char)
+                func = self.ll.ll_strip
+        else:
+            func = self.ll.ll_strip_default
+        args_v.append(hop.inputconst(Bool, left))
+        args_v.append(hop.inputconst(Bool, right))
         hop.exception_is_here()
-        return hop.gendirectcall(self.ll.ll_strip, v_str, v_char, v_left, v_right)
+        return hop.gendirectcall(func, *args_v)
 
     def rtype_method_lstrip(self, hop):
         return self.rtype_method_strip(hop, left=True, right=False)
@@ -325,10 +336,16 @@ class __extend__(AbstractStringRepr):
 
     def rtype_method_split(self, hop):
         rstr = hop.args_r[0].repr
-        if hop.nb_args == 3:
-            v_str, v_chr, v_max = hop.inputargs(rstr.repr, rstr.char_repr, Signed)
+        v_str = hop.inputarg(rstr.repr, 0)
+        if isinstance(hop.args_s[1], annmodel.SomeString):
+            v_chr = hop.inputarg(rstr.repr, 1)
+            fn = self.ll.ll_split
         else:
-            v_str, v_chr = hop.inputargs(rstr.repr, rstr.char_repr)
+            v_chr = hop.inputarg(rstr.char_repr, 1)
+            fn = self.ll.ll_split_chr
+        if hop.nb_args == 3:
+            v_max = hop.inputarg(Signed, 2)
+        else:
             v_max = hop.inputconst(Signed, -1)
         try:
             list_type = hop.r_result.lowleveltype.TO
@@ -336,14 +353,20 @@ class __extend__(AbstractStringRepr):
             list_type = hop.r_result.lowleveltype
         cLIST = hop.inputconst(Void, list_type)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(self.ll.ll_split_chr, cLIST, v_str, v_chr, v_max)
+        return hop.gendirectcall(fn, cLIST, v_str, v_chr, v_max)
 
     def rtype_method_rsplit(self, hop):
         rstr = hop.args_r[0].repr
-        if hop.nb_args == 3:
-            v_str, v_chr, v_max = hop.inputargs(rstr.repr, rstr.char_repr, Signed)
+        v_str = hop.inputarg(rstr.repr, 0)
+        if isinstance(hop.args_s[1], annmodel.SomeString):
+            v_chr = hop.inputarg(rstr.repr, 1)
+            fn = self.ll.ll_rsplit
         else:
-            v_str, v_chr = hop.inputargs(rstr.repr, rstr.char_repr)
+            v_chr = hop.inputarg(rstr.char_repr, 1)
+            fn = self.ll.ll_rsplit_chr
+        if hop.nb_args == 3:
+            v_max = hop.inputarg(Signed, 2)
+        else:
             v_max = hop.inputconst(Signed, -1)
         try:
             list_type = hop.r_result.lowleveltype.TO
@@ -351,7 +374,7 @@ class __extend__(AbstractStringRepr):
             list_type = hop.r_result.lowleveltype
         cLIST = hop.inputconst(Void, list_type)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(self.ll.ll_rsplit_chr, cLIST, v_str, v_chr, v_max)
+        return hop.gendirectcall(fn, cLIST, v_str, v_chr, v_max)
 
     def rtype_method_replace(self, hop):
         rstr = hop.args_r[0].repr
@@ -389,10 +412,6 @@ class __extend__(AbstractStringRepr):
         return hop.gendirectcall(self.ll.ll_str2unicode, v_str)
 
     def rtype_bytearray(self, hop):
-        if hop.args_s[0].is_constant():
-            # convertion errors occur during annotation, so cannot any more:
-            hop.exception_cannot_occur()
-            return hop.inputconst(hop.r_result, hop.s_result.const)
         hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_str2bytearray,
                                  hop.inputarg(hop.args_r[0].repr, 0))
