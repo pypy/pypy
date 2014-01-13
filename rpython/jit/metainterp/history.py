@@ -634,6 +634,7 @@ class TreeLoop(object):
     inputargs = None
     operations = None
     call_pure_results = None
+    stm_info = None
     logops = None
     quasi_immutable_deps = None
     resume_at_jump_descr = None

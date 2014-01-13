@@ -351,12 +351,14 @@ class BaseTest(object):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def _do_optimize_loop(self, loop, call_pure_results):
+    def _do_optimize_loop(self, loop, call_pure_results,
+                          stm_info):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
         self.loop = loop
         loop.call_pure_results = args_dict()
+        loop.stm_info = stm_info
         if call_pure_results is not None:
             for k, v in call_pure_results.items():
                 loop.call_pure_results[list(k)] = v
@@ -388,7 +390,8 @@ class BaseTest(object):
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
                               [ResOperation(rop.LABEL, jump_args, None, descr=token)]
-        self._do_optimize_loop(preamble, call_pure_results)
+        stm_info = {}
+        self._do_optimize_loop(preamble, call_pure_results, stm_info)
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
@@ -403,7 +406,7 @@ class BaseTest(object):
         assert loop.operations[0].getopnum() == rop.LABEL
         loop.inputargs = loop.operations[0].getarglist()
 
-        self._do_optimize_loop(loop, call_pure_results)
+        self._do_optimize_loop(loop, call_pure_results, stm_info)
         extra_same_as = []
         while loop.operations[0].getopnum() != rop.LABEL:
             extra_same_as.append(loop.operations[0])

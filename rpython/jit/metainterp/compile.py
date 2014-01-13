@@ -45,6 +45,7 @@ def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
     loop = TreeLoop(name_prefix + name)
     loop.call_pure_results = metainterp.call_pure_results
+    loop.stm_info = {}
     return loop
 
 

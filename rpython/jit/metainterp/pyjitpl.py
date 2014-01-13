@@ -1572,6 +1572,7 @@ class MetaInterpStaticData(object):
 
             ei = EffectInfo([], [], [], [],
                             EffectInfo.EF_CANNOT_RAISE,
+                            oopspecindex=EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION,
                             can_invalidate=False)
             
             self.stm_should_break_transaction_descr = (

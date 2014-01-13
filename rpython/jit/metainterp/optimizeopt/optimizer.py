@@ -362,6 +362,7 @@ class Optimizer(Optimization):
         self.optearlyforce = None
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
+            self.stm_info = loop.stm_info
 
         self.set_optimizations(optimizations)
         self.setup()
