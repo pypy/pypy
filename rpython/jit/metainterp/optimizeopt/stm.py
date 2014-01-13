@@ -20,7 +20,7 @@ class OptSTM(Optimization):
         dispatch_opt(self, op)
 
     def _break_wanted(self):
-        is_loop = self.optimizer.loop.operations[0].getopnum() == rop.LABEL
+        is_loop = self.optimizer.loop.is_really_loop
         return self.optimizer.stm_info.get('break_wanted', is_loop)
     
     def _set_break_wanted(self, val):
@@ -36,8 +36,8 @@ class OptSTM(Optimization):
 
     def optimize_STM_TRANSACTION_BREAK(self, op):
         assert not self.remove_next_gnf
-        
-        if self._break_wanted():
+        really_wanted = op.getarg(0).getint()
+        if really_wanted or self._break_wanted():
             self._set_break_wanted(False)
             self.emit_operation(op)
             self.keep_but_ignore_gnf = True

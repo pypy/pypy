@@ -899,8 +899,8 @@ class BlackholeInterpreter(object):
         return False
 
 
-    @arguments()
-    def bhimpl_stm_transaction_break():
+    @arguments("i")
+    def bhimpl_stm_transaction_break(really_wanted):
         pass
     
     # ----------

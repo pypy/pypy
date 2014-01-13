@@ -635,6 +635,7 @@ class TreeLoop(object):
     operations = None
     call_pure_results = None
     stm_info = None
+    is_really_loop = False
     logops = None
     quasi_immutable_deps = None
     resume_at_jump_descr = None

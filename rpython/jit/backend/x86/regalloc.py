@@ -1274,6 +1274,7 @@ class RegAlloc(BaseRegalloc):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.perform_discard(op, [base_loc, ofs_loc, size_loc])
+
         
     def consider_stm_transaction_break(self, op, guard_op):
         #

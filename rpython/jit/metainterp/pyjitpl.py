@@ -187,12 +187,13 @@ class MIFrame(object):
             raise AssertionError("bad result box type")
 
     # ------------------------------
-    def _record_stm_transaction_break(self):
+    def _record_stm_transaction_break(self, really_wanted):
         # records an unconditional stm_transaction_break
         mi = self.metainterp
         mi.vable_and_vrefs_before_residual_call()
         mi._record_helper_nonpure_varargs(
-            rop.STM_TRANSACTION_BREAK, None, None, [])
+            rop.STM_TRANSACTION_BREAK, None, None,
+            [history.ConstInt(really_wanted)])
         mi.vrefs_after_residual_call()
         mi.vable_after_residual_call()
         mi.generate_guard(rop.GUARD_NOT_FORCED, None)
@@ -213,12 +214,12 @@ class MIFrame(object):
             #
             return resbox
         else:
-            self._record_stm_transaction_break()
+            self._record_stm_transaction_break(False)
             return ConstInt(0)
 
     @arguments()
     def opimpl_stm_transaction_break(self):
-        self._record_stm_transaction_break()
+        self._record_stm_transaction_break(True)
     
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',

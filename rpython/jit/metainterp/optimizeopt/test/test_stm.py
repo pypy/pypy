@@ -29,10 +29,41 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         self.optimize_loop(ops, ops, expected_preamble=ops)
 
+    def test_really_wanted_tb(self):
+        ops = """
+        []
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        stm_transaction_break(1)
+        guard_not_forced() []
+
+        jump()
+        """
+        preamble = """
+        []
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        stm_transaction_break(1)
+        guard_not_forced() []
+
+        jump()
+        """
+        expected = """
+        []
+        stm_transaction_break(1)
+        guard_not_forced() []
+
+        jump()
+        """
+        self.optimize_loop(ops, expected, expected_preamble=preamble)
+
+
     def test_unrolled_loop2(self):
         ops = """
         []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
 
         i0 = call(123, descr=sbtdescr)
@@ -42,7 +73,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         preamble = """
         []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
 
         i0 = call(123, descr=sbtdescr)
@@ -87,11 +118,11 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
     def test_dont_remove_first_tb(self):
         ops = """
         []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
         i0 = call(123, descr=sbtdescr)
         guard_false(i0) []
@@ -99,7 +130,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         preamble = """
         []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
 
         i0 = call(123, descr=sbtdescr)
@@ -117,15 +148,15 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
     def test_add_tb_after_guard_not_forced(self):
         ops = """
         []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
         
         escape() # e.g. like a call_release_gil
         guard_not_forced() []
         
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
         i0 = call(123, descr=sbtdescr)
         guard_false(i0) []
@@ -133,13 +164,13 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         preamble = """
         []
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
 
         escape()
         guard_not_forced() []
 
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
         
         i0 = call(123, descr=sbtdescr)
@@ -151,7 +182,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         escape()
         guard_not_forced() []
 
-        stm_transaction_break()
+        stm_transaction_break(0)
         guard_not_forced() []
 
         i0 = call(123, descr=sbtdescr)
