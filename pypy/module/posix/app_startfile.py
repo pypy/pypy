@@ -7,7 +7,6 @@ class CFFIWrapper(object):
         ffi.cdef("""
         HINSTANCE ShellExecuteA(HWND, LPCSTR, LPCSTR, LPCSTR, LPCSTR, INT);
         HINSTANCE ShellExecuteW(HWND, LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR, INT);
-        DWORD GetLastError(void);
         """)
         self.NULL = ffi.NULL
         self.cast = ffi.cast

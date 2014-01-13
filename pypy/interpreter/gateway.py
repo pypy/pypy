@@ -805,8 +805,8 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
         raise TypeError("Varargs and keywords not supported in unwrap_spec")
     argspec = ', '.join([arg for arg in args.args[1:]])
     func_code = py.code.Source("""
-    def f(w_obj, %(args)s):
-        return w_obj.%(func_name)s(%(args)s)
+    def f(self, %(args)s):
+        return self.%(func_name)s(%(args)s)
     """ % {'args': argspec, 'func_name': func.func_name})
     d = {}
     exec func_code.compile() in d
@@ -821,7 +821,7 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()
-    unwrap_spec['w_obj'] = base_cls
+    unwrap_spec['self'] = base_cls
     return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
 
 class interp2app(W_Root):

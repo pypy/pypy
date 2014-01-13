@@ -12,7 +12,7 @@ from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -300,14 +300,6 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
-    @simple_unary_op
-    def ones_like(self, v):
-        return 1
-
-    @simple_unary_op
-    def zeros_like(self, v):
-        return 0
-
     @raw_unary_op
     def rint(self, v):
         float64 = Float64()
@@ -576,16 +568,6 @@ class UInt32(BaseType, Integer):
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
-class Long(BaseType, Integer):
-    T = rffi.LONG
-    BoxType = interp_boxes.W_LongBox
-    format_code = "l"
-
-class ULong(BaseType, Integer):
-    T = rffi.ULONG
-    BoxType = interp_boxes.W_ULongBox
-    format_code = "L"
-
 def _int64_coerce(self, space, w_item):
     try:
         return self._base_coerce(space, w_item)
@@ -604,7 +586,8 @@ class Int64(BaseType, Integer):
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
 
-    _coerce = func_with_new_name(_int64_coerce, '_coerce')
+    if LONG_BIT == 32:
+        _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
 def _uint64_coerce(self, space, w_item):
     try:
@@ -625,6 +608,31 @@ class UInt64(BaseType, Integer):
     format_code = "Q"
 
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
+
+class Long(BaseType, Integer):
+    T = rffi.LONG
+    BoxType = interp_boxes.W_LongBox
+    format_code = "l"
+
+def _ulong_coerce(self, space, w_item):
+    try:
+        return self._base_coerce(space, w_item)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    bigint = space.bigint_w(w_item)
+    try:
+        value = bigint.touint()
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.w_None)
+    return self.box(value)
+
+class ULong(BaseType, Integer):
+    T = rffi.ULONG
+    BoxType = interp_boxes.W_ULongBox
+    format_code = "L"
+
+    _coerce = func_with_new_name(_ulong_coerce, '_coerce')
 
 class Float(Primitive):
     _mixin_ = True
@@ -1543,14 +1551,6 @@ class ComplexFloating(object):
         except ValueError:
             return rfloat.NAN, rfloat.NAN
 
-    @complex_unary_op
-    def ones_like(self, v):
-        return 1, 0
-
-    @complex_unary_op
-    def zeros_like(self, v):
-        return 0, 0
-
 class Complex64(ComplexFloating, BaseType):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Complex64Box
@@ -1636,6 +1636,8 @@ class StringType(FlexibleType):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
         if isinstance(w_item, interp_boxes.W_StringBox):
             return w_item
+        if w_item is None:
+            w_item = space.wrap('')
         arg = space.str_w(space.str(w_item))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
@@ -1749,13 +1751,16 @@ class VoidType(FlexibleType):
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
         from interp_dtype import W_Dtype
-        items_w = space.fixedview(w_items)
+        if w_items is not None:
+            items_w = space.fixedview(w_items)
+        else:
+            items_w = [None] * shape[0]
         subdtype = dtype.subdtype
         assert isinstance(subdtype, W_Dtype)
         itemtype = subdtype.itemtype
         if len(shape) <= 1:
             for i in range(len(items_w)):
-                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                w_box = itemtype.coerce(space, subdtype, items_w[i])
                 itemtype.store(arr, 0, ofs, w_box)
                 ofs += itemtype.get_element_size()
         else:
@@ -1774,7 +1779,9 @@ class VoidType(FlexibleType):
 
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):
+        assert i == 0
         assert isinstance(box, interp_boxes.W_VoidBox)
+        assert box.dtype is box.arr.dtype
         for k in range(box.arr.dtype.get_size()):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
 
@@ -1789,6 +1796,40 @@ class VoidType(FlexibleType):
                                     dtype.subdtype)
         return W_NDimArray(implementation)
 
+    def read(self, arr, i, offset, dtype=None):
+        if dtype is None:
+            dtype = arr.dtype
+        return interp_boxes.W_VoidBox(arr, i + offset, dtype)
+
+    @jit.unroll_safe
+    def str_format(self, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        arr = self.readarray(box.arr, box.ofs, 0, box.dtype)
+        return arr.dump_data(prefix='', suffix='')
+
+    def to_builtin_type(self, space, item):
+        ''' From the documentation of ndarray.item():
+        "Void arrays return a buffer object for item(),
+         unless fields are defined, in which case a tuple is returned."
+        '''
+        assert isinstance(item, interp_boxes.W_VoidBox)
+        dt = item.arr.dtype
+        ret_unwrapped = []
+        for name in dt.fieldnames:
+            ofs, dtype = dt.fields[name]
+            if isinstance(dtype.itemtype, VoidType):
+                read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
+            else:
+                read_val = dtype.itemtype.read(item.arr, ofs, 0, dtype)
+            if isinstance (read_val, interp_boxes.W_StringBox):
+                # StringType returns a str
+                read_val = space.wrap(dtype.itemtype.to_str(read_val))
+            ret_unwrapped = ret_unwrapped + [read_val,]
+        if len(ret_unwrapped) == 0:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                    "item() for Void aray with no fields not implemented"))
+        return space.newtuple(ret_unwrapped)
+
 class RecordType(FlexibleType):
     T = lltype.Char
 
@@ -1801,29 +1842,35 @@ class RecordType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
-        # we treat every sequence as sequence, no special support
-        # for arrays
-        if not space.issequence_w(w_item):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "expected sequence"))
-        if len(dtype.fields) != space.len_w(w_item):
-            raise OperationError(space.w_ValueError, space.wrap(
-                "wrong length"))
-        items_w = space.fixedview(w_item)
+        if w_item is not None:
+            # we treat every sequence as sequence, no special support
+            # for arrays
+            if not space.issequence_w(w_item):
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "expected sequence"))
+            if len(dtype.fields) != space.len_w(w_item):
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "wrong length"))
+            items_w = space.fixedview(w_item)
+        else:
+            items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.get_size(), dtype)
         for i in range(len(items_w)):
             ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
             itemtype = subdtype.itemtype
-            w_item = items_w[i]
-            w_box = itemtype.coerce(space, subdtype, w_item)
+            w_box = itemtype.coerce(space, subdtype, items_w[i])
             itemtype.store(arr, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
-        for k in range(box.arr.dtype.get_size()):
-            arr.storage[k + i] = box.arr.storage[k + box.ofs]
+        for k in range(box.dtype.get_size()):
+            arr.storage[k + i + ofs] = box.arr.storage[k + box.ofs]
+
+    def byteswap(self, w_v):
+        # XXX implement
+        return w_v
 
     def to_builtin_type(self, space, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
@@ -1848,7 +1895,8 @@ class RecordType(FlexibleType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
+            val = tp.read(box.arr, box.ofs, ofs, subdtype)
+            pieces.append(tp.str_format(val))
         pieces.append(")")
         return "".join(pieces)
 

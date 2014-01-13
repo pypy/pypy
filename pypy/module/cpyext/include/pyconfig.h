@@ -25,6 +25,22 @@ extern "C" {
 #define Py_UNICODE_SIZE 2
 #endif
 
+#ifndef Py_BUILD_CORE /* not building the core - must be an ext */
+#    if defined(_MSC_VER)
+     /* So MSVC users need not specify the .lib file in
+      * their Makefile (other compilers are generally
+      * taken care of by distutils.) */
+#        ifdef _DEBUG
+#            error("debug first with cpython")    
+#            pragma comment(lib,"python27.lib")
+#        else
+#            pragma comment(lib,"python27.lib")
+#        endif /* _DEBUG */
+#    endif
+#endif /* _MSC_VER */
+
+
+
 #ifdef __cplusplus
 }
 #endif

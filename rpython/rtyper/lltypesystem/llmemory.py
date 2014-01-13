@@ -553,6 +553,12 @@ class AddressAsInt(Symbolic):
         if isinstance(ofs, FieldOffset) and ofs.TYPE is self.adr.ptr._TYPE.TO:
             fieldadr = getattr(self.adr.ptr, ofs.fldname)
             return AddressAsInt(cast_ptr_to_adr(fieldadr))
+        if (isinstance(ofs, ItemOffset) and
+            isinstance(self.adr.ptr._TYPE.TO, lltype.Array) and
+            self.adr.ptr._TYPE.TO._hints.get('nolength') is True and
+            ofs.TYPE is self.adr.ptr._TYPE.TO.OF):
+            itemadr = self.adr.ptr[ofs.repeat]
+            return AddressAsInt(cast_ptr_to_adr(itemadr))
         return NotImplemented
     def __repr__(self):
         try:

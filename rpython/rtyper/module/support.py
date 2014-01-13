@@ -4,7 +4,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 _WIN32 = sys.platform.startswith('win')
-underscore_on_windows = '_' if _WIN32 else ''
+UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 
 # utility conversion functions
 class LLSupport:
@@ -56,7 +56,7 @@ class StringTraits:
 
     @staticmethod
     def posix_function_name(name):
-        return underscore_on_windows + name
+        return UNDERSCORE_ON_WIN32 + name
 
     @staticmethod
     def ll_os_name(name):
@@ -75,7 +75,7 @@ class UnicodeTraits:
 
     @staticmethod
     def posix_function_name(name):
-        return underscore_on_windows + 'w' + name
+        return UNDERSCORE_ON_WIN32 + 'w' + name
 
     @staticmethod
     def ll_os_name(name):

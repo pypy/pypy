@@ -122,7 +122,7 @@ def builtin_unicode(s_unicode):
     return constpropagate(unicode, [s_unicode], SomeUnicodeString())
 
 def builtin_bytearray(s_str):
-    return constpropagate(bytearray, [s_str], SomeByteArray())
+    return SomeByteArray()
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
@@ -312,7 +312,7 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     r_func, nimplicitarg = s_repr.const.get_r_implfunc()
 
     nbargs = len(args_s) + nimplicitarg
-    s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
+    s_sigs = r_func.get_s_signatures((nbargs, (), False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
                          "annotations: %r" % (s_repr.const,

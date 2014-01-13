@@ -584,10 +584,6 @@ class RPythonAnnotator(object):
     def consider_op(self, block, opindex):
         op = block.operations[opindex]
         argcells = [self.binding(a) for a in op.args]
-        consider_meth = getattr(self,'consider_op_'+op.opname,
-                                None)
-        if not consider_meth:
-            raise Exception,"unknown op: %r" % op
 
         # let's be careful about avoiding propagated SomeImpossibleValues
         # to enter an op; the latter can result in violations of the
@@ -599,7 +595,7 @@ class RPythonAnnotator(object):
             if isinstance(arg, annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, op, opindex)
         try:
-            resultcell = consider_meth(*argcells)
+            resultcell = op.consider(self, *argcells)
         except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             graph = self.bookkeeper.position_key[0]
             e.source = gather_error(self, graph, block, opindex)

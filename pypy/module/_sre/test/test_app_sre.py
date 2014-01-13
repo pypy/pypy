@@ -172,6 +172,9 @@ class AppTestSreMatch:
         assert ("1", "1", None) == m.group(1, 2, 3)
         assert ("1", None) == m.group("first", "second")
         raises(IndexError, m.group, 1, 4)
+        assert ("1", None) == m.group(1, "second")
+        raises(IndexError, m.group, 'foobarbaz')
+        raises(IndexError, m.group, 'first', 'foobarbaz')
 
     def test_expand(self):
         import re

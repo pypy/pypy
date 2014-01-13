@@ -282,6 +282,7 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
     test_int_valueerror = unsupported
     test_float = unsupported
     test_hlstr = unsupported
+    test_strip_multiple_chars = unsupported
 
     def test_hash_via_type(self):
         from rpython.rlib.objectmodel import compute_hash

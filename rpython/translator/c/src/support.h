@@ -5,13 +5,9 @@
 #define RUNNING_ON_LLINTERP	0
 #define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
 
-#define FAIL_EXCEPTION(exc, msg) \
-	{ \
-		RPyRaiseSimpleException(exc, msg); \
-	}
-#define FAIL_OVF(msg) FAIL_EXCEPTION(PyExc_OverflowError, msg)
-#define FAIL_VAL(msg) FAIL_EXCEPTION(PyExc_ValueError, msg)
-#define FAIL_ZER(msg) FAIL_EXCEPTION(PyExc_ZeroDivisionError, msg)
+#define FAIL_OVF(msg) _RPyRaiseSimpleException(RPyExc_OverflowError)
+#define FAIL_VAL(msg) _RPyRaiseSimpleException(RPyExc_ValueError)
+#define FAIL_ZER(msg) _RPyRaiseSimpleException(RPyExc_ZeroDivisionError)
 
 /* Extra checks can be enabled with the RPY_ASSERT or RPY_LL_ASSERT
  * macros.  They differ in the level at which the tests are made.
