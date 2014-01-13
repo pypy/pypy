@@ -20,38 +20,14 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
     namespace.update(locals())
         
     
-    def test_simple(self):
-        ops = """
-        []
-        stm_transaction_break()
-        guard_not_forced() []
-        jump()
-        """
-        expected = ops
-        self.optimize_loop(ops, expected)
-
     def test_unrolled_loop(self):
         ops = """
         []
         i0 = call(123, descr=sbtdescr)
-        stm_transaction_break()
-        guard_not_forced() []
         guard_false(i0) []
         jump()
         """
-        preamble = """
-        []
-        stm_transaction_break()
-        guard_not_forced() []
-        jump()
-        """
-        expected = """
-        []
-        i0 = call(123, descr=sbtdescr)
-        guard_false(i0) []
-        jump()
-        """
-        self.optimize_loop(ops, expected, expected_preamble=preamble)
+        self.optimize_loop(ops, ops, expected_preamble=ops)
 
     def test_unrolled_loop2(self):
         ops = """
@@ -60,8 +36,6 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         guard_not_forced() []
 
         i0 = call(123, descr=sbtdescr)
-        stm_transaction_break()
-        guard_not_forced() []
         guard_false(i0) []
 
         jump()
@@ -78,9 +52,6 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         expected = """
         []
-        stm_transaction_break()
-        guard_not_forced() []
-
         i0 = call(123, descr=sbtdescr)
         guard_false(i0) []
         jump()
@@ -90,22 +61,18 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
     def test_not_disable_opt(self):
         ops = """
         [p1]
-        i0 = call(123, descr=sbtdescr)
-        stm_transaction_break()
-        guard_not_forced() []
-        guard_false(i0) []
-
         i1 = getfield_gc(p1, descr=adescr)
-        
+
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
         jump(p1)
         """
         preamble = """
         [p1]
-        stm_transaction_break()
-        guard_not_forced() []
-
         i1 = getfield_gc(p1, descr=adescr)
-
+        
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
         jump(p1)
         """
         expected = """
@@ -117,7 +84,12 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, expected_preamble=preamble)
 
-
+    # def test_dont_remove_first_tb(self):
+    #     ops = """
+    #     []
+    #     stm_transaction_break()
+    #     guard_not_forced() []
+        
 
 
 

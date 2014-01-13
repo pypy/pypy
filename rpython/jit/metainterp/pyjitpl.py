@@ -202,31 +202,7 @@ class MIFrame(object):
     def opimpl_stm_should_break_transaction(self, if_there_is_no_other):
         val = bool(if_there_is_no_other)
         mi = self.metainterp
-        if mi.stm_break_wanted:
-            # after call_release_gil and similar we want to have
-            # stm_transaction_break that may disable optimizations,
-            # but they would have been disabled anyways by the call
-            self._record_stm_transaction_break()
-            mi.stm_break_wanted = False
-            return ConstInt(0)
-        elif val:
-            # Never ignore these. As long as we don't track the info
-            # if we are atomic, this could be the only possible
-            # transaction break in the loop (they are the most
-            # likely ones):
-            # loop: stmts -> inc_atomic -> stmts -> dec_atomic ->
-            #       transaction_break -> loop_end
-            #
-            # we insert:
-            #   i0 = call(should_break_transaction)
-            #     stm_transaction_break()
-            #     guard_not_forced()
-            #   guard_false(i0)
-            #
-            # the stm_transaction_break() and its guard,
-            #   OR
-            # the call(should_break_transaction) and its guard,
-            # or both are going to be removed by optimizeopt
+        if val:
             resbox = history.BoxInt(0)
             funcptr = mi.staticdata.stm_should_break_transaction
             funcdescr = mi.staticdata.stm_should_break_transaction_descr
@@ -235,15 +211,9 @@ class MIFrame(object):
                 rop.CALL, resbox, funcdescr,
                 [ConstInt(heaptracker.adr2int(funcaddr)),])
             #
-            # ALSO generate an stm_transaction_break
-            # This is needed to be able to transform the guard
-            # into an unconditional TB during optimizeopt
-            # if wanted...
-            self._record_stm_transaction_break()
-            #
             return resbox
         else:
-            # we ignore this one.
+            self._record_stm_transaction_break()
             return ConstInt(0)
 
     @arguments()
@@ -1469,7 +1439,6 @@ class MIFrame(object):
             # XXX refactor: direct_libffi_call() is a hack
             if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
                 self.metainterp.direct_libffi_call()
-            self.metainterp.stm_break_wanted = True
             return resbox
         else:
             effect = effectinfo.extraeffect
@@ -1740,11 +1709,6 @@ class MetaInterp(object):
 
         self.call_ids = []
         self.current_call_id = 0
-
-        # for stm: placement of stm_break_point, used by MIFrame
-        self.stm_break_wanted = False
-        self.stm_insert_first_break = True
-
         
 
     def retrace_needed(self, trace):

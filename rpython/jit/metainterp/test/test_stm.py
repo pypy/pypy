@@ -12,9 +12,9 @@ class STMTests:
     def test_simple(self):
         def g():
             return rstm.jit_stm_should_break_transaction(False)
-        res = self.interp_operations(g, [])
+        res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
-        self.check_operations_history({})
+        self.check_operations_history(stm_transaction_break=1)
 
     def test_not_removed(self):
         import time
@@ -30,7 +30,7 @@ class STMTests:
             return rstm.jit_stm_should_break_transaction(True)
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
-        self.check_operations_history(call=1, stm_transaction_break=1)
+        self.check_operations_history(call=1, stm_transaction_break=0)
 
     def test_transaction_break(self):
         def g():
