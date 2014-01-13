@@ -969,6 +969,9 @@ class LLFrame(object):
     def execute_cond_call_stm_b(self, descr, a):
         py.test.skip("cond_call_stm_b not supported")
 
+    def execute_stm_transaction_break(self, _, really_wanted):
+        pass
+
     def execute_increment_debug_counter(self, descr, a):
         pass
 
