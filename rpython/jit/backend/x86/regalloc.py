@@ -1275,14 +1275,13 @@ class RegAlloc(BaseRegalloc):
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.perform_discard(op, [base_loc, ofs_loc, size_loc])
         
-    def consider_stm_transaction_break(self, op):
+    def consider_stm_transaction_break(self, op, guard_op):
         #
         # only save regs for the should_break_transaction call
         self.xrm.before_call()
         self.rm.before_call()
-        gcmap = self.get_gcmap() # allocate the gcmap *before*
         #
-        self.assembler.stm_transaction_break(gcmap)
+        self.perform_with_guard(op, guard_op, [], None)
         
 
     def consider_jump(self, op):
@@ -1423,7 +1422,8 @@ for name, value in RegAlloc.__dict__.iteritems():
         if (is_comparison_or_ovf_op(num)
             or num == rop.CALL_MAY_FORCE
             or num == rop.CALL_ASSEMBLER
-            or num == rop.CALL_RELEASE_GIL):
+            or num == rop.CALL_RELEASE_GIL
+            or num == rop.STM_TRANSACTION_BREAK):
             oplist_with_guard[num] = value
             oplist[num] = add_none_argument(value)
         else:

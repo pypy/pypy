@@ -3153,11 +3153,14 @@ class Assembler386(BaseAssembler):
         dest_addr = AddressLoc(base_loc, ofs_loc)
         mc.MOV(dest_addr, X86_64_SCRATCH_REG)
 
-        
-    def stm_transaction_break(self, gcmap):
+    def genop_guard_stm_transaction_break(self, op, guard_op, guard_token,
+                                          arglocs, result_loc):
         assert self.cpu.gc_ll_descr.stm
         if not we_are_translated():
             return     # tests only
+
+        gcmap = self._regalloc.get_gcmap()
+        self._store_force_index(guard_op)
 
         mc = self.mc
         # if stm_should_break_transaction()
@@ -3206,6 +3209,8 @@ class Assembler386(BaseAssembler):
         # patch the JZ above
         offset = mc.get_relative_pos() - jz_location2
         mc.overwrite32(jz_location2-4, offset)
+
+        self._emit_guard_not_forced(guard_token)
 
 
 

@@ -20,7 +20,8 @@ class OptSTM(Optimization):
         dispatch_opt(self, op)
 
     def _break_wanted(self):
-        return self.optimizer.stm_info.get('break_wanted', True)
+        is_loop = self.optimizer.loop.operations[0].getopnum() == rop.LABEL
+        return self.optimizer.stm_info.get('break_wanted', is_loop)
     
     def _set_break_wanted(self, val):
         self.optimizer.stm_info['break_wanted'] = val
