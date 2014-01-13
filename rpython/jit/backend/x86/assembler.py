@@ -529,18 +529,6 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         #
         if not for_frame:
-            if descr.stmcat in ['A2W', 'A2V']:
-                # slow fastpath
-                flag = StmGC.GCFLAG_PRIVATE_FROM_PROTECTED >> 40
-                off = 5
-                assert 0 < flag < 256
-                mc.MOV_rs(X86_64_SCRATCH_REG.value, WORD)
-                mc.TEST8_mi((X86_64_SCRATCH_REG.value, off), flag)
-                mc.J_il8(rx86.Conditions['Z'], 0)
-                jz = mc.get_relative_pos()
-                mc.RET()
-                mc.overwrite(jz - 1, chr(mc.get_relative_pos() - jz))
-                
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
             if IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
