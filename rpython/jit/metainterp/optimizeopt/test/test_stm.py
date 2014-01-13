@@ -84,13 +84,35 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, expected_preamble=preamble)
 
-    # def test_dont_remove_first_tb(self):
-    #     ops = """
-    #     []
-    #     stm_transaction_break()
-    #     guard_not_forced() []
-        
+    def test_dont_remove_first_tb(self):
+        ops = """
+        []
+        stm_transaction_break()
+        guard_not_forced() []
+        stm_transaction_break()
+        guard_not_forced() []
+        stm_transaction_break()
+        guard_not_forced() []
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
+        jump()
+        """
+        preamble = """
+        []
+        stm_transaction_break()
+        guard_not_forced() []
 
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
+        jump()
+        """
+        self.optimize_loop(ops, expected, expected_preamble=preamble)
 
 
 
