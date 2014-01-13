@@ -187,14 +187,46 @@ class MIFrame(object):
             raise AssertionError("bad result box type")
 
     # ------------------------------
+    def _record_stm_transaction_break(self):
+        # records an unconditional stm_transaction_break
+        mi = self.metainterp
+        mi.vable_and_vrefs_before_residual_call()
+        mi._record_helper_nonpure_varargs(
+            rop.STM_TRANSACTION_BREAK, None, None, [])
+        mi.vrefs_after_residual_call()
+        mi.vable_after_residual_call()
+        mi.generate_guard(rop.GUARD_NOT_FORCED, None)
+        
+    
     @arguments("int")
     def opimpl_stm_should_break_transaction(self, if_there_is_no_other):
         val = bool(if_there_is_no_other)
         mi = self.metainterp
-        if (mi.stm_break_wanted or (val and not mi.stm_break_done)):
-            mi.stm_break_done = True
+        if mi.stm_break_wanted:
+            # after call_release_gil and similar we want to have
+            # stm_transaction_break that may disable optimizations,
+            # but they would have been disabled anyways by the call
+            self._record_stm_transaction_break()
             mi.stm_break_wanted = False
-            # insert a CALL
+            return ConstInt(0)
+        elif val:
+            # Never ignore these. As long as we don't track the info
+            # if we are atomic, this could be the only possible
+            # transaction break in the loop (they are the most
+            # likely ones):
+            # loop: stmts -> inc_atomic -> stmts -> dec_atomic ->
+            #       transaction_break -> loop_end
+            #
+            # we insert:
+            #   i0 = call(should_break_transaction)
+            #     stm_transaction_break()
+            #     guard_not_forced()
+            #   guard_false(i0)
+            #
+            # the stm_transaction_break() and its guard,
+            #   OR
+            # the call(should_break_transaction) and its guard,
+            # or both are going to be removed by optimizeopt
             resbox = history.BoxInt(0)
             funcptr = mi.staticdata.stm_should_break_transaction
             funcdescr = mi.staticdata.stm_should_break_transaction_descr
@@ -202,14 +234,21 @@ class MIFrame(object):
             mi._record_helper_nonpure_varargs(
                 rop.CALL, resbox, funcdescr,
                 [ConstInt(heaptracker.adr2int(funcaddr)),])
+            #
+            # ALSO generate an stm_transaction_break
+            # This is needed to be able to transform the guard
+            # into an unconditional TB during optimizeopt
+            # if wanted...
+            self._record_stm_transaction_break()
+            #
             return resbox
         else:
+            # we ignore this one.
             return ConstInt(0)
 
     @arguments()
     def opimpl_stm_transaction_break(self):
-        self.metainterp._record_helper_nonpure_varargs(
-            rop.STM_TRANSACTION_BREAK, None, None, [])
+        self._record_stm_transaction_break()
     
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
@@ -1703,7 +1742,7 @@ class MetaInterp(object):
 
         # for stm: placement of stm_break_point, used by MIFrame
         self.stm_break_wanted = False
-        self.stm_break_done = False
+        self.stm_insert_first_break = True
 
         
 

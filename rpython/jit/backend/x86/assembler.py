@@ -3160,10 +3160,29 @@ class Assembler386(BaseAssembler):
             return     # tests only
 
         mc = self.mc
+        # if stm_should_break_transaction()
+        fn = stmtlocal.stm_should_break_transaction_fn
+        mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+        mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
+        mc.J_il(rx86.Conditions['Z'], 0xfffff)    # patched later
+        jz_location2 = mc.get_relative_pos()
         #
         # call stm_transaction_break() with the address of the
         # STM_RESUME_BUF and the custom longjmp function
         self.push_gcmap(mc, gcmap, mov=True)
+        #
+        # save all registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        for gpr in self._regalloc.rm.reg_bindings.values():
+            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+            mc.MOV_br(v * WORD + base_ofs, gpr.value)
+        if IS_X86_64:
+            coeff = 1
+        else:
+            coeff = 2
+        ofs = len(gpr_reg_mgr_cls.all_regs)
+        for xr in self._regalloc.xrm.reg_bindings.values():
+            mc.MOVSD_bx((ofs + xr.value * coeff) * WORD + base_ofs, xr.value)
         #
         # CALL break function
         fn = self.stm_transaction_break_path
@@ -3171,6 +3190,22 @@ class Assembler386(BaseAssembler):
         # ** HERE ** is the place an aborted transaction retries
         # ebp/frame reloaded by longjmp callback
         #
+        # restore regs
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        for gpr in self._regalloc.rm.reg_bindings.values():
+            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+            mc.MOV_rb(gpr.value, v * WORD + base_ofs)
+        if IS_X86_64:
+            coeff = 1
+        else:
+            coeff = 2
+        ofs = len(gpr_reg_mgr_cls.all_regs)
+        for xr in self._regalloc.xrm.reg_bindings.values():
+            mc.MOVSD_xb(xr.value, (ofs + xr.value * coeff) * WORD + base_ofs)
+        #
+        # patch the JZ above
+        offset = mc.get_relative_pos() - jz_location2
+        mc.overwrite32(jz_location2-4, offset)
 
 
 

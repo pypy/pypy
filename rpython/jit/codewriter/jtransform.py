@@ -1347,11 +1347,13 @@ class Transformer(object):
         arg = int(op.args[0].value)
         c_arg = Constant(arg, lltype.Signed)
 
-        return SpaceOperation('stm_should_break_transaction',
-                              [c_arg], op.result)
+        return [SpaceOperation('stm_should_break_transaction',
+                               [c_arg], op.result),
+                SpaceOperation('-live-', [], None),]
 
     def rewrite_op_jit_stm_transaction_break_point(self, op):
-        return SpaceOperation('stm_transaction_break', [], op.result)
+        return [SpaceOperation('stm_transaction_break', [], op.result),
+                SpaceOperation('-live-', [], None),]
     
     def rewrite_op_jit_marker(self, op):
         key = op.args[0].value

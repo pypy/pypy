@@ -365,6 +365,8 @@ class BaseTest(object):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
+        if hasattr(self, 'stm'):
+            metainterp_sd.config.translation.stm = self.stm
         #
         optimize_trace(metainterp_sd, loop, self.enable_opts)
 
