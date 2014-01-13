@@ -14,6 +14,7 @@ class OptSTM(Optimization):
     """
     def __init__(self):
         self.remove_next_gnf = False # guard_not_forced
+        self.keep_but_ignore_gnf = False
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
@@ -38,6 +39,7 @@ class OptSTM(Optimization):
         if self._break_wanted():
             self._set_break_wanted(False)
             self.emit_operation(op)
+            self.keep_but_ignore_gnf = True
         else:
             self.remove_next_gnf = True
 
@@ -45,6 +47,9 @@ class OptSTM(Optimization):
         if self.remove_next_gnf:
             self.remove_next_gnf = False
         else:
+            if not self.keep_but_ignore_gnf:
+                self._set_break_wanted(True)
+            self.keep_but_ignore_gnf = False
             self.emit_operation(op)
         
         
