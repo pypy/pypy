@@ -7,6 +7,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
                                 debug_print)
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 #
 # STM Support
