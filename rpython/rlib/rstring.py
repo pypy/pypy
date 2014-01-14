@@ -4,14 +4,23 @@ import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
-from rpython.rlib import jit
 
 
 # -------------- public API for string functions -----------------------
+
+def _isspace(char):
+    if isinstance(char, str):
+        return char.isspace()
+    else:
+        assert isinstance(char, unicode)
+        return unicodedb.isspace(ord(char))
+
 
 @specialize.argtype(0)
 def split(value, by=None, maxsplit=-1):
@@ -22,7 +31,7 @@ def split(value, by=None, maxsplit=-1):
         while True:
             # find the beginning of the next word
             while i < length:
-                if not value[i].isspace():
+                if not _isspace(value[i]):
                     break   # found
                 i += 1
             else:
@@ -33,7 +42,7 @@ def split(value, by=None, maxsplit=-1):
                 j = length   # take all the rest of the string
             else:
                 j = i + 1
-                while j < length and not value[j].isspace():
+                while j < length and not _isspace(value[j]):
                     j += 1
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
@@ -95,7 +104,7 @@ def rsplit(value, by=None, maxsplit=-1):
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:
-                if not value[i].isspace():
+                if not _isspace(value[i]):
                     break   # found
                 i -= 1
             else:
@@ -107,7 +116,7 @@ def rsplit(value, by=None, maxsplit=-1):
                 j = -1   # take all the rest of the string
             else:
                 j = i - 1
-                while j >= 0 and not value[j].isspace():
+                while j >= 0 and not _isspace(value[j]):
                     j -= 1
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
