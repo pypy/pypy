@@ -68,7 +68,7 @@ class W_CoreSolutionIterator(W_Root):
     @jit.look_inside_iff(lambda self: self.unroll_result_creation)
     def _create_result(self):
         """ Called internally after the activation of the continuation """
-        values_w = [conversion.w_of_p(self.space, w_var.p_var.dereference(None))
+        values_w = [conversion.w_of_p(self.space, w_var.p_var)
                         for w_var in self.unbound_vars_w]
         return W_Solution(self.space, self.unbound_vars_w, values_w)
 
