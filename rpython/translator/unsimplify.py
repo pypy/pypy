@@ -132,11 +132,6 @@ def split_block(annotator, block, index, _forcelink=None):
     block.exitswitch = None
     return link
 
-def split_block_at_start(annotator, block):
-    # split before the first op, preserve order and inputargs
-    # in the second block!
-    return split_block(annotator, block, 0, _forcelink=block.inputargs)
-
 def remove_double_links(annotator, graph):
     """This can be useful for code generators: it ensures that no block has
     more than one incoming links from one and the same other block. It allows

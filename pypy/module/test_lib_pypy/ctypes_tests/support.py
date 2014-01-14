@@ -31,8 +31,10 @@ class BaseCTypesTestChecker:
             import gc
             for _ in range(4):
                 gc.collect()
-            cls.old_num = _rawffi._num_of_allocated_objects()
-
+            try:
+                cls.old_num = _rawffi._num_of_allocated_objects()
+            except RuntimeError:
+                pass
 
     def teardown_class(cls):
         if sys.pypy_translation_info['translation.gc'] == 'boehm':
