@@ -105,6 +105,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  calls  ----------
             if op.is_call():
+                if opnum == rop.CALL and op.getdescr():
+                    d = op.getdescr()
+                    assert isinstance(d, CallDescr)
+                    ei = d.get_extra_info()
+                    if ei and ei.oopspecindex == EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION:
+                        self.newops.append(op)
+                        continue
+                    
                 self.emitting_an_operation_that_can_collect()
                 self.next_op_may_be_in_new_transaction()
                                     

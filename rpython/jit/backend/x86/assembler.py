@@ -2278,6 +2278,7 @@ class Assembler386(BaseAssembler):
         cb = callbuilder.CallBuilder(self, arglocs[2], arglocs[3:], resloc)
 
         descr = op.getdescr()
+        effectinfo = descr.get_extra_info()
         assert isinstance(descr, CallDescr)
         cb.callconv = descr.get_call_conv()
         cb.argtypes = descr.get_arg_types()
@@ -2289,7 +2290,9 @@ class Assembler386(BaseAssembler):
         assert isinstance(signloc, ImmedLoc)
         cb.ressign = signloc.value
 
-        if is_call_release_gil:
+        if effectinfo and effectinfo.oopspecindex == EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION:
+            cb.emit_no_collect()
+        elif is_call_release_gil:
             cb.emit_call_release_gil()
         else:
             cb.emit()
