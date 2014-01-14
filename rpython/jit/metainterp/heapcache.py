@@ -159,17 +159,17 @@ class HeapCache(object):
                                 descr,
                             )
                         elif cache is not None:
-                            if argboxes[2] in self.new_boxes:
-                                try:
-                                    idx_cache = cache[dststart + i]
-                                except KeyError:
-                                    pass
-                                else:
+                            try:
+                                idx_cache = cache[dststart + i]
+                            except KeyError:
+                                pass
+                            else:
+                                if argboxes[2] in self.new_boxes:
                                     for frombox in idx_cache.keys():
                                         if not self.is_unescaped(frombox):
                                             del idx_cache[frombox]
-                            else:
-                                cache[dststart + i].clear()
+                                else:
+                                    idx_cache.clear()
                     return
                 elif (
                     argboxes[2] in self.new_boxes and
