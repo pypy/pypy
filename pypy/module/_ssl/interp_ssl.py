@@ -1,6 +1,7 @@
 from __future__ import with_statement
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import (
+    OperationError, operationerrfmt, wrap_oserror)
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -91,22 +92,7 @@ def ssl_error(space, msg, errno=0):
 
 
 class SSLContext(W_Root):
-    def __init__(self, method):
-        self.ctx = libssl_SSL_CTX_new(method)
-
-        # Defaults
-        libssl_SSL_CTX_set_verify(self.ctx, SSL_VERIFY_NONE, None)
-        libssl_SSL_CTX_set_options(
-            self.ctx, SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
-        libssl_SSL_CTX_set_session_id_context(self.ctx, "Python", len("Python"))
-
-    def __del__(self):
-        if self.ctx:
-            libssl_SSL_CTX_free(self.ctx)
-
-    @unwrap_spec(protocol=int)
-    def descr_new(space, w_subtype, protocol=PY_SSL_VERSION_SSL23):
-        self = space.allocate_instance(SSLContext, w_subtype)
+    def __init__(self, protocol):
         if protocol == PY_SSL_VERSION_TLS1:
             method = libssl_TLSv1_method()
         elif protocol == PY_SSL_VERSION_SSL3:
@@ -116,9 +102,26 @@ class SSLContext(W_Root):
         elif protocol == PY_SSL_VERSION_SSL23:
             method = libssl_SSLv23_method()
         else:
-            raise OperationError(
-                space.w_ValueError, space.wrap("invalid protocol version"))
-        self.__init__(method)
+            raise operationerrfmt(space.w_ValueError,
+                                  "invalid protocol version")
+        self.ctx = libssl_SSL_CTX_new(method)
+
+        # Defaults
+        libssl_SSL_CTX_set_verify(self.ctx, SSL_VERIFY_NONE, None)
+        options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+        if protocol != PY_SSL_VERSION_SSL2:
+            options |= SSL_OP_NO_SSLv2
+        libssl_SSL_CTX_set_options(self.ctx, options)
+        libssl_SSL_CTX_set_session_id_context(self.ctx, "Python", len("Python"))
+
+    def __del__(self):
+        if self.ctx:
+            libssl_SSL_CTX_free(self.ctx)
+
+    @unwrap_spec(protocol=int)
+    def descr_new(space, w_subtype, protocol=PY_SSL_VERSION_SSL23):
+        self = space.allocate_instance(SSLContext, w_subtype)
+        self.__init__(protocol)
         if not self.ctx:
             raise ssl_error(space, "failed to allocate SSL context")
         return space.wrap(self)
