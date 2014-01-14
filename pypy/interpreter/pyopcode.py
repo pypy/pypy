@@ -42,7 +42,8 @@ def binaryoperation(operationname):
 
 
 stmonly_jitdriver = jit.JitDriver(greens=[], reds=['next_instr', 'ec',
-                                                   'self', 'co_code'])
+                                                   'self', 'co_code'],
+                                  stm_do_transaction_breaks=True)
 
 opcodedesc = bytecode_spec.opcodedesc
 HAVE_ARGUMENT = bytecode_spec.HAVE_ARGUMENT

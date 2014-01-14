@@ -479,12 +479,14 @@ class JitDriver(object):
     name = 'jitdriver'
     inline_jit_merge_point = False
     _store_last_enter_jit = None
+    stm_do_transaction_breaks = False
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver', check_untranslated=True):
+                 name='jitdriver', check_untranslated=True,
+                 stm_do_transaction_breaks=False):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -520,6 +522,7 @@ class JitDriver(object):
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
         self.check_untranslated = check_untranslated
+        self.stm_do_transaction_breaks = stm_do_transaction_breaks
 
     def _freeze_(self):
         return True

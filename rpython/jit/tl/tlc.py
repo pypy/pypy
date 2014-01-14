@@ -229,7 +229,8 @@ class Frame(object):
         
 def make_interp(supports_call, jitted=True):
     myjitdriver = JitDriver(greens = ['pc', 'code'],
-                            reds = ['frame', 'pool'])
+                            reds = ['frame', 'pool'],
+                            stm_do_transaction_breaks=True)
 
     def interp(code='', pc=0, inputarg=0, pool=None):
         if not isinstance(code,str):

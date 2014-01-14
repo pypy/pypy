@@ -56,7 +56,8 @@ pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               set_jitcell_at = set_jitcell_at,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
-                              name='pypyjit')
+                              name='pypyjit',
+                              stm_do_transaction_breaks=True)
 
 class __extend__(PyFrame):
 

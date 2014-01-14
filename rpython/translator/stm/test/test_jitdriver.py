@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.stm.test.transform_support import BaseTestTransform
 from rpython.rlib.jit import JitDriver
+from rpython.rlib import rstm
 
 
 class TestJitDriver(BaseTestTransform):
@@ -10,11 +11,14 @@ class TestJitDriver(BaseTestTransform):
         class X:
             counter = 10
         x = X()
-        myjitdriver = JitDriver(greens=[], reds=[])
+        myjitdriver = JitDriver(greens=[], reds=[],
+                                stm_do_transaction_breaks=True)
 
         def f1():
             while x.counter > 0:
                 myjitdriver.jit_merge_point()
+                if rstm.jit_stm_should_break_transaction(False):
+                    rstm.jit_stm_transaction_break_point()
                 x.counter -= 1
             return 'X'
 
