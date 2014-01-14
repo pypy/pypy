@@ -22,8 +22,8 @@ def getsample(cp, size, i):
     if not (0 <= i < len(cp) / size):
         raise error("Index out of range")
     if size == 1:
-        return struct.unpack_from("B", buffer(cp)[i:])[0]
+        return struct.unpack_from("B", memoryview(cp)[i:])[0]
     elif size == 2:
-        return struct.unpack_from("H", buffer(cp)[i * 2:])[0]
+        return struct.unpack_from("H", memoryview(cp)[i * 2:])[0]
     elif size == 4:
-        return struct.unpack_from("I", buffer(cp)[i * 4:])[0]
+        return struct.unpack_from("I", memoryview(cp)[i * 4:])[0]
