@@ -2,6 +2,7 @@
 
 import functools
 
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import ParseStringError
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
@@ -214,9 +215,9 @@ class W_LongObject(W_AbstractLongObject):
     def __init__(self, num):
         self.num = num # instance of rbigint
 
+    @staticmethod
     def fromint(space, intval):
         return W_LongObject(rbigint.fromint(intval))
-    fromint = staticmethod(fromint)
 
     def longval(self):
         return self.num.tolong()
@@ -231,18 +232,18 @@ class W_LongObject(W_AbstractLongObject):
     def toint(self):
         return self.num.toint()
 
+    @staticmethod
     def fromfloat(space, f):
         return newlong(space, rbigint.fromfloat(f))
-    fromfloat = staticmethod(fromfloat)
 
+    @staticmethod
     def fromlong(l):
         return W_LongObject(rbigint.fromlong(l))
-    fromlong = staticmethod(fromlong)
 
+    @staticmethod
+    @specialize.argtype(0)
     def fromrarith_int(i):
         return W_LongObject(rbigint.fromrarith_int(i))
-    fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
-    fromrarith_int = staticmethod(fromrarith_int)
 
     def int_w(self, space):
         try:
