@@ -92,7 +92,7 @@ def ssl_error(space, msg, errno=0):
 
 
 class SSLContext(W_Root):
-    def __init__(self, protocol):
+    def __init__(self, space, protocol):
         if protocol == PY_SSL_VERSION_TLS1:
             method = libssl_TLSv1_method()
         elif protocol == PY_SSL_VERSION_SSL3:
@@ -121,7 +121,7 @@ class SSLContext(W_Root):
     @unwrap_spec(protocol=int)
     def descr_new(space, w_subtype, protocol=PY_SSL_VERSION_SSL23):
         self = space.allocate_instance(SSLContext, w_subtype)
-        self.__init__(protocol)
+        self.__init__(space, protocol)
         if not self.ctx:
             raise ssl_error(space, "failed to allocate SSL context")
         return space.wrap(self)

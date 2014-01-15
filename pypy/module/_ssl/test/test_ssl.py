@@ -215,7 +215,7 @@ class AppTestContext:
     def test_options(self):
         import _ssl
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
-        assert _ssl.OP_ALL == ctx.options
+        assert _ssl.OP_ALL | _ssl.OP_NO_SSLv2 == ctx.options
 
 
 
