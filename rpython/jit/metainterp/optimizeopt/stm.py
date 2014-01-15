@@ -18,6 +18,10 @@ class OptSTM(Optimization):
     def flush_cached(self):
         while self.cached_ops:
             self.emit_operation(self.cached_ops.pop(0))
+
+    def flush(self):
+        # just in case. it shouldn't be necessary
+        self.flush_cached()
         
     def default_emit(self, op):
         self.flush_cached()
