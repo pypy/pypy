@@ -177,6 +177,9 @@ translation_optiondescription = OptionDescription(
     BoolOption("lldebug",
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
+    BoolOption("lldebug0",
+               "If true, makes an lldebug0 build", default=False,
+               cmdline="--lldebug0"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
