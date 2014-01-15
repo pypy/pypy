@@ -5,8 +5,16 @@ from rpython.jit.metainterp.resoperation import rop
 
 class OptSTM(Optimization):
     """
-    For now only changes some guarded transaction breaks
-    to unconditional ones.
+    This step removes a lot of uncecessary transaction_breaks (TBs)
+    emitted by pyjitpl from traces. We only want to keep these
+    unconditional TBs after external calls (identified by GUARD_NOT_FORCED)
+    because they are likely to return as inevitable transactions which
+    we want to break ASAP.
+    Guarded TBs are left in place, as they represent app-level loops
+    and are likely points to break between atomic transactions.
+
+    The cached_ops is here to remove the virtualizable-forcing added
+    by pyjitpl before unconditional TBs. See tests.
     """
     def __init__(self):
         self.remove_next_gnf = False # guard_not_forced
