@@ -9,6 +9,12 @@ from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
                                 debug_print)
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
+### XXX:
+### we changed some 'x2I' barriers to 'x2R' since
+### obj initialization may happen in 2 different transactions.
+### check and fix this assumption
+
+
 #
 # STM Support
 # -----------    
@@ -83,7 +89,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 # e.g. getting inst_intval of a W_IntObject that is
                 # currently only a stub needs to first resolve to a 
                 # real object
-                self.handle_category_operations(op, 'I')
+                # XXX: 'I' enough?
+                self.handle_category_operations(op, 'R')
                 continue
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
@@ -315,7 +322,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         lst[1] = self.gen_barrier(lst[1], 'W')
         op = op.copy_and_change(op.getopnum(), args=lst)
         # then an immutable read barrier the source string
-        self.handle_category_operations(op, 'I')
+        # XXX: 'I' enough?
+        self.handle_category_operations(op, 'R')
 
     @specialize.arg(1)
     def _do_stm_call(self, funcname, args, result):
