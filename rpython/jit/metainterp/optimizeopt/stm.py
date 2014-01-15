@@ -1,6 +1,7 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, )
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.resoperation import rop
 
 class OptSTM(Optimization):
     """
@@ -35,10 +36,18 @@ class OptSTM(Optimization):
         self.optimizer.stm_info['break_wanted'] = val
 
     def optimize_FORCE_TOKEN(self, op):
+        # if we have cached stuff, flush it. Not our case
+        self.flush_cached()
         self.cached_ops.append(op)
 
     def optimize_SETFIELD_GC(self, op):
-        self.cached_ops.append(op)
+        if not self.cached_ops:
+            # setfield not for force_token
+            self.emit_operation(op)
+        else:
+            assert len(self.cached_ops) == 1
+            assert self.cached_ops[0].getopnum() == rop.FORCE_TOKEN
+            self.cached_ops.append(op)
         
     def optimize_CALL(self, op):
         self.flush_cached()

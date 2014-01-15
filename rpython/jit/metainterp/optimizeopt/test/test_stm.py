@@ -249,6 +249,34 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, expected_preamble=preamble)
 
+    def test_not_remove_setfield(self):
+        ops = """
+        [p0, p1]
+        setfield_gc(p0, p1, descr=adescr)
+        stm_transaction_break(0)
+        
+        p2 = force_token()
+        p3 = force_token()
+        jump(p0, p1)
+        """
+        preamble = """
+        [p0, p1]
+        setfield_gc(p0, p1, descr=adescr)
+        stm_transaction_break(0)
+
+        p2 = force_token()
+        p3 = force_token()
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        p2 = force_token()
+        p3 = force_token()
+        
+        setfield_gc(p0, p1, descr=adescr) # moved here by other stuff...
+        jump(p0, p1)        
+        """
+        self.optimize_loop(ops, expected, expected_preamble=preamble)
 
 
 
