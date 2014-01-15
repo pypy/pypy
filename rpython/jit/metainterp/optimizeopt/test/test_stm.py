@@ -191,6 +191,63 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, expected_preamble=preamble)
 
+    def test_remove_force_token(self):
+        ops = """
+        [p0]
+        p1 = force_token()
+        setfield_gc(p0, p1, descr=adescr)
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        p2 = force_token()
+        setfield_gc(p0, p2, descr=adescr)
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        p3 = force_token()
+        setfield_gc(p0, p3, descr=adescr)
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        escape()
+
+        p4 = force_token()
+        setfield_gc(p0, p4, descr=adescr)
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        p6 = force_token() # not removed!
+                
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        p1 = force_token()
+        setfield_gc(p0, p1, descr=adescr)
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        escape()
+
+        p6 = force_token() # not removed!
+        
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        escape()
+
+        p6 = force_token() # not removed!
+        
+        i0 = call(123, descr=sbtdescr)
+        guard_false(i0) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected_preamble=preamble)
 
 
 
