@@ -466,3 +466,7 @@ class AppTestBytesArray:
     def test_partition_return_copy(self):
         b = bytearray(b'foo')
         assert b.partition(b'x')[0] is not b
+
+    def test_split_whitespace(self):
+        b = bytearray(b'\x09\x0A\x0B\x0C\x0D\x1C\x1D\x1E\x1F')
+        assert b.split() == [b'\x1c\x1d\x1e\x1f']
