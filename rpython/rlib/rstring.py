@@ -14,6 +14,7 @@ from rpython.tool.pairtype import pairtype
 
 # -------------- public API for string functions -----------------------
 
+@specialize.argtype(0)
 def _isspace(char):
     if isinstance(char, str):
         return char.isspace()
