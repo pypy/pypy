@@ -366,9 +366,7 @@ class ContextTests(unittest.TestCase):
     @skip_if_broken_ubuntu_ssl
     def test_options(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        # OP_ALL is the default value
-        self.assertEqual(ssl.OP_ALL, ctx.options)
-        ctx.options |= ssl.OP_NO_SSLv2
+        # OP_ALL | OP_NO_SSLv2 is the default value
         self.assertEqual(ssl.OP_ALL | ssl.OP_NO_SSLv2,
                          ctx.options)
         ctx.options |= ssl.OP_NO_SSLv3
