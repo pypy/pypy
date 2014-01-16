@@ -218,6 +218,12 @@ class AppTestUnicodeString:
         assert u'\u1FFc'.istitle()
         assert u'Greek \u1FFcitlecases ...'.istitle()
 
+    def test_islower_isupper_with_titlecase(self):
+        # \u01c5 is a char which is neither lowercase nor uppercase, but
+        # titlecase
+        assert not u'\u01c5abc'.islower()
+        assert not u'\u01c5ABC'.isupper()
+
     def test_capitalize(self):
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '

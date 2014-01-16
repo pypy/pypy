@@ -327,6 +327,26 @@ class W_UnicodeObject(W_Root):
     def descr_isnumeric(self, space):
         return self._is_generic(space, '_isnumeric')
 
+    def descr_islower(self, space):
+        cased = False
+        for uchar in self._value:
+            if (unicodedb.isupper(ord(uchar)) or
+                unicodedb.istitle(ord(uchar))):
+                return space.w_False
+            if not cased and unicodedb.islower(ord(uchar)):
+                cased = True
+        return space.newbool(cased)
+
+    def descr_isupper(self, space):
+        cased = False
+        for uchar in self._value:
+            if (unicodedb.islower(ord(uchar)) or
+                unicodedb.istitle(ord(uchar))):
+                return space.w_False
+            if not cased and unicodedb.isupper(ord(uchar)):
+                cased = True
+        return space.newbool(cased)
+
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)

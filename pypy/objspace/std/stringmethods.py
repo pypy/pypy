@@ -246,6 +246,7 @@ class StringMethods(object):
     def descr_isdigit(self, space):
         return self._is_generic(space, '_isdigit')
 
+    # this is only for bytes and bytesarray: unicodeobject overrides it
     def descr_islower(self, space):
         v = self._val(space)
         if len(v) == 1:
@@ -283,6 +284,7 @@ class StringMethods(object):
 
         return space.newbool(cased)
 
+    # this is only for bytes and bytesarray: unicodeobject overrides it
     def descr_isupper(self, space):
         v = self._val(space)
         if len(v) == 1:
