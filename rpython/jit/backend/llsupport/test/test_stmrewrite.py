@@ -1275,6 +1275,42 @@ class TestStm(RewriteTests):
                 jump(p3)
             """, uxdescr=uxdescr, vzdescr=vzdescr, vdescr=vdescr)
 
-    
+    def test_weaken_previous_barrier(self):
+        class fakeextrainfo:
+            oopspecindex=0
+            def call_needs_inevitable(self):
+                return False
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T,
+                                    fakeextrainfo())
+
+        # True: weaken previous barrier
+        # False: do not weaken
+        ops = [("stm_transaction_break(1)", False),
+               ("call(123, descr=cd)", False),
+               ("label()", False),
+               ("i2 = int_add(i1, 1)", True)
+           ]
+        for op, weaken in ops:
+            b1 = ("cond_call_stm_b(p1, descr=A2Vdescr)" if weaken
+                  else "cond_call_stm_b(p1, descr=A2Rdescr)")
+            b2 = ("" if weaken
+                  else "cond_call_stm_b(p1, descr=A2Vdescr)")
+            self.check_rewrite("""
+            [p1, i3]
+            i1 = getfield_gc(p1, descr=tydescr) # noptr
+            %s
+            setfield_gc(p1, i3, descr=tydescr) # noptr
+            jump(p1)
+            """ % (op,), """
+            [p1, i3]
+            %s
+            i1 = getfield_gc(p1, descr=tydescr)
+            %s
+            %s
+            setfield_gc(p1, i3, descr=tydescr)
+            
+            jump(p1)
+            """ % (b1, op, b2), cd=calldescr2)
 
 
