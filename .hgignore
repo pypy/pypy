@@ -93,3 +93,6 @@ syntax: regexp
 ^.git/
 ^release/
 ^rpython/_cache$
+lib_pypy/uni.py
+env.sh
+deps/

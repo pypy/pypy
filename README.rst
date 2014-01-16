@@ -11,22 +11,8 @@ The goal of the project is to identify the challenges associated with composing
 programming languages whose paradigms differ vastly and to evaluate RPython as
 a language composition platform.
 
-Building
-========
-
-Check out pyrolog somewhere::
-
-    $ hg clone https://bitbucket.org/cfbolz/pyrolog-unipycation
-
-Note, the above repo is a fork of the official pyrolog sources.
-
-Switch into the unipycation branch::
-
-    $ hg update -C unipycation
-
-Add pyrolog to the PYTHONPATH::
-
-    $ export PYTHONPATH=/path/to/pyrolog/checkout
+Setup
+=====
 
 Get the unipycation sources::
 
@@ -36,13 +22,15 @@ Switch into the unipycation branch::
 
     $ hg update -C unipycation
 
-And begin translation::
+Run the setup script:
 
-    $ rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+    $ sh bootstrap.sh
 
-On a 64-bit architecture this process will consume about 8GB of memory at peak.
+Follow instructions printed to stdout.
 
-The resulting pypy-c binary is the composed Python/Prolog compiler.
+On a 64-bit architecture the translation process will consume about 8GB of
+memory at peak. The resulting pypy-c binary is the composed Python/Prolog
+compiler.
 
 Using Unipycation
 =================
@@ -55,6 +43,8 @@ The interface is described in the paper `Unipycation: A Case Study in
 Cross-Language Tracing
 <http://soft-dev.org/pubs/pdf/barrett_bolz_tratt__unipycation_a_study_in_cross_language_tracing.pdf>`_
 which appeared in VMIL'13.
+
+The interface is subject to change.
 
 Authors
 =======

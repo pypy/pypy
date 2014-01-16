@@ -68,16 +68,15 @@ class TestTypeConversion(object):
 
         assert unwrap1 == unwrap2
 
-    def test_p_callable_of_w_term(self):
+    def test_p_term_of_w_term(self):
         # f(1,2,3).
-        args_w = [ conv.w_of_p(self.space, pterm.Number(x)) for x in [1,2,3] ]
-        w_term = objects.W_CoreTerm(self.space, self.space.wrap("f"), args_w)
-        p_term = conv.p_callable_of_w_term(self.space, w_term)
+        p_sig = psig.Signature.getsignature("f", 3)
+        p_atoms = [ pterm.Number(x) for x in [1, 2, 3] ]
+        p_callable = pterm.Callable.build("f",  p_atoms, p_sig)
 
-        p_args = p_term.arguments()
-        assert len(p_args) == 3
-        for i in range(3):
-            assert p_args[i].num == i + 1
+        w_term = objects.W_CoreTerm(self.space, p_callable)
+        p_term = conv.p_term_of_w_term(self.space, w_term)
+        assert p_term is p_callable
 
     # -------------------------------------
     # Test conversion from Prolog to Python

@@ -1,6 +1,5 @@
-from prolog.interpreter import term, helper
-from prolog.interpreter.term import BindingVar
-from prolog.interpreter import signature
+from prolog.interpreter import term
+from prolog.interpreter import helper
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
@@ -27,8 +26,6 @@ def _p_type_check(space, inst, typ):
 # Convert from Python to Prolog
 # -----------------------------
 
-# XXX dont need all the assertions
-
 def p_number_of_w_int(space, w_int):
     val = space.int_w(w_int)
     return term.Number(val)
@@ -45,15 +42,13 @@ def p_atom_of_w_str(space, w_str):
     val = space.str0_w(w_str)
     return term.Atom(val)
 
-def p_callable_of_w_term(space, w_term):
-    p_name = space.str_w(w_term.w_name)
-    p_args = [ p_of_w(space, x) for x in w_term.args_w ]
-    p_sig = signature.Signature.getsignature(p_name, len(w_term.args_w))
-    return term.Callable.build(p_name, p_args, p_sig)
+def p_term_of_w_term(space, w_term):
+    assert isinstance(w_term, objects.W_CoreTerm)
+    return w_term.p_term
 
-# XXX not sure. We are not always going to want a fresh variable
-# Perhaps we need to pass down a mapping.
-def p_var_of_w_var(space, w_var): return w_var.p_var
+def p_var_of_w_var(space, w_var):
+    assert isinstance(w_var, objects.W_Var)
+    return w_var.p_var
 
 def p_of_w(space, w_anything):
     w_CoreTerm = util.get_from_module(space, "unipycation", "CoreTerm")
@@ -70,10 +65,8 @@ def p_of_w(space, w_anything):
     elif space.is_true(space.isinstance(w_anything, space.w_str)):
         return p_atom_of_w_str(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_CoreTerm)):
-        assert isinstance(w_anything, objects.W_CoreTerm)
-        return p_callable_of_w_term(space, w_anything)
+        return p_term_of_w_term(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_Var)):
-        assert isinstance(w_anything, objects.W_Var)
         return p_var_of_w_var(space, w_anything)
     else:
         return prologobject.PythonBlackBox(space, w_anything)
@@ -95,9 +88,7 @@ def w_str_of_p_atom(space, p_atom):
     return space.wrap(helper.unwrap_atom(p_atom))
 
 def w_term_of_p_callable(space, p_callable):
-    w_name = space.wrap(p_callable.name())
-    args_w = [ w_of_p(space, x) for x in p_callable.arguments() ]
-    return objects.W_CoreTerm(space, w_name, args_w)
+    return objects.W_CoreTerm(space, p_callable)
 
 def w_whatever_of_p_bindingvar(space, p_bindingvar):
     if p_bindingvar.binding is None:
