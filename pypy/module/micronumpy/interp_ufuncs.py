@@ -10,6 +10,7 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.constants import *
+from pypy.module.micronumpy.arrayimpl.scalar import Scalar
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -383,8 +384,8 @@ class W_Ufunc2(W_Ufunc):
                 w_ldtype = w_rdtype
 
         if (self.int_only and (not w_ldtype.is_int_type() or not w_rdtype.is_int_type()) or
-                not self.allow_bool and (w_ldtype.is_bool_type() or w_rdtype.is_bool_type()) or
-                not self.allow_complex and (w_ldtype.is_complex_type() or w_rdtype.is_complex_type())):
+            not self.allow_bool and (w_ldtype.is_bool_type() or w_rdtype.is_bool_type()) or
+            not self.allow_complex and (w_ldtype.is_complex_type() or w_rdtype.is_complex_type())):
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
 
         calc_dtype = find_binop_result_dtype(space,
@@ -418,12 +419,16 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.get_scalar_value().convert_to(space, calc_dtype)
             )
             if isinstance(out, W_NDimArray):
+                # TODO: Call __array_prepare__
                 if out.is_scalar():
                     out.set_scalar_value(arr)
                 else:
                     out.fill(space, arr)
             else:
-                out = arr
+                # TODO: Call __array_prepare__
+                out = W_NDimArray(Scalar(res_dtype, res_dtype.box(0)))
+                out.set_scalar_value(arr)
+
             return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
