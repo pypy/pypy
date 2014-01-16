@@ -65,6 +65,9 @@ class W_CoreSolutionIterator(W_Root):
 
         self.continuation_holder = ContinuationHolder()
 
+    # Required by uni.py
+    def finalise_w(self): pass
+
     @jit.look_inside_iff(lambda self: self.unroll_result_creation)
     def _create_result(self):
         """ Called internally after the activation of the continuation """
@@ -106,6 +109,7 @@ class W_CoreSolutionIterator(W_Root):
 W_CoreSolutionIterator.typedef = TypeDef("CoreSolutionIterator",
     __iter__ = interp2app(W_CoreSolutionIterator.iter_w),
     next = interp2app(W_CoreSolutionIterator.next_w),
+    finalise = interp2app(W_CoreSolutionIterator.finalise_w),
 )
 
 W_CoreSolutionIterator.typedef.acceptable_as_base_class = False
