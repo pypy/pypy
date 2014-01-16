@@ -776,6 +776,13 @@ class AppTestBytesObject:
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
 
+    def test___radd__(self):
+        class Foo(object):
+            def __radd__(self, other):
+                return 42
+        x = Foo()
+        assert "hello" + x == 42
+
 class AppTestPrebuilt(AppTestBytesObject):
     spaceconfig = {"objspace.std.withprebuiltchar": True}
 

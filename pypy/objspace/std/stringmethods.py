@@ -45,7 +45,13 @@ class StringMethods(object):
         return space.newbool(self._val(space).find(self._op_val(space, w_sub)) >= 0)
 
     def descr_add(self, space, w_other):
-        return self._new(self._val(space) + self._op_val(space, w_other))
+        try:
+            other = self._op_val(space, w_other)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+        return self._new(self._val(space) + other)
 
     def descr_mul(self, space, w_times):
         try:

@@ -65,7 +65,7 @@ class W_AbstractBytesObject(W_Root):
         """x.__getitem__(y) <==> x[y]"""
 
     def descr_getnewargs(self, space):
-        """"""
+        ""
 
     def descr_getslice(self, space, w_start, w_stop):
         """x.__getslice__(i, j) <==> x[i:j]
