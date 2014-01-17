@@ -717,10 +717,19 @@ class FlowSpaceFrame(object):
         w_obj = self.import_name(modulename, glob, None, fromlist, level)
         self.pushvalue(w_obj)
 
+    def import_from(self, w_module, w_name):
+        assert isinstance(w_module, Constant)
+        assert isinstance(w_name, Constant)
+        try:
+            return op.getattr(w_module, w_name).eval(self)
+        except FlowingError:
+            exc = ImportError("cannot import name '%s'" % w_name.value)
+            raise Raise(const(exc))
+
     def IMPORT_FROM(self, nameindex):
         w_name = self.getname_w(nameindex)
         w_module = self.peekvalue()
-        self.pushvalue(self.space.import_from(w_module, w_name))
+        self.pushvalue(self.import_from(w_module, w_name))
 
     def RETURN_VALUE(self, oparg):
         w_returnvalue = self.popvalue()

@@ -38,15 +38,6 @@ class FlowObjSpace(object):
     def build_flow(self, func):
         return build_flow(func, self)
 
-    def import_from(self, w_module, w_name):
-        assert isinstance(w_module, Constant)
-        assert isinstance(w_name, Constant)
-        try:
-            return op.getattr(w_module, w_name).eval(self.frame)
-        except FlowingError:
-            exc = ImportError("cannot import name '%s'" % w_name.value)
-            raise Raise(const(exc))
-
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = op.getattr(w_obj, const(methname)).eval(self.frame)
         return self.call_function(w_meth, *arg_w)
