@@ -167,8 +167,12 @@ class PyFrame(W_Root):
     def run(self):
         """Start this frame's execution."""
         if self.getcode().co_flags & pycode.CO_GENERATOR:
-            from pypy.interpreter.generator import GeneratorIterator
-            return self.space.wrap(GeneratorIterator(self))
+            if pycode.CO_YIELD_INSIDE_TRY:
+                from pypy.interpreter.generator import GeneratorIteratorWithDel
+                return self.space.wrap(GeneratorIteratorWithDel(self))
+            else:
+                from pypy.interpreter.generator import GeneratorIterator
+                return self.space.wrap(GeneratorIterator(self))
         else:
             return self.execute_frame()
 
