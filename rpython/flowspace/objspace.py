@@ -45,11 +45,6 @@ class FlowObjSpace(object):
         args = CallSpec(list(args_w))
         return self.call(w_func, args)
 
-    def appcall(self, func, *args_w):
-        """Call an app-level RPython function directly"""
-        w_func = const(func)
-        return op.simple_call(w_func, *args_w).eval(self.frame)
-
     def call(self, w_callable, args):
         if isinstance(w_callable, Constant):
             fn = w_callable.value

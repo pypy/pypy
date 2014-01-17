@@ -576,6 +576,11 @@ class FlowSpaceFrame(object):
     def getname_w(self, index):
         return Constant(self.pycode.names[index])
 
+    def appcall(self, func, *args_w):
+        """Call an app-level RPython function directly"""
+        w_func = const(func)
+        return op.simple_call(w_func, *args_w).eval(self)
+
     def BAD_OPCODE(self, _):
         raise FlowingError("This operation is not RPython")
 
@@ -781,10 +786,10 @@ class FlowSpaceFrame(object):
     def PRINT_ITEM(self, oparg):
         w_item = self.popvalue()
         w_s = op.str(w_item).eval(self)
-        self.space.appcall(rpython_print_item, w_s)
+        self.appcall(rpython_print_item, w_s)
 
     def PRINT_NEWLINE(self, oparg):
-        self.space.appcall(rpython_print_newline)
+        self.appcall(rpython_print_newline)
 
     def JUMP_FORWARD(self, target):
         return target

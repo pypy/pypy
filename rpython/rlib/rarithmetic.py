@@ -521,7 +521,7 @@ def sc_r_uint(space, w_value):
     # show up in the flow graphs at all)
     if isinstance(w_value, Constant):
         return Constant(r_uint(w_value.value))
-    return space.appcall(r_uint, w_value)
+    return space.frame.appcall(r_uint, w_value)
 
 
 r_longlong = build_int('r_longlong', True, 64)
