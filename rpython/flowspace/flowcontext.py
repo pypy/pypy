@@ -664,12 +664,12 @@ class FlowSpaceFrame(object):
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
-        if self.guessbool(self.space.call_function(const(isinstance), w_arg1,
-                const(type))):
+        w_is_type = op.simple_call(const(isinstance), w_arg1, const(type)).eval(self)
+        if self.guessbool(w_is_type):
             # this is for all cases of the form (Class, something)
             if self.guessbool(op.is_(w_arg2, w_None).eval(self)):
                 # raise Type: we assume we have to instantiate Type
-                w_value = self.space.call_function(w_arg1)
+                w_value = op.simple_call(w_arg1).eval(self)
             else:
                 w_valuetype = op.type(w_arg2).eval(self)
                 if self.guessbool(op.issubtype(w_valuetype, w_arg1).eval(self)):
@@ -677,7 +677,7 @@ class FlowSpaceFrame(object):
                     w_value = w_arg2
                 else:
                     # raise Type, X: assume X is the constructor argument
-                    w_value = self.space.call_function(w_arg1, w_arg2)
+                    w_value = op.simple_call(w_arg1, w_arg2).eval(self)
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             if not self.guessbool(op.is_(w_arg2, const(None)).eval(self)):
@@ -868,7 +868,8 @@ class FlowSpaceFrame(object):
         w_manager = self.peekvalue()
         w_exit = op.getattr(w_manager, const("__exit__")).eval(self)
         self.settopvalue(w_exit)
-        w_result = self.space.call_method(w_manager, "__enter__")
+        w_enter = op.getattr(w_manager, const('__enter__')).eval(self)
+        w_result = op.simple_call(w_enter).eval(self)
         block = WithBlock(self, target)
         self.blockstack.append(block)
         self.pushvalue(w_result)
@@ -889,10 +890,10 @@ class FlowSpaceFrame(object):
             w_exc = unroller.w_exc
             # The annotator won't allow to merge exception types with None.
             # Replace it with the exception value...
-            self.space.call_function(w_exitfunc,
-                    w_exc.w_value, w_exc.w_value, w_None)
+            op.simple_call(w_exitfunc, w_exc.w_value, w_exc.w_value, w_None
+                           ).eval(self)
         else:
-            self.space.call_function(w_exitfunc, w_None, w_None, w_None)
+            op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(self)
 
     def LOAD_FAST(self, varindex):
         w_value = self.locals_stack_w[varindex]
@@ -1138,12 +1139,13 @@ class FlowSpaceFrame(object):
         self.deleteslice(w_start, w_end)
 
     def LIST_APPEND(self, oparg):
-        w = self.popvalue()
+        w_value = self.popvalue()
         if sys.version_info < (2, 7):
-            v = self.popvalue()
+            w_list = self.popvalue()
         else:
-            v = self.peekvalue(oparg - 1)
-        self.space.call_method(v, 'append', w)
+            w_list = self.peekvalue(oparg - 1)
+        w_append_meth = op.getattr(w_list, const('append')).eval(self)
+        op.simple_call(w_append_meth, w_value).eval(self)
 
     def DELETE_FAST(self, varindex):
         if self.locals_stack_w[varindex] is None:

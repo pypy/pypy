@@ -4,16 +4,13 @@ with rpython.flowspace.flowcontext.
 
 from inspect import CO_NEWLOCALS
 
-from rpython.flowspace.argument import CallSpec
-from rpython.flowspace.model import Constant, Variable, checkgraph, const
+from rpython.flowspace.model import Constant, Variable, checkgraph
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.operation import op
-from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
-    FlowingError, Raise)
+from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
 from rpython.flowspace.pygraph import PyGraph
-from rpython.flowspace.specialcase import SPECIAL_CASES
 
 
 def _assert_rpythonic(func):
@@ -36,14 +33,6 @@ class FlowObjSpace(object):
     """
     def build_flow(self, func):
         return build_flow(func, self)
-
-    def call_method(self, w_obj, methname, *arg_w):
-        w_meth = op.getattr(w_obj, const(methname)).eval(self.frame)
-        return self.call_function(w_meth, *arg_w)
-
-    def call_function(self, w_func, *args_w):
-        args = CallSpec(list(args_w))
-        return self.call(w_func, args)
 
     def call(self, w_callable, args):
         if args.keywords or isinstance(args.w_stararg, Variable):

@@ -14,7 +14,8 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import build_flow, FlowingError
+from rpython.flowspace.objspace import build_flow
+from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
 from rpython.translator.test import snippet
