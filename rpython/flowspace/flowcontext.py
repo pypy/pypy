@@ -5,6 +5,7 @@ with rpython.flowspace.objspace.
 import sys
 import collections
 import types
+import __builtin__
 
 from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
@@ -898,8 +899,19 @@ class FlowSpaceFrame(object):
         w_const = self.getconstant_w(constindex)
         self.pushvalue(w_const)
 
+    def find_global(self, w_globals, varname):
+        try:
+            value = w_globals.value[varname]
+        except KeyError:
+            # not in the globals, now look in the built-ins
+            try:
+                value = getattr(__builtin__, varname)
+            except AttributeError:
+                raise FlowingError("global name '%s' is not defined" % varname)
+        return const(value)
+
     def LOAD_GLOBAL(self, nameindex):
-        w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
+        w_result = self.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
     LOAD_NAME = LOAD_GLOBAL
 

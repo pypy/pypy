@@ -2,7 +2,6 @@
 with rpython.flowspace.flowcontext.
 """
 
-import __builtin__
 from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.argument import CallSpec
@@ -73,17 +72,6 @@ class FlowObjSpace(object):
         else:
             hlop = op.simple_call(w_callable, *args.as_list())
         return self.frame.do_op(hlop)
-
-    def find_global(self, w_globals, varname):
-        try:
-            value = w_globals.value[varname]
-        except KeyError:
-            # not in the globals, now look in the built-ins
-            try:
-                value = getattr(__builtin__, varname)
-            except AttributeError:
-                raise FlowingError("global name '%s' is not defined" % varname)
-        return const(value)
 
 
 def build_flow(func, space=FlowObjSpace()):
