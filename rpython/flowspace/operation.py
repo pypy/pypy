@@ -15,6 +15,7 @@ from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.annotator.model import SomeTuple
+from rpython.flowspace.specialcase import SPECIAL_CASES
 
 
 NOT_REALLY_CONST = {
@@ -495,8 +496,35 @@ class CallOp(HLOperation):
 class SimpleCall(SingleDispatchMixin, CallOp):
     opname = 'simple_call'
 
+    def eval(self, frame):
+        w_callable, args_w = self.args[0], self.args[1:]
+        if isinstance(w_callable, Constant):
+            fn = w_callable.value
+            try:
+                sc = SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
+            except (KeyError, TypeError):
+                pass
+            else:
+                return sc(frame.space, *args_w)
+        return frame.do_op(self)
+
+
 class CallArgs(SingleDispatchMixin, CallOp):
     opname = 'call_args'
+
+    def eval(self, frame):
+        w_callable = self.args[0]
+        if isinstance(w_callable, Constant):
+            fn = w_callable.value
+            try:
+                sc = SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
+            except (KeyError, TypeError):
+                pass
+            else:
+                raise FlowingError(
+                    "should not call %r with keyword arguments" % (fn,))
+        return frame.do_op(self)
+
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type

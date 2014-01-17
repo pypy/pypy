@@ -579,7 +579,7 @@ class FlowSpaceFrame(object):
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
         w_func = const(func)
-        return op.simple_call(w_func, *args_w).eval(self)
+        return self.do_op(op.simple_call(w_func, *args_w))
 
     def BAD_OPCODE(self, _):
         raise FlowingError("This operation is not RPython")

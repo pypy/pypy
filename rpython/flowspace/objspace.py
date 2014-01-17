@@ -46,24 +46,12 @@ class FlowObjSpace(object):
         return self.call(w_func, args)
 
     def call(self, w_callable, args):
-        if isinstance(w_callable, Constant):
-            fn = w_callable.value
-            try:
-                sc = SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
-            except (KeyError, TypeError):
-                pass
-            else:
-                if args.keywords:
-                    raise FlowingError(
-                        "should not call %r with keyword arguments" % (fn,))
-                return sc(self, *args.as_list())
-
         if args.keywords or isinstance(args.w_stararg, Variable):
             shape, args_w = args.flatten()
             hlop = op.call_args(w_callable, Constant(shape), *args_w)
         else:
             hlop = op.simple_call(w_callable, *args.as_list())
-        return self.frame.do_op(hlop)
+        return hlop.eval(self.frame)
 
 
 def build_flow(func, space=FlowObjSpace()):
