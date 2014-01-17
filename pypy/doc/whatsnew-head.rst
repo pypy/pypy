@@ -41,3 +41,6 @@ along with libcompat.a.
 Fix 3 broken links on PyPy published papers in docs.
 
 .. branch: jit-ordereddict
+
+.. branch: refactor-str-types
+Remove multimethods on str/unicode/bytearray and make the implementations share code.
