@@ -84,7 +84,7 @@ List of extension modules that we support:
 
     _winreg
 
-* Supported by being rewritten in pure Python (possibly using ``ctypes``):
+* Supported by being rewritten in pure Python (possibly using ``cffi``):
   see the :source:`lib_pypy/` directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
   Note that some modules are both in there and in the list above;

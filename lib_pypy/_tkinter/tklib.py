@@ -1,6 +1,7 @@
 # C bindings with libtcl and libtk.
 
 from cffi import FFI
+import sys
 
 tkffi = FFI()
 
@@ -17,6 +18,8 @@ char *get_tcl_version();
 #define TCL_GLOBAL_ONLY ...
 #define TCL_EVAL_DIRECT ...
 #define TCL_EVAL_GLOBAL ...
+
+#define TCL_DONT_WAIT ...
 
 typedef unsigned short Tcl_UniChar;
 typedef ... Tcl_Interp;
@@ -69,6 +72,7 @@ void Tcl_DecrRefCount(Tcl_Obj* objPtr);
 int Tcl_GetBoolean(Tcl_Interp* interp, const char* src, int* boolPtr);
 char *Tcl_GetString(Tcl_Obj* objPtr);
 char *Tcl_GetStringFromObj(Tcl_Obj* objPtr, int* lengthPtr);
+unsigned char *Tcl_GetByteArrayFromObj(Tcl_Obj* objPtr, int* lengthPtr);
 
 Tcl_UniChar *Tcl_GetUnicode(Tcl_Obj* objPtr);
 int Tcl_GetCharLength(Tcl_Obj* objPtr);
@@ -102,6 +106,25 @@ int Tcl_DoOneEvent(int flags);
 int Tk_GetNumMainWindows();
 """)
 
+# XXX find a better way to detect paths
+# XXX pick up CPPFLAGS and LDFLAGS and add to these paths?
+if sys.platform.startswith("openbsd"):
+    incdirs = ['/usr/local/include/tcl8.5', '/usr/local/include/tk8.5', '/usr/X11R6/include']
+    linklibs = ['tk85', 'tcl85']
+    libdirs = ['/usr/local/lib', '/usr/X11R6/lib']
+elif sys.platform.startswith("freebsd"):
+    incdirs = ['/usr/local/include/tcl8.6', '/usr/local/include/tk8.6', '/usr/local/include/X11', '/usr/local/include']
+    linklibs = ['tk86', 'tcl86']
+    libdirs = ['/usr/local/lib']
+elif sys.platform == 'win32':
+    incdirs = []
+    linklibs = ['tcl85', 'tk85']
+    libdirs = []
+else:
+    incdirs=['/usr/include/tcl']
+    linklibs=['tcl', 'tk']
+    libdirs = []
+
 tklib = tkffi.verify("""
 #include <tcl.h>
 #include <tk.h>
@@ -109,6 +132,7 @@ tklib = tkffi.verify("""
 char *get_tk_version() { return TK_VERSION; }
 char *get_tcl_version() { return TCL_VERSION; }
 """,
-include_dirs=['/usr/include/tcl'],
-libraries=['tcl', 'tk'],
+include_dirs=incdirs,
+libraries=linklibs,
+library_dirs = libdirs
 )

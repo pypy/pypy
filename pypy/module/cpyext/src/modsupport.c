@@ -8,7 +8,9 @@ typedef double va_double;
 
 static PyObject *va_build_value(const char *, va_list, int);
 
-/* Package context -- the full module name for package imports */
+/* Package context -- the full module name for package imports
+ * Should this be modified in  _Py_InitPyPyModule for CPython
+ * compatibility  (see CPython's Py_InitModule4)? */
 char *_Py_PackageContext = NULL;
 
 /* Py_InitModule4() parameters:

@@ -2,7 +2,6 @@ from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.history import ConstInt, History, Stats
 from rpython.jit.metainterp.history import INT
 from rpython.jit.metainterp.compile import compile_loop
-from rpython.jit.metainterp.compile import ResumeGuardCountersInt
 from rpython.jit.metainterp.compile import compile_tmp_callback
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp import jitprof, typesystem, compile
@@ -17,7 +16,8 @@ class FakeCPU(object):
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
-    def compile_loop(self, logger, inputargs, operations, token, log=True, name=''):
+    def compile_loop(self, inputargs, operations, token, log=True, name='',
+                     logger=None):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
@@ -98,54 +98,6 @@ def test_compile_loop():
     assert cpu.seen[0][2] == jitcell_token
     #
     del cpu.seen[:]
-
-def test_resume_guard_counters():
-    rgc = ResumeGuardCountersInt()
-    # fill in the table
-    for i in range(5):
-        count = rgc.see_int(100+i)
-        assert count == 1
-        count = rgc.see_int(100+i)
-        assert count == 2
-        assert rgc.counters == [0] * (4-i) + [2] * (1+i)
-    for i in range(5):
-        count = rgc.see_int(100+i)
-        assert count == 3
-    # make a distribution:  [5, 4, 7, 6, 3]
-    assert rgc.counters == [3, 3, 3, 3, 3]
-    count = rgc.see_int(101)
-    assert count == 4
-    count = rgc.see_int(101)
-    assert count == 5
-    count = rgc.see_int(101)
-    assert count == 6
-    count = rgc.see_int(102)
-    assert count == 4
-    count = rgc.see_int(102)
-    assert count == 5
-    count = rgc.see_int(102)
-    assert count == 6
-    count = rgc.see_int(102)
-    assert count == 7
-    count = rgc.see_int(103)
-    assert count == 4
-    count = rgc.see_int(104)
-    assert count == 4
-    count = rgc.see_int(104)
-    assert count == 5
-    assert rgc.counters == [5, 4, 7, 6, 3]
-    # the next new item should throw away 104, as 5 is the middle counter
-    count = rgc.see_int(190)
-    assert count == 1
-    assert rgc.counters == [1, 4, 7, 6, 3]
-    # the next new item should throw away 103, as 4 is the middle counter
-    count = rgc.see_int(191)
-    assert count == 1
-    assert rgc.counters == [1, 1, 7, 6, 3]
-    # the next new item should throw away 100, as 3 is the middle counter
-    count = rgc.see_int(192)
-    assert count == 1
-    assert rgc.counters == [1, 1, 7, 6, 1]
 
 
 def test_compile_tmp_callback():

@@ -20,9 +20,6 @@ class OptRewrite(Optimization):
         self.loop_invariant_results = {}
         self.loop_invariant_producer = {}
 
-    def new(self):
-        return OptRewrite()
-
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_potential(op)
@@ -107,6 +104,11 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
+        elif v1.is_constant() and v1.box.getint() == 0:
+            op = op.copy_and_change(rop.INT_NEG, args=[v2.box])
+            self.emit_operation(op)
+        elif v1 is v2:
+            self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
             # Synthesize the reverse ops for optimize_default to reuse
@@ -124,6 +126,7 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
+            self.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op.result)
             # Synthesize the reverse op for optimize_default to reuse
             self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
             self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
@@ -166,6 +169,8 @@ class OptRewrite(Optimization):
 
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
+        elif v1.is_constant() and v1.box.getint() == 0:
+            self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
 
@@ -175,6 +180,8 @@ class OptRewrite(Optimization):
 
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
+        elif v1.is_constant() and v1.box.getint() == 0:
+            self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
 

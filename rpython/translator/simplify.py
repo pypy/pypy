@@ -6,9 +6,9 @@ simplify_graph() applies all simplifications defined in this file.
 """
 import py
 
-from rpython.flowspace import operation
-from rpython.flowspace.model import (SpaceOperation, Variable, Constant,
+from rpython.flowspace.model import (Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
+from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
@@ -57,17 +57,6 @@ def replace_exitswitch_by_constant(block, const):
 
 # ____________________________________________________________
 
-def desugar_isinstance(graph):
-    """Replace isinstance operation with a call to isinstance."""
-    constant_isinstance = Constant(isinstance)
-    for block in graph.iterblocks():
-        for i in range(len(block.operations) - 1, -1, -1):
-            op = block.operations[i]
-            if op.opname == "isinstance":
-                args = [constant_isinstance, op.args[0], op.args[1]]
-                new_op = SpaceOperation("simple_call", args, op.result)
-                block.operations[i] = new_op
-
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
     When this happens, we need to replace the preceeding link with the
@@ -103,13 +92,6 @@ def transform_ovfcheck(graph):
     """
     covf = Constant(rarithmetic.ovfcheck)
 
-    def check_syntax(opname):
-        oper = getattr(operation.op, opname + "_ovf")
-        exlis = oper.canraise
-        if OverflowError not in exlis:
-            raise Exception("ovfcheck in %s: Operation %s has no"
-                            " overflow variant" % (graph.name, opname))
-
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
@@ -131,11 +113,14 @@ def transform_ovfcheck(graph):
                     join_blocks(graph)         # merge the two blocks together
                     transform_ovfcheck(graph)  # ...and try again
                     return
-                op1 = block.operations[i-1]
-                check_syntax(op1.opname)
-                op1.opname += '_ovf'
+                op1 = block.operations[i - 1]
+                if not isinstance(op1, OverflowingOperation):
+                    raise Exception("ovfcheck in %s: Operation %s has no "
+                                    "overflow variant" % (graph.name, op1.opname))
+                op1_ovf = op1.ovfchecked()
+                block.operations[i - 1] = op1_ovf
                 del block.operations[i]
-                block.renamevariables({op.result: op1.result})
+                block.renamevariables({op.result: op1_ovf.result})
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions
@@ -219,7 +204,10 @@ def transform_xxxitem(graph):
                     elif exit.exitcase is KeyError:
                         postfx.append('key')
                 if postfx:
-                    last_op.opname = last_op.opname + '_' + '_'.join(postfx)
+                    Op = getattr(op, '_'.join(['getitem'] + postfx))
+                    newop = Op(*last_op.args)
+                    newop.result = last_op.result
+                    block.operations[-1] = newop
 
 
 def remove_dead_exceptions(graph):
@@ -276,8 +264,7 @@ def join_blocks(graph):
             def rename(v):
                 return renaming.get(v, v)
             def rename_op(op):
-                args = [rename(a) for a in op.args]
-                op = SpaceOperation(op.opname, args, rename(op.result), op.offset)
+                op = op.replace(renaming)
                 # special case...
                 if op.opname == 'indirect_call':
                     if isinstance(op.args[0], Constant):
@@ -389,9 +376,9 @@ def transform_dead_op_vars(graph, translator=None):
 # (they have no side effects, at least in R-Python)
 CanRemove = {}
 for _op in '''
-        newtuple newlist newdict is_true
+        newtuple newlist newdict bool
         is_ id type issubtype repr str len hash getattr getitem
-        pos neg nonzero abs hex oct ord invert add sub mul
+        pos neg abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
         iter get'''.split():
@@ -580,14 +567,14 @@ def remove_identical_vars(graph):
                     del link.args[i]
 
 
-def coalesce_is_true(graph):
-    """coalesce paths that go through an is_true and a directly successive
-       is_true both on the same value, transforming the link into the
-       second is_true from the first to directly jump to the correct
+def coalesce_bool(graph):
+    """coalesce paths that go through an bool and a directly successive
+       bool both on the same value, transforming the link into the
+       second bool from the first to directly jump to the correct
        target out of the second."""
     candidates = []
 
-    def has_is_true_exitpath(block):
+    def has_bool_exitpath(block):
         tgts = []
         start_op = block.operations[-1]
         cond_v = start_op.args[0]
@@ -597,15 +584,15 @@ def coalesce_is_true(graph):
                 if tgt == block:
                     continue
                 rrenaming = dict(zip(tgt.inputargs,exit.args))
-                if len(tgt.operations) == 1 and tgt.operations[0].opname == 'is_true':
+                if len(tgt.operations) == 1 and tgt.operations[0].opname == 'bool':
                     tgt_op = tgt.operations[0]
                     if tgt.exitswitch == tgt_op.result and rrenaming.get(tgt_op.args[0]) == cond_v:
                         tgts.append((exit.exitcase, tgt))
         return tgts
 
     for block in graph.iterblocks():
-        if block.operations and block.operations[-1].opname == 'is_true':
-            tgts = has_is_true_exitpath(block)
+        if block.operations and block.operations[-1].opname == 'bool':
+            tgts = has_bool_exitpath(block)
             if tgts:
                 candidates.append((block, tgts))
 
@@ -621,7 +608,7 @@ def coalesce_is_true(graph):
             newlink = tgt.exits[case].copy(rename)
             newexits[case] = newlink
         cand.recloseblock(*newexits)
-        newtgts = has_is_true_exitpath(cand)
+        newtgts = has_bool_exitpath(cand)
         if newtgts:
             candidates.append((cand, newtgts))
 
@@ -827,10 +814,10 @@ class ListComprehensionDetector(object):
 
     def run(self, vlist, vmeth, appendblock):
         # first check that the 'append' method object doesn't escape
-        for op in appendblock.operations:
-            if op.opname == 'simple_call' and op.args[0] is vmeth:
+        for hlop in appendblock.operations:
+            if hlop.opname == 'simple_call' and hlop.args[0] is vmeth:
                 pass
-            elif vmeth in op.args:
+            elif vmeth in hlop.args:
                 raise DetectorFailed      # used in another operation
         for link in appendblock.exits:
             if vmeth in link.args:
@@ -935,20 +922,19 @@ class ListComprehensionDetector(object):
         link = iterblock.exits[0]
         vlist = self.contains_vlist(link.args)
         assert vlist
-        for op in iterblock.operations:
-            res = self.variable_families.find_rep(op.result)
+        for hlop in iterblock.operations:
+            res = self.variable_families.find_rep(hlop.result)
             if res is viterfamily:
                 break
         else:
             raise AssertionError("lost 'iter' operation")
-        vlist2 = Variable(vlist)
         chint = Constant({'maxlength': True})
-        iterblock.operations += [
-            SpaceOperation('hint', [vlist, op.args[0], chint], vlist2)]
+        hint = op.hint(vlist, hlop.args[0], chint)
+        iterblock.operations.append(hint)
         link.args = list(link.args)
         for i in range(len(link.args)):
             if link.args[i] is vlist:
-                link.args[i] = vlist2
+                link.args[i] = hint.result
 
         # - wherever the list exits the loop body, add a 'hint({fence})'
         for block in loopbody:
@@ -967,19 +953,19 @@ class ListComprehensionDetector(object):
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)
                     newblock.inputargs[index] = vlist3
-                    newblock.operations.append(
-                        SpaceOperation('hint', [vlist3, chints], vlist2))
+                    hint = op.hint(vlist3, chints)
+                    hint.result = vlist2
+                    newblock.operations.append(hint)
         # done!
 
 
 # ____ all passes & simplify_graph
 
 all_passes = [
-    desugar_isinstance,
     eliminate_empty_blocks,
     remove_assertion_errors,
     join_blocks,
-    coalesce_is_true,
+    coalesce_bool,
     transform_dead_op_vars,
     remove_identical_vars,
     transform_ovfcheck,

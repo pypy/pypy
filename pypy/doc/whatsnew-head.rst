@@ -1,77 +1,43 @@
-======================
-What's new in PyPy 2.1
-======================
+=======================
+What's new in PyPy 2.2+
+=======================
 
-.. this is a revision shortly after release-2.1-beta
-.. startrev: 4eb52818e7c0
+.. this is a revision shortly after release-2.2.x
+.. startrev: 4cd1bc8b3111
 
-.. branch: fastjson
-Fast json decoder written in RPython, about 3-4x faster than the pure Python
-decoder which comes with the stdlib
+.. branch: release-2.2.x
 
-.. branch: improve-str2charp
-Improve the performance of I/O writing up to 15% by using memcpy instead of
-copying char-by-char in str2charp and get_nonmovingbuffer
+.. branch: numpy-newbyteorder
+Clean up numpy types, add newbyteorder functionality
 
-.. branch: flowoperators
-Simplify rpython/flowspace/ code by using more metaprogramming.  Create
-SpaceOperator class to gather static information about flow graph operations.
+.. branch: windows-packaging
+Package tk/tcl runtime with win32
 
-.. branch: package-tk
-Adapt package.py script to compile CFFI tk extension. Add a --without-tk switch
-to optionally skip it.
+.. branch: armhf-singlefloat
+JIT support for singlefloats on ARM using the hardfloat ABI
 
-.. branch: distutils-cppldflags
-Copy CPython's implementation of customize_compiler, dont call split on
-environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and LDFLAGS on Unices.
+.. branch: voidtype_strformat
+Better support for record numpy arrays
 
-.. branch: precise-instantiate
-When an RPython class is instantiated via an indirect call (that is, which
-class is being instantiated isn't known precisely) allow the optimizer to have
-more precise information about which functions can be called. Needed for Topaz.
+.. branch: osx-eci-frameworks-makefile
+OSX: Ensure frameworks end up in Makefile when specified in External compilation info
 
-.. branch: ssl_moving_write_buffer
+.. branch: less-stringly-ops
+Use subclasses of SpaceOperation instead of SpaceOperator objects.
+Random cleanups in flowspace and annotator.
 
-.. branch: pythoninspect-fix
-Make PyPy respect PYTHONINSPECT variable set via os.putenv in the same process
-to start interactive prompt when the script execution finishes. This adds
-new __pypy__.os.real_getenv call that bypasses Python cache and looksup env
-in the underlying OS. Translatorshell now works on PyPy.
+.. branch: ndarray-buffer
+adds support for the buffer= argument to the ndarray ctor
 
-.. branch: add-statvfs
-Added os.statvfs and os.fstatvfs
+.. branch: better_ftime_detect2
+On OpenBSD do not pull in libcompat.a as it is about to be removed.
+And more generally, if you have gettimeofday(2) you will not need ftime(3).
 
-.. branch: statvfs_tests
-Added some addition tests for statvfs.
+.. branch: timeb_h
+Remove dependency upon <sys/timeb.h> on OpenBSD. This will be disappearing
+along with libcompat.a.
 
-.. branch: ndarray-subtype
-Allow subclassing ndarray, i.e. matrix
+.. branch: OlivierBlanvillain/fix-3-broken-links-on-pypy-published-pap-1386250839215
+Fix 3 broken links on PyPy published papers in docs.
 
-.. branch: kill-ootype
-
-.. branch: fast-slowpath
-Added an abstraction for functions with a fast and slow path in the JIT. This
-speeds up list.append() and list.pop().
-
-.. branch: curses_fixes
-
-.. branch: foldable-getarrayitem-indexerror
-Constant-fold reading out of constant tuples in PyPy.
-
-.. branch: mro-reorder-numpypy-str
-No longer delegate numpy string_ methods to space.StringObject, in numpy
-this works by kind of by accident. Support for merging the refactor-str-types
-branch
-
-.. branch: kill-typesystem
-Remove the "type system" abstraction, now that there is only ever one kind of
-type system used.
-
-.. branch: kill-gen-store-back-in
-Kills gen_store_back_in_virtualizable - should improve non-inlined calls by
-a bit
-
-.. branch: dotviewer-linewidth
-.. branch: reflex-support
-.. branch: numpypy-inplace-op
-.. branch: rewritten-loop-logging
+.. branch: jit-ordereddict

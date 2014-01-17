@@ -433,6 +433,8 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    @jit.look_inside_iff(lambda self, w_dict:
+                         w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):
         iterator = self.iterkeys(w_dict)
         result = newlist_hint(self.length(w_dict))

@@ -39,8 +39,12 @@ def unicode0():
     return model.SomeUnicodeString(no_nul=True)
 
 
-def str():
-    return model.SomeString()
+def str(can_be_None=False):
+    return model.SomeString(can_be_None=can_be_None)
+
+
+def bytearray():
+    return model.SomeByteArray()
 
 
 def str0():

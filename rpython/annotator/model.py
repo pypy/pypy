@@ -215,7 +215,8 @@ class SomeBool(SomeInteger):
 
 
 class SomeStringOrUnicode(SomeObject):
-    """Base class for shared implementation of SomeString and SomeUnicodeString.
+    """Base class for shared implementation of SomeString,
+    SomeUnicodeString and SomeByteArray.
 
     Cannot be an annotation."""
 
@@ -228,6 +229,7 @@ class SomeStringOrUnicode(SomeObject):
         if can_be_None:
             self.can_be_None = True
         if no_nul:
+            assert self.immutable   #'no_nul' cannot be used with SomeByteArray
             self.no_nul = True
 
     def can_be_none(self):
@@ -263,6 +265,7 @@ class SomeUnicodeString(SomeStringOrUnicode):
 
 
 class SomeByteArray(SomeStringOrUnicode):
+    immutable = False
     knowntype = bytearray
 
 
@@ -354,6 +357,22 @@ class SomeDict(SomeObject):
             return repr(const)
         else:
             return '{...%s...}' % (len(const),)
+
+class SomeOrderedDict(SomeDict):
+    try:
+        from collections import OrderedDict as knowntype
+    except ImportError:    # Python 2.6
+        class PseudoOrderedDict(dict): pass
+        knowntype = PseudoOrderedDict
+
+    def method_copy(dct):
+        return SomeOrderedDict(dct.dictdef)
+
+    def method_update(dct1, dct2):
+        if s_None.contains(dct2):
+            return SomeImpossibleValue()
+        assert isinstance(dct2, SomeOrderedDict), "OrderedDict.update(dict) not allowed"
+        dct1.dictdef.union(dct2.dictdef)
 
 
 class SomeIterator(SomeObject):
@@ -485,6 +504,14 @@ class SomePBC(SomeObject):
             return None
         else:
             return kt.__name__
+
+class SomeConstantType(SomePBC):
+    can_be_None = False
+    subset_of = None
+    def __init__(self, x, bk):
+        self.descriptions = set([bk.getdesc(x)])
+        self.knowntype = type(x)
+        self.const = x
 
 
 class SomeBuiltin(SomeObject):
@@ -676,10 +703,42 @@ def ll_to_annotation(v):
 
 # ____________________________________________________________
 
-class UnionError(Exception):
+
+class AnnotatorError(Exception):
+    def __init__(self, msg=None):
+        self.msg = msg
+        self.source = None
+
+    def __str__(self):
+        s = "\n\n%s" % self.msg
+        if self.source is not None:
+            s += "\n\n"
+            s += self.source
+
+        return s
+
+class UnionError(AnnotatorError):
     """Signals an suspicious attempt at taking the union of
     deeply incompatible SomeXxx instances."""
 
+    def __init__(self, s_obj1, s_obj2, msg=None):
+        """
+        This exception expresses the fact that s_obj1 and s_obj2 cannot be unified.
+        The msg paramter is appended to a generic message. This can be used to
+        give the user a little more information.
+        """
+        s = ""
+        if msg is not None:
+            s += "%s\n\n" % msg
+        s += "Offending annotations:\n"
+        s += "  %s\n  %s" % (s_obj1, s_obj2)
+        self.s_obj1 = s_obj1
+        self.s_obj2 = s_obj2
+        self.msg = s
+        self.source = None
+
+    def __repr__(self):
+        return str(self)
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."

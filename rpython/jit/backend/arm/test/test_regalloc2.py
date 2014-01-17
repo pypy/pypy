@@ -24,7 +24,7 @@ def test_bug_rshift():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     deadframe = cpu.execute_token(looptoken, 9)
     assert cpu.get_int_value(deadframe, 0) == (9 >> 3)
     assert cpu.get_int_value(deadframe, 1) == (~18)
@@ -48,7 +48,7 @@ def test_bug_int_is_true_1():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     deadframe = cpu.execute_token(looptoken, -10)
     assert cpu.get_int_value(deadframe, 0) == 0
     assert cpu.get_int_value(deadframe, 1) == -1000
@@ -145,7 +145,7 @@ def test_bug_0():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     args = [-13 , 10 , 10 , 8 , -8 , -16 , -18 , 46 , -12 , 26]
     deadframe = cpu.execute_token(looptoken, *args)
     assert cpu.get_int_value(deadframe, 0) == 0
@@ -252,7 +252,7 @@ def test_bug_1():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     args = [17 , -20 , -6 , 6 , 1 , 13 , 13 , 9 , 49 , 8]
     deadframe = cpu.execute_token(looptoken, *args)
     assert cpu.get_int_value(deadframe, 0) == 0

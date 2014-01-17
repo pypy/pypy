@@ -19,6 +19,7 @@ class Module(MixedModule):
         'wcharp2unicode'     : 'interp_rawffi.wcharp2unicode',
         'charp2rawstring'    : 'interp_rawffi.charp2rawstring',
         'wcharp2rawunicode'  : 'interp_rawffi.wcharp2rawunicode',
+        'rawstring2charp'    : 'interp_rawffi.rawstring2charp',
         'CallbackPtr'        : 'callback.W_CallbackPtr',
         '_num_of_allocated_objects' : 'tracker.num_of_allocated_objects',
         'get_libc'           : 'interp_rawffi.get_libc',

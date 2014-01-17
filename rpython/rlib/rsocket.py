@@ -39,8 +39,8 @@ if _c.WIN32:
 else:
     def rsocket_startup():
         pass
- 
- 
+
+
 def ntohs(x):
     return rffi.cast(lltype.Signed, _c.ntohs(x))
 
@@ -500,7 +500,7 @@ class RSocket(object):
         self.type = type
         self.proto = proto
         self.timeout = defaults.timeout
-        
+
     def __del__(self):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
@@ -509,12 +509,13 @@ class RSocket(object):
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
-            delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
+            orig_delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
             if block:
-                delay_flag &= ~_c.O_NONBLOCK
+                delay_flag = orig_delay_flag & ~_c.O_NONBLOCK
             else:
-                delay_flag |= _c.O_NONBLOCK
-            _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+                delay_flag = orig_delay_flag | _c.O_NONBLOCK
+            if orig_delay_flag != delay_flag:
+                _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
     elif hasattr(_c, 'ioctlsocket'):
         def _setblocking(self, block):
             flag = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw')
@@ -574,8 +575,8 @@ class RSocket(object):
             if n == 0:
                 return 1
             return 0
-        
-        
+
+
     def error_handler(self):
         return last_error()
 
@@ -695,7 +696,7 @@ class RSocket(object):
             if res < 0:
                 res = errno
             return (res, False)
-        
+
     def connect(self, address):
         """Connect the socket to a remote address."""
         err, timeout = self._connect(address)
@@ -703,7 +704,7 @@ class RSocket(object):
             raise SocketTimeout
         if err:
             raise CSocketError(err)
-        
+
     def connect_ex(self, address):
         """This is like connect(address), but returns an error code (the errno
         value) instead of raising an exception when an error occurs."""
@@ -719,7 +720,7 @@ class RSocket(object):
                 raise self.error_handler()
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
-        
+
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -789,7 +790,7 @@ class RSocket(object):
         """Return the timeout of the socket. A timeout < 0 means that
         timeouts are disabled in the socket."""
         return self.timeout
-    
+
     def listen(self, backlog):
         """Enable a server to accept connections.  The backlog argument
         must be at least 1; it specifies the number of unaccepted connections
@@ -856,7 +857,7 @@ class RSocket(object):
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
         buf, addr = self.recvfrom(nbytes, flags)
         rwbuffer.setslice(0, buf)
-        return len(buf), addr        
+        return len(buf), addr
 
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
@@ -950,7 +951,7 @@ class RSocket(object):
         else:
             self.timeout = timeout
         self._setblocking(self.timeout < 0.0)
-            
+
     def shutdown(self, how):
         """Shut down the reading side of the socket (flag == SHUT_RD), the
         writing side of the socket (flag == SHUT_WR), or both ends

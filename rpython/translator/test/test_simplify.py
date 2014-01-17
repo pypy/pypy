@@ -1,8 +1,7 @@
 import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.translator.simplify import (get_graph, transform_dead_op_vars,
-                                      desugar_isinstance)
+from rpython.translator.simplify import (get_graph, transform_dead_op_vars)
 from rpython.flowspace.model import Block, Constant, summary
 from rpython.conftest import option
 
@@ -232,20 +231,6 @@ def test_transform_dead_op_vars_bug():
     interp = LLInterpreter(t.rtyper)
     e = py.test.raises(LLException, 'interp.eval_graph(graph, [])')
     assert 'ValueError' in str(e.value)
-
-def test_desugar_isinstance():
-    class X(object):
-        pass
-    def f():
-        x = X()
-        return isinstance(x, X())
-    graph = TranslationContext().buildflowgraph(f)
-    desugar_isinstance(graph)
-    assert len(graph.startblock.operations) == 3
-    block = graph.startblock
-    assert block.operations[2].opname == "simple_call"
-    assert isinstance(block.operations[2].args[0], Constant)
-    assert block.operations[2].args[0].value is isinstance
 
 class TestDetectListComprehension:
     def check(self, f1, expected):

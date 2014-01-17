@@ -668,7 +668,7 @@ class MetaPackratParser(type):
                 value = new.function(value.func_code, frame.f_globals)
             if not hasattr(result, key) and key not in forbidden:
                 setattr(result, key, value)
-        if result.__init__ is object.__init__:
+        if result.__init__ == object.__init__:
             result.__init__ = pcls.__dict__['__init__']
         result.init_parser = pcls.__dict__['__init__']
         result._code = visitor.get_code()

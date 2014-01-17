@@ -494,6 +494,12 @@ class W_TypeObject(W_Object):
         else:
             return w_self.name
 
+    def getname(w_self, space):
+        name = w_self.name
+        if name is None:
+            name = '?'
+        return name
+
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
@@ -562,8 +568,6 @@ def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
-    from pypy.objspace.std.typeobject import W_TypeObject
-
     if w_bases is None or w_dict is None:
         raise OperationError(space.w_TypeError, space.wrap("type() takes 1 or 3 arguments"))
 
@@ -605,7 +609,6 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     return w_type
 
 def _precheck_for_new(space, w_type):
-    from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
         raise operationerrfmt(space.w_TypeError, "X is not a type object (%T)",
                               w_type)
@@ -614,7 +617,6 @@ def _precheck_for_new(space, w_type):
 # ____________________________________________________________
 
 def _check(space, w_type, w_msg=None):
-    from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
         if w_msg is None:
             w_msg = space.wrap("descriptor is for 'type'")
@@ -647,7 +649,6 @@ def descr_get__bases__(space, w_type):
     return space.newtuple(w_type.bases_w)
 
 def mro_subclasses(space, w_type, temp):
-    from pypy.objspace.std.typeobject import W_TypeObject, compute_mro
     temp.append((w_type, w_type.mro_w))
     compute_mro(w_type)
     for w_sc in w_type.get_subclasses():
@@ -656,9 +657,6 @@ def mro_subclasses(space, w_type, temp):
 
 def descr_set__bases__(space, w_type, w_value):
     # this assumes all app-level type objects are W_TypeObject
-    from pypy.objspace.std.typeobject import (W_TypeObject, get_parent_layout,
-        check_and_find_best_base, is_mro_purely_of_types)
-
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise operationerrfmt(space.w_TypeError,
@@ -722,7 +720,6 @@ def descr_set__bases__(space, w_type, w_value):
     assert w_type.w_same_layout_as is get_parent_layout(w_type)  # invariant
 
 def descr__base(space, w_type):
-    from pypy.objspace.std.typeobject import find_best_base
     w_type = _check(space, w_type)
     return find_best_base(space, w_type.bases_w)
 

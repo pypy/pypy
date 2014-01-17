@@ -77,9 +77,13 @@ def make_interp(supports_call):
 
         stack = hint(stack, access_directly=True)
 
-        while pc < len(code):
+        while True:
             myjitdriver.jit_merge_point(pc=pc, code=code,
                                         stack=stack, inputarg=inputarg)
+
+            if pc >= len(code):
+                break
+
             opcode = ord(code[pc])
             stack.stackpos = promote(stack.stackpos)
             pc += 1

@@ -51,6 +51,13 @@ def list_iter(space):
     return w_iter
 list_iter._annspecialcase_ = 'specialize:memo'
 
+def tuple_iter(space):
+    "Utility that returns the app-level descriptor tuple.__iter__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_tuple,
+                                               '__iter__')
+    return w_iter
+tuple_iter._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     if w_descr is None:
         raise operationerrfmt(space.w_AttributeError,
@@ -597,8 +604,8 @@ def _cmp(space, w_obj1, w_obj2, symbol):
         if num1 != num2:
             lt = num1      # if obj1 is a number, it is Lower Than obj2
         else:
-            name1 = w_typ1.getname(space, "")
-            name2 = w_typ2.getname(space, "")
+            name1 = w_typ1.getname(space)
+            name2 = w_typ2.getname(space)
             if name1 != name2:
                 lt = name1 < name2
             else:

@@ -26,6 +26,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
+from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
 from rpython.rlib.unroll import unrolling_iterable
@@ -130,11 +131,7 @@ udir.join('pypy_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
-def copy_header_files(dstdir):
-    assert dstdir.check(dir=True)
-    headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ("pypy_decl.h", "pypy_macros.h"):
-        headers.append(udir.join(name))
+def _copy_header_files(headers, dstdir):
     for header in headers:
         target = dstdir.join(header.basename)
         try:
@@ -144,6 +141,25 @@ def copy_header_files(dstdir):
             header.copy(dstdir)
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
+
+def copy_header_files(dstdir):
+    # XXX: 20 lines of code to recursively copy a directory, really??
+    assert dstdir.check(dir=True)
+    headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
+    for name in ("pypy_decl.h", "pypy_macros.h"):
+        headers.append(udir.join(name))
+    _copy_header_files(headers, dstdir)
+
+    try:
+        dstdir.mkdir('numpy')
+    except py.error.EEXIST:
+        pass
+    numpy_dstdir = dstdir / 'numpy'
+
+    numpy_include_dir = include_dir / 'numpy'
+    numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
+    _copy_header_files(numpy_headers, numpy_dstdir)
+
 
 class NotSpecified(object):
     pass
@@ -288,9 +304,23 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                         elif isinstance(input_arg, W_Root):
                             arg = input_arg
                         else:
-                            arg = from_ref(space,
+                            try:
+                                arg = from_ref(space,
                                            rffi.cast(PyObject, input_arg))
+                            except TypeError, e:
+                                err = OperationError(space.w_TypeError,
+                                         space.wrap(
+                                        "could not cast arg to PyObject"))
+                                if not catch_exception:
+                                    raise err
+                                state = space.fromcache(State)
+                                state.set_exception(err)
+                                if is_PyObject(restype):
+                                    return None
+                                else:
+                                    return api_function.error_value
                     else:
+                        # convert to a wrapped object
                         arg = input_arg
                     newargs += (arg, )
                 try:
@@ -309,7 +339,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             return api_function.error_value
                     if not we_are_translated():
                         got_integer = isinstance(res, (int, long, float))
-                        assert got_integer == expect_integer
+                        assert got_integer == expect_integer,'got %r not integer' % res
                     if res is None:
                         return None
                     elif isinstance(res, Reference):
@@ -357,24 +387,29 @@ SYMBOLS_C = [
     'PyString_FromFormat', 'PyString_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
+    '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
+    '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
+    '_PyArg_VaParseTupleAndKeywords_SizeT',
+    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
+    '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', 'init_bufferobject',
+    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_init_bufferobject',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', 'init_pycobject',
+    'PyCObject_Type', '_Py_init_pycobject',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
+    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -386,6 +421,16 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
+
+    'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
+
+    'PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS', '_PyArray_CopyInto',
+
+    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
+    'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
+    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
+    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
+    '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
 ]
 TYPES = {}
 GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
@@ -425,6 +470,7 @@ def build_exported_objects():
         "Complex": "space.w_complex",
         "ByteArray": "space.w_bytearray",
         "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
+        "Array": "space.gettypeobject(W_NDimArray.typedef)",
         "BaseObject": "space.w_object",
         'None': 'space.type(space.w_None)',
         'NotImplemented': 'space.type(space.w_NotImplemented)',
@@ -641,11 +687,15 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci, translating):
-    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void,
+    if translating:
+        prefix = 'PyPy'
+    else:
+        prefix = 'cpyexttest'
+    init_buffer = rffi.llexternal('_%s_init_bufferobject' % prefix, [], lltype.Void,
                                   compilation_info=eci, _nowrapper=True)
-    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
+    init_pycobject = rffi.llexternal('_%s_init_pycobject' % prefix, [], lltype.Void,
                                      compilation_info=eci, _nowrapper=True)
-    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void,
+    init_capsule = rffi.llexternal('_%s_init_capsule' % prefix, [], lltype.Void,
                                    compilation_info=eci, _nowrapper=True)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
@@ -653,12 +703,8 @@ def setup_init_functions(eci, translating):
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    if translating:
-        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
-    else:
-        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
+    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
+                                 compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
@@ -700,7 +746,7 @@ def build_bridge(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=True, do_deref=True)
+    generate_macros(export_symbols, prefix='cpyexttest')
 
     # Structure declaration code
     members = []
@@ -766,7 +812,7 @@ def build_bridge(space):
 
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', 'PyPy')
+        name = name.replace('Py', 'cpyexttest')
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
             if typ == 'PyObject*':
@@ -778,7 +824,7 @@ def build_bridge(space):
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
         elif typ in ('PyObject*', 'PyTypeObject*'):
-            if name.startswith('PyPyExc_'):
+            if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
@@ -813,28 +859,27 @@ def build_bridge(space):
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
-def generate_macros(export_symbols, rename=True, do_deref=True):
+def mangle_name(prefix, name):
+    if name.startswith('Py'):
+        return prefix + name[2:]
+    elif name.startswith('_Py'):
+        return '_' + prefix + name[3:]
+    else:
+        return None
+
+def generate_macros(export_symbols, prefix):
     "NOT_RPYTHON"
     pypy_macros = []
     renamed_symbols = []
     for name in export_symbols:
-        if name.startswith("PyPy"):
-            renamed_symbols.append(name)
-            continue
-        if not rename:
-            continue
         name = name.replace("#", "")
-        newname = name.replace('Py', 'PyPy')
-        if not rename:
-            newname = name
+        newname = mangle_name(prefix, name)
+        assert newname, name
         pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
         renamed_symbols.append(newname)
-    if rename:
-        export_symbols[:] = renamed_symbols
-    else:
-        export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
+    export_symbols[:] = renamed_symbols
 
     # Generate defines
     for macro_name, size in [
@@ -975,6 +1020,8 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
                                source_dir / "pythread.c",
+                               source_dir / "ndarrayobject.c",
+                               source_dir / "missing.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
@@ -993,7 +1040,7 @@ def setup_library(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=False, do_deref=False)
+    generate_macros(export_symbols, prefix='PyPy')
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False)
     code = "#include <Python.h>\n" + "\n".join(functions)
@@ -1023,7 +1070,8 @@ def setup_library(space):
         export_struct(name, struct)
 
     for name, func in FUNCTIONS.iteritems():
-        deco = entrypoint_lowlevel("cpyext", func.argtypes, name, relax=True)
+        newname = mangle_name('PyPy', name) or name
+        deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, relax=True)
         deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)

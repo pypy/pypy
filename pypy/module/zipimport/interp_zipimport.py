@@ -5,8 +5,10 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.module import Module
 from pypy.module.imp import importing
+from pypy.module.zlib.interp_zlib import zlib_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rzipfile import RZipFile, BadZipfile
+from rpython.rlib.rzlib import RZlibError
 import os
 import stat
 
@@ -252,6 +254,10 @@ class W_ZipImporter(W_Root):
                 buf = self.zip_file.read(fname)
             except (KeyError, OSError, BadZipfile):
                 pass
+            except RZlibError, e:
+                # in this case, CPython raises the direct exception coming
+                # from the zlib module: let's to the same
+                raise zlib_error(space, e.msg)
             else:
                 if is_package:
                     pkgpath = (self.filename + os.path.sep +
@@ -283,6 +289,10 @@ class W_ZipImporter(W_Root):
             return w(data)
         except (KeyError, OSError, BadZipfile):
             raise OperationError(space.w_IOError, space.wrap("Error reading file"))
+        except RZlibError, e:
+            # in this case, CPython raises the direct exception coming
+            # from the zlib module: let's to the same
+            raise zlib_error(space, e.msg)
 
     @unwrap_spec(fullname=str)
     def get_code(self, space, fullname):
@@ -381,6 +391,11 @@ def descr_new_zipimporter(space, w_type, name):
     except (BadZipfile, OSError):
         raise operationerrfmt(get_error(space),
             "%s seems not to be a zipfile", filename)
+    except RZlibError, e:
+        # in this case, CPython raises the direct exception coming
+        # from the zlib module: let's to the same
+        raise zlib_error(space, e.msg)
+
     prefix = name[len(filename):]
     if prefix.startswith(os.path.sep) or prefix.startswith(ZIPSEP):
         prefix = prefix[1:]

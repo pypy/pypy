@@ -25,6 +25,7 @@ Release Steps
   necessary; also update the version number in pypy/doc/conf.py,
   and in pypy/doc/index.rst
 * update pypy/doc/contributor.rst (and possibly LICENSE)
+  pypy/doc/tool/makecontributor.py generates the list of contributors
 * rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
   and create a fresh whatsnew_head.rst after the release
 * update README
@@ -46,3 +47,7 @@ Release Steps
 * post announcement on morepypy.blogspot.com
 * send announcements to pypy-dev, python-list,
   python-announce, python-dev ...
+
+* add a tag on the pypy/jitviewer repo that corresponds to pypy release
+* add a tag on the codespeed web site that corresponds to pypy release
+

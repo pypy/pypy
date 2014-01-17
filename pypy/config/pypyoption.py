@@ -127,11 +127,6 @@ def get_module_validator(modname):
 
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
-    OptionDescription("opcodes", "opcodes to enable in the interpreter", [
-        BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
-                   default=False),
-        ]),
-
     OptionDescription("usemodules", "Which Modules should be used", [
         BoolOption(modname, "use module %s" % (modname, ),
                    default=modname in default_modules,
@@ -259,9 +254,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("optimized_int_add",
                    "special case the addition of two integers in BINARY_ADD",
                    default=False),
-        BoolOption("optimized_comparison_op",
-                   "special case the comparison of integers",
-                   default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
@@ -307,7 +299,6 @@ def set_pypy_opt_level(config, level):
 
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
-        config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)

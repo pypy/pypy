@@ -41,7 +41,6 @@ class TestW_LongObject:
 
 
 class AppTestLong:
-
     def test_trunc(self):
         import math
         assert math.trunc(1L) == 1L
@@ -250,6 +249,8 @@ class AppTestLong:
         n = -sys.maxint-1
         assert long(n) == n
         assert str(long(n)) == str(n)
+        a = buffer('123')
+        assert long(a) == 123L
 
     def test_huge_longs(self):
         import operator
@@ -292,6 +293,12 @@ class AppTestLong:
                 return Integral()
         assert long(TruncReturnsNonLong()) == 42
 
+    def test_long_before_string(self):
+        class A(str):
+            def __long__(self):
+                return 42
+        assert long(A('abc')) == 42
+
     def test_conjugate(self):
         assert (7L).conjugate() == 7L
         assert (-7L).conjugate() == -7L
@@ -310,7 +317,6 @@ class AppTestLong:
         assert 8L.bit_length() == 4
         assert (-1<<40).bit_length() == 41
         assert ((2**31)-1).bit_length() == 31
-
 
     def test_negative_zero(self):
         x = eval("-0L")
@@ -341,3 +347,8 @@ class AppTestLong:
 
         assert int(long(3)) == long(3)
         assert int(A(13)) == 42
+
+    def test_long_error_msg(self):
+        e = raises(TypeError, long, [])
+        assert str(e.value) == (
+            "long() argument must be a string or a number, not 'list'")

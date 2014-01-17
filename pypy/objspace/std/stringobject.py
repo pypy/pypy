@@ -230,13 +230,13 @@ def str_capitalize__String(space, w_self):
 
     return space.wrap(builder.build())
 
-def str_title__String(space, w_self):
-    input = w_self._value
-    builder = StringBuilder(len(input))
+
+@jit.elidable
+def title(s):
+    builder = StringBuilder(len(s))
     prev_letter = ' '
 
-    for pos in range(len(input)):
-        ch = input[pos]
+    for ch in s:
         if not prev_letter.isalpha():
             ch = _upper(ch)
             builder.append(ch)
@@ -245,39 +245,17 @@ def str_title__String(space, w_self):
             builder.append(ch)
 
         prev_letter = ch
+    return builder.build()
 
-    return space.wrap(builder.build())
+
+def str_title__String(space, w_self):
+    return space.wrap(title(w_self._value))
+
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
-    res = []
     value = w_self._value
-    length = len(value)
-    i = 0
-    while True:
-        # find the beginning of the next word
-        while i < length:
-            if not value[i].isspace():
-                break   # found
-            i += 1
-        else:
-            break  # end of string, finished
-
-        # find the end of the word
-        if maxsplit == 0:
-            j = length   # take all the rest of the string
-        else:
-            j = i + 1
-            while j < length and not value[j].isspace():
-                j += 1
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        # the word is value[i:j]
-        res.append(value[i:j])
-
-        # continue to look from the character following the space after the word
-        i = j + 1
-
+    res = split(value, maxsplit=maxsplit)
     return space.newlist_str(res)
 
 def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
@@ -292,37 +270,8 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
-    res = []
     value = w_self._value
-    i = len(value)-1
-    while True:
-        # starting from the end, find the end of the next word
-        while i >= 0:
-            if not value[i].isspace():
-                break   # found
-            i -= 1
-        else:
-            break  # end of string, finished
-
-        # find the start of the word
-        # (more precisely, 'j' will be the space character before the word)
-        if maxsplit == 0:
-            j = -1   # take all the rest of the string
-        else:
-            j = i - 1
-            while j >= 0 and not value[j].isspace():
-                j -= 1
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        # the word is value[j+1:i+1]
-        j1 = j + 1
-        assert j1 >= 0
-        res.append(value[j1:i+1])
-
-        # continue to look from the character before the space before the word
-        i = j - 1
-
-    res.reverse()
+    res = rsplit(value, maxsplit=maxsplit)
     return space.newlist_str(res)
 
 def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):

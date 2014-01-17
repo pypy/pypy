@@ -42,15 +42,18 @@ PyPy has layers. The 100 miles view:
   RPython to flow graphs and then to C. There is more in the :doc:`architecture <architecture>`
   document written about it.
 
-  It mostly lives in ``rpython``, ``annotator`` and ``objspace/flow``.
+  It lives in the ``rpython`` directory: ``flowspace``, ``annotator``
+  and ``rtyper``.
 
-* Python Interpreter
+* Python Interpreter and modules
 
-  xxx
-
-* Python modules
-
-  xxx
+  This is in the ``pypy`` directory.  ``pypy/interpreter`` is a standard
+  interpreter for Python written in RPython.  The fact that it is
+  RPython is not apparent at first.  Built-in modules are written in
+  ``pypy/module/*``.  Some modules that CPython implements in C are
+  simply written in pure Python; they are in the top-level ``lib_pypy``
+  directory.  The standard library of Python (with a few changes to
+  accomodate PyPy) is in ``lib-python``.
 
 * :doc:`Just-in-Time Compiler (JIT) <rpython:jit/index>`: we have a tracing JIT that traces the
   interpreter written in RPython, rather than the user program that it
@@ -58,9 +61,9 @@ PyPy has layers. The 100 miles view:
   language.  But getting it to work correctly is not trivial: it
   requires a small number of precise "hints" and possibly some small
   refactorings of the interpreter.  The JIT itself also has several
-  almost-independent parts: the tracer itself in ``jit/metainterp``, the
-  optimizer in ``jit/metainterp/optimizer`` that optimizes a list of
-  residual operations, and the backend in ``jit/backend/<machine-name>``
+  almost-independent parts: the tracer itself in ``rpython/jit/metainterp``, the
+  optimizer in ``rpython/jit/metainterp/optimizer`` that optimizes a list of
+  residual operations, and the backend in ``rpython/jit/backend/<machine-name>``
   that turns it into machine code.  Writing a new backend is a
   traditional way to get into the project.
 
@@ -69,7 +72,7 @@ PyPy has layers. The 100 miles view:
   :doc:`rpython:garbage-collection` is inserted
   during translation.  Moreover, this is not reference counting; it is a real
   GC written as more RPython code.  The best one we have so far is in
-  ``rpython/memory/gc/minimark.py``.
+  ``rpython/memory/gc/incminimark.py``.
 
 
 Toolset

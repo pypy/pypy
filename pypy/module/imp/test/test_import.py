@@ -573,10 +573,10 @@ class AppTestImport:
 
     def test_reimport_builtin_simple_case_1(self):
         import sys, time
-        del time.tzset
+        del time.clock
         del sys.modules['time']
         import time
-        assert hasattr(time, 'tzset')
+        assert hasattr(time, 'clock')
 
     def test_reimport_builtin_simple_case_2(self):
         skip("fix me")
@@ -992,6 +992,7 @@ class TestPycStuff:
         assert ret == 42
 
     def test_pyc_magic_changes(self):
+        py.test.skip("For now, PyPy generates only one kind of .pyc files")
         # test that the pyc files produced by a space are not reimportable
         # from another, if they differ in what opcodes they support
         allspaces = [self.space]

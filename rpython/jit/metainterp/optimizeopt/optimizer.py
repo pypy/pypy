@@ -323,10 +323,6 @@ class Optimization(object):
     def force_at_end_of_preamble(self):
         pass
 
-    # It is too late to force stuff here, it must be done in force_at_end_of_preamble
-    def new(self):
-        raise NotImplementedError
-
     # Called after last operation has been propagated to flush out any posponed ops
     def flush(self):
         pass
@@ -389,16 +385,6 @@ class Optimizer(Optimization):
     def flush(self):
         for o in self.optimizations:
             o.flush()
-
-    def new(self):
-        new = Optimizer(self.metainterp_sd, self.loop)
-        return self._new(new)
-
-    def _new(self, new):
-        optimizations = [o.new() for o in self.optimizations]
-        new.set_optimizations(optimizations)
-        new.quasi_immutable_deps = self.quasi_immutable_deps
-        return new
 
     def produce_potential_short_preamble_ops(self, sb):
         for opt in self.optimizations:
@@ -584,7 +570,7 @@ class Optimizer(Optimization):
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
-        descr.store_final_boxes(op, newboxes)
+        descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
             if self.getvalue(op.getarg(0)) in self.bool_boxes:
