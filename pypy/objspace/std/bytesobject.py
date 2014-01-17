@@ -684,6 +684,12 @@ class W_BytesObject(W_AbstractBytesObject):
             return self_as_uni._new(res)
         return self._StringMethods_descr_replace(space, w_old, w_new, count)
 
+    def descr_lower(self, space):
+        return W_BytesObject(self._value.lower())
+
+    def descr_upper(self, space):
+        return W_BytesObject(self._value.upper())
+
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
                 space.is_w(space.type(w_obj), space.w_unicode))
