@@ -353,6 +353,15 @@ class TestSymbolTable:
         assert scp.has_yield_inside_try
         scp = self.func_scope("def f():\n  try:\n    yield x\n  finally: pass")
         assert scp.has_yield_inside_try
+        scp = self.func_scope("def f():\n    with x: yield y")
+        assert scp.has_yield_inside_try
+
+    def test_yield_outside_try(self):
+        for input in ("try: pass\n    except: pass",
+                      "try: pass\n    finally: pass",
+                      "with x: pass"):
+            input = "def f():\n    yield y\n    %s\n    yield y" % (input,)
+            assert not self.func_scope(input).has_yield_inside_try
 
     def test_return(self):
         for input in ("class x: return", "return"):
