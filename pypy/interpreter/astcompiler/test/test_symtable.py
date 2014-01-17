@@ -358,7 +358,9 @@ class TestSymbolTable:
 
     def test_yield_outside_try(self):
         for input in ("try: pass\n    except: pass",
+                      "try: pass\n    except: yield y",
                       "try: pass\n    finally: pass",
+                      "try: pass\n    finally: yield y",
                       "with x: pass"):
             input = "def f():\n    yield y\n    %s\n    yield y" % (input,)
             assert not self.func_scope(input).has_yield_inside_try
