@@ -143,6 +143,14 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def coerce((obj1, obj2)):
         return pair(obj1, obj2).union()   # reasonable enough
 
+    def getitem((obj1, obj2)):
+        return s_ImpossibleValue
+    add = sub = mul = truediv = floordiv = div = mod = getitem
+    lshift = rshift = and_ = or_ = xor = delitem = getitem
+
+    def setitem((obj1, obj2), _):
+        return s_ImpossibleValue
+
     # approximation of an annotation intersection, the result should be the annotation obj or
     # the intersection of obj and improvement
     def improve((obj, improvement)):
