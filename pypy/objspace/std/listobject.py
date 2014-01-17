@@ -17,13 +17,13 @@ from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std import slicetype
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.iterobject import (W_FastListIterObject,
     W_ReverseSeqIterObject)
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import get_positive_index, negate
@@ -78,7 +78,7 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
 
     # check for strings
     for w_obj in list_w:
-        if not type(w_obj) is W_StringObject:
+        if not type(w_obj) is W_BytesObject:
             break
     else:
         return space.fromcache(StringListStrategy)
@@ -896,7 +896,7 @@ class EmptyListStrategy(ListStrategy):
     def switch_to_correct_strategy(self, w_list, w_item):
         if type(w_item) is W_IntObject:
             strategy = self.space.fromcache(IntegerListStrategy)
-        elif type(w_item) is W_StringObject:
+        elif type(w_item) is W_BytesObject:
             strategy = self.space.fromcache(StringListStrategy)
         elif type(w_item) is W_UnicodeObject:
             strategy = self.space.fromcache(UnicodeListStrategy)
@@ -1609,7 +1609,7 @@ class StringListStrategy(ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return type(w_obj) is W_StringObject
+        return type(w_obj) is W_BytesObject
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(StringListStrategy)

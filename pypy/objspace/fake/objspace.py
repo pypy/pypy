@@ -290,6 +290,9 @@ class FakeObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
+    def unicode_from_object(self, w_obj):
+        return w_some_obj()
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
