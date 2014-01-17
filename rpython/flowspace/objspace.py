@@ -48,9 +48,6 @@ class FlowObjSpace(object):
     def call(self, w_callable, args):
         if isinstance(w_callable, Constant):
             fn = w_callable.value
-            if hasattr(fn, "_flowspace_rewrite_directly_as_"):
-                fn = fn._flowspace_rewrite_directly_as_
-                w_callable = const(fn)
             try:
                 sc = SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
             except (KeyError, TypeError):
