@@ -1018,8 +1018,12 @@ class FlowSpaceFrame(object):
         arguments = self.popvalues(n_arguments)
         args = CallSpec(arguments, keywords, w_star)
         w_function = self.popvalue()
-        w_result = self.space.call(w_function, args)
-        self.pushvalue(w_result)
+        if args.keywords or isinstance(args.w_stararg, Variable):
+            shape, args_w = args.flatten()
+            hlop = op.call_args(w_function, Constant(shape), *args_w)
+        else:
+            hlop = op.simple_call(w_function, *args.as_list())
+        self.pushvalue(hlop.eval(self))
 
     def CALL_FUNCTION(self, oparg):
         self.call_function(oparg)

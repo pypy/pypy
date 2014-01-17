@@ -34,14 +34,6 @@ class FlowObjSpace(object):
     def build_flow(self, func):
         return build_flow(func, self)
 
-    def call(self, w_callable, args):
-        if args.keywords or isinstance(args.w_stararg, Variable):
-            shape, args_w = args.flatten()
-            hlop = op.call_args(w_callable, Constant(shape), *args_w)
-        else:
-            hlop = op.simple_call(w_callable, *args.as_list())
-        return hlop.eval(self.frame)
-
 
 def build_flow(func, space=FlowObjSpace()):
     """
