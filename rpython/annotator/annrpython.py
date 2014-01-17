@@ -611,19 +611,6 @@ class RPythonAnnotator(object):
     def noreturnvalue(self, op):
         return annmodel.s_ImpossibleValue  # no return value (hook method)
 
-    # XXX "contains" clash with SomeObject method
-    def consider_op_contains(self, seq, elem):
-        return seq.op_contains(elem)
-
-    def consider_op_newtuple(self, *args):
-        return annmodel.SomeTuple(items = args)
-
-    def consider_op_newlist(self, *args):
-        return self.bookkeeper.newlist(*args)
-
-    def consider_op_newdict(self):
-        return self.bookkeeper.newdict()
-
 
 class BlockedInference(Exception):
     """This exception signals the type inference engine that the situation

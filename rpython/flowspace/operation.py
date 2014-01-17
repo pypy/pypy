@@ -14,6 +14,7 @@ from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
+from rpython.annotator.model import SomeTuple
 
 
 NOT_REALLY_CONST = {
@@ -364,6 +365,37 @@ add_operator('newtuple', None, pure=True, pyfunc=lambda *args:args)
 add_operator('newlist', None)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
+
+class Contains(PureOperation):
+    opname = 'contains'
+    arity = 2
+    pyfunc = staticmethod(operator.contains)
+
+    # XXX "contains" clash with SomeObject method
+    def consider(self, annotator, seq, elem):
+        return seq.op_contains(elem)
+
+
+class NewDict(HLOperation):
+    opname = 'newdict'
+    canraise = []
+    def consider(self, annotator, *args):
+        return annotator.bookkeeper.newdict()
+
+
+class NewTuple(PureOperation):
+    opname = 'newtuple'
+    pyfunc = staticmethod(lambda *args: args)
+    canraise = []
+    def consider(self, annotator, *args):
+        return SomeTuple(items=args)
+
+
+class NewList(HLOperation):
+    opname = 'newlist'
+    canraise = []
+    def consider(self, annotator, *args):
+        return annotator.bookkeeper.newlist(*args)
 
 
 class Pow(PureOperation):

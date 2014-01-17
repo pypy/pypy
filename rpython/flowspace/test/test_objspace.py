@@ -1258,6 +1258,19 @@ class TestFlowObjSpace(Base):
         assert ops[1].opname == 'simple_call'
         assert ops[1].args[0].value is os.unlink
 
+    def test_constfold_in(self):
+        def f():
+            if 'x' in "xyz":
+                return 5
+            else:
+                return 6
+        graph = self.codetest(f)
+        assert graph.startblock.operations == []
+        [link] = graph.startblock.exits
+        assert link.target is graph.returnblock
+        assert isinstance(link.args[0], Constant)
+        assert link.args[0].value == 5
+
 
 DATA = {'x': 5,
         'y': 6}
