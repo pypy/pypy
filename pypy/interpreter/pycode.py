@@ -31,7 +31,7 @@ def unpack_str_tuple(space,w_str_tuple):
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
-default_magic = (0xf303 + 6) | 0x0a0d0000               # this PyPy's magic
+default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
                                                         # (from CPython 2.7.0)
 
 # cpython_code_signature helper
