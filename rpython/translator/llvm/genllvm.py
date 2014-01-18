@@ -1738,7 +1738,9 @@ class GenLLVM(object):
             output = cmdexec('clang -emit-llvm -S -x c {} -o -'
                     .format(devnull))
             self._parse_datalayout(output)
-            f.write(output)
+            for line in output.splitlines(True):
+                if line.startswith('target '):
+                    f.write(line)
 
             database = Database(self, f)
             self._write_special_declarations(f)
