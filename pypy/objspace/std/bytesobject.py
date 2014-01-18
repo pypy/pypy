@@ -633,9 +633,15 @@ class W_BytesObject(W_AbstractBytesObject):
             return space.add(self_as_bytearray, w_other)
         if space.config.objspace.std.withstrbuf:
             from pypy.objspace.std.strbufobject import W_StringBufferObject
+            try:
+                other = self._op_val(space, w_other)
+            except OperationError, e:
+                if e.match(space, space.w_TypeError):
+                    return space.w_NotImplemented
+                raise
             builder = StringBuilder()
             builder.append(self._value)
-            builder.append(self._op_val(space, w_other))
+            builder.append(other)
             return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
 
