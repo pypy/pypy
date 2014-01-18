@@ -4,9 +4,8 @@ with rpython.flowspace.flowcontext.
 
 from inspect import CO_NEWLOCALS
 
-from rpython.flowspace.model import Constant, Variable, checkgraph
+from rpython.flowspace.model import Variable, checkgraph
 from rpython.flowspace.bytecode import HostCode
-from rpython.flowspace.operation import op
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
@@ -24,18 +23,7 @@ def _assert_rpythonic(func):
                 "the flag CO_NEWLOCALS set.")
 
 
-# ______________________________________________________________________
-class FlowObjSpace(object):
-    """NOT_RPYTHON.
-    The flow objspace space is used to produce a flow graph by recording
-    the space operations that the interpreter generates when it interprets
-    (the bytecode of) some function.
-    """
-    def build_flow(self, func):
-        return build_flow(func, self)
-
-
-def build_flow(func, space=FlowObjSpace()):
+def build_flow(func):
     """
     Create the flow graph for the function.
     """
@@ -50,7 +38,7 @@ def build_flow(func, space=FlowObjSpace()):
                 w_value.rename(name)
         return bootstrap_generator(graph)
     graph = PyGraph(func, code)
-    frame = space.frame = FlowSpaceFrame(space, graph, code)
+    frame = FlowSpaceFrame(graph, code)
     frame.build_flow()
     fixeggblocks(graph)
     checkgraph(graph)

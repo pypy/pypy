@@ -308,11 +308,10 @@ compare_method = [
 class FlowSpaceFrame(object):
     opcode_method_names = host_bytecode_spec.method_names
 
-    def __init__(self, space, graph, code):
+    def __init__(self, graph, code):
         self.graph = graph
         func = graph.func
         self.pycode = code
-        self.space = space
         self.w_globals = Constant(func.func_globals)
         self.blockstack = []
 

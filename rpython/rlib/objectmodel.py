@@ -282,7 +282,7 @@ def we_are_translated():
     return False
 
 @register_flow_sc(we_are_translated)
-def sc_we_are_translated(space):
+def sc_we_are_translated(frame):
     return Constant(True)
 
 
@@ -706,7 +706,7 @@ class r_dict(object):
 class r_ordereddict(r_dict):
     def _newdict(self):
         from collections import OrderedDict
-        
+
         return OrderedDict()
 
 class _r_dictkey(object):

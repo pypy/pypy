@@ -76,8 +76,8 @@ class HLOperation(SpaceOperation):
 
     @classmethod
     def make_sc(cls):
-        def sc_operator(space, *args_w):
-            return cls(*args_w).eval(space.frame)
+        def sc_operator(frame, *args_w):
+            return cls(*args_w).eval(frame)
         return sc_operator
 
     def eval(self, frame):
@@ -505,7 +505,7 @@ class SimpleCall(SingleDispatchMixin, CallOp):
             except (KeyError, TypeError):
                 pass
             else:
-                return sc(frame.space, *args_w)
+                return sc(frame, *args_w)
         return frame.do_op(self)
 
 
@@ -521,6 +521,7 @@ class CallArgs(SingleDispatchMixin, CallOp):
             except (KeyError, TypeError):
                 pass
             else:
+                from rpython.flowspace.flowcontext import FlowingError
                 raise FlowingError(
                     "should not call %r with keyword arguments" % (fn,))
         return frame.do_op(self)

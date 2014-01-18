@@ -516,12 +516,12 @@ r_int = build_int('r_int', True, LONG_BIT)
 r_uint = build_int('r_uint', False, LONG_BIT)
 
 @register_flow_sc(r_uint)
-def sc_r_uint(space, w_value):
+def sc_r_uint(frame, w_value):
     # (normally, the 32-bit constant is a long, and is not allowed to
     # show up in the flow graphs at all)
     if isinstance(w_value, Constant):
         return Constant(r_uint(w_value.value))
-    return space.frame.appcall(r_uint, w_value)
+    return frame.appcall(r_uint, w_value)
 
 
 r_longlong = build_int('r_longlong', True, 64)
