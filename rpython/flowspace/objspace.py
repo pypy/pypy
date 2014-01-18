@@ -6,7 +6,7 @@ from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.model import Variable, checkgraph
 from rpython.flowspace.bytecode import HostCode
-from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks)
+from rpython.flowspace.flowcontext import (FlowContext, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
 from rpython.flowspace.pygraph import PyGraph
@@ -38,8 +38,8 @@ def build_flow(func):
                 w_value.rename(name)
         return bootstrap_generator(graph)
     graph = PyGraph(func, code)
-    frame = FlowSpaceFrame(graph, code)
-    frame.build_flow()
+    ctx = FlowContext(graph, code)
+    ctx.build_flow()
     fixeggblocks(graph)
     checkgraph(graph)
     if code.is_generator:

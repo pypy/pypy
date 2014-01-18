@@ -76,15 +76,15 @@ class HLOperation(SpaceOperation):
 
     @classmethod
     def make_sc(cls):
-        def sc_operator(frame, *args_w):
-            return cls(*args_w).eval(frame)
+        def sc_operator(ctx, *args_w):
+            return cls(*args_w).eval(ctx)
         return sc_operator
 
-    def eval(self, frame):
+    def eval(self, ctx):
         result = self.constfold()
         if result is not None:
             return result
-        return frame.do_op(self)
+        return ctx.do_op(self)
 
     def constfold(self):
         return None
@@ -433,7 +433,7 @@ class Next(SingleDispatchMixin, HLOperation):
     canraise = []
     pyfunc = staticmethod(next)
 
-    def eval(self, frame):
+    def eval(self, ctx):
         w_iter, = self.args
         if isinstance(w_iter, Constant):
             it = w_iter.value
@@ -444,10 +444,10 @@ class Next(SingleDispatchMixin, HLOperation):
                     from rpython.flowspace.flowcontext import Raise
                     raise Raise(const(StopIteration()))
                 else:
-                    frame.replace_in_stack(it, next_unroller)
+                    ctx.replace_in_stack(it, next_unroller)
                     return const(v)
-        w_item = frame.do_op(self)
-        frame.guessexception([StopIteration, RuntimeError], force=True)
+        w_item = ctx.do_op(self)
+        ctx.guessexception([StopIteration, RuntimeError], force=True)
         return w_item
 
 class GetAttr(SingleDispatchMixin, HLOperation):
@@ -496,7 +496,7 @@ class CallOp(HLOperation):
 class SimpleCall(SingleDispatchMixin, CallOp):
     opname = 'simple_call'
 
-    def eval(self, frame):
+    def eval(self, ctx):
         w_callable, args_w = self.args[0], self.args[1:]
         if isinstance(w_callable, Constant):
             fn = w_callable.value
@@ -505,14 +505,14 @@ class SimpleCall(SingleDispatchMixin, CallOp):
             except (KeyError, TypeError):
                 pass
             else:
-                return sc(frame, *args_w)
-        return frame.do_op(self)
+                return sc(ctx, *args_w)
+        return ctx.do_op(self)
 
 
 class CallArgs(SingleDispatchMixin, CallOp):
     opname = 'call_args'
 
-    def eval(self, frame):
+    def eval(self, ctx):
         w_callable = self.args[0]
         if isinstance(w_callable, Constant):
             fn = w_callable.value
@@ -524,7 +524,7 @@ class CallArgs(SingleDispatchMixin, CallOp):
                 from rpython.flowspace.flowcontext import FlowingError
                 raise FlowingError(
                     "should not call %r with keyword arguments" % (fn,))
-        return frame.do_op(self)
+        return ctx.do_op(self)
 
 
 # Other functions that get directly translated to SpaceOperators

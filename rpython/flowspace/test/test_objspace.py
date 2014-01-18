@@ -7,7 +7,7 @@ from rpython.flowspace.model import (
     Constant, mkentrymap, c_last_exception, const)
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
-from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
+from rpython.flowspace.flowcontext import FlowingError, FlowContext
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
@@ -54,7 +54,7 @@ class Base:
 
 def test_all_opcodes_defined():
     opnames = set(host_bytecode_spec.method_names)
-    methods = set([name for name in dir(FlowSpaceFrame) if name.upper() == name])
+    methods = set([name for name in dir(FlowContext) if name.upper() == name])
     handled_elsewhere = set(['EXTENDED_ARG'])
     missing = opnames - methods - handled_elsewhere
     assert not missing

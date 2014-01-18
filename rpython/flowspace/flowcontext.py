@@ -23,13 +23,13 @@ w_None = const(None)
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
-    frame = None
+    ctx = None
 
     def __str__(self):
         msg = ["\n"]
         msg += map(str, self.args)
         msg += [""]
-        msg += source_lines(self.frame.graph, None, offset=self.frame.last_instr)
+        msg += source_lines(self.ctx.graph, None, offset=self.ctx.last_instr)
         return "\n".join(msg)
 
 class StopFlowing(Exception):
@@ -116,7 +116,7 @@ class Recorder(object):
     def append(self, operation):
         raise NotImplementedError
 
-    def guessbool(self, frame, w_condition):
+    def guessbool(self, ctx, w_condition):
         raise AssertionError("cannot guessbool(%s)" % (w_condition,))
 
 
@@ -132,13 +132,13 @@ class BlockRecorder(Recorder):
     def append(self, operation):
         self.crnt_block.operations.append(operation)
 
-    def guessbool(self, frame, w_condition):
+    def guessbool(self, ctx, w_condition):
         block = self.crnt_block
         vars = block.getvariables()
         links = []
         for case in [False, True]:
             egg = EggBlock(vars, block, case)
-            frame.pendingblocks.append(egg)
+            ctx.pendingblocks.append(egg)
             link = Link(vars, egg, case)
             links.append(link)
 
@@ -150,7 +150,7 @@ class BlockRecorder(Recorder):
         # block.exits[True] = ifLink.
         raise StopFlowing
 
-    def guessexception(self, frame, *cases):
+    def guessexception(self, ctx, *cases):
         block = self.crnt_block
         bvars = vars = vars2 = block.getvariables()
         links = []
@@ -167,7 +167,7 @@ class BlockRecorder(Recorder):
                 vars.extend([last_exc, last_exc_value])
                 vars2.extend([Variable(), Variable()])
             egg = EggBlock(vars2, block, case)
-            frame.pendingblocks.append(egg)
+            ctx.pendingblocks.append(egg)
             link = Link(vars, egg, case)
             if case is not None:
                 link.extravars(last_exception=last_exc, last_exc_value=last_exc_value)
@@ -198,14 +198,14 @@ class Replayer(Recorder):
                       [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
 
-    def guessbool(self, frame, w_condition):
+    def guessbool(self, ctx, w_condition):
         assert self.index == len(self.listtoreplay)
-        frame.recorder = self.nextreplayer
+        ctx.recorder = self.nextreplayer
         return self.booloutcome
 
-    def guessexception(self, frame, *classes):
+    def guessexception(self, ctx, *classes):
         assert self.index == len(self.listtoreplay)
-        frame.recorder = self.nextreplayer
+        ctx.recorder = self.nextreplayer
         outcome = self.booloutcome
         if outcome is not None:
             egg = self.nextreplayer.crnt_block
@@ -305,7 +305,7 @@ compare_method = [
     "cmp_exc_match",
     ]
 
-class FlowSpaceFrame(object):
+class FlowContext(object):
     opcode_method_names = host_bytecode_spec.method_names
 
     def __init__(self, graph, code):
@@ -320,7 +320,6 @@ class FlowSpaceFrame(object):
         self.last_instr = 0
 
         self.init_locals_stack(code)
-        self.w_locals = None # XXX: only for compatibility with PyFrame
 
         self.joinpoints = {}
 
@@ -402,7 +401,7 @@ class FlowSpaceFrame(object):
         return FrameState(data, self.blockstack[:], next_pos)
 
     def setstate(self, state):
-        """ Reset the frame to the given state. """
+        """ Reset the context to the given frame state. """
         data = state.mergeable[:]
         recursively_unflatten(data)
         self.restore_locals_stack(data[:-2])  # Nones == undefined locals
@@ -490,8 +489,8 @@ class FlowSpaceFrame(object):
             self.recorder.crnt_block.closeblock(link)
 
         except FlowingError as exc:
-            if exc.frame is None:
-                exc.frame = self
+            if exc.ctx is None:
+                exc.ctx = self
             raise
 
         self.recorder = None
@@ -1316,9 +1315,9 @@ class FrameBlock(object):
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
 
-    def __init__(self, frame, handlerposition):
+    def __init__(self, ctx, handlerposition):
         self.handlerposition = handlerposition
-        self.valuestackdepth = frame.valuestackdepth
+        self.valuestackdepth = ctx.valuestackdepth
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -1331,10 +1330,10 @@ class FrameBlock(object):
     def __hash__(self):
         return hash((self.handlerposition, self.valuestackdepth))
 
-    def cleanupstack(self, frame):
-        frame.dropvaluesuntil(self.valuestackdepth)
+    def cleanupstack(self, ctx):
+        ctx.dropvaluesuntil(self.valuestackdepth)
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         raise NotImplementedError
 
 class LoopBlock(FrameBlock):
@@ -1342,16 +1341,16 @@ class LoopBlock(FrameBlock):
 
     handles = (Break, Continue)
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         if isinstance(unroller, Continue):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
-            frame.blockstack.append(self)
+            ctx.blockstack.append(self)
             return unroller.jump_to
         else:
             # jump to the end of the loop
-            self.cleanupstack(frame)
+            self.cleanupstack(ctx)
             return self.handlerposition
 
 class ExceptBlock(FrameBlock):
@@ -1359,19 +1358,19 @@ class ExceptBlock(FrameBlock):
 
     handles = Raise
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
-        self.cleanupstack(frame)
+        self.cleanupstack(ctx)
         assert isinstance(unroller, Raise)
         w_exc = unroller.w_exc
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
-        frame.pushvalue(unroller)
-        frame.pushvalue(w_exc.w_value)
-        frame.pushvalue(w_exc.w_type)
-        frame.last_exception = w_exc
+        ctx.pushvalue(unroller)
+        ctx.pushvalue(w_exc.w_value)
+        ctx.pushvalue(w_exc.w_type)
+        ctx.last_exception = w_exc
         return self.handlerposition   # jump to the handler
 
 class FinallyBlock(FrameBlock):
@@ -1379,15 +1378,15 @@ class FinallyBlock(FrameBlock):
 
     handles = FlowSignal
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
-        self.cleanupstack(frame)
-        frame.pushvalue(unroller)
+        self.cleanupstack(ctx)
+        ctx.pushvalue(unroller)
         return self.handlerposition   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
 
-    def handle(self, frame, unroller):
-        return FinallyBlock.handle(self, frame, unroller)
+    def handle(self, ctx, unroller):
+        return FinallyBlock.handle(self, ctx, unroller)

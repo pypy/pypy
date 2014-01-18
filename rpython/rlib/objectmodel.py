@@ -282,7 +282,7 @@ def we_are_translated():
     return False
 
 @register_flow_sc(we_are_translated)
-def sc_we_are_translated(frame):
+def sc_we_are_translated(ctx):
     return Constant(True)
 
 
