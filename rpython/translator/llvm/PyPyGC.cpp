@@ -41,10 +41,10 @@ void PyPyGCMetadataPrinter::finishAssembly(AsmPrinter &AP) {
   unsigned PtrSize = AP.TM.getDataLayout()->getPointerSize();
 
   SmallPtrSet<const Function*, 8> GCStackBottoms;
-  GlobalVariable *GV = getModule().getGlobalVariable("gc_stack_bottoms");
-  ConstantArray *Inits = dyn_cast<ConstantArray>(GV->getInitializer());
+  const GlobalVariable *GV = getModule().getGlobalVariable("gc_stack_bottoms");
+  const ConstantArray *Inits = dyn_cast<ConstantArray>(GV->getInitializer());
   for (unsigned i = 0, e = Inits->getNumOperands(); i != e; ++i)
-    if (Function *F =
+    if (const Function *F =
           dyn_cast<Function>(Inits->getOperand(i)->stripPointerCasts()))
       GCStackBottoms.insert(F);
 
