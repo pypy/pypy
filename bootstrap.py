@@ -98,14 +98,9 @@ def bootstrap(shared_dir=None):
     *** NOTE: This bootstrapper will not translate unipycation ***
     **************************************************************
 
-    To translate (copy and paste friendly):
+    To translate, run translate_unipycation.py.
 
-        cd pypy/goal/ && \\
-            CC=<your_compiler> ../../rpython/bin/rpython \\
-            -Ojit targetpypystandalone.py
-
-    Note that OpenBSD users will need to install a newer GCC from packages.
-    Then your gcc binary is 'egcc'
+    Note that OpenBSD users will need to install a newish GCC from packages.
     """)
 
 def usage():
