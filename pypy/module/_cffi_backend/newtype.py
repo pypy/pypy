@@ -118,6 +118,7 @@ def new_array_type(space, w_ctptr, w_length):
 SF_MSVC_BITFIELDS = 1
 SF_GCC_ARM_BITFIELDS = 2
 SF_GCC_BIG_ENDIAN = 4
+SF_PACKED = 8
 
 if sys.platform == 'win32':
     DEFAULT_SFLAGS = SF_MSVC_BITFIELDS
@@ -190,8 +191,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             boffset = 0         # reset each field at offset 0
         #
         # update the total alignment requirement, but skip it if the
-        # field is an anonymous bitfield
-        falign = ftype.alignof()
+        # field is an anonymous bitfield or if SF_PACKED
+        falign = 1 if sflags & SF_PACKED else ftype.alignof()
         do_align = True
         if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
             if (sflags & SF_MSVC_BITFIELDS) == 0:
