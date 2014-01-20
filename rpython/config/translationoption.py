@@ -45,9 +45,6 @@ translation_optiondescription = OptionDescription(
                      "llvm":   [("translation.type_system", "lltype"),
                                 ("translation.backendopt.raisingop2direct_call", True)],
                      },
-                 #suggests={
-                 #    "llvm":   [("translation.gcrootfinder", "llvmgcroot")]
-                 #    },
                  cmdline="-b --backend"),
 
     BoolOption("shared", "Build as a shared library",
