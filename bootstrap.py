@@ -76,10 +76,24 @@ def gen_env_sh(shared_dir):
         f.write("alias pypytest='%s %s'\n" %
                 (sys.executable, os.path.join(SCRIPT_DIR, "pytest.py")))
 
+def force_symlink(src, dest):
+    if os.path.exists(dest):
+        os.unlink(dest)
+    os.symlink(src, dest)
+
 def gen_uni_symlink(shared_dir):
     print("Generating uni.py symlink...")
     uni_py_path = os.path.join(shared_dir, "unipycation_shared", "uni.py")
-    sh.ln("-sf", uni_py_path, UNI_SYMLINK_DIR)
+    target_path = os.path.join(UNI_SYMLINK_DIR, "uni.py")
+
+    force_symlink(uni_py_path, target_path)
+
+    # Remove old bytecode if there is one
+    pyc_path = target_path + "c"
+    try:
+        os.unlink(pyc_path)
+    except OSError:
+        pass
 
 #
 # MAIN
