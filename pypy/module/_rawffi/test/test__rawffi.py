@@ -327,9 +327,9 @@ class AppTestFfi:
     def test_rawstring2charp(self):
         import _rawffi
         A = _rawffi.Array('c')
-        a = A(10, 'x'*10)
-        _rawffi.rawstring2charp(a.buffer, "foobar")
-        assert ''.join([a[i] for i in range(10)]) == "foobarxxxx"
+        a = A(10, b'x'*10)
+        _rawffi.rawstring2charp(a.buffer, b"foobar")
+        assert b''.join([a[i] for i in range(10)]) == b"foobarxxxx"
         a.free()
 
     def test_raw_callable(self):
