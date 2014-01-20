@@ -36,13 +36,9 @@ class StdTypeModel:
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
-            from pypy.objspace.std.basestringtype import basestring_typedef
-            from pypy.objspace.std.stringtype import str_typedef
-            from pypy.objspace.std.bytearraytype import bytearray_typedef
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
-            from pypy.objspace.std.unicodetype import unicode_typedef
             from pypy.objspace.std.nonetype import none_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
@@ -59,7 +55,8 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import setobject
-        from pypy.objspace.std import stringobject
+        from pypy.objspace.std import basestringtype
+        from pypy.objspace.std import bytesobject
         from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
@@ -81,6 +78,10 @@ class StdTypeModel:
         self.pythontypes.append(setobject.W_SetObject.typedef)
         self.pythontypes.append(setobject.W_FrozensetObject.typedef)
         self.pythontypes.append(iterobject.W_AbstractSeqIterObject.typedef)
+        self.pythontypes.append(basestringtype.basestring_typedef)
+        self.pythontypes.append(bytesobject.W_BytesObject.typedef)
+        self.pythontypes.append(bytearrayobject.W_BytearrayObject.typedef)
+        self.pythontypes.append(unicodeobject.W_UnicodeObject.typedef)
 
         # the set of implementation types
         self.typeorder = {
@@ -88,20 +89,17 @@ class StdTypeModel:
             boolobject.W_BoolObject: [],
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
-            stringobject.W_StringObject: [],
-            bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             complexobject.W_ComplexObject: [],
-            unicodeobject.W_UnicodeObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
 
         self.imported_but_not_registered = {
-            stringobject.W_StringObject: True,
+            bytesobject.W_BytesObject: True,
         }
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
@@ -167,17 +165,8 @@ class StdTypeModel:
                     complexobject.delegate_Float2Complex),
             ]
 
-        self.typeorder[stringobject.W_StringObject] += [
-            (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-            ]
         if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
-            self.typeorder[strbufobject.W_StringBufferObject] += [
-                (stringobject.W_StringObject,
-                                       strbufobject.delegate_buf2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strbufobject.delegate_buf2unicode)
-                ]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []
@@ -367,7 +356,7 @@ NOT_MULTIMETHODS = set(
     ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
      'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
      'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel',
-     'isinstance', 'issubtype', 'int'])
+     'isinstance', 'issubtype', 'int', 'ord'])
 # XXX should we just remove those from the method table or we're happy
 #     with just not having multimethods?
 

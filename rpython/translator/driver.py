@@ -462,7 +462,7 @@ class TranslationDriver(SimpleTaskEngine):
             targetdir = cbuilder.targetdir
             fname = dump_static_data_info(self.log, database, targetdir)
             dstname = self.compute_exe_name() + '.staticdata.info'
-            shutil.copy(str(fname), str(dstname))
+            shutil_copy(str(fname), str(dstname))
             self.log.info('Static data info written to %s' % dstname)
 
     def compute_exe_name(self):
@@ -478,12 +478,12 @@ class TranslationDriver(SimpleTaskEngine):
         if self.exe_name is not None:
             exename = self.c_entryp
             newexename = mkexename(self.compute_exe_name())
-            shutil.copy(str(exename), str(newexename))
+            shutil_copy(str(exename), str(newexename))
             if (hasattr(self, 'cbuilder') and
                 self.cbuilder.shared_library_name is not None):
                 soname = self.cbuilder.shared_library_name
                 newsoname = newexename.new(basename=soname.basename)
-                shutil.copy(str(soname), str(newsoname))
+                shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
                     # the import library is named python27.lib, according
@@ -620,3 +620,12 @@ def mkexename(name):
     if sys.platform == 'win32':
         name = name.new(ext='exe')
     return name
+
+if os.name == 'posix':
+    def shutil_copy(src, dst):
+        # this version handles the case where 'dst' is an executable
+        # currently being executed
+        shutil.copy(src, dst + '~')
+        os.rename(dst + '~', dst)
+else:
+    shutil_copy = shutil.copy

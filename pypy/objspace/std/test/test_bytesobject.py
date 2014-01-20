@@ -1,4 +1,4 @@
-class TestW_StringObject:
+class TestW_BytesObject:
 
     def teardown_method(self, method):
         pass
@@ -84,7 +84,7 @@ class TestW_StringObject:
         w_str = self.space.wrap('abcd')
         assert self.space.listview_str(w_str) == list("abcd")
 
-class AppTestStringObject:
+class AppTestBytesObject:
 
     def test_format_wrongchar(self):
         raises(ValueError, 'a%Zb'.__mod__, ((23,),))
@@ -776,12 +776,19 @@ class AppTestStringObject:
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
 
-class AppTestPrebuilt(AppTestStringObject):
+    def test___radd__(self):
+        class Foo(object):
+            def __radd__(self, other):
+                return 42
+        x = Foo()
+        assert "hello" + x == 42
+
+class AppTestPrebuilt(AppTestBytesObject):
     spaceconfig = {"objspace.std.withprebuiltchar": True}
 
-class AppTestShare(AppTestStringObject):
+class AppTestShare(AppTestBytesObject):
     spaceconfig = {"objspace.std.sharesmallstr": True}
 
-class AppTestPrebuiltShare(AppTestStringObject):
+class AppTestPrebuiltShare(AppTestBytesObject):
     spaceconfig = {"objspace.std.withprebuiltchar": True,
                    "objspace.std.sharesmallstr": True}
