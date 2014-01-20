@@ -78,7 +78,6 @@ def gen_env_sh(shared_dir):
 
 def gen_uni_symlink(shared_dir):
     print("Generating uni.py symlink...")
-    os.chdir(UNI_SYMLINK_DIR)
     uni_py_path = os.path.join(shared_dir, "unipycation_shared", "uni.py")
     sh.ln("-sf", uni_py_path, UNI_SYMLINK_DIR)
 
@@ -91,6 +90,7 @@ def bootstrap(shared_dir=None):
         shared_dir = DEFAULT_SHARED_DIR
     else:
         with_shared = False
+        shared_dir = os.path.abspath(shared_dir)
 
     fetch_deps(with_shared)
     configure(shared_dir)
