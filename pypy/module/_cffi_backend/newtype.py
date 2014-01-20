@@ -306,6 +306,12 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     if bits_already_occupied + fbitsize > 8 * ftype.size:
                         # it would not fit, we need to start at the next
                         # allowed position
+                        if ((sflags & SF_PACKED) != 0 and
+                            (bits_already_occupied & 7) != 0):
+                            raise operationerrfmt(space.w_NotImplementedError,
+                                "with 'packed', gcc would compile field "
+                                "'%s.%s' to reuse some bits in the previous "
+                                "field", w_ctype.name, fname)
                         field_offset_bytes += falign
                         assert boffset < field_offset_bytes * 8
                         boffset = field_offset_bytes * 8

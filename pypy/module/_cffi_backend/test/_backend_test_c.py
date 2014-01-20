@@ -3166,6 +3166,16 @@ def test_packed():
     assert sizeof(BStruct) == sizeof(BLong) + sizeof(BChar) + sizeof(BShort)
     assert alignof(BStruct) == 1
 
+def test_packed_with_bitfields():
+    BLong = new_primitive_type("long")
+    BChar = new_primitive_type("char")
+    BStruct = new_struct_type("struct foo")
+    py.test.raises(NotImplementedError,
+                   complete_struct_or_union,
+                   BStruct, [('a1', BLong, 30),
+                             ('a2', BChar, 5)],
+                   None, -1, -1, 8)   # SF_PACKED==8
+
 def test_version():
     # this test is here mostly for PyPy
     assert __version__ == "0.8"
