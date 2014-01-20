@@ -47,17 +47,22 @@ def fetch_shared():
         print("Cloning fresh unipycation-shared...")
         sh.git('clone', SHARED_REPO, DEFAULT_SHARED_DIR,
                 _out=sys.stdout, _err=sys.stderr)
-    #else:
-    #    print("Updating existing unipycation-shared...")
-    #    os.chdir(DEFAULT_SHARED_DIR)
-    #    sh.git("pull")
+    else:
+        print("Updating existing unipycation-shared...")
+        os.chdir(DEFAULT_SHARED_DIR)
+        sh.git("pull")
 
 def fetch_pyro():
     if not os.path.exists(PYRO_DIR):
-        print("Cloning pyrolog...")
-        os.chdir(DEPS_DIR)
-        sh.hg("clone", "-u", "unipycation", PYRO_REPO, PYRO_DIR,
-                _out=sys.stdout, _err=sys.stderr)
+        if not os.path.exists(PYRO_DIR):
+            print("Cloning pyrolog...")
+            os.chdir(DEPS_DIR)
+            sh.hg("clone", "-u", "unipycation", PYRO_REPO, PYRO_DIR,
+                    _out=sys.stdout, _err=sys.stderr)
+        else:
+            print("Updating pyrolog...")
+            os.chdir(PYRO_DIR)
+            sh.hg("pull", "-u", _out=sys.stdout, _err=sys.stderr)
 
 #
 # CONFIGURE
