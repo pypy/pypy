@@ -117,6 +117,8 @@ def bootstrap(shared_dir=None):
     To translate, run translate_unipycation.py.
 
     Note that OpenBSD users will need to install a newish GCC from packages.
+
+    Once you are translated, source env.sh and run 'pypy-c'.
     """)
 
 def usage():
