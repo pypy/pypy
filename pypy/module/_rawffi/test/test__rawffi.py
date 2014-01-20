@@ -330,6 +330,8 @@ class AppTestFfi:
         a = A(10, 'x'*10)
         _rawffi.rawstring2charp(a.buffer, "foobar")
         assert ''.join([a[i] for i in range(10)]) == "foobarxxxx"
+        _rawffi.rawstring2charp(a.buffer, buffer("baz"))
+        assert ''.join([a[i] for i in range(10)]) == "bazbarxxxx"
         a.free()
 
     def test_raw_callable(self):

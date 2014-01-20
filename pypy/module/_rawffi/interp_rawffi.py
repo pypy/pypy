@@ -579,7 +579,7 @@ def wcharp2rawunicode(space, address, maxlength=-1):
     s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
     return space.wrap(s)
 
-@unwrap_spec(address=r_uint, newcontent=str)
+@unwrap_spec(address=r_uint, newcontent='bufferstr')
 def rawstring2charp(space, address, newcontent):
     from rpython.rtyper.annlowlevel import llstr
     from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
