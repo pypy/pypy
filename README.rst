@@ -14,17 +14,9 @@ a language composition platform.
 Setup
 =====
 
-Get the unipycation sources::
-
-    $ hg clone https://bitbucket.org/vext01/pypy
-
-Switch into the unipycation branch::
-
-    $ hg update -C unipycation
-
 Run the setup script:
 
-    $ sh bootstrap.sh
+    $ python2.7 bootstrap.py
 
 Follow instructions printed to stdout.
 
