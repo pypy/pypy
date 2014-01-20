@@ -3137,6 +3137,34 @@ def test_sizeof_sliced_array():
     p = newp(BArray, None)
     assert sizeof(p[2:9]) == 7 * sizeof(BInt)
 
+def test_packed():
+    BLong = new_primitive_type("long")
+    BChar = new_primitive_type("char")
+    BShort = new_primitive_type("short")
+    BStruct = new_struct_type("struct foo")
+    complete_struct_or_union(BStruct, [('a1', BLong, -1),
+                                       ('a2', BChar, -1),
+                                       ('a3', BShort, -1)],
+                             None, -1, -1, 8)   # SF_PACKED==8
+    d = BStruct.fields
+    assert len(d) == 3
+    assert d[0][0] == 'a1'
+    assert d[0][1].type is BLong
+    assert d[0][1].offset == 0
+    assert d[0][1].bitshift == -1
+    assert d[0][1].bitsize == -1
+    assert d[1][0] == 'a2'
+    assert d[1][1].type is BChar
+    assert d[1][1].offset == sizeof(BLong)
+    assert d[1][1].bitshift == -1
+    assert d[1][1].bitsize == -1
+    assert d[2][0] == 'a3'
+    assert d[2][1].type is BShort
+    assert d[2][1].offset == sizeof(BLong) + sizeof(BChar)
+    assert d[2][1].bitshift == -1
+    assert d[2][1].bitsize == -1
+    assert sizeof(BStruct) == sizeof(BLong) + sizeof(BChar) + sizeof(BShort)
+    assert alignof(BStruct) == 1
 
 def test_version():
     # this test is here mostly for PyPy
