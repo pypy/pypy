@@ -73,6 +73,8 @@ def gen_env_sh(shared_dir):
         f.write("#!/bin/sh\n")
         f.write("export PYTHONPATH=${PYTHONPATH}:%s:%s\n" % (PYRO_DIR, shared_dir))
         f.write("export PATH=%s:${PATH}\n" % UNIPY_BIN_DIR)
+        f.write("alias pypytest='%s %s'\n" %
+                (sys.executable, os.path.join(SCRIPT_DIR, "pytest.py")))
 
 def gen_uni_symlink(shared_dir):
     print("Generating uni.py symlink...")
