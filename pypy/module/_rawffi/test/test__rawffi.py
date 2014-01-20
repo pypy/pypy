@@ -1149,24 +1149,32 @@ class AppTestAutoFree:
         gc.collect()
         gc.collect()
         S = _rawffi.Structure([('x', 'i')])
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
         s = S(autofree=True)
         s.x = 3
         s = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def test_array_autofree(self):
         import gc, _rawffi
         gc.collect()
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
 
         A = _rawffi.Array('c')
         a = A(6, 'xxyxx\x00', autofree=True)
         assert _rawffi.charp2string(a.buffer) == 'xxyxx'
         a = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def teardown_class(cls):
         Tracker.DO_TRACING = False
