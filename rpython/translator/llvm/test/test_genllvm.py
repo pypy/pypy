@@ -325,17 +325,15 @@ class _LLVMMixin(object):
     _func = None
     _types = None
 
-    def __init__(self):
-        self.config_override = {}
-        self.annotator_policy = None
-
-    def getcompiled(self, func, argtypes, gcpolicy='ref', backendopt=True):
+    def getcompiled(self, func, argtypes, gcpolicy='ref', backendopt=True,
+                    annotator_policy=None, no_gcremovetypeptr=False):
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
         config.translation.gc = gcpolicy
-        config.override(self.config_override)
+        if no_gcremovetypeptr:
+            config.translation.gcremovetypeptr = False
         t = self._translator = TranslationContext(config=config)
-        a = t.buildannotator(self.annotator_policy)
+        a = t.buildannotator(annotator_policy)
         a.build_types(func, argtypes)
         a.simplify()
         t.buildrtyper().specialize()
@@ -363,9 +361,9 @@ class _LLVMMixin(object):
     def _compile(self, func, args, policy=None, gcpolicy=None):
         types = [lltype.typeOf(arg) for arg in args]
         if not (func == self._func and types == self._types):
-            self.config_override['translation.gcremovetypeptr'] = False
-            self.annotator_policy = policy
-            self._compiled = self.getcompiled(func, types, gcpolicy=gcpolicy)
+            self._compiled = self.getcompiled(func, types, gcpolicy=gcpolicy,
+                                              annotator_policy=policy,
+                                              no_gcremovetypeptr=True)
             self._compiled.convert = False
             self._func = func
             self._types = types
