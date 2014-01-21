@@ -81,7 +81,7 @@ def llong_abs_ovf(x):
     else:
         return x
 
-def _int_add_ovf(x, y):
+def int_add_ovf(x, y):
     '''#define OP_INT_ADD_OVF(x,y,r,err) \
         OP_INT_ADD(x,y,r,err); \
         if ((r^(x)) >= 0 || (r^(y)) >= 0); \
@@ -93,7 +93,7 @@ def _int_add_ovf(x, y):
     else:
         raise OverflowError("integer addition")
 
-def _int_add_nonneg_ovf(x, y):
+def int_add_nonneg_ovf(x, y):
     '''
     OP_INT_ADD(x,y,r); \
     if (r >= (x)); \
@@ -105,7 +105,7 @@ def _int_add_nonneg_ovf(x, y):
     else:
         raise OverflowError("integer addition")
 
-def _int_sub_ovf(x, y):
+def int_sub_ovf(x, y):
     '''#define OP_INT_SUB_OVF(x,y,r,err) \
         OP_INT_SUB(x,y,r,err); \
         if ((r^(x)) >= 0 || (r^~(y)) >= 0); \
@@ -275,7 +275,7 @@ def _Py_ARITHMETIC_RIGHT_SHIFT(i, j):
 #        raise OverflowError("integer multiplication")
 
 #not HAVE_LONG_LONG version
-def _int_mul_ovf(a, b):          #long a, long b, long *longprod):
+def int_mul_ovf(a, b):          #long a, long b, long *longprod):
     longprod = a * b
     doubleprod = float(a) * float(b)
     doubled_longprod = float(longprod)
