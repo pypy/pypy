@@ -623,7 +623,7 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+        if 1:  # tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
             self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
