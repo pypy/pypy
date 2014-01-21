@@ -656,35 +656,18 @@ class FuncType(Type):
 
     def repr_ref(self, ptr_type, obj):
         if getattr(obj, 'external', None) == 'C':
-            if hasattr(obj, 'llvm_wrapper'):
+            if obj._name.startswith('llvm'):
+                name = '@' + obj._name
+            else:
                 wrapper_name, source = rffi._write_call_wrapper(
-                        obj._name, obj.llvm_wrapper, obj._TYPE)
+                        obj._name, database.unique_name(obj._name, False),
+                        obj._TYPE)
                 name = '@' + wrapper_name
                 database.genllvm.sources.append(source)
-            else:
-                name = '@' + obj._name
 
-            # Hack to support functions with different function signatures
-            prev_type = database.external_declared.get(name)
-            if prev_type is None:
-                database.external_declared[name] = self
-            elif prev_type is self:
-                ptr_type.refs[obj] = name
-                return
-            else:
-                ptr_type.refs[obj] = 'bitcast({}* {} to {}*)'.format(
-                        prev_type.repr_type(), name, self.repr_type())
-                return
             ptr_type.refs[obj] = name
-            if obj.calling_conv == 'c':
-                calling_conv = ''
-            elif obj.calling_conv == 'win':
-                # assume that x86_stdcallcc implies dllimport
-                calling_conv = 'dllimport x86_stdcallcc '
-            else:
-                raise NotImplementedError
-            database.f.write('declare {}{} {}({})\n'.format(
-                    calling_conv, self.result.repr_type(), name,
+            database.f.write('declare {} {}({})\n'.format(
+                    self.result.repr_type(), name,
                     ', '.join(arg.repr_type() for arg in self.args)))
             database.genllvm.ecis.append(obj.compilation_info)
         else:
@@ -740,7 +723,6 @@ class Database(object):
         self.f = f
         self.names_counter = {}
         self.types = PRIMITIVES.copy()
-        self.external_declared = {}
         self.hashes = []
         self.stack_bottoms = []
 
@@ -764,14 +746,15 @@ class Database(object):
                         .get_gc_fields_lltype() # hint for ll2ctypes
             return ret
 
-    def unique_name(self, name):
+    def unique_name(self, name, llvm_name=True):
         if name not in self.names_counter:
             self.names_counter[name] = 0
-            if self.identifier_regex.match(name) is None:
+            if llvm_name and self.identifier_regex.match(name) is None:
                 return '{}"{}"'.format(name[0], name[1:])
             return name
         self.names_counter[name] += 1
-        return self.unique_name('{}_{}'.format(name, self.names_counter[name]))
+        return self.unique_name('{}_{}'.format(name, self.names_counter[name]),
+                                llvm_name)
 
 
 OPS = {
@@ -1148,19 +1131,13 @@ class FunctionWriter(object):
             tmp.append('{arg.TV}'.format(arg=arg))
         args = ', '.join(tmp)
 
-        if (isinstance(fn, ConstantRepr) and
-            getattr(fn.value._obj, 'calling_conv', None) == 'win'):
-            calling_conv = 'x86_stdcallcc '
-        else:
-            calling_conv = ''
-
         if result.type_ is LLVMVoid:
-            fmt = 'call {calling_conv}void {fn.V}({args})'
+            fmt = 'call void {fn.V}({args})'
         elif (isinstance(result.type_, PtrType) and
               isinstance(result.type_.to, FuncType)):
-            fmt = '{result.V} = call {calling_conv}{fn.TV}({args})'
+            fmt = '{result.V} = call {fn.TV}({args})'
         else:
-            fmt = '{result.V} = call {calling_conv}{result.T} {fn.V}({args})'
+            fmt = '{result.V} = call {result.T} {fn.V}({args})'
         self.w(fmt.format(**locals()))
     op_indirect_call = op_direct_call
 
@@ -1764,15 +1741,14 @@ class GenLLVM(object):
         exports.clear()
 
     def _compile(self, shared=False):
-        self.sources.append(py.code.Source(r'''
+        self.sources.append(str(py.code.Source(r'''
         void pypy_debug_catch_fatal_exception(void) {
             fprintf(stderr, "Fatal RPython error\n");
             abort();
-        }
-        '''))
+        }''')))
         eci = ExternalCompilationInfo(
             includes=['stdio.h', 'stdlib.h'],
-            separate_module_sources=self.sources,
+            separate_module_sources=['\n'.join(self.sources)],
             post_include_bits=['typedef _Bool bool_t;']
         ).merge(*self.ecis).convert_sources_to_files()
 

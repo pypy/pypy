@@ -63,8 +63,7 @@ def llexternal(name, args, result, _callable=None,
                sandboxsafe=False, releasegil='auto',
                _nowrapper=False, calling_conv='c',
                elidable_function=False, macro=None,
-               random_effects_on_gcobjs='auto',
-               llvm_wrapper=None):
+               random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -84,14 +83,9 @@ def llexternal(name, args, result, _callable=None,
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
     macro: whether to write a macro wrapper for this function. This is
-           necessary for calling macros in tests or when using the llvm
-           translation backend. Setting it to True generates a macro wrapper
-           named '_rpy_call_wrapper_{name}'. Setting it to a string
-           generates a macro wrapper named '_rpy_call_wrapper_{macro}'.
-    llvm_wrapper: same semantics as macro but for calling ordinary functions
-                  that the llvm translation backend can't handle, for example
-                  static functions defined in ExternalCompilationInfo's
-                  post_include_bits or functions with varargs.
+           necessary for calling macros in tests. Setting it to True generates
+           a macro wrapper named '_rpy_call_wrapper_{name}'. Setting it to a
+           string generates a macro wrapper named '_rpy_call_wrapper_{macro}'.
     """
     if _callable is not None:
         assert callable(_callable)
@@ -129,11 +123,6 @@ def llexternal(name, args, result, _callable=None,
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
             has_callback)               # because the callback can do it
-
-    if llvm_wrapper is None:
-        llvm_wrapper = macro
-    if llvm_wrapper is not None:
-        kwds['llvm_wrapper'] = llvm_wrapper
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,

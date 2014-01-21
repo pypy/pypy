@@ -602,7 +602,6 @@ llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
                                                  lltype.Signed,
                                                  sandboxsafe=True,
                                                  _nowrapper=True,
-                                                 macro=True,
                                                  compilation_info=_eci)
 register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',

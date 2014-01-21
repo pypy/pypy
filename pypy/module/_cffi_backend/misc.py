@@ -238,7 +238,7 @@ eci = ExternalCompilationInfo(post_include_bits=["""
 _is_nonnull_longdouble = rffi.llexternal(
     "pypy__is_nonnull_longdouble", [rffi.LONGDOUBLE], lltype.Bool,
     compilation_info=eci, _nowrapper=True, elidable_function=True,
-    sandboxsafe=True, macro=True)
+    sandboxsafe=True)
 
 # split here for JIT backends that don't support floats/longlongs/etc.
 def is_nonnull_longdouble(cdata):

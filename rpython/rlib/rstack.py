@@ -20,15 +20,15 @@ compilation_info = ExternalCompilationInfo(
         includes=['src/stack.h'],
         separate_module_files=[srcdir / 'stack.c', srcdir / 'threadlocal.c'])
 
-def llexternal(name, args, res, _callable=None, macro=None):
+def llexternal(name, args, res, _callable=None):
     return rffi.llexternal(name, args, res, compilation_info=compilation_info,
                            sandboxsafe=True, _nowrapper=True,
-                           _callable=_callable, macro=macro)
+                           _callable=_callable)
 
 _stack_get_end = llexternal('LL_stack_get_end', [], lltype.Signed,
-                            lambda: 0, True)
+                            lambda: 0)
 _stack_get_length = llexternal('LL_stack_get_length', [], lltype.Signed,
-                               lambda: 1, True)
+                               lambda: 1)
 _stack_set_length_fraction = llexternal('LL_stack_set_length_fraction',
                                         [lltype.Float], lltype.Void,
                                         lambda frac: None)
@@ -36,17 +36,15 @@ _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
                                      [lltype.Signed], lltype.Char,
                                      lambda cur: '\x00')
 # the following is used by the JIT
-_stack_get_end_adr   = llexternal('LL_stack_get_end_adr',   [], lltype.Signed,
-                                  macro=True)
-_stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed,
-                                  macro=True)
+_stack_get_end_adr   = llexternal('LL_stack_get_end_adr',   [], lltype.Signed)
+_stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed)
 
 # the following is also used by the JIT: "critical code" paths are paths in
 # which we should not raise StackOverflow at all, but just ignore the stack limit
 _stack_criticalcode_start = llexternal('LL_stack_criticalcode_start', [],
-                                       lltype.Void, lambda: None, True)
+                                       lltype.Void, lambda: None)
 _stack_criticalcode_stop = llexternal('LL_stack_criticalcode_stop', [],
-                                      lltype.Void, lambda: None, True)
+                                      lltype.Void, lambda: None)
 
 def stack_check():
     if not we_are_translated():

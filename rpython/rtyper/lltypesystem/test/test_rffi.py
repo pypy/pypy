@@ -47,7 +47,7 @@ class BaseTestRffi:
 
         eci = ExternalCompilationInfo(includes=['stuff.h'],
                                       include_dirs=[udir])
-        z = llexternal('X', [Signed], Signed, compilation_info=eci, macro=True)
+        z = llexternal('X', [Signed], Signed, compilation_info=eci)
 
         def f():
             return z(8)
@@ -298,7 +298,7 @@ class BaseTestRffi:
 
         STUFFP = COpaquePtr(typedef='stuff_ptr', compilation_info=eci)
         ll_get = llexternal('get', [STUFFP], lltype.Signed,
-                            compilation_info=eci, llvm_wrapper=True)
+                            compilation_info=eci)
 
         def f():
             return ll_get(lltype.nullptr(STUFFP.TO))

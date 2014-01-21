@@ -22,7 +22,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, offsetof, Address
+from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, offsetof
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rlib.objectmodel import specialize
 
@@ -977,8 +977,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'makedev')
     def register_os_makedev(self):
-        c_makedev = self.llexternal('makedev', [rffi.INT, rffi.INT], rffi.INT,
-                                    macro=True)
+        c_makedev = self.llexternal('makedev', [rffi.INT, rffi.INT], rffi.INT)
         def makedev_llimpl(maj, min):
             return c_makedev(maj, min)
         return extdef([int, int], int,
@@ -986,7 +985,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'major')
     def register_os_major(self):
-        c_major = self.llexternal('major', [rffi.INT], rffi.INT, macro=True)
+        c_major = self.llexternal('major', [rffi.INT], rffi.INT)
         def major_llimpl(dev):
             return c_major(dev)
         return extdef([int], int,
@@ -994,7 +993,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'minor')
     def register_os_minor(self):
-        c_minor = self.llexternal('minor', [rffi.INT], rffi.INT, macro=True)
+        c_minor = self.llexternal('minor', [rffi.INT], rffi.INT)
         def minor_llimpl(dev):
             return c_minor(dev)
         return extdef([int], int,
@@ -1030,7 +1029,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.write)
     def register_os_write(self):
         os_write = self.llexternal(UNDERSCORE_ON_WIN32 + 'write',
-                                   [rffi.INT, Address, rffi.SIZE_T],
+                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
                                    rffi.SIZE_T)
 
         def os_write_llimpl(fd, data):
@@ -1040,8 +1039,7 @@ class RegisterOs(BaseLazyRegistering):
             try:
                 written = rffi.cast(lltype.Signed, os_write(
                     rffi.cast(rffi.INT, fd),
-                    rffi.cast(Address, buf),
-                    rffi.cast(rffi.SIZE_T, count)))
+                    buf, rffi.cast(rffi.SIZE_T, count)))
                 if written < 0:
                     raise OSError(rposix.get_errno(), "os_write failed")
             finally:
