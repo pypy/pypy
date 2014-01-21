@@ -624,6 +624,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return count
 
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_find(s1, s2, start, end):
         if start < 0:
             start = 0
@@ -638,6 +639,7 @@ class LLHelpers(AbstractLLHelpers):
 
         return LLHelpers.ll_search(s1, s2, start, end, FAST_FIND)
 
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_rfind(s1, s2, start, end):
         if start < 0:
             start = 0

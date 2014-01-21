@@ -132,11 +132,6 @@ def split_block(annotator, block, index, _forcelink=None):
     block.exitswitch = None
     return link
 
-def split_block_at_start(annotator, block):
-    # split before the first op, preserve order and inputargs
-    # in the second block!
-    return split_block(annotator, block, 0, _forcelink=block.inputargs)
-
 def call_initial_function(translator, initial_func, annhelper=None):
     """Before the program starts, call 'initial_func()'."""
     from rpython.annotator import model as annmodel

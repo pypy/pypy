@@ -1290,26 +1290,58 @@ def _x_mul(a, b, digit=0):
         # Even if it's not power of two it can still be useful.
         return _muladd1(b, digit)
 
+    # a is not b
+    # use the following identity to reduce the number of operations
+    # a * b = a_0*b_0 + sum_{i=1}^n(a_0*b_i + a_1*b_{i-1}) + a_1*b_n
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-    # gradeschool long mult
     i = UDIGIT_TYPE(0)
-    while i < size_a:
-        carry = 0
-        f = a.widedigit(i)
+    size_a1 = UDIGIT_TYPE(size_a - 1)
+    size_b1 = UDIGIT_TYPE(size_b - 1)
+    while i < size_a1:
+        f0 = a.widedigit(i)
+        f1 = a.widedigit(i + 1)
         pz = i
+        carry = z.widedigit(pz) + b.widedigit(0) * f0
+        z.setdigit(pz, carry)
+        pz += 1
+        carry >>= SHIFT
+        j = UDIGIT_TYPE(0)
+        while j < size_b1:
+            # this operation does not overflow using 
+            # SHIFT = (LONG_BIT // 2) - 1 = B - 1; in fact before it
+            # carry and z.widedigit(pz) are less than 2**(B - 1);
+            # b.widedigit(j + 1) * f0 < (2**(B-1) - 1)**2; so
+            # carry + z.widedigit(pz) + b.widedigit(j + 1) * f0 +
+            # b.widedigit(j) * f1 < 2**(2*B - 1) - 2**B < 2**LONG)BIT - 1
+            carry += z.widedigit(pz) + b.widedigit(j + 1) * f0 + \
+                     b.widedigit(j) * f1
+            z.setdigit(pz, carry)
+            pz += 1
+            carry >>= SHIFT
+            j += 1
+        # carry < 2**(B + 1) - 2
+        carry += z.widedigit(pz) + b.widedigit(size_b1) * f1
+        z.setdigit(pz, carry)
+        pz += 1
+        carry >>= SHIFT
+        # carry < 4
+        if carry:
+            z.setdigit(pz, carry)
+        assert (carry >> SHIFT) == 0
+        i += 2
+    if size_a & 1:
+        pz = size_a1
+        f = a.widedigit(pz)
         pb = 0
+        carry = _widen_digit(0)
         while pb < size_b:
             carry += z.widedigit(pz) + b.widedigit(pb) * f
             pb += 1
             z.setdigit(pz, carry)
             pz += 1
             carry >>= SHIFT
-            assert carry <= MASK
         if carry:
-            assert pz >= 0
             z.setdigit(pz, z.widedigit(pz) + carry)
-        assert (carry >> SHIFT) == 0
-        i += 1
     z._normalize()
     return z
 

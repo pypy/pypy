@@ -15,6 +15,8 @@ from rpython.rlib import jit
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
+from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, wrapstr
+from pypy.objspace.std.bytearrayobject import W_BytearrayObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -27,15 +29,13 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.stringtype import wrapstr
-from pypy.objspace.std.unicodetype import wrapunicode
+from pypy.objspace.std.unicodeobject import wrapunicode
 
 class StdObjSpace(ObjSpace):
     """The standard object space, implementing a general-purpose object
@@ -48,7 +48,7 @@ class StdObjSpace(ObjSpace):
         self.model = model.StdTypeModel(self.config)
 
         self.FrameClass = frame.build_frame(self)
-        self.StringObjectCls = W_StringObject
+        self.StringObjectCls = W_BytesObject
 
         self.UnicodeObjectCls = W_UnicodeObject
 
@@ -440,7 +440,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.listview_str()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_str()
-        if isinstance(w_obj, W_StringObject) and self._uses_no_iter(w_obj):
+        if isinstance(w_obj, W_BytesObject) and self._uses_no_iter(w_obj):
             return w_obj.listview_str()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_str()
@@ -574,7 +574,7 @@ class StdObjSpace(ObjSpace):
         element or None on element not found.
 
         performance shortcut to avoid creating the OperationError(KeyError)
-        and allocating W_StringObject
+        and allocating W_BytesObject
         """
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
@@ -605,6 +605,10 @@ class StdObjSpace(ObjSpace):
         if type(w_obj) is W_IntObject:
             return w_obj.intval
         return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
+
+    def unicode_from_object(self, w_obj):
+        from pypy.objspace.std.unicodeobject import unicode_from_object
+        return unicode_from_object(self, w_obj)
 
     def call_method(self, w_obj, methname, *arg_w):
         return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
@@ -685,12 +689,19 @@ class StdObjSpace(ObjSpace):
                 self._interplevel_classes[w_type] = base
 
         # register other things
+        # XXX: fix automatic registration
         self._interplevel_classes[self.w_dict] = W_DictMultiObject
         self._interplevel_classes[self.w_list] = W_ListObject
         self._interplevel_classes[self.w_set] = W_SetObject
         self._interplevel_classes[self.w_tuple] = W_AbstractTupleObject
         self._interplevel_classes[self.w_sequenceiterator] = \
                 W_AbstractSeqIterObject
+        if self.config.objspace.std.withstrbuf:
+            self._interplevel_classes[self.w_str] = W_AbstractBytesObject
+        else:
+            self._interplevel_classes[self.w_str] = W_BytesObject
+        self._interplevel_classes[self.w_bytearray] = W_BytearrayObject
+        self._interplevel_classes[self.w_unicode] = W_UnicodeObject
 
     @specialize.memo()
     def _get_interplevel_cls(self, w_type):

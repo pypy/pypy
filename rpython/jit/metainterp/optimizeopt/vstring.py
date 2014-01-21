@@ -388,8 +388,6 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
-    def new(self):
-        return OptString()
 
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(box, source_op, mode)

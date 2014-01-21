@@ -73,7 +73,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
     translator = interp.typer.annotator.translator
     try:
         translator.config.translation.gc = "boehm"
-    except ConfigError:
+    except (ConfigError, TypeError):
         pass
     try:
         translator.config.translation.list_comprehension_operations = True

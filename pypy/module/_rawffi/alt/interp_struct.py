@@ -8,8 +8,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import operationerrfmt
-from pypy.module._ffi.interp_ffitype import W_FFIType
-from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
+from pypy.module._rawffi.alt.interp_ffitype import W_FFIType
+from pypy.module._rawffi.alt.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
 
 class W_Field(W_Root):
