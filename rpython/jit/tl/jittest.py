@@ -4,20 +4,20 @@ target --jittest.  Feel free to hack it as needed; it is imported
 only after the '---> Checkpoint' fork.
 """
 
-from rpython.conftest import option
+from rpython import conftest
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llstr
 from rpython.jit.metainterp import warmspot
-from rpython.rlib.jit import OPTIMIZER_FULL
 
 
-ARGS = ["jittest", "100"]
+ARGS = ["--jit", "trace_eagerness=18,threshold=50", "-S",
+        "/home/arigo/pypysrc/32compiled/z.py"]
 
 
 def jittest(driver):
-    graph = driver.translator.graphs[0]
-    interp = LLInterpreter(driver.translator.rtyper, malloc_check=False)
+    graph = driver.translator._graphof(driver.entry_point)
+    interp = LLInterpreter(driver.translator.rtyper)
 
     def returns_null(T, *args, **kwds):
         return lltype.nullptr(T)
@@ -32,12 +32,15 @@ def jittest(driver):
 
 def apply_jit(policy, interp, graph, CPUClass):
     print 'warmspot.jittify_and_run() started...'
-    option.view = True
+    if conftest.option is None:
+        class MyOpt:
+            pass
+        conftest.option = MyOpt()
+    conftest.option.view = True
     LIST = graph.getargs()[0].concretetype
     lst = LIST.TO.ll_newlist(len(ARGS))
     for i, arg in enumerate(ARGS):
         lst.ll_setitem_fast(i, llstr(arg))
     warmspot.jittify_and_run(interp, graph, [lst], policy=policy,
                              listops=True, CPUClass=CPUClass,
-                             backendopt=True, inline=True,
-                             optimizer=OPTIMIZER_FULL)
+                             backendopt=True, inline=True)
