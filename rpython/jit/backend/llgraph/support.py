@@ -69,7 +69,7 @@ def cast_from_int(TYPE, x):
             x = llmemory.cast_int_to_adr(x)
         try:   # pom pom pom
             return llmemory.cast_adr_to_ptr(x, TYPE)
-        except (TypeError, RuntimeError, NotImplementedError, ValueError):
+        except Exception:
             # assume that we want a "C-style" cast, without typechecking the value
             return rffi.cast(TYPE, x)
     elif TYPE == llmemory.Address:
