@@ -1,7 +1,7 @@
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.module._ffi.interp_ffitype import app_types, W_FFIType
-from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
-from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
+from pypy.module._rawffi.alt.interp_ffitype import app_types, W_FFIType
+from pypy.module._rawffi.alt.interp_struct import compute_size_and_alignement, W_Field
+from pypy.module._rawffi.alt.test.test_funcptr import BaseAppTestFFI
 
 
 class TestStruct(object):
@@ -69,7 +69,7 @@ class AppTestStruct(BaseAppTestFFI):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         
     def test__StructDescr(self):
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.slong),
@@ -80,7 +80,7 @@ class AppTestStruct(BaseAppTestFFI):
         assert descr.ffitype.name == 'struct foo'
 
     def test_alignment(self):
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.sbyte),
@@ -92,7 +92,7 @@ class AppTestStruct(BaseAppTestFFI):
         assert fields[1].offset == longsize # aligned to WORD
 
     def test_missing_field(self):
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.slong),
@@ -106,7 +106,7 @@ class AppTestStruct(BaseAppTestFFI):
     def test_unknown_type(self):
         if self.runappdirect:
             skip('cannot use self.dummy_type with -A')
-        from _ffi import _StructDescr, Field
+        from _rawffi.alt import _StructDescr, Field
         fields = [
             Field('x', self.dummy_type),
             ]
@@ -116,7 +116,7 @@ class AppTestStruct(BaseAppTestFFI):
         raises(TypeError, "struct.setfield('x', 42)")
 
     def test_getfield_setfield(self):
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.slong),
@@ -133,7 +133,7 @@ class AppTestStruct(BaseAppTestFFI):
 
     def test_getfield_setfield_signed_types(self):
         import sys
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('sbyte', types.sbyte),
@@ -156,7 +156,7 @@ class AppTestStruct(BaseAppTestFFI):
 
     def test_getfield_setfield_unsigned_types(self):
         import sys
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('ubyte', types.ubyte),
@@ -188,7 +188,7 @@ class AppTestStruct(BaseAppTestFFI):
     
     def test_getfield_setfield_longlong(self):
         import sys
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('slonglong', types.slonglong),
@@ -205,7 +205,7 @@ class AppTestStruct(BaseAppTestFFI):
 
     def test_getfield_setfield_float(self):
         import sys
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.double),
@@ -219,7 +219,7 @@ class AppTestStruct(BaseAppTestFFI):
 
     def test_getfield_setfield_singlefloat(self):
         import sys
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.float),
@@ -237,7 +237,7 @@ class AppTestStruct(BaseAppTestFFI):
         assert mem == [123.5]
 
     def test_define_fields(self):
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.slong),
@@ -255,7 +255,7 @@ class AppTestStruct(BaseAppTestFFI):
         raises(ValueError, "descr.define_fields(fields)")
 
     def test_pointer_to_incomplete_struct(self):
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         fields = [
             Field('x', types.slong),
@@ -271,7 +271,7 @@ class AppTestStruct(BaseAppTestFFI):
         assert types.Pointer(descr.ffitype) is foo_p
 
     def test_nested_structure(self):
-        from _ffi import _StructDescr, Field, types
+        from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         foo_fields = [
             Field('x', types.slong),
@@ -310,7 +310,7 @@ class AppTestStruct(BaseAppTestFFI):
 
 
     def test_compute_shape(self):
-        from _ffi import Structure, Field, types
+        from _rawffi.alt import Structure, Field, types
         class Point(Structure):
             _fields_ = [
                 Field('x', types.slong),

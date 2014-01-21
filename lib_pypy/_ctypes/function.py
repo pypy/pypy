@@ -5,7 +5,7 @@ from _ctypes.basics import ArgumentError, keepalive_key
 from _ctypes.basics import is_struct_shape
 from _ctypes.builtin import get_errno, set_errno, get_last_error, set_last_error
 import _rawffi
-import _ffi
+from _rawffi import alt as _ffi
 import sys
 import traceback
 

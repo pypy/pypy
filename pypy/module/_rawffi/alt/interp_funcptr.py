@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.module._ffi.interp_ffitype import W_FFIType
+from pypy.module._rawffi.alt.interp_ffitype import W_FFIType
 #
 from rpython.rtyper.lltypesystem import lltype, rffi
 #
@@ -13,7 +13,7 @@ from rpython.rlib.clibffi import get_libc_name, StackCheckError, LibFFIError
 from rpython.rlib.rdynload import DLOpenError
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated
-from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
+from pypy.module._rawffi.alt.type_converter import FromAppLevelConverter, ToAppLevelConverter
 from pypy.module._rawffi.interp_rawffi import got_libffi_error, wrap_dlopenerror
 
 import os
@@ -302,7 +302,7 @@ def descr_fromaddr(space, w_cls, addr, name, w_argtypes,
 
 
 W_FuncPtr.typedef = TypeDef(
-    '_ffi.FuncPtr',
+    '_rawffi.alt.FuncPtr',
     __call__ = interp2app(W_FuncPtr.call),
     getaddr = interp2app(W_FuncPtr.getaddr),
     free_temp_buffers = interp2app(W_FuncPtr.free_temp_buffers),
@@ -346,7 +346,7 @@ def descr_new_cdll(space, w_type, name, mode=-1):
 
 
 W_CDLL.typedef = TypeDef(
-    '_ffi.CDLL',
+    '_rawffi.alt.CDLL',
     __new__     = interp2app(descr_new_cdll),
     getfunc     = interp2app(W_CDLL.getfunc),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
@@ -363,7 +363,7 @@ def descr_new_windll(space, w_type, name, mode=-1):
 
 
 W_WinDLL.typedef = TypeDef(
-    '_ffi.WinDLL',
+    '_rawffi.alt.WinDLL',
     __new__     = interp2app(descr_new_windll),
     getfunc     = interp2app(W_WinDLL.getfunc),
     getaddressindll = interp2app(W_WinDLL.getaddressindll),
