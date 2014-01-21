@@ -56,8 +56,16 @@ else:
 
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
-ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
 X509_NAME = rffi.COpaquePtr('X509_NAME')
+
+class CConfigBootstrap:
+    _compilation_info_ = eci
+    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
+            "OPENSSL_EXPORT_VAR_AS_FUNCTION")
+if rffi_platform.configure(CConfigBootstrap)["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
+    ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
+else:
+    ASN1_ITEM_EXP = ASN1_ITEM
 
 class CConfig:
     _compilation_info_ = eci
@@ -128,8 +136,6 @@ class CConfig:
          ('block_size', rffi.INT)])
     EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
     EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
-    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
-                                             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
 
     OBJ_NAME_st = rffi_platform.Struct(
         'OBJ_NAME',
@@ -259,10 +265,7 @@ ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i',
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
-if OPENSSL_EXPORT_VAR_AS_FUNCTION:
-    ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
-else:
-    ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
+ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
 
 ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)
