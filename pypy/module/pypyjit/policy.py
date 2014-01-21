@@ -105,7 +105,7 @@ class PyPyJitPolicy(JitPolicy):
         else:
             rest = ''
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
-                       'imp', 'sys', 'array', '_ffi', 'itertools', 'operator',
+                       'imp', 'sys', 'array', 'itertools', 'operator',
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
                        'mmap', 'marshal', '_codecs', 'rctime', 'cppyy',

@@ -44,3 +44,7 @@ Fix 3 broken links on PyPy published papers in docs.
 
 .. branch: refactor-str-types
 Remove multimethods on str/unicode/bytearray and make the implementations share code.
+
+.. branch: remove-del-from-generatoriterator
+Speed up generators that don't yield inside try or wait blocks by skipping
+unnecessary cleanup.

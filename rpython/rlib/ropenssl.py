@@ -58,7 +58,6 @@ ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 
-# maybe there's a better way but this is correct and fixes LLVM translation
 class CConfigBootstrap:
     _compilation_info_ = eci
     OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(

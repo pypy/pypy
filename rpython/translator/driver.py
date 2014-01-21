@@ -34,14 +34,6 @@ def taskdef(deps, title, new_state=None, expected_states=[],
 # TODO:
 # sanity-checks using states
 
-_BACKEND_TO_TYPESYSTEM = {
-    'c': 'lltype',
-    'llvm': 'lltype'
-}
-
-def backend_to_typesystem(backend):
-    return _BACKEND_TO_TYPESYSTEM[backend]
-
 # set of translation steps to profile
 PROFILE = set([])
 
@@ -134,7 +126,7 @@ class TranslationDriver(SimpleTaskEngine):
                         if backend == postfix:
                             expose_task(task, explicit_task)
                     elif ts:
-                        if ts == backend_to_typesystem(postfix):
+                        if ts == 'lltype':
                             expose_task(explicit_task)
                     else:
                         expose_task(explicit_task)
