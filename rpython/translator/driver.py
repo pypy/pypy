@@ -33,6 +33,9 @@ def taskdef(deps, title, new_state=None, expected_states=[],
 # TODO:
 # sanity-checks using states
 
+# set of translation steps to profile
+PROFILE = set([])
+
 class Instrument(Exception):
     pass
 
@@ -245,6 +248,15 @@ class TranslationDriver(SimpleTaskEngine):
     def info(self, msg):
         log.info(msg)
 
+    def _profile(self, goal, func):
+        from cProfile import Profile
+        from rpython.tool.lsprofcalltree import KCacheGrind
+        d = {'func':func}
+        prof = Profile()
+        prof.runctx("res = func()", globals(), d)
+        KCacheGrind(prof).output(open(goal + ".out", "w"))
+        return d['res']
+
     def _do(self, goal, func, *args, **kwds):
         title = func.task_title
         if goal in self.done:
@@ -258,7 +270,10 @@ class TranslationDriver(SimpleTaskEngine):
         try:
             instrument = False
             try:
-                res = func()
+                if goal in PROFILE:
+                    res = self._profile(goal, func)
+                else:
+                    res = func()
             except Instrument:
                 instrument = True
             if not func.task_idempotent:
