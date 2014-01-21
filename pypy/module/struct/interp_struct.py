@@ -1,13 +1,12 @@
 from rpython.rlib import jit
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
+from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty, interp_attrproperty_w
-)
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.module.struct.formatiterator import (
     PackFormatIterator, UnpackFormatIterator
 )
@@ -83,7 +82,7 @@ class W_Struct(W_Root):
                 w_method, space.wrap(self.format), __args__
             )
 
-        return impl
+        return func_with_new_name(impl, 'descr_' + name)
 
     descr_pack = wrap_struct_method("pack")
     descr_unpack = wrap_struct_method("unpack")
