@@ -35,17 +35,17 @@ __metaclass__ = type
 
 class FunctionGraph(object):
     def __init__(self, name, startblock, return_var=None):
-        self.name        = name    # function name (possibly mangled already)
-        self.startblock  = startblock
+        self.name = name  # function name (possibly mangled already)
+        self.startblock = startblock
         # build default returnblock
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
-        self.returnblock.exits      = ()
+        self.returnblock.exits = ()
         # block corresponding to exception results
         self.exceptblock = Block([Variable('etype'),   # exception class
                                   Variable('evalue')])  # exception value
         self.exceptblock.operations = ()
-        self.exceptblock.exits      = ()
+        self.exceptblock.exits = ()
         self.tag = None
 
     def getargs(self):
@@ -187,7 +187,7 @@ class Block(object):
         self.operations = []              # list of SpaceOperation(s)
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
-        self.exits      = []              # list of Link(s)
+        self.exits = []                   # list of Link(s)
 
     def at(self):
         if self.operations and self.operations[0].offset >= 0:
@@ -276,7 +276,7 @@ class Variable(object):
     __slots__ = ["_name", "_nr", "concretetype"]
 
     dummyname = 'v'
-    namesdict = {dummyname : (dummyname, 0)}
+    namesdict = {dummyname: (dummyname, 0)}
 
     @property
     def name(self):
@@ -338,7 +338,7 @@ class Variable(object):
 class Constant(Hashable):
     __slots__ = ["concretetype"]
 
-    def __init__(self, value, concretetype = None):
+    def __init__(self, value, concretetype=None):
         Hashable.__init__(self, value)
         if concretetype is not None:
             self.concretetype = concretetype
@@ -416,7 +416,7 @@ class SpaceOperation(object):
 
     def __init__(self, opname, args, result, offset=-1):
         self.opname = intern(opname)      # operation name
-        self.args   = list(args)  # mixed list of var/const
+        self.args = list(args)    # mixed list of var/const
         self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string
 
@@ -430,7 +430,7 @@ class SpaceOperation(object):
         return not (self == other)
 
     def __hash__(self):
-        return hash((self.opname,tuple(self.args),self.result))
+        return hash((self.opname, tuple(self.args), self.result))
 
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname,
@@ -443,7 +443,7 @@ class SpaceOperation(object):
 
 class Atom(object):
     def __init__(self, name):
-        self.__name__ = name # make save_global happy
+        self.__name__ = name  # make save_global happy
     def __repr__(self):
         return self.__name__
 
@@ -470,7 +470,8 @@ def flattenobj(*args):
         try:
             for atom in flattenobj(*arg):
                 yield atom
-        except: yield arg
+        except:
+            yield arg
 
 def mkentrymap(funcgraph):
     "Returns a dict mapping Blocks to lists of Links."

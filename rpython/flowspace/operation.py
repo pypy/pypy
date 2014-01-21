@@ -169,8 +169,8 @@ def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False)
         base_cls = HLOperation
     bases.append(base_cls)
     cls = HLOperationMeta(name, tuple(bases), {'opname': name, 'arity': arity,
-                                              'canraise': [],
-                                              'dispatch': dispatch})
+                                               'canraise': [],
+                                               'dispatch': dispatch})
     if pyfunc is not None:
         func2op[pyfunc] = cls
     if operator_func:

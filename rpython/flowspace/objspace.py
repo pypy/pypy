@@ -19,7 +19,7 @@ def _assert_rpythonic(func):
         raise ValueError("RPython functions cannot create closures")
     if not (func.func_code.co_flags & CO_NEWLOCALS):
         raise ValueError("The code object for a RPython function should have "
-                "the flag CO_NEWLOCALS set.")
+                         "the flag CO_NEWLOCALS set.")
 
 
 def build_flow(func):

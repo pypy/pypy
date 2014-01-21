@@ -436,7 +436,7 @@ class FlowContext(object):
         if not exceptions:
             return
         if not force and not any(isinstance(block, (ExceptBlock, FinallyBlock))
-                for block in self.blockstack):
+                                 for block in self.blockstack):
             # The implicit exception wouldn't be caught and would later get
             # removed, so don't bother creating it.
             return
@@ -1042,7 +1042,7 @@ class FlowContext(object):
     def newfunction(self, w_code, defaults_w):
         if not all(isinstance(value, Constant) for value in defaults_w):
             raise FlowingError("Dynamically created function must"
-                    " have constant default values.")
+                               " have constant default values.")
         code = w_code.value
         globals = self.w_globals.value
         defaults = tuple([default.value for default in defaults_w])
@@ -1069,7 +1069,7 @@ class FlowContext(object):
             w_exc = self.exc_from_raise(const(ValueError), const(None))
             raise Raise(w_exc)
         return [op.getitem(w_iterable, const(i)).eval(self)
-                    for i in range(expected_length)]
+                for i in range(expected_length)]
 
     def UNPACK_SEQUENCE(self, itemcount):
         w_iterable = self.popvalue()
