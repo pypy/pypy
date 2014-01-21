@@ -700,7 +700,7 @@ class MapDictStrategy(DictStrategy):
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
-    # XXX could implement a more efficient w_keys based on space.newlist_str
+    # XXX could implement a more efficient w_keys based on space.newlist_bytes
 
     def iterkeys(self, w_dict):
         return MapDictIteratorKeys(self.space, self, w_dict)
