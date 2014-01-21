@@ -42,7 +42,8 @@ builtins_exceptions = {
 }
 
 
-class _OpHolder(object): pass
+class _OpHolder(object):
+    pass
 op = _OpHolder()
 
 func2op = {}
@@ -130,6 +131,7 @@ class PureOperation(HLOperation):
 
 class OverflowingOperation(PureOperation):
     can_overflow = True
+
     def ovfchecked(self):
         ovf = self.ovf_variant(*self.args)
         ovf.offset = self.offset
@@ -137,12 +139,14 @@ class OverflowingOperation(PureOperation):
 
 class SingleDispatchMixin(object):
     dispatch = 1
+
     def consider(self, annotator, arg, *other_args):
         impl = getattr(arg, self.opname)
         return impl(*other_args)
 
 class DoubleDispatchMixin(object):
     dispatch = 2
+
     def consider(self, annotator, arg1, arg2, *other_args):
         impl = getattr(pair(arg1, arg2), self.opname)
         return impl(*other_args)
@@ -360,9 +364,6 @@ add_operator('delete', 2, pyfunc=delete)
 add_operator('userdel', 1, pyfunc=userdel)
 add_operator('buffer', 1, pyfunc=buffer, pure=True)   # see buffer.py
 add_operator('yield_', 1)
-add_operator('newdict', 0)
-add_operator('newtuple', None, pure=True, pyfunc=lambda *args:args)
-add_operator('newlist', None)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
 
@@ -379,6 +380,7 @@ class Contains(PureOperation):
 class NewDict(HLOperation):
     opname = 'newdict'
     canraise = []
+
     def consider(self, annotator, *args):
         return annotator.bookkeeper.newdict()
 
@@ -387,6 +389,7 @@ class NewTuple(PureOperation):
     opname = 'newtuple'
     pyfunc = staticmethod(lambda *args: args)
     canraise = []
+
     def consider(self, annotator, *args):
         return SomeTuple(items=args)
 
@@ -394,6 +397,7 @@ class NewTuple(PureOperation):
 class NewList(HLOperation):
     opname = 'newlist'
     canraise = []
+
     def consider(self, annotator, *args):
         return annotator.bookkeeper.newlist(*args)
 
@@ -487,7 +491,7 @@ class CallOp(HLOperation):
                                types.BuiltinMethodType,
                                types.ClassType,
                                types.TypeType)) and
-                  c.__module__ in ['__builtin__', 'exceptions']):
+                    c.__module__ in ['__builtin__', 'exceptions']):
                 return builtins_exceptions.get(c, [])
         # *any* exception for non-builtins
         return [Exception]
@@ -545,7 +549,7 @@ op_appendices = {
     KeyError: 'key',
     ZeroDivisionError: 'zer',
     ValueError: 'val',
-    }
+}
 
 # specifying IndexError, and KeyError beyond Exception,
 # allows the annotator to be more precise, see test_reraiseAnything/KeyError in
@@ -571,7 +575,7 @@ def _add_except_ovf(names):
     # duplicate exceptions and add OverflowError
     for name in names.split():
         oper = getattr(op, name)
-        oper_ovf = getattr(op, name+'_ovf')
+        oper_ovf = getattr(op, name + '_ovf')
         oper_ovf.canraise = list(oper.canraise)
         oper_ovf.canraise.append(OverflowError)
 
@@ -583,9 +587,9 @@ _add_exceptions("""pow inplace_pow lshift inplace_lshift rshift
 _add_exceptions("""truediv divmod
                    inplace_add inplace_sub inplace_mul inplace_truediv
                    inplace_floordiv inplace_div inplace_mod inplace_pow
-                   inplace_lshift""", OverflowError) # without a _ovf version
+                   inplace_lshift""", OverflowError)  # without a _ovf version
 _add_except_ovf("""neg abs add sub mul
                    floordiv div mod lshift""")   # with a _ovf version
 _add_exceptions("""pow""",
-                OverflowError) # for the float case
+                OverflowError)  # for the float case
 del _add_exceptions, _add_except_ovf
