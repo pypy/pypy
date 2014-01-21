@@ -167,7 +167,7 @@ class Entry(ExtRegistryEntry):
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
 # Note that many exception-raising operations can be replaced by calls
-# to helper functions in rpython.rtyper.raisingops.raisingops.
+# to helper functions in rpython.rtyper.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {

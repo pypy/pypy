@@ -1,6 +1,5 @@
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.conftest import option
 from pypy.module._rawffi.interp_rawffi import TYPEMAP, TYPEMAP_FLOAT_LETTERS
 from pypy.module._rawffi.tracker import Tracker
 
@@ -1133,15 +1132,6 @@ class AppTestAutoFree:
     def setup_class(cls):
         cls.w_sizes_and_alignments = cls.space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
-        #
-        # detect if we're running on PyPy with DO_TRACING not compiled in
-        if option.runappdirect:
-            try:
-                import _rawffi
-                _rawffi._num_of_allocated_objects()
-            except (ImportError, RuntimeError), e:
-                py.test.skip(str(e))
-        #
         Tracker.DO_TRACING = True
 
     def test_structure_autofree(self):
