@@ -41,8 +41,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
     config = translator.config.translation.backendopt.copy(as_default=True)
     config.set(**kwds)
 
-    translator_graphs = graphs is None
-    if translator_graphs:
+    if graphs is None:
         graphs = translator.graphs
     for graph in graphs:
         assert not hasattr(graph, '_seen_by_the_backend')
@@ -53,10 +52,8 @@ def backend_optimizations(translator, graphs=None, secondary=False,
 
     if config.raisingop2direct_call:
         additional_graphs = raisingop2direct_call(translator, graphs)
-        if translator_graphs:
-            graphs = translator.graphs
-        else:
-            graphs.extend(additional_graphs)
+        if graphs is not translator.graphs:
+            graphs = graphs + additional_graphs
 
     if config.remove_asserts:
         constfold(config, graphs)
