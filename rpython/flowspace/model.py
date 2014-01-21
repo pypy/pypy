@@ -400,6 +400,8 @@ else:
     type_with_bad_introspection = type(complex.real.__get__)
 
 def const(obj):
+    if hasattr(obj, "_flowspace_rewrite_directly_as_"):
+        obj = obj._flowspace_rewrite_directly_as_
     if isinstance(obj, (Variable, Constant)):
         raise TypeError("already wrapped: " + repr(obj))
     # method-wrapper have ill-defined comparison and introspection

@@ -1,12 +1,14 @@
-"""Implements the core parts of flow graph creation, in tandem
-with rpython.flowspace.objspace.
+"""Implements the core parts of flow graph creation.
 """
 
 import sys
 import collections
+import types
+import __builtin__
 
 from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
+from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
     c_last_exception, const, FSException)
@@ -14,17 +16,19 @@ from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
+from rpython.flowspace.operation import op
 
+w_None = const(None)
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
-    frame = None
+    ctx = None
 
     def __str__(self):
         msg = ["\n"]
         msg += map(str, self.args)
         msg += [""]
-        msg += source_lines(self.frame.graph, None, offset=self.frame.last_instr)
+        msg += source_lines(self.ctx.graph, None, offset=self.ctx.last_instr)
         return "\n".join(msg)
 
 class StopFlowing(Exception):
@@ -111,7 +115,7 @@ class Recorder(object):
     def append(self, operation):
         raise NotImplementedError
 
-    def guessbool(self, frame, w_condition):
+    def guessbool(self, ctx, w_condition):
         raise AssertionError("cannot guessbool(%s)" % (w_condition,))
 
 
@@ -127,13 +131,13 @@ class BlockRecorder(Recorder):
     def append(self, operation):
         self.crnt_block.operations.append(operation)
 
-    def guessbool(self, frame, w_condition):
+    def guessbool(self, ctx, w_condition):
         block = self.crnt_block
         vars = block.getvariables()
         links = []
         for case in [False, True]:
             egg = EggBlock(vars, block, case)
-            frame.pendingblocks.append(egg)
+            ctx.pendingblocks.append(egg)
             link = Link(vars, egg, case)
             links.append(link)
 
@@ -145,7 +149,7 @@ class BlockRecorder(Recorder):
         # block.exits[True] = ifLink.
         raise StopFlowing
 
-    def guessexception(self, frame, *cases):
+    def guessexception(self, ctx, *cases):
         block = self.crnt_block
         bvars = vars = vars2 = block.getvariables()
         links = []
@@ -162,7 +166,7 @@ class BlockRecorder(Recorder):
                 vars.extend([last_exc, last_exc_value])
                 vars2.extend([Variable(), Variable()])
             egg = EggBlock(vars2, block, case)
-            frame.pendingblocks.append(egg)
+            ctx.pendingblocks.append(egg)
             link = Link(vars, egg, case)
             if case is not None:
                 link.extravars(last_exception=last_exc, last_exc_value=last_exc_value)
@@ -193,14 +197,14 @@ class Replayer(Recorder):
                       [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
 
-    def guessbool(self, frame, w_condition):
+    def guessbool(self, ctx, w_condition):
         assert self.index == len(self.listtoreplay)
-        frame.recorder = self.nextreplayer
+        ctx.recorder = self.nextreplayer
         return self.booloutcome
 
-    def guessexception(self, frame, *classes):
+    def guessexception(self, ctx, *classes):
         assert self.index == len(self.listtoreplay)
-        frame.recorder = self.nextreplayer
+        ctx.recorder = self.nextreplayer
         outcome = self.booloutcome
         if outcome is not None:
             egg = self.nextreplayer.crnt_block
@@ -213,60 +217,55 @@ class Replayer(Recorder):
 # ____________________________________________________________
 
 _unary_ops = [
-    ('UNARY_POSITIVE', "pos"),
-    ('UNARY_NEGATIVE', "neg"),
-    ('UNARY_NOT', "not_"),
-    ('UNARY_CONVERT', "repr"),
-    ('UNARY_INVERT', "invert"),
+    ('UNARY_POSITIVE', op.pos),
+    ('UNARY_NEGATIVE', op.neg),
+    ('UNARY_CONVERT', op.repr),
+    ('UNARY_INVERT', op.invert),
 ]
 
-def unaryoperation(OPCODE, op):
+def unaryoperation(OPCODE, operation):
     def UNARY_OP(self, *ignored):
-        operation = getattr(self.space, op)
         w_1 = self.popvalue()
-        w_result = operation(w_1)
+        w_result = operation(w_1).eval(self)
         self.pushvalue(w_result)
-    UNARY_OP.unaryop = op
     UNARY_OP.func_name = OPCODE
     return UNARY_OP
 
 _binary_ops = [
-    ('BINARY_MULTIPLY', "mul"),
-    ('BINARY_TRUE_DIVIDE', "truediv"),
-    ('BINARY_FLOOR_DIVIDE', "floordiv"),
-    ('BINARY_DIVIDE', "div"),
-    ('BINARY_MODULO', "mod"),
-    ('BINARY_ADD', "add"),
-    ('BINARY_SUBTRACT', "sub"),
-    ('BINARY_SUBSCR', "getitem"),
-    ('BINARY_LSHIFT', "lshift"),
-    ('BINARY_RSHIFT', "rshift"),
-    ('BINARY_AND', "and_"),
-    ('BINARY_XOR', "xor"),
-    ('BINARY_OR', "or_"),
-    ('INPLACE_MULTIPLY', "inplace_mul"),
-    ('INPLACE_TRUE_DIVIDE', "inplace_truediv"),
-    ('INPLACE_FLOOR_DIVIDE', "inplace_floordiv"),
-    ('INPLACE_DIVIDE', "inplace_div"),
-    ('INPLACE_MODULO', "inplace_mod"),
-    ('INPLACE_ADD', "inplace_add"),
-    ('INPLACE_SUBTRACT', "inplace_sub"),
-    ('INPLACE_LSHIFT', "inplace_lshift"),
-    ('INPLACE_RSHIFT', "inplace_rshift"),
-    ('INPLACE_AND', "inplace_and"),
-    ('INPLACE_XOR', "inplace_xor"),
-    ('INPLACE_OR', "inplace_or"),
+    ('BINARY_MULTIPLY', op.mul),
+    ('BINARY_TRUE_DIVIDE', op.truediv),
+    ('BINARY_FLOOR_DIVIDE', op.floordiv),
+    ('BINARY_DIVIDE', op.div),
+    ('BINARY_MODULO', op.mod),
+    ('BINARY_ADD', op.add),
+    ('BINARY_SUBTRACT', op.sub),
+    ('BINARY_SUBSCR', op.getitem),
+    ('BINARY_LSHIFT', op.lshift),
+    ('BINARY_RSHIFT', op.rshift),
+    ('BINARY_AND', op.and_),
+    ('BINARY_XOR', op.xor),
+    ('BINARY_OR', op.or_),
+    ('INPLACE_MULTIPLY', op.inplace_mul),
+    ('INPLACE_TRUE_DIVIDE', op.inplace_truediv),
+    ('INPLACE_FLOOR_DIVIDE', op.inplace_floordiv),
+    ('INPLACE_DIVIDE', op.inplace_div),
+    ('INPLACE_MODULO', op.inplace_mod),
+    ('INPLACE_ADD', op.inplace_add),
+    ('INPLACE_SUBTRACT', op.inplace_sub),
+    ('INPLACE_LSHIFT', op.inplace_lshift),
+    ('INPLACE_RSHIFT', op.inplace_rshift),
+    ('INPLACE_AND', op.inplace_and),
+    ('INPLACE_XOR', op.inplace_xor),
+    ('INPLACE_OR', op.inplace_or),
 ]
 
-def binaryoperation(OPCODE, op):
+def binaryoperation(OPCODE, operation):
     """NOT_RPYTHON"""
-    def BINARY_OP(self, *ignored):
-        operation = getattr(self.space, op)
+    def BINARY_OP(self, _):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
-        w_result = operation(w_1, w_2)
+        w_result = operation(w_1, w_2).eval(self)
         self.pushvalue(w_result)
-    BINARY_OP.binop = op
     BINARY_OP.func_name = OPCODE
     return BINARY_OP
 
@@ -305,14 +304,13 @@ compare_method = [
     "cmp_exc_match",
     ]
 
-class FlowSpaceFrame(object):
+class FlowContext(object):
     opcode_method_names = host_bytecode_spec.method_names
 
-    def __init__(self, space, graph, code):
+    def __init__(self, graph, code):
         self.graph = graph
         func = graph.func
         self.pycode = code
-        self.space = space
         self.w_globals = Constant(func.func_globals)
         self.blockstack = []
 
@@ -321,7 +319,6 @@ class FlowSpaceFrame(object):
         self.last_instr = 0
 
         self.init_locals_stack(code)
-        self.w_locals = None # XXX: only for compatibility with PyFrame
 
         self.joinpoints = {}
 
@@ -403,7 +400,7 @@ class FlowSpaceFrame(object):
         return FrameState(data, self.blockstack[:], next_pos)
 
     def setstate(self, state):
-        """ Reset the frame to the given state. """
+        """ Reset the context to the given frame state. """
         data = state.mergeable[:]
         recursively_unflatten(data)
         self.restore_locals_stack(data[:-2])  # Nones == undefined locals
@@ -476,7 +473,7 @@ class FlowSpaceFrame(object):
 
         except Raise as e:
             w_exc = e.w_exc
-            if w_exc.w_type == self.space.w_ImportError:
+            if w_exc.w_type == const(ImportError):
                 msg = 'import statement always raises %s' % e
                 raise ImportError(msg)
             link = Link([w_exc.w_type, w_exc.w_value], self.graph.exceptblock)
@@ -491,8 +488,8 @@ class FlowSpaceFrame(object):
             self.recorder.crnt_block.closeblock(link)
 
         except FlowingError as exc:
-            if exc.frame is None:
-                exc.frame = self
+            if exc.ctx is None:
+                exc.ctx = self
             raise
 
         self.recorder = None
@@ -576,6 +573,11 @@ class FlowSpaceFrame(object):
     def getname_w(self, index):
         return Constant(self.pycode.names[index])
 
+    def appcall(self, func, *args_w):
+        """Call an app-level RPython function directly"""
+        w_func = const(func)
+        return self.do_op(op.simple_call(w_func, *args_w))
+
     def BAD_OPCODE(self, _):
         raise FlowingError("This operation is not RPython")
 
@@ -585,38 +587,67 @@ class FlowSpaceFrame(object):
     def CONTINUE_LOOP(self, startofloop):
         raise Continue(startofloop)
 
+    def not_(self, w_obj):
+        w_bool = op.bool(w_obj).eval(self)
+        return const(not self.guessbool(w_bool))
+
+    def UNARY_NOT(self, _):
+        w_obj = self.popvalue()
+        self.pushvalue(self.not_(w_obj))
+
     def cmp_lt(self, w_1, w_2):
-        return self.space.lt(w_1, w_2)
+        return op.lt(w_1, w_2).eval(self)
 
     def cmp_le(self, w_1, w_2):
-        return self.space.le(w_1, w_2)
+        return op.le(w_1, w_2).eval(self)
 
     def cmp_eq(self, w_1, w_2):
-        return self.space.eq(w_1, w_2)
+        return op.eq(w_1, w_2).eval(self)
 
     def cmp_ne(self, w_1, w_2):
-        return self.space.ne(w_1, w_2)
+        return op.ne(w_1, w_2).eval(self)
 
     def cmp_gt(self, w_1, w_2):
-        return self.space.gt(w_1, w_2)
+        return op.gt(w_1, w_2).eval(self)
 
     def cmp_ge(self, w_1, w_2):
-        return self.space.ge(w_1, w_2)
+        return op.ge(w_1, w_2).eval(self)
 
     def cmp_in(self, w_1, w_2):
-        return self.space.contains(w_2, w_1)
+        return op.contains(w_2, w_1).eval(self)
 
     def cmp_not_in(self, w_1, w_2):
-        return self.space.not_(self.space.contains(w_2, w_1))
+        return self.not_(self.cmp_in(w_1, w_2))
 
     def cmp_is(self, w_1, w_2):
-        return self.space.is_(w_1, w_2)
+        return op.is_(w_1, w_2).eval(self)
 
     def cmp_is_not(self, w_1, w_2):
-        return self.space.not_(self.space.is_(w_1, w_2))
+        return self.not_(op.is_(w_1, w_2).eval(self))
+
+    def exception_match(self, w_exc_type, w_check_class):
+        """Checks if the given exception type matches 'w_check_class'."""
+        if not isinstance(w_check_class, Constant):
+            raise FlowingError("Non-constant except guard.")
+        check_class = w_check_class.value
+        if check_class in (NotImplementedError, AssertionError):
+            raise FlowingError(
+                "Catching %s is not valid in RPython" % check_class.__name__)
+        if not isinstance(check_class, tuple):
+            # the simple case
+            return self.guessbool(op.issubtype(w_exc_type, w_check_class).eval(self))
+        # special case for StackOverflow (see rlib/rstackovf.py)
+        if check_class == rstackovf.StackOverflow:
+            w_real_class = const(rstackovf._StackOverflow)
+            return self.guessbool(op.issubtype(w_exc_type, w_real_class).eval(self))
+        # checking a tuple of classes
+        for klass in w_check_class.value:
+            if self.exception_match(w_exc_type, const(klass)):
+                return True
+        return False
 
     def cmp_exc_match(self, w_1, w_2):
-        return self.space.newbool(self.space.exception_match(w_1, w_2))
+        return const(self.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum):
         w_2 = self.popvalue()
@@ -624,8 +655,37 @@ class FlowSpaceFrame(object):
         w_result = getattr(self, compare_method[testnum])(w_1, w_2)
         self.pushvalue(w_result)
 
+    def exc_from_raise(self, w_arg1, w_arg2):
+        """
+        Create a wrapped exception from the arguments of a raise statement.
+
+        Returns an FSException object whose w_value is an instance of w_type.
+        """
+        w_is_type = op.simple_call(const(isinstance), w_arg1, const(type)).eval(self)
+        if self.guessbool(w_is_type):
+            # this is for all cases of the form (Class, something)
+            if self.guessbool(op.is_(w_arg2, w_None).eval(self)):
+                # raise Type: we assume we have to instantiate Type
+                w_value = op.simple_call(w_arg1).eval(self)
+            else:
+                w_valuetype = op.type(w_arg2).eval(self)
+                if self.guessbool(op.issubtype(w_valuetype, w_arg1).eval(self)):
+                    # raise Type, Instance: let etype be the exact type of value
+                    w_value = w_arg2
+                else:
+                    # raise Type, X: assume X is the constructor argument
+                    w_value = op.simple_call(w_arg1, w_arg2).eval(self)
+        else:
+            # the only case left here is (inst, None), from a 'raise inst'.
+            if not self.guessbool(op.is_(w_arg2, const(None)).eval(self)):
+                exc = TypeError("instance exception may not have a "
+                                "separate value")
+                raise Raise(const(exc))
+            w_value = w_arg1
+        w_type = op.type(w_value).eval(self)
+        return FSException(w_type, w_value)
+
     def RAISE_VARARGS(self, nbargs):
-        space = self.space
         if nbargs == 0:
             if self.last_exception is not None:
                 w_exc = self.last_exception
@@ -639,28 +699,40 @@ class FlowSpaceFrame(object):
         if nbargs >= 2:
             w_value = self.popvalue()
             w_type = self.popvalue()
-            operror = space.exc_from_raise(w_type, w_value)
+            operror = self.exc_from_raise(w_type, w_value)
         else:
             w_type = self.popvalue()
-            if isinstance(w_type, FSException):
-                operror = w_type
-            else:
-                operror = space.exc_from_raise(w_type, space.w_None)
+            operror = self.exc_from_raise(w_type, w_None)
         raise Raise(operror)
 
+    def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
+        try:
+            mod = __import__(name, glob, loc, frm, level)
+        except ImportError as e:
+            raise Raise(const(e))
+        return const(mod)
+
     def IMPORT_NAME(self, nameindex):
-        space = self.space
         modulename = self.getname_u(nameindex)
         glob = self.w_globals.value
         fromlist = self.popvalue().value
         level = self.popvalue().value
-        w_obj = space.import_name(modulename, glob, None, fromlist, level)
+        w_obj = self.import_name(modulename, glob, None, fromlist, level)
         self.pushvalue(w_obj)
+
+    def import_from(self, w_module, w_name):
+        assert isinstance(w_module, Constant)
+        assert isinstance(w_name, Constant)
+        try:
+            return op.getattr(w_module, w_name).eval(self)
+        except FlowingError:
+            exc = ImportError("cannot import name '%s'" % w_name.value)
+            raise Raise(const(exc))
 
     def IMPORT_FROM(self, nameindex):
         w_name = self.getname_w(nameindex)
         w_module = self.peekvalue()
-        self.pushvalue(self.space.import_from(w_module, w_name))
+        self.pushvalue(self.import_from(w_module, w_name))
 
     def RETURN_VALUE(self, oparg):
         w_returnvalue = self.popvalue()
@@ -677,7 +749,7 @@ class FlowSpaceFrame(object):
         # item (unlike CPython which can have 1, 2 or 3 items):
         #   [subclass of FlowSignal]
         w_top = self.popvalue()
-        if w_top == self.space.w_None:
+        if w_top == w_None:
             # finally: block with no unroller active
             return
         elif isinstance(w_top, FlowSignal):
@@ -699,7 +771,7 @@ class FlowSpaceFrame(object):
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
         w_result = self.popvalue()
-        self.space.yield_(w_result)
+        op.yield_(w_result).eval(self)
         # XXX yield expressions not supported. This will blow up if the value
         # isn't popped straightaway.
         self.pushvalue(None)
@@ -710,11 +782,11 @@ class FlowSpaceFrame(object):
 
     def PRINT_ITEM(self, oparg):
         w_item = self.popvalue()
-        w_s = self.space.str(w_item)
-        self.space.appcall(rpython_print_item, w_s)
+        w_s = op.str(w_item).eval(self)
+        self.appcall(rpython_print_item, w_s)
 
     def PRINT_NEWLINE(self, oparg):
-        self.space.appcall(rpython_print_newline)
+        self.appcall(rpython_print_newline)
 
     def JUMP_FORWARD(self, target):
         return target
@@ -722,34 +794,35 @@ class FlowSpaceFrame(object):
     def JUMP_IF_FALSE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if not self.guessbool(self.space.bool(w_cond)):
+        if not self.guessbool(op.bool(w_cond).eval(self)):
             return target
 
     def JUMP_IF_TRUE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if self.guessbool(self.space.bool(w_cond)):
+        if self.guessbool(op.bool(w_cond).eval(self)):
             return target
 
     def POP_JUMP_IF_FALSE(self, target):
         w_value = self.popvalue()
-        if not self.guessbool(self.space.bool(w_value)):
+        if not self.guessbool(op.bool(w_value).eval(self)):
             return target
 
     def POP_JUMP_IF_TRUE(self, target):
         w_value = self.popvalue()
-        if self.guessbool(self.space.bool(w_value)):
+        if self.guessbool(op.bool(w_value).eval(self)):
             return target
 
     def JUMP_IF_FALSE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if not self.guessbool(self.space.bool(w_value)):
+        if not self.guessbool(op.bool(w_value).eval(self)):
             return target
         self.popvalue()
 
     def JUMP_IF_TRUE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if self.guessbool(self.space.bool(w_value)):
+        if self.guessbool(op.bool(w_value).eval(self)):
+            return target
             return target
         self.popvalue()
 
@@ -758,23 +831,20 @@ class FlowSpaceFrame(object):
 
     def GET_ITER(self, oparg):
         w_iterable = self.popvalue()
-        w_iterator = self.space.iter(w_iterable)
+        w_iterator = op.iter(w_iterable).eval(self)
         self.pushvalue(w_iterator)
 
     def FOR_ITER(self, target):
         w_iterator = self.peekvalue()
         try:
-            w_nextitem = self.space.next(w_iterator)
-        except Raise as e:
-            w_exc = e.w_exc
-            if not self.space.exception_match(w_exc.w_type,
-                                              self.space.w_StopIteration):
-                raise
-            # iterator exhausted
-            self.popvalue()
-            return target
-        else:
+            w_nextitem = op.next(w_iterator).eval(self)
             self.pushvalue(w_nextitem)
+        except Raise as e:
+            if self.exception_match(e.w_exc.w_type, const(StopIteration)):
+                self.popvalue()
+                return target
+            else:
+                raise
 
     def SETUP_LOOP(self, target):
         block = LoopBlock(self, target)
@@ -793,9 +863,10 @@ class FlowSpaceFrame(object):
         # directly call manager.__enter__(), don't use special lookup functions
         # which don't make sense on the RPython type system.
         w_manager = self.peekvalue()
-        w_exit = self.space.getattr(w_manager, const("__exit__"))
+        w_exit = op.getattr(w_manager, const("__exit__")).eval(self)
         self.settopvalue(w_exit)
-        w_result = self.space.call_method(w_manager, "__enter__")
+        w_enter = op.getattr(w_manager, const('__enter__')).eval(self)
+        w_result = op.simple_call(w_enter).eval(self)
         block = WithBlock(self, target)
         self.blockstack.append(block)
         self.pushvalue(w_result)
@@ -812,15 +883,14 @@ class FlowSpaceFrame(object):
             w_exitfunc = self.popvalue()
             unroller = self.peekvalue(0)
 
-        w_None = self.space.w_None
         if isinstance(unroller, Raise):
             w_exc = unroller.w_exc
             # The annotator won't allow to merge exception types with None.
             # Replace it with the exception value...
-            self.space.call_function(w_exitfunc,
-                    w_exc.w_value, w_exc.w_value, w_None)
+            op.simple_call(w_exitfunc, w_exc.w_value, w_exc.w_value, w_None
+                           ).eval(self)
         else:
-            self.space.call_function(w_exitfunc, w_None, w_None, w_None)
+            op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(self)
 
     def LOAD_FAST(self, varindex):
         w_value = self.locals_stack_w[varindex]
@@ -832,8 +902,19 @@ class FlowSpaceFrame(object):
         w_const = self.getconstant_w(constindex)
         self.pushvalue(w_const)
 
+    def find_global(self, w_globals, varname):
+        try:
+            value = w_globals.value[varname]
+        except KeyError:
+            # not in the globals, now look in the built-ins
+            try:
+                value = getattr(__builtin__, varname)
+            except AttributeError:
+                raise FlowingError("global name '%s' is not defined" % varname)
+        return const(value)
+
     def LOAD_GLOBAL(self, nameindex):
-        w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
+        w_result = self.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
     LOAD_NAME = LOAD_GLOBAL
 
@@ -841,7 +922,7 @@ class FlowSpaceFrame(object):
         "obj.attributename"
         w_obj = self.popvalue()
         w_attributename = self.getname_w(nameindex)
-        w_value = self.space.getattr(w_obj, w_attributename)
+        w_value = op.getattr(w_obj, w_attributename).eval(self)
         self.pushvalue(w_value)
     LOOKUP_METHOD = LOAD_ATTR
 
@@ -917,7 +998,7 @@ class FlowSpaceFrame(object):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
         last_val = self.popvalue()
-        self.pushvalue(self.space.newlist())
+        self.pushvalue(op.newlist().eval(self))
         self.pushvalue(last_val)
 
     def call_function(self, oparg, w_star=None, w_starstar=None):
@@ -934,8 +1015,12 @@ class FlowSpaceFrame(object):
         arguments = self.popvalues(n_arguments)
         args = CallSpec(arguments, keywords, w_star)
         w_function = self.popvalue()
-        w_result = self.space.call(w_function, args)
-        self.pushvalue(w_result)
+        if args.keywords or isinstance(args.w_stararg, Variable):
+            shape, args_w = args.flatten()
+            hlop = op.call_args(w_function, Constant(shape), *args_w)
+        else:
+            hlop = op.simple_call(w_function, *args.as_list())
+        self.pushvalue(hlop.eval(self))
 
     def CALL_FUNCTION(self, oparg):
         self.call_function(oparg)
@@ -954,10 +1039,20 @@ class FlowSpaceFrame(object):
         w_varargs = self.popvalue()
         self.call_function(oparg, w_varargs, w_varkw)
 
+    def newfunction(self, w_code, defaults_w):
+        if not all(isinstance(value, Constant) for value in defaults_w):
+            raise FlowingError("Dynamically created function must"
+                    " have constant default values.")
+        code = w_code.value
+        globals = self.w_globals.value
+        defaults = tuple([default.value for default in defaults_w])
+        fn = types.FunctionType(code, globals, code.co_name, defaults)
+        return Constant(fn)
+
     def MAKE_FUNCTION(self, numdefaults):
         w_codeobj = self.popvalue()
         defaults = self.popvalues(numdefaults)
-        fn = self.space.newfunction(w_codeobj, self.w_globals, defaults)
+        fn = self.newfunction(w_codeobj, defaults)
         self.pushvalue(fn)
 
     def STORE_ATTR(self, nameindex):
@@ -965,29 +1060,38 @@ class FlowSpaceFrame(object):
         w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setattr(w_obj, w_attributename, w_newvalue)
+        op.setattr(w_obj, w_attributename, w_newvalue).eval(self)
+
+    def unpack_sequence(self, w_iterable, expected_length):
+        w_len = op.len(w_iterable).eval(self)
+        w_correct = op.eq(w_len, const(expected_length)).eval(self)
+        if not self.guessbool(op.bool(w_correct).eval(self)):
+            w_exc = self.exc_from_raise(const(ValueError), const(None))
+            raise Raise(w_exc)
+        return [op.getitem(w_iterable, const(i)).eval(self)
+                    for i in range(expected_length)]
 
     def UNPACK_SEQUENCE(self, itemcount):
         w_iterable = self.popvalue()
-        items = self.space.unpack_sequence(w_iterable, itemcount)
+        items = self.unpack_sequence(w_iterable, itemcount)
         for w_item in reversed(items):
             self.pushvalue(w_item)
 
     def slice(self, w_start, w_end):
         w_obj = self.popvalue()
-        w_result = self.space.getslice(w_obj, w_start, w_end)
+        w_result = op.getslice(w_obj, w_start, w_end).eval(self)
         self.pushvalue(w_result)
 
     def SLICE_0(self, oparg):
-        self.slice(self.space.w_None, self.space.w_None)
+        self.slice(w_None, w_None)
 
     def SLICE_1(self, oparg):
         w_start = self.popvalue()
-        self.slice(w_start, self.space.w_None)
+        self.slice(w_start, w_None)
 
     def SLICE_2(self, oparg):
         w_end = self.popvalue()
-        self.slice(self.space.w_None, w_end)
+        self.slice(w_None, w_end)
 
     def SLICE_3(self, oparg):
         w_end = self.popvalue()
@@ -997,18 +1101,18 @@ class FlowSpaceFrame(object):
     def storeslice(self, w_start, w_end):
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setslice(w_obj, w_start, w_end, w_newvalue)
+        op.setslice(w_obj, w_start, w_end, w_newvalue).eval(self)
 
     def STORE_SLICE_0(self, oparg):
-        self.storeslice(self.space.w_None, self.space.w_None)
+        self.storeslice(w_None, w_None)
 
     def STORE_SLICE_1(self, oparg):
         w_start = self.popvalue()
-        self.storeslice(w_start, self.space.w_None)
+        self.storeslice(w_start, w_None)
 
     def STORE_SLICE_2(self, oparg):
         w_end = self.popvalue()
-        self.storeslice(self.space.w_None, w_end)
+        self.storeslice(w_None, w_end)
 
     def STORE_SLICE_3(self, oparg):
         w_end = self.popvalue()
@@ -1017,18 +1121,18 @@ class FlowSpaceFrame(object):
 
     def deleteslice(self, w_start, w_end):
         w_obj = self.popvalue()
-        self.space.delslice(w_obj, w_start, w_end)
+        op.delslice(w_obj, w_start, w_end).eval(self)
 
     def DELETE_SLICE_0(self, oparg):
-        self.deleteslice(self.space.w_None, self.space.w_None)
+        self.deleteslice(w_None, w_None)
 
     def DELETE_SLICE_1(self, oparg):
         w_start = self.popvalue()
-        self.deleteslice(w_start, self.space.w_None)
+        self.deleteslice(w_start, w_None)
 
     def DELETE_SLICE_2(self, oparg):
         w_end = self.popvalue()
-        self.deleteslice(self.space.w_None, w_end)
+        self.deleteslice(w_None, w_end)
 
     def DELETE_SLICE_3(self, oparg):
         w_end = self.popvalue()
@@ -1036,12 +1140,13 @@ class FlowSpaceFrame(object):
         self.deleteslice(w_start, w_end)
 
     def LIST_APPEND(self, oparg):
-        w = self.popvalue()
+        w_value = self.popvalue()
         if sys.version_info < (2, 7):
-            v = self.popvalue()
+            w_list = self.popvalue()
         else:
-            v = self.peekvalue(oparg - 1)
-        self.space.call_method(v, 'append', w)
+            w_list = self.peekvalue(oparg - 1)
+        w_append_meth = op.getattr(w_list, const('append')).eval(self)
+        op.simple_call(w_append_meth, w_value).eval(self)
 
     def DELETE_FAST(self, varindex):
         if self.locals_stack_w[varindex] is None:
@@ -1054,45 +1159,45 @@ class FlowSpaceFrame(object):
         w_key = self.popvalue()
         w_value = self.popvalue()
         w_dict = self.peekvalue()
-        self.space.setitem(w_dict, w_key, w_value)
+        op.setitem(w_dict, w_key, w_value).eval(self)
 
     def STORE_SUBSCR(self, oparg):
         "obj[subscr] = newvalue"
         w_subscr = self.popvalue()
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setitem(w_obj, w_subscr, w_newvalue)
+        op.setitem(w_obj, w_subscr, w_newvalue).eval(self)
 
     def BUILD_SLICE(self, numargs):
         if numargs == 3:
             w_step = self.popvalue()
         elif numargs == 2:
-            w_step = self.space.w_None
+            w_step = w_None
         else:
             raise BytecodeCorruption
         w_end = self.popvalue()
         w_start = self.popvalue()
-        w_slice = self.space.newslice(w_start, w_end, w_step)
+        w_slice = op.newslice(w_start, w_end, w_step).eval(self)
         self.pushvalue(w_slice)
 
     def DELETE_SUBSCR(self, oparg):
         "del obj[subscr]"
         w_subscr = self.popvalue()
         w_obj = self.popvalue()
-        self.space.delitem(w_obj, w_subscr)
+        op.delitem(w_obj, w_subscr).eval(self)
 
     def BUILD_TUPLE(self, itemcount):
         items = self.popvalues(itemcount)
-        w_tuple = self.space.newtuple(*items)
+        w_tuple = op.newtuple(*items).eval(self)
         self.pushvalue(w_tuple)
 
     def BUILD_LIST(self, itemcount):
         items = self.popvalues(itemcount)
-        w_list = self.space.newlist(*items)
+        w_list = op.newlist(*items).eval(self)
         self.pushvalue(w_list)
 
     def BUILD_MAP(self, itemcount):
-        w_dict = self.space.newdict()
+        w_dict = op.newdict().eval(self)
         self.pushvalue(w_dict)
 
     def NOP(self, *args):
@@ -1209,9 +1314,9 @@ class FrameBlock(object):
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
 
-    def __init__(self, frame, handlerposition):
+    def __init__(self, ctx, handlerposition):
         self.handlerposition = handlerposition
-        self.valuestackdepth = frame.valuestackdepth
+        self.valuestackdepth = ctx.valuestackdepth
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -1224,10 +1329,10 @@ class FrameBlock(object):
     def __hash__(self):
         return hash((self.handlerposition, self.valuestackdepth))
 
-    def cleanupstack(self, frame):
-        frame.dropvaluesuntil(self.valuestackdepth)
+    def cleanupstack(self, ctx):
+        ctx.dropvaluesuntil(self.valuestackdepth)
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         raise NotImplementedError
 
 class LoopBlock(FrameBlock):
@@ -1235,16 +1340,16 @@ class LoopBlock(FrameBlock):
 
     handles = (Break, Continue)
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         if isinstance(unroller, Continue):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
-            frame.blockstack.append(self)
+            ctx.blockstack.append(self)
             return unroller.jump_to
         else:
             # jump to the end of the loop
-            self.cleanupstack(frame)
+            self.cleanupstack(ctx)
             return self.handlerposition
 
 class ExceptBlock(FrameBlock):
@@ -1252,19 +1357,19 @@ class ExceptBlock(FrameBlock):
 
     handles = Raise
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
-        self.cleanupstack(frame)
+        self.cleanupstack(ctx)
         assert isinstance(unroller, Raise)
         w_exc = unroller.w_exc
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
-        frame.pushvalue(unroller)
-        frame.pushvalue(w_exc.w_value)
-        frame.pushvalue(w_exc.w_type)
-        frame.last_exception = w_exc
+        ctx.pushvalue(unroller)
+        ctx.pushvalue(w_exc.w_value)
+        ctx.pushvalue(w_exc.w_type)
+        ctx.last_exception = w_exc
         return self.handlerposition   # jump to the handler
 
 class FinallyBlock(FrameBlock):
@@ -1272,15 +1377,15 @@ class FinallyBlock(FrameBlock):
 
     handles = FlowSignal
 
-    def handle(self, frame, unroller):
+    def handle(self, ctx, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
-        self.cleanupstack(frame)
-        frame.pushvalue(unroller)
+        self.cleanupstack(ctx)
+        ctx.pushvalue(unroller)
         return self.handlerposition   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
 
-    def handle(self, frame, unroller):
-        return FinallyBlock.handle(self, frame, unroller)
+    def handle(self, ctx, unroller):
+        return FinallyBlock.handle(self, ctx, unroller)
