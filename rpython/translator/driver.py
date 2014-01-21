@@ -591,3 +591,12 @@ def mkexename(name):
     if sys.platform == 'win32':
         name = name.new(ext='exe')
     return name
+
+if os.name == 'posix':
+    def shutil_copy(src, dst):
+        # this version handles the case where 'dst' is an executable
+        # currently being executed
+        shutil.copy(src, dst + '~')
+        os.rename(dst + '~', dst)
+else:
+    shutil_copy = shutil.copy
