@@ -623,6 +623,10 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
+        # The following test is disabled because buggy.  It is supposed
+        # to be: not(we're writing null into a freshly allocated object)
+        # but the bug is that is_unescaped() can be True even after the
+        # field cache is cleared --- see test_ajit:test_unescaped_write_zero
         if 1:  # tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
             self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
