@@ -1,5 +1,4 @@
-"""Implements the core parts of flow graph creation, in tandem
-with rpython.flowspace.flowcontext.
+"""Implements the main interface for flow graph creation: build_flow().
 """
 
 from inspect import CO_NEWLOCALS

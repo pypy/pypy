@@ -1,6 +1,5 @@
 """
-This module defines mappings between operation names and Python's
-built-in functions (or type constructors) implementing them.
+This module defines all the SpaceOeprations used in rpython.flowspace.
 """
 
 import __builtin__

@@ -1,5 +1,4 @@
-"""Implements the core parts of flow graph creation, in tandem
-with rpython.flowspace.objspace.
+"""Implements the core parts of flow graph creation.
 """
 
 import sys
