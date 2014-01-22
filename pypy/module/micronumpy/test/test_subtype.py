@@ -311,6 +311,11 @@ class AppTestSupport(BaseNumpyAppTest):
         assert type(x) == with_prepare
         assert x.called_prepare
         raises(TypeError, add, a, b, out=c)
+        a = array(1).view(type=with_prepare)
+        b = array(1)
+        x = add(a, b)
+        assert x == 2
+        assert x.called_prepare
 
     def test___array_prepare__1arg_scalar(self):
         from numpypy import ndarray, array, log, ones
@@ -367,6 +372,16 @@ class AppTestSupport(BaseNumpyAppTest):
         assert type(x) == with_prepare
         assert x.called_prepare
         raises(TypeError, add, a, b, out=c)
+
+    def test_result_is_subtype(self):
+        from numpypy import ndarray, add, array
+        class subtype(ndarray):
+            pass
+
+        a = array(10).view(subtype)
+        b = 10
+        res = add(a, b)
+        assert isinstance(res, subtype)
 
     def test__getitem_modifies_shape(self):
         import numpypy as N
