@@ -600,8 +600,8 @@ def make_wrapper(space, callable):
         from pypy.module.cpyext.pyobject import Reference
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
-        rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+        rffi.stackcounter.stacks_counter += 1
         retval = fatal_value
         boxed_args = ()
         try:
