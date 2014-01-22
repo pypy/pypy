@@ -692,11 +692,11 @@ def setup_init_functions(eci, translating):
     else:
         prefix = 'cpyexttest'
     init_buffer = rffi.llexternal('_%s_init_bufferobject' % prefix, [], lltype.Void,
-                                  compilation_info=eci, _nowrapper=True)
+                                  compilation_info=eci, releasegil=False)
     init_pycobject = rffi.llexternal('_%s_init_pycobject' % prefix, [], lltype.Void,
-                                     compilation_info=eci, _nowrapper=True)
+                                     compilation_info=eci, releasegil=False)
     init_capsule = rffi.llexternal('_%s_init_capsule' % prefix, [], lltype.Void,
-                                   compilation_info=eci, _nowrapper=True)
+                                   compilation_info=eci, releasegil=False)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
         lambda space: init_pycobject(),
