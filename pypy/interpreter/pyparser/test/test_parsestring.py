@@ -1,5 +1,5 @@
 from pypy.interpreter.pyparser import parsestring
-import py
+import py, sys
 
 class TestParsetring:
     def parse_and_compare(self, literal, value):
@@ -91,3 +91,18 @@ class TestParsetring:
         input = ["'", 'x', ' ', chr(0xc3), chr(0xa9), ' ', chr(92), 'n', "'"]
         w_ret = parsestring.parsestr(space, 'utf8', ''.join(input))
         assert space.str_w(w_ret) == ''.join(expected)
+
+    def test_wide_unicode_in_source(self):
+        if sys.maxunicode == 65535:
+            py.test.skip("requires a wide-unicode host")
+        self.parse_and_compare('u"\xf0\x9f\x92\x8b"',
+                               unichr(0x1f48b),
+                               encoding='utf-8')
+
+    def test_decode_unicode_utf8(self):
+        buf = parsestring.decode_unicode_utf8(self.space,
+                                              'u"\xf0\x9f\x92\x8b"', 2, 6)
+        if sys.maxunicode == 65535:
+            assert buf == r"\U0000d83d\U0000dc8b"
+        else:
+            assert buf == r"\U0001f48b"
