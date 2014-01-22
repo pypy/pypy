@@ -2,10 +2,10 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floattype import float_typedef
-from pypy.objspace.std.stringtype import str_typedef
-from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.longtype import long_typedef
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
@@ -507,7 +507,7 @@ class W_UnicodeBox(W_CharacterBox):
 
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
-        arg = space.unicode_w(unicode_from_object(space, w_arg))
+        arg = space.unicode_w(space.unicode_from_object(w_arg))
         # XXX size computations, we need tests anyway
         arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
         # XXX not this way, we need store
@@ -769,13 +769,13 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
     __module__ = "numpy",
 )
 
-W_StringBox.typedef = TypeDef("bytes_", (W_CharacterBox.typedef, str_typedef),
+W_StringBox.typedef = TypeDef("bytes_", (W_CharacterBox.typedef, W_BytesObject.typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
     __len__ = interp2app(W_StringBox.descr_len),
 )
 
-W_UnicodeBox.typedef = TypeDef("str_", (W_CharacterBox.typedef, unicode_typedef),
+W_UnicodeBox.typedef = TypeDef("str_", (W_CharacterBox.typedef, W_UnicodeObject.typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
     __len__ = interp2app(W_UnicodeBox.descr_len),

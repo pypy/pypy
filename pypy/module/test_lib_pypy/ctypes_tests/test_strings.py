@@ -38,6 +38,16 @@ class TestStringArray(BaseCTypesTestChecker):
         buf.raw = "Hello, World"
         assert buf.value == "Hello, World"
 
+    def test_c_buffer_raw_from_buffer(self):
+        buf = c_buffer(32)
+        buf.raw = buffer("Hello, World")
+        assert buf.value == "Hello, World"
+
+    def test_c_buffer_raw_from_memoryview(self):
+        buf = c_buffer(32)
+        buf.raw = memoryview("Hello, World")
+        assert buf.value == "Hello, World"
+
     def test_param_1(self):
         BUF = c_char * 4
         buf = BUF()

@@ -2,9 +2,9 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rlib.objectmodel import r_dict
@@ -754,7 +754,7 @@ class EmptySetStrategy(SetStrategy):
     def add(self, w_set, w_key):
         if type(w_key) is W_IntObject:
             strategy = self.space.fromcache(IntegerSetStrategy)
-        elif type(w_key) is W_StringObject:
+        elif type(w_key) is W_BytesObject:
             strategy = self.space.fromcache(StringSetStrategy)
         elif type(w_key) is W_UnicodeObject:
             strategy = self.space.fromcache(UnicodeSetStrategy)
@@ -1190,7 +1190,7 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
-        return type(w_key) is W_StringObject
+        return type(w_key) is W_BytesObject
 
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(IntegerSetStrategy):
@@ -1568,13 +1568,16 @@ def _pick_correct_strategy(space, w_set, iterable_w):
         return
 
     # check for strings
+    # XXX:
+    """
     for w_item in iterable_w:
-        if type(w_item) is not W_UnicodeObject:
+        if type(w_item) is not W_BytesObject:
             break
     else:
-        w_set.strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.strategy = space.fromcache(StringSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
+        """
 
     # check for unicode
     for w_item in iterable_w:

@@ -85,9 +85,9 @@ class TestW_SetObject:
 
     def test_create_set_from_list(self):
         py.test.py3k_skip("XXX: strategies are currently broken")
-        from pypy.objspace.std.setobject import ObjectSetStrategy, UnicodeSetStrategy
+        from pypy.interpreter.baseobjspace import W_Root
+        from pypy.objspace.std.setobject import ObjectSetStrategy, StringSetStrategy, UnicodeSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
-        from pypy.objspace.std.model import W_Object
 
         w = self.space.wrap
         intstr = self.space.fromcache(IntegerSetStrategy)
@@ -118,7 +118,7 @@ class TestW_SetObject:
         _initialize_set(self.space, w_set, w_list)
         assert w_set.strategy is self.space.fromcache(ObjectSetStrategy)
         for item in w_set.strategy.unerase(w_set.sstorage):
-            assert isinstance(item, W_Object)
+            assert isinstance(item, W_Root)
 
         w_list = W_ListObject(self.space, [w(1.0), w(2.0), w(3.0)])
         w_set = W_SetObject(self.space)

@@ -436,6 +436,7 @@ def make_formatter_subclass(do_unicode):
                 if not got_unicode:
                     w_value = space.call_function(space.w_unicode, w_value)
                 else:
+                    from pypy.objspace.std.unicodeobject import unicode_from_object
                     w_value = unicode_from_object(space, w_value)
                 s = space.unicode_w(w_value)
             self.std_wp(s)
