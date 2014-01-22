@@ -419,15 +419,17 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.get_scalar_value().convert_to(space, calc_dtype)
             )
             if isinstance(out, W_NDimArray):
-                # TODO: Call __array_prepare__
+                # TODO: Array priority
+                out = loop.call_prepare(space, w_out, w_out)
+
                 if out.is_scalar():
                     out.set_scalar_value(arr)
                 else:
                     out.fill(space, arr)
             else:
-                # TODO: Call __array_prepare__
-                out = W_NDimArray(Scalar(res_dtype, res_dtype.box(0)))
-                out.set_scalar_value(arr)
+                # TODO: Array priority
+                out = loop.call_prepare(space, w_lhs, arr)
+                # XXX: How to set the value on the box since they're immutable ?
 
             return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
