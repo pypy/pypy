@@ -213,12 +213,14 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             Build an extension module linked against the cpyext api library.
             """
             if not space.is_none(w_separate_module_files):
-                separate_module_files = space.listview_str(w_separate_module_files)
+                separate_module_files = space.listview_bytes(
+                    w_separate_module_files)
                 assert separate_module_files is not None
             else:
                 separate_module_files = []
             if not space.is_none(w_separate_module_sources):
-                separate_module_sources = space.listview_str(w_separate_module_sources)
+                separate_module_sources = space.listview_bytes(
+                    w_separate_module_sources)
                 assert separate_module_sources is not None
             else:
                 separate_module_sources = []

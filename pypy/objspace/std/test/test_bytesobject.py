@@ -80,9 +80,9 @@ class TestW_BytesObject:
         w_slice = space.newslice(w(1), w_None, w(2))
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('el'))
 
-    def test_listview_str(self):
+    def test_listview_bytes(self):
         w_str = self.space.wrap('abcd')
-        assert self.space.listview_str(w_str) == list("abcd")
+        assert self.space.listview_bytes(w_str) == list("abcd")
 
 class AppTestBytesObject:
 
