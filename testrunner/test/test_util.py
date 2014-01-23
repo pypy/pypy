@@ -105,32 +105,28 @@ class TestRunHelper(object):
         out = out.read()
         assert out == "42\n"
 
+def make_test(id, input, expected):
 
+    def test_interpret_exitcode():
+        print(input)
+        print(expected)
+        failure, extralog = util.interpret_exitcode(
+            input[0], 'test_foo', input[1])
+        assert (failure, extralog) == expected
+    test_interpret_exitcode.__name__ += str(id)
+    globals()[test_interpret_exitcode.__name__] = test_interpret_exitcode
 
-def test_interpret_exitcode():
-    failure, extralog = util.interpret_exitcode(0, "test_foo", '')
-    assert not failure
-    assert extralog == ""
+cases = [
+    # input          expected output
+    # exit, logdata, failure, extralog
+    (0, '', False, ''),
+    (1, '', True, "! test_foo\n Exit code 1.\n"),
+    (1, 'F foo\n', True, '  (somefailed=True in test_foo)\n'),
+    (2, '', True, "! test_foo\n Exit code 2.\n"),
+    (-signal.SIGSEGV, '', True, "! test_foo\n Killed by SIGSEGV.\n"),
 
-    failure, extralog = util.interpret_exitcode(1, "test_foo", "")
-    assert failure
-    assert extralog == """! test_foo
- Exit code 1.
-"""
-    assert extralog == "  (somefailed=True in test_foo)\n" #xXX find location
+]
 
-    failure, extralog = util.interpret_exitcode(1, "test_foo", "F Foo\n")
-    assert failure
-    assert extralog == ""
+for n, i in enumerate(cases):
+    make_test(n, i[:2], i[2:])
 
-    failure, extralog = util.interpret_exitcode(2, "test_foo")
-    assert failure
-    assert extralog == """! test_foo
- Exit code 2.
-"""
-    failure, extralog = util.interpret_exitcode(-signal.SIGSEGV,
-                                                  "test_foo")
-    assert failure
-    assert extralog == """! test_foo
- Killed by SIGSEGV.
-"""
