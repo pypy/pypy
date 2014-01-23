@@ -1,6 +1,5 @@
 import py
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.test_llinterp import gengraph, interpret, interpret_raises
 
 class BaseRtypingTest(object):
@@ -35,10 +34,6 @@ class BaseRtypingTest(object):
 
     def is_of_type(self, x, type_):
         return type(x) is type_
-
-    @property
-    def translator(self):
-        return test_llinterp.typer.annotator.translator
 
     def _skip_llinterpreter(self, reason):
         py.test.skip("lltypesystem doesn't support %s, yet" % reason)

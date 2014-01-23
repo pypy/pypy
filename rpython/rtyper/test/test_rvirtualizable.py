@@ -367,7 +367,9 @@ class TestVirtualizable(BaseRtypingTest):
     def test_simple(self):
         def f(v):
             vinst = V(v)
-            return vinst
+            return vinst, vinst.v
         res = self.interpret(f, [42])
+        assert res.item1 == 42
+        res = lltype.normalizeptr(res.item0)
         assert res.inst_v == 42
         assert res.vable_token == lltype.nullptr(llmemory.GCREF.TO)

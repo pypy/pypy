@@ -82,6 +82,15 @@ class BaseTestListImpl:
                 self.check_list(l1, expected)
 
 
+# helper used by some tests below
+def list_is_clear(lis, idx):
+    items = lis._obj.items._obj.items
+    for i in range(idx, len(items)):
+        if items[i]._obj is not None:
+            return False
+    return True
+
+
 class TestListImpl(BaseTestListImpl):
     def sample_list(self):    # [42, 43, 44, 45]
         rlist = ListRepr(None, signed_repr)
@@ -1475,13 +1484,6 @@ class TestRlist(BaseRtypingTest):
 
         assert r_A_list.lowleveltype == r_B_list.lowleveltype
 
-    def list_is_clear(self, lis, idx):
-        items = lis._obj.items._obj.items
-        for i in range(idx, len(items)):
-            if items[i]._obj is not None:
-                return False
-        return True
-
     def test_no_unneeded_refs(self):
         def fndel(p, q):
             lis = ["5", "3", "99"]
@@ -1497,10 +1499,10 @@ class TestRlist(BaseRtypingTest):
             return lis
         for i in range(2, 3+1):
             lis = self.interpret(fndel, [0, i])
-            assert self.list_is_clear(lis, 3-i)
+            assert list_is_clear(lis, 3-i)
         for i in range(3):
             lis = self.interpret(fnpop, [i])
-            assert self.list_is_clear(lis, 3-i)
+            assert list_is_clear(lis, 3-i)
 
     def test_oopspec(self):
         lst1 = [123, 456]     # non-mutated list
