@@ -468,7 +468,7 @@ class ObjectMixin(object):
 
     def _mapdict_read_storage(self, index, pure=False):
         assert index >= 0
-        if pure and jit.isconstant(index) and (jit.isconstant(self) or jit.isvirtual(self)):
+        if pure and jit.isconstant(index) and jit.isconstant(self):
             return self._pure_mapdict_read_storage(index)
         return self.storage[index]
 
@@ -545,7 +545,7 @@ def _make_subclass_size_n(supercls, n):
 
         def _mapdict_read_storage(self, index, pure=False):
             assert index >= 0
-            if pure and jit.isconstant(index) and (jit.isconstant(self) or jit.isvirtual(self)):
+            if pure and jit.isconstant(index) and jit.isconstant(self):
                 return self._pure_mapdict_read_storage(index)
             return self._indirection_mapdict_read_storage(index)
 
