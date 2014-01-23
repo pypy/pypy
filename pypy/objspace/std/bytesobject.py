@@ -441,8 +441,8 @@ class W_BytesObject(W_AbstractBytesObject):
     def str_w(self, space):
         return self._value
 
-    def listview_str(self):
-        return _create_list_from_string(self._value)
+    def listview_bytes(self):
+        return _create_list_from_bytes(self._value)
 
     def ord(self, space):
         if len(self._value) != 1:
@@ -518,7 +518,7 @@ class W_BytesObject(W_AbstractBytesObject):
     _title = _upper
 
     def _newlist_unwrapped(self, space, lst):
-        return space.newlist_str(lst)
+        return space.newlist_bytes(lst)
 
     @staticmethod
     @unwrap_spec(w_object = WrappedDefault(""))
@@ -725,9 +725,9 @@ class W_BytesObject(W_AbstractBytesObject):
         return tformat.formatter_field_name_split()
 
 
-def _create_list_from_string(value):
+def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
-    # listview_str
+    # listview_bytes
     return [s for s in value]
 
 W_BytesObject.EMPTY = W_BytesObject('')

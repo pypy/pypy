@@ -81,7 +81,7 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         if not type(w_obj) is W_BytesObject:
             break
     else:
-        return space.fromcache(StringListStrategy)
+        return space.fromcache(BytesListStrategy)
 
     # check for unicode
     for w_obj in list_w:
@@ -162,8 +162,8 @@ class W_ListObject(W_Root):
         return self
 
     @staticmethod
-    def newlist_str(space, list_s):
-        strategy = space.fromcache(StringListStrategy)
+    def newlist_bytes(space, list_s):
+        strategy = space.fromcache(BytesListStrategy)
         storage = strategy.erase(list_s)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
@@ -278,10 +278,10 @@ class W_ListObject(W_Root):
         ObjectListStrategy."""
         return self.strategy.getitems_copy(self)
 
-    def getitems_str(self):
+    def getitems_bytes(self):
         """Return the items in the list as unwrapped strings. If the list does
         not use the list strategy, return None."""
-        return self.strategy.getitems_str(self)
+        return self.strategy.getitems_bytes(self)
 
     def getitems_unicode(self):
         """Return the items in the list as unwrapped unicodes. If the list does
@@ -753,7 +753,7 @@ class ListStrategy(object):
     def getitems_copy(self, w_list):
         raise NotImplementedError
 
-    def getitems_str(self, w_list):
+    def getitems_bytes(self, w_list):
         return None
 
     def getitems_unicode(self, w_list):
@@ -897,7 +897,7 @@ class EmptyListStrategy(ListStrategy):
         if type(w_item) is W_IntObject:
             strategy = self.space.fromcache(IntegerListStrategy)
         elif type(w_item) is W_BytesObject:
-            strategy = self.space.fromcache(StringListStrategy)
+            strategy = self.space.fromcache(BytesListStrategy)
         elif type(w_item) is W_UnicodeObject:
             strategy = self.space.fromcache(UnicodeListStrategy)
         elif type(w_item) is W_FloatObject:
@@ -962,11 +962,11 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(floatlist)
             return
 
-        strlist = space.listview_str(w_iterable)
-        if strlist is not None:
-            w_list.strategy = strategy = space.fromcache(StringListStrategy)
+        byteslist = space.listview_bytes(w_iterable)
+        if byteslist is not None:
+            w_list.strategy = strategy = space.fromcache(BytesListStrategy)
             # need to copy because intlist can share with w_iterable
-            w_list.lstorage = strategy.erase(strlist[:])
+            w_list.lstorage = strategy.erase(byteslist[:])
             return
 
         unilist = space.listview_unicode(w_iterable)
@@ -1592,11 +1592,11 @@ class FloatListStrategy(ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class StringListStrategy(ListStrategy):
+class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "str"
+    _applevel_repr = "bytes"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -1604,7 +1604,7 @@ class StringListStrategy(ListStrategy):
     def unwrap(self, w_string):
         return self.space.str_w(w_string)
 
-    erase, unerase = rerased.new_erasing_pair("string")
+    erase, unerase = rerased.new_erasing_pair("bytes")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
@@ -1612,7 +1612,7 @@ class StringListStrategy(ListStrategy):
         return type(w_obj) is W_BytesObject
 
     def list_is_correct_type(self, w_list):
-        return w_list.strategy is self.space.fromcache(StringListStrategy)
+        return w_list.strategy is self.space.fromcache(BytesListStrategy)
 
     def sort(self, w_list, reverse):
         l = self.unerase(w_list.lstorage)
@@ -1621,7 +1621,7 @@ class StringListStrategy(ListStrategy):
         if reverse:
             l.reverse()
 
-    def getitems_str(self, w_list):
+    def getitems_bytes(self, w_list):
         return self.unerase(w_list.lstorage)
 
 

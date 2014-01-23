@@ -311,7 +311,7 @@ class StringMethods(object):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
         if isinstance(self, W_BytesObject):
-            l = space.listview_str(w_list)
+            l = space.listview_bytes(w_list)
             if l is not None:
                 if len(l) == 1:
                     return space.wrap(l[0])

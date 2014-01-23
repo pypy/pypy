@@ -1,10 +1,9 @@
-import sys, py
+import sys
 from rpython.translator.translator import TranslationContext
-from rpython.annotator import unaryop, binaryop
 from rpython.rtyper.test import snippet
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rarithmetic import (
-    r_int, r_uint, r_longlong, r_ulonglong, r_singlefloat)
+    r_uint, r_longlong, r_ulonglong, r_singlefloat)
 from rpython.rlib.objectmodel import compute_hash
 
 class TestSnippet(object):
@@ -27,15 +26,6 @@ class TestSnippet(object):
     def test_float_cast1(self):
         self._test(snippet.float_cast1, [float])
 
-    def DONTtest_unary_operations(self):
-        # XXX TODO test if all unary operations are implemented
-        for opname in unaryop.UNARY_OPERATIONS:
-            print 'UNARY_OPERATIONS:', opname
-
-    def DONTtest_binary_operations(self):
-        # XXX TODO test if all binary operations are implemented
-        for opname in binaryop.BINARY_OPERATIONS:
-            print 'BINARY_OPERATIONS:', opname
 
 class TestRfloat(BaseRtypingTest):
 
@@ -93,7 +83,6 @@ class TestRfloat(BaseRtypingTest):
         big = float(0x7fffffffffffffff)
         x = big - 1.e10
         assert x != big
-        y = fn(x)
         assert fn(x) == 9223372026854775808
 
     def test_to_r_uint(self):

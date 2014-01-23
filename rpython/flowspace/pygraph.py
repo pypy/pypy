@@ -31,4 +31,3 @@ class PyGraph(FunctionGraph):
         for c in "<>&!":
             name = name.replace(c, '_')
         return name
-

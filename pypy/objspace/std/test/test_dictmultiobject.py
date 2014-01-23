@@ -2,7 +2,7 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    StringDictStrategy, ObjectDictStrategy)
+    BytesDictStrategy, ObjectDictStrategy)
 
 
 class TestW_DictObject(object):
@@ -134,11 +134,11 @@ class TestW_DictObject(object):
         assert space.eq_w(w_d.getitem_str("a"), space.w_None)
         assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
-    def test_listview_str_dict(self):
+    def test_listview_bytes_dict(self):
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
-        assert self.space.listview_str(w_d) == ["a", "b"]
+        assert self.space.listview_bytes(w_d) == ["a", "b"]
 
     def test_listview_unicode_dict(self):
         w = self.space.wrap
@@ -160,7 +160,7 @@ class TestW_DictObject(object):
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_int(w_l)) == [1,2]
         
-        # make sure that .keys() calls newlist_str for string dicts
+        # make sure that .keys() calls newlist_bytes for string dicts
         def not_allowed(*args):
             assert False, 'should not be called'
         monkeypatch.setattr(self.space, 'newlist', not_allowed)
@@ -168,7 +168,7 @@ class TestW_DictObject(object):
         w_d = self.space.newdict()
         w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
         w_l = self.space.call_method(w_d, "keys")
-        assert sorted(self.space.listview_str(w_l)) == ["a", "b"]
+        assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
@@ -944,7 +944,7 @@ class AppTestStrategies(object):
         d = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
         d["a"] = 1
-        assert "StringDictStrategy" in self.get_strategy(d)
+        assert "BytesDictStrategy" in self.get_strategy(d)
 
         class O(object):
             pass
@@ -952,7 +952,7 @@ class AppTestStrategies(object):
         d = o.__dict__ = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
         o.a = 1
-        assert "StringDictStrategy" in self.get_strategy(d)
+        assert "BytesDictStrategy" in self.get_strategy(d)
 
     def test_empty_to_unicode(self):
         d = {}
@@ -1033,7 +1033,7 @@ class FakeSpace:
     eq_w = eq
     def newlist(self, l):
         return l
-    def newlist_str(self, l):
+    def newlist_bytes(self, l):
         return l
     DictObjectCls = W_DictMultiObject
     def type(self, w_obj):
@@ -1275,9 +1275,9 @@ class BaseTestRDictImplementation:
         assert "s" not in d.w_keys()
         assert F() not in d.w_keys()
 
-class TestStrDictImplementation(BaseTestRDictImplementation):
-    StrategyClass = StringDictStrategy
-    #ImplementionClass = StrDictImplementation
+class TestBytesDictImplementation(BaseTestRDictImplementation):
+    StrategyClass = BytesDictStrategy
+    #ImplementionClass = BytesDictImplementation
 
     def test_str_shortcut(self):
         self.fill_impl()
@@ -1301,12 +1301,12 @@ class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def check_not_devolved(self):
         pass
 
-class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
-    StrategyClass = StringDictStrategy
+class TestDevolvedBytesDictImplementation(BaseTestDevolvedDictImplementation):
+    StrategyClass = BytesDictStrategy
 
 
 def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
-    assert type(d.strategy) is StringDictStrategy
+    assert type(d.strategy) is BytesDictStrategy
 
