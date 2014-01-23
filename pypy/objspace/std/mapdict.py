@@ -1,14 +1,15 @@
 import weakref
-from rpython.rlib import jit, objectmodel, debug
+
+from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib import rerased
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, ObjectDictStrategy
-from pypy.objspace.std.dictmultiobject import BaseKeyIterator, BaseValueIterator, BaseItemIterator
-from pypy.objspace.std.dictmultiobject import _never_equal_to_string
-from pypy.objspace.std.objectobject import W_ObjectObject
+from pypy.objspace.std.dictmultiobject import (
+    W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
+    BaseValueIterator, BaseItemIterator, _never_equal_to_string
+)
 from pypy.objspace.std.typeobject import TypeCell
+
 
 # ____________________________________________________________
 # attribute shapes
