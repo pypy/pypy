@@ -50,7 +50,6 @@ class TestInstance(BaseTestPyPyC):
             guard_true(i9, descr=...)
             guard_not_invalidated(descr=...)
             i10 = int_add(i5, 1)
-            guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
         """)
