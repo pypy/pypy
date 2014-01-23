@@ -517,6 +517,20 @@ class AppTestADVANCEDCPP:
         assert isinstance(b.clone(), base_class)      # TODO: clone() leaks
         assert isinstance(d.clone(), derived_class)   # TODO: clone() leaks
 
+        # special case when round-tripping through a void* ptr
+        voidp = b.mask(d)
+        assert not isinstance(voidp, base_class)
+        assert not isinstance(voidp, derived_class)
+
+        d1 = cppyy.bind_object(voidp, base_class, cast=True)
+        assert isinstance(d1, derived_class)
+        assert d1 is d
+
+        b1 = cppyy.bind_object(voidp, base_class)
+        assert isinstance(b1, base_class)
+        assert cppyy.addressof(b1) == cppyy.addressof(d)
+        assert not (b1 is d)
+
     def test13_actual_type_virtual_multi(self):
         """Test auto-downcast in adverse inheritance situation"""
 

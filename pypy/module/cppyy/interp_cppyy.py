@@ -1217,8 +1217,8 @@ def addressof(space, w_obj):
     address = _addressof(space, w_obj)
     return space.wrap(address)
 
-@unwrap_spec(owns=bool)
-def bind_object(space, w_obj, w_pycppclass, owns=False):
+@unwrap_spec(owns=bool, cast=bool)
+def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
     """Takes an address and a bound C++ class proxy, returns a bound instance."""
     try:
         # attempt address from array or C++ instance
@@ -1233,4 +1233,4 @@ def bind_object(space, w_obj, w_pycppclass, owns=False):
             raise OperationError(space.w_TypeError,
                 space.wrap("no such class: %s" % space.str_w(w_pycppclass)))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
-    return wrap_cppobject(space, rawobject, cppclass, do_cast=False, python_owns=owns)
+    return wrap_cppobject(space, rawobject, cppclass, do_cast=cast, python_owns=owns)
