@@ -99,7 +99,7 @@ class PyPyJitPolicy(JitPolicy):
                 modname == '__builtin__.descriptor' or
                 modname == 'thread.os_local' or
                 modname == 'thread.os_thread' or
-                modname.startswith('_rawffi.alt'):
+                modname.startswith('_rawffi.alt')):
             return True
         if '.' in modname:
             modname, rest = modname.split('.', 1)
