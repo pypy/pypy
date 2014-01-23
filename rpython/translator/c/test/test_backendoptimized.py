@@ -216,3 +216,22 @@ class TestTypedOptimizedRaisingOps:
         fn = self.getcompiled(f, [int])
         for x in (0,1,2,3,9,27,48, -9):
             assert fn(x) == f(x)
+
+    def test_ovf_op_in_loop(self):
+        # This checks whether the raising operations are implemented using
+        # unsigned arithmetic. The problem with using signed arithmetic is that
+        # signed overflow is undefined in C and the optimizer is allowed to
+        # remove the overflow check.
+        from sys import maxint
+        from rpython.rlib.rarithmetic import ovfcheck
+        def f(x, y):
+            ret = 0
+            for i in range(y):
+                try:
+                    ret = ovfcheck(x + i)
+                except OverflowError:
+                    break
+            return ret
+        fc = self.getcompiled(f, [int, int])
+        assert fc(10, 10) == 19
+        assert fc(maxint, 10) == maxint
