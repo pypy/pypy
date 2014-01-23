@@ -701,12 +701,10 @@ class TestTypedOptimizedTestCaseLLVM(_LLVMMixin, test_backendoptimized
                                                  .TestTypedOptimizedTestCase):
     pass
 
-class TestTypedOptimizedSwitchTestCaseLLVM(test_backendoptimized
+class TestTypedOptimizedSwitchTestCaseLLVM(_LLVMMixin,
+                                           test_backendoptimized
                                            .TestTypedOptimizedSwitchTestCase):
-    class CodeGenerator(_LLVMMixin, test_backendoptimized
-                                    .TestTypedOptimizedSwitchTestCase
-                                    .CodeGenerator):
-        pass
+    pass
 
 
 class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
