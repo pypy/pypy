@@ -35,7 +35,7 @@ class TestInstance(BaseTestPyPyC):
             class A(object):
                 pass
             a = A()
-            a.x = 2
+            a.x = 1
             def main(n):
                 i = 0
                 while i < n:
@@ -49,7 +49,7 @@ class TestInstance(BaseTestPyPyC):
             i9 = int_lt(i5, i6)
             guard_true(i9, descr=...)
             guard_not_invalidated(descr=...)
-            i10 = int_add_ovf(i5, i7)
+            i10 = int_add(i5, 1)
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
