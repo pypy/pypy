@@ -7,7 +7,7 @@ from rpython.flowspace.model import FunctionGraph, Block, Link
 from rpython.rlib.rarithmetic import (LONG_BIT, r_uint, r_singlefloat,
      r_longfloat)
 from rpython.rlib.test.test_longlong2float import enum_floats, fn, fnsingle
-from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, llgroup
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.ll2ctypes import (force_cast, get_ctypes_type,
      lltype2ctypes, ctypes2lltype)
 from rpython.rtyper.rtuple import TupleRepr
