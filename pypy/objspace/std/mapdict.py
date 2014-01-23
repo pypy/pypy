@@ -19,7 +19,7 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # we want to propagate knowledge that the result cannot be negative
 
 class AbstractAttribute(object):
-    _immutable_fields_ = ['terminator']
+    _immutable_fields_ = ['terminator', 'ever_mutated?']
     cache_attrs = None
     _size_estimate = 0
 
@@ -27,18 +27,21 @@ class AbstractAttribute(object):
         self.space = space
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
+        self.ever_mutated = False
 
     def read(self, obj, selector):
         index = self.index(selector)
-        if index < 0:
+        if index is None:
             return self.terminator._read_terminator(obj, selector)
-        return obj._mapdict_read_storage(index)
+        return obj._mapdict_read_storage(index.position, pure=not self.ever_mutated)
 
     def write(self, obj, selector, w_value):
         index = self.index(selector)
-        if index < 0:
+        if index is None:
             return self.terminator._write_terminator(obj, selector, w_value)
-        obj._mapdict_write_storage(index, w_value)
+        obj._mapdict_write_storage(index.position, w_value)
+        if not index.ever_mutated:
+            index.ever_mutated = True
         return True
 
     def delete(self, obj, selector):
@@ -97,9 +100,9 @@ class AbstractAttribute(object):
     def _index(self, selector):
         while isinstance(self, PlainAttribute):
             if selector == self.selector:
-                return self.position
+                return self
             self = self.back
-        return -1
+        return None
 
     def copy(self, obj):
         raise NotImplementedError("abstract base class")
@@ -330,7 +333,7 @@ class IndexCache(object):
         self.attrs = [None] * SIZE
         self._empty_selector = (None, INVALID)
         self.selectors = [self._empty_selector] * SIZE
-        self.indices = [0] * SIZE
+        self.indices = [None] * SIZE
         if space.config.objspace.std.withmethodcachecounter:
             self.hits = {}
             self.misses = {}
@@ -460,9 +463,10 @@ class ObjectMixin(object):
         self.map = map
         self.storage = make_sure_not_resized([None] * map.size_estimate())
 
-    def _mapdict_read_storage(self, index):
+    def _mapdict_read_storage(self, index, pure=False):
         assert index >= 0
         return self.storage[index]
+
     def _mapdict_write_storage(self, index, value):
         self.storage[index] = value
     def _mapdict_storage_length(self):
@@ -519,7 +523,6 @@ def _make_subclass_size_n(supercls, n):
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     class subcls(BaseMapdictObject, supercls):
         def _init_empty(self, map):
-            from rpython.rlib.debug import make_sure_not_resized
             for i in rangen:
                 setattr(self, "_value%s" % i, erase_item(None))
             self.map = map
@@ -531,7 +534,7 @@ def _make_subclass_size_n(supercls, n):
             erased = getattr(self, "_value%s" % nmin1)
             return unerase_list(erased)
 
-        def _mapdict_read_storage(self, index):
+        def _mapdict_read_storage(self, index, pure=False):
             assert index >= 0
             if index < nmin1:
                 for i in rangenmin1:
@@ -879,11 +882,11 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             #
             if selector[1] != INVALID:
                 index = map.index(selector)
-                if index >= 0:
+                if index is not None:
                     # Note that if map.terminator is a DevolvedDictTerminator,
                     # map.index() will always return -1 if selector[1]==DICT.
-                    _fill_cache(pycode, nameindex, map, version_tag, index)
-                    return w_obj._mapdict_read_storage(index)
+                    _fill_cache(pycode, nameindex, map, version_tag, index.position)
+                    return w_obj._mapdict_read_storage(index.position)
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)

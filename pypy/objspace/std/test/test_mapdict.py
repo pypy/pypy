@@ -64,7 +64,7 @@ def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
         current = PlainAttribute((str(i), DICT), current)
-    assert current.index(("0", DICT)) == 0
+    assert current.index(("0", DICT)).position == 0
 
 
 def test_search():
@@ -231,7 +231,6 @@ def test_slots_no_dict():
     obj = cls.instantiate()
     a = 0
     b = 1
-    c = 2
     obj.setslotvalue(a, 50)
     obj.setslotvalue(b, 60)
     assert obj.getslotvalue(a) == 50
@@ -648,7 +647,7 @@ class AppTestWithMapDict(object):
     def test_delete_slot(self):
         class A(object):
             __slots__ = ['x']
-        
+
         a = A()
         a.x = 42
         del a.x
