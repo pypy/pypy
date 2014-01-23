@@ -8,7 +8,7 @@ from pypy.objspace.std import newformat
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
-from pypy.objspace.std.unicodeobject import (unicode_from_string,
+from pypy.objspace.std.unicodeobject import (
     decode_object, unicode_from_encoded_object, _get_encoding_and_errors)
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import compute_hash, compute_unique_id, import_from_mixin

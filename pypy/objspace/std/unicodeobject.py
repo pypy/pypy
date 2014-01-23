@@ -16,7 +16,7 @@ from rpython.rlib.runicode import (str_decode_utf_8, str_decode_ascii,
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
-           'unicode_from_string', 'unicode_to_decimal_w']
+           'unicode_to_decimal_w']
 
 
 class W_UnicodeObject(W_Root):
@@ -99,9 +99,9 @@ class W_UnicodeObject(W_Root):
     def _op_val(self, space, w_other):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
-        if space.isinstance_w(w_other, space.w_str):
-            return unicode_from_string(space, w_other)._value
-        return unicode_from_encoded_object(space, w_other, None, "strict")._value
+        raise operationerrfmt(space.w_TypeError,
+                              "Can't convert '%T' object to str implicitly",
+                              w_other)
 
     def _chr(self, char):
         assert len(char) == 1
@@ -155,40 +155,100 @@ class W_UnicodeObject(W_Root):
         return space.newlist_unicode(lst)
 
     @staticmethod
-    @unwrap_spec(w_string = WrappedDefault(""))
-    def descr_new(space, w_unicodetype, w_string, w_encoding=None,
+    @unwrap_spec(w_object = WrappedDefault(u''))
+    def descr_new(space, w_unicodetype, w_object=None, w_encoding=None,
                   w_errors=None):
         # NB. the default value of w_obj is really a *wrapped* empty string:
         #     there is gateway magic at work
-        w_obj = w_string
+        w_obj = w_object
 
         encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-        # convoluted logic for the case when unicode subclass has a __unicode__
-        # method, we need to call this method
-        is_precisely_unicode = space.is_w(space.type(w_obj), space.w_unicode)
-        if (is_precisely_unicode or
-            (space.isinstance_w(w_obj, space.w_unicode) and
-             space.findattr(w_obj, space.wrap('__unicode__')) is None)):
-            if encoding is not None or errors is not None:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    'decoding Unicode is not supported'))
-            if (is_precisely_unicode and
-                space.is_w(w_unicodetype, space.w_unicode)):
-                return w_obj
-            w_value = w_obj
+        if encoding is None and errors is None:
+            w_value = unicode_from_object(space, w_obj)
         else:
-            if encoding is None and errors is None:
-                w_value = unicode_from_object(space, w_obj)
-            else:
-                w_value = unicode_from_encoded_object(space, w_obj,
-                                                      encoding, errors)
-            if space.is_w(w_unicodetype, space.w_unicode):
-                return w_value
+            w_value = unicode_from_encoded_object(space, w_obj,
+                                                  encoding, errors)
+        if space.is_w(w_unicodetype, space.w_unicode):
+            return w_value
 
         assert isinstance(w_value, W_UnicodeObject)
         w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
         W_UnicodeObject.__init__(w_newobj, w_value._value)
         return w_newobj
+
+    @staticmethod
+    def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
+        if space.is_none(w_y):
+            y = None
+        else:
+            y = space.unicode_w(w_y)
+        if space.is_none(w_z):
+            z = None
+        else:
+            z = space.unicode_w(w_z)
+
+        w_new = space.newdict()
+        if y is not None:
+            # x must be a string too, of equal length
+            ylen = len(y)
+            try:
+                x = space.unicode_w(w_x)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise OperationError(space.w_TypeError, space.wrap(
+                        "first maketrans argument must "
+                        "be a string if there is a second argument"))
+            if len(x) != ylen:
+                raise OperationError(space.w_ValueError, space.wrap(
+                        "the first two maketrans "
+                        "arguments must have equal length"))
+            # create entries for translating chars in x to those in y
+            for i in range(len(x)):
+                w_key = space.newint(ord(x[i]))
+                w_value = space.newint(ord(y[i]))
+                space.setitem(w_new, w_key, w_value)
+            # create entries for deleting chars in z
+            if z is not None:
+                for i in range(len(z)):
+                    w_key = space.newint(ord(z[i]))
+                    space.setitem(w_new, w_key, space.w_None)
+        else:
+            # x must be a dict
+            if not space.is_w(space.type(w_x), space.w_dict):
+                raise OperationError(space.w_TypeError, space.wrap(
+                        "if you give only one argument "
+                        "to maketrans it must be a dict"))
+            # copy entries into the new dict, converting string keys to int keys
+            w_iter = space.iter(space.call_method(w_x, "items"))
+            while True:
+                try:
+                    w_item = space.next(w_iter)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
+                w_key, w_value = space.unpackiterable(w_item, 2)
+                if space.isinstance_w(w_key, space.w_unicode):
+                    # convert string keys to integer keys
+                    key = space.unicode_w(w_key)
+                    if len(key) != 1:
+                        raise OperationError(space.w_ValueError, space.wrap(
+                                "string keys in translate "
+                                "table must be of length 1"))
+                    w_key = space.newint(ord(key[0]))
+                else:
+                    # just keep integer keys
+                    try:
+                        space.int_w(w_key)
+                    except OperationError, e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                        raise OperationError(space.w_TypeError, space.wrap(
+                                "keys in translate table must "
+                                "be strings or integers"))
+                space.setitem(w_new, w_key, w_value)
+        return w_new
 
     def descr_repr(self, space):
         chars = self._value
@@ -197,7 +257,10 @@ class W_UnicodeObject(W_Root):
         return space.wrap(s)
 
     def descr_str(self, space):
-        return encode_object(space, self, None, None)
+        if space.is_w(space.type(self), space.w_unicode):
+            return self
+        # Subtype -- return genuine unicode string with the same value.
+        return space.wrap(space.unicode_w(self))
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
@@ -209,13 +272,6 @@ class W_UnicodeObject(W_Root):
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
-            if (e.match(space, space.w_UnicodeDecodeError) or
-                e.match(space, space.w_UnicodeEncodeError)):
-                msg = ("Unicode equal comparison failed to convert both "
-                       "arguments to Unicode - interpreting them as being "
-                       "unequal")
-                space.warn(space.wrap(msg), space.w_UnicodeWarning)
-                return space.w_False
             raise
 
     def descr_ne(self, space, w_other):
@@ -224,13 +280,6 @@ class W_UnicodeObject(W_Root):
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
-            if (e.match(space, space.w_UnicodeDecodeError) or
-                e.match(space, space.w_UnicodeEncodeError)):
-                msg = ("Unicode unequal comparison failed to convert both "
-                       "arguments to Unicode - interpreting them as being "
-                       "unequal")
-                space.warn(space.wrap(msg), space.w_UnicodeWarning)
-                return space.w_True
             raise
 
     def descr_lt(self, space, w_other):
@@ -274,18 +323,15 @@ class W_UnicodeObject(W_Root):
         return newformat.format_method(space, self, __args__.arguments_w,
                                        w_kwds, True)
 
+    def descr_format_map(self, space, w_mapping):
+        return newformat.format_method(space, self, None, w_mapping, True)
+
     def descr__format__(self, space, w_format_spec):
-        """
-        if not space.isinstance_w(w_format_spec, space.w_unicode):
-            w_format_spec = space.call_function(space.w_unicode, w_format_spec)
-        spec = space.unicode_w(w_format_spec)
-        formatter = newformat.unicode_formatter(space, spec)
-        self2 = unicode_from_object(space, self)
-        assert isinstance(self2, W_UnicodeObject)
-        return formatter.format_string(self2._value)
-        """
         return newformat.run_formatter(space, w_format_spec, "format_string",
                                        self)
+
+    def descr_iter(self, space):
+        return space.newseqiter(self)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
@@ -334,16 +380,6 @@ class W_UnicodeObject(W_Root):
             return 0
         return 1
 
-    def descr_formatter_parser(self, space):
-        from pypy.objspace.std.newformat import unicode_template_formatter
-        tformat = unicode_template_formatter(space, space.unicode_w(self))
-        return tformat.formatter_parser()
-
-    def descr_formatter_field_name_split(self, space):
-        from pypy.objspace.std.newformat import unicode_template_formatter
-        tformat = unicode_template_formatter(space, space.unicode_w(self))
-        return tformat.formatter_field_name_split()
-
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
 
@@ -370,6 +406,15 @@ class W_UnicodeObject(W_Root):
                 cased = True
         return space.newbool(cased)
 
+    def descr_isidentifier(self, space):
+        return space.newbool(_isidentifier(self._value))
+
+    def descr_isprintable(self, space):
+        for uchar in self._value:
+            if not unicodedb.isprintable(ord(uchar)):
+                return space.w_False
+        return space.w_True
+
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
@@ -390,6 +435,25 @@ def plain_str2unicode(space, s):
                     space.wrap("ordinal not in range(128)")]))
         assert False, "unreachable"
 
+def _isidentifier(u):
+    if not u:
+        return False
+
+    # PEP 3131 says that the first character must be in XID_Start and
+    # subsequent characters in XID_Continue, and for the ASCII range,
+    # the 2.x rules apply (i.e start with letters and underscore,
+    # continue with letters, digits, underscore). However, given the
+    # current definition of XID_Start and XID_Continue, it is sufficient
+    # to check just for these, except that _ must be allowed as starting
+    # an identifier.
+    first = u[0]
+    if not (unicodedb.isxidstart(ord(first)) or first == u'_'):
+        return False
+
+    for i in range(1, len(u)):
+        if not unicodedb.isxidcontinue(ord(u[i])):
+            return False
+    return True
 
 # stuff imported from bytesobject for interoperability
 
@@ -420,14 +484,13 @@ def encode_object(space, w_object, encoding, errors):
             if encoding == 'ascii':
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
-                return space.wrap(unicode_encode_ascii(
+                return space.wrapbytes(unicode_encode_ascii(
                         u, len(u), None, errorhandler=eh))
             if encoding == 'utf-8':
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
-                return space.wrap(unicode_encode_utf_8(
-                        u, len(u), None, errorhandler=eh,
-                        allow_surrogates=True))
+                return space.wrapbytes(unicode_encode_utf_8(
+                        u, len(u), None, errorhandler=eh))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
@@ -436,10 +499,9 @@ def encode_object(space, w_object, encoding, errors):
         w_errors = space.wrap(errors)
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.wrap(0))
-    if not space.isinstance_w(w_retval, space.w_str):
-        raise operationerrfmt(space.w_TypeError,
-            "encoder did not return an string object (type '%s')",
-            space.type(w_retval).getname(space))
+    if not space.isinstance_w(w_retval, space.w_bytes):
+        msg = "encoder did not return a bytes string (type '%T')"
+        raise operationerrfmt(space.w_TypeError, msg, w_retval)
     return w_retval
 
 def decode_object(space, w_obj, encoding, errors):
@@ -456,8 +518,7 @@ def decode_object(space, w_obj, encoding, errors):
             s = space.bufferstr_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_utf_8(
-                    s, len(s), None, final=True, errorhandler=eh,
-                    allow_surrogates=True)[0])
+                    s, len(s), None, final=True, errorhandler=eh)[0])
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.wrap("decode"))
     if errors is None:
@@ -486,44 +547,29 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
 def unicode_from_object(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
         return w_obj
-    elif space.is_w(space.type(w_obj), space.w_str):
-        w_res = w_obj
-    else:
-        w_unicode_method = space.lookup(w_obj, "__unicode__")
-        # obscure workaround: for the next two lines see
-        # test_unicode_conversion_with__str__
-        if w_unicode_method is None:
-            if space.isinstance_w(w_obj, space.w_unicode):
-                return space.wrap(space.unicode_w(w_obj))
-            w_unicode_method = space.lookup(w_obj, "__str__")
-        if w_unicode_method is not None:
-            w_res = space.get_and_call_function(w_unicode_method, w_obj)
-        else:
-            w_res = space.str(w_obj)
-        if space.isinstance_w(w_res, space.w_unicode):
-            return w_res
-    return unicode_from_encoded_object(space, w_res, None, "strict")
+    if space.lookup(w_obj, "__str__") is not None:
+        return space.str(w_obj)
+    return space.repr(w_obj)
 
-def unicode_from_string(space, w_str):
-    # this is a performance and bootstrapping hack
-    encoding = getdefaultencoding(space)
-    if encoding != 'ascii':
-        return unicode_from_encoded_object(space, w_str, encoding, "strict")
-    s = space.str_w(w_str)
-    try:
-        return W_UnicodeObject(s.decode("ascii"))
-    except UnicodeDecodeError:
-        # raising UnicodeDecodeError is messy, "please crash for me"
-        return unicode_from_encoded_object(space, w_str, "ascii", "strict")
+def ascii_from_object(space, w_obj):
+    """Implements builtins.ascii()"""
+    # repr is guaranteed to be unicode
+    w_repr = space.repr(w_obj)
+    w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
+    return decode_object(space, w_encoded, 'ascii', None)
 
 
 class UnicodeDocstrings:
-    """unicode(object='') -> unicode object
-    unicode(string[, encoding[, errors]]) -> unicode object
+    """str(object='') -> str
+    str(bytes_or_buffer[, encoding[, errors]]) -> str
 
-    Create a new Unicode object from the given encoded string.
-    encoding defaults to the current default string encoding.
-    errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.
+    Create a new string object from the given object. If encoding or
+    errors is specified, then the object must expose a data buffer
+    that will be decoded using the given encoding and error handler.
+    Otherwise, returns the result of object.__str__() (if defined)
+    or repr(object).
+    encoding defaults to sys.getdefaultencoding().
+    errors defaults to 'strict'.
 
     """
 
@@ -554,17 +600,14 @@ class UnicodeDocstrings:
     def __getnewargs__():
         """"""
 
-    def __getslice__():
-        """x.__getslice__(i, j) <==> x[i:j]
-
-        Use of negative indices is not supported.
-        """
-
     def __gt__():
         """x.__gt__(y) <==> x>y"""
 
     def __hash__():
         """x.__hash__() <==> hash(x)"""
+
+    def __iter__():
+        """x.__iter__() <==> iter(x)"""
 
     def __le__():
         """x.__le__(y) <==> x<=y"""
@@ -676,6 +719,14 @@ class UnicodeDocstrings:
         The substitutions are identified by braces ('{' and '}').
         """
 
+    def format_map():
+        """S.format_map(mapping) -> str
+
+        Return a formatted version of S, using substitutions from
+        mapping.  The substitutions are identified by braces ('{' and
+        '}').
+        """
+
     def index():
         """S.index(sub[, start[, end]]) -> int
 
@@ -710,6 +761,13 @@ class UnicodeDocstrings:
         and there is at least one character in S, False otherwise.
         """
 
+    def isidentifier():
+        """S.isidentifier() -> bool
+
+        Return True if S is a valid identifier according to the language
+        definition.
+        """
+
     def islower():
         """S.islower() -> bool
 
@@ -722,6 +780,13 @@ class UnicodeDocstrings:
 
         Return True if there are only numeric characters in S,
         False otherwise.
+        """
+
+    def isprintable():
+        """S.isprintable() -> bool
+
+        Return True if all characters in S are considered printable in
+        repr() or S is empty, False otherwise.
         """
 
     def isspace():
@@ -773,6 +838,19 @@ class UnicodeDocstrings:
         Return a copy of the string S with leading whitespace removed.
         If chars is given and not None, remove characters in chars instead.
         If chars is a str, it will be converted to unicode before stripping
+        """
+
+    def maketrans():
+        """str.maketrans(x[, y[, z]]) -> dict (static method)
+
+        Return a translation table usable for str.translate().
+        If there is only one argument, it must be a dictionary mapping Unicode
+        ordinals (integers) or characters to Unicode ordinals, strings or None.
+        Character keys will be then converted to ordinals.
+        If there are two arguments, they must be strings of equal length, and
+        in the resulting dictionary, each character in x will be mapped to the
+        character at the same position in y. If there is a third argument, it
+        must be a string, whose characters will be mapped to None in the result.
         """
 
     def partition():
@@ -939,6 +1017,8 @@ W_UnicodeObject.typedef = StdTypeDef(
     __ge__ = interp2app(W_UnicodeObject.descr_ge,
                         doc=UnicodeDocstrings.__ge__.__doc__),
 
+    __iter__ = interp2app(W_UnicodeObject.descr_iter,
+                         doc=UnicodeDocstrings.__iter__.__doc__),
     __len__ = interp2app(W_UnicodeObject.descr_len,
                          doc=UnicodeDocstrings.__len__.__doc__),
     __contains__ = interp2app(W_UnicodeObject.descr_contains,
@@ -953,8 +1033,6 @@ W_UnicodeObject.typedef = StdTypeDef(
 
     __getitem__ = interp2app(W_UnicodeObject.descr_getitem,
                              doc=UnicodeDocstrings.__getitem__.__doc__),
-    __getslice__ = interp2app(W_UnicodeObject.descr_getslice,
-                              doc=UnicodeDocstrings.__getslice__.__doc__),
 
     capitalize = interp2app(W_UnicodeObject.descr_capitalize,
                             doc=UnicodeDocstrings.capitalize.__doc__),
@@ -962,8 +1040,6 @@ W_UnicodeObject.typedef = StdTypeDef(
                         doc=UnicodeDocstrings.center.__doc__),
     count = interp2app(W_UnicodeObject.descr_count,
                        doc=UnicodeDocstrings.count.__doc__),
-    decode = interp2app(W_UnicodeObject.descr_decode,
-                        doc=UnicodeDocstrings.decode.__doc__),
     encode = interp2app(W_UnicodeObject.descr_encode,
                         doc=UnicodeDocstrings.encode.__doc__),
     expandtabs = interp2app(W_UnicodeObject.descr_expandtabs,
@@ -984,10 +1060,14 @@ W_UnicodeObject.typedef = StdTypeDef(
                            doc=UnicodeDocstrings.isdecimal.__doc__),
     isdigit = interp2app(W_UnicodeObject.descr_isdigit,
                          doc=UnicodeDocstrings.isdigit.__doc__),
+    isidentifier = interp2app(W_UnicodeObject.descr_isidentifier,
+                         doc=UnicodeDocstrings.isidentifier.__doc__),
     islower = interp2app(W_UnicodeObject.descr_islower,
                          doc=UnicodeDocstrings.islower.__doc__),
     isnumeric = interp2app(W_UnicodeObject.descr_isnumeric,
                            doc=UnicodeDocstrings.isnumeric.__doc__),
+    isprintable = interp2app(W_UnicodeObject.descr_isprintable,
+                         doc=UnicodeDocstrings.isprintable.__doc__),
     isspace = interp2app(W_UnicodeObject.descr_isspace,
                          doc=UnicodeDocstrings.isspace.__doc__),
     istitle = interp2app(W_UnicodeObject.descr_istitle,
@@ -1037,15 +1117,17 @@ W_UnicodeObject.typedef = StdTypeDef(
 
     format = interp2app(W_UnicodeObject.descr_format,
                         doc=UnicodeDocstrings.format.__doc__),
+    format_map = interp2app(W_UnicodeObject.descr_format_map,
+                        doc=UnicodeDocstrings.format_map.__doc__),
     __format__ = interp2app(W_UnicodeObject.descr__format__,
                             doc=UnicodeDocstrings.__format__.__doc__),
     __mod__ = interp2app(W_UnicodeObject.descr_mod,
                          doc=UnicodeDocstrings.__mod__.__doc__),
     __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs,
                                 doc=UnicodeDocstrings.__getnewargs__.__doc__),
-    _formatter_parser = interp2app(W_UnicodeObject.descr_formatter_parser),
-    _formatter_field_name_split =
-        interp2app(W_UnicodeObject.descr_formatter_field_name_split),
+    maketrans = interp2app(W_UnicodeObject.descr_maketrans,
+                           as_classmethod=True,
+                           doc=UnicodeDocstrings.maketrans.__doc__)
 )
 
 
@@ -1057,7 +1139,15 @@ def _create_list_from_unicode(value):
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
-# Helper for converting int/long
+# Helper for converting int/long this is called only from
+# {int,long,float}type.descr__new__: in the default branch this is implemented
+# using the same logic as PyUnicode_EncodeDecimal, as CPython 2.7 does.
+#
+# In CPython3 the call to PyUnicode_EncodeDecimal has been replaced to a call
+# to PyUnicode_TransformDecimalToASCII, which is much simpler. Here, we do the
+# equivalent.
+#
+# Note that, differently than default, we return an *unicode* RPython string
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise operationerrfmt(space.w_TypeError, "expected unicode, got '%T'",
@@ -1079,4 +1169,4 @@ def unicode_to_decimal_w(space, w_unistr):
 
 
 _repr_function, _ = make_unicode_escape_function(
-    pass_printable=False, unicode_output=False, quotes=True, prefix='u')
+    pass_printable=True, unicode_output=True, quotes=True, prefix='')

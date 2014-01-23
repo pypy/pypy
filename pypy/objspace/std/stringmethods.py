@@ -513,7 +513,14 @@ class StringMethods(object):
                 if self._startswith(space, value, w_prefix, start, end):
                     return space.w_True
             return space.w_False
-        return space.newbool(self._startswith(space, value, w_prefix, start, end))
+        try:
+            return space.newbool(self._startswith(space, value, w_prefix, start, end))
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                msg = ("startswith first arg must be str or a tuple of str, "
+                       "not %T")
+                raise operationerrfmt(space.w_TypeError, msg, w_prefix)
+            raise
 
     def _startswith(self, space, value, w_prefix, start, end):
         return startswith(value, self._op_val(space, w_prefix), start, end)
@@ -527,7 +534,15 @@ class StringMethods(object):
                 if self._endswith(space, value, w_suffix, start, end):
                     return space.w_True
             return space.w_False
-        return space.newbool(self._endswith(space, value, w_suffix, start, end))
+        try:
+            return space.newbool(self._endswith(space, value, w_suffix, start,
+                                                end))
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                msg = ("endswith first arg must be str or a tuple of str, not "
+                       "%T")
+                raise operationerrfmt(space.w_TypeError, msg, w_suffix)
+            raise
 
     def _endswith(self, space, value, w_prefix, start, end):
         return endswith(value, self._op_val(space, w_prefix), start, end)
