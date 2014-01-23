@@ -4,17 +4,56 @@ import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
-from rpython.rlib import jit
 
 
 # -------------- public API for string functions -----------------------
 
 @specialize.argtype(0)
-def split(value, by, maxsplit=-1):
+def _isspace(char):
+    if isinstance(char, str):
+        return char.isspace()
+    else:
+        assert isinstance(char, unicode)
+        return unicodedb.isspace(ord(char))
+
+
+@specialize.argtype(0)
+def split(value, by=None, maxsplit=-1):
+    if by is None:
+        length = len(value)
+        i = 0
+        res = []
+        while True:
+            # find the beginning of the next word
+            while i < length:
+                if not _isspace(value[i]):
+                    break   # found
+                i += 1
+            else:
+                break  # end of string, finished
+
+            # find the end of the word
+            if maxsplit == 0:
+                j = length   # take all the rest of the string
+            else:
+                j = i + 1
+                while j < length and not _isspace(value[j]):
+                    j += 1
+                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+            # the word is value[i:j]
+            res.append(value[i:j])
+
+            # continue to look from the character following the space after the word
+            i = j + 1
+        return res
+
     if isinstance(value, str):
         assert isinstance(by, str)
     else:
@@ -58,7 +97,41 @@ def split(value, by, maxsplit=-1):
 
 
 @specialize.argtype(0)
-def rsplit(value, by, maxsplit=-1):
+def rsplit(value, by=None, maxsplit=-1):
+    if by is None:
+        res = []
+
+        i = len(value) - 1
+        while True:
+            # starting from the end, find the end of the next word
+            while i >= 0:
+                if not _isspace(value[i]):
+                    break   # found
+                i -= 1
+            else:
+                break  # end of string, finished
+
+            # find the start of the word
+            # (more precisely, 'j' will be the space character before the word)
+            if maxsplit == 0:
+                j = -1   # take all the rest of the string
+            else:
+                j = i - 1
+                while j >= 0 and not _isspace(value[j]):
+                    j -= 1
+                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+            # the word is value[j+1:i+1]
+            j1 = j + 1
+            assert j1 >= 0
+            res.append(value[j1:i+1])
+
+            # continue to look from the character before the space before the word
+            i = j - 1
+
+        res.reverse()
+        return res
+
     if isinstance(value, str):
         assert isinstance(by, str)
     else:
@@ -86,6 +159,7 @@ def rsplit(value, by, maxsplit=-1):
 
 
 @specialize.argtype(0)
+@jit.elidable
 def replace(input, sub, by, maxsplit=-1):
     if isinstance(input, str):
         assert isinstance(sub, str)
@@ -307,6 +381,7 @@ class AbstractStringBuilder(object):
         self._grow(times)
 
     def append_charpsize(self, s, size):
+        assert size >= 0
         l = []
         for i in xrange(size):
             l.append(s[i])

@@ -132,7 +132,8 @@ def execute_tests(run_param, testdirs, logfile):
         done += 1
         failure = failure or somefailed
 
-        heading = "__ %s [%d done in total] " % (testname, done)
+        heading = "__ %s [%d done in total, somefailed=%s] " % (
+            testname, done, somefailed)
 
         run_param.log(heading.ljust(79, '_'))
 

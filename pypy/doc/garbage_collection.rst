@@ -210,4 +210,12 @@ In more detail:
   are preserved.  If the object dies then the pre-reserved location
   becomes free garbage, to be collected at the next major collection.
 
+The exact name of this GC is either `minimark` or `incminimark`.  The
+latter is a version that does major collections incrementally (i.e.  one
+major collection is split along some number of minor collections, rather
+than being done all at once after a specific minor collection).  The
+default is `incminimark`, as it seems to have a very minimal impact on
+performance and memory usage at the benefit of avoiding the long pauses
+of `minimark`.
+
 .. include:: _ref.txt

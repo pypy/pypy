@@ -64,8 +64,6 @@ class GcLLDescription(GcCache):
         return True
     def initialize(self):
         pass
-    def do_write_barrier(self, gcref_struct, gcref_newptr):
-        pass
     def can_use_nursery_malloc(self, size):
         return False
     def has_write_barrier_class(self):
@@ -135,9 +133,7 @@ class GcLLDescription(GcCache):
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
-        frame = jitframe.JITFRAME.allocate(frame_info)
-        llop.gc_assume_young_pointers(lltype.Void, frame)
-        return frame
+        return jitframe.JITFRAME.allocate(frame_info)
 
 class JitFrameDescrs:
     def _freeze_(self):
@@ -360,9 +356,9 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _check_valid_gc(self):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
-        # to work.  Additionally, 'hybrid' is missing some stuff like
-        # jit_remember_young_pointer() for now.
-        if self.gcdescr.config.translation.gc not in ('minimark',):
+        # to work.  'hybrid' could work but isn't tested with the JIT.
+        if self.gcdescr.config.translation.gc not in ('minimark',
+                                                      'incminimark'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (self.gcdescr.config.translation.gc,))
 
@@ -373,7 +369,9 @@ class GcLLDescr_framework(GcLLDescription):
         translator = self.translator
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
-        translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
+        if not hasattr(translator, '_jit2gc'):
+            translator._jit2gc = {}
+        translator._jit2gc['layoutbuilder'] = self.layoutbuilder
 
     def _setup_gcclass(self):
         from rpython.memory.gcheader import GCHeaderBuilder
@@ -456,17 +454,19 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_ofs_length = self.unicode_descr.lendescr.offset
 
         def malloc_str(length):
+            type_id = llop.extract_ushort(llgroup.HALFWORD, str_type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                str_type_id, length, str_basesize, str_itemsize,
+                type_id, length, str_basesize, str_itemsize,
                 str_ofs_length)
         self.generate_function('malloc_str', malloc_str,
                                [lltype.Signed])
 
         def malloc_unicode(length):
+            type_id = llop.extract_ushort(llgroup.HALFWORD, unicode_type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                unicode_type_id, length, unicode_basesize, unicode_itemsize,
+                type_id, length, unicode_basesize, unicode_itemsize,
                 unicode_ofs_length)
         self.generate_function('malloc_unicode', malloc_unicode,
                                [lltype.Signed])
@@ -547,17 +547,6 @@ class GcLLDescr_framework(GcLLDescription):
         hdr_addr -= self.gcheaderbuilder.size_gc_header
         hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
         hdr.tid = tid
-
-    def do_write_barrier(self, gcref_struct, gcref_newptr):
-        hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
-        hdr_addr -= self.gcheaderbuilder.size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
-        if hdr.tid & self.GCClass.JIT_WB_IF_FLAG:
-            # get a pointer to the 'remember_young_pointer' function from
-            # the GC, and call it immediately
-            llop1 = self.llop1
-            funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
 
     def can_use_nursery_malloc(self, size):
         return size < self.max_size_of_young_obj

@@ -783,7 +783,7 @@ buffer_getcharbuf(PyBufferObject *self, Py_ssize_t idx, const char **pp)
     return size;
 }
 
-void init_bufferobject(void)
+void _Py_init_bufferobject(void)
 {
     PyType_Ready(&PyBuffer_Type);
 }

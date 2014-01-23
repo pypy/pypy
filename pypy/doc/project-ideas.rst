@@ -74,6 +74,10 @@ fits into ASCII, has only two-byte characters or needs four-byte characters.
 The actual details would be rather differen in PyPy, but we would like to have
 the same optimization implemented.
 
+Or maybe not.  We can also play around with the idea of using a single
+representation: as a byte string in utf-8.  (This idea needs some extra logic
+for efficient indexing, like a cache.)
+
 .. _`optimized unicode representation`: http://www.python.org/dev/peps/pep-0393/
 
 Translation Toolchain
@@ -89,9 +93,6 @@ Various GCs
 PyPy has pluggable garbage collection policy. This means that various garbage
 collectors can be written for specialized purposes, or even various
 experiments can be done for the general purpose. Examples:
-
-* An incremental garbage collector that has specified maximal pause times,
-  crucial for games
 
 * A garbage collector that compact memory better for mobile devices
 
@@ -158,6 +159,8 @@ finder, which is nicely portable.  So far it gives a pypy that is around
 Embedding PyPy
 ----------------------------------------
 
+Note: there is a basic proof-of-concept for that as a `uwsgi pypy plugin`_
+
 Being able to embed PyPy, say with its own limited C API, would be
 useful.  But here is the most interesting variant, straight from
 EuroPython live discussion :-)  We can have a generic "libpypy.so" that
@@ -165,6 +168,8 @@ can be used as a placeholder dynamic library, and when it gets loaded,
 it runs a .py module that installs (via ctypes) the interface it wants
 exported.  This would give us a one-size-fits-all generic .so file to be
 imported by any application that wants to load .so files :-)
+
+.. _`uwsgi pypy plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
 
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------

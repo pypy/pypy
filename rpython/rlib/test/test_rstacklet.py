@@ -1,5 +1,6 @@
 import gc, sys
 import py
+import platform
 from rpython.rtyper.tool.rffi_platform import CompilationError
 try:
     from rpython.rlib import rstacklet
@@ -73,8 +74,8 @@ class Runner:
             h = self.sthread.new(switchbackonce_callback,
                                  rffi.cast(llmemory.Address, 321))
             # 'h' ignored
-            if (i % 5000) == 2500:
-                rgc.collect()
+            if (i % 2000) == 1000:
+                rgc.collect()  # This should run in < 1.5GB virtual memory
 
     def any_alive(self):
         for task in self.tasks:
@@ -331,6 +332,10 @@ class DONTTestStackletBoehm(BaseTestStacklet):
 class TestStackletAsmGcc(BaseTestStacklet):
     gc = 'minimark'
     gcrootfinder = 'asmgcc'
+
+    @py.test.mark.skipif("sys.platform != 'linux2' or platform.machine().startswith('arm')")
+    def test_demo1(self):
+        BaseTestStacklet.test_demo1(self)
 
 class TestStackletShadowStack(BaseTestStacklet):
     gc = 'minimark'

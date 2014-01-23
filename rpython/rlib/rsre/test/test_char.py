@@ -48,7 +48,7 @@ def test_is_word():
     assert not rsre_char.is_uni_word(ord(','))
 
 def test_category():
-    from sre_constants import CHCODES
+    from rpython.rlib.rsre.rpy.sre_constants import CHCODES
     cat = rsre_char.category_dispatch
     #
     assert     cat(CHCODES["category_digit"], ord('1'))
@@ -126,3 +126,44 @@ def test_category():
     assert     cat(CHCODES["category_uni_not_digit"], ROMAN_NUMERAL)
     assert     cat(CHCODES["category_uni_not_digit"], CIRCLED_NUMBER)
     assert     cat(CHCODES["category_uni_not_digit"], DINGBAT_CIRCLED)
+
+
+def test_general_category():
+    from rpython.rlib.unicodedata import unicodedb
+
+    for cat, positive, negative in [('L', u'aZ\xe9', u'. ?'),
+                                    ('P', u'.?', u'aZ\xe9 ')]:
+        pat_pos = [70, ord(cat), 0]
+        pat_neg = [70, ord(cat) | 0x80, 0]
+        for c in positive:
+            assert unicodedb.category(ord(c)).startswith(cat)
+            assert rsre_char.check_charset(pat_pos, 0, ord(c))
+            assert not rsre_char.check_charset(pat_neg, 0, ord(c))
+        for c in negative:
+            assert not unicodedb.category(ord(c)).startswith(cat)
+            assert not rsre_char.check_charset(pat_pos, 0, ord(c))
+            assert rsre_char.check_charset(pat_neg, 0, ord(c))
+
+    def cat2num(cat):
+        return ord(cat[0]) | (ord(cat[1]) << 8)
+
+    for cat, positive, negative in [('Lu', u'A', u'z\xe9 '),
+                                    ('Ll', u'z\xe9', u'A \n')]:
+        pat_pos = [70, cat2num(cat), 0]
+        pat_neg = [70, cat2num(cat) | 0x80, 0]
+        for c in positive:
+            assert unicodedb.category(ord(c)) == cat
+            assert rsre_char.check_charset(pat_pos, 0, ord(c))
+            assert not rsre_char.check_charset(pat_neg, 0, ord(c))
+        for c in negative:
+            assert unicodedb.category(ord(c)) != cat
+            assert not rsre_char.check_charset(pat_pos, 0, ord(c))
+            assert rsre_char.check_charset(pat_neg, 0, ord(c))
+
+    # test for how the common 'L&' pattern might be compiled
+    pat = [70, cat2num('Lu'), 70, cat2num('Ll'), 70, cat2num('Lt'), 0]
+    assert rsre_char.check_charset(pat, 0, 65)    # Lu
+    assert rsre_char.check_charset(pat, 0, 99)    # Ll
+    assert rsre_char.check_charset(pat, 0, 453)   # Lt
+    assert not rsre_char.check_charset(pat, 0, 688)    # Lm
+    assert not rsre_char.check_charset(pat, 0, 5870)   # Nl

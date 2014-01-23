@@ -10,7 +10,7 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
-    UserDelAction, FrameTraceAction)
+    UserDelAction)
 from pypy.interpreter.error import (OperationError, operationerrfmt,
     new_exception_class)
 from pypy.interpreter.argument import Arguments
@@ -77,12 +77,12 @@ class W_Root(object):
         raise NotImplementedError("only for interp-level user subclasses "
                                   "from typedef.py")
 
-    def getname(self, space, default='?'):
+    def getname(self, space):
         try:
             return space.str_w(space.getattr(self, space.wrap('__name__')))
         except OperationError, e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
-                return default
+                return '?'
             raise
 
     def getaddrstring(self, space):
@@ -231,6 +231,11 @@ class W_Root(object):
         msg = "__int__ returned non-int (type '%T')"
         raise operationerrfmt(space.w_TypeError, msg, w_result)
 
+    def ord(self, space):
+        typename = space.type(self).getname(space)
+        msg = "ord() expected string of length 1, but %s found"
+        raise operationerrfmt(space.w_TypeError, msg, typename)
+
     def __spacebind__(self, space):
         return self
 
@@ -238,6 +243,18 @@ class W_Root(object):
         """NOT_RPYTHON"""
         # _____ this code is here to support testing only _____
         return self
+
+    def unpackiterable_int(self, space):
+        lst = space.listview_int(self)
+        if lst:
+            return lst[:]
+        return None
+
+    def unpackiterable_float(self, space):
+        lst = space.listview_float(self)
+        if lst:
+            return lst[:]
+        return None
 
 
 class W_InterpIterable(W_Root):
@@ -314,14 +331,10 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        # import extra modules for side-effects
-        import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
-
         self.interned_strings = {}
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
-        self.frame_trace_action = FrameTraceAction(self)
         self._code_of_sys_exc_info = None
 
         from pypy.interpreter.pycode import cpython_magic, default_magic
@@ -838,6 +851,22 @@ class ObjSpace(object):
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
 
+
+    def unpackiterable_int(self, w_obj):
+        """
+        Return a RPython list of unwrapped ints out of w_obj. The list is
+        guaranteed to be acopy of the actual data contained in w_obj, so you
+        can freely modify it. It might return None if not supported.
+        """
+        return w_obj.unpackiterable_int(self)
+
+    def unpackiterable_float(self, w_obj):
+        """
+        Same as unpackiterable_int, but for floats.
+        """
+        return w_obj.unpackiterable_float(self)
+
+
     def length_hint(self, w_obj, default):
         """Return the length of an object, consulting its __length_hint__
         method if necessary.
@@ -881,7 +910,7 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
-    def listview_str(self, w_list):
+    def listview_bytes(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
         argument is not a list or does not contain only strings, return None.
         May return None anyway.
@@ -895,13 +924,27 @@ class ObjSpace(object):
         """
         return None
 
+    def listview_int(self, w_list):
+        """ Return a list of unwrapped int out of a list of int. If the
+        argument is not a list or does not contain only int, return None.
+        May return None anyway.
+        """
+        return None
+
+    def listview_float(self, w_list):
+        """ Return a list of unwrapped float out of a list of float. If the
+        argument is not a list or does not contain only float, return None.
+        May return None anyway.
+        """
+        return None
+
     def view_as_kwargs(self, w_dict):
         """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
         strings and one of wrapped values. otherwise return (None, None)
         """
         return (None, None)
 
-    def newlist_str(self, list_s):
+    def newlist_bytes(self, list_s):
         return self.newlist([self.wrap(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
@@ -1357,6 +1400,9 @@ class ObjSpace(object):
         # Unwraps a bool, also accepting an int for compatibility.
         # This is here mostly just for gateway.int_unwrapping_space_method().
         return bool(self.int_w(w_obj))
+
+    def ord(self, w_obj):
+        return w_obj.ord(self)
 
     # This is all interface for gateway.py.
     def gateway_int_w(self, w_obj):

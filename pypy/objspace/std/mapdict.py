@@ -556,7 +556,7 @@ def _make_subclass_size_n(supercls, n):
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
-                return len(self._mapdict_get_storage_list()) + n - 1
+                return len(self._mapdict_get_storage_list()) + (n - 1)
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):
@@ -700,7 +700,7 @@ class MapDictStrategy(DictStrategy):
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
-    # XXX could implement a more efficient w_keys based on space.newlist_str
+    # XXX could implement a more efficient w_keys based on space.newlist_bytes
 
     def iterkeys(self, w_dict):
         return MapDictIteratorKeys(self.space, self, w_dict)

@@ -57,6 +57,18 @@ the version you have is not 4.2 or you will run into `this bug`_.
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
 
+   On SLES11:
+
+     $ sudo zypper install gcc make python-devel pkg-config \
+     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
+     libexpat-devel libffi-devel python-curses
+
+   On Mac OS X, most of these build-time dependencies are installed alongside
+   the Developer Tools. However, note that in order for the installation to
+   find them you may need to run:
+
+     $ xcode-select --install
+
    The above command lines are split with continuation characters, giving the necessary dependencies first, then the optional ones.
 
    * ``pkg-config`` (to help us locate libffi files)

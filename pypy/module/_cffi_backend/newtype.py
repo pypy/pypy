@@ -117,13 +117,18 @@ def new_array_type(space, w_ctptr, w_length):
 
 SF_MSVC_BITFIELDS = 1
 SF_GCC_ARM_BITFIELDS = 2
+SF_GCC_BIG_ENDIAN = 4
+SF_PACKED = 8
 
 if sys.platform == 'win32':
     DEFAULT_SFLAGS = SF_MSVC_BITFIELDS
-elif rffi_platform.getdefined('__arm__', ''):
-    DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
 else:
-    DEFAULT_SFLAGS = 0
+    if rffi_platform.getdefined('__arm__', ''):
+        DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
+    else:
+        DEFAULT_SFLAGS = 0
+    if sys.byteorder == 'big':
+        DEFAULT_SFLAGS |= SF_GCC_BIG_ENDIAN
 
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
@@ -154,8 +159,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     fields_list = []
     fields_dict = {}
     custom_field_pos = False
+    with_var_array = False
 
-    for w_field in fields_w:
+    for i in range(len(fields_w)):
+        w_field = fields_w[i]
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
             raise OperationError(space.w_TypeError,
@@ -172,7 +179,11 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                                   "duplicate field name '%s'", fname)
         #
         if ftype.size < 0:
-            raise operationerrfmt(space.w_TypeError,
+            if (isinstance(ftype, ctypearray.W_CTypeArray) and fbitsize < 0
+                    and (i == len(fields_w) - 1 or foffset != -1)):
+                with_var_array = True
+            else:
+                raise operationerrfmt(space.w_TypeError,
                     "field '%s.%s' has ctype '%s' of unknown size",
                                   w_ctype.name, fname, ftype.name)
         #
@@ -180,8 +191,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             boffset = 0         # reset each field at offset 0
         #
         # update the total alignment requirement, but skip it if the
-        # field is an anonymous bitfield
-        falign = ftype.alignof()
+        # field is an anonymous bitfield or if SF_PACKED
+        falign = 1 if sflags & SF_PACKED else ftype.alignof()
         do_align = True
         if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
             if (sflags & SF_MSVC_BITFIELDS) == 0:
@@ -231,7 +242,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 
-            boffset += ftype.size * 8
+            if ftype.size >= 0:
+                boffset += ftype.size * 8
             prev_bitfield_size = 0
 
         else:
@@ -294,6 +306,12 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     if bits_already_occupied + fbitsize > 8 * ftype.size:
                         # it would not fit, we need to start at the next
                         # allowed position
+                        if ((sflags & SF_PACKED) != 0 and
+                            (bits_already_occupied & 7) != 0):
+                            raise operationerrfmt(space.w_NotImplementedError,
+                                "with 'packed', gcc would compile field "
+                                "'%s.%s' to reuse some bits in the previous "
+                                "field", w_ctype.name, fname)
                         field_offset_bytes += falign
                         assert boffset < field_offset_bytes * 8
                         boffset = field_offset_bytes * 8
@@ -325,6 +343,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     prev_bitfield_free -= fbitsize
                     field_offset_bytes = boffset / 8 - ftype.size
 
+                if sflags & SF_GCC_BIG_ENDIAN:
+                    bitshift = 8 * ftype.size - fbitsize- bitshift
+
                 fld = ctypestruct.W_CField(ftype, field_offset_bytes,
                                            bitshift, fbitsize)
                 fields_list.append(fld)
@@ -352,6 +373,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     w_ctype.fields_list = fields_list
     w_ctype.fields_dict = fields_dict
     w_ctype.custom_field_pos = custom_field_pos
+    w_ctype.with_var_array = with_var_array
 
 # ____________________________________________________________
 

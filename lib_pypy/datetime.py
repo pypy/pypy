@@ -40,9 +40,9 @@ _MINYEARFMT = 1900
 # for all computations.  See the book for algorithms for converting between
 # proleptic Gregorian ordinals and many other calendar systems.
 
-_DAYS_IN_MONTH = [None, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+_DAYS_IN_MONTH = [-1, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
-_DAYS_BEFORE_MONTH = [None]
+_DAYS_BEFORE_MONTH = [-1]
 dbm = 0
 for dim in _DAYS_IN_MONTH[1:]:
     _DAYS_BEFORE_MONTH.append(dbm)
@@ -878,7 +878,6 @@ class date(object):
             month = self._month
         if day is None:
             day = self._day
-        year, month, day = _check_date_fields(year, month, day)
         return date(year, month, day)
 
     # Comparisons of date objects with other.
@@ -1389,8 +1388,6 @@ class time(object):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
-        _check_tzinfo_arg(tzinfo)
         return time(hour, minute, second, microsecond, tzinfo)
 
     def __nonzero__(self):
@@ -1608,9 +1605,6 @@ class datetime(date):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
-        _check_tzinfo_arg(tzinfo)
         return datetime(year, month, day, hour, minute, second, microsecond,
                         tzinfo)
 

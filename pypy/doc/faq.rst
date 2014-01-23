@@ -45,6 +45,41 @@ extension modules there is a good chance that it will work with PyPy.
 
 We list the differences we know about in `cpython differences`_.
 
+-----------------------------------------------
+Module xyz does not work with PyPy: ImportError
+-----------------------------------------------
+
+A module installed for CPython is not automatically available for PyPy
+--- just like a module installed for CPython 2.6 is not automatically
+available for CPython 2.7 if you installed both.  In other words, you
+need to install the module xyz specifically for PyPy.
+
+On Linux, this means that you cannot use ``apt-get`` or some similar
+package manager: these tools are only meant *for the version of CPython
+provided by the same package manager.*  So forget about them for now
+and read on.
+
+It is quite common nowadays that xyz is available on PyPI_ and
+installable with ``pip install xyz``.  The simplest solution is to `use
+virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
+and type: ``pip install xyz``.
+
+If you get errors from the C compiler, the module is a CPython C
+Extension module using unsupported features.  `See below.`_
+
+Alternatively, if either the module xyz is not available on PyPI or you
+don't want to use virtualenv, then download the source code of xyz,
+decompress the zip/tarball, and run the standard command: ``pypy
+setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
+you may need to run the command with `sudo` for a global installation.
+The other commands of ``setup.py`` are available too, like ``build``.
+
+.. _PyPI: https://pypi.python.org/pypi
+.. _`use virtualenv (as documented here)`: getting-started.html#installing-using-virtualenv
+
+
+.. _`See below.`: 
+
 --------------------------------------------
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
@@ -55,7 +90,9 @@ the 1.4 release, but support is still in beta phase.  CPython
 extension modules in PyPy are often much slower than in CPython due to
 the need to emulate refcounting.  It is often faster to take out your
 CPython extension and replace it with a pure python version that the
-JIT can see.
+JIT can see.  If trying to install module xyz, and the module has both
+a C and a Python version of the same code, try first to disable the C
+version; this is usually easily done by changing some line in ``setup.py``.
 
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
@@ -74,13 +111,19 @@ with PyPy see the `compatibility wiki`_.
 On which platforms does PyPy run?
 ---------------------------------
 
-PyPy is regularly and extensively tested on Linux machines and on Mac
-OS X and mostly works under Windows too (but is tested there less
-extensively). PyPy needs a CPython running on the target platform to
-bootstrap, as cross compilation is not really meant to work yet.
-At the moment you need CPython 2.5 - 2.7
-for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
-(There has also been good progress on getting the JIT working for ARMv7.)
+PyPy is regularly and extensively tested on Linux machines. It mostly
+works on Mac and Windows: it is tested there, but most of us are running
+Linux so fixes may depend on 3rd-party contributions.  PyPy's JIT
+works on x86 (32-bit or 64-bit) and on ARM (ARMv6 or ARMv7).
+Support for POWER (64-bit) is stalled at the moment.
+
+To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
+another (e.g. older) PyPy.  Cross-translation is not really supported:
+e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
+Cross-translation is only explicitly supported between a 32-bit Intel
+Linux and ARM Linux (see here__).
+
+.. __: arm.html
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?
@@ -125,7 +168,7 @@ How fast is PyPy?
 -----------------
 This really depends on your code.
 For pure Python algorithmic code, it is very fast.  For more typical
-Python programs we generally are 3 times the speed of Cpython 2.6 .
+Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our 
 `jit documentation`_.
 
@@ -211,7 +254,9 @@ On Linux, if SELinux is enabled, you may get errors along the lines of
 "OSError: externmod.so: cannot restore segment prot after reloc: Permission
 denied." This is caused by a slight abuse of the C compiler during
 configuration, and can be disabled by running the following command with root
-privileges::
+privileges:
+
+.. code-block:: console
 
     # setenforce 0
 
@@ -266,6 +311,7 @@ use of reflection capabilities (e.g. ``__dict__``).
 You cannot use most existing standard library modules from RPython.  The
 exceptions are
 some functions in ``os``, ``math`` and ``time`` that have native support.
+We have our own "RPython standard library" in ``rpython.rlib.*``.
 
 To read more about the RPython limitations read the `RPython description`_.
 
@@ -356,7 +402,7 @@ example.  These are much more supported, much more documented languages
   attempt to point newcomers at existing alternatives, which are more
   mainstream and where they will get help from many people.*
 
-  *If anybody seriously wants to promote RPython anyway, he is welcome
+  *If anybody seriously wants to promote RPython anyway, they are welcome
   to: we won't actively resist such a plan.  There are a lot of things
   that could be done to make RPython a better Java-ish language for
   example, starting with supporting non-GIL-based multithreading, but we
@@ -396,9 +442,9 @@ well --- but again we made an attempt, and it failed: LLVM has no way to
 patch the generated machine code.
 
 So the position of the core PyPy developers is that if anyone wants to
-make an N+1'th attempt with LLVM, he is welcome, and he will receive a
-bit of help on the IRC channel, but he is left with the burden of proof
-that it works.
+make an N+1'th attempt with LLVM, they are welcome, and will be happy to
+provide help in the IRC channel, but they are left with the burden of proof
+that (a) it works and (b) it gives important benefits.
 
 ----------------------
 How do I compile PyPy?

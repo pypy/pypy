@@ -558,19 +558,22 @@ class BufferingInputStream(Stream):
             if -self.pos <= difpos <= currentsize:
                 self.pos += difpos
                 return
-            self.buf = ""
-            self.pos = 0
             if whence == 1:
                 offset -= currentsize
             try:
                 self.do_seek(offset, whence)
             except MyNotImplementedError:
+                self.buf = ""
+                self.pos = 0
                 if difpos < 0:
                     raise
                 if whence == 0:
                     offset = difpos - currentsize
                 intoffset = offset2int(offset)
                 self.read(intoffset)
+            else:
+                self.buf = ""
+                self.pos = 0
             return
         if whence == 2:
             try:

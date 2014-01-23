@@ -15,6 +15,7 @@ from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import rgc
 
 
 class W_Array(W_DataShape):
@@ -220,6 +221,7 @@ class W_ArrayInstanceAutoFree(W_ArrayInstance):
     def __init__(self, space, shape, length):
         W_ArrayInstance.__init__(self, space, shape, length, 0)
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.ll_buffer:
             self._free()

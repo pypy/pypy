@@ -57,7 +57,7 @@ class TestUnroll(Base):
         graph = self.codetest(f)
         ops = self.all_operations(graph)
         assert ops == {'simple_call': 6,
-                       'is_true': 6,
+                       'bool': 6,
                        'lt': 1,
                        'le': 1,
                        'eq': 1,

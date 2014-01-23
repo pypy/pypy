@@ -58,5 +58,39 @@ class RawMemTests(object):
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
 
+    def test_raw_storage_byte(self):
+        def f():
+            p = alloc_raw_storage(15)
+            raw_storage_setitem(p, 5, rffi.cast(rffi.UCHAR, 254))
+            res = raw_storage_getitem(rffi.UCHAR, p, 5)
+            free_raw_storage(p)
+            return rffi.cast(lltype.Signed, res)
+        res = self.interp_operations(f, [])
+        assert res == 254
+        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+                                       'raw_store': 1, 'raw_load': 1,
+                                       'finish': 1})
+
+
 class TestRawMem(RawMemTests, LLJitMixin):
-    pass
+
+    def test_getarraysubstruct(self):
+        # NOTE: not for backend/*/test
+        A2 = lltype.Array(('a', lltype.Signed), ('b', lltype.Signed),
+                          hints={'nolength': True})
+        p = lltype.malloc(A2, 10, flavor='raw', immortal=True, zero=True)
+        p[2].b = 689
+        def f(n, m):
+            p[n].a = 55
+            p[n].b = 44
+            p[4].b = 66
+            return p[m].b
+
+        # run with 'disable_optimizations' to prevent an error
+        # 'Symbolics cannot be compared!' in the optimizer for int_mul
+        res = self.interp_operations(f, [7, 2], disable_optimizations=True)
+        assert res == 689
+        res = self.interp_operations(f, [7, 4], disable_optimizations=True)
+        assert res == 66
+        res = self.interp_operations(f, [2, 2], disable_optimizations=True)
+        assert res == 44

@@ -55,12 +55,8 @@ class VFPRegisterLocation(RegisterLocation):
     type = FLOAT
     width = 2 * WORD
 
-    def get_single_precision_regs(self):
-        return [VFPRegisterLocation(i) for i in
-                        [self.value * 2, self.value * 2 + 1]]
-
     def __repr__(self):
-        return 'vfp%d' % self.value
+        return 'vfp(d%d)' % self.value
 
     def is_core_reg(self):
         return False
@@ -74,6 +70,14 @@ class VFPRegisterLocation(RegisterLocation):
     def is_float(self):
         return True
 
+class SVFPRegisterLocation(VFPRegisterLocation):
+    """Single Precission VFP Register"""
+    _immutable_ = True
+    width = WORD
+    type = 'S'
+
+    def __repr__(self):
+        return 'vfp(s%d)' % self.value
 
 class ImmLocation(AssemblerLocation):
     _immutable_ = True

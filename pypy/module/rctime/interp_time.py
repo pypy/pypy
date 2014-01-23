@@ -151,7 +151,7 @@ def external(name, args, result, eci=CConfig._compilation_info_):
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
                            calling_conv=calling_conv,
-                           threadsafe=False)
+                           releasegil=False)
 
 if _POSIX:
     cConfig.timeval.__name__ = "_timeval"

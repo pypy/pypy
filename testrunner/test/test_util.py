@@ -108,7 +108,7 @@ class TestRunHelper(object):
 
 
 def test_interpret_exitcode():
-    failure, extralog = util.interpret_exitcode(0, "test_foo")
+    failure, extralog = util.interpret_exitcode(0, "test_foo", '')
     assert not failure
     assert extralog == ""
 
@@ -117,6 +117,7 @@ def test_interpret_exitcode():
     assert extralog == """! test_foo
  Exit code 1.
 """
+    assert extralog == "  (somefailed=True in test_foo)\n" #xXX find location
 
     failure, extralog = util.interpret_exitcode(1, "test_foo", "F Foo\n")
     assert failure

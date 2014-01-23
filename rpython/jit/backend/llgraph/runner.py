@@ -125,10 +125,12 @@ def _is_signed_kind(TYPE):
 
 class ArrayDescr(AbstractDescr):
     def __init__(self, A):
-        self.A = A
+        self.A = self.OUTERA = A
+        if isinstance(A, lltype.Struct):
+            self.A = A._flds[A._arrayfld]
 
     def __repr__(self):
-        return 'ArrayDescr(%r)' % (self.A,)
+        return 'ArrayDescr(%r)' % (self.OUTERA,)
 
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'
@@ -183,7 +185,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, looptoken, log=True,
+                     name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
         looptoken.compiled_loop_token = clt
         lltrace = LLTrace(inputargs, operations)
@@ -192,7 +195,7 @@ class LLGraphCPU(model.AbstractCPU):
         self._record_labels(lltrace)
 
     def compile_bridge(self, faildescr, inputargs, operations,
-                       original_loop_token, log=True):
+                       original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         lltrace = LLTrace(inputargs, operations)
@@ -380,6 +383,8 @@ class LLGraphCPU(model.AbstractCPU):
             res = self.llinterp.eval_graph(ptr._obj.graph, args)
         else:
             res = ptr._obj._callable(*args)
+        if RESULT is lltype.Void:
+            return None
         return support.cast_result(RESULT, res)
 
     def _do_call(self, func, args_i, args_r, args_f, calldescr):
@@ -417,11 +422,12 @@ class LLGraphCPU(model.AbstractCPU):
 
     bh_setfield_raw   = bh_setfield_gc
     bh_setfield_raw_i = bh_setfield_raw
-    bh_setfield_raw_r = bh_setfield_raw
     bh_setfield_raw_f = bh_setfield_raw
 
     def bh_arraylen_gc(self, a, descr):
         array = a._obj.container
+        if descr.A is not descr.OUTERA:
+            array = getattr(array, descr.OUTERA._arrayfld)
         return array.getlength()
 
     def bh_getarrayitem_gc(self, a, index, descr):
@@ -502,6 +508,8 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_raw_store_i(self, struct, offset, newvalue, descr):
         ll_p = rffi.cast(rffi.CCHARP, struct)
         ll_p = rffi.cast(lltype.Ptr(descr.A), rffi.ptradd(ll_p, offset))
+        if descr.A.OF == lltype.SingleFloat:
+            newvalue = longlong.int2singlefloat(newvalue)
         ll_p[0] = rffi.cast(descr.A.OF, newvalue)
 
     def bh_raw_store_f(self, struct, offset, newvalue, descr):
@@ -958,10 +966,10 @@ class LLFrame(object):
     def execute_force_token(self, _):
         return self
 
-    def execute_cond_call_gc_wb(self, descr, a, b):
+    def execute_cond_call_gc_wb(self, descr, a):
         py.test.skip("cond_call_gc_wb not supported")
 
-    def execute_cond_call_gc_wb_array(self, descr, a, b, c):
+    def execute_cond_call_gc_wb_array(self, descr, a, b):
         py.test.skip("cond_call_gc_wb_array not supported")
 
     def execute_keepalive(self, descr, x):

@@ -91,32 +91,11 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
     w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
     if w_base is None:
-        ok = False
         # check for easy cases
         if type(w_value) is W_IntObject:
             value = w_value.intval
-            ok = True
-        elif space.isinstance_w(w_value, space.w_str):
-            value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
-            ok = True
-        elif space.isinstance_w(w_value, space.w_unicode):
-            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            string = unicode_to_decimal_w(space, w_value)
-            value, w_longval = string_to_int_or_long(space, string)
-            ok = True
-        else:
-            # If object supports the buffer interface
-            try:
-                w_buffer = space.buffer(w_value)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-            else:
-                buf = space.interp_w(Buffer, w_buffer)
-                value, w_longval = string_to_int_or_long(space, buf.as_str())
-                ok = True
-
-        if not ok:
+        elif space.lookup(w_value, '__int__') is not None or \
+                space.lookup(w_value, '__trunc__') is not None:
             # otherwise, use the __int__() or the __trunc__() methods
             w_obj = w_value
             if space.lookup(w_obj, '__int__') is None:
@@ -129,13 +108,26 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
             # int_w is effectively what we want in this case,
             # we cannot construct a subclass of int instance with an
             # an overflowing long
+            value = space.int_w(w_obj)
+        elif space.isinstance_w(w_value, space.w_str):
+            value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
+        elif space.isinstance_w(w_value, space.w_unicode):
+            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            string = unicode_to_decimal_w(space, w_value)
+            value, w_longval = string_to_int_or_long(space, string)
+        else:
+            # If object supports the buffer interface
             try:
-                value = space.int_w(w_obj)
+                w_buffer = space.buffer(w_value)
             except OperationError, e:
-                if e.match(space, space.w_TypeError):
-                    raise OperationError(space.w_ValueError,
-                        space.wrap("value can't be converted to int"))
-                raise e
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise operationerrfmt(space.w_TypeError,
+                    "int() argument must be a string or a number, not '%T'",
+                    w_value)
+            else:
+                buf = space.interp_w(Buffer, w_buffer)
+                value, w_longval = string_to_int_or_long(space, buf.as_str())
     else:
         base = space.int_w(w_base)
 

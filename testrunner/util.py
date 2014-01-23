@@ -125,13 +125,15 @@ def _format_failure(exitcode, test):
     return "! %s\n %s\n" % (test, msg)
 
 
-def interpret_exitcode(exitcode, test, logdata=""):
-    extralog = ""
+def interpret_exitcode(exitcode, test, logdata):
     if exitcode:
         failure = True
         if exitcode != 1 or should_report_failure(logdata):
             extralog = _format_failure(exitcode, test)
+        else:
+            extralog = "  (somefailed=True in %s)\n" % (test,)
     else:
+        extralog = ""
         failure = False
     return failure, extralog
 

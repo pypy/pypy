@@ -162,6 +162,9 @@ class DictRepr(AbstractDictRepr):
                 fasthashfn = None
             else:
                 fasthashfn = self.key_repr.get_ll_fasthash_function()
+                if getattr(self.key_repr.get_ll_eq_function(),
+                           'no_direct_compare', False):
+                    entrymeths['no_direct_compare'] = True
             if fasthashfn is None:
                 entryfields.append(("f_hash", lltype.Signed))
                 entrymeths['hash'] = ll_hash_from_cache
@@ -252,9 +255,9 @@ class DictRepr(AbstractDictRepr):
         v_dict, = hop.inputargs(self)
         return hop.gendirectcall(ll_dict_len, v_dict)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         v_dict, = hop.inputargs(self)
-        return hop.gendirectcall(ll_dict_is_true, v_dict)
+        return hop.gendirectcall(ll_dict_bool, v_dict)
 
     def make_iterator_repr(self, *variant):
         return DictIteratorRepr(self, *variant)
@@ -440,7 +443,7 @@ def ll_keyeq_custom(d, key1, key2):
 def ll_dict_len(d):
     return d.num_items
 
-def ll_dict_is_true(d):
+def ll_dict_bool(d):
     # check if a dict is True, allowing for None
     return bool(d) and d.num_items != 0
 
@@ -820,8 +823,9 @@ def ll_update(dic1, dic2):
             entry = entries[i]
             hash = entries.hash(i)
             key = entry.key
+            value = entry.value
             j = ll_dict_lookup(dic1, key, hash)
-            _ll_dict_setitem_lookup_done(dic1, key, entry.value, hash, j)
+            _ll_dict_setitem_lookup_done(dic1, key, value, hash, j)
         i += 1
 ll_update.oopspec = 'dict.update(dic1, dic2)'
 

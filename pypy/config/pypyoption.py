@@ -34,14 +34,14 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy", "_ffi",
+     "_collections", "_multibytecodec", "micronumpy",
      "_continuation", "_cffi_backend", "_csv", "cppyy", "_pypyjson"]
 ))
 
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "_md5", "cStringIO", "array", "_ffi",
+     "struct", "_md5", "cStringIO", "array",
      "binascii",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
@@ -96,7 +96,6 @@ module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
     "_rawffi"   : ["rpython.rlib.clibffi"],
-    "_ffi"      : ["rpython.rlib.clibffi"],
 
     "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
@@ -127,11 +126,6 @@ def get_module_validator(modname):
 
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
-    OptionDescription("opcodes", "opcodes to enable in the interpreter", [
-        BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
-                   default=False),
-        ]),
-
     OptionDescription("usemodules", "Which Modules should be used", [
         BoolOption(modname, "use module %s" % (modname, ),
                    default=modname in default_modules,
@@ -259,9 +253,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("optimized_int_add",
                    "special case the addition of two integers in BINARY_ADD",
                    default=False),
-        BoolOption("optimized_comparison_op",
-                   "special case the comparison of integers",
-                   default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
@@ -307,7 +298,6 @@ def set_pypy_opt_level(config, level):
 
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
-        config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)

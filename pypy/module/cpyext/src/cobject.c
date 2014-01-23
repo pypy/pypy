@@ -156,7 +156,7 @@ PyTypeObject PyCObject_Type = {
     PyCObject_Type__doc__	/*tp_doc*/
 };
 
-void init_pycobject()
+void _Py_init_pycobject()
 {
     PyType_Ready(&PyCObject_Type);
 }

@@ -65,7 +65,7 @@ def compile_extension_module(space, modname, symbols, **kwds):
     return str(pydname)
 
 class AppTestCrossing(AppTestCpythonExtensionBase):
-    spaceconfig = dict(usemodules=['cpyext', 'cppyy', 'thread', '_rawffi', '_ffi',
+    spaceconfig = dict(usemodules=['cpyext', 'cppyy', 'thread', '_rawffi',
                                    'array', 'itertools', 'rctime', 'binascii'])
 
     def setup_class(cls):

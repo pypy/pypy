@@ -126,6 +126,9 @@ typedef long Py_ssize_t;
 #include "pysignals.h"
 #include "pythread.h"
 
+/* Missing definitions */
+#include "missing.h"
+
 // XXX This shouldn't be included here
 #include "structmember.h"
 
