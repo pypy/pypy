@@ -68,6 +68,7 @@ public:
     float                get_float();
     double               get_double();
     what                 get_enum();
+    void*                get_voidp();
 
     bool*           get_bool_array();
     bool*           get_bool_array2();
@@ -121,6 +122,7 @@ public:
     void set_double(double d);
     void set_double_c(const double& d);
     void set_enum(what w);
+    void set_voidp(void* p);
 
     void set_pod_val(cppyy_test_pod);             // for m_pod
     void set_pod_ptr_in(cppyy_test_pod*);
@@ -172,6 +174,7 @@ public:
     float                m_float;
     double               m_double;
     what                 m_enum;
+    void*                m_voidp;
 
 // array types
     bool            m_bool_array[N];
@@ -212,6 +215,7 @@ public:
     static float                   s_float;
     static double                  s_double;
     static what                    s_enum;
+    static void*                   s_voidp;
 
 private:
     bool m_owns_arrays;

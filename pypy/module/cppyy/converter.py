@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import jit_libffi, rfloat
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
-from pypy.module._rawffi.array import W_Array
+from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
 from pypy.module.cppyy import helper, capi, ffitypes
 
@@ -48,20 +48,33 @@ def get_rawobject_nonnull(space, w_obj):
     return capi.C_NULL_OBJECT
 
 def is_nullpointer_specialcase(space, w_obj):
-    # special case: allow integer 0 as (void*)0
+    # 0, None, and nullptr may serve as "NULL", check for any of them
+
+    # integer 0
     try:
         return space.int_w(w_obj) == 0
     except Exception:
         pass
-    # special case: allow None as (void*)0
-    return space.is_true(space.is_(w_obj, space.w_None))
+    # None or nullptr
+    from pypy.module.cppyy import interp_cppyy
+    return space.is_true(space.is_(w_obj, space.w_None)) or \
+        space.is_true(space.is_(w_obj, interp_cppyy.get_nullptr(space)))
 
 def get_rawbuffer(space, w_obj):
+    # raw buffer
     try:
         buf = space.buffer_w(w_obj)
         return rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except Exception:
         pass
+    # array type
+    try:
+        arr = space.interp_w(W_ArrayInstance, w_obj, can_be_None=True)
+        if arr:
+            return rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
+    except Exception:
+        pass
+    # pre-defined NULL
     if is_nullpointer_specialcase(space, w_obj):
         return rffi.cast(rffi.VOIDP, 0)
     raise TypeError("not an addressable buffer")
@@ -140,8 +153,6 @@ class ArrayTypeConverterMixin(object):
             self.size = array_size
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
-        if hasattr(space, "fake"):
-            raise NotImplementedError
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONG, address_value)
@@ -389,6 +400,24 @@ class VoidPtrConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = self._unwrap_object(space, w_obj)
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        # returned as a long value for the address (INTPTR_T is not proper
+        # per se, but rffi does not come with a PTRDIFF_T)
+        address = self._get_raw_address(space, w_obj, offset)
+        ptrval = rffi.cast(rffi.ULONG, rffi.cast(rffi.VOIDPP, address)[0])
+        if ptrval == 0:
+            from pypy.module.cppyy import interp_cppyy
+            return interp_cppyy.get_nullptr(space)
+        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('P')))
+        return arr.fromaddress(space, ptrval, sys.maxint)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
+        if is_nullpointer_specialcase(space, w_value):
+            address[0] = rffi.cast(rffi.VOIDP, 0)
+        else:
+            address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
 
 class VoidPtrPtrConverter(TypeConverter):
     _immutable_fields_ = ['uses_local']

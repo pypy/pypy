@@ -53,17 +53,12 @@ class PtrTypeExecutor(FunctionExecutor):
         if hasattr(space, "fake"):
             raise NotImplementedError
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
-        address = rffi.cast(rffi.ULONG, lresult)
+        ptrval = rffi.cast(rffi.ULONG, lresult)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
-        if address == 0:
-            # TODO: fix this hack; fromaddress() will allocate memory if address
-            # is null and there seems to be no way around it (ll_buffer can not
-            # be touched directly)
-            nullarr = arr.fromaddress(space, address, 0)
-            assert isinstance(nullarr, W_ArrayInstance)
-            nullarr.free(space)
-            return nullarr
-        return arr.fromaddress(space, address, sys.maxint)
+        if ptrval == 0:
+            from pypy.module.cppyy import interp_cppyy
+            return interp_cppyy.get_nullptr(space)
+        return arr.fromaddress(space, ptrval, sys.maxint)
 
 
 class VoidExecutor(FunctionExecutor):

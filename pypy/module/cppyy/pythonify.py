@@ -447,6 +447,9 @@ def _init_pythonify():
     # be the same issue for all typedef'd builtin types
     setattr(gbl, 'unsigned int', int)
 
+    # install nullptr as a unique reference
+    setattr(gbl, 'nullptr', cppyy._get_nullptr())
+
     # install for user access
     cppyy.gbl = gbl
 

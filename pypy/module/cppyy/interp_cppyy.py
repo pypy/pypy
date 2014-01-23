@@ -40,10 +40,28 @@ class State(object):
     def __init__(self, space):
         self.cppscope_cache = {
             "void" : W_CPPClass(space, "void", capi.C_NULL_TYPE) }
+        self.w_nullptr = None
         self.cpptemplate_cache = {}
         self.cppclass_registry = {}
         self.w_clgen_callback = None
         self.w_fngen_callback = None
+
+def get_nullptr(space):
+    if hasattr(space, "fake"):
+        raise NotImplementedError
+    state = space.fromcache(State)
+    if state.w_nullptr is None:
+        from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
+        from pypy.module._rawffi.array import W_Array, W_ArrayInstance
+        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('P')))
+        # TODO: fix this hack; fromaddress() will allocate memory if address
+        # is null and there seems to be no way around it (ll_buffer can not
+        # be touched directly)
+        nullarr = arr.fromaddress(space, rffi.cast(rffi.ULONG, 0), 0)
+        assert isinstance(nullarr, W_ArrayInstance)
+        nullarr.free(space)
+        state.w_nullptr = space.wrap(nullarr)
+    return state.w_nullptr
 
 @unwrap_spec(name=str)
 def resolve_name(space, name):
@@ -1184,16 +1202,30 @@ def wrap_cppobject(space, rawobject, cppclass,
     memory_regulator.register(cppinstance)
     return w_cppinstance
 
-@unwrap_spec(w_cppinstance=W_CPPInstance)
-def addressof(space, w_cppinstance):
-    """Takes a bound C++ instance, returns the raw address."""
-    address = rffi.cast(rffi.LONG, w_cppinstance.get_rawobject())
+def _addressof(space, w_obj):
+    try:
+        # attempt to extract address from array
+        return rffi.cast(rffi.INTPTR_T, converter.get_rawbuffer(space, w_obj))
+    except TypeError:
+        pass
+    # attempt to get address of C++ instance
+    return rffi.cast(rffi.INTPTR_T, converter.get_rawobject(space, w_obj))
+
+@unwrap_spec(w_obj=W_Root)
+def addressof(space, w_obj):
+    """Takes a bound C++ instance or array, returns the raw address."""
+    address = _addressof(space, w_obj)
     return space.wrap(address)
 
-@unwrap_spec(address=int, owns=bool)
-def bind_object(space, address, w_pycppclass, owns=False):
+@unwrap_spec(owns=bool)
+def bind_object(space, w_obj, w_pycppclass, owns=False):
     """Takes an address and a bound C++ class proxy, returns a bound instance."""
-    rawobject = rffi.cast(capi.C_OBJECT, address)
+    try:
+        # attempt address from array or C++ instance
+        rawobject = rffi.cast(capi.C_OBJECT, _addressof(space, w_obj))
+    except Exception:
+        # accept integer value as address
+        rawobject = rffi.cast(capi.C_OBJECT, space.uint_w(w_obj))
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     if not w_cppclass:
         w_cppclass = scope_byname(space, space.str_w(w_pycppclass))

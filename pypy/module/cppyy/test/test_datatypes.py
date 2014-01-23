@@ -232,11 +232,13 @@ class AppTestDATATYPES:
             for i in range(self.N):
                 assert ca[i] == b[i]
 
-        # NULL/None passing (will use short*)
+        # NULL/None/nullptr passing (will use short*)
         assert not c.pass_array(0)
         raises(Exception, c.pass_array(0).__getitem__, 0)    # raises SegfaultException
         assert not c.pass_array(None)
         raises(Exception, c.pass_array(None).__getitem__, 0) # id.
+        assert not c.pass_array(cppyy.gbl.nullptr)
+        raises(Exception, c.pass_array(cppyy.gbl.nullptr).__getitem__, 0) # id. id.
 
         c.destruct()
 
@@ -694,3 +696,51 @@ class AppTestDATATYPES:
             l = list(arr)
             for i in range(self.N):
                 assert arr[i] == l[i]
+
+    def test21_voidp(self):
+        """Test usage of void* data"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+
+        assert not cppyy.gbl.nullptr
+
+        assert c.s_voidp                is cppyy.gbl.nullptr
+        assert cppyy_test_data.s_voidp  is cppyy.gbl.nullptr
+
+        assert c.m_voidp                is cppyy.gbl.nullptr
+        assert c.get_voidp()            is cppyy.gbl.nullptr
+
+        c2 = cppyy_test_data()
+        assert c2.m_voidp               is cppyy.gbl.nullptr
+        c.set_voidp(c2.m_voidp)
+        assert c.m_voidp                is cppyy.gbl.nullptr
+        c.set_voidp(c2.get_voidp())
+        assert c.m_voidp                is cppyy.gbl.nullptr
+        c.set_voidp(cppyy.gbl.nullptr)
+        assert c.m_voidp                is cppyy.gbl.nullptr
+
+        c.set_voidp(c2)
+        def address_equality_test(a, b):
+            assert cppyy.addressof(a) == cppyy.addressof(b)
+            b2 = cppyy.bind_object(a, cppyy_test_data)
+            assert b is b2    # memory regulator recycles
+            b3 = cppyy.bind_object(cppyy.addressof(a), cppyy_test_data)
+            assert b is b3    # likewise
+
+        address_equality_test(c.m_voidp, c2)
+        address_equality_test(c.get_voidp(), c2)
+
+        def null_test(null):
+            c.m_voidp = null
+            assert c.m_voidp is cppyy.gbl.nullptr
+        map(null_test, [0, None, cppyy.gbl.nullptr])
+
+        c.m_voidp = c2
+        address_equality_test(c.m_voidp,     c2)
+        address_equality_test(c.get_voidp(), c2)
+
+        c.s_voidp = c2
+        address_equality_test(c.s_voidp, c2)

@@ -18,6 +18,7 @@ cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
     m_float  = -66.f;
     m_double = -77.;
     m_enum   = kNothing;
+    m_voidp  = (void*)0;
 
     m_bool_array2   = new bool[N];
     m_short_array2  = new short[N];
@@ -97,6 +98,7 @@ unsigned long long cppyy_test_data::get_ullong()  { return m_ullong; }
 float          cppyy_test_data::get_float()  { return m_float; }
 double         cppyy_test_data::get_double() { return m_double; }
 cppyy_test_data::what cppyy_test_data::get_enum() { return m_enum; }
+void*          cppyy_test_data::get_voidp()  { return m_voidp; }
 
 bool*           cppyy_test_data::get_bool_array()    { return m_bool_array; }
 bool*           cppyy_test_data::get_bool_array2()   { return m_bool_array2; }
@@ -150,6 +152,7 @@ void cppyy_test_data::set_float_c(const float& f)            { m_float  = f; }
 void cppyy_test_data::set_double(double d)                   { m_double = d; }
 void cppyy_test_data::set_double_c(const double& d)          { m_double = d; }
 void cppyy_test_data::set_enum(what w)                       { m_enum   = w; }
+void cppyy_test_data::set_voidp(void* p)                     { m_voidp  = p; }
 
 void cppyy_test_data::set_pod_val(cppyy_test_pod p)            { m_pod = p; }
 void cppyy_test_data::set_pod_ptr_in(cppyy_test_pod* pp)       { m_pod = *pp; }
@@ -186,6 +189,7 @@ unsigned long long  cppyy_test_data::s_ullong =  505ull;
 float               cppyy_test_data::s_float  = -606.f;
 double              cppyy_test_data::s_double = -707.;
 cppyy_test_data::what  cppyy_test_data::s_enum = cppyy_test_data::kNothing;
+void*               cppyy_test_data::s_voidp  = (void*)0;
 
 //- strings -----------------------------------------------------------------
 const char* cppyy_test_data::get_valid_string(const char* in) { return in; }

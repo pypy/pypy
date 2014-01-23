@@ -109,9 +109,11 @@ class AppTestFRAGILE:
 
         cppyy.addressof(f)
         raises(TypeError, cppyy.addressof, o)
-        raises(TypeError, cppyy.addressof, 0)
         raises(TypeError, cppyy.addressof, 1)
-        raises(TypeError, cppyy.addressof, None)
+        # 0, None, and nullptr allowed
+        assert cppyy.addressof(0)                 == 0
+        assert cppyy.addressof(None)              == 0
+        assert cppyy.addressof(cppyy.gbl.nullptr) == 0
 
     def test06_wrong_this(self):
         """Test that using an incorrect self argument raises"""
