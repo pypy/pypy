@@ -179,7 +179,7 @@ class W_Root(object):
         return None
     def _set_mapdict_map(self, map):
         raise NotImplementedError
-    def _mapdict_read_storage(self, index):
+    def _mapdict_read_storage(self, index, pure=False):
         raise NotImplementedError
     def _mapdict_write_storage(self, index, value):
         raise NotImplementedError
