@@ -353,17 +353,6 @@ class _LLVMMixin(object):
         so_file = genllvm._compile(True)
         return CTypesFuncWrapper(genllvm, graph, str(so_file))
 
-    def _compile(self, func, args, policy=None, gcpolicy=None):
-        types = [lltype.typeOf(arg) for arg in args]
-        if not (func == self._func and types == self._types):
-            self._compiled = self.getcompiled(func, types, gcpolicy=gcpolicy,
-                                              annotator_policy=policy,
-                                              no_gcremovetypeptr=True)
-            self._compiled.convert = False
-            self._func = func
-            self._types = types
-        return self._compiled
-
     @property
     def translator(self):
         return self._translator
