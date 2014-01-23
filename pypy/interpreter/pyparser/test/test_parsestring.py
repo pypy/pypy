@@ -2,9 +2,9 @@ from pypy.interpreter.pyparser import parsestring
 import py, sys
 
 class TestParsetring:
-    def parse_and_compare(self, literal, value):
+    def parse_and_compare(self, literal, value, encoding=None):
         space = self.space
-        w_ret = parsestring.parsestr(space, None, literal)
+        w_ret = parsestring.parsestr(space, encoding, literal)
         if isinstance(value, str):
             assert space.type(w_ret) == space.w_str
             assert space.str_w(w_ret) == value
