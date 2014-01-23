@@ -343,6 +343,8 @@ class IndexCache(object):
             self.attrs[i] = None
         for i in range(len(self.selectors)):
             self.selectors[i] = self._empty_selector
+        for i in range(len(self.indices)):
+            self.indices[i] = None
 
 # ____________________________________________________________
 # object implementation
