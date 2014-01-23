@@ -87,7 +87,7 @@ def int_add_ovf(x, y):
         if ((r^(x)) >= 0 || (r^(y)) >= 0); \
         else FAIL_OVF(err, "integer addition")
     '''
-    r = x + y
+    r = intmask(r_uint(x) + r_uint(y))
     if r^x >= 0 or r^y >= 0:
         return r
     else:
@@ -99,7 +99,7 @@ def int_add_nonneg_ovf(x, y):
     if (r >= (x)); \
     else FAIL_OVF("integer addition")
     '''
-    r = x + y
+    r = intmask(r_uint(x) + r_uint(y))
     if r >= x:
         return r
     else:
@@ -111,7 +111,7 @@ def int_sub_ovf(x, y):
         if ((r^(x)) >= 0 || (r^~(y)) >= 0); \
         else FAIL_OVF(err, "integer subtraction")
     '''
-    r = x - y
+    r = intmask(r_uint(x) - r_uint(y))
     if r^x >= 0 or r^~y >= 0:
         return r
     else:
