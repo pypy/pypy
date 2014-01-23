@@ -549,11 +549,14 @@ def type_attach(space, py_obj, w_type):
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 
+def py_type_ready(space, pto):
+    if pto.c_tp_flags & Py_TPFLAGS_READY:
+        return
+    type_realize(space, rffi.cast(PyObject, pto))
+
 @cpython_api([PyTypeObjectPtr], rffi.INT_real, error=-1)
 def PyType_Ready(space, pto):
-    if pto.c_tp_flags & Py_TPFLAGS_READY:
-        return 0
-    type_realize(space, rffi.cast(PyObject, pto))
+    py_type_ready(space, pto)
     return 0
 
 def type_realize(space, py_obj):
