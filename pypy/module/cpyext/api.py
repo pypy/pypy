@@ -400,16 +400,16 @@ SYMBOLS_C = [
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_init_bufferobject',
+    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', '_Py_init_pycobject',
+    'PyCObject_Type', '_Py_get_cobject_type',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_init_capsule',
+    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -691,17 +691,25 @@ def setup_init_functions(eci, translating):
         prefix = 'PyPy'
     else:
         prefix = 'cpyexttest'
-    init_buffer = rffi.llexternal('_%s_init_bufferobject' % prefix, [], lltype.Void,
-                                  compilation_info=eci, releasegil=False)
-    init_pycobject = rffi.llexternal('_%s_init_pycobject' % prefix, [], lltype.Void,
-                                     compilation_info=eci, releasegil=False)
-    init_capsule = rffi.llexternal('_%s_init_capsule' % prefix, [], lltype.Void,
-                                   compilation_info=eci, releasegil=False)
-    INIT_FUNCTIONS.extend([
-        lambda space: init_buffer(),
-        lambda space: init_pycobject(),
-        lambda space: init_capsule(),
-    ])
+    # jump through hoops to avoid releasing the GIL during initialization
+    # of the cpyext module.  The C functions are called with no wrapper,
+    # but must not do anything like calling back PyType_Ready().  We
+    # use them just to get a pointer to the PyTypeObjects defined in C.
+    get_buffer_type = rffi.llexternal('_%s_get_buffer_type' % prefix,
+                                      [], PyTypeObjectPtr,
+                                      compilation_info=eci, _nowrapper=True)
+    get_cobject_type = rffi.llexternal('_%s_get_cobject_type' % prefix,
+                                       [], PyTypeObjectPtr,
+                                       compilation_info=eci, _nowrapper=True)
+    get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
+                                       [], PyTypeObjectPtr,
+                                       compilation_info=eci, _nowrapper=True)
+    def init_types(space):
+        from pypy.module.cpyext.typeobject import py_type_ready
+        py_type_ready(space, get_buffer_type())
+        py_type_ready(space, get_cobject_type())
+        py_type_ready(space, get_capsule_type())
+    INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
     reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
                                  compilation_info=eci)
