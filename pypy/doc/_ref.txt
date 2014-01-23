@@ -109,6 +109,4 @@
 .. _`rpython/translator/c/`: https://bitbucket.org/pypy/pypy/src/default/rpython/translator/c/
 .. _`rpython/translator/c/src/stacklet/`: https://bitbucket.org/pypy/pypy/src/default/rpython/translator/c/src/stacklet/
 .. _`rpython/translator/c/src/stacklet/stacklet.h`: https://bitbucket.org/pypy/pypy/src/default/rpython/translator/c/src/stacklet/stacklet.h
-.. _`rpython/translator/cli/`: https://bitbucket.org/pypy/pypy/src/default/rpython/translator/cli/
-.. _`rpython/translator/jvm/`: https://bitbucket.org/pypy/pypy/src/default/rpython/translator/jvm/
 .. _`rpython/translator/tool/`: https://bitbucket.org/pypy/pypy/src/default/rpython/translator/tool/

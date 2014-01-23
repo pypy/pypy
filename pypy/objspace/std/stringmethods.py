@@ -35,13 +35,7 @@ class StringMethods(object):
         if (isinstance(self, W_BytearrayObject) and
             space.isinstance_w(w_sub, space.w_int)):
             char = space.int_w(w_sub)
-            if not 0 <= char < 256:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("byte must be in range(0, 256)"))
-            for c in self.data:
-                if ord(c) == char:
-                    return space.w_True
-            return space.w_False
+            return _descr_contains_bytearray(self.data, space, char)
         return space.newbool(self._val(space).find(self._op_val(space, w_sub)) >= 0)
 
     def descr_add(self, space, w_other):
@@ -79,7 +73,7 @@ class StringMethods(object):
                 assert start >= 0 and stop >= 0
                 return self._sliced(space, selfvalue, start, stop, self)
             else:
-                ret = [selfvalue[start + i*step] for i in range(sl)]
+                ret = _descr_getslice_slowpath(selfvalue, start, step, sl)
                 return self._new_from_list(ret)
 
         index = space.getindex_w(w_index, space.w_IndexError, "string index")
@@ -253,17 +247,21 @@ class StringMethods(object):
         return self._is_generic(space, '_isdigit')
 
     # this is only for bytes and bytesarray: unicodeobject overrides it
+    def _descr_islower_slowpath(self, space, v):
+        cased = False
+        for idx in range(len(v)):
+            if self._isupper(v[idx]):
+                return False
+            elif not cased and self._islower(v[idx]):
+                cased = True
+        return cased
+
     def descr_islower(self, space):
         v = self._val(space)
         if len(v) == 1:
             c = v[0]
             return space.newbool(self._islower(c))
-        cased = False
-        for idx in range(len(v)):
-            if self._isupper(v[idx]):
-                return space.w_False
-            elif not cased and self._islower(v[idx]):
-                cased = True
+        cased = self._descr_islower_slowpath(space, v)
         return space.newbool(cased)
 
     def descr_isspace(self, space):
@@ -291,17 +289,21 @@ class StringMethods(object):
         return space.newbool(cased)
 
     # this is only for bytes and bytesarray: unicodeobject overrides it
+    def _descr_isupper_slowpath(self, space, v):
+        cased = False
+        for idx in range(len(v)):
+            if self._islower(v[idx]):
+                return False
+            elif not cased and self._isupper(v[idx]):
+                cased = True
+        return cased
+
     def descr_isupper(self, space):
         v = self._val(space)
         if len(v) == 1:
             c = v[0]
             return space.newbool(self._isupper(c))
-        cased = False
-        for idx in range(len(v)):
-            if self._islower(v[idx]):
-                return space.w_False
-            elif not cased and self._isupper(v[idx]):
-                cased = True
+        cased = self._descr_isupper_slowpath(space, v)
         return space.newbool(cased)
 
     def descr_join(self, space, w_list):
@@ -309,7 +311,7 @@ class StringMethods(object):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
         if isinstance(self, W_BytesObject):
-            l = space.listview_str(w_list)
+            l = space.listview_bytes(w_list)
             if l is not None:
                 if len(l) == 1:
                     return space.wrap(l[0])
@@ -677,3 +679,19 @@ class StringMethods(object):
 
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])
+
+# ____________________________________________________________
+# helpers for slow paths, moved out because they contain loops
+
+def _descr_contains_bytearray(data, space, char):
+    if not 0 <= char < 256:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("byte must be in range(0, 256)"))
+    for c in data:
+        if ord(c) == char:
+            return space.w_True
+    return space.w_False
+
+@specialize.argtype(0)
+def _descr_getslice_slowpath(selfvalue, start, step, sl):
+    return [selfvalue[start + i*step] for i in range(sl)]

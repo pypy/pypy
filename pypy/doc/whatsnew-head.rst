@@ -48,3 +48,7 @@ Remove multimethods on str/unicode/bytearray and make the implementations share 
 .. branch: remove-del-from-generatoriterator
 Speed up generators that don't yield inside try or wait blocks by skipping
 unnecessary cleanup.
+
+.. branch: annotator
+Remove FlowObjSpace.
+Improve cohesion between rpython.flowspace and rpython.annotator.
