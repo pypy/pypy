@@ -7,7 +7,6 @@ from rpython.rlib import rstring, runicode, rlocale, rarithmetic, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
 from rpython.tool import sourcetools
-from pypy.objspace.std.unicodetype import ascii_from_object
 
 
 @specialize.argtype(1)
@@ -316,6 +315,7 @@ def make_template_formatting_class():
                     return space.call_function(space.w_unicode, w_obj)
                 return space.str(w_obj)
             elif conv == "a":
+                from pypy.objspace.std.unicodeobject import ascii_from_object
                 return ascii_from_object(space, w_obj)
             else:
                 raise OperationError(self.space.w_ValueError,

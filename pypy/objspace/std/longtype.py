@@ -134,7 +134,7 @@ def bit_length(space, w_obj):
 
 @unwrap_spec(byteorder=str, signed=bool)
 def descr_from_bytes(space, w_cls, w_obj, byteorder, signed=False):
-    from pypy.objspace.std.stringtype import makebytesdata_w
+    from pypy.objspace.std.bytesobject import makebytesdata_w
     bytes = ''.join(makebytesdata_w(space, w_obj))
     try:
         bigint = rbigint.frombytes(bytes, byteorder=byteorder, signed=signed)

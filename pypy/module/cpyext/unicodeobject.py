@@ -230,7 +230,8 @@ def _PyUnicode_AsString(space, ref):
     if not ref_unicode.c_utf8buffer:
         # Copy unicode buffer
         w_unicode = from_ref(space, ref)
-        w_encoded = unicodetype.encode_object(space, w_unicode, "utf-8", "strict")
+        w_encoded = unicodeobject.encode_object(space, w_unicode, "utf-8",
+                                                "strict")
         s = space.bytes_w(w_encoded)
         ref_unicode.c_utf8buffer = rffi.str2charp(s)
     return ref_unicode.c_utf8buffer

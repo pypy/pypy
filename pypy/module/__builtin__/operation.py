@@ -19,7 +19,7 @@ def ascii(space, w_obj):
     object, but escape the non-ASCII characters in the string returned by
     repr() using \\x, \\u or \\U escapes.  This generates a string similar
     to that returned by repr() in Python 2."""
-    from pypy.objspace.std.unicodetype import ascii_from_object
+    from pypy.objspace.std.unicodeobject import ascii_from_object
     return ascii_from_object(space, w_obj)
 
 @unwrap_spec(code=int)

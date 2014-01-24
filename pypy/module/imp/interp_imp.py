@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyparser import pyparse
-from pypy.objspace.std import unicodetype
+from pypy.objspace.std import unicodeobject
 from pypy.module._io.interp_iobase import W_IOBase
 from pypy.module._io import interp_io
 from pypy.interpreter.streamutil import wrap_streamerror
@@ -81,7 +81,7 @@ def find_module(space, w_name, w_path=None):
             stream.flush()
             encoding = pyparse._check_for_encoding(top)
             if encoding is None:
-                encoding = unicodetype.getdefaultencoding(space)
+                encoding = unicodeobject.getdefaultencoding(space)
         #
         # in python2, both CPython and PyPy pass the filename to
         # open(). However, CPython 3 just passes the fd, so the returned file
