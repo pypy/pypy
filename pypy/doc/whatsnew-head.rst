@@ -41,3 +41,19 @@ along with libcompat.a.
 Fix 3 broken links on PyPy published papers in docs.
 
 .. branch: jit-ordereddict
+
+.. branch: refactor-str-types
+Remove multimethods on str/unicode/bytearray and make the implementations share code.
+
+.. branch: remove-del-from-generatoriterator
+Speed up generators that don't yield inside try or wait blocks by skipping
+unnecessary cleanup.
+
+.. branch: annotator
+Remove FlowObjSpace.
+Improve cohesion between rpython.flowspace and rpython.annotator.
+
+.. branch: detect-immutable-fields
+mapdicts keep track of whether or not an attribute is every assigned to
+multiple times. If it's only assigned once then an elidable lookup is used when
+possible.

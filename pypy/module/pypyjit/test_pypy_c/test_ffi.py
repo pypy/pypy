@@ -7,9 +7,9 @@ class Test__ffi(BaseTestPyPyC):
         from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
-                from _ffi import CDLL, types
+                from _rawffi.alt import CDLL, types
             except ImportError:
-                sys.stderr.write('SKIP: cannot import _ffi\n')
+                sys.stderr.write('SKIP: cannot import _rawffi.alt\n')
                 return 0
 
             libm = CDLL(libm_name)
@@ -45,9 +45,9 @@ class Test__ffi(BaseTestPyPyC):
         from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
-                from _ffi import CDLL, types
+                from _rawffi.alt import CDLL, types
             except ImportError:
-                sys.stderr.write('SKIP: cannot import _ffi\n')
+                sys.stderr.write('SKIP: cannot import _rawffi.alt\n')
                 return 0
 
             libm = CDLL(libm_name)
@@ -82,12 +82,12 @@ class Test__ffi(BaseTestPyPyC):
             from threading import Thread
             #
             if os.name == 'nt':
-                from _ffi import WinDLL, types
+                from _rawffi.alt import WinDLL, types
                 libc = WinDLL('Kernel32.dll')
                 sleep = libc.getfunc('Sleep', [types.uint], types.uint)
                 delays = [0]*n + [1000]
             else:
-                from _ffi import CDLL, types
+                from _rawffi.alt import CDLL, types
                 libc = CDLL(libc_name)
                 sleep = libc.getfunc('sleep', [types.uint], types.uint)
                 delays = [0]*n + [1]
@@ -144,7 +144,7 @@ class Test__ffi(BaseTestPyPyC):
 
     def test__ffi_struct(self):
         def main():
-            from _ffi import _StructDescr, Field, types
+            from _rawffi.alt import _StructDescr, Field, types
             fields = [
                 Field('x', types.slong),
                 ]

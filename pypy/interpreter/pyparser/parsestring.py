@@ -15,7 +15,6 @@ def parsestr(space, encoding, s):
     Yes, it's very inefficient.
     Yes, CPython has very similar code.
     """
-
     # we use ps as "pointer to s"
     # q is the virtual last char index of the string
     ps = 0
@@ -50,47 +49,10 @@ def parsestr(space, encoding, s):
 
     if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
         if encoding is None:
-            buf = s
-            bufp = ps
-            bufq = q
-            u = None
+            assert 0 <= ps <= q
+            substr = s[ps:q]
         else:
-            # String is utf8-encoded, but 'unicode_escape' expects
-            # latin-1; So multibyte sequences must be escaped.
-            lis = [] # using a list to assemble the value
-            end = q
-            # Worst case:
-            # "ä" (2 bytes) may become "\U000000E4" (10 bytes), or 1:5
-            # "\ä" (3 bytes) may become "\u005c\U000000E4" (16 bytes),
-            # or ~1:6
-            while ps < end:
-                if s[ps] == '\\':
-                    lis.append(s[ps])
-                    ps += 1
-                    if ord(s[ps]) & 0x80:
-                        # A multibyte sequence will follow, it will be
-                        # escaped like \u1234. To avoid confusion with
-                        # the backslash we just wrote, we emit "\u005c"
-                        # instead.
-                        lis.append("u005c")
-                if ord(s[ps]) & 0x80: # XXX inefficient
-                    w, ps = decode_utf8(space, s, ps, end, "utf-32-be")
-                    rn = len(w)
-                    assert rn % 4 == 0
-                    for i in range(0, rn, 4):
-                        lis.append('\\U')
-                        lis.append(hexbyte(ord(w[i])))
-                        lis.append(hexbyte(ord(w[i+1])))
-                        lis.append(hexbyte(ord(w[i+2])))
-                        lis.append(hexbyte(ord(w[i+3])))
-                else:
-                    lis.append(s[ps])
-                    ps += 1
-            buf = ''.join(lis)
-            bufp = 0
-            bufq = len(buf)
-        assert 0 <= bufp <= bufq
-        substr = buf[bufp:bufq]
+            substr = decode_unicode_utf8(space, s, ps, q)
         v = unicodehelper.decode_unicode_escape(space, substr)
         return space.wrap(v)
 
@@ -119,6 +81,39 @@ def hexbyte(val):
     if len(result) == 1:
         result = "0" + result
     return result
+
+def decode_unicode_utf8(space, s, ps, q):
+    # ****The Python 2.7 version, producing UTF-32 escapes****
+    # String is utf8-encoded, but 'unicode_escape' expects
+    # latin-1; So multibyte sequences must be escaped.
+    lis = [] # using a list to assemble the value
+    end = q
+    # Worst case:
+    # "<92><195><164>" may become "\u005c\U000000E4" (16 bytes)
+    while ps < end:
+        if s[ps] == '\\':
+            lis.append(s[ps])
+            ps += 1
+            if ord(s[ps]) & 0x80:
+                # A multibyte sequence will follow, it will be
+                # escaped like \u1234. To avoid confusion with
+                # the backslash we just wrote, we emit "\u005c"
+                # instead.
+                lis.append("u005c")
+        if ord(s[ps]) & 0x80: # XXX inefficient
+            w, ps = decode_utf8(space, s, ps, end, "utf-32-be")
+            rn = len(w)
+            assert rn % 4 == 0
+            for i in range(0, rn, 4):
+                lis.append('\\U')
+                lis.append(hexbyte(ord(w[i])))
+                lis.append(hexbyte(ord(w[i+1])))
+                lis.append(hexbyte(ord(w[i+2])))
+                lis.append(hexbyte(ord(w[i+3])))
+        else:
+            lis.append(s[ps])
+            ps += 1
+    return ''.join(lis)
 
 def PyString_DecodeEscape(space, s, recode_encoding):
     """

@@ -34,7 +34,7 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_minimal_curses",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "_ffi",
+     "_collections", "_multibytecodec",
      "_continuation", "_csv", "_cffi_backend",
      "_posixsubprocess", "_pypyjson", # "cppyy", "micronumpy",
      ]
@@ -43,7 +43,7 @@ working_modules.update(dict.fromkeys(
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "array", "_ffi",
+     "struct", "array",
      "binascii",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
@@ -99,7 +99,6 @@ module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
     "_rawffi"   : ["rpython.rlib.clibffi"],
-    "_ffi"      : ["rpython.rlib.clibffi"],
 
     "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],

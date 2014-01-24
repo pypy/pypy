@@ -85,9 +85,9 @@ class TestW_SetObject:
 
     def test_create_set_from_list(self):
         py.test.py3k_skip("XXX: strategies are currently broken")
-        from pypy.objspace.std.setobject import ObjectSetStrategy, UnicodeSetStrategy
+        from pypy.interpreter.baseobjspace import W_Root
+        from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy, UnicodeSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
-        from pypy.objspace.std.model import W_Object
 
         w = self.space.wrap
         intstr = self.space.fromcache(IntegerSetStrategy)
@@ -118,7 +118,7 @@ class TestW_SetObject:
         _initialize_set(self.space, w_set, w_list)
         assert w_set.strategy is self.space.fromcache(ObjectSetStrategy)
         for item in w_set.strategy.unerase(w_set.sstorage):
-            assert isinstance(item, W_Object)
+            assert isinstance(item, W_Root)
 
         w_list = W_ListObject(self.space, [w(1.0), w(2.0), w(3.0)])
         w_set = W_SetObject(self.space)
@@ -130,19 +130,19 @@ class TestW_SetObject:
         # changed cached object, need to change it back for other tests to pass
         intstr.get_storage_from_list = tmp_func
 
-    def test_listview_str_int_on_set(self):
+    def test_listview_bytes_int_on_set(self):
         py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
 
         w_a = W_SetObject(self.space)
         _initialize_set(self.space, w_a, w("abcdefg"))
-        assert sorted(self.space.listview_str(w_a)) == list("abcdefg")
+        assert sorted(self.space.listview_bytes(w_a)) == list("abcdefg")
         assert self.space.listview_int(w_a) is None
 
         w_b = W_SetObject(self.space)
         _initialize_set(self.space, w_b, self.space.newlist([w(1),w(2),w(3),w(4),w(5)]))
         assert sorted(self.space.listview_int(w_b)) == [1,2,3,4,5]
-        assert self.space.listview_str(w_b) is None
+        assert self.space.listview_bytes(w_b) is None
 
 class AppTestAppSetTest:
 

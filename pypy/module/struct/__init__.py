@@ -52,11 +52,12 @@ The variable struct.error is an exception raised on errors."""
         'pack': 'interp_struct.pack',
         'unpack': 'interp_struct.unpack',
         '_clearcache': 'interp_struct.clearcache',
-        }
+
+        'Struct': 'interp_struct.W_Struct',
+    }
 
     appleveldefs = {
         'error': 'app_struct.error',
         'pack_into': 'app_struct.pack_into',
         'unpack_from': 'app_struct.unpack_from',
-        'Struct': 'app_struct.Struct',
-        }
+    }

@@ -1,8 +1,8 @@
 import py
 
-from pypy.objspace.std.test import test_stringobject
+from pypy.objspace.std.test import test_bytesobject
 
-class AppTestStringObject(test_stringobject.AppTestStringObject):
+class AppTestStringObject(test_bytesobject.AppTestBytesObject):
     spaceconfig = {"objspace.std.withstrbuf": True}
 
     def test_basic(self):

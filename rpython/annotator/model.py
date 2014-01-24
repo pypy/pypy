@@ -799,21 +799,6 @@ def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
     assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2)
 
 
-def missing_operation(cls, name):
-    def default_op(*args):
-        if args and isinstance(args[0], tuple):
-            flattened = tuple(args[0]) + args[1:]
-        else:
-            flattened = args
-        for arg in flattened:
-            if arg.__class__ is SomeObject and arg.knowntype is not type:
-                return SomeObject()
-        bookkeeper = rpython.annotator.bookkeeper.getbookkeeper()
-        bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
-        return s_ImpossibleValue
-    setattr(cls, name, default_op)
-
-
 class HarmlesslyBlocked(Exception):
     """Raised by the unaryop/binaryop to signal a harmless kind of
     BlockedInference: the current block is blocked, but not in a way

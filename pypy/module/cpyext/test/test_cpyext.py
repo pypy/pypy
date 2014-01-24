@@ -220,7 +220,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             else:
                 separate_module_files = []
             if not space.is_none(w_separate_module_sources):
-                separate_module_sources = space.listview_str(w_separate_module_sources)
+                separate_module_sources = space.listview_bytes(
+                    w_separate_module_sources)
                 assert separate_module_sources is not None
             else:
                 separate_module_sources = []

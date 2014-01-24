@@ -57,6 +57,7 @@ class AppTestUnicodeString:
         assert '' in 'abc'
         assert 'a' in 'abc'
         assert 'bc' in 'abc'
+        assert '\xe2' in 'g\xe2teau'
 
     def test_splitlines(self):
         assert ''.splitlines() == []
@@ -185,6 +186,14 @@ class AppTestUnicodeString:
         assert "!Brown Fox".istitle() == True
         assert "Brow&&&&N Fox".istitle() == True
         assert "!Brow&&&&n Fox".istitle() == False
+        assert '\u1FFc'.istitle()
+        assert 'Greek \u1FFcitlecases ...'.istitle()
+
+    def test_islower_isupper_with_titlecase(self):
+        # \u01c5 is a char which is neither lowercase nor uppercase, but
+        # titlecase
+        assert not '\u01c5abc'.islower()
+        assert not '\u01c5ABC'.isupper()
 
     def test_isidentifier(self):
         assert "".isidentifier() is False
@@ -910,3 +919,31 @@ class AppTestUnicodeString:
 
     def test_format_map_positional(self):
         raises(ValueError, '{}'.format_map, {})
+
+    def test_isdecimal(self):
+        assert '0'.isdecimal()
+        assert not ''.isdecimal()
+        assert not 'a'.isdecimal()
+        assert not '\u2460'.isdecimal() # CIRCLED DIGIT ONE
+
+    def test_isnumeric(self):
+        assert '0'.isnumeric()
+        assert not ''.isnumeric()
+        assert not 'a'.isnumeric()
+        assert '\u2460'.isnumeric() # CIRCLED DIGIT ONE
+
+    def test_replace_autoconvert(self):
+        res = 'one!two!three!'.replace('!', '@', 1)
+        assert res == 'one@two!three!'
+        assert type(res) == str
+
+    def test_join_subclass(self):
+        class StrSubclass(str):
+            pass
+        class BytesSubclass(bytes):
+            pass
+
+        s1 = StrSubclass('a')
+        assert ''.join([s1]) is not s1
+        s2 = BytesSubclass(b'a')
+        assert b''.join([s2]) is not s2
