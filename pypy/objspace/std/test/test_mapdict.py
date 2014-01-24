@@ -107,7 +107,7 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
 
-def test_attr_immutability():
+def test_attr_immutability(monkeypatch):
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
@@ -119,12 +119,13 @@ def test_attr_immutability():
 
     indices = []
 
-    def _pure_mapdict_read_storage(obj, index):
-        assert index == 0
-        indices.append(index)
-        return obj._mapdict_read_storage(obj, index)
+    def _pure_mapdict_read_storage(obj, storageindex):
+        assert storageindex == 0
+        indices.append(storageindex)
+        return obj._mapdict_read_storage(storageindex)
 
     obj.map._pure_mapdict_read_storage = _pure_mapdict_read_storage
+    monkeypatch.setattr(jit, "isconstant", lambda c: True)
 
     assert obj.getdictvalue(space, "a") == 10
     assert obj.getdictvalue(space, "b") == 30
