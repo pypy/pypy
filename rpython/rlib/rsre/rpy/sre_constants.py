@@ -9,13 +9,13 @@
 # See the sre.py file for information on usage and redistribution.
 #
 
-"""Internal support module for sre (copied from CPython 2.7.3)"""
+"""Internal support module for sre (copied from CPython 2.7.5)"""
 
 # update when constants are added or removed
 
 MAGIC = 20031017
 
-from _sre import MAXREPEAT
+from ._sre import MAXREPEAT
 
 # SRE standard exception (access as sre.error)
 # (use the real re.error exception class)

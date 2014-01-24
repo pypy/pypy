@@ -8,14 +8,14 @@
 # See the sre.py file for information on usage and redistribution.
 #
 
-"""Internal support module for sre (copied from CPython 2.7.3)"""
+"""Internal support module for sre (copied from CPython 2.7.5)"""
 
 # XXX: show string offset and offending character for all errors
 
 import sys
 
 from .sre_constants import *
-from _sre import MAXREPEAT
+from ._sre import MAXREPEAT
 
 SPECIAL_CHARS = ".\\[{()*+?^$|"
 REPEAT_CHARS = "*+?{"

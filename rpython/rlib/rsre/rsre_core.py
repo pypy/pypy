@@ -95,6 +95,10 @@ class AbstractMatchContext(object):
         self.match_start = match_start
         self.end = end
         self.flags = flags
+        # check we don't get the old value of MAXREPEAT
+        # during the untranslated tests
+        if not we_are_translated():
+            assert 65535 not in pattern
 
     def reset(self, start):
         self.match_start = start
