@@ -40,9 +40,9 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
-        obj._mapdict_write_storage(attr.storageindex, w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
+        obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
 
     def delete(self, obj, selector):
