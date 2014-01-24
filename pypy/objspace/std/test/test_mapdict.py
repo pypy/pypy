@@ -107,6 +107,43 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
 
+def test_attr_immutability():
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "b", 30)
+    assert obj.storage == [10, 30]
+    assert obj.map.ever_mutated == True
+    assert obj.map.back.ever_mutated == False
+
+    def _mapdict_read_storage(index, pure=False):
+        assert index in (0, 1)
+        if index == 0:
+            assert pure == True
+        else:
+            assert pure == False
+        return Object._mapdict_read_storage(obj, index, pure)
+
+    obj._mapdict_read_storage = _mapdict_read_storage
+
+    assert obj.getdictvalue(space, "a") == 10
+    assert obj.getdictvalue(space, "b") == 30
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "a", 15)
+    obj2.setdictvalue(space, "b", 25)
+    assert obj2.map is obj.map
+    assert obj2.map.ever_mutated == True
+    assert obj2.map.back.ever_mutated == False
+
+    # mutating obj2 changes the map
+    obj2.setdictvalue(space, "a", 50)
+    assert obj2.map.back.ever_mutated == True
+    assert obj2.map is obj.map
+
+
+
 def test_delete():
     for i, dattr in enumerate(["a", "b", "c"]):
         c = Class()

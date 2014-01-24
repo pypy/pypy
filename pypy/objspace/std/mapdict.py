@@ -34,7 +34,7 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
-        return obj._mapdict_read_storage(attr.storageindex, pure=not self.ever_mutated)
+        return obj._mapdict_read_storage(attr.storageindex, pure=not attr.ever_mutated)
 
     def write(self, obj, selector, w_value):
         attr = self.find_map_attr(selector)
