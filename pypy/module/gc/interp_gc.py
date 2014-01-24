@@ -12,8 +12,8 @@ def collect(space, generation=0):
         cache = space.fromcache(MethodCache)
         cache.clear()
         if space.config.objspace.std.withmapdict:
-            from pypy.objspace.std.mapdict import IndexCache
-            cache = space.fromcache(IndexCache)
+            from pypy.objspace.std.mapdict import MapAttrCache
+            cache = space.fromcache(MapAttrCache)
             cache.clear()
     rgc.collect()
     return space.wrap(0)

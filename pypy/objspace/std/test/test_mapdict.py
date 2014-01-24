@@ -64,7 +64,7 @@ def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
         current = PlainAttribute((str(i), DICT), current)
-    assert current.index(("0", DICT)).position == 0
+    assert current.find_map_attr(("0", DICT)).storageindex == 0
 
 
 def test_search():
