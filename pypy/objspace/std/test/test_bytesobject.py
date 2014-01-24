@@ -203,10 +203,10 @@ class AppTestBytesObject:
         assert b'abc'.rjust(5, b'*') == b'**abc'     # Python 2.4
         assert b'abc'.rjust(0) == b'abc'
         assert b'abc'.rjust(-1) == b'abc'
+        assert b'abc'.rjust(5, bytearray(b' ')) == b'  abc'
         raises(TypeError, b'abc'.rjust, 5.0)
         raises(TypeError, b'abc'.rjust, 5, '*')
         raises(TypeError, b'abc'.rjust, 5, b'xx')
-        raises(TypeError, b'abc'.rjust, 5, bytearray(b' '))
         raises(TypeError, b'abc'.rjust, 5, 32)
 
     def test_ljust(self):
@@ -290,8 +290,8 @@ class AppTestBytesObject:
         assert b'abc'.center(5, b'*') == b'*abc*'     # Python 2.4
         assert b'abc'.center(0) == b'abc'
         assert b'abc'.center(-1) == b'abc'
+        assert b'abc'.center(5, bytearray(b' ')) == b' abc '
         raises(TypeError, b'abc'.center, 4, b'cba')
-        raises(TypeError, b'abc'.center, 5, bytearray(b' '))
         assert b' abc'.center(7) == b'   abc '
 
     def test_count(self):
