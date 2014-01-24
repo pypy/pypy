@@ -34,7 +34,18 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
-        return obj._mapdict_read_storage(attr.storageindex, pure=not attr.ever_mutated)
+        if (
+            not attr.ever_mutated and
+            jit.isconstant(attr.storageindex) and
+            jit.isconstant(obj)
+        ):
+            return self._pure_mapdict_read_storage(obj, attr.storageindex)
+        else:
+            return obj._mapdict_read_storage(attr.storageindex)
+
+    @jit.elidable
+    def _pure_mapdict_read_storage(self, obj, storageindex):
+        return obj._mapdict_read_storage(storageindex)
 
     def write(self, obj, selector, w_value):
         attr = self.find_map_attr(selector)
@@ -466,18 +477,13 @@ class ObjectMixin(object):
         self.map = map
         self.storage = make_sure_not_resized([None] * map.size_estimate())
 
-    def _mapdict_read_storage(self, storageindex, pure=False):
+    def _mapdict_read_storage(self, storageindex):
         assert storageindex >= 0
-        if pure and jit.isconstant(storageindex) and jit.isconstant(self):
-            return self._pure_mapdict_read_storage(storageindex)
-        return self.storage[storageindex]
-
-    @jit.elidable
-    def _pure_mapdict_read_storage(self, storageindex):
         return self.storage[storageindex]
 
     def _mapdict_write_storage(self, storageindex, value):
         self.storage[storageindex] = value
+
     def _mapdict_storage_length(self):
         return len(self.storage)
     def _set_mapdict_storage_and_map(self, storage, map):
@@ -543,17 +549,8 @@ def _make_subclass_size_n(supercls, n):
             erased = getattr(self, "_value%s" % nmin1)
             return unerase_list(erased)
 
-        def _mapdict_read_storage(self, storageindex, pure=False):
+        def _mapdict_read_storage(self, storageindex):
             assert storageindex >= 0
-            if pure and jit.isconstant(storageindex) and jit.isconstant(self):
-                return self._pure_mapdict_read_storage(storageindex)
-            return self._indirection_mapdict_read_storage(storageindex)
-
-        @jit.elidable
-        def _pure_mapdict_read_storage(self, storageindex):
-            return self._indirection_mapdict_read_storage(storageindex)
-
-        def _indirection_mapdict_read_storage(self, storageindex):
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:

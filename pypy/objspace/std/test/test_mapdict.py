@@ -117,18 +117,19 @@ def test_attr_immutability():
     assert obj.map.ever_mutated == True
     assert obj.map.back.ever_mutated == False
 
-    def _mapdict_read_storage(index, pure=False):
-        assert index in (0, 1)
-        if index == 0:
-            assert pure == True
-        else:
-            assert pure == False
-        return Object._mapdict_read_storage(obj, index, pure)
+    indices = []
 
-    obj._mapdict_read_storage = _mapdict_read_storage
+    def _pure_mapdict_read_storage(obj, index):
+        assert index == 0
+        indices.append(index)
+        return obj._mapdict_read_storage(obj, index)
+
+    obj.map._pure_mapdict_read_storage = _pure_mapdict_read_storage
 
     assert obj.getdictvalue(space, "a") == 10
     assert obj.getdictvalue(space, "b") == 30
+    assert obj.getdictvalue(space, "a") == 10
+    assert indices == [0, 0]
 
     obj2 = cls.instantiate()
     obj2.setdictvalue(space, "a", 15)
