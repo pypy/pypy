@@ -3,15 +3,14 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.objspace.std.bytearraytype import new_bytearray
-from pypy.objspace.std.stringtype import getbytevalue, makebytesdata_w
+from pypy.objspace.std.bytesobject import (
+    getbytevalue, makebytesdata_w, newbytesdata_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.signature import Signature
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import get_positive_index
-from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, import_from_mixin
+from rpython.rlib.objectmodel import import_from_mixin
 from rpython.rlib.rstring import StringBuilder
 
 
@@ -101,10 +100,8 @@ class W_BytearrayObject(W_Root):
         return False
 
     def _join_check_item(self, space, w_obj):
-        if (space.isinstance_w(w_obj, space.w_str) or
-            space.isinstance_w(w_obj, space.w_bytearray)):
-            return 0
-        return 1
+        return not (space.isinstance_w(w_obj, space.w_bytes) or
+                    space.isinstance_w(w_obj, space.w_bytearray))
 
     def ord(self, space):
         if len(self.data) != 1:
@@ -134,74 +131,19 @@ class W_BytearrayObject(W_Root):
         "Create a bytearray object from a string of hexadecimal numbers.\n"
         "Spaces between two numbers are accepted.\n"
         "Example: bytearray.fromhex('B9 01EF') -> bytearray(b'\\xb9\\x01\\xef')."
-        hexstring = space.str_w(w_hexstring)
-        hexstring = hexstring.lower()
-        data = []
-        length = len(hexstring)
-        i = -2
-        while True:
-            i += 2
-            while i < length and hexstring[i] == ' ':
-                i += 1
-            if i >= length:
-                break
-            if i+1 == length:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "non-hexadecimal number found in fromhex() arg at position %d" % i))
-
-            top = _hex_digit_to_int(hexstring[i])
-            if top == -1:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "non-hexadecimal number found in fromhex() arg at position %d" % i))
-            bot = _hex_digit_to_int(hexstring[i+1])
-            if bot == -1:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
-            data.append(chr(top*16 + bot))
-
+        if not space.is_w(space.type(w_hexstring), space.w_unicode):
+            raise operationerrfmt(space.w_TypeError, "must be str, not %T",
+                                  w_hexstring)
+        hexstring = space.unicode_w(w_hexstring)
+        data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
         return new_bytearray(space, space.w_bytearray, data)
 
-    def descr_init(self, space, __args__):
-        # this is on the silly side
-        w_source, w_encoding, w_errors = __args__.parse_obj(
-                None, 'bytearray', init_signature, init_defaults)
-
-        if w_source is None:
-            w_source = space.wrap('')
-        if w_encoding is None:
-            w_encoding = space.w_None
-        if w_errors is None:
-            w_errors = space.w_None
-
-        # Unicode argument
-        if not space.is_w(w_encoding, space.w_None):
-            from pypy.objspace.std.unicodeobject import (
-                _get_encoding_and_errors, encode_object
-            )
-            encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-
-            # if w_source is an integer this correctly raises a TypeError
-            # the CPython error message is: "encoding or errors without a string argument"
-            # ours is: "expected unicode, got int object"
-            w_source = encode_object(space, w_source, encoding, errors)
-
-        # Is it an int?
-        try:
-            count = space.int_w(w_source)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            if count < 0:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("bytearray negative count"))
-            self.data = ['\0'] * count
-            return
-
-        data = makebytearraydata_w(space, w_source)
-        self.data = data
+    @unwrap_spec(encoding='str_or_None', errors='str_or_None')
+    def descr_init(self, space, w_source=None, encoding=None, errors=None):
+        assert isinstance(self, W_BytearrayObject)
+        self.data = newbytesdata_w(space, w_source, encoding, errors)
 
     def descr_repr(self, space):
         s = self.data
@@ -236,7 +178,10 @@ class W_BytearrayObject(W_Root):
         return space.wrap(buf.build())
 
     def descr_str(self, space):
-        return space.wrap(''.join(self.data))
+        if space.sys.get_flag('bytes_warning'):
+            space.warn(space.wrap("str() on a bytearray instance"),
+                       space.w_BytesWarning)
+        return self.descr_repr(space)
 
     def descr_eq(self, space, w_other):
         try:
@@ -310,7 +255,7 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_index, W_SliceObject):
             oldsize = len(self.data)
             start, stop, step, slicelength = w_index.indices4(space, oldsize)
-            sequence2 = makebytearraydata_w(space, w_other)
+            sequence2 = makebytesdata_w(space, w_other)
             _setitem_slice_helper(space, self.data, start, step,
                                   slicelength, sequence2, empty_elem='\x00')
         else:
@@ -341,7 +286,7 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             self.data += w_other.data
         else:
-            self.data += makebytearraydata_w(space, w_other)
+            self.data += makebytesdata_w(space, w_other)
         return self
 
     def descr_insert(self, space, w_idx, w_other):
@@ -376,63 +321,46 @@ class W_BytearrayObject(W_Root):
     def descr_reverse(self, space):
         self.data.reverse()
 
-def getbytevalue(space, w_value):
-    if space.isinstance_w(w_value, space.w_str):
-        string = space.str_w(w_value)
-        if len(string) != 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "string must be of size 1"))
-        return string[0]
-
-    value = space.getindex_w(w_value, None)
-    if not 0 <= value < 256:
-        # this includes the OverflowError in case the long is too large
-        raise OperationError(space.w_ValueError, space.wrap(
-            "byte must be in range(0, 256)"))
-    return chr(value)
-
 def new_bytearray(space, w_bytearraytype, data):
     w_obj = space.allocate_instance(W_BytearrayObject, w_bytearraytype)
     W_BytearrayObject.__init__(w_obj, data)
     return w_obj
 
 
-def makebytearraydata_w(space, w_source):
-    # String-like argument
-    try:
-        string = space.bufferstr_new_w(w_source)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-    else:
-        return [c for c in string]
-
-    # sequence of bytes
-    w_iter = space.iter(w_source)
-    length_hint = space.length_hint(w_source, 0)
-    data = newlist_hint(length_hint)
-    extended = 0
-    while True:
-        try:
-            w_item = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        value = getbytevalue(space, w_item)
-        data.append(value)
-        extended += 1
-    if extended < length_hint:
-        resizelist_hint(data, extended)
-    return data
-
 def _hex_digit_to_int(d):
     val = ord(d)
     if 47 < val < 58:
         return val - 48
+    if 64 < val < 71:
+        return val - 55
     if 96 < val < 103:
         return val - 87
     return -1
+
+def _hexstring_to_array(space, s):
+    data = []
+    length = len(s)
+    i = -2
+    while True:
+        i += 2
+        while i < length and s[i] == ' ':
+            i += 1
+        if i >= length:
+            break
+        if i + 1 == length:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+
+        top = _hex_digit_to_int(s[i])
+        if top == -1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+        bot = _hex_digit_to_int(s[i+1])
+        if bot == -1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
+        data.append(chr(top*16 + bot))
+    return data
 
 
 class BytearrayDocstrings:
@@ -867,6 +795,8 @@ W_BytearrayObject.typedef = StdTypeDef(
                             doc=BytearrayDocstrings.__reduce__.__doc__),
     fromhex = interp2app(W_BytearrayObject.descr_fromhex, as_classmethod=True,
                          doc=BytearrayDocstrings.fromhex.__doc__),
+    maketrans = interp2app(W_BytearrayObject.descr_maketrans,
+                           as_classmethod=True),
 
     __repr__ = interp2app(W_BytearrayObject.descr_repr,
                           doc=BytearrayDocstrings.__repr__.__doc__),
@@ -1001,9 +931,6 @@ W_BytearrayObject.typedef = StdTypeDef(
                          doc=BytearrayDocstrings.reverse.__doc__),
 )
 
-init_signature = Signature(['source', 'encoding', 'errors'], None, None)
-init_defaults = [None, None, None]
-
 
 # XXX consider moving to W_BytearrayObject or remove
 def str_join__Bytearray_ANY(space, w_self, w_list):
@@ -1014,7 +941,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
     newdata = []
     for i in range(len(list_w)):
         w_s = list_w[i]
-        if not (space.isinstance_w(w_s, space.w_str) or
+        if not (space.isinstance_w(w_s, space.w_bytes) or
                 space.isinstance_w(w_s, space.w_bytearray)):
             msg = "sequence item %d: expected string, %T found"
             raise operationerrfmt(space.w_TypeError, msg, i, w_s)

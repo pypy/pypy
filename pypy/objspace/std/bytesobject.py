@@ -4,15 +4,13 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault, interpindirect2app
-from pypy.objspace.std import newformat
-from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
-from pypy.objspace.std.unicodeobject import (
-    decode_object, unicode_from_encoded_object, _get_encoding_and_errors)
 from rpython.rlib.jit import we_are_jitted
-from rpython.rlib.objectmodel import compute_hash, compute_unique_id, import_from_mixin
-from rpython.rlib.rstring import StringBuilder, replace
+from rpython.rlib.objectmodel import (
+    compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
+    resizelist_hint)
+from rpython.rlib.rstring import StringBuilder
 
 
 class W_AbstractBytesObject(W_Root):
@@ -41,12 +39,6 @@ class W_AbstractBytesObject(W_Root):
     def descr_eq(self, space, w_other):
         """x.__eq__(y) <==> x==y"""
 
-    def descr__format__(self, space, w_format_spec):
-        """S.__format__(format_spec) -> string
-
-        Return a formatted version of S as described by format_spec.
-        """
-
     def descr_ge(self, space, w_other):
         """x.__ge__(y) <==> x>=y"""
 
@@ -55,12 +47,6 @@ class W_AbstractBytesObject(W_Root):
 
     def descr_getnewargs(self, space):
         ""
-
-    def descr_getslice(self, space, w_start, w_stop):
-        """x.__getslice__(i, j) <==> x[i:j]
-
-        Use of negative indices is not supported.
-        """
 
     def descr_gt(self, space, w_other):
         """x.__gt__(y) <==> x>y"""
@@ -76,9 +62,6 @@ class W_AbstractBytesObject(W_Root):
 
     def descr_lt(self, space, w_other):
         """x.__lt__(y) <==> x<y"""
-
-    def descr_mod(self, space, w_values):
-        """x.__mod__(y) <==> x%y"""
 
     def descr_mul(self, space, w_times):
         """x.__mul__(n) <==> x*n"""
@@ -132,17 +115,6 @@ class W_AbstractBytesObject(W_Root):
         able to handle UnicodeDecodeErrors.
         """
 
-    def descr_encode(self, space, w_encoding=None, w_errors=None):
-        """S.encode(encoding=None, errors='strict') -> object
-
-        Encode S using the codec registered for encoding. encoding defaults
-        to the default encoding. errors may be given to set a different error
-        handling scheme. Default is 'strict' meaning that encoding errors raise
-        a UnicodeEncodeError. Other possible values are 'ignore', 'replace' and
-        'xmlcharrefreplace' as well as any other name registered with
-        codecs.register_error that is able to handle UnicodeEncodeErrors.
-        """
-
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         """S.endswith(suffix[, start[, end]]) -> bool
 
@@ -168,13 +140,6 @@ class W_AbstractBytesObject(W_Root):
         arguments start and end are interpreted as in slice notation.
 
         Return -1 on failure.
-        """
-
-    def descr_format(self, space, __args__):
-        """S.format(*args, **kwargs) -> string
-
-        Return a formatted version of S, using substitutions from args and kwargs.
-        The substitutions are identified by braces ('{' and '}').
         """
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
@@ -511,46 +476,45 @@ class W_BytesObject(W_AbstractBytesObject):
         return space.newlist_str(lst)
 
     @staticmethod
-    @unwrap_spec(w_object = WrappedDefault(""))
-    def descr_new(space, w_stringtype, w_object):
-        # NB. the default value of w_object is really a *wrapped* empty string:
-        #     there is gateway magic at work
-        w_obj = space.str(w_object)
-        if space.is_w(w_stringtype, space.w_str):
-            return w_obj  # XXX might be reworked when space.str() typechecks
-        value = space.str_w(w_obj)
+    @unwrap_spec(encoding='str_or_None', errors='str_or_None')
+    def descr_new(space, w_stringtype, w_source=None, encoding=None,
+                  errors=None):
+        if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
+            space.is_w(w_stringtype, space.w_bytes)):
+            return w_source
+        value = ''.join(newbytesdata_w(space, w_source, encoding, errors))
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
         W_BytesObject.__init__(w_obj, value)
         return w_obj
 
+    @staticmethod
+    def descr_fromhex(space, w_type, w_hexstring):
+        r"""bytes.fromhex(string) -> bytes
+
+        Create a bytes object from a string of hexadecimal numbers.
+        Spaces between two numbers are accepted.
+        Example: bytes.fromhex('B9 01EF') -> b'\xb9\x01\xef'.
+        """
+        if not space.is_w(space.type(w_hexstring), space.w_unicode):
+            raise operationerrfmt(space.w_TypeError, "must be str, not %T",
+                                  w_hexstring)
+        from pypy.objspace.std.bytearrayobject import _hexstring_to_array
+        hexstring = space.unicode_w(w_hexstring)
+        bytes = ''.join(_hexstring_to_array(space, hexstring))
+        return W_BytesObject(bytes)
+
     def descr_repr(self, space):
-        s = self._value
-        quote = "'"
-        if quote in s and '"' not in s:
-            quote = '"'
-        return space.wrap(string_escape_encode(s, quote))
+        return space.wrap(string_escape_encode(self._value, True))
 
     def descr_str(self, space):
-        if type(self) is W_BytesObject:
-            return self
-        return wrapstr(space, self._value)
+        if space.sys.get_flag('bytes_warning'):
+            space.warn(space.wrap("str() on a bytes instance"),
+                       space.w_BytesWarning)
+        return self.descr_repr(space)
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
         return space.wrap(x)
-
-    def descr_format(self, space, __args__):
-        return newformat.format_method(space, self, __args__, is_unicode=False)
-
-    def descr__format__(self, space, w_format_spec):
-        if not space.isinstance_w(w_format_spec, space.w_str):
-            w_format_spec = space.str(w_format_spec)
-        spec = space.str_w(w_format_spec)
-        formatter = newformat.str_formatter(space, spec)
-        return formatter.format_string(self._value)
-
-    def descr_mod(self, space, w_values):
-        return mod_format(space, self, w_values, do_unicode=False)
 
     def descr_buffer(self, space):
         return space.wrap(StringBuffer(self._value))
@@ -613,10 +577,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     _StringMethods_descr_add = descr_add
     def descr_add(self, space, w_other):
-        if space.isinstance_w(w_other, space.w_unicode):
-            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
-            return space.add(self_as_unicode, w_other)
-        elif space.isinstance_w(w_other, space.w_bytearray):
+        if space.isinstance_w(w_other, space.w_bytearray):
             # XXX: eliminate double-copy
             from .bytearrayobject import W_BytearrayObject, _make_data
             self_as_bytearray = W_BytearrayObject(_make_data(self._value))
@@ -635,50 +596,22 @@ class W_BytesObject(W_AbstractBytesObject):
             return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
 
-    _StringMethods__startswith = _startswith
-    def _startswith(self, space, value, w_prefix, start, end):
-        if space.isinstance_w(w_prefix, space.w_unicode):
-            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
-            return self_as_unicode._startswith(space, self_as_unicode._value, w_prefix, start, end)
-        return self._StringMethods__startswith(space, value, w_prefix, start, end)
-
-    _StringMethods__endswith = _endswith
-    def _endswith(self, space, value, w_suffix, start, end):
-        if space.isinstance_w(w_suffix, space.w_unicode):
-            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
-            return self_as_unicode._endswith(space, self_as_unicode._value, w_suffix, start, end)
-        return self._StringMethods__endswith(space, value, w_suffix, start, end)
-
     _StringMethods_descr_contains = descr_contains
     def descr_contains(self, space, w_sub):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            from pypy.objspace.std.unicodeobject import W_UnicodeObject
-            assert isinstance(w_sub, W_UnicodeObject)
-            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
-            return space.newbool(self_as_unicode._value.find(w_sub._value) >= 0)
-        return self._StringMethods_descr_contains(space, w_sub)
-
-    _StringMethods_descr_replace = descr_replace
-    @unwrap_spec(count=int)
-    def descr_replace(self, space, w_old, w_new, count=-1):
-        old_is_unicode = space.isinstance_w(w_old, space.w_unicode)
-        new_is_unicode = space.isinstance_w(w_new, space.w_unicode)
-        if old_is_unicode or new_is_unicode:
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            if not old_is_unicode:
-                w_old = unicode_from_encoded_object(space, w_old, None, None)
-            if not new_is_unicode:
-                w_new = unicode_from_encoded_object(space, w_new, None, None)
-            input = self_as_uni._val(space)
-            sub = self_as_uni._op_val(space, w_old)
-            by = self_as_uni._op_val(space, w_new)
+        if space.isinstance_w(w_sub, space.w_int):
             try:
-                res = replace(input, sub, by, count)
-            except OverflowError:
-                raise OperationError(space.w_OverflowError,
-                                     space.wrap("replace string is too long"))
-            return self_as_uni._new(res)
-        return self._StringMethods_descr_replace(space, w_old, w_new, count)
+                char = space.int_w(w_sub)
+            except OperationError as e:
+                if e.match(space, space.w_OverflowError):
+                    char = 256 # arbitrary value which will trigger the ValueError
+                               # condition below
+                else:
+                    raise
+            if not 0 <= char < 256:
+                raise operationerrfmt(space.w_ValueError,
+                                      "character must be in range(256)")
+            return space.newbool(self._value.find(chr(char)) >= 0)
+        return self._StringMethods_descr_contains(space, w_sub)
 
     def descr_lower(self, space):
         return W_BytesObject(self._value.lower())
@@ -687,32 +620,16 @@ class W_BytesObject(W_AbstractBytesObject):
         return W_BytesObject(self._value.upper())
 
     def _join_return_one(self, space, w_obj):
-        return (space.is_w(space.type(w_obj), space.w_str) or
-                space.is_w(space.type(w_obj), space.w_unicode))
+        return space.is_w(space.type(w_obj), space.w_str)
 
     def _join_check_item(self, space, w_obj):
-        if space.isinstance_w(w_obj, space.w_str):
-            return 0
-        if space.isinstance_w(w_obj, space.w_unicode):
-            return 2
-        return 1
-
-    def _join_autoconvert(self, space, list_w):
-        # we need to rebuild w_list here, because the original
-        # w_list might be an iterable which we already consumed
-        w_list = space.newlist(list_w)
-        w_u = space.call_function(space.w_unicode, self)
-        return space.call_method(w_u, "join", w_list)
-
-    def descr_formatter_parser(self, space):
-        from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
-        return tformat.formatter_parser()
-
-    def descr_formatter_field_name_split(self, space):
-        from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
-        return tformat.formatter_field_name_split()
+        try:
+            self._op_val(space, w_obj)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            return True
+        return False
 
 
 def _create_list_from_string(value):
@@ -748,13 +665,103 @@ def wrapchar(space, c):
         return W_BytesObject(c)
 
 
+def getbytevalue(space, w_value):
+    value = space.getindex_w(w_value, None)
+    if not 0 <= value < 256:
+        # this includes the OverflowError in case the long is too large
+        raise OperationError(space.w_ValueError, space.wrap(
+            "byte must be in range(0, 256)"))
+    return chr(value)
+
+def newbytesdata_w(space, w_source, encoding, errors):
+    # None value
+    if w_source is None:
+        if encoding is not None or errors is not None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "encoding or errors without string argument"))
+        return []
+    # Is it an int?
+    try:
+        count = space.int_w(w_source)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        if count < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative count"))
+        if encoding is not None or errors is not None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "encoding or errors without string argument"))
+        return ['\0'] * count
+    # Unicode with encoding
+    if space.isinstance_w(w_source, space.w_unicode):
+        if encoding is None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "string argument without an encoding"))
+        from pypy.objspace.std.unicodeobject import encode_object
+        w_source = encode_object(space, w_source, encoding, errors)
+        # and continue with the encoded string
+
+    return makebytesdata_w(space, w_source)
+
+def makebytesdata_w(space, w_source):
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method is not None:
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            msg = "__bytes__ returned non-bytes (type '%T')"
+            raise operationerrfmt(space.w_TypeError, msg, w_bytes)
+        return [c for c in space.bytes_w(w_bytes)]
+
+    # String-like argument
+    try:
+        string = space.bufferstr_new_w(w_source)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        return [c for c in string]
+
+    if space.isinstance_w(w_source, space.w_unicode):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("cannot convert unicode object to bytes"))
+
+    # sequence of bytes
+    w_iter = space.iter(w_source)
+    length_hint = space.length_hint(w_source, 0)
+    data = newlist_hint(length_hint)
+    extended = 0
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        value = getbytevalue(space, w_item)
+        data.append(value)
+        extended += 1
+    if extended < length_hint:
+        resizelist_hint(data, extended)
+    return data
+
+
 W_BytesObject.typedef = StdTypeDef(
     "bytes",
     __new__ = interp2app(W_BytesObject.descr_new),
-    __doc__ = """str(object='') -> string
+    __doc__ = """bytes(iterable_of_ints) -> bytes
+    bytes(string, encoding[, errors]) -> bytes
+    bytes(bytes_or_buffer) -> immutable copy of bytes_or_buffer
+    bytes(int) -> bytes object of size given by the parameter initialized with null bytes
+    bytes() -> empty bytes object
 
-    Return a nice string representation of the object.
-    If the argument is a string, the return value is the same object.
+    Construct an immutable array of bytes from:
+      - an iterable yielding integers in range(256)
+      - a text string encoded using the specified encoding
+      - any object implementing the buffer API.
+      - an integer
     """,
 
     __repr__ = interpindirect2app(W_AbstractBytesObject.descr_repr),
@@ -776,13 +783,11 @@ W_BytesObject.typedef = StdTypeDef(
     __rmul__ = interpindirect2app(W_AbstractBytesObject.descr_rmul),
 
     __getitem__ = interpindirect2app(W_AbstractBytesObject.descr_getitem),
-    __getslice__ = interpindirect2app(W_AbstractBytesObject.descr_getslice),
 
     capitalize = interpindirect2app(W_AbstractBytesObject.descr_capitalize),
     center = interpindirect2app(W_AbstractBytesObject.descr_center),
     count = interpindirect2app(W_AbstractBytesObject.descr_count),
     decode = interpindirect2app(W_AbstractBytesObject.descr_decode),
-    encode = interpindirect2app(W_AbstractBytesObject.descr_encode),
     expandtabs = interpindirect2app(W_AbstractBytesObject.descr_expandtabs),
     find = interpindirect2app(W_AbstractBytesObject.descr_find),
     rfind = interpindirect2app(W_AbstractBytesObject.descr_rfind),
@@ -816,14 +821,11 @@ W_BytesObject.typedef = StdTypeDef(
     upper = interpindirect2app(W_AbstractBytesObject.descr_upper),
     zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
 
-    format = interpindirect2app(W_BytesObject.descr_format),
-    __format__ = interpindirect2app(W_BytesObject.descr__format__),
-    __mod__ = interpindirect2app(W_BytesObject.descr_mod),
     __buffer__ = interpindirect2app(W_AbstractBytesObject.descr_buffer),
     __getnewargs__ = interpindirect2app(W_AbstractBytesObject.descr_getnewargs),
-    _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),
-    _formatter_field_name_split =
-        interp2app(W_BytesObject.descr_formatter_field_name_split),
+
+    fromhex = interp2app(W_BytesObject.descr_fromhex, as_classmethod=True),
+    maketrans = interp2app(W_BytesObject.descr_maketrans, as_classmethod=True),
 )
 
 

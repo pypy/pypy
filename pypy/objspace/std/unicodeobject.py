@@ -109,6 +109,9 @@ class W_UnicodeObject(W_Root):
 
     _builder = UnicodeBuilder
 
+    def _generic_name(self):
+        return "str"
+
     def _isupper(self, ch):
         return unicodedb.isupper(ord(ch))
 
@@ -178,16 +181,10 @@ class W_UnicodeObject(W_Root):
 
     @staticmethod
     def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
-        if space.is_none(w_y):
-            y = None
-        else:
-            y = space.unicode_w(w_y)
-        if space.is_none(w_z):
-            z = None
-        else:
-            z = space.unicode_w(w_z)
-
+        y = None if space.is_none(w_y) else space.unicode_w(w_y)
+        z = None if space.is_none(w_z) else space.unicode_w(w_z)
         w_new = space.newdict()
+
         if y is not None:
             # x must be a string too, of equal length
             ylen = len(y)
@@ -362,9 +359,9 @@ class W_UnicodeObject(W_Root):
                 elif space.isinstance_w(w_newval, space.w_unicode):
                     result.append(space.unicode_w(w_newval))
                 else:
-                    raise OperationError(
+                    raise operationerrfmt(
                         space.w_TypeError,
-                        space.wrap("character mapping must return integer, None or unicode"))
+                        "character mapping must return integer, None or str")
         return W_UnicodeObject(u''.join(result))
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
@@ -375,10 +372,7 @@ class W_UnicodeObject(W_Root):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
     def _join_check_item(self, space, w_obj):
-        if (space.isinstance_w(w_obj, space.w_str) or
-            space.isinstance_w(w_obj, space.w_unicode)):
-            return 0
-        return 1
+        return not space.isinstance_w(w_obj, space.w_unicode)
 
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
@@ -415,6 +409,17 @@ class W_UnicodeObject(W_Root):
                 return space.w_False
         return space.w_True
 
+    def _fix_fillchar(func):
+        # XXX: hack
+        from rpython.tool.sourcetools import func_with_new_name
+        func = func_with_new_name(func, func.__name__)
+        func.unwrap_spec = func.unwrap_spec.copy()
+        func.unwrap_spec['w_fillchar'] = WrappedDefault(u' ')
+        return func
+
+    descr_center = _fix_fillchar(StringMethods.descr_center)
+    descr_ljust = _fix_fillchar(StringMethods.descr_ljust)
+    descr_rjust = _fix_fillchar(StringMethods.descr_rjust)
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
@@ -530,17 +535,11 @@ def decode_object(space, w_obj, encoding, errors):
 
 
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
-    # explicitly block bytearray on 2.7
-    from .bytearrayobject import W_BytearrayObject
-    if isinstance(w_obj, W_BytearrayObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("decoding bytearray is not supported"))
-
     w_retval = decode_object(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
         raise operationerrfmt(space.w_TypeError,
-            "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space))
+            "decoder did not return a str object (type '%T')",
+            w_retval)
     assert isinstance(w_retval, W_UnicodeObject)
     return w_retval
 
@@ -840,19 +839,6 @@ class UnicodeDocstrings:
         If chars is a str, it will be converted to unicode before stripping
         """
 
-    def maketrans():
-        """str.maketrans(x[, y[, z]]) -> dict (static method)
-
-        Return a translation table usable for str.translate().
-        If there is only one argument, it must be a dictionary mapping Unicode
-        ordinals (integers) or characters to Unicode ordinals, strings or None.
-        Character keys will be then converted to ordinals.
-        If there are two arguments, they must be strings of equal length, and
-        in the resulting dictionary, each character in x will be mapped to the
-        character at the same position in y. If there is a third argument, it
-        must be a string, whose characters will be mapped to None in the result.
-        """
-
     def partition():
         """S.partition(sep) -> (head, sep, tail)
 
@@ -1126,8 +1112,7 @@ W_UnicodeObject.typedef = StdTypeDef(
     __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs,
                                 doc=UnicodeDocstrings.__getnewargs__.__doc__),
     maketrans = interp2app(W_UnicodeObject.descr_maketrans,
-                           as_classmethod=True,
-                           doc=UnicodeDocstrings.maketrans.__doc__)
+                           as_classmethod=True),
 )
 
 

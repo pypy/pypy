@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.objspace.std import slicetype
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.sliceobject import W_SliceObject
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import ovfcheck
@@ -23,6 +23,32 @@ class StringMethods(object):
         start, end = slicetype.unwrap_start_stop(
                 space, lenself, w_start, w_end, upper_bound=upper_bound)
         return (value, start, end)
+
+    @staticmethod
+    def descr_maketrans(space, w_type, w_from, w_to):
+        """B.maketrans(frm, to) -> translation table
+
+        Return a translation table (a bytes object of length 256) suitable
+        for use in the bytes or bytearray translate method where each byte
+        in frm is mapped to the byte at the same position in to.
+        The bytes objects frm and to must be of the same length.
+        """
+        from pypy.objspace.std.bytesobject import makebytesdata_w, wrapstr
+
+        base_table = [chr(i) for i in range(256)]
+        list_from = makebytesdata_w(space, w_from)
+        list_to = makebytesdata_w(space, w_to)
+
+        if len(list_from) != len(list_to):
+            raise operationerrfmt(space.w_ValueError,
+                                  "maketrans arguments must have same length")
+
+        for i in range(len(list_from)):
+            pos_from = ord(list_from[i])
+            char_to = list_to[i]
+            base_table[pos_from] = char_to
+
+        return wrapstr(space, ''.join(base_table))
 
     def descr_len(self, space):
         return space.wrap(self._len())
@@ -90,20 +116,12 @@ class StringMethods(object):
         if index < 0 or index >= selflen:
             raise OperationError(space.w_IndexError,
                                  space.wrap("string index out of range"))
+        from pypy.objspace.std.bytesobject import W_BytesObject
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        if isinstance(self, W_BytearrayObject):
+        if isinstance(self, W_BytesObject) or isinstance(self, W_BytearrayObject):
             return space.wrap(ord(selfvalue[index]))
         #return wrapchar(space, selfvalue[index])
         return self._new(selfvalue[index])
-
-    def descr_getslice(self, space, w_start, w_stop):
-        selfvalue = self._val(space)
-        start, stop = normalize_simple_slice(space, len(selfvalue), w_start,
-                                             w_stop)
-        if start == stop:
-            return self._empty()
-        else:
-            return self._sliced(space, selfvalue, start, stop, self)
 
     def descr_capitalize(self, space):
         value = self._val(space)
@@ -139,18 +157,10 @@ class StringMethods(object):
         return space.newint(value.count(self._op_val(space, w_sub), start, end))
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
-        from pypy.objspace.std.unicodeobject import _get_encoding_and_errors, \
-            unicode_from_string, decode_object
+        from pypy.objspace.std.unicodeobject import (
+            _get_encoding_and_errors, decode_object)
         encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-        if encoding is None and errors is None:
-            return unicode_from_string(space, self)
         return decode_object(space, self, encoding, errors)
-
-    def descr_encode(self, space, w_encoding=None, w_errors=None):
-        from pypy.objspace.std.unicodeobject import _get_encoding_and_errors, \
-            encode_object
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-        return encode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
@@ -174,6 +184,9 @@ class StringMethods(object):
 
     def _tabindent(self, token, tabsize):
         "calculates distance behind the token to the next tabstop"
+
+        if tabsize <= 0:
+            return tabsize
 
         distance = tabsize
         if token:
@@ -305,16 +318,9 @@ class StringMethods(object):
         return space.newbool(cased)
 
     def descr_join(self, space, w_list):
-        from pypy.objspace.std.bytesobject import W_BytesObject
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
-        if isinstance(self, W_BytesObject):
-            l = space.listview_str(w_list)
-            if l is not None:
-                if len(l) == 1:
-                    return space.wrap(l[0])
-                return space.wrap(self._val(space).join(l))
-        elif isinstance(self, W_UnicodeObject):
+        if isinstance(self, W_UnicodeObject):
             l = space.listview_unicode(w_list)
             if l is not None:
                 if len(l) == 1:
@@ -343,14 +349,11 @@ class StringMethods(object):
         prealloc_size = len(value) * (size - 1)
         for i in range(size):
             w_s = list_w[i]
-            check_item = self._join_check_item(space, w_s)
-            if check_item == 1:
+            if self._join_check_item(space, w_s):
                 raise operationerrfmt(
                     space.w_TypeError,
-                    "sequence item %d: expected string, %s "
-                    "found", i, space.type(w_s).getname(space))
-            elif check_item == 2:
-                return self._join_autoconvert(space, list_w)
+                    "sequence item %d: expected %s, %T found",
+                    i, self._generic_name(), w_s)
             prealloc_size += len(self._op_val(space, w_s))
 
         sb = self._builder(prealloc_size)
@@ -359,9 +362,6 @@ class StringMethods(object):
                 sb.append(value)
             sb.append(self._op_val(space, list_w[i]))
         return self._new(sb.build())
-
-    def _join_autoconvert(self, space, list_w):
-        assert False, 'unreachable'
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_ljust(self, space, width, w_fillchar):
@@ -505,6 +505,9 @@ class StringMethods(object):
             strs.append(value[pos:length])
         return self._newlist_unwrapped(space, strs)
 
+    def _generic_name(self):
+        return "bytes"
+
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end,
                                                        True)
@@ -514,13 +517,15 @@ class StringMethods(object):
                     return space.w_True
             return space.w_False
         try:
-            return space.newbool(self._startswith(space, value, w_prefix, start, end))
+            res = self._startswith(space, value, w_prefix, start, end)
         except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                msg = ("startswith first arg must be str or a tuple of str, "
-                       "not %T")
-                raise operationerrfmt(space.w_TypeError, msg, w_prefix)
-            raise
+            if not e.match(space, space.w_TypeError):
+                raise
+            wanted = self._generic_name()
+            raise operationerrfmt(space.w_TypeError,
+                                  "startswith first arg must be %s or a tuple "
+                                  "of %s, not %T", wanted, wanted, w_prefix)
+        return space.newbool(res)
 
     def _startswith(self, space, value, w_prefix, start, end):
         return startswith(value, self._op_val(space, w_prefix), start, end)
@@ -535,14 +540,15 @@ class StringMethods(object):
                     return space.w_True
             return space.w_False
         try:
-            return space.newbool(self._endswith(space, value, w_suffix, start,
-                                                end))
+            res = self._endswith(space, value, w_suffix, start, end)
         except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                msg = ("endswith first arg must be str or a tuple of str, not "
-                       "%T")
-                raise operationerrfmt(space.w_TypeError, msg, w_suffix)
-            raise
+            if not e.match(space, space.w_TypeError):
+                raise
+            wanted = self._generic_name()
+            raise operationerrfmt(space.w_TypeError,
+                                  "endswith first arg must be %s or a tuple "
+                                  "of %s, not %T", wanted, wanted, w_suffix)
+        return space.newbool(res)
 
     def _endswith(self, space, value, w_prefix, start, end):
         return endswith(value, self._op_val(space, w_prefix), start, end)
