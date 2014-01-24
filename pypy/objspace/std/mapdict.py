@@ -35,9 +35,9 @@ class AbstractAttribute(object):
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
         if (
-            not attr.ever_mutated and
             jit.isconstant(attr.storageindex) and
-            jit.isconstant(obj)
+            jit.isconstant(obj) and
+            not attr.ever_mutated
         ):
             return self._pure_mapdict_read_storage(obj, attr.storageindex)
         else:
