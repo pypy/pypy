@@ -2,15 +2,13 @@
 ## dict strategy (see dictmultiobject.py)
 
 from rpython.rlib import rerased, jit
-from pypy.objspace.std.dictmultiobject import (DictStrategy,
-                                               create_iterator_classes,
-                                               EmptyDictStrategy,
-                                               ObjectDictStrategy,
-                                               StringDictStrategy)
+from pypy.objspace.std.dictmultiobject import (
+    BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
+    create_iterator_classes)
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
-    def switch_to_string_strategy(self, w_dict):
+    def switch_to_bytes_strategy(self, w_dict):
         strategy = self.space.fromcache(KwargsDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
@@ -61,7 +59,7 @@ class KwargsDictStrategy(DictStrategy):
         else:
             # limit the size so that the linear searches don't become too long
             if len(keys) >= 16:
-                self.switch_to_string_strategy(w_dict)
+                self.switch_to_bytes_strategy(w_dict)
                 w_dict.setitem_str(key, w_value)
             else:
                 keys.append(key)
@@ -111,7 +109,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
-        return self.space.newlist_str(l[:])
+        return self.space.newlist_bytes(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable
@@ -142,8 +140,8 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
-    def switch_to_string_strategy(self, w_dict):
-        strategy = self.space.fromcache(StringDictStrategy)
+    def switch_to_bytes_strategy(self, w_dict):
+        strategy = self.space.fromcache(BytesDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
         d_new = strategy.unerase(storage)

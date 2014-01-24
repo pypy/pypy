@@ -5,11 +5,12 @@ Unary operations on SomeValues.
 from __future__ import absolute_import
 
 from types import MethodType
+from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
     SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
+    s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
@@ -20,17 +21,8 @@ from rpython.annotator.model import AnnotatorError
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'bool', 'getattr', 'setattr', 'delattr',
-                        'simple_call', 'call_args', 'str', 'repr',
-                        'iter', 'next', 'invert', 'type', 'issubtype',
-                        'pos', 'neg', 'abs', 'hex', 'oct',
-                        'ord', 'int', 'float', 'long',
-                        'hash', 'id',    # <== not supported any more
-                        'getslice', 'setslice', 'delslice',
-                        'neg_ovf', 'abs_ovf', 'hint', 'unicode', 'unichr'])
-
-for opname in UNARY_OPERATIONS:
-    missing_operation(SomeObject, opname)
+UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
+                        if oper.dispatch == 1])
 
 
 class __extend__(SomeObject):
@@ -84,23 +76,18 @@ class __extend__(SomeObject):
         raise AnnotatorError("cannot use hash() in RPython")
 
     def str(self):
-        getbookkeeper().count('str', self)
         return SomeString()
 
     def unicode(self):
-        getbookkeeper().count('unicode', self)
         return SomeUnicodeString()
 
     def repr(self):
-        getbookkeeper().count('repr', self)
         return SomeString()
 
     def hex(self):
-        getbookkeeper().count('hex', self)
         return SomeString()
 
     def oct(self):
-        getbookkeeper().count('oct', self)
         return SomeString()
 
     def id(self):
@@ -144,6 +131,9 @@ class __extend__(SomeObject):
         raise AnnotatorError("Cannot find attribute %r on %r" % (attr, self))
     getattr.can_only_throw = []
 
+    def setattr(self, *args):
+        return s_ImpossibleValue
+
     def bind_callables_under(self, classdef, name):
         return self   # default unbound __get__ implementation
 
@@ -162,6 +152,20 @@ class __extend__(SomeObject):
 
     def hint(self, *args_s):
         return self
+
+    def getslice(self, *args):
+        return s_ImpossibleValue
+
+    def setslice(self, *args):
+        return s_ImpossibleValue
+
+    def delslice(self, *args):
+        return s_ImpossibleValue
+
+    def pos(self):
+        return s_ImpossibleValue
+    neg = abs = ord = invert = long = iter = next = pos
+
 
 class __extend__(SomeFloat):
 
@@ -237,7 +241,6 @@ class __extend__(SomeTuple):
         return immutablevalue(len(self.items))
 
     def iter(self):
-        getbookkeeper().count("tuple_iter", self)
         return SomeIterator(self)
     iter.can_only_throw = []
 
@@ -281,7 +284,6 @@ class __extend__(SomeList):
     method_pop.can_only_throw = [IndexError]
 
     def method_index(self, s_value):
-        getbookkeeper().count("list_index")
         self.listdef.generalize(s_value)
         return SomeInteger(nonneg=True)
 
@@ -472,7 +474,6 @@ class __extend__(SomeString,
     def method_join(self, s_list):
         if s_None.contains(s_list):
             return SomeImpossibleValue()
-        getbookkeeper().count("str_join", self)
         s_item = s_list.listdef.read_item()
         if s_None.contains(s_item):
             if isinstance(self, SomeUnicodeString):
@@ -489,7 +490,6 @@ class __extend__(SomeString,
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
-        getbookkeeper().count("str_split", self, patt)
         if max == -1 and patt.is_constant() and patt.const == "\0":
             no_nul = True
         else:
@@ -498,7 +498,6 @@ class __extend__(SomeString,
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(self, patt, max=-1):
-        getbookkeeper().count("str_rsplit", self, patt)
         s_item = self.basestringclass(no_nul=self.no_nul)
         return getbookkeeper().newlist(s_item)
 
@@ -709,8 +708,6 @@ class __extend__(SomeBuiltin):
         if self.s_self is not None:
             return self.analyser(self.s_self, *args)
         else:
-            if self.methodname:
-                getbookkeeper().count(self.methodname.replace('.', '_'), *args)
             return self.analyser(*args)
     simple_call.can_only_throw = _can_only_throw
 

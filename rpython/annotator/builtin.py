@@ -347,9 +347,6 @@ def unicodedata_decimal(s_uchr):
 def test(*args):
     return s_Bool
 
-def import_func(*args):
-    return SomeObject()
-
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -396,9 +393,6 @@ if hasattr(object.__init__, 'im_func'):
     BUILTIN_ANALYZERS[object.__init__.im_func] = object_init
 else:
     BUILTIN_ANALYZERS[object.__init__] = object_init
-
-# import
-BUILTIN_ANALYZERS[__import__] = import_func
 
 # annotation of low-level types
 from rpython.annotator.model import SomePtr

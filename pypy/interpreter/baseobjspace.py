@@ -918,7 +918,7 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
-    def listview_str(self, w_list):
+    def listview_bytes(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
         argument is not a list or does not contain only strings, return None.
         May return None anyway.
@@ -952,7 +952,7 @@ class ObjSpace(object):
         """
         return (None, None)
 
-    def newlist_str(self, list_s):
+    def newlist_bytes(self, list_s):
         return self.newlist([self.wrapbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):

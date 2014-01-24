@@ -7,4 +7,4 @@ def test_cpyext_translates(monkeypatch):
         # original from_ref, just return w_some_obj
         return space.w_object
     monkeypatch.setattr(pyobject, 'from_ref', from_ref)
-    checkmodule('cpyext', '_ffi')
+    checkmodule('cpyext', '_rawffi')

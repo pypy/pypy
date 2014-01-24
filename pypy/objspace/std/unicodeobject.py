@@ -597,7 +597,7 @@ class UnicodeDocstrings:
         """x.__getitem__(y) <==> x[y]"""
 
     def __getnewargs__():
-        """"""
+        ""
 
     def __gt__():
         """x.__gt__(y) <==> x>y"""

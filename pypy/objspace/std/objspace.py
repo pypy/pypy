@@ -315,10 +315,10 @@ class StdObjSpace(ObjSpace):
         assert not list_w or sizehint == -1
         return W_ListObject(self, list_w, sizehint)
 
-    # XXX: StringListStrategy is currently broken
-    # use the default implementation, which simply wraps
-    #def newlist_str(self, list_s):
-    #    return W_ListObject.newlist_str(self, list_s)
+    # XXX: BytesListStrategy is currently broken use the default
+    # implementation, which simply wraps
+    #def newlist_bytes(self, list_s):
+    #    return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)
@@ -462,20 +462,20 @@ class StdObjSpace(ObjSpace):
             raise self._wrap_expected_length(expected_length, len(t))
         return t
 
-    def listview_str(self, w_obj):
+    def listview_bytes(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
-            return w_obj.getitems_str()
+            return w_obj.getitems_bytes()
         if type(w_obj) is W_DictMultiObject:
-            return w_obj.listview_str()
+            return w_obj.listview_bytes()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
-            return w_obj.listview_str()
+            return w_obj.listview_bytes()
         if isinstance(w_obj, W_BytesObject):
             # Python3 considers bytes strings as a list of numbers.
             return None
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            return w_obj.getitems_str()
+            return w_obj.getitems_bytes()
         return None
 
     def listview_unicode(self, w_obj):

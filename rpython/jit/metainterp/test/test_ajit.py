@@ -3952,3 +3952,21 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.interp_operations(f, [])
         assert res == 2
         self.check_operations_history(call_release_gil=1, call_may_force=0)
+
+    def test_unescaped_write_zero(self):
+        class A:
+            pass
+        def g():
+            return A()
+        @dont_look_inside
+        def escape():
+            print "hi!"
+        def f(n):
+            a = g()
+            a.x = n
+            escape()
+            a.x = 0
+            escape()
+            return a.x
+        res = self.interp_operations(f, [42])
+        assert res == 0

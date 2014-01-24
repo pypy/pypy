@@ -127,7 +127,7 @@ class ModuleDictStrategy(DictStrategy):
     def w_keys(self, w_dict):
         space = self.space
         l = self.unerase(w_dict.dstorage).keys()
-        return space.newlist_str(l)
+        return space.newlist_bytes(l)
 
     def values(self, w_dict):
         iterator = self.unerase(w_dict.dstorage).itervalues
