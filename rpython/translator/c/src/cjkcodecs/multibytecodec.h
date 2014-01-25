@@ -97,7 +97,7 @@ struct pypy_cjk_dec_s {
 
 struct pypy_cjk_dec_s *pypy_cjk_dec_new(const MultibyteCodec *codec);
 Py_ssize_t pypy_cjk_dec_init(struct pypy_cjk_dec_s *d,
-                             unsigned char *inbuf, Py_ssize_t inlen);
+                             char *inbuf, Py_ssize_t inlen);
 void pypy_cjk_dec_free(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_chunk(struct pypy_cjk_dec_s *);
 Py_UNICODE *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
@@ -120,7 +120,7 @@ Py_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,
 void pypy_cjk_enc_free(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *, Py_ssize_t);
 Py_ssize_t pypy_cjk_enc_reset(struct pypy_cjk_enc_s *);
-unsigned char *pypy_cjk_enc_outbuf(struct pypy_cjk_enc_s *);
+char *pypy_cjk_enc_outbuf(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_outlen(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d);
 Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d);
