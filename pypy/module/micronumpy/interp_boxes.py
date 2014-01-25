@@ -394,6 +394,9 @@ class W_Float32Box(W_FloatingBox, PrimitiveBox):
 class W_Float64Box(W_FloatingBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float64")
 
+    def descr_as_integer_ratio(self, space):
+        return space.call_method(self.item(space), 'as_integer_ratio')
+
 class W_ComplexFloatingBox(W_InexactBox):
     def descr_get_real(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
@@ -719,6 +722,7 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
     __module__ = "numpy",
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Float64Box.descr_reduce),
+    as_integer_ratio = interp2app(W_Float64Box.descr_as_integer_ratio),
 )
 
 W_ComplexFloatingBox.typedef = TypeDef("complexfloating", W_InexactBox.typedef,
