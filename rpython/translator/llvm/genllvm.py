@@ -1644,7 +1644,7 @@ class GenLLVM(object):
         if callable(entrypoint):
             setup_ptr = self.gcpolicy.get_setup_ptr()
             def main(argc, argv):
-	        llop.gc_stack_bottom(lltype.Void)
+                llop.gc_stack_bottom(lltype.Void)
                 try:
                     if setup_ptr is not None:
                         setup_ptr()
