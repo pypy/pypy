@@ -56,6 +56,9 @@ class W_AbstractBytesObject(W_Root):
     def descr_hash(self, space):
         """x.__hash__() <==> hash(x)"""
 
+    def descr_iter(self, space):
+        """x.__iter__() <==> iter(x)"""
+
     def descr_le(self, space, w_other):
         """x.__le__(y) <==> x<=y"""
 
@@ -787,6 +790,7 @@ W_BytesObject.typedef = StdTypeDef(
     __gt__ = interpindirect2app(W_AbstractBytesObject.descr_gt),
     __ge__ = interpindirect2app(W_AbstractBytesObject.descr_ge),
 
+    __iter__ = interpindirect2app(W_AbstractBytesObject.descr_iter),
     __len__ = interpindirect2app(W_AbstractBytesObject.descr_len),
     __contains__ = interpindirect2app(W_AbstractBytesObject.descr_contains),
 

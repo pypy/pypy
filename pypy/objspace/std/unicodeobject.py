@@ -336,9 +336,6 @@ class W_UnicodeObject(W_Root):
         return newformat.run_formatter(space, w_format_spec, "format_string",
                                        self)
 
-    def descr_iter(self, space):
-        return space.newseqiter(self)
-
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
 

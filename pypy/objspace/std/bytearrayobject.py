@@ -233,9 +233,6 @@ class W_BytearrayObject(W_Root):
             raise
         return space.newbool(res)
 
-    def descr_iter(self, space):
-        return space.newseqiter(self)
-
     def descr_buffer(self, space):
         return BytearrayBuffer(self.data)
 

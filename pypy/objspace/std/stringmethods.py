@@ -57,8 +57,8 @@ class StringMethods(object):
     def descr_len(self, space):
         return space.wrap(self._len())
 
-    #def descr_iter(self, space):
-    #    pass
+    def descr_iter(self, space):
+        return space.newseqiter(self)
 
     def descr_contains(self, space, w_sub):
         value = self._val(space)

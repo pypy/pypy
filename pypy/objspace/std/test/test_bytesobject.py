@@ -652,6 +652,7 @@ class AppTestBytesObject:
         for i in iter(b"42"):
             l.append(i)
         assert l == [52, 50]
+        assert list(b"42".__iter__()) == [52, 50]
 
     def test_repr(self):
         for f in str, repr:
