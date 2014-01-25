@@ -919,6 +919,18 @@ class LLFrame(object):
     def op_stack_current(self):
         return 0
 
+    def op_llvm_gcmap(self):
+        raise NotImplementedError("llvm_gcmap")
+
+    def op_llvm_store_gcroot(self):
+        raise NotImplementedError("llvm_store_gcroot")
+
+    def op_llvm_load_gcroot(self):
+        raise NotImplementedError("llvm_load_gcroot")
+
+    def op_llvm_stack_malloc(self):
+        raise NotImplementedError("llvm_stack_malloc")
+
     # __________________________________________________________
     # operations on addresses
 
