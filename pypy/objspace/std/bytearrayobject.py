@@ -1,21 +1,22 @@
 """The builtin bytearray implementation"""
 
+from rpython.rlib.objectmodel import (
+    import_from_mixin, newlist_hint, resizelist_hint)
+from rpython.rlib.rstring import StringBuilder
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.bytesobject import (
     getbytevalue, makebytesdata_w, newbytesdata_w)
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import get_positive_index
-from rpython.rlib.objectmodel import import_from_mixin
-from rpython.rlib.rstring import StringBuilder
 
+NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 
-def _make_data(s):
-    return [s[i] for i in range(len(s))]
 
 class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
@@ -24,7 +25,7 @@ class W_BytearrayObject(W_Root):
         w_self.data = data
 
     def __repr__(w_self):
-        """ representation for debugging purposes """
+        """representation for debugging purposes"""
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
     def _new(self, value):
@@ -126,11 +127,6 @@ class W_BytearrayObject(W_Root):
 
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
-        "bytearray.fromhex(string) -> bytearray\n"
-        "\n"
-        "Create a bytearray object from a string of hexadecimal numbers.\n"
-        "Spaces between two numbers are accepted.\n"
-        "Example: bytearray.fromhex('B9 01EF') -> bytearray(b'\\xb9\\x01\\xef')."
         if not space.is_w(space.type(w_hexstring), space.w_unicode):
             raise operationerrfmt(space.w_TypeError, "must be str, not %T",
                                   w_hexstring)
@@ -168,8 +164,8 @@ class W_BytearrayObject(W_Root):
             elif not '\x20' <= c < '\x7f':
                 n = ord(c)
                 buf.append('\\x')
-                buf.append("0123456789abcdef"[n>>4])
-                buf.append("0123456789abcdef"[n&0xF])
+                buf.append("0123456789abcdef"[n >> 4])
+                buf.append("0123456789abcdef"[n & 0xF])
             else:
                 buf.append(c)
 
@@ -185,51 +181,60 @@ class W_BytearrayObject(W_Root):
 
     def descr_eq(self, space, w_other):
         try:
-            return space.newbool(self._val(space) == self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) == self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_ne(self, space, w_other):
         try:
-            return space.newbool(self._val(space) != self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) != self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_lt(self, space, w_other):
         try:
-            return space.newbool(self._val(space) < self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) < self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_le(self, space, w_other):
         try:
-            return space.newbool(self._val(space) <= self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) <= self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_gt(self, space, w_other):
         try:
-            return space.newbool(self._val(space) > self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) > self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_ge(self, space, w_other):
         try:
-            return space.newbool(self._val(space) >= self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) >= self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
+
+    def descr_iter(self, space):
+        return space.newseqiter(self)
 
     def descr_buffer(self, space):
         return BytearrayBuffer(self.data)
@@ -244,7 +249,7 @@ class W_BytearrayObject(W_Root):
     def descr_inplace_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -259,12 +264,13 @@ class W_BytearrayObject(W_Root):
             _setitem_slice_helper(space, self.data, start, step,
                                   slicelength, sequence2, empty_elem='\x00')
         else:
-            idx = space.getindex_w(w_index, space.w_IndexError, "bytearray index")
+            idx = space.getindex_w(w_index, space.w_IndexError,
+                                   "bytearray index")
             try:
                 self.data[idx] = getbytevalue(space, w_other)
             except IndexError:
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("bytearray index out of range"))
+                raise operationerrfmt(space.w_IndexError,
+                                      "bytearray index out of range")
 
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
@@ -272,12 +278,13 @@ class W_BytearrayObject(W_Root):
                                                             len(self.data))
             _delitem_slice_helper(space, self.data, start, step, slicelength)
         else:
-            idx = space.getindex_w(w_idx, space.w_IndexError, "bytearray index")
+            idx = space.getindex_w(w_idx, space.w_IndexError,
+                                   "bytearray index")
             try:
                 del self.data[idx]
             except IndexError:
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("bytearray deletion index out of range"))
+                raise operationerrfmt(space.w_IndexError,
+                                      "bytearray deletion index out of range")
 
     def descr_append(self, space, w_item):
         self.data.append(getbytevalue(space, w_item))
@@ -304,10 +311,9 @@ class W_BytearrayObject(W_Root):
             result = self.data.pop(index)
         except IndexError:
             if not self.data:
-                raise OperationError(space.w_IndexError, space.wrap(
-                    "pop from empty bytearray"))
-            raise OperationError(space.w_IndexError, space.wrap(
-                "pop index out of range"))
+                raise operationerrfmt(space.w_IndexError,
+                                      "pop from empty bytearray")
+            raise operationerrfmt(space.w_IndexError, "pop index out of range")
         return space.wrap(ord(result))
 
     def descr_remove(self, space, w_char):
@@ -315,11 +321,38 @@ class W_BytearrayObject(W_Root):
         try:
             self.data.remove(chr(char))
         except ValueError:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "value not found in bytearray"))
+            raise operationerrfmt(space.w_ValueError,
+                                  "value not found in bytearray")
+
+    _StringMethods_descr_contains = descr_contains
+    def descr_contains(self, space, w_sub):
+        if space.isinstance_w(w_sub, space.w_int):
+            char = space.int_w(w_sub)
+            return _descr_contains_bytearray(self.data, space, char)
+        return self._StringMethods_descr_contains(space, w_sub)
 
     def descr_reverse(self, space):
         self.data.reverse()
+
+
+# ____________________________________________________________
+# helpers for slow paths, moved out because they contain loops
+
+def _make_data(s):
+    return [s[i] for i in range(len(s))]
+
+
+def _descr_contains_bytearray(data, space, char):
+    if not 0 <= char < 256:
+        raise operationerrfmt(space.w_ValueError,
+                              "byte must be in range(0, 256)")
+    for c in data:
+        if ord(c) == char:
+            return space.w_True
+    return space.w_False
+
+# ____________________________________________________________
+
 
 def new_bytearray(space, w_bytearraytype, data):
     w_obj = space.allocate_instance(W_BytearrayObject, w_bytearraytype)
@@ -490,12 +523,12 @@ class BytearrayDocstrings:
     def decode():
         """B.decode(encoding=None, errors='strict') -> unicode
 
-        Decode B using the codec registered for encoding. encoding defaults
-        to the default encoding. errors may be given to set a different error
-        handling scheme.  Default is 'strict' meaning that encoding errors raise
-        a UnicodeDecodeError.  Other possible values are 'ignore' and 'replace'
-        as well as any other name registered with codecs.register_error that is
-        able to handle UnicodeDecodeErrors.
+        Decode B using the codec registered for encoding. encoding defaults to
+        the default encoding. errors may be given to set a different error
+        handling scheme.  Default is 'strict' meaning that encoding errors
+        raise a UnicodeDecodeError.  Other possible values are 'ignore' and
+        'replace' as well as any other name registered with
+        codecs.register_error that is able to handle UnicodeDecodeErrors.
         """
 
     def endswith():
@@ -532,7 +565,7 @@ class BytearrayDocstrings:
         """
 
     def fromhex():
-        """bytearray.fromhex(string) -> bytearray (static method)
+        r"""bytearray.fromhex(string) -> bytearray (static method)
 
         Create a bytearray object from a string of hexadecimal numbers.
         Spaces between two numbers are accepted.
@@ -816,6 +849,8 @@ W_BytearrayObject.typedef = StdTypeDef(
     __ge__ = interp2app(W_BytearrayObject.descr_ge,
                         doc=BytearrayDocstrings.__ge__.__doc__),
 
+    __iter__ = interp2app(W_BytearrayObject.descr_iter,
+                         doc=BytearrayDocstrings.__iter__.__doc__),
     __len__ = interp2app(W_BytearrayObject.descr_len,
                          doc=BytearrayDocstrings.__len__.__doc__),
     __contains__ = interp2app(W_BytearrayObject.descr_contains,
@@ -953,9 +988,10 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
 
 _space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])
 
-#XXX share the code again with the stuff in listobject.py
+
+# XXX share the code again with the stuff in listobject.py
 def _delitem_slice_helper(space, items, start, step, slicelength):
-    if slicelength==0:
+    if slicelength == 0:
         return
 
     if step < 0:
@@ -984,6 +1020,7 @@ def _delitem_slice_helper(space, items, start, step, slicelength):
         start = n - slicelength
         assert start >= 0 # annotator hint
         del items[start:]
+
 
 def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
                           empty_elem):

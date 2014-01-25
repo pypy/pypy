@@ -1,16 +1,18 @@
 """The builtin bytes implementation"""
 
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import StringBuffer
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault, interpindirect2app
-from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.stringmethods import StringMethods
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
     resizelist_hint)
 from rpython.rlib.rstring import StringBuilder
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import StringBuffer
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import (
+    WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.stringmethods import StringMethods
 
 
 class W_AbstractBytesObject(W_Root):
@@ -273,8 +275,8 @@ class W_AbstractBytesObject(W_Root):
         """S.rpartition(sep) -> (head, sep, tail)
 
         Search for the separator sep in S, starting at the end of S, and return
-        the part before it, the separator itself, and the part after it.  If the
-        separator is not found, return two empty strings and S.
+        the part before it, the separator itself, and the part after it.  If
+        the separator is not found, return two empty strings and S.
         """
 
     @unwrap_spec(maxsplit=int)
@@ -387,7 +389,7 @@ class W_BytesObject(W_AbstractBytesObject):
         self._value = str
 
     def __repr__(self):
-        """ representation for debugging purposes """
+        """representation for debugging purposes"""
         return "%s(%r)" % (self.__class__.__name__, self._value)
 
     def unwrap(self, space):
@@ -586,7 +588,7 @@ class W_BytesObject(W_AbstractBytesObject):
             from pypy.objspace.std.strbufobject import W_StringBufferObject
             try:
                 other = self._op_val(space, w_other)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_TypeError):
                     return space.w_NotImplemented
                 raise
@@ -613,11 +615,14 @@ class W_BytesObject(W_AbstractBytesObject):
             return space.newbool(self._value.find(chr(char)) >= 0)
         return self._StringMethods_descr_contains(space, w_sub)
 
-    def descr_lower(self, space):
-        return W_BytesObject(self._value.lower())
-
-    def descr_upper(self, space):
-        return W_BytesObject(self._value.upper())
+    _StringMethods_descr_join = descr_join
+    def descr_join(self, space, w_list):
+        l = space.listview_bytes(w_list)
+        if l is not None:
+            if len(l) == 1:
+                return space.wrap(l[0])
+            return space.wrap(self._val(space).join(l))
+        return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
         return space.is_w(space.type(w_obj), space.w_str)
@@ -630,6 +635,12 @@ class W_BytesObject(W_AbstractBytesObject):
                 raise
             return True
         return False
+
+    def descr_lower(self, space):
+        return W_BytesObject(self._value.lower())
+
+    def descr_upper(self, space):
+        return W_BytesObject(self._value.upper())
 
 
 def _create_list_from_bytes(value):
@@ -657,6 +668,7 @@ def wrapstr(space, s):
             if len(s) == 0:
                 return W_BytesObject.EMPTY
     return W_BytesObject(s)
+
 
 def wrapchar(space, c):
     if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
@@ -822,7 +834,8 @@ W_BytesObject.typedef = StdTypeDef(
     zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
 
     __buffer__ = interpindirect2app(W_AbstractBytesObject.descr_buffer),
-    __getnewargs__ = interpindirect2app(W_AbstractBytesObject.descr_getnewargs),
+    __getnewargs__ = interpindirect2app(
+        W_AbstractBytesObject.descr_getnewargs),
 
     fromhex = interp2app(W_BytesObject.descr_fromhex, as_classmethod=True),
     maketrans = interp2app(W_BytesObject.descr_maketrans, as_classmethod=True),
@@ -864,8 +877,8 @@ def string_escape_encode(s, quotes):
                 buf.append_slice(s, startslice, i)
             startslice = i + 1
             buf.append('\\x')
-            buf.append("0123456789abcdef"[n>>4])
-            buf.append("0123456789abcdef"[n&0xF])
+            buf.append("0123456789abcdef"[n >> 4])
+            buf.append("0123456789abcdef"[n & 0xF])
 
         if use_bs_char:
             if i != startslice:
