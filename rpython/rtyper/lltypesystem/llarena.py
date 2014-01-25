@@ -405,7 +405,10 @@ def arena_protect(arena_addr, size, inaccessible):
 import os, sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extfunc import register_external
+from rpython.rtyper.tool.rffi_platform import memory_alignment
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
+
+MEMORY_ALIGNMENT = memory_alignment()
 
 if sys.platform.startswith('linux'):
     # This only works with linux's madvise(), which is really not a memory
@@ -597,11 +600,8 @@ register_external(arena_shrink_obj, [llmemory.Address, int], None,
                   llfakeimpl=arena_shrink_obj,
                   sandboxsafe=True)
 
-llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
-                                                [lltype.Signed, lltype.Signed],
-                                                 lltype.Signed,
-                                                 sandboxsafe=True,
-                                                 _nowrapper=True)
+def llimpl_round_up_for_allocation(size, minsize):
+    return (max(size, minsize) + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1)
 register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,
