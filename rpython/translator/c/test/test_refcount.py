@@ -1,15 +1,12 @@
 import py
-import os
 
-from rpython.translator.translator import TranslationContext
-from rpython.translator.c import genc
-from rpython.translator.c.test.test_genc import compile
 from rpython.rtyper.lltypesystem import lltype
-from rpython.conftest import option
+from rpython.translator.translator import TranslationContext
+from rpython.translator.c.test.test_genc import compile
 
 
 class TestRefcount(object):
-    def compile_func(func, args):
+    def compile_func(self, func, args):
         return compile(func, args, gcpolicy='ref')
 
     def test_something(self):
@@ -173,7 +170,6 @@ class TestRefcount(object):
         fn()
 
     def test_wrong_order_setitem(self):
-        import os
         class A(object):
             pass
         a = A()

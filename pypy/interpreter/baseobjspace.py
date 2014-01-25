@@ -232,9 +232,8 @@ class W_Root(object):
         raise operationerrfmt(space.w_TypeError, msg, w_result)
 
     def ord(self, space):
-        typename = space.type(self).getname(space)
-        msg = "ord() expected string of length 1, but %s found"
-        raise operationerrfmt(space.w_TypeError, msg, typename)
+        msg = "ord() expected string of length 1, but %T found"
+        raise operationerrfmt(space.w_TypeError, msg, self)
 
     def __spacebind__(self, space):
         return self

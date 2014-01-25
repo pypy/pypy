@@ -1,8 +1,6 @@
 import array, weakref
-from rpython.conftest import cdir
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import is_valid_int
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 # An "arena" is a large area of memory which can hold a number of
@@ -407,6 +405,9 @@ def arena_protect(arena_addr, size, inaccessible):
 import os, sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extfunc import register_external
+from rpython.rtyper.tool.rffi_platform import memory_alignment
+
+MEMORY_ALIGNMENT = memory_alignment()
 
 if sys.platform.startswith('linux'):
     # This only works with linux's madvise(), which is really not a memory
@@ -418,6 +419,7 @@ if sys.platform.startswith('linux'):
     # lazily-allocating pages on all Linux systems.
 
     from rpython.rtyper.tool import rffi_platform
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
     _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
     MADV_DONTNEED = rffi_platform.getconstantinteger('MADV_DONTNEED',
                                                      '#include <sys/mman.h>')
@@ -509,6 +511,7 @@ else:
     clear_large_memory_chunk = llmemory.raw_memclear
 
 if os.name == "posix":
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
     _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
     raw_mprotect = rffi.llexternal('mprotect',
                                    [llmemory.Address, rffi.SIZE_T, rffi.INT],
@@ -596,13 +599,8 @@ register_external(arena_shrink_obj, [llmemory.Address, int], None,
                   llfakeimpl=arena_shrink_obj,
                   sandboxsafe=True)
 
-_eci = ExternalCompilationInfo(include_dirs=[cdir], includes=['src/align.h'])
-llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
-                                                [lltype.Signed, lltype.Signed],
-                                                 lltype.Signed,
-                                                 sandboxsafe=True,
-                                                 _nowrapper=True,
-                                                 compilation_info=_eci)
+def llimpl_round_up_for_allocation(size, minsize):
+    return (max(size, minsize) + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1)
 register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,
