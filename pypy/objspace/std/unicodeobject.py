@@ -1,19 +1,22 @@
 """The builtin unicode implementation"""
 
+from rpython.rlib.objectmodel import (
+    compute_hash, compute_unique_id, import_from_mixin)
+from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.runicode import (
+    make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
+    unicode_encode_ascii, unicode_encode_utf_8)
+
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
-from rpython.rlib.objectmodel import compute_hash, compute_unique_id, import_from_mixin
-from rpython.rlib.rstring import UnicodeBuilder
-from rpython.rlib.runicode import (str_decode_utf_8, str_decode_ascii,
-    unicode_encode_utf_8, unicode_encode_ascii, make_unicode_escape_function)
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
@@ -29,7 +32,7 @@ class W_UnicodeObject(W_Root):
         w_self._value = unistr
 
     def __repr__(w_self):
-        """ representation for debugging purposes """
+        """representation for debugging purposes"""
         return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
 
     def unwrap(w_self, space):
@@ -90,7 +93,8 @@ class W_UnicodeObject(W_Root):
             return w_other._value
         if space.isinstance_w(w_other, space.w_str):
             return unicode_from_string(space, w_other)._value
-        return unicode_from_encoded_object(space, w_other, None, "strict")._value
+        return unicode_from_encoded_object(
+            space, w_other, None, "strict")._value
 
     def _chr(self, char):
         assert len(char) == 1
@@ -144,14 +148,15 @@ class W_UnicodeObject(W_Root):
         return space.newlist_unicode(lst)
 
     @staticmethod
-    @unwrap_spec(w_string = WrappedDefault(""))
+    @unwrap_spec(w_string=WrappedDefault(""))
     def descr_new(space, w_unicodetype, w_string, w_encoding=None,
                   w_errors=None):
         # NB. the default value of w_obj is really a *wrapped* empty string:
         #     there is gateway magic at work
         w_obj = w_string
 
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+        encoding, errors = _get_encoding_and_errors(space, w_encoding,
+                                                    w_errors)
         # convoluted logic for the case when unicode subclass has a __unicode__
         # method, we need to call this method
         is_precisely_unicode = space.is_w(space.type(w_obj), space.w_unicode)
@@ -159,8 +164,8 @@ class W_UnicodeObject(W_Root):
             (space.isinstance_w(w_obj, space.w_unicode) and
              space.findattr(w_obj, space.wrap('__unicode__')) is None)):
             if encoding is not None or errors is not None:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    'decoding Unicode is not supported'))
+                raise operationerrfmt(space.w_TypeError,
+                                      "decoding Unicode is not supported")
             if (is_precisely_unicode and
                 space.is_w(w_unicodetype, space.w_unicode)):
                 return w_obj
@@ -194,8 +199,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_eq(self, space, w_other):
         try:
-            return space.newbool(self._val(space) == self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) == self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             if (e.match(space, space.w_UnicodeDecodeError) or
@@ -206,11 +211,12 @@ class W_UnicodeObject(W_Root):
                 space.warn(space.wrap(msg), space.w_UnicodeWarning)
                 return space.w_False
             raise
+        return space.newbool(res)
 
     def descr_ne(self, space, w_other):
         try:
-            return space.newbool(self._val(space) != self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) != self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             if (e.match(space, space.w_UnicodeDecodeError) or
@@ -221,38 +227,43 @@ class W_UnicodeObject(W_Root):
                 space.warn(space.wrap(msg), space.w_UnicodeWarning)
                 return space.w_True
             raise
+        return space.newbool(res)
 
     def descr_lt(self, space, w_other):
         try:
-            return space.newbool(self._val(space) < self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) < self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_le(self, space, w_other):
         try:
-            return space.newbool(self._val(space) <= self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) <= self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_gt(self, space, w_other):
         try:
-            return space.newbool(self._val(space) > self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) > self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_ge(self, space, w_other):
         try:
-            return space.newbool(self._val(space) >= self._op_val(space, w_other))
-        except OperationError, e:
+            res = self._val(space) >= self._op_val(space, w_other)
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return space.newbool(res)
 
     def descr_format(self, space, __args__):
         return newformat.format_method(space, self, __args__, is_unicode=True)
@@ -272,12 +283,13 @@ class W_UnicodeObject(W_Root):
     def descr_translate(self, space, w_table):
         selfvalue = self._value
         w_sys = space.getbuiltinmodule('sys')
-        maxunicode = space.int_w(space.getattr(w_sys, space.wrap("maxunicode")))
+        maxunicode = space.int_w(space.getattr(w_sys,
+                                               space.wrap("maxunicode")))
         result = []
         for unichar in selfvalue:
             try:
                 w_newval = space.getitem(w_table, space.wrap(ord(unichar)))
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_LookupError):
                     result.append(unichar)
                 else:
@@ -288,20 +300,21 @@ class W_UnicodeObject(W_Root):
                 elif space.isinstance_w(w_newval, space.w_int):
                     newval = space.int_w(w_newval)
                     if newval < 0 or newval > maxunicode:
-                        raise OperationError(
-                                space.w_TypeError,
-                                space.wrap("character mapping must be in range(0x%x)" % (maxunicode + 1,)))
+                        msg = ("character mapping must be in range(0x%x)" %
+                               (maxunicode + 1,))
+                        raise operationerrfmt(space.w_TypeError, msg)
                     result.append(unichr(newval))
                 elif space.isinstance_w(w_newval, space.w_unicode):
                     result.append(space.unicode_w(w_newval))
                 else:
-                    raise OperationError(
-                        space.w_TypeError,
-                        space.wrap("character mapping must return integer, None or unicode"))
+                    raise operationerrfmt(space.w_TypeError,
+                                          "character mapping must return "
+                                          "integer, None or unicode")
         return W_UnicodeObject(u''.join(result))
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+        encoding, errors = _get_encoding_and_errors(space, w_encoding,
+                                                    w_errors)
         return encode_object(space, self, encoding, errors)
 
     def _join_return_one(self, space, w_obj):
@@ -353,6 +366,7 @@ class W_UnicodeObject(W_Root):
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
 
+
 def plain_str2unicode(space, s):
     try:
         return unicode(s)
@@ -378,16 +392,12 @@ def plain_str2unicode(space, s):
 def getdefaultencoding(space):
     return space.sys.defaultencoding
 
+
 def _get_encoding_and_errors(space, w_encoding, w_errors):
-    if space.is_none(w_encoding):
-        encoding = None
-    else:
-        encoding = space.str_w(w_encoding)
-    if space.is_none(w_errors):
-        errors = None
-    else:
-        errors = space.str_w(w_errors)
+    encoding = None if space.is_none(w_encoding) else space.str_w(w_encoding)
+    errors = None if space.is_none(w_errors) else space.str_w(w_errors)
     return encoding, errors
+
 
 def encode_object(space, w_object, encoding, errors):
     if encoding is None:
@@ -416,10 +426,11 @@ def encode_object(space, w_object, encoding, errors):
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.wrap(0))
     if not space.isinstance_w(w_retval, space.w_str):
-        raise operationerrfmt(space.w_TypeError,
-            "encoder did not return an string object (type '%s')",
-            space.type(w_retval).getname(space))
+        raise operationerrfmt(
+            space.w_TypeError,
+            "encoder did not return an string object (type '%T')", w_retval)
     return w_retval
+
 
 def decode_object(space, w_obj, encoding, errors):
     if encoding is None:
@@ -451,16 +462,17 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     # explicitly block bytearray on 2.7
     from .bytearrayobject import W_BytearrayObject
     if isinstance(w_obj, W_BytearrayObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("decoding bytearray is not supported"))
+        raise operationerrfmt(space.w_TypeError,
+                              "decoding bytearray is not supported")
 
     w_retval = decode_object(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
         raise operationerrfmt(space.w_TypeError,
-            "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space))
+            "decoder did not return an unicode object (type '%T')",
+            w_retval)
     assert isinstance(w_retval, W_UnicodeObject)
     return w_retval
+
 
 def unicode_from_object(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
@@ -482,6 +494,7 @@ def unicode_from_object(space, w_obj):
         if space.isinstance_w(w_res, space.w_unicode):
             return w_res
     return unicode_from_encoded_object(space, w_res, None, "strict")
+
 
 def unicode_from_string(space, w_str):
     # this is a performance and bootstrapping hack
@@ -651,8 +664,8 @@ class UnicodeDocstrings:
     def format():
         """S.format(*args, **kwargs) -> unicode
 
-        Return a formatted version of S, using substitutions from args and kwargs.
-        The substitutions are identified by braces ('{' and '}').
+        Return a formatted version of S, using substitutions from args and
+        kwargs.  The substitutions are identified by braces ('{' and '}').
         """
 
     def index():
@@ -789,16 +802,16 @@ class UnicodeDocstrings:
     def rjust():
         """S.rjust(width[, fillchar]) -> unicode
 
-        Return S right-justified in a Unicode string of length width. Padding is
-        done using the specified fill character (default is a space).
+        Return S right-justified in a Unicode string of length width. Padding
+        is done using the specified fill character (default is a space).
         """
 
     def rpartition():
         """S.rpartition(sep) -> (head, sep, tail)
 
         Search for the separator sep in S, starting at the end of S, and return
-        the part before it, the separator itself, and the part after it.  If the
-        separator is not found, return two empty strings and S.
+        the part before it, the separator itself, and the part after it.  If
+        the separator is not found, return two empty strings and S.
         """
 
     def rsplit():
@@ -1036,6 +1049,7 @@ def _create_list_from_unicode(value):
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
+
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
@@ -1043,8 +1057,8 @@ def unicode_to_decimal_w(space, w_unistr):
                               w_unistr)
     unistr = w_unistr._value
     result = ['\0'] * len(unistr)
-    digits = [ '0', '1', '2', '3', '4',
-               '5', '6', '7', '8', '9']
+    digits = ['0', '1', '2', '3', '4',
+              '5', '6', '7', '8', '9']
     for i in xrange(len(unistr)):
         uchr = ord(unistr[i])
         if unicodedb.isspace(uchr):
@@ -1060,7 +1074,10 @@ def unicode_to_decimal_w(space, w_unistr):
                 w_start = space.wrap(i)
                 w_end = space.wrap(i+1)
                 w_reason = space.wrap('invalid decimal Unicode string')
-                raise OperationError(space.w_UnicodeEncodeError, space.newtuple([w_encoding, w_unistr, w_start, w_end, w_reason]))
+                raise OperationError(space.w_UnicodeEncodeError,
+                                     space.newtuple([w_encoding, w_unistr,
+                                                     w_start, w_end,
+                                                     w_reason]))
     return ''.join(result)
 
 
