@@ -300,9 +300,9 @@ class W_UnicodeObject(W_Root):
                 elif space.isinstance_w(w_newval, space.w_int):
                     newval = space.int_w(w_newval)
                     if newval < 0 or newval > maxunicode:
-                        msg = ("character mapping must be in range(0x%x)" %
-                               (maxunicode + 1,))
-                        raise operationerrfmt(space.w_TypeError, msg)
+                        raise operationerrfmt(space.w_TypeError,
+                                              "character mapping must be in "
+                                              "range(%s)", hex(maxunicode + 1))
                     result.append(unichr(newval))
                 elif space.isinstance_w(w_newval, space.w_unicode):
                     result.append(space.unicode_w(w_newval))
