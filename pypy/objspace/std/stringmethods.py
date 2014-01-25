@@ -35,11 +35,6 @@ class StringMethods(object):
     #    pass
 
     def descr_contains(self, space, w_sub):
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        if (isinstance(self, W_BytearrayObject) and
-            space.isinstance_w(w_sub, space.w_int)):
-            char = space.int_w(w_sub)
-            return _descr_contains_bytearray(self.data, space, char)
         value = self._val(space)
         other = self._op_val(space, w_sub)
         return space.newbool(value.find(other) >= 0)
@@ -317,22 +312,6 @@ class StringMethods(object):
         return space.newbool(cased)
 
     def descr_join(self, space, w_list):
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        from pypy.objspace.std.unicodeobject import W_UnicodeObject
-
-        if isinstance(self, W_BytesObject):
-            l = space.listview_bytes(w_list)
-            if l is not None:
-                if len(l) == 1:
-                    return space.wrap(l[0])
-                return space.wrap(self._val(space).join(l))
-        elif isinstance(self, W_UnicodeObject):
-            l = space.listview_unicode(w_list)
-            if l is not None:
-                if len(l) == 1:
-                    return space.wrap(l[0])
-                return space.wrap(self._val(space).join(l))
-
         list_w = space.listview(w_list)
         size = len(list_w)
 
@@ -688,16 +667,6 @@ class StringMethods(object):
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops
-
-def _descr_contains_bytearray(data, space, char):
-    if not 0 <= char < 256:
-        raise operationerrfmt(space.w_ValueError,
-                              "byte must be in range(0, 256)")
-    for c in data:
-        if ord(c) == char:
-            return space.w_True
-    return space.w_False
-
 
 @specialize.argtype(0)
 def _descr_getslice_slowpath(selfvalue, start, step, sl):

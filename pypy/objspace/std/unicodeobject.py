@@ -317,6 +317,15 @@ class W_UnicodeObject(W_Root):
                                                     w_errors)
         return encode_object(space, self, encoding, errors)
 
+    _StringMethods_descr_join = descr_join
+    def descr_join(self, space, w_list):
+        l = space.listview_unicode(w_list)
+        if l is not None:
+            if len(l) == 1:
+                return space.wrap(l[0])
+            return space.wrap(self._val(space).join(l))
+        return self._StringMethods_descr_join(space, w_list)
+
     def _join_return_one(self, space, w_obj):
         return space.is_w(space.type(w_obj), space.w_unicode)
 

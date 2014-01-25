@@ -703,11 +703,14 @@ class W_BytesObject(W_AbstractBytesObject):
             return self_as_uni._new(res)
         return self._StringMethods_descr_replace(space, w_old, w_new, count)
 
-    def descr_lower(self, space):
-        return W_BytesObject(self._value.lower())
-
-    def descr_upper(self, space):
-        return W_BytesObject(self._value.upper())
+    _StringMethods_descr_join = descr_join
+    def descr_join(self, space, w_list):
+        l = space.listview_bytes(w_list)
+        if l is not None:
+            if len(l) == 1:
+                return space.wrap(l[0])
+            return space.wrap(self._val(space).join(l))
+        return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
@@ -726,6 +729,12 @@ class W_BytesObject(W_AbstractBytesObject):
         w_list = space.newlist(list_w)
         w_u = space.call_function(space.w_unicode, self)
         return space.call_method(w_u, "join", w_list)
+
+    def descr_lower(self, space):
+        return W_BytesObject(self._value.lower())
+
+    def descr_upper(self, space):
+        return W_BytesObject(self._value.upper())
 
     def descr_formatter_parser(self, space):
         from pypy.objspace.std.newformat import str_template_formatter

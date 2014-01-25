@@ -376,12 +376,34 @@ class W_BytearrayObject(W_Root):
             raise operationerrfmt(space.w_ValueError,
                                   "value not found in bytearray")
 
+    _StringMethods_descr_contains = descr_contains
+    def descr_contains(self, space, w_sub):
+        if space.isinstance_w(w_sub, space.w_int):
+            char = space.int_w(w_sub)
+            return _descr_contains_bytearray(self.data, space, char)
+        return self._StringMethods_descr_contains(space, w_sub)
+
     def descr_reverse(self, space):
         self.data.reverse()
 
 
+# ____________________________________________________________
+# helpers for slow paths, moved out because they contain loops
+
 def _make_data(s):
     return [s[i] for i in range(len(s))]
+
+
+def _descr_contains_bytearray(data, space, char):
+    if not 0 <= char < 256:
+        raise operationerrfmt(space.w_ValueError,
+                              "byte must be in range(0, 256)")
+    for c in data:
+        if ord(c) == char:
+            return space.w_True
+    return space.w_False
+
+# ____________________________________________________________
 
 
 def getbytevalue(space, w_value):
