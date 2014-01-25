@@ -257,9 +257,6 @@ class TestRint(BaseRtypingTest):
                     assert res == intmask(f(2147483647, 12))
                 else:
                     assert res == inttype(f(2147483647, 12))
-                # XXX: this assertion doesn't hold since e1d98ce26c7b
-                # because it breaked llvm translation on 32-bit
-                continue
                 #
                 # check that '*_[lr]shift' take an inttype and an
                 # int as arguments, without the need for a
