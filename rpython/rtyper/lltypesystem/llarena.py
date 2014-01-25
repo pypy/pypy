@@ -406,7 +406,6 @@ import os, sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool.rffi_platform import memory_alignment
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
 
 MEMORY_ALIGNMENT = memory_alignment()
 
