@@ -17,9 +17,8 @@ from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 
-__all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
-           'encode_object', 'decode_object', 'unicode_from_object',
-           'unicode_to_decimal_w']
+__all__ = ['W_UnicodeObject', 'wrapunicode', 'encode_object', 'decode_object',
+           'unicode_from_object', 'unicode_to_decimal_w']
 
 
 class W_UnicodeObject(W_Root):
@@ -442,25 +441,10 @@ class W_UnicodeObject(W_Root):
     descr_ljust = _fix_fillchar(StringMethods.descr_ljust)
     descr_rjust = _fix_fillchar(StringMethods.descr_rjust)
 
+
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
 
-
-def plain_str2unicode(space, s):
-    try:
-        return unicode(s)
-    except UnicodeDecodeError:
-        for i in range(len(s)):
-            if ord(s[i]) > 127:
-                raise OperationError(
-                    space.w_UnicodeDecodeError,
-                    space.newtuple([
-                    space.wrap('ascii'),
-                    space.wrap(s),
-                    space.wrap(i),
-                    space.wrap(i+1),
-                    space.wrap("ordinal not in range(128)")]))
-        assert False, "unreachable"
 
 def _isidentifier(u):
     if not u:
