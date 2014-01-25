@@ -39,7 +39,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype"], cmdline=None, default="lltype"),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c", "llvm"], default="c",
+                 ["c", "llvm"], default="llvm",
                  requires={
                      "c":      [("translation.type_system", "lltype")],
                      "llvm":   [("translation.type_system", "lltype"),
