@@ -285,6 +285,9 @@ class W_BytearrayObject(W_Root):
             raise
         return space.newbool(res)
 
+    def descr_iter(self, space):
+        return space.newseqiter(self)
+
     def descr_buffer(self, space):
         return BytearrayBuffer(self.data)
 
@@ -893,6 +896,8 @@ W_BytearrayObject.typedef = StdTypeDef(
     __ge__ = interp2app(W_BytearrayObject.descr_ge,
                         doc=BytearrayDocstrings.__ge__.__doc__),
 
+    __iter__ = interp2app(W_BytearrayObject.descr_iter,
+                         doc=BytearrayDocstrings.__iter__.__doc__),
     __len__ = interp2app(W_BytearrayObject.descr_len,
                          doc=BytearrayDocstrings.__len__.__doc__),
     __contains__ = interp2app(W_BytearrayObject.descr_contains,
