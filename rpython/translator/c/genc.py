@@ -686,11 +686,11 @@ class SourceGenerator:
                     print >> fc, '/***********************************************************/'
                     print >> fc, '/***  Implementations                                    ***/'
                     print >> fc
-                    print >> fc, '#define PYPY_FILE_NAME "%s"' % name
                     print >> fc, '#include "common_header.h"'
                     print >> fc, '#include "structdef.h"'
                     print >> fc, '#include "forwarddecl.h"'
                     print >> fc, '#include "preimpl.h"'
+                    print >> fc, '#define PYPY_FILE_NAME "%s"' % name
                     print >> fc, '#include "src/g_include.h"'
                     print >> fc
                 print >> fc, MARKER
