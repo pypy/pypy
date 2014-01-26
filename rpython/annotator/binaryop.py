@@ -10,10 +10,11 @@ from rpython.annotator.model import (
     SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
-    SomeWeakRef, SomeAddress, SomeTypedAddressAccess, SomeSingleFloat,
+    SomeWeakRef, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
+from rpython.rtyper.llannotation import SomeAddress, SomeTypedAddressAccess
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.flowspace.operation import op
