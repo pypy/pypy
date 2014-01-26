@@ -460,15 +460,15 @@ class SomePBC(SomeObject):
 
     def getKind(self):
         "Return the common Desc class of all descriptions in this PBC."
-        kinds = {}
+        kinds = set()
         for x in self.descriptions:
             assert type(x).__name__.endswith('Desc')  # avoid import nightmares
-            kinds[x.__class__] = True
-        assert len(kinds) <= 1, (
-            "mixing several kinds of PBCs: %r" % (kinds.keys(),))
+            kinds.add(x.__class__)
+        if len(kinds) > 1:
+            raise AnnotatorError("mixing several kinds of PBCs: %r" % kinds)
         if not kinds:
             raise ValueError("no 'kind' on the 'None' PBC")
-        return kinds.keys()[0]
+        return kinds.pop()
 
     def simplify(self):
         if self.descriptions:
