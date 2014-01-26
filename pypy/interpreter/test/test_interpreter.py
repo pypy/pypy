@@ -311,3 +311,63 @@ class AppTestInterpreter:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"
+
+    def test_with_statement_and_sys_clear(self):
+        import sys
+        class CM(object):
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_value, tb):
+                sys.exc_clear()
+        try:
+            with CM():
+                1 / 0
+            raise AssertionError("should not be reached")
+        except ZeroDivisionError:
+            pass
+
+    def test_sys_clear_while_handling_exception(self):
+        import sys
+        def f():
+            try:
+                some_missing_name
+            except NameError:
+                g()
+                assert sys.exc_info()[0] is NameError
+        def g():
+            assert sys.exc_info()[0] is NameError
+            try:
+                1 / 0
+            except ZeroDivisionError:
+                assert sys.exc_info()[0] is ZeroDivisionError
+                sys.exc_clear()
+                assert sys.exc_info()[0] is None
+                h()
+                assert sys.exc_info()[0] is None
+        def h():
+            assert sys.exc_info()[0] is None
+        f()
+
+    def test_sys_clear_while_handling_exception_nested(self):
+        import sys
+        def f():
+            try:
+                some_missing_name
+            except NameError:
+                g()
+                assert sys.exc_info()[0] is NameError
+        def g():
+            assert sys.exc_info()[0] is NameError
+            try:
+                1 / 0
+            except ZeroDivisionError:
+                assert sys.exc_info()[0] is ZeroDivisionError
+                h1()
+                assert sys.exc_info()[0] is None
+                h()
+                assert sys.exc_info()[0] is None
+        def h():
+            assert sys.exc_info()[0] is None
+        def h1():
+            sys.exc_clear()
+        f()
