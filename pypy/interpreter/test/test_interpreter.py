@@ -371,3 +371,13 @@ class AppTestInterpreter:
         def h1():
             sys.exc_clear()
         f()
+
+    def test_sys_clear_reraise(self):
+        import sys
+        def f():
+            try:
+                1 / 0
+            except ZeroDivisionError:
+                sys.exc_clear()
+                raise
+        raises(TypeError, f)
