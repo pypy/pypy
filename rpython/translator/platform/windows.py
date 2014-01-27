@@ -249,7 +249,7 @@ class MsvcPlatform(Platform):
 
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False):
+                     shared=False, cfile_precompilation=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:

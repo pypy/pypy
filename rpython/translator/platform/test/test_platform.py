@@ -86,6 +86,12 @@ class TestPlatform(object):
         res = self.platform.execute(udir.join('test_900_files'))
         self.check_res(res, '%d\n' %sum(range(900)))
 
+    def test_precompiled_headers(self):
+        # Create an eci that should not use precompiled headers
+        # Create some cfiles with headers we want precompiled
+        # Call gen_makefile(cfiles, eci, cfiles_precompiled_headers=[list, of, headers])
+        # Make sure it all works
+        pass
 
     def test_nice_errors(self):
         cfile = udir.join('test_nice_errors.c')
