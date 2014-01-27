@@ -39,7 +39,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype"], cmdline=None, default="lltype"),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c", "llvm"], default="llvm",
+                 ["c", "llvm"], default="c",
                  requires={
                      "c":      [("translation.type_system", "lltype")],
                      "llvm":   [("translation.type_system", "lltype"),
@@ -292,6 +292,7 @@ def get_combined_translation_config(other_optdescr=None,
                          if child._name != newname]
     descr = OptionDescription("pypy", "all options", children)
     config = Config(descr, **overrides)
+    config.translation.backend = 'llvm'
     if translating:
         config.translating = True
     if existing_config is not None:
