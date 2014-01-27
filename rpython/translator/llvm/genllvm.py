@@ -1093,6 +1093,9 @@ class FunctionWriter(object):
     def op_debug_flush(self, result, *args):
         pass
 
+    def op_debug_forked(self, result, *args):
+        pass
+
     def op_track_alloc_start(self, result, *args):
         pass
 
