@@ -1638,7 +1638,11 @@ class GenLLVM(object):
             'ref': RefcountGCPolicy
         }[translator.config.translation.gctransformer](self)
         self.transformed_graphs = set()
-        self.sources = []
+        self.sources = [str(py.code.Source(r'''
+        void pypy_debug_catch_fatal_exception(void) {
+            fprintf(stderr, "Fatal RPython error\n");
+            abort();
+        }'''))]
         self.ecis = []
         self.entrypoints = set()
 
@@ -1750,11 +1754,6 @@ class GenLLVM(object):
         exports.clear()
 
     def _compile(self, shared=False):
-        self.sources.append(str(py.code.Source(r'''
-        void pypy_debug_catch_fatal_exception(void) {
-            fprintf(stderr, "Fatal RPython error\n");
-            abort();
-        }''')))
         eci = ExternalCompilationInfo(
             includes=['stdio.h', 'stdlib.h'],
             separate_module_sources=['\n'.join(self.sources)],
