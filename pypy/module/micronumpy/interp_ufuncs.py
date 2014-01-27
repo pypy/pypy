@@ -254,6 +254,13 @@ class W_Ufunc(W_Root):
             return out
         return res
 
+    def descr_outer(self, space, __args__):
+        return self._outer(space, __args__)
+
+    def _outer(self, space, __args__):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("outer product only supported for binary functions"))
+
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
     argcount = 1
@@ -432,6 +439,7 @@ W_Ufunc.typedef = TypeDef("ufunc",
     nin = interp_attrproperty("argcount", cls=W_Ufunc),
 
     reduce = interp2app(W_Ufunc.descr_reduce),
+    outer = interp2app(W_Ufunc.descr_outer),
 )
 
 
