@@ -1087,6 +1087,12 @@ class FunctionWriter(object):
     def op_debug_nonnull_pointer(self, result, *args):
         pass
 
+    def op_debug_offset(self, result, *args):
+        pass
+
+    def op_debug_flush(self, result, *args):
+        pass
+
     def op_track_alloc_start(self, result, *args):
         pass
 
