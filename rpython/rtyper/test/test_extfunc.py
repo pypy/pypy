@@ -182,3 +182,22 @@ class TestExtFuncEntry:
             # fails with TooLateForChange
             a.build_types(g, [[str]])
         a.build_types(g, [[str0]])  # Does not raise
+
+    def test_register_external_llfakeimpl(self):
+        def a(i):
+            return i
+        def a_llimpl(i):
+            return i * 2
+        def a_llfakeimpl(i):
+            return i * 3
+        register_external(a, [int], int, llimpl=a_llimpl,
+                          llfakeimpl=a_llfakeimpl)
+        def f(i):
+            return a(i)
+
+        res = interpret(f, [7])
+        assert res == 21
+
+        from rpython.translator.c.test.test_genc import compile
+        fc = compile(f, [int])
+        assert fc(7) == 14
