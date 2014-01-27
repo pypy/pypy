@@ -667,6 +667,14 @@ class LLFrame(object):
         return frame.eval()
 
     def op_direct_call(self, f, *args):
+        pythonfunction = getattr(f._obj, '_fakeimpl', None)
+        if pythonfunction is not None:
+            try:
+                return pythonfunction(*args)
+            except:
+                self.make_llexception()
+            return
+
         FTYPE = lltype.typeOf(f).TO
         return self.perform_call(f, FTYPE.ARGS, args)
 
