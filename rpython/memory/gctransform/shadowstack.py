@@ -1,4 +1,5 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgc
@@ -242,7 +243,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         def gc_start_fresh_new_state():
             shadow_stack_pool.start_fresh_new_state()
 
-        s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        s_gcref = SomePtr(llmemory.GCREF)
         s_addr = SomeAddress()
         self.gc_shadowstackref_new_ptr = getfn(gc_shadowstackref_new,
                                                [], s_gcref,

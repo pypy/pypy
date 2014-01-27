@@ -1,4 +1,5 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import rstackovf
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.rclass import (ll_issubclass, ll_type,
@@ -72,12 +73,12 @@ class ExceptionData(object):
 
     def make_exception_matcher(self, rtyper):
         # ll_exception_matcher(real_exception_vtable, match_exception_vtable)
-        s_typeptr = annmodel.SomePtr(self.lltype_of_exception_type)
+        s_typeptr = SomePtr(self.lltype_of_exception_type)
         helper_fn = rtyper.annotate_helper_fn(ll_issubclass, [s_typeptr, s_typeptr])
         return helper_fn
 
     def make_type_of_exc_inst(self, rtyper):
         # ll_type_of_exc_inst(exception_instance) -> exception_vtable
-        s_excinst = annmodel.SomePtr(self.lltype_of_exception_value)
+        s_excinst = SomePtr(self.lltype_of_exception_value)
         helper_fn = rtyper.annotate_helper_fn(ll_type, [s_excinst])
         return helper_fn

@@ -1,5 +1,6 @@
 import py
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
@@ -52,7 +53,7 @@ def _isllptr(p):
 class _IsLLPtrEntry(ExtRegistryEntry):
     _about_ = _isllptr
     def compute_result_annotation(self, s_p):
-        result = isinstance(s_p, annmodel.SomePtr)
+        result = isinstance(s_p, SomePtr)
         return self.bookkeeper.immutablevalue(result)
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -996,7 +997,7 @@ class MakeEntry(ExtRegistryEntry):
         TP = s_type.const
         if not isinstance(TP, lltype.Struct):
             raise TypeError("make called with %s instead of Struct as first argument" % TP)
-        return annmodel.SomePtr(lltype.Ptr(TP))
+        return SomePtr(lltype.Ptr(TP))
 
     def specialize_call(self, hop, **fields):
         assert hop.args_s[0].is_constant()

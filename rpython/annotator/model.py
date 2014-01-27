@@ -574,36 +574,8 @@ class SomeWeakRef(SomeObject):
 from rpython.rtyper.lltypesystem import lltype
 
 
-class SomePtr(SomeObject):
-    knowntype = lltype._ptr
-    immutable = True
 
-    def __init__(self, ll_ptrtype):
-        assert isinstance(ll_ptrtype, lltype.Ptr)
-        self.ll_ptrtype = ll_ptrtype
-
-    def can_be_none(self):
-        return False
-
-
-class SomeInteriorPtr(SomePtr):
-    def __init__(self, ll_ptrtype):
-        assert isinstance(ll_ptrtype, lltype.InteriorPtr)
-        self.ll_ptrtype = ll_ptrtype
-
-
-class SomeLLADTMeth(SomeObject):
-    immutable = True
-
-    def __init__(self, ll_ptrtype, func):
-        self.ll_ptrtype = ll_ptrtype
-        self.func = func
-
-    def can_be_none(self):
-        return False
-
-
-from rpython.rtyper.llannotation import SomeAddress
+from rpython.rtyper.llannotation import SomeAddress, SomePtr, SomeInteriorPtr
 from rpython.rtyper.lltypesystem import llmemory
 
 annotation_to_ll_map = [

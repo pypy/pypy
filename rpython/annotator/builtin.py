@@ -357,7 +357,7 @@ def robjmodel_keepalive_until_here(*args_s):
 
 @analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_ptr_to_adr)
 def llmemory_cast_ptr_to_adr(s):
-    from rpython.annotator.model import SomeInteriorPtr
+    from rpython.rtyper.llannotation import SomeInteriorPtr
     assert not isinstance(s, SomeInteriorPtr)
     return SomeAddress()
 
@@ -390,7 +390,7 @@ def analyze():
 
 
 # annotation of low-level types
-from rpython.annotator.model import SomePtr
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype
 
 @analyzer_for(lltype.malloc)

@@ -3,7 +3,8 @@
 import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
-    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
+    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck

@@ -1,5 +1,5 @@
 from rpython.annotator import model as annmodel
-from rpython.rtyper.llannotation import SomeAddress
+from rpython.rtyper.llannotation import SomeAddress, SomePtr
 from rpython.rlib import rgc
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
@@ -268,7 +268,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         from rpython.memory.gc.base import ARRAY_TYPEID_MAP
         from rpython.memory.gc import inspector
 
-        s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        s_gcref = SomePtr(llmemory.GCREF)
         gcdata = self.gcdata
         translator = self.translator
 
@@ -314,7 +314,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         if hasattr(GCClass, 'heap_stats'):
             self.heap_stats_ptr = getfn(GCClass.heap_stats.im_func,
-                    [s_gc], annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP)),
+                    [s_gc], SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP)),
                     minimal_transform=False)
             self.get_member_index_ptr = getfn(
                 GCClass.get_member_index.im_func,
@@ -448,8 +448,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                        minimal_transform=False)
         self.get_typeids_z_ptr = getfn(inspector.get_typeids_z,
                                        [s_gc],
-                                       annmodel.SomePtr(
-                                           lltype.Ptr(rgc.ARRAY_OF_CHAR)),
+                                       SomePtr(lltype.Ptr(rgc.ARRAY_OF_CHAR)),
                                        minimal_transform=False)
 
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,

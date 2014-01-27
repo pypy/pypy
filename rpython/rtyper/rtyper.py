@@ -16,6 +16,7 @@ import os
 import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
+from rpython.rtyper.llannotation import SomePtr
 from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
@@ -639,10 +640,10 @@ class RPythonTyper(object):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
-        args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]
+        args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
         graph = self.annotate_helper(func, args_s)
         s = self.annotator.binding(graph.getreturnvar())
-        if (not isinstance(s, annmodel.SomePtr) or
+        if (not isinstance(s, SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))

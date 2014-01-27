@@ -1,6 +1,7 @@
 import py
 
 from rpython.annotator.model import *
+from rpython.rtyper.llannotation import SomePtr
 from rpython.annotator.listdef import ListDef
 from rpython.translator.translator import TranslationContext
 
