@@ -903,8 +903,8 @@ class __extend__(W_NDimArray):
             w_res = self.descr_mul(space, other)
             assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1), out)
-        dtype = interp_ufuncs.find_binop_result_dtype(space,
-                                     self.get_dtype(), other.get_dtype())
+        dtype = interp_ufuncs.find_binop_result_dtype(space, self.get_dtype(),
+                                                             other.get_dtype())
         if self.get_size() < 1 and other.get_size() < 1:
             # numpy compatability
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
@@ -912,25 +912,27 @@ class __extend__(W_NDimArray):
         out_shape, other_critical_dim = _match_dot_shapes(space, self, other)
         if out:
             matches = True
-            if len(out.get_shape()) != len(out_shape):
+            if dtype != out.get_dtype():
+                matches = False
+            elif not out.implementation.order == "C":
+                matches = False
+            elif len(out.get_shape()) != len(out_shape):
                 matches = False
             else:
                 for i in range(len(out_shape)):
                     if out.get_shape()[i] != out_shape[i]:
                         matches = False
                         break
-            if dtype != out.get_dtype():
-                matches = False
-            if not out.implementation.order == "C":
-                matches = False
             if not matches:
                 raise OperationError(space.w_ValueError, space.wrap(
-                    'output array is not acceptable (must have the right type, nr dimensions, and be a C-Array)'))
+                    'output array is not acceptable (must have the right type, '
+                    'nr dimensions, and be a C-Array)'))
             w_res = out
+            w_res.fill(space, self.get_dtype().coerce(space, None))
         else:
             w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_instance=self)
         # This is the place to add fpypy and blas
-        return loop.multidim_dot(space, self, other,  w_res, dtype,
+        return loop.multidim_dot(space, self, other, w_res, dtype,
                                  other_critical_dim)
 
     def descr_mean(self, space, __args__):
