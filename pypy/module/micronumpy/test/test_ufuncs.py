@@ -1056,4 +1056,5 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_outer(self):
         import numpy as np
         from numpypy import absolute
-        assert raises(TypeError, np.absolute.outer, [-1, -2])
+        exc = raises(ValueError, np.absolute.outer, [-1, -2])
+        assert exc.value[0] == 'outer product only supported for binary functions'

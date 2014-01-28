@@ -258,7 +258,7 @@ class W_Ufunc(W_Root):
         return self._outer(space, __args__)
 
     def _outer(self, space, __args__):
-        raise OperationError(space.w_TypeError,
+        raise OperationError(space.w_ValueError,
                              space.wrap("outer product only supported for binary functions"))
 
 class W_Ufunc1(W_Ufunc):
