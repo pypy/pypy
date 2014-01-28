@@ -87,11 +87,48 @@ class TestPlatform(object):
         self.check_res(res, '%d\n' %sum(range(900)))
 
     def test_precompiled_headers(self):
+        tmpdir = udir.join('precompiled_headers').ensure(dir=1)
         # Create an eci that should not use precompiled headers
+        eci = ExternalCompilationInfo(include_dirs=[tmpdir])
+        main_c = tmpdir.join('main_no_pch.c')
+        eci.separate_module_files = [main_c]
+        ncfiles = 10
+        nprecompiled_headers = 4
+        txt = ''
+        for i in range(ncfiles):
+            txt += "int func%03d();\n" % i
+        txt += "\nint main(int argc, char * argv[])\n"
+        txt += "{\n   int i=0;\n"
+        for i in range(ncfiles):
+            txt += "   i += func%03d();\n" % i
+        txt += '    printf("%d\\n", i);\n'
+        txt += "   return 0;\n};\n"
+        main_c.write(txt)
+        # Create some large headers with dummy functions to be precompiled
+        cfiles_precompiled_headers = []
+        for i in range(nprecompiled_headers):
+            pch_name =tmpdir.join('pcheader%03d.h' % i)
+            txt = ''
+            for j in range(1200):
+                txt += "int pcfunc%03d_%03d();\n" %(i, j)
+            pch_name.write(txt)    
+            cfiles_precompiled_headers.append(pch_name)        
         # Create some cfiles with headers we want precompiled
-        # Call gen_makefile(cfiles, eci, cfiles_precompiled_headers=[list, of, headers])
-        # Make sure it all works
-        pass
+        cfiles = []
+        for i in range(ncfiles):
+            c_name =tmpdir.join('implement%03d.c' % i)
+            txt = ''
+            for pch_name in cfiles_precompiled_headers:
+                txt += '#include "%s"\n' % pch_name
+            txt += "int func%03d(){ return %d;};\n" % (i, i)
+            c_name.write(txt)
+            cfiles.append(c_name)        
+        mk = self.platform.gen_makefile(cfiles, eci, path=udir,
+                                cfile_precompilation=cfiles_precompiled_headers)
+        mk.write()
+        self.platform.execute_makefile(mk)
+        res = self.platform.execute(mk.exe_name)
+        self.check_res(res, '%d\n' %sum(range(ncfiles)))
 
     def test_nice_errors(self):
         cfile = udir.join('test_nice_errors.c')
