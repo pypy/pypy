@@ -109,7 +109,7 @@ class TestParsetring:
     def test_wide_unicode_in_source(self):
         if sys.maxunicode == 65535:
             py.test.skip("requires a wide-unicode host")
-        self.parse_and_compare('u"\xf0\x9f\x92\x8b"',
+        self.parse_and_compare('"\xf0\x9f\x92\x8b"',
                                unichr(0x1f48b),
                                encoding='utf-8')
 

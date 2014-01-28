@@ -80,9 +80,9 @@ class AppTest(object):
 
         l = [1, 2, 3]
         assert list_strategy(l) == "int"
-        l = ["a", "b", "c"]
+        l = [b"a", b"b", b"c"]
         assert list_strategy(l) == "bytes"
-        l = [u"a", u"b", u"c"]
+        l = ["a", "b", "c"]
         assert list_strategy(l) == "unicode"
         l = [1.1, 2.2, 3.3]
         assert list_strategy(l) == "float"
