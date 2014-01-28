@@ -146,8 +146,7 @@ def compute_reduce(space, obj, calc_dtype, func, done_func, identity):
     while not obj_iter.done():
         reduce_driver.jit_merge_point(shapelen=shapelen, func=func,
                                       done_func=done_func,
-                                      calc_dtype=calc_dtype,
-                                      )
+                                      calc_dtype=calc_dtype)
         rval = obj_iter.getitem().convert_to(space, calc_dtype)
         if done_func is not None and done_func(calc_dtype, rval):
             return rval
@@ -172,8 +171,7 @@ def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     shapelen = len(obj.get_shape())
     while not obj_iter.done():
         reduce_cum_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                          dtype=calc_dtype,
-                                         )
+                                          dtype=calc_dtype)
         rval = obj_iter.getitem().convert_to(space, calc_dtype)
         cur_value = func(calc_dtype, cur_value, rval)
         out_iter.setitem(cur_value)
@@ -271,8 +269,7 @@ def _new_argmin_argmax(op_name):
         iter.next()
         shapelen = len(arr.get_shape())
         while not iter.done():
-            arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
-                                      )
+            arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
             w_val = iter.getitem()
             new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
             if dtype.itemtype.ne(new_best, cur_best):
@@ -311,6 +308,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                                          if i != right_critical_dim]
     right_skip = range(len(left_shape) - 1)
     result_skip = [len(result.get_shape()) - (len(right_shape) > 1)]
+    assert result.get_dtype() == dtype
     outi = result.create_dot_iter(broadcast_shape, result_skip)
     lefti = left.create_dot_iter(broadcast_shape, left_skip)
     righti = right.create_dot_iter(broadcast_shape, right_skip)
@@ -318,10 +316,10 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
         dot_driver.jit_merge_point(dtype=dtype)
         lval = lefti.getitem().convert_to(space, dtype)
         rval = righti.getitem().convert_to(space, dtype)
-        outval = outi.getitem().convert_to(space, dtype)
+        outval = outi.getitem()
         v = dtype.itemtype.mul(lval, rval)
-        value = dtype.itemtype.add(v, outval).convert_to(space, dtype)
-        outi.setitem(value)
+        v = dtype.itemtype.add(v, outval)
+        outi.setitem(v)
         outi.next()
         righti.next()
         lefti.next()
@@ -652,8 +650,8 @@ def round(space, arr, dtype, shape, decimals, out):
     out_iter = out.create_iter(shape)
     while not arr_iter.done():
         round_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
-        w_v = dtype.itemtype.round(arr_iter.getitem().convert_to(space, dtype),
-                     decimals)
+        w_v = arr_iter.getitem().convert_to(space, dtype)
+        w_v = dtype.itemtype.round(w_v, decimals)
         out_iter.setitem(w_v)
         arr_iter.next()
         out_iter.next()

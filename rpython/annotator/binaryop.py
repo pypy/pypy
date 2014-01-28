@@ -829,7 +829,7 @@ class __extend__(pairtype(SomeString, SomePBC)):
 
 # ____________________________________________________________
 # annotation of low-level types
-from rpython.annotator.model import SomePtr
+from rpython.rtyper.llannotation import SomePtr
 from rpython.annotator.model import ll_to_annotation, annotation_to_lltype
 
 class __extend__(pairtype(SomePtr, SomePtr)):

@@ -624,7 +624,7 @@ class ClassDesc(Desc):
                 except ValueError:
                     pass
                 else:
-                    from rpython.annotator.model import SomePtr
+                    from rpython.rtyper.llannotation import SomePtr
                     assert not isinstance(s_arg, SomePtr)
         else:
             # call the constructor

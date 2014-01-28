@@ -7,6 +7,7 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator.signature import Sig
 from rpython.annotator.specialize import flatten_star_args
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
@@ -359,7 +360,7 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
         key = (llhelper, s_callable.const)
         s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
         assert annmodel.lltype_to_annotation(FUNC.RESULT).contains(s_res)
-        return annmodel.SomePtr(F)
+        return SomePtr(F)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -476,7 +477,7 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     def compute_result_annotation(self, s_PTR, s_object):
         assert s_PTR.is_constant()
         if isinstance(s_PTR.const, lltype.Ptr):
-            return annmodel.SomePtr(s_PTR.const)
+            return SomePtr(s_PTR.const)
         else:
             assert False
 
@@ -535,14 +536,14 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
 def placeholder_sigarg(s):
     if s == "self":
         def expand(s_self, *args_s):
-            assert isinstance(s_self, annmodel.SomePtr)
+            assert isinstance(s_self, SomePtr)
             return s_self
     elif s == "SELF":
         raise NotImplementedError
     else:
         assert s.islower()
         def expand(s_self, *args_s):
-            assert isinstance(s_self, annmodel.SomePtr)
+            assert isinstance(s_self, SomePtr)
             return getattr(s_self.ll_ptrtype.TO, s.upper())
     return expand
 
