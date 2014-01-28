@@ -1,4 +1,5 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomeAddress
 from rpython.rlib import rgc
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
@@ -195,21 +196,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # the point of this little dance is to not annotate
         # self.gcdata.static_root_xyz as constants. XXX is it still needed??
         data_classdef = bk.getuniqueclassdef(gctypelayout.GCData)
-        data_classdef.generalize_attr(
-            'static_root_start',
-            annmodel.SomeAddress())
-        data_classdef.generalize_attr(
-            'static_root_nongcend',
-            annmodel.SomeAddress())
-        data_classdef.generalize_attr(
-            'static_root_end',
-            annmodel.SomeAddress())
-        data_classdef.generalize_attr(
-            'max_type_id',
-            annmodel.SomeInteger())
-        data_classdef.generalize_attr(
-            'typeids_z',
-            annmodel.SomeAddress())
+        data_classdef.generalize_attr('static_root_start', SomeAddress())
+        data_classdef.generalize_attr('static_root_nongcend', SomeAddress())
+        data_classdef.generalize_attr('static_root_end', SomeAddress())
+        data_classdef.generalize_attr('max_type_id', annmodel.SomeInteger())
+        data_classdef.generalize_attr('typeids_z', SomeAddress())
 
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
@@ -310,13 +301,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
-                                  [s_gc, annmodel.SomeAddress()],
+                                  [s_gc, SomeAddress()],
                                   annmodel.SomeBool())
 
         if hasattr(GCClass, 'shrink_array'):
             self.shrink_array_ptr = getfn(
                 GCClass.shrink_array.im_func,
-                [s_gc, annmodel.SomeAddress(),
+                [s_gc, SomeAddress(),
                  annmodel.SomeInteger(nonneg=True)], annmodel.s_Bool)
         else:
             self.shrink_array_ptr = None
@@ -333,7 +324,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if hasattr(GCClass, 'writebarrier_before_copy'):
             self.wb_before_copy_ptr = \
                     getfn(GCClass.writebarrier_before_copy.im_func,
-                    [s_gc] + [annmodel.SomeAddress()] * 2 +
+                    [s_gc] + [SomeAddress()] * 2 +
                     [annmodel.SomeInteger()] * 3, annmodel.SomeBool())
         elif GCClass.needs_write_barrier:
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
@@ -421,7 +412,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if getattr(GCClass, 'obtain_free_space', False):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
-                                             annmodel.SomeAddress())
+                                             SomeAddress())
 
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
@@ -470,8 +461,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.write_barrier_from_array_ptr = None
         if GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
-                                           [s_gc,
-                                            annmodel.SomeAddress()],
+                                           [s_gc, SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
             func = getattr(gcdata.gc, 'remember_young_pointer', None)
@@ -479,13 +469,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 # func should not be a bound method, but a real function
                 assert isinstance(func, types.FunctionType)
                 self.write_barrier_failing_case_ptr = getfn(func,
-                                               [annmodel.SomeAddress()],
+                                               [SomeAddress()],
                                                annmodel.s_None)
             func = getattr(GCClass, 'write_barrier_from_array', None)
             if func is not None:
                 self.write_barrier_from_array_ptr = getfn(func.im_func,
-                                           [s_gc,
-                                            annmodel.SomeAddress(),
+                                           [s_gc, SomeAddress(),
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
                                            inline=True)
@@ -497,7 +486,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     assert isinstance(func, types.FunctionType)
                     self.write_barrier_from_array_failing_case_ptr = \
                                              getfn(func,
-                                                   [annmodel.SomeAddress()],
+                                                   [SomeAddress()],
                                                    annmodel.s_None)
 
 

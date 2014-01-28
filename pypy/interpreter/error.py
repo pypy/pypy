@@ -6,7 +6,7 @@ import traceback
 from errno import EINTR
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 
 from pypy.interpreter import debug
 
@@ -74,11 +74,11 @@ class OperationError(Exception):
             space.setattr(w_value, space.wrap('__context__'), w_last_value)
 
     def clear(self, space):
-        self.w_type = space.w_None
-        self._w_value = space.w_None
-        self._application_traceback = None
-        if not we_are_translated():
-            del self.debug_excs[:]
+        # XXX remove this method.  The point is that we cannot always
+        # hack at 'self' to clear w_type and _w_value, because in some
+        # corner cases the OperationError will be used again: see
+        # test_interpreter.py:test_with_statement_and_sys_clear.
+        pass
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
@@ -347,6 +347,10 @@ class OperationError(Exception):
         executioncontext.leave() being called with got_exception=True.
         """
         self._application_traceback = traceback
+
+@specialize.memo()
+def get_cleared_operation_error(space):
+    return OperationError(space.w_None, space.w_None)
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string

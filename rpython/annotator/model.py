@@ -460,15 +460,15 @@ class SomePBC(SomeObject):
 
     def getKind(self):
         "Return the common Desc class of all descriptions in this PBC."
-        kinds = {}
+        kinds = set()
         for x in self.descriptions:
             assert type(x).__name__.endswith('Desc')  # avoid import nightmares
-            kinds[x.__class__] = True
-        assert len(kinds) <= 1, (
-            "mixing several kinds of PBCs: %r" % (kinds.keys(),))
+            kinds.add(x.__class__)
+        if len(kinds) > 1:
+            raise AnnotatorError("mixing several kinds of PBCs: %r" % kinds)
         if not kinds:
             raise ValueError("no 'kind' on the 'None' PBC")
-        return kinds.keys()[0]
+        return kinds.pop()
 
     def simplify(self):
         if self.descriptions:
@@ -568,33 +568,6 @@ class SomeWeakRef(SomeObject):
         # 'classdef' is None for known-to-be-dead weakrefs.
         self.classdef = classdef
 
-# ____________________________________________________________
-# memory addresses
-
-from rpython.rtyper.lltypesystem import llmemory
-
-
-class SomeAddress(SomeObject):
-    immutable = True
-
-    def can_be_none(self):
-        return False
-
-    def is_null_address(self):
-        return self.is_immutable_constant() and not self.const
-
-
-# The following class is used to annotate the intermediate value that
-# appears in expressions of the form:
-# addr.signed[offset] and addr.signed[offset] = value
-
-class SomeTypedAddressAccess(SomeObject):
-    def __init__(self, type):
-        self.type = type
-
-    def can_be_none(self):
-        return False
-
 #____________________________________________________________
 # annotation of low-level types
 
@@ -630,6 +603,8 @@ class SomeLLADTMeth(SomeObject):
         return False
 
 
+from rpython.rtyper.llannotation import SomeAddress
+from rpython.rtyper.lltypesystem import llmemory
 
 annotation_to_ll_map = [
     (SomeSingleFloat(), lltype.SingleFloat),

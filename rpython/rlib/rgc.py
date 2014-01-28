@@ -114,8 +114,8 @@ class MallocNonMovingEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_TP, s_n=None, s_zero=None):
         # basically return the same as malloc
-        from rpython.annotator.builtin import malloc
-        return malloc(s_TP, s_n, s_zero=s_zero)
+        from rpython.annotator.builtin import BUILTIN_ANALYZERS
+        return BUILTIN_ANALYZERS[lltype.malloc](s_TP, s_n, s_zero=s_zero)
 
     def specialize_call(self, hop, i_zero=None):
         # XXX assume flavor and zero to be None by now
@@ -266,7 +266,7 @@ def no_release_gil(func):
     func._dont_inline_ = True
     func._no_release_gil_ = True
     return func
-    
+
 def no_collect(func):
     func._dont_inline_ = True
     func._gc_no_collect_ = True
