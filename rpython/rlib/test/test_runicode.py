@@ -99,7 +99,7 @@ class UnicodeTests(object):
             called[0] += 1
             if called[0] == 1:
                 assert errors == "foo!"
-                assert enc == encoding
+                assert enc == encoding.replace('-', '')
                 assert t is s
                 assert start == startingpos
                 assert stop == endingpos

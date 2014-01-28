@@ -6,7 +6,9 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module.__builtin__.interp_memoryview import W_Buffer
 
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
 class LLBuffer(RWBuffer):
@@ -35,8 +37,7 @@ class LLBuffer(RWBuffer):
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)
-        for i in range(len(string)):
-            raw_cdata[i] = string[i]
+        copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
 
 
 # Override the typedef to narrow down the interface that's exposed to app-level
@@ -53,6 +54,7 @@ MiniBuffer.typedef = TypeDef(
     __getitem__ = interp2app(MiniBuffer.descr_getitem),
     __setitem__ = interp2app(MiniBuffer.descr_setitem),
     __weakref__ = make_weakref_descr(MiniBuffer),
+    __str__ = interp2app(MiniBuffer.descr_str),
     )
 MiniBuffer.typedef.acceptable_as_base_class = False
 

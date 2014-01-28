@@ -2143,7 +2143,13 @@ def test_buffer():
     c = newp(BCharArray, b"hi there")
     #
     buf = buffer(c)
-    assert str(buf).startswith('<_cffi_backend.buffer object at 0x')
+    assert repr(buf).startswith('<_cffi_backend.buffer object at 0x')
+    assert bytes(buf) == b"hi there\x00"
+    if sys.version_info < (3,):
+        assert str(buf) == "hi there\x00"
+        assert unicode(buf) == u+"hi there\x00"
+    else:
+        assert str(buf) == repr(buf)
     # --mb_length--
     assert len(buf) == len(b"hi there\x00")
     # --mb_item--
@@ -3125,6 +3131,50 @@ def test_void_p_arithmetic():
     py.test.raises(TypeError, "p + cast(new_primitive_type('int'), 42)")
     py.test.raises(TypeError, "p - cast(new_primitive_type('int'), 42)")
 
+def test_sizeof_sliced_array():
+    BInt = new_primitive_type("int")
+    BArray = new_array_type(new_pointer_type(BInt), 10)
+    p = newp(BArray, None)
+    assert sizeof(p[2:9]) == 7 * sizeof(BInt)
+
+def test_packed():
+    BLong = new_primitive_type("long")
+    BChar = new_primitive_type("char")
+    BShort = new_primitive_type("short")
+    BStruct = new_struct_type("struct foo")
+    complete_struct_or_union(BStruct, [('a1', BLong, -1),
+                                       ('a2', BChar, -1),
+                                       ('a3', BShort, -1)],
+                             None, -1, -1, 8)   # SF_PACKED==8
+    d = BStruct.fields
+    assert len(d) == 3
+    assert d[0][0] == 'a1'
+    assert d[0][1].type is BLong
+    assert d[0][1].offset == 0
+    assert d[0][1].bitshift == -1
+    assert d[0][1].bitsize == -1
+    assert d[1][0] == 'a2'
+    assert d[1][1].type is BChar
+    assert d[1][1].offset == sizeof(BLong)
+    assert d[1][1].bitshift == -1
+    assert d[1][1].bitsize == -1
+    assert d[2][0] == 'a3'
+    assert d[2][1].type is BShort
+    assert d[2][1].offset == sizeof(BLong) + sizeof(BChar)
+    assert d[2][1].bitshift == -1
+    assert d[2][1].bitsize == -1
+    assert sizeof(BStruct) == sizeof(BLong) + sizeof(BChar) + sizeof(BShort)
+    assert alignof(BStruct) == 1
+
+def test_packed_with_bitfields():
+    BLong = new_primitive_type("long")
+    BChar = new_primitive_type("char")
+    BStruct = new_struct_type("struct foo")
+    py.test.raises(NotImplementedError,
+                   complete_struct_or_union,
+                   BStruct, [('a1', BLong, 30),
+                             ('a2', BChar, 5)],
+                   None, -1, -1, 8)   # SF_PACKED==8
 
 def test_version():
     # this test is here mostly for PyPy

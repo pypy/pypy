@@ -2,12 +2,19 @@ import py
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver
 from rpython.rlib import objectmodel
+from collections import OrderedDict
 
 class DictTests:
+    @staticmethod
+    def newdict():   # overridden in TestLLOrderedDict
+        return {}
+
+    def _freeze_(self):
+        return True
 
     def test_dict_set_none(self):
         def fn(n):
-            d = {}
+            d = self.newdict()
             d[0] = None
             return bool(d[n])
         res = self.interp_operations(fn, [0])
@@ -21,7 +28,7 @@ class DictTests:
                                         ]:
             myjitdriver = JitDriver(greens = [], reds = ['n', 'dct'])
             def f(n):
-                dct = {}
+                dct = self.newdict()
                 while n > 0:
                     myjitdriver.can_enter_jit(n=n, dct=dct)
                     myjitdriver.jit_merge_point(n=n, dct=dct)
@@ -51,7 +58,9 @@ class DictTests:
                                         ]:
             myjitdriver = JitDriver(greens = [], reds = ['total', 'it'])
             def f(n):
-                dct = {n: 100, 50: n+1}
+                dct = self.newdict()
+                dct[n] = 100
+                dct[50] = n + 1
                 it = getattr(dct, name)()
                 total = 0
                 while True:
@@ -71,6 +80,8 @@ class DictTests:
             assert res == expected
 
     def test_dict_trace_hash(self):
+        if type(self.newdict()) is not dict:
+            py.test.skip("this is an r_dict test")
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
         def key(x):
             return x % 2
@@ -96,7 +107,7 @@ class DictTests:
     def test_dict_setdefault(self):
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
         def f(n):
-            dct = {}
+            dct = self.newdict()
             total = n
             while total:
                 myjitdriver.jit_merge_point(total=total, dct=dct)
@@ -110,6 +121,8 @@ class DictTests:
         self.check_resops(new=0, new_with_vtable=0)
 
     def test_dict_as_counter(self):
+        if type(self.newdict()) is not dict:
+            py.test.skip("this is an r_dict test")
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
         def key(x):
             return x % 2
@@ -131,6 +144,8 @@ class DictTests:
         self.check_resops(int_mod=2) # key + eq, but cached
 
     def test_repeated_lookup(self):
+        if type(self.newdict()) is not dict:
+            py.test.skip("this is an r_dict test")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'd'])
         class Wrapper(object):
             _immutable_fields_ = ["value"]
@@ -167,7 +182,8 @@ class DictTests:
         def f(n):
             while n > 0:
                 driver.jit_merge_point(n=n)
-                d = {1: 1}
+                d = self.newdict()
+                d[1] = 1
                 for elem in d:
                     n -= elem
             return n
@@ -180,3 +196,28 @@ class DictTests:
 
 class TestLLtype(DictTests, LLJitMixin):
     pass
+
+class TestLLOrderedDict(DictTests, LLJitMixin):
+    @staticmethod
+    def newdict():
+        return OrderedDict()
+
+    def test_dict_is_ordered(self):
+        def fn(n):
+            d = OrderedDict()
+            d[3] = 5
+            d[n] = 9
+            d[2] = 6
+            d[1] = 4
+            lst = d.items()
+            assert len(lst) == 4
+            return (    lst[0][0] +       10*lst[0][1] +
+                    100*lst[1][0] +     1000*lst[1][1] +
+                  10000*lst[3][0] +   100000*lst[2][1] +
+                1000000*lst[2][0] + 10000000*lst[3][1])
+
+        res = self.interp_operations(fn, [0])
+        assert res == fn(0)
+
+    def test_unrolling_of_dict_iter(self):
+        py.test.skip("XXX fix me: ordereddict generates a mess for now")

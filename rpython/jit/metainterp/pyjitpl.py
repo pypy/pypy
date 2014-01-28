@@ -594,9 +594,11 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
+            # XXX pypy with the following check fails on micronumpy,
+            # XXX investigate
             #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
             #                          rop.GETFIELD_GC, fielddescr, box)
-            # XXX the sanity check does not seem to do anything, remove?
+            #assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -623,7 +625,11 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+        # The following test is disabled because buggy.  It is supposed
+        # to be: not(we're writing null into a freshly allocated object)
+        # but the bug is that is_unescaped() can be True even after the
+        # field cache is cleared --- see test_ajit:test_unescaped_write_zero
+        if 1:  # tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
             self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
@@ -2102,11 +2108,11 @@ class MetaInterp(object):
                 if not box1.same_constant(box2):
                     break
             else:
-                # Found!  Compile it as a loop.
-                # raises in case it works -- which is the common case
                 if self.partial_trace:
                     if  start != self.retracing_from:
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
+                # Found!  Compile it as a loop.
+                # raises in case it works -- which is the common case
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1

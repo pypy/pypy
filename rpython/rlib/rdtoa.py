@@ -38,6 +38,10 @@ eci = ExternalCompilationInfo(
                       ],
     )
 
+# dtoa.c is limited to 'int', so we refuse to pass it
+# strings or integer arguments bigger than ~2GB
+_INT_LIMIT = 0x7ffff000
+
 dg_strtod = rffi.llexternal(
     '_PyPy_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
     compilation_info=eci, sandboxsafe=True)
@@ -52,6 +56,8 @@ dg_freedtoa = rffi.llexternal(
     compilation_info=eci, sandboxsafe=True)
 
 def strtod(input):
+    if len(input) > _INT_LIMIT:
+        raise MemoryError
     end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
     try:
         ll_input = rffi.str2charp(input)
@@ -232,6 +238,8 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
 def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
+    if precision > _INT_LIMIT:
+        raise MemoryError
     decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:
         sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')

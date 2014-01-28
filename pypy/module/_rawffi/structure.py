@@ -16,7 +16,7 @@ from pypy.module._rawffi.interp_rawffi import LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
-from rpython.rlib import clibffi
+from rpython.rlib import clibffi, rgc
 from rpython.rlib.rarithmetic import intmask, signedtype, widen
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
 
@@ -226,6 +226,7 @@ class W_Structure(W_DataShape):
                                                            fieldtypes)
         return self.ffi_struct.ffistruct
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.ffi_struct:
             lltype.free(self.ffi_struct, flavor='raw')
@@ -379,6 +380,7 @@ class W_StructureInstanceAutoFree(W_StructureInstance):
     def __init__(self, space, shape):
         W_StructureInstance.__init__(self, space, shape, 0)
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.ll_buffer:
             self._free()

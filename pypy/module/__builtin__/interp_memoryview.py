@@ -229,10 +229,14 @@ class W_MemoryView(W_Root):
         return W_MemoryView(buf)
 
     def descr_buffer(self, space):
-        """Note that memoryview() objects in PyPy support buffer(), whereas
-        not in CPython; but CPython supports passing memoryview() to most
-        built-in functions that accept buffers, with the notable exception
-        of the buffer() built-in."""
+        """
+        Note that memoryview() is very inconsistent in CPython: it does not
+        support the buffer interface but does support the new buffer
+        interface: as a result, it is possible to pass memoryview to
+        e.g. socket.send() but not to file.write().  For simplicity and
+        consistency, in PyPy memoryview DOES support buffer(), which means
+        that it is accepted in more places than CPython.
+        """
         return space.wrap(self.buf)
 
     def descr_tobytes(self, space):

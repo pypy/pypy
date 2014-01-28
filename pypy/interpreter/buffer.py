@@ -30,10 +30,16 @@ class Buffer(object):
         raise ValueError("no raw buffer")
 
 
+    def is_writable(self):
+        return False
+
 class RWBuffer(Buffer):
     """Abstract base class for read-write buffers."""
 
     __slots__ = ()     # no extra slot here
+
+    def is_writable(self):
+        return True
 
     def setitem(self, index, char):
         "Write a character into the buffer."

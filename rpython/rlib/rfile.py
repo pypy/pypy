@@ -14,8 +14,8 @@ from rpython.rlib.rstring import StringBuilder
 
 eci = ExternalCompilationInfo(includes=['stdio.h', 'unistd.h', 'sys/types.h'])
 
-def llexternal(*args):
-    return rffi.llexternal(*args, compilation_info=eci)
+def llexternal(*args, **kwargs):
+    return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
 FILE = lltype.Struct('FILE') # opaque type maybe
 
@@ -24,9 +24,9 @@ class CConfig(object):
 
     off_t = platform.SimpleType('off_t')
 
+
 CC = platform.configure(CConfig)
 OFF_T = CC['off_t']
-
 c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
 c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
 c_write = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
@@ -42,7 +42,8 @@ c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], lltype.Signed)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
-c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT)
+c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT, macro=True)
+
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
                      rffi.CCHARP)
 

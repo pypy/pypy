@@ -3,7 +3,7 @@ from rpython.rlib import jit
 from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
-from pypy.module._ffi.interp_ffitype import app_types
+from pypy.module._rawffi.alt.interp_ffitype import app_types
 
 class FromAppLevelConverter(object):
     """
@@ -17,7 +17,7 @@ class FromAppLevelConverter(object):
         self.space = space
 
     def unwrap_and_do(self, w_ffitype, w_obj):
-        from pypy.module._ffi.interp_struct import W__StructInstance
+        from pypy.module._rawffi.alt.interp_struct import W__StructInstance
         space = self.space
         if w_ffitype.is_longlong():
             # note that we must check for longlong first, because either
@@ -194,7 +194,7 @@ class ToAppLevelConverter(object):
         self.space = space
 
     def do_and_wrap(self, w_ffitype):
-        from pypy.module._ffi.interp_struct import W__StructDescr
+        from pypy.module._rawffi.alt.interp_struct import W__StructDescr
         space = self.space
         if w_ffitype.is_longlong():
             # note that we must check for longlong first, because either

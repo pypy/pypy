@@ -16,6 +16,7 @@ import os
 import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
+from rpython.rtyper.llannotation import SomePtr
 from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
@@ -639,10 +640,10 @@ class RPythonTyper(object):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
-        args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]
+        args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
         graph = self.annotate_helper(func, args_s)
         s = self.annotator.binding(graph.getreturnvar())
-        if (not isinstance(s, annmodel.SomePtr) or
+        if (not isinstance(s, SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
@@ -854,10 +855,10 @@ class LowLevelOpList(list):
                 callee_graph = graph,
                 position_tag = object())
 
-    def convertvar(self, v, r_from, r_to):
-        assert isinstance(v, (Variable, Constant))
+    def convertvar(self, orig_v, r_from, r_to):
+        assert isinstance(orig_v, (Variable, Constant))
         if r_from != r_to:
-            v = pair(r_from, r_to).convert_from_to(v, self)
+            v = pair(r_from, r_to).convert_from_to(orig_v, self)
             if v is NotImplemented:
                 raise TyperError("don't know how to convert from %r to %r" %
                                  (r_from, r_to))
@@ -865,6 +866,8 @@ class LowLevelOpList(list):
                 raise TyperError("bug in conversion from %r to %r: "
                                  "returned a %r" % (r_from, r_to,
                                                     v.concretetype))
+        else:
+            v = orig_v
         return v
 
     def genop(self, opname, args_v, resulttype=None):

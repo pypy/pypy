@@ -215,7 +215,8 @@ class SomeBool(SomeInteger):
 
 
 class SomeStringOrUnicode(SomeObject):
-    """Base class for shared implementation of SomeString and SomeUnicodeString.
+    """Base class for shared implementation of SomeString,
+    SomeUnicodeString and SomeByteArray.
 
     Cannot be an annotation."""
 
@@ -228,6 +229,7 @@ class SomeStringOrUnicode(SomeObject):
         if can_be_None:
             self.can_be_None = True
         if no_nul:
+            assert self.immutable   #'no_nul' cannot be used with SomeByteArray
             self.no_nul = True
 
     def can_be_none(self):
@@ -263,6 +265,7 @@ class SomeUnicodeString(SomeStringOrUnicode):
 
 
 class SomeByteArray(SomeStringOrUnicode):
+    immutable = False
     knowntype = bytearray
 
 
@@ -457,15 +460,15 @@ class SomePBC(SomeObject):
 
     def getKind(self):
         "Return the common Desc class of all descriptions in this PBC."
-        kinds = {}
+        kinds = set()
         for x in self.descriptions:
             assert type(x).__name__.endswith('Desc')  # avoid import nightmares
-            kinds[x.__class__] = True
-        assert len(kinds) <= 1, (
-            "mixing several kinds of PBCs: %r" % (kinds.keys(),))
+            kinds.add(x.__class__)
+        if len(kinds) > 1:
+            raise AnnotatorError("mixing several kinds of PBCs: %r" % kinds)
         if not kinds:
             raise ValueError("no 'kind' on the 'None' PBC")
-        return kinds.keys()[0]
+        return kinds.pop()
 
     def simplify(self):
         if self.descriptions:
@@ -501,6 +504,14 @@ class SomePBC(SomeObject):
             return None
         else:
             return kt.__name__
+
+class SomeConstantType(SomePBC):
+    can_be_None = False
+    subset_of = None
+    def __init__(self, x, bk):
+        self.descriptions = set([bk.getdesc(x)])
+        self.knowntype = type(x)
+        self.const = x
 
 
 class SomeBuiltin(SomeObject):
@@ -557,68 +568,15 @@ class SomeWeakRef(SomeObject):
         # 'classdef' is None for known-to-be-dead weakrefs.
         self.classdef = classdef
 
-# ____________________________________________________________
-# memory addresses
-
-from rpython.rtyper.lltypesystem import llmemory
-
-
-class SomeAddress(SomeObject):
-    immutable = True
-
-    def can_be_none(self):
-        return False
-
-    def is_null_address(self):
-        return self.is_immutable_constant() and not self.const
-
-
-# The following class is used to annotate the intermediate value that
-# appears in expressions of the form:
-# addr.signed[offset] and addr.signed[offset] = value
-
-class SomeTypedAddressAccess(SomeObject):
-    def __init__(self, type):
-        self.type = type
-
-    def can_be_none(self):
-        return False
-
 #____________________________________________________________
 # annotation of low-level types
 
 from rpython.rtyper.lltypesystem import lltype
 
 
-class SomePtr(SomeObject):
-    knowntype = lltype._ptr
-    immutable = True
 
-    def __init__(self, ll_ptrtype):
-        assert isinstance(ll_ptrtype, lltype.Ptr)
-        self.ll_ptrtype = ll_ptrtype
-
-    def can_be_none(self):
-        return False
-
-
-class SomeInteriorPtr(SomePtr):
-    def __init__(self, ll_ptrtype):
-        assert isinstance(ll_ptrtype, lltype.InteriorPtr)
-        self.ll_ptrtype = ll_ptrtype
-
-
-class SomeLLADTMeth(SomeObject):
-    immutable = True
-
-    def __init__(self, ll_ptrtype, func):
-        self.ll_ptrtype = ll_ptrtype
-        self.func = func
-
-    def can_be_none(self):
-        return False
-
-
+from rpython.rtyper.llannotation import SomeAddress, SomePtr, SomeInteriorPtr
+from rpython.rtyper.lltypesystem import llmemory
 
 annotation_to_ll_map = [
     (SomeSingleFloat(), lltype.SingleFloat),
@@ -786,21 +744,6 @@ def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
         if x in l2:
             return x
     assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2)
-
-
-def missing_operation(cls, name):
-    def default_op(*args):
-        if args and isinstance(args[0], tuple):
-            flattened = tuple(args[0]) + args[1:]
-        else:
-            flattened = args
-        for arg in flattened:
-            if arg.__class__ is SomeObject and arg.knowntype is not type:
-                return SomeObject()
-        bookkeeper = rpython.annotator.bookkeeper.getbookkeeper()
-        bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
-        return s_ImpossibleValue
-    setattr(cls, name, default_op)
 
 
 class HarmlesslyBlocked(Exception):

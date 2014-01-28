@@ -1,4 +1,6 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import (
+    SomePtr, SomeInteriorPtr, SomeLLADTMeth)
 from rpython.flowspace import model as flowmodel
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.error import TyperError
@@ -7,7 +9,7 @@ from rpython.rtyper.rmodel import Repr, IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 
-class __extend__(annmodel.SomePtr):
+class __extend__(SomePtr):
     def rtyper_makerepr(self, rtyper):
         return PtrRepr(self.ll_ptrtype)
 
@@ -15,7 +17,7 @@ class __extend__(annmodel.SomePtr):
         return self.__class__, self.ll_ptrtype
 
 
-class __extend__(annmodel.SomeInteriorPtr):
+class __extend__(SomeInteriorPtr):
     def rtyper_makerepr(self, rtyper):
         return InteriorPtrRepr(self.ll_ptrtype)
 
@@ -38,7 +40,7 @@ class PtrRepr(Repr):
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
-        if isinstance(hop.s_result, annmodel.SomeLLADTMeth):
+        if isinstance(hop.s_result, SomeLLADTMeth):
             return hop.inputarg(hop.r_result, arg=0)
         try:
             self.lowleveltype._example()._lookup_adtmeth(attr)
@@ -179,7 +181,7 @@ class __extend__(pairtype(Repr, PtrRepr)):
 # ________________________________________________________________
 # ADT  methods
 
-class __extend__(annmodel.SomeLLADTMeth):
+class __extend__(SomeLLADTMeth):
     def rtyper_makerepr(self, rtyper):
         return LLADTMethRepr(self, rtyper)
     def rtyper_makekey(self):
@@ -270,7 +272,7 @@ class InteriorPtrRepr(Repr):
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
-        if isinstance(hop.s_result, annmodel.SomeLLADTMeth):
+        if isinstance(hop.s_result, SomeLLADTMeth):
             return hop.inputarg(hop.r_result, arg=0)
         FIELD_TYPE = getattr(self.resulttype.TO, attr)
         if isinstance(FIELD_TYPE, lltype.ContainerType):

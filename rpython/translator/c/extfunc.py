@@ -1,18 +1,10 @@
 import types
+
 from rpython.flowspace.model import FunctionGraph
-from rpython.rtyper.lltypesystem import lltype
-from rpython.translator.c.support import cdecl
+from rpython.rtyper.lltypesystem import lltype, rstr, rlist
 from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
-from rpython.rtyper.lltypesystem import rstr
-from rpython.rtyper.lltypesystem import rlist
+from rpython.translator.c.support import cdecl
 
-# table of functions hand-written in src/ll_*.h
-# Note about *.im_func: The annotator and the rtyper expect direct
-# references to functions, so we cannot insert classmethods here.
-
-EXTERNALS = {'LL_flush_icache': 'LL_flush_icache'}
-
-#______________________________________________________
 
 def find_list_of_str(rtyper):
     for r in rtyper.reprs.itervalues():
@@ -80,14 +72,13 @@ def predeclare_extfuncs(db, rtyper):
             return frags[0]
 
     for func, funcobj in db.externalfuncs.items():
-        c_name = EXTERNALS[func]
         # construct a define LL_NEED_<modname> to make it possible to isolate in-development externals and headers
-        modname = module_name(c_name)
+        modname = module_name(func)
         if modname not in modules:
             modules[modname] = True
             yield 'LL_NEED_%s' % modname.upper(), 1
         funcptr = funcobj._as_ptr()
-        yield c_name, funcptr
+        yield func, funcptr
 
 def predeclare_exception_data(db, rtyper):
     # Exception-related types and constants

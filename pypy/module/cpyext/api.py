@@ -26,6 +26,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
+from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
 from rpython.rlib.unroll import unrolling_iterable
@@ -399,16 +400,16 @@ SYMBOLS_C = [
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', 'init_bufferobject',
+    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', 'init_pycobject',
+    'PyCObject_Type', '_Py_get_cobject_type',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
+    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -469,6 +470,7 @@ def build_exported_objects():
         "Complex": "space.w_complex",
         "ByteArray": "space.w_bytearray",
         "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
+        "Array": "space.gettypeobject(W_NDimArray.typedef)",
         "BaseObject": "space.w_object",
         'None': 'space.type(space.w_None)',
         'NotImplemented': 'space.type(space.w_NotImplemented)',
@@ -685,24 +687,32 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci, translating):
-    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void,
-                                  compilation_info=eci, _nowrapper=True)
-    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
-                                     compilation_info=eci, _nowrapper=True)
-    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void,
-                                   compilation_info=eci, _nowrapper=True)
-    INIT_FUNCTIONS.extend([
-        lambda space: init_buffer(),
-        lambda space: init_pycobject(),
-        lambda space: init_capsule(),
-    ])
-    from pypy.module.posix.interp_posix import add_fork_hook
     if translating:
-        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
+        prefix = 'PyPy'
     else:
-        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
+        prefix = 'cpyexttest'
+    # jump through hoops to avoid releasing the GIL during initialization
+    # of the cpyext module.  The C functions are called with no wrapper,
+    # but must not do anything like calling back PyType_Ready().  We
+    # use them just to get a pointer to the PyTypeObjects defined in C.
+    get_buffer_type = rffi.llexternal('_%s_get_buffer_type' % prefix,
+                                      [], PyTypeObjectPtr,
+                                      compilation_info=eci, _nowrapper=True)
+    get_cobject_type = rffi.llexternal('_%s_get_cobject_type' % prefix,
+                                       [], PyTypeObjectPtr,
+                                       compilation_info=eci, _nowrapper=True)
+    get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
+                                       [], PyTypeObjectPtr,
+                                       compilation_info=eci, _nowrapper=True)
+    def init_types(space):
+        from pypy.module.cpyext.typeobject import py_type_ready
+        py_type_ready(space, get_buffer_type())
+        py_type_ready(space, get_cobject_type())
+        py_type_ready(space, get_capsule_type())
+    INIT_FUNCTIONS.append(init_types)
+    from pypy.module.posix.interp_posix import add_fork_hook
+    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
+                                 compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
@@ -744,7 +754,7 @@ def build_bridge(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=True, do_deref=True)
+    generate_macros(export_symbols, prefix='cpyexttest')
 
     # Structure declaration code
     members = []
@@ -810,7 +820,7 @@ def build_bridge(space):
 
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', 'PyPy')
+        name = name.replace('Py', 'cpyexttest')
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
             if typ == 'PyObject*':
@@ -822,7 +832,7 @@ def build_bridge(space):
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
         elif typ in ('PyObject*', 'PyTypeObject*'):
-            if name.startswith('PyPyExc_'):
+            if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
@@ -857,28 +867,27 @@ def build_bridge(space):
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
-def generate_macros(export_symbols, rename=True, do_deref=True):
+def mangle_name(prefix, name):
+    if name.startswith('Py'):
+        return prefix + name[2:]
+    elif name.startswith('_Py'):
+        return '_' + prefix + name[3:]
+    else:
+        return None
+
+def generate_macros(export_symbols, prefix):
     "NOT_RPYTHON"
     pypy_macros = []
     renamed_symbols = []
     for name in export_symbols:
-        if name.startswith("PyPy"):
-            renamed_symbols.append(name)
-            continue
-        if not rename:
-            continue
         name = name.replace("#", "")
-        newname = name.replace('Py', 'PyPy')
-        if not rename:
-            newname = name
+        newname = mangle_name(prefix, name)
+        assert newname, name
         pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
         renamed_symbols.append(newname)
-    if rename:
-        export_symbols[:] = renamed_symbols
-    else:
-        export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
+    export_symbols[:] = renamed_symbols
 
     # Generate defines
     for macro_name, size in [
@@ -1039,7 +1048,7 @@ def setup_library(space):
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=False, do_deref=False)
+    generate_macros(export_symbols, prefix='PyPy')
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False)
     code = "#include <Python.h>\n" + "\n".join(functions)
@@ -1069,7 +1078,8 @@ def setup_library(space):
         export_struct(name, struct)
 
     for name, func in FUNCTIONS.iteritems():
-        deco = entrypoint_lowlevel("cpyext", func.argtypes, name, relax=True)
+        newname = mangle_name('PyPy', name) or name
+        deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, relax=True)
         deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)

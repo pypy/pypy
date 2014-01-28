@@ -311,10 +311,7 @@ class W_DataShape(W_Root):
         raise NotImplementedError
 
     def descr_get_ffi_type(self, space):
-        # XXX: this assumes that you have the _ffi module enabled. In the long
-        # term, probably we will move the code for build structures and arrays
-        # from _rawffi to _ffi
-        from pypy.module._ffi.interp_ffitype import W_FFIType
+        from pypy.module._rawffi.alt.interp_ffitype import W_FFIType
         return W_FFIType('<unknown>', self.get_basic_ffi_type(), self)
 
     @unwrap_spec(n=int)
@@ -578,6 +575,13 @@ def wcharp2rawunicode(space, address, maxlength=-1):
         return wcharp2unicode(space, address)
     s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
     return space.wrap(s)
+
+@unwrap_spec(address=r_uint, newcontent='bufferstr')
+def rawstring2charp(space, address, newcontent):
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+    array = rffi.cast(rffi.CCHARP, address)
+    copy_string_to_raw(llstr(newcontent), array, 0, len(newcontent))
 
 if _MS_WINDOWS:
     @unwrap_spec(code=int)

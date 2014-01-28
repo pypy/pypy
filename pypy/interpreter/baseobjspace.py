@@ -240,6 +240,10 @@ class W_Root(object):
         msg = "__int__ returned non-int (type '%T')"
         raise operationerrfmt(space.w_TypeError, msg, w_result)
 
+    def ord(self, space):
+        msg = "ord() expected string of length 1, but %T found"
+        raise operationerrfmt(space.w_TypeError, msg, self)
+
     def __spacebind__(self, space):
         return self
 
@@ -914,7 +918,7 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
-    def listview_str(self, w_list):
+    def listview_bytes(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
         argument is not a list or does not contain only strings, return None.
         May return None anyway.
@@ -948,7 +952,7 @@ class ObjSpace(object):
         """
         return (None, None)
 
-    def newlist_str(self, list_s):
+    def newlist_bytes(self, list_s):
         return self.newlist([self.wrap(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
@@ -1401,6 +1405,9 @@ class ObjSpace(object):
         # Unwraps a bool, also accepting an int for compatibility.
         # This is here mostly just for gateway.int_unwrapping_space_method().
         return bool(self.int_w(w_obj))
+
+    def ord(self, w_obj):
+        return w_obj.ord(self)
 
     # This is all interface for gateway.py.
     def gateway_int_w(self, w_obj):

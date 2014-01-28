@@ -1,6 +1,6 @@
 from pypy.objspace.std.test import test_userobject
 from pypy.objspace.std.test import test_setobject
-from pypy.objspace.std.test import test_stringobject
+from pypy.objspace.std.test import test_bytesobject
 
 WITH_BUILTINSHORTCUT = {'objspace.std.builtinshortcut': True}
 
@@ -97,5 +97,5 @@ class AppTestSet(test_setobject.AppTestAppSetTest):
             """)
         cls.w_FakeInt = w_fakeint
 
-class AppTestString(test_stringobject.AppTestStringObject):
+class AppTestString(test_bytesobject.AppTestBytesObject):
     spaceconfig = WITH_BUILTINSHORTCUT

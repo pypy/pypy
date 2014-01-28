@@ -134,6 +134,7 @@ class AppTestBytesArray:
 
     def test_iter(self):
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
+        assert list(bytearray('hello').__iter__()) == [104, 101, 108, 108, 111]
 
     def test_compare(self):
         assert bytearray('hello') == bytearray('hello')
@@ -462,3 +463,11 @@ class AppTestBytesArray:
         for i in range(count):
             b[i:i+1] = 'y'
         assert str(b) == 'y' * count
+
+    def test_partition_return_copy(self):
+        b = bytearray(b'foo')
+        assert b.partition(b'x')[0] is not b
+
+    def test_split_whitespace(self):
+        b = bytearray(b'\x09\x0A\x0B\x0C\x0D\x1C\x1D\x1E\x1F')
+        assert b.split() == [b'\x1c\x1d\x1e\x1f']

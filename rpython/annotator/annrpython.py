@@ -9,7 +9,7 @@ from rpython.tool.error import (format_blocked_annotation_error,
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
-from rpython.annotator import model as annmodel, signature, unaryop, binaryop
+from rpython.annotator import model as annmodel, signature
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -455,12 +455,12 @@ class RPythonAnnotator(object):
         # occour for this specific, typed operation.
         if block.exitswitch == c_last_exception:
             op = block.operations[-1]
-            if op.opname in binaryop.BINARY_OPERATIONS:
+            if op.dispatch == 2:
                 arg1 = self.binding(op.args[0])
                 arg2 = self.binding(op.args[1])
                 binop = getattr(pair(arg1, arg2), op.opname, None)
                 can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
-            elif op.opname in unaryop.UNARY_OPERATIONS:
+            elif op.dispatch == 1:
                 arg1 = self.binding(op.args[0])
                 opname = op.opname
                 if opname == 'contains': opname = 'op_contains'
@@ -584,10 +584,6 @@ class RPythonAnnotator(object):
     def consider_op(self, block, opindex):
         op = block.operations[opindex]
         argcells = [self.binding(a) for a in op.args]
-        consider_meth = getattr(self,'consider_op_'+op.opname,
-                                None)
-        if not consider_meth:
-            raise Exception,"unknown op: %r" % op
 
         # let's be careful about avoiding propagated SomeImpossibleValues
         # to enter an op; the latter can result in violations of the
@@ -599,7 +595,7 @@ class RPythonAnnotator(object):
             if isinstance(arg, annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, op, opindex)
         try:
-            resultcell = consider_meth(*argcells)
+            resultcell = op.consider(self, *argcells)
         except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             graph = self.bookkeeper.position_key[0]
             e.source = gather_error(self, graph, block, opindex)
@@ -614,44 +610,6 @@ class RPythonAnnotator(object):
 
     def noreturnvalue(self, op):
         return annmodel.s_ImpossibleValue  # no return value (hook method)
-
-    # XXX "contains" clash with SomeObject method
-    def consider_op_contains(self, seq, elem):
-        self.bookkeeper.count("contains", seq)
-        return seq.op_contains(elem)
-
-    def consider_op_newtuple(self, *args):
-        return annmodel.SomeTuple(items = args)
-
-    def consider_op_newlist(self, *args):
-        return self.bookkeeper.newlist(*args)
-
-    def consider_op_newdict(self):
-        return self.bookkeeper.newdict()
-
-
-    def _registeroperations(cls, unary_ops, binary_ops):
-        # All unary operations
-        d = {}
-        for opname in unary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
-def consider_op_%s(self, arg, *args):
-    return arg.%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-        # All binary operations
-        for opname in binary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
-def consider_op_%s(self, arg1, arg2, *args):
-    return pair(arg1,arg2).%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-    _registeroperations = classmethod(_registeroperations)
-
-# register simple operations handling
-RPythonAnnotator._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
 
 
 class BlockedInference(Exception):

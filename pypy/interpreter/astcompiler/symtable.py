@@ -43,6 +43,7 @@ class Scope(object):
         self.child_has_free = False
         self.nested = False
         self.doc_removable = False
+        self._in_try_body_depth = 0
 
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
@@ -74,6 +75,14 @@ class Scope(object):
         if role & SYM_PARAM:
             self.varnames.append(mangled)
         return mangled
+
+    def note_try_start(self, try_node):
+        """Called when a try is found, before visiting the body."""
+        self._in_try_body_depth += 1
+
+    def note_try_end(self, try_node):
+        """Called after visiting a try body."""
+        self._in_try_body_depth -= 1
 
     def note_yield(self, yield_node):
         """Called when a yield is found."""
@@ -210,6 +219,7 @@ class FunctionScope(Scope):
         self.has_variable_arg = False
         self.has_keywords_arg = False
         self.is_generator = False
+        self.has_yield_inside_try = False
         self.optimized = True
         self.return_with_value = False
         self.import_star = None
@@ -220,6 +230,8 @@ class FunctionScope(Scope):
             raise SyntaxError("'return' with argument inside generator",
                               self.ret.lineno, self.ret.col_offset)
         self.is_generator = True
+        if self._in_try_body_depth > 0:
+            self.has_yield_inside_try = True
 
     def note_return(self, ret):
         if ret.value:
@@ -463,7 +475,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scope.new_temporary_name()
         if wih.optional_vars:
             self.scope.new_temporary_name()
-        ast.GenericASTVisitor.visit_With(self, wih)
+        wih.context_expr.walkabout(self)
+        if wih.optional_vars:
+            wih.optional_vars.walkabout(self)
+        self.scope.note_try_start(wih)
+        self.visit_sequence(wih.body)
+        self.scope.note_try_end(wih)
 
     def visit_arguments(self, arguments):
         scope = self.scope
@@ -505,3 +522,16 @@ class SymtableBuilder(ast.GenericASTVisitor):
         else:
             role = SYM_ASSIGNED
         self.note_symbol(name.id, role)
+
+    def visit_TryExcept(self, node):
+        self.scope.note_try_start(node)
+        self.visit_sequence(node.body)
+        self.scope.note_try_end(node)
+        self.visit_sequence(node.handlers)
+        self.visit_sequence(node.orelse)
+
+    def visit_TryFinally(self, node):
+        self.scope.note_try_start(node)
+        self.visit_sequence(node.body)
+        self.scope.note_try_end(node)
+        self.visit_sequence(node.finalbody)

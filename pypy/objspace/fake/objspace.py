@@ -295,6 +295,9 @@ class FakeObjSpace(ObjSpace):
         is_root(w_obj)
         return Buffer()
 
+    def unicode_from_object(self, w_obj):
+        return w_some_obj()
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):

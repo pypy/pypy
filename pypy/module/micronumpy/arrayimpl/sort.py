@@ -123,7 +123,8 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
         if w_axis is space.w_None:
             # note that it's fine ot pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
-            arr = arr.reshape(space, None, [arr.get_size()])
+            if arr.get_size() > 0:
+                arr = arr.reshape(space, None, [arr.get_size()])
             axis = 0
         elif w_axis is None:
             axis = -1
