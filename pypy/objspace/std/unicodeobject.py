@@ -841,6 +841,20 @@ class UnicodeDocstrings:
         If chars is a str, it will be converted to unicode before stripping
         """
 
+    def maketrans():
+        """str.maketrans(x[, y[, z]]) -> dict (static method)
+
+        Return a translation table usable for str.translate().  If there
+        is only one argument, it must be a dictionary mapping Unicode
+        ordinals (integers) or characters to Unicode ordinals, strings
+        or None.  Character keys will be then converted to ordinals.  If
+        there are two arguments, they must be strings of equal length,
+        and in the resulting dictionary, each character in x will be
+        mapped to the character at the same position in y. If there is a
+        third argument, it must be a string, whose characters will be
+        mapped to None in the result.
+        """
+
     def partition():
         """S.partition(sep) -> (head, sep, tail)
 
@@ -1114,7 +1128,8 @@ W_UnicodeObject.typedef = StdTypeDef(
     __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs,
                                 doc=UnicodeDocstrings.__getnewargs__.__doc__),
     maketrans = interp2app(W_UnicodeObject.descr_maketrans,
-                           as_classmethod=True),
+                           as_classmethod=True,
+                           doc=UnicodeDocstrings.maketrans.__doc__),
 )
 
 
