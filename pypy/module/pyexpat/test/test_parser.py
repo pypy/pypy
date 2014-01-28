@@ -183,7 +183,7 @@ class AppTestPyexpat:
             assert fake_reader.read_count == 4
 
 class AppTestPyexpat2:
-    spaceconfig = dict(usemodules=['_ffi', '_rawffi', 'pyexpat', 'itertools',
+    spaceconfig = dict(usemodules=['_rawffi', 'pyexpat', 'itertools',
                                    '_socket', 'rctime', 'struct', 'binascii'])
 
     def test_django_bug(self):
