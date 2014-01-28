@@ -374,8 +374,8 @@ def get_operrcls2(valuefmt):
 class OpErrFmtNoArgs(OperationError):
 
     def __init__(self, w_type, value):
-        self.setup(w_type)
         self._value = value
+        self.setup(w_type)
 
     def get_w_value(self, space):
         w_value = self._w_value
