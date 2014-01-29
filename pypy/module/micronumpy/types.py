@@ -995,10 +995,10 @@ class Float16(BaseType, Float):
             hbits = float_pack(value, 2)
         except OverflowError:
             hbits = float_pack(rfloat.INFINITY, 2)
+        hbits = rffi.cast(self._STORAGE_T, hbits)
         if not self.native:
             hbits = byteswap(hbits)
-        raw_storage_setitem(storage, i + offset,
-            rffi.cast(self._STORAGE_T, hbits))
+        raw_storage_setitem(storage, i + offset, hbits)
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
