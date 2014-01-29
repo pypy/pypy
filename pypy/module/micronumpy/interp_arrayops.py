@@ -89,7 +89,7 @@ def where(space, w_arr, w_x=None, w_y=None):
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
     out = W_NDimArray.from_shape(space, shape, dtype)
-    return loop.where(out, shape, arr, x, y, dtype)
+    return loop.where(space, out, shape, arr, x, y, dtype)
 
 def dot(space, w_obj1, w_obj2, w_out=None):
     w_arr = convert_to_array(space, w_obj1)

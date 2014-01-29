@@ -8,11 +8,13 @@ import sys, types, inspect, weakref
 
 from rpython.flowspace.model import Constant
 from rpython.annotator.model import (SomeOrderedDict,
-    SomeString, SomeChar, SomeFloat, SomePtr, unionof, SomeInstance, SomeDict,
-    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
-    s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
+    SomeString, SomeChar, SomeFloat, unionof, SomeInstance, SomeDict,
+    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
+    s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType)
+from rpython.rtyper.llannotation import (
+    SomeAddress, SomePtr, SomeLLADTMeth, lltype_to_annotation)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -24,112 +26,6 @@ from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import extregistry
 
-
-class Stats(object):
-
-    def __init__(self, bookkeeper):
-        self.bookkeeper = bookkeeper
-        self.classify = {}
-
-    def count(self, category, *args):
-        for_category = self.classify.setdefault(category, {})
-        classifier = getattr(self, 'consider_%s' % category, self.consider_generic)
-        outcome = classifier(*args)
-        for_category[self.bookkeeper.position_key] = outcome
-
-    def indexrepr(self, idx):
-        if idx.is_constant():
-            if idx.const is None:
-                return ''
-            if isinstance(idx, SomeInteger):
-                if idx.const >=0:
-                    return 'pos-constant'
-                else:
-                    return 'Neg-constant'
-            return idx.const
-        else:
-            if isinstance(idx, SomeInteger):
-                if idx.nonneg:
-                    return "non-neg"
-                else:
-                    return "MAYBE-NEG"
-            else:
-                return self.typerepr(idx)
-
-    def steprepr(self, stp):
-        if stp.is_constant():
-            if stp.const in (1, None):
-                return 'step=1'
-            else:
-                return 'step=%s?' % stp.const
-        else:
-            return 'non-const-step %s' % self.typerepr(stp)
-
-    def consider_generic(self, *args):
-        return tuple([self.typerepr(x) for x in args])
-
-    def consider_list_list_eq(self, obj1, obj2):
-        return obj1, obj2
-
-    def consider_contains(self, seq):
-        return seq
-
-    def consider_non_int_eq(self, obj1, obj2):
-        if obj1.knowntype == obj2.knowntype == list:
-            self.count("list_list_eq", obj1, obj2)
-        return self.typerepr(obj1), self.typerepr(obj2)
-
-    def consider_non_int_comp(self, obj1, obj2):
-        return self.typerepr(obj1), self.typerepr(obj2)
-
-    def typerepr(self, obj):
-        if isinstance(obj, SomeInstance):
-            return obj.classdef.name
-        else:
-            return obj.knowntype.__name__
-
-    def consider_tuple_random_getitem(self, tup):
-        return tuple([self.typerepr(x) for x in tup.items])
-
-    def consider_list_index(self):
-        return '!'
-
-    def consider_list_getitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_list_setitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_list_delitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_str_join(self, s):
-        if s.is_constant():
-            return repr(s.const)
-        else:
-            return "NON-CONSTANT"
-
-    def consider_str_getitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_strformat(self, str, args):
-        if str.is_constant():
-            s = repr(str.const)
-        else:
-            s = "?!!!!!!"
-        if isinstance(args, SomeTuple):
-            return (s, tuple([self.typerepr(x) for x in args.items]))
-        else:
-            return (s, self.typerepr(args))
-
-    def consider_dict_getitem(self, dic):
-        return dic
-
-    def consider_dict_setitem(self, dic):
-        return dic
-
-    def consider_dict_delitem(self, dic):
-        return dic
 
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
@@ -165,12 +61,7 @@ class Bookkeeper(object):
 
         self.needs_generic_instantiate = {}
 
-        self.stats = Stats(self)
-
         delayed_imports()
-
-    def count(self, category, *args):
-        self.stats.count(category, *args)
 
     def enter(self, position_key):
         """Start of an operation.

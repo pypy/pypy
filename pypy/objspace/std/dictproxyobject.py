@@ -84,7 +84,7 @@ class DictProxyStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         space = self.space
-        return space.newlist_str(self.unerase(w_dict.dstorage).dict_w.keys())
+        return space.newlist_bytes(self.unerase(w_dict.dstorage).dict_w.keys())
 
     def values(self, w_dict):
         return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]

@@ -14,7 +14,8 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import build_flow, FlowingError
+from rpython.flowspace.objspace import build_flow
+from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
 from rpython.translator.test import snippet
@@ -3987,7 +3988,9 @@ class TestAnnotateTestCase:
             return bytearray("xyz")
 
         a = self.RPythonAnnotator()
-        assert isinstance(a.build_types(f, []), annmodel.SomeByteArray)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeByteArray)
+        assert not s.is_constant()   # never a constant!
 
     def test_bytearray_add(self):
         def f(a):

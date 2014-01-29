@@ -38,9 +38,9 @@ def find_field_with_suffix(val, suffix):
     if len(names) == 1:
         return val[names[0]]
     elif len(names) == 0:
-        raise KeyError, "cannot find field *%s" % suffix
+        raise KeyError("cannot find field *%s" % suffix)
     else:
-        raise KeyError, "too many matching fields: %s" % ', '.join(names)
+        raise KeyError("too many matching fields: %s" % ', '.join(names))
 
 def lookup(val, suffix):
     """
@@ -76,10 +76,14 @@ class RPyType(Command):
     def invoke(self, arg, from_tty):
         # some magic code to automatically reload the python file while developing
         from pypy.tool import gdb_pypy
-        reload(gdb_pypy)
+        try:
+            reload(gdb_pypy)
+        except:
+            import imp
+            imp.reload(gdb_pypy)
         gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
         self.__class__ = gdb_pypy.RPyType
-        print self.do_invoke(arg, from_tty)
+        print (self.do_invoke(arg, from_tty).decode('latin-1'))
 
     def do_invoke(self, arg, from_tty):
         try:
@@ -88,7 +92,7 @@ class RPyType(Command):
             obj = self.gdb.parse_and_eval(arg)
             hdr = lookup(obj, '_gcheader')
             tid = hdr['h_tid']
-            if sys.maxint < 2**32:
+            if sys.maxsize < 2**32:
                 offset = tid & 0xFFFF     # 32bit
             else:
                 offset = tid & 0xFFFFFFFF # 64bit
@@ -147,13 +151,13 @@ class TypeIdsMap(object):
         if linenum in self.line2offset:
             return self.line2offset[linenum]
         line = self.lines[linenum]
-        member, descr = map(str.strip, line.split(None, 1))
-        if sys.maxint < 2**32:
+        member, descr = [x.strip() for x in line.split(None, 1)]
+        if sys.maxsize < 2**32:
             TIDT = "int*"
         else:
             TIDT = "char*"
         expr = ("((%s)(&pypy_g_typeinfo.%s)) - (%s)&pypy_g_typeinfo"
-                   % (TIDT, member, TIDT))
+                   % (TIDT, member.decode("latin-1"), TIDT))
         offset = int(self.gdb.parse_and_eval(expr))
         self.line2offset[linenum] = offset
         self.offset2descr[offset] = descr
@@ -164,7 +168,7 @@ class TypeIdsMap(object):
         # binary search through the lines, asking gdb to parse stuff lazily
         if offset in self.offset2descr:
             return self.offset2descr[offset]
-        if not (0 < offset < sys.maxint):
+        if not (0 < offset < sys.maxsize):
             return None
         linerange = (0, len(self.lines))
         while linerange[0] < linerange[1]:

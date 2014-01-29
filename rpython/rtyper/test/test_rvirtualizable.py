@@ -1,4 +1,5 @@
 import py
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.rvirtualizable import replace_force_virtualizable_with_call
@@ -153,7 +154,7 @@ class TestVirtualizable(BaseRtypingTest):
                 raise ValueError
         annhelper = MixLevelHelperAnnotator(rtyper)
         if self.type_system == 'lltype':
-            s_vinst = annmodel.SomePtr(v_inst_ll_type)
+            s_vinst = SomePtr(v_inst_ll_type)
         else:
             s_vinst = annmodel.SomeOOInstance(v_inst_ll_type)
         funcptr = annhelper.delayedfunction(mycall, [s_vinst], annmodel.s_None)

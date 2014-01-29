@@ -166,11 +166,18 @@ class AbstractMemoryTests:
             self.assertTrue(m[0:6] == m[:])
             self.assertFalse(m[0:5] == m)
 
-            # Comparison with objects which don't support the buffer API
-            self.assertFalse(m == u"abcdef")
-            self.assertTrue(m != u"abcdef")
-            self.assertFalse(u"abcdef" == m)
-            self.assertTrue(u"abcdef" != m)
+            if test_support.check_impl_detail(cpython=True):
+                # what is supported and what is not supported by memoryview is
+                # very inconsisten on CPython. In PyPy, memoryview supports
+                # the buffer interface, and thus the following comparison
+                # succeeds. See also the comment in
+                # pypy.modules.__builtin__.interp_memoryview.W_MemoryView.descr_buffer
+                #
+                # Comparison with objects which don't support the buffer API
+                self.assertFalse(m == u"abcdef", "%s %s" % (self, tp))
+                self.assertTrue(m != u"abcdef")
+                self.assertFalse(u"abcdef" == m)
+                self.assertTrue(u"abcdef" != m)
 
             # Unordered comparisons are unimplemented, and therefore give
             # arbitrary results (they raise a TypeError in py3k)

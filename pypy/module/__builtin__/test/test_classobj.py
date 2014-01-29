@@ -1061,14 +1061,14 @@ class AppTestOldstyle(object):
         assert (D() >= A()) == 'D:A.ge'
 
 
-class AppTestOldStyleClassStrDict(object):
+class AppTestOldStyleClassBytesDict(object):
     def setup_class(cls):
         if cls.runappdirect:
             py.test.skip("can only be run on py.py")
         def is_strdict(space, w_class):
-            from pypy.objspace.std.dictmultiobject import StringDictStrategy
+            from pypy.objspace.std.dictmultiobject import BytesDictStrategy
             w_d = w_class.getdict(space)
-            return space.wrap(isinstance(w_d.strategy, StringDictStrategy))
+            return space.wrap(isinstance(w_d.strategy, BytesDictStrategy))
 
         cls.w_is_strdict = cls.space.wrap(gateway.interp2app(is_strdict))
 

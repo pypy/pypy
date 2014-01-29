@@ -125,10 +125,12 @@ def _is_signed_kind(TYPE):
 
 class ArrayDescr(AbstractDescr):
     def __init__(self, A):
-        self.A = A
+        self.A = self.OUTERA = A
+        if isinstance(A, lltype.Struct):
+            self.A = A._flds[A._arrayfld]
 
     def __repr__(self):
-        return 'ArrayDescr(%r)' % (self.A,)
+        return 'ArrayDescr(%r)' % (self.OUTERA,)
 
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'
@@ -424,6 +426,8 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_arraylen_gc(self, a, descr):
         array = a._obj.container
+        if descr.A is not descr.OUTERA:
+            array = getattr(array, descr.OUTERA._arrayfld)
         return array.getlength()
 
     def bh_getarrayitem_gc(self, a, index, descr):

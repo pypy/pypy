@@ -1,8 +1,8 @@
 import sys
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong, r_ulonglong
 from rpython.rlib.libffi import IS_32_BIT
-from pypy.module._ffi.interp_ffitype import app_types, descr_new_pointer
-from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
+from pypy.module._rawffi.alt.interp_ffitype import app_types, descr_new_pointer
+from pypy.module._rawffi.alt.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
 class DummyFromAppLevelConverter(FromAppLevelConverter):
 
@@ -29,7 +29,7 @@ class DummyFromAppLevelConverter(FromAppLevelConverter):
 
 
 class TestFromAppLevel(object):
-    spaceconfig = dict(usemodules=('_ffi',))
+    spaceconfig = dict(usemodules=('_rawffi',))
 
     def setup_class(cls):
         converter = DummyFromAppLevelConverter(cls.space)
@@ -104,12 +104,12 @@ class TestFromAppLevel(object):
     def test__as_ffi_pointer_(self):
         space = self.space
         w_MyPointerWrapper = space.appexec([], """():
-            import _ffi
+            from _rawffi.alt import types
             class MyPointerWrapper(object):
                 def __init__(self, value):
                     self.value = value
                 def _as_ffi_pointer_(self, ffitype):
-                    assert ffitype is _ffi.types.void_p
+                    assert ffitype is types.void_p
                     return self.value
 
             return MyPointerWrapper
@@ -151,7 +151,7 @@ class DummyToAppLevelConverter(ToAppLevelConverter):
 
 
 class TestToAppLevel(object):
-    spaceconfig = dict(usemodules=('_ffi',))
+    spaceconfig = dict(usemodules=('_rawffi',))
 
     def setup_class(cls):
         converter = DummyToAppLevelConverter(cls.space)

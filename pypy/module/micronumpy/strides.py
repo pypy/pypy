@@ -51,8 +51,8 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape, bac
             rstrides.append(strides[i])
             rbackstrides.append(backstrides[i])
     if backwards:
-        rstrides = rstrides + [0] * (len(res_shape) - len(orig_shape))  
-        rbackstrides = rbackstrides + [0] * (len(res_shape) - len(orig_shape)) 
+        rstrides = rstrides + [0] * (len(res_shape) - len(orig_shape))
+        rbackstrides = rbackstrides + [0] * (len(res_shape) - len(orig_shape))
     else:
         rstrides = [0] * (len(res_shape) - len(orig_shape)) + rstrides
         rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
@@ -62,17 +62,19 @@ def is_single_elem(space, w_elem, is_rec_type):
     if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
         return True
     if (space.isinstance_w(w_elem, space.w_tuple) or
-        isinstance(w_elem, W_NDimArray) or    
         space.isinstance_w(w_elem, space.w_list)):
+        return False
+    if isinstance(w_elem, W_NDimArray) and not w_elem.is_scalar():
         return False
     return True
 
 def find_shape_and_elems(space, w_iterable, dtype):
+    is_rec_type = dtype is not None and dtype.is_record_type()
+    if is_rec_type and is_single_elem(space, w_iterable, is_rec_type):
+        return [], [w_iterable]
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
-    is_rec_type = dtype is not None and dtype.is_record_type()
     while True:
-        new_batch = []
         if not batch:
             return shape[:], []
         if is_single_elem(space, batch[0], is_rec_type):
@@ -81,12 +83,19 @@ def find_shape_and_elems(space, w_iterable, dtype):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "setting an array element with a sequence"))
             return shape[:], batch
+        new_batch = []
         size = space.len_w(batch[0])
         for w_elem in batch:
             if (is_single_elem(space, w_elem, is_rec_type) or
                 space.len_w(w_elem) != size):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "setting an array element with a sequence"))
+            w_array = space.lookup(w_elem, '__array__')
+            if w_array is not None:
+                # Make sure we call the array implementation of listview,
+                # since for some ndarray subclasses (matrix, for instance)
+                # listview does not reduce but rather returns the same class
+                w_elem = space.get_and_call_function(w_array, w_elem, space.w_None)
             new_batch += space.listview(w_elem)
         shape.append(size)
         batch = new_batch

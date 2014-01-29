@@ -7,7 +7,7 @@ from rpython.flowspace.model import (
     Constant, mkentrymap, c_last_exception, const)
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
-from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
+from rpython.flowspace.flowcontext import FlowingError, FlowContext
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
@@ -54,7 +54,7 @@ class Base:
 
 def test_all_opcodes_defined():
     opnames = set(host_bytecode_spec.method_names)
-    methods = set([name for name in dir(FlowSpaceFrame) if name.upper() == name])
+    methods = set([name for name in dir(FlowContext) if name.upper() == name])
     handled_elsewhere = set(['EXTENDED_ARG'])
     missing = opnames - methods - handled_elsewhere
     assert not missing
@@ -914,6 +914,13 @@ class TestFlowObjSpace(Base):
         simplify_graph(graph)
         assert self.all_operations(graph) == {'getitem': 1}
 
+    def test_delitem(self):
+        def f(c, x):
+            del c[x]
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'delitem': 1}
+
     def test_context_manager(self):
         def f(c, x):
             with x:
@@ -1243,6 +1250,33 @@ class TestFlowObjSpace(Base):
         with py.test.raises(FlowingError) as excinfo:
             graph = self.codetest(g)
         assert "Undefined closure variable 'b'" in str(excinfo.value)
+
+    def call_os_remove(msg):
+        os.remove(msg)
+        os.unlink(msg)
+
+    def test_call_os_remove(self):
+        x = self.codetest(self.call_os_remove)
+        simplify_graph(x)
+        self.show(x)
+        ops = x.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        assert ops[0].args[0].value is os.unlink
+        assert ops[1].opname == 'simple_call'
+        assert ops[1].args[0].value is os.unlink
+
+    def test_constfold_in(self):
+        def f():
+            if 'x' in "xyz":
+                return 5
+            else:
+                return 6
+        graph = self.codetest(f)
+        assert graph.startblock.operations == []
+        [link] = graph.startblock.exits
+        assert link.target is graph.returnblock
+        assert isinstance(link.args[0], Constant)
+        assert link.args[0].value == 5
 
 
 DATA = {'x': 5,

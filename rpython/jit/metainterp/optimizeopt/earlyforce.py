@@ -28,8 +28,5 @@ class OptEarlyForce(Optimization):
                     value.force_box(self)
         self.emit_operation(op)
 
-    def new(self):
-        return OptEarlyForce()
-
     def setup(self):
         self.optimizer.optearlyforce = self

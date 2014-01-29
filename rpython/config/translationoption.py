@@ -177,6 +177,9 @@ translation_optiondescription = OptionDescription(
     BoolOption("lldebug",
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
+    BoolOption("lldebug0",
+               "If true, makes an lldebug0 build", default=False,
+               cmdline="--lldebug0"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
@@ -362,6 +365,10 @@ def set_opt_level(config, level):
     # finally, make the choice of the gc definitive.  This will fail
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
+
+    # disallow asmgcc on OS/X
+    if config.translation.gcrootfinder == "asmgcc":
+        assert sys.platform != "darwin"
 
 # ----------------------------------------------------------------
 

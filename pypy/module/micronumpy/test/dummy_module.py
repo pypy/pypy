@@ -32,3 +32,8 @@ for t in types:
 
 True_ = bool_(True)
 False_ = bool_(False)
+
+def ones(*args, **kwargs):
+    a = zeros(*args, **kwargs)
+    a.fill(1)
+    return a
