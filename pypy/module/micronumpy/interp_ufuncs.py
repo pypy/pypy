@@ -252,6 +252,11 @@ class W_Ufunc(W_Root):
         if out:
             out.set_scalar_value(res)
             return out
+        if keepdims:
+            shape = [1] * len(obj_shape)
+            out = W_NDimArray.from_shape(space, [1] * len(obj_shape), dtype, w_instance=obj)
+            out.implementation.setitem(0, res)
+            return out
         return res
 
     def descr_outer(self, space, __args__):

@@ -1399,6 +1399,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import arange, array
         a = arange(15).reshape(5, 3)
         assert a.sum() == 105
+        assert a.sum(keepdims=True) == 105
+        assert a.sum(keepdims=True).shape == (1, 1)
         assert a.max() == 14
         assert array([]).sum() == 0.0
         assert array([]).reshape(0, 2).sum() == 0.
@@ -1431,6 +1433,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, dtype
         a = array(range(1, 6))
         assert a.prod() == 120.0
+        assert a.prod(keepdims=True) == 120.0
+        assert a.prod(keepdims=True).shape == (1,)
         assert a[:4].prod() == 24.0
         for dt in ['bool', 'int8', 'uint8', 'int16', 'uint16']:
             a = array([True, False], dtype=dt)
@@ -1445,6 +1449,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.max() == 5.7
+        assert a.max(keepdims=True) == 5.7
+        assert a.max(keepdims=True).shape == (1,)
         b = array([])
         raises(ValueError, "b.max()")
         assert list(zeros((0, 2)).max(axis=1)) == []
@@ -1458,6 +1464,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.min() == -3.0
+        assert a.min(keepdims=True) == -3.0
+        assert a.min(keepdims=True).shape == (1,)
         b = array([])
         raises(ValueError, "b.min()")
         assert list(zeros((0, 2)).min(axis=1)) == []
@@ -1508,6 +1516,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.all() == False
         a[0] = 3.0
         assert a.all() == True
+        assert a.all(keepdims=True) == True
+        assert a.all(keepdims=True).shape == (1,)
         b = array([])
         assert b.all() == True
 
@@ -1515,6 +1525,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array(range(5))
         assert a.any() == True
+        assert a.any(keepdims=True) == True
+        assert a.any(keepdims=True).shape == (1,)
         b = zeros(5)
         assert b.any() == False
         c = array([])

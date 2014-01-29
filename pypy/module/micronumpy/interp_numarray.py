@@ -961,7 +961,8 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
                            cumulative=False):
-        def impl(self, space, w_axis=None, w_dtype=None, w_out=None):
+        @unwrap_spec(keepdims=bool)
+        def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
             if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
@@ -971,7 +972,7 @@ class __extend__(W_NDimArray):
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
                 space, self, promote_to_largest, w_axis,
-                False, out, w_dtype, cumulative=cumulative)
+                keepdims, out, w_dtype, cumulative=cumulative)
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
                     promote_to_largest, cumulative))
 
