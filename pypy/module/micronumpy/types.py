@@ -404,6 +404,7 @@ class Integer(Primitive):
         if w_item is None:
             return self.box(0)
         return self.box(space.int_w(space.call_function(space.w_int, w_item)))
+
     def _coerce(self, space, w_item):
         return self._base_coerce(space, w_item)
 
@@ -979,7 +980,7 @@ class Float16(BaseType, Float):
 
     def byteswap(self, w_v):
         value = self.unbox(w_v)
-        hbits = float_pack(value,2)
+        hbits = float_pack(value, 2)
         swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
@@ -990,11 +991,14 @@ class Float16(BaseType, Float):
         return float_unpack(r_ulonglong(hbits), 2)
 
     def _write(self, storage, i, offset, value):
-        hbits = rffi.cast(self._STORAGE_T, float_pack(value, 2))
+        try:
+            hbits = float_pack(value, 2)
+        except OverflowError:
+            hbits = float_pack(rfloat.INFINITY, 2)
         if not self.native:
             hbits = byteswap(hbits)
         raw_storage_setitem(storage, i + offset,
-                rffi.cast(self._STORAGE_T, hbits))
+            rffi.cast(self._STORAGE_T, hbits))
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT

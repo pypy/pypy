@@ -204,6 +204,9 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert array([256], 'B')[0] == 0
         assert array([32768], 'h')[0] == -32768
         assert array([65536], 'H')[0] == 0
+        a = array([65520], dtype='float64')
+        b = array(a, dtype='float16')
+        assert b == float('inf')
         if dtype('l').itemsize == 4: # 32-bit
             raises(OverflowError, "array([2**32/2], 'i')")
             raises(OverflowError, "array([2**32], 'I')")
