@@ -4,6 +4,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
     cast_base_ptr_to_instance, hlstr)
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
@@ -662,8 +663,8 @@ class WarmRunnerDesc(object):
         if not self.cpu.translate_support_code:
             return llhelper(FUNCPTR, func)
         FUNC = FUNCPTR.TO
-        args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
-        s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+        args_s = [lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+        s_result = lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)
         return self.annhelper.graph2delayed(graph, FUNC)
 

@@ -829,8 +829,8 @@ class __extend__(pairtype(SomeString, SomePBC)):
 
 # ____________________________________________________________
 # annotation of low-level types
-from rpython.rtyper.llannotation import SomePtr
-from rpython.annotator.model import ll_to_annotation, annotation_to_lltype
+from rpython.rtyper.llannotation import (
+    SomePtr, ll_to_annotation, annotation_to_lltype, lltype_to_annotation)
 
 class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
@@ -908,12 +908,10 @@ class __extend__(pairtype(SomeTypedAddressAccess, SomeTypedAddressAccess)):
 
 class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
     def getitem((s_taa, s_int)):
-        from rpython.annotator.model import lltype_to_annotation
         return lltype_to_annotation(s_taa.type)
     getitem.can_only_throw = []
 
     def setitem((s_taa, s_int), s_value):
-        from rpython.annotator.model import annotation_to_lltype
         assert annotation_to_lltype(s_value) is s_taa.type
     setitem.can_only_throw = []
 

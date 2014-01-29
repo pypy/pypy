@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, raw_memcopy
-from rpython.annotator.model import lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs

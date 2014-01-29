@@ -7,7 +7,8 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator.signature import Sig
 from rpython.annotator.specialize import flatten_star_args
-from rpython.rtyper.llannotation import SomePtr
+from rpython.rtyper.llannotation import (
+    SomePtr, annotation_to_lltype, lltype_to_annotation)
 from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
@@ -58,7 +59,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
             else:
                 new_args_s.append(annmodel.not_const(s_obj))
                 try:
-                    key.append(annmodel.annotation_to_lltype(s_obj))
+                    key.append(annotation_to_lltype(s_obj))
                 except ValueError:
                     # passing non-low-level types to a ll_* function is allowed
                     # for module/ll_*
@@ -76,8 +77,8 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     default_specialize = staticmethod(default_specialize)
 
     def specialize__semierased(funcdesc, args_s):
-        a2l = annmodel.annotation_to_lltype
-        l2a = annmodel.lltype_to_annotation
+        a2l = annotation_to_lltype
+        l2a = lltype_to_annotation
         args_s[:] = [l2a(a2l(s)) for s in args_s]
         return LowLevelAnnotatorPolicy.default_specialize(funcdesc, args_s)
     specialize__semierased = staticmethod(specialize__semierased)
@@ -121,8 +122,8 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
 
     def specialize__genconst(pol, funcdesc, args_s, i):
         # XXX this is specific to the JIT
-        TYPE = annmodel.annotation_to_lltype(args_s[i], 'genconst')
-        args_s[i] = annmodel.lltype_to_annotation(TYPE)
+        TYPE = annotation_to_lltype(args_s[i], 'genconst')
+        args_s[i] = lltype_to_annotation(TYPE)
         alt_name = funcdesc.name + "__%s" % (TYPE._short_name(),)
         return funcdesc.cachedgraph(TYPE, alt_name=valid_identifier(alt_name))
 
@@ -356,10 +357,10 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
         assert s_callable.is_constant()
         F = s_F.const
         FUNC = F.TO
-        args_s = [annmodel.lltype_to_annotation(T) for T in FUNC.ARGS]
+        args_s = [lltype_to_annotation(T) for T in FUNC.ARGS]
         key = (llhelper, s_callable.const)
         s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-        assert annmodel.lltype_to_annotation(FUNC.RESULT).contains(s_res)
+        assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
         return SomePtr(F)
 
     def specialize_call(self, hop):
@@ -419,9 +420,9 @@ def make_string_entries(strtype):
         def compute_result_annotation(self, s_str):
             from rpython.rtyper.lltypesystem.rstr import STR, UNICODE
             if strtype is str:
-                return annmodel.lltype_to_annotation(lltype.Ptr(STR))
+                return lltype_to_annotation(lltype.Ptr(STR))
             else:
-                return annmodel.lltype_to_annotation(lltype.Ptr(UNICODE))
+                return lltype_to_annotation(lltype.Ptr(UNICODE))
 
         def specialize_call(self, hop):
             hop.exception_cannot_occur()

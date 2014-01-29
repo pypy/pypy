@@ -1,6 +1,6 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import (
-    SomePtr, SomeInteriorPtr, SomeLLADTMeth)
+    SomePtr, SomeInteriorPtr, SomeLLADTMeth, lltype_to_annotation)
 from rpython.flowspace import model as flowmodel
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.error import TyperError
@@ -193,7 +193,7 @@ class LLADTMethRepr(Repr):
         self.func = adtmeth.func
         self.lowleveltype = adtmeth.ll_ptrtype
         self.ll_ptrtype = adtmeth.ll_ptrtype
-        self.lowleveltype = rtyper.getrepr(annmodel.lltype_to_annotation(adtmeth.ll_ptrtype)).lowleveltype
+        self.lowleveltype = rtyper.getrepr(lltype_to_annotation(adtmeth.ll_ptrtype)).lowleveltype
 
     def rtype_simple_call(self, hop):
         hop2 = hop.copy()
@@ -201,8 +201,7 @@ class LLADTMethRepr(Repr):
         s_func = hop.rtyper.annotator.bookkeeper.immutablevalue(func)
         v_ptr = hop2.args_v[0]
         hop2.r_s_popfirstarg()
-        hop2.v_s_insertfirstarg(
-            v_ptr, annmodel.lltype_to_annotation(self.ll_ptrtype))
+        hop2.v_s_insertfirstarg(v_ptr, lltype_to_annotation(self.ll_ptrtype))
         hop2.v_s_insertfirstarg(flowmodel.Constant(func), s_func)
         return hop2.dispatch()
 

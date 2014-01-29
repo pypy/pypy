@@ -1,5 +1,5 @@
 from rpython.annotator import model as annmodel
-from rpython.rtyper.llannotation import SomePtr
+from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
     cast_base_ptr_to_instance, llstr)
@@ -16,7 +16,7 @@ def register_helper(s_result):
                 if (isinstance(s_result, annmodel.SomeObject) or
                     s_result is None):
                     return s_result
-                return annmodel.lltype_to_annotation(s_result)
+                return lltype_to_annotation(s_result)
 
             def specialize_call(self, hop):
                 from rpython.rtyper.lltypesystem import lltype

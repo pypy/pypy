@@ -759,8 +759,9 @@ class __extend__(SomePBC):
             raise AnnotatorError("Cannot call len on a pbc")
 
 # annotation of low-level types
-from rpython.rtyper.llannotation import SomePtr, SomeLLADTMeth
-from rpython.annotator.model import ll_to_annotation, lltype_to_annotation, annotation_to_lltype
+from rpython.rtyper.llannotation import (
+    SomePtr, SomeLLADTMeth, ll_to_annotation, lltype_to_annotation,
+    annotation_to_lltype)
 
 class __extend__(SomePtr):
 

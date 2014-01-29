@@ -22,6 +22,7 @@ from rpython.tool.uid import fixid
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
 from rpython.rlib.rarithmetic import is_emulated_long, maxint
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -1303,7 +1304,7 @@ class ForceCastEntry(ExtRegistryEntry):
     def compute_result_annotation(self, s_RESTYPE, s_value):
         assert s_RESTYPE.is_constant()
         RESTYPE = s_RESTYPE.const
-        return annmodel.lltype_to_annotation(RESTYPE)
+        return lltype_to_annotation(RESTYPE)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -1342,7 +1343,7 @@ class ForcePtrAddEntry(ExtRegistryEntry):
         assert isinstance(s_n, annmodel.SomeInteger)
         assert isinstance(s_ptr, SomePtr)
         typecheck_ptradd(s_ptr.ll_ptrtype)
-        return annmodel.lltype_to_annotation(s_ptr.ll_ptrtype)
+        return lltype_to_annotation(s_ptr.ll_ptrtype)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

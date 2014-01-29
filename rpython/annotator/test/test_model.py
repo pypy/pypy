@@ -1,9 +1,11 @@
 import py
 
 from rpython.annotator.model import *
-from rpython.rtyper.llannotation import SomePtr
+from rpython.rtyper.llannotation import (
+    SomePtr, annotation_to_lltype, ll_to_annotation)
 from rpython.annotator.listdef import ListDef
 from rpython.translator.translator import TranslationContext
+from rpython.rtyper.typesystem import lltype
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
