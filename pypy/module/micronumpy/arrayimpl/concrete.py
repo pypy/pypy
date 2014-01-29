@@ -367,6 +367,9 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         return SliceArray(0, strides, backstrides, new_shape, self,
                           orig_array)
 
+    def set_dtype(self, space, dtype):
+        self.dtype = dtype
+
     def argsort(self, space, w_axis):
         from pypy.module.micronumpy.arrayimpl.sort import argsort_array
         return argsort_array(self, space, w_axis)

@@ -291,7 +291,6 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_noop_ndmin(self):
         from numpypy import array
-
         arr = array([1], ndmin=3)
         assert arr.shape == (1, 1, 1)
 
@@ -320,6 +319,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = c.reshape(3, 4, 0)
         e = d.repeat(3, 0)
         assert e.shape == (9, 4, 0)
+
+    def test_dtype_attribute(self):
+        import numpy as np
+        a = np.array(40000, dtype='uint16')
+        assert a.dtype == np.uint16
+        a.dtype = np.int16
+        assert a == -25536
+        a = np.array([1, 2, 3, 4, 40000], dtype='uint16')
+        assert a.dtype == np.uint16
+        a.dtype = np.int16
+        assert a[4] == -25536
+        exc = raises(ValueError, 'a.dtype = None')
+        assert exc.value[0] == 'new type not compatible with array.'
+        exc = raises(ValueError, 'a.dtype = np.int32')
+        assert exc.value[0] == 'new type not compatible with array.'
+        exc = raises(AttributeError, 'del a.dtype')
+        assert exc.value[0] == 'Cannot delete array dtype'
 
     def test_buffer(self):
         import numpy as np

@@ -84,6 +84,19 @@ class __extend__(W_NDimArray):
     def descr_get_dtype(self, space):
         return self.implementation.dtype
 
+    def descr_set_dtype(self, space, w_dtype):
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        if (dtype.get_size() != self.get_dtype().get_size() or
+                dtype.is_flexible_type() or self.get_dtype().is_flexible_type()):
+            raise OperationError(space.w_ValueError, space.wrap(
+                "new type not compatible with array."))
+        self.implementation.set_dtype(space, dtype)
+
+    def descr_del_dtype(self, space):
+        raise OperationError(space.w_AttributeError, space.wrap(
+            "Cannot delete array dtype"))
+
     def descr_get_ndim(self, space):
         return space.wrap(len(self.get_shape()))
 
@@ -1290,7 +1303,9 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __gt__ = interp2app(W_NDimArray.descr_gt),
     __ge__ = interp2app(W_NDimArray.descr_ge),
 
-    dtype = GetSetProperty(W_NDimArray.descr_get_dtype),
+    dtype = GetSetProperty(W_NDimArray.descr_get_dtype,
+                           W_NDimArray.descr_set_dtype,
+                           W_NDimArray.descr_del_dtype),
     shape = GetSetProperty(W_NDimArray.descr_get_shape,
                            W_NDimArray.descr_set_shape),
     strides = GetSetProperty(W_NDimArray.descr_get_strides),
