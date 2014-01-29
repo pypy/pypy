@@ -392,6 +392,25 @@ class MsvcPlatform(Platform):
 
         self._handle_error(returncode, stdout, stderr, path.join('make'))
 
+class WinDefinition(posix.Definition):
+    def write(self, f):
+        def write_list(prefix, lst):
+            lst = lst or ['']
+            for i, fn in enumerate(lst):
+                print >> f, prefix, fn,
+                if i < len(lst)-1:
+                    print >> f, '\\'
+                else:
+                    print >> f
+                prefix = ' ' * len(prefix)
+        name, value = self.name, self.value
+        if isinstance(value, str):
+            f.write('%s = %s\n' % (name, value))
+        else:
+            write_list('%s =' % (name,), value)
+        f.write('\n')
+
+
 class NMakefile(posix.GnuMakefile):
     def write(self, out=None):
         # nmake expands macros when it parses rules.
@@ -410,6 +429,14 @@ class NMakefile(posix.GnuMakefile):
         if out is None:
             f.close()
 
+    def definition(self, name, value):
+        defs = self.defs
+        defn = WinDefinition(name, value)
+        if name in defs:
+            self.lines[defs[name]] = defn
+        else:
+            defs[name] = len(self.lines)
+            self.lines.append(defn)
 
 class MingwPlatform(posix.BasePosix):
     name = 'mingw32'

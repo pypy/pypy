@@ -202,8 +202,7 @@ class Definition(object):
         def write_list(prefix, lst):
             lst = lst or ['']
             for i, fn in enumerate(lst):
-                if sys.platform != 'win32':
-                    fn = fn.replace('\\', '\\\\')
+                fn = fn.replace('\\', '\\\\')
                 print >> f, prefix, fn,
                 if i < len(lst)-1:
                     print >> f, '\\'
