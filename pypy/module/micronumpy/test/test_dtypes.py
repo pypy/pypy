@@ -948,6 +948,13 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.type is void
         assert d.char == 'V'
         assert d.names == ("x", "y", "z", "value")
+        d.names = ('a', 'b', 'c', 'd')
+        assert d.names == ('a', 'b', 'c', 'd')
+        exc = raises(ValueError, "d.names = ('a', 'b', 'c', 'c')")
+        assert exc.value[0] == "Duplicate field names given."
+        exc = raises(AttributeError, 'del d.names')
+        assert exc.value[0] == "Cannot delete dtype names attribute"
+        assert d.names == ('a', 'b', 'c', 'd')
         raises(KeyError, 'd["xyz"]')
         raises(KeyError, 'd.fields["xyz"]')
 

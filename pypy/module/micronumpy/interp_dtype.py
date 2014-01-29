@@ -207,7 +207,7 @@ class W_Dtype(W_Root):
                                                                  space.wrap(offset)]))
         return w_d
 
-    def set_fields(self, space, w_fields):
+    def descr_set_fields(self, space, w_fields):
         if w_fields == space.w_None:
             self.fields = None
         else:
@@ -233,19 +233,26 @@ class W_Dtype(W_Root):
             return space.w_None
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
 
-    def set_names(self, space, w_names):
-        self.fieldnames = []
-        if w_names == space.w_None:
-            return
-        else:
+    def descr_set_names(self, space, w_names):
+        fieldnames = []
+        if w_names != space.w_None:
             iter = space.iter(w_names)
             while True:
                 try:
-                    self.fieldnames.append(space.str_w(space.next(iter)))
+                    name = space.str_w(space.next(iter))
                 except OperationError, e:
                     if not e.match(space, space.w_StopIteration):
                         raise
                     break
+                if name in fieldnames:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "Duplicate field names given."))
+                fieldnames.append(name)
+        self.fieldnames = fieldnames
+
+    def descr_del_names(self, space):
+        raise OperationError(space.w_AttributeError, space.wrap(
+            "Cannot delete dtype names attribute"))
 
     def descr_get_hasobject(self, space):
         return space.w_False
@@ -321,10 +328,10 @@ class W_Dtype(W_Root):
         self.byteorder = endian
 
         fieldnames = space.getitem(w_data, space.wrap(3))
-        self.set_names(space, fieldnames)
+        self.descr_set_names(space, fieldnames)
 
         fields = space.getitem(w_data, space.wrap(4))
-        self.set_fields(space, fields)
+        self.descr_set_fields(space, fields)
 
     @unwrap_spec(new_order=str)
     def descr_newbyteorder(self, space, new_order=NPY_SWAP):
@@ -468,7 +475,9 @@ W_Dtype.typedef = TypeDef("dtype",
     shape = GetSetProperty(W_Dtype.descr_get_shape),
     isnative = GetSetProperty(W_Dtype.descr_get_isnative),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
-    names = GetSetProperty(W_Dtype.descr_get_names),
+    names = GetSetProperty(W_Dtype.descr_get_names,
+                           W_Dtype.descr_set_names,
+                           W_Dtype.descr_del_names),
     hasobject = GetSetProperty(W_Dtype.descr_get_hasobject),
     descr = GetSetProperty(W_Dtype.descr_get_descr),
 )
