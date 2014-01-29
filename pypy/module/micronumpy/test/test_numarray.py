@@ -319,6 +319,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = c.reshape(3, 4, 0)
         e = d.repeat(3, 0)
         assert e.shape == (9, 4, 0)
+        a = array(123)
+        b = array(a, dtype=float)
+        assert b == 123.0
 
     def test_dtype_attribute(self):
         import numpy as np
@@ -413,10 +416,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ten == 10
 
     def test_empty(self):
-        """
-        Test that empty() works.
-        """
-
         from numpypy import empty
         a = empty(2)
         a[1] = 1.0
