@@ -44,14 +44,15 @@ def check_seekable_w(space, w_obj):
 
 
 class W_IOBase(W_Root):
-    def __init__(self, space):
+    def __init__(self, space, add_to_autoflusher=True):
         # XXX: IOBase thinks it has to maintain its own internal state in
         # `__IOBase_closed` and call flush() by itself, but it is redundant
         # with whatever behaviour a non-trivial derived class will implement.
         self.space = space
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
-        get_autoflusher(space).add(self)
+        if add_to_autoflusher:
+            get_autoflusher(space).add(self)
 
     def getdict(self, space):
         return self.w_dict
