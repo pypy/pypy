@@ -292,7 +292,6 @@ def get_combined_translation_config(other_optdescr=None,
                          if child._name != newname]
     descr = OptionDescription("pypy", "all options", children)
     config = Config(descr, **overrides)
-    config.translation.backend = 'llvm'
     if translating:
         config.translating = True
     if existing_config is not None:
