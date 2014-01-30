@@ -1021,6 +1021,9 @@ class FunctionWriter(object):
                 else:
                     raise NotImplementedError(op)
 
+    def _tmp(self, type_=None):
+        return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
+
     def op_llvm_gcmap(self, result):
         self.w('{result.V} = bitcast i8* @__gcmap to {result.T}'
                 .format(**locals()))
@@ -1036,9 +1039,6 @@ class FunctionWriter(object):
     def op_llvm_stack_malloc(self, result):
         type_ = result.type_.to.repr_type()
         self.w('{result.V} = alloca {type_}'.format(**locals()))
-
-    def _tmp(self, type_=None):
-        return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
 
     # TODO: implement
 
