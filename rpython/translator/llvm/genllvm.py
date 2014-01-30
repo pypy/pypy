@@ -1007,6 +1007,15 @@ class FunctionWriter(object):
             opargs = [get_repr(arg) for arg in op.args]
             if opname in OPS:
                 binary_op = OPS[opname]
+                assert len(opargs) == 2
+                if ((opargs[0].type_ != opargs[1].type_) and
+                    (opargs[0].type_.bitwidth != opargs[1].type_.bitwidth) and
+                    isinstance(opargs[1], VariableRepr)):
+                    assert binary_op in ('shl', 'lshr', 'ashr')
+                    t = self._tmp()
+                    self.w('{t.V} = sext {opargs[1].TV} to {opargs[0].T}'
+                            .format(**locals()))
+                    opargs[1] = t
                 self.w('{opres.V} = {binary_op} {opargs[0].TV}, {opargs[1].V}'
                         .format(**locals()))
             elif opname.startswith('cast_') or opname.startswith('truncate_'):
