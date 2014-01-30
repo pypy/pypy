@@ -502,6 +502,15 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 
+    def descr_itemset(self, space, args_w):
+        if len(args_w) == 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "itemset must have at least one argument"))
+        if len(args_w) != len(self.get_shape()) + 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "incorrect number of indices for array"))
+        self.descr_setitem(space, space.newtuple(args_w[:-1]), args_w[-1])
+
     def descr___array__(self, space, w_dtype=None):
         if not space.is_none(w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -641,10 +650,6 @@ class __extend__(W_NDimArray):
     def descr_getfield(self, space, w_dtype, offset):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "getfield not implemented yet"))
-
-    def descr_itemset(self, space, w_arg):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "itemset not implemented yet"))
 
     @unwrap_spec(new_order=str)
     def descr_newbyteorder(self, space, new_order=NPY_SWAP):
@@ -1354,6 +1359,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter,
                           W_NDimArray.descr_set_flatiter),
     item = interp2app(W_NDimArray.descr_item),
+    itemset = interp2app(W_NDimArray.descr_itemset),
     real = GetSetProperty(W_NDimArray.descr_get_real,
                           W_NDimArray.descr_set_real),
     imag = GetSetProperty(W_NDimArray.descr_get_imag,

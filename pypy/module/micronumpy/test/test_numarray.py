@@ -2822,6 +2822,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[0] == 1
         assert b[1] == 'ab'
 
+    def test_itemset(self):
+        import numpy as np
+        a = np.array(range(5))
+        exc = raises(ValueError, a.itemset)
+        assert exc.value[0] == 'itemset must have at least one argument'
+        exc = raises(ValueError, a.itemset, 1, 2, 3)
+        assert exc.value[0] == 'incorrect number of indices for array'
+        a.itemset(1, 5)
+        assert a[1] == 5
+        a = np.array(range(6)).reshape(2, 3)
+        a.itemset(1, 2, 100)
+        assert a[1, 2] == 100
+
     def test_index(self):
         import numpy as np
         a = np.array([1], np.uint16)
