@@ -341,7 +341,6 @@ W_RawIOBase.typedef = TypeDef(
 class StreamHolder(object):
     def __init__(self, w_iobase):
         self.w_iobase_ref = rweakref.ref(w_iobase)
-        w_iobase.autoflusher = self
 
     def autoflush(self, space):
         w_iobase = self.w_iobase_ref()
