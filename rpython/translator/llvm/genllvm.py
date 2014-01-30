@@ -1006,8 +1006,8 @@ class FunctionWriter(object):
             opres = get_repr(op.result)
             opargs = [get_repr(arg) for arg in op.args]
             if opname in OPS:
-                simple_op = OPS[opname]
-                self.w('{opres.V} = {simple_op} {opargs[0].TV}, {opargs[1].V}'
+                binary_op = OPS[opname]
+                self.w('{opres.V} = {binary_op} {opargs[0].TV}, {opargs[1].V}'
                         .format(**locals()))
             elif opname.startswith('cast_') or opname.startswith('truncate_'):
                 self._cast(opres, opargs[0])
