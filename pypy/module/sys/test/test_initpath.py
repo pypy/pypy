@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import os.path
 from pypy.module.sys.initpath import (compute_stdlib_path, find_executable, find_stdlib,
                                       resolvedirof)

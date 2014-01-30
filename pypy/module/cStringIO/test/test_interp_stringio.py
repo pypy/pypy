@@ -1,4 +1,4 @@
-import os, sys, py
+import os, sys, pypy._py as py
 
 
 class AppTestcStringIO:

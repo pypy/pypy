@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import py
+import pypy._py as py
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
         ArgErrMultipleValues, ArgErrCount)
 from pypy.interpreter.signature import Signature

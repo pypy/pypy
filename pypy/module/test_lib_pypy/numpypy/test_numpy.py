@@ -1,5 +1,5 @@
 from pypy.conftest import option
-import py, sys
+import pypy._py as py, sys
 from pypy.module.test_lib_pypy.numpypy.test_base import BaseNumpyAppTest
 
 class AppTestNumpy(BaseNumpyAppTest):

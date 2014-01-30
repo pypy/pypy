@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import py
+import pypy._py as py
 import sys
         
 mydir = py.path.local(__file__).dirpath().realpath()

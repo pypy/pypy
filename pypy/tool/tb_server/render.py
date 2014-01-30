@@ -1,5 +1,5 @@
 from pypy.tool.tb_server.server import TBRequestHandler
-import py 
+import pypy._py as py
 html = py.xml.html 
 
 import traceback

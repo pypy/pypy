@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from os import system, chdir
 from urllib import urlopen
 

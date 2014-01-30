@@ -1,5 +1,5 @@
 import sys
-import py
+import pypy._py as py
 import re
 
 class Result(object):

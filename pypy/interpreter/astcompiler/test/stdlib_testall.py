@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.interpreter.astcompiler.test.test_compiler import compile_with_astcompiler
 
 class TestStdlib:

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
 from rpython.config.config import Config, ConfigError
 from rpython.config.translationoption import set_opt_level

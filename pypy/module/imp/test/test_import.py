@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.kwargsdict import *
 

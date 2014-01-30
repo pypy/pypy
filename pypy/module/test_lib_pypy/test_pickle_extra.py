@@ -2,7 +2,7 @@ import pickle
 
 def test_pickle_moduledict():
     if "_pickle_moduledict" not in pickle.Pickler.__dict__:
-        import py
+        import pypy._py as py
         py.test.skip("test the _pickle_moduledict() addition to pickle.py")
     #
     s1 = pickle.dumps(pickle.__dict__)

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from pypy.module._file.test.test_file import getfile
 

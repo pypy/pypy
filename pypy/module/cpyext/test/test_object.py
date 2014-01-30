@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase

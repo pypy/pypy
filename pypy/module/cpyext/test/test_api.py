@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State

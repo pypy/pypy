@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestOutArg(BaseNumpyAppTest):

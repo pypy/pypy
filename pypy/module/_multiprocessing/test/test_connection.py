@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys
 from pypy.interpreter.gateway import interp2app, W_Root
 

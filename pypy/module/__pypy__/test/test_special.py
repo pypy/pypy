@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 class AppTest(object):
     spaceconfig = {"objspace.usemodules.select": False,

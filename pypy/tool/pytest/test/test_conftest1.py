@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 
 innertest = py.path.local(__file__).dirpath('conftest1_innertest.py')
 pytest_plugins = "pytester"

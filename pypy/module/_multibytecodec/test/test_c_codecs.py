@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.module._multibytecodec.c_codecs import getcodec, codecs
 from pypy.module._multibytecodec.c_codecs import decode, encode
 from pypy.module._multibytecodec.c_codecs import EncodeDecodeError

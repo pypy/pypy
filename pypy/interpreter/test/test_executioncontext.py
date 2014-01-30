@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.interpreter import executioncontext
 
 class Finished(Exception):

@@ -105,7 +105,7 @@ class AppTestThreadSignalLock:
     def setup_class(cls):
         if (not cls.runappdirect or
                 '__pypy__' not in sys.builtin_module_names):
-            import py
+            import pypy._py as py
             py.test.skip("this is only a test for -A runs on top of pypy")
 
     def test_enable_signals(self):

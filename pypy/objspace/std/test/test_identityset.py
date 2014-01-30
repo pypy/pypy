@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 
 class AppTestIdentitySet(object):

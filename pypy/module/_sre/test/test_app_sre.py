@@ -1,6 +1,6 @@
 """Regular expression tests specific to _sre.py and accumulated during TDD."""
 import os
-import py
+import pypy._py as py
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 

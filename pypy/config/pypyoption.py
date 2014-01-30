@@ -1,6 +1,6 @@
 import sys
 
-import py
+import pypy._py as py
 
 from rpython.config.config import (OptionDescription, BoolOption, IntOption,
   ChoiceOption, StrOption, to_optparse, ConflictConfigError)

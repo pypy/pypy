@@ -1,6 +1,6 @@
 # minimal tests.  See also lib-python/modified-2.4.1/test/test_array.
 
-import py
+import pypy._py as py
 from py.test import raises
 import struct
 

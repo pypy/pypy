@@ -1,6 +1,6 @@
 from rpython.tool.udir import udir
 
-import os, sys, py
+import os, sys, pypy._py as py
 
 if sys.platform != 'win32':
     py.test.skip("_winreg is a win32 module")

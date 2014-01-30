@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool.rffi_platform import CompilationError
 
 import os
-import py
+import pypy._py as py
 try:
     import pyexpat
 except ImportError:

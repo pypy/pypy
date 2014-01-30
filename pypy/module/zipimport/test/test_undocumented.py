@@ -1,5 +1,5 @@
 import zipimport
-import py
+import pypy._py as py
 
 import os
 import py_compile

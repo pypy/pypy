@@ -1,6 +1,6 @@
 from pypy.conftest import pypydir
 from rpython.tool.udir import udir
-import py
+import pypy._py as py
 import sys
 # tests here are run as snippets through a pexpected python subprocess
 

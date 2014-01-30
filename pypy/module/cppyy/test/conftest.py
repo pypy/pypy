@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 def pytest_runtest_setup(item):
     if py.path.local.sysfind('genreflex') is None:

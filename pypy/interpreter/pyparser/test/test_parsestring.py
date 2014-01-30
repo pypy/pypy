@@ -1,5 +1,5 @@
 from pypy.interpreter.pyparser import parsestring
-import py, sys
+import pypy._py as py, sys
 
 class TestParsetring:
     def parse_and_compare(self, literal, value, encoding=None):

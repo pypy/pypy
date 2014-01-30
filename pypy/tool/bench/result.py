@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 
 class PerfResult:
     """Holds information about a benchmark run of a particular test run."""

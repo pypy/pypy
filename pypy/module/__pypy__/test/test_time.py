@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from pypy.module.__pypy__.interp_time import HAS_CLOCK_GETTIME
 

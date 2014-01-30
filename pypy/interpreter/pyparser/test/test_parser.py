@@ -1,5 +1,5 @@
 # New parser tests.
-import py
+import pypy._py as py
 import tokenize
 import token
 import StringIO

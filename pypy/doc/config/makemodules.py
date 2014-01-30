@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.config import pypyoption
 from rpython.config import translationoption, config
 

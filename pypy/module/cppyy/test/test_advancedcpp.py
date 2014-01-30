@@ -1,4 +1,4 @@
-import py, os, sys
+import pypy._py as py, os, sys
 
 from pypy.module.cppyy import capi
 

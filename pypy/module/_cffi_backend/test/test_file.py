@@ -1,4 +1,4 @@
-import urllib2, py
+import urllib2, pypy._py as py
 
 
 def test_same_file():

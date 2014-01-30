@@ -2,7 +2,7 @@ from ctypes import *
 from struct import calcsize
 from support import BaseCTypesTestChecker
 
-import py
+import pypy._py as py
 
 class TestSubclasses(BaseCTypesTestChecker):
     def test_subclass(self):

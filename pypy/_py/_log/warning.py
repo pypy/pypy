@@ -1,4 +1,4 @@
-import py, sys
+import pypy._py as py, sys
 
 class DeprecationWarning(DeprecationWarning):
     def __init__(self, msg, path, lineno):

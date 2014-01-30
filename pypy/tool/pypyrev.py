@@ -1,6 +1,6 @@
 
 import pypy
-import py
+import pypy._py as py
 
 def pypyrev(cache=[]): 
     """ return subversion revision number for current pypy package. 

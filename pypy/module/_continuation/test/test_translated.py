@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 try:
     import _continuation
 except ImportError:

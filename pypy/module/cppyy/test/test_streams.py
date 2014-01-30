@@ -1,4 +1,4 @@
-import py, os, sys
+import pypy._py as py, os, sys
 
 
 currpath = py.path.local(__file__).dirpath()

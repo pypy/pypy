@@ -1,7 +1,7 @@
 from __future__ import generators
 import sys
 import inspect, tokenize
-import py
+import pypy._py as py
 from types import ModuleType
 cpy_compile = compile
 

@@ -1,4 +1,4 @@
-import py.test
+import pypy._py as py
 
 class AppTestRaise:
     def test_arg_as_string(self):

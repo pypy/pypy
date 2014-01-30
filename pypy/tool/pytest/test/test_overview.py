@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 from pypy.tool.pytest.confpath import testresultdir 
 from pypy.tool.pytest.overview import ResultCache 
 

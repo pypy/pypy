@@ -2,7 +2,7 @@ import ctypes
 import sys, os
 import atexit
 
-import py
+import pypy._py as py
 
 from pypy.conftest import pypydir
 from rpython.rtyper.lltypesystem import rffi, lltype

@@ -6,7 +6,7 @@ This should replace _assertionold.py eventually.
 import sys
 import ast
 
-import py
+import pypy._py as py
 from py._code.assertion import _format_explanation, BuiltinAssertionError
 
 

@@ -1,4 +1,4 @@
-import py, pytest, sys, os, textwrap
+import pypy._py as py, pytest, sys, os, textwrap
 from inspect import isclass
 
 # pytest settings

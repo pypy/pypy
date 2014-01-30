@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.config import pypyoption, makerestdoc
 from pypy.doc.config.confrest import all_optiondescrs
 from rpython.config import translationoption, config

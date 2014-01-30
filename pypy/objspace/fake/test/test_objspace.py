@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef

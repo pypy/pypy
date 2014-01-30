@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.tool.rest.rest import convert_rest_html, strip_html_header 
 from pypy.tool.difftime import worded_time 
 

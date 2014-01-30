@@ -1,5 +1,5 @@
 import __future__
-import py, sys
+import pypy._py as py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError

@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 from pypy.interpreter.gateway import appdef, ApplevelClass, applevel_temp
 from pypy.interpreter.error import OperationError
 

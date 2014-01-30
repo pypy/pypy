@@ -1,7 +1,7 @@
 from ctypes import *
 from binascii import hexlify
 import re
-import py
+import pypy._py as py
 from support import BaseCTypesTestChecker
 
 def dump(obj):

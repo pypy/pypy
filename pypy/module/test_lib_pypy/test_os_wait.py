@@ -2,7 +2,7 @@
 from __future__ import absolute_import
 import os
 
-import py
+import pypy._py as py
 
 from lib_pypy.ctypes_config_cache import rebuild
 from pypy.module.test_lib_pypy.support import import_lib_pypy

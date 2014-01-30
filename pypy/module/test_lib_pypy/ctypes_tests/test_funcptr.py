@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys, os, unittest
 from ctypes import *
 

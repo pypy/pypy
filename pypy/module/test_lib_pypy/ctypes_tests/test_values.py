@@ -2,7 +2,7 @@
 A testcase which accesses *values* in a dll.
 """
 
-import py
+import pypy._py as py
 from ctypes import *
 from support import BaseCTypesTestChecker
 

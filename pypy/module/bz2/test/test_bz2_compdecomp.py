@@ -1,6 +1,6 @@
 import os
 
-import py
+import pypy._py as py
 
 from pypy.interpreter.gateway import interp2app
 from pypy.module.bz2.test.support import CheckAllocation

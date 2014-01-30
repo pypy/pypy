@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import py
+import pypy._py as py
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError

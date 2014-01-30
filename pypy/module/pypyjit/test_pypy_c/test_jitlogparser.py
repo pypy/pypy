@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import re
 
 from rpython.tool.logparser import extract_category

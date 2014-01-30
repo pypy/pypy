@@ -6,7 +6,7 @@ from pypy.module.cpyext.unicodeobject import (
 from pypy.module.cpyext.api import PyObjectP, PyObject
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
-import sys, py
+import sys, pypy._py as py
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_unicodeobject(self):

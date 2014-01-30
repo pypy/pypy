@@ -1,5 +1,5 @@
 import sys
-import py
+import pypy._py as py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
     BytesDictStrategy, ObjectDictStrategy)

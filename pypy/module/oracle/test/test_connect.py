@@ -1,6 +1,6 @@
 from pypy.conftest import option
 from rpython.rtyper.tool.rffi_platform import CompilationError
-import py
+import pypy._py as py
 
 class OracleNotConnectedTestBase(object):
     spaceconfig = dict(usemodules=('oracle',))

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy import conftest
 from pypy.interpreter import gateway
 from rpython.rlib.jit import non_virtual_ref, vref_None

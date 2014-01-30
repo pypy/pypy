@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.interpreter.buffer import Buffer
 from rpython.tool.udir import udir
 

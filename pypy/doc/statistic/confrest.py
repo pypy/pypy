@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.doc.confrest import *
 
 class PyPyPage(Page): 

@@ -1,5 +1,5 @@
 from __future__ import division
-import py
+import pypy._py as py
 
 import random
 

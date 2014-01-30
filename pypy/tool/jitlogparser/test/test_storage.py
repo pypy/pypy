@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.tool.jitlogparser.storage import LoopStorage
 
 def test_load_codes():

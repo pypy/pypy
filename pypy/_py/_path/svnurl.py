@@ -5,8 +5,8 @@ but might also interact well with earlier versions.
 """
 
 import os, sys, time, re
-import py
-from py import path, process
+import pypy._py as py
+from pypy._py import path, process
 from py._path import common
 from py._path import svnwc as svncommon
 from py._path.cacheutil import BuildcostAccessCache, AgingCache

@@ -1,5 +1,5 @@
 import os
-import py
+import pypy._py as py
 from rpython.tool.udir import udir
 
 if os.name != 'posix':

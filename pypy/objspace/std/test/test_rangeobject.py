@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 class AppTestRangeListObject(object):
     spaceconfig = {"objspace.std.withrangelist": True}

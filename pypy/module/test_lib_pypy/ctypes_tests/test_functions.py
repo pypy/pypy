@@ -8,7 +8,7 @@ Later...
 from __future__ import with_statement
 from ctypes import *
 import sys
-import py
+import pypy._py as py
 from support import BaseCTypesTestChecker
 
 try:

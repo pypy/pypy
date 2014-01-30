@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 import ctypes
 from _ctypes import function

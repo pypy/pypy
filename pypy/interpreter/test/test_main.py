@@ -1,6 +1,6 @@
 from cStringIO import StringIO
 
-import py
+import pypy._py as py
 from rpython.tool.udir import udir
 from pypy.interpreter.baseobjspace import OperationError
 from pypy.interpreter import main

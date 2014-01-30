@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.tool.jitlogparser.module_finder import gather_all_code_objs
 import re, sys
 

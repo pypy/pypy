@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.celldict import ModuleCell, ModuleDictStrategy
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, \

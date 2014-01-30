@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 import sys
 from ctypes import *
 from support import BaseCTypesTestChecker

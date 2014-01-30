@@ -1,5 +1,5 @@
 from ctypes import *
-import sys, py
+import sys, pypy._py as py
 from support import BaseCTypesTestChecker
 
 def setup_module(mod):

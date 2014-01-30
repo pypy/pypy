@@ -4,7 +4,7 @@
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
 from pypy.interpreter.signature import Signature
-import py
+import pypy._py as py
 import sys
 
 class FakeFunc(object):

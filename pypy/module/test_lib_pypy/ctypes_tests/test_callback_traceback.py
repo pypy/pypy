@@ -1,5 +1,5 @@
 # derived from test_random_things.py
-import py
+import pypy._py as py
 from ctypes import *
 import sys
 

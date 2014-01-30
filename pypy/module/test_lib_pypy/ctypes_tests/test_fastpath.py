@@ -1,6 +1,6 @@
 from ctypes import CDLL, POINTER, pointer, c_byte, c_int, c_char_p, CFUNCTYPE, c_void_p, c_size_t
 import sys
-import py
+import pypy._py as py
 from support import BaseCTypesTestChecker
 
 class MyCDLL(CDLL):

@@ -11,7 +11,7 @@
 
 from __future__ import generators
 
-import py
+import pypy._py as py
 
 def escape(txt):
     """escape ReST markup"""

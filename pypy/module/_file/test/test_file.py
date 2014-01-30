@@ -1,5 +1,5 @@
 from __future__ import with_statement
-import py, os, errno
+import pypy._py as py, os, errno
 
 def getfile(space):
     return space.appexec([], """():

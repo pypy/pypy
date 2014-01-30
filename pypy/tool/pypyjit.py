@@ -5,7 +5,7 @@ Run it with py.test -s --pdb pypyjit.py
 
 """
 
-import py, os
+import pypy._py as py, os
 
 try:
     py.test.config.option.runappdirect

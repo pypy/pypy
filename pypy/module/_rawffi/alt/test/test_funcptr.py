@@ -4,7 +4,7 @@ from rpython.rlib.libffi import types
 from rpython.rlib.libffi import CDLL
 from rpython.rlib.test.test_clibffi import get_libm_name
 
-import sys, py
+import sys, pypy._py as py
 
 class BaseAppTestFFI(object):
     spaceconfig = dict(usemodules=('_rawffi',))

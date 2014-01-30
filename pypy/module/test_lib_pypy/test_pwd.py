@@ -1,4 +1,4 @@
-import py, sys
+import pypy._py as py, sys
 
 class AppTestPwd:
     spaceconfig = dict(usemodules=('_rawffi', 'itertools', 'binascii'))

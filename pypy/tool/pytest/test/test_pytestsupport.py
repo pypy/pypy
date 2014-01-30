@@ -4,7 +4,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.pytest.appsupport import (AppFrame, build_pytest_assertion,
     AppExceptionInfo, interpret)
-import py
+import pypy._py as py
 from rpython.tool.udir import udir
 import os
 import sys

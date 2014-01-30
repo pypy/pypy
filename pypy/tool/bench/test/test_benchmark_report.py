@@ -1,5 +1,5 @@
 import os
-import py
+import pypy._py as py
 
 try:
     import Image

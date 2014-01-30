@@ -6,7 +6,7 @@
 #
 # ...unless the -A option ('runappdirect') is passed.
 
-import py
+import pypy._py as py
 import sys, textwrap, types
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError

@@ -3,7 +3,7 @@ from __future__ import with_statement
 import os
 import random
 
-import py
+import pypy._py as py
 
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.module.bz2.test.support import CheckAllocation

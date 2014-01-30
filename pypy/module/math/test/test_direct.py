@@ -1,7 +1,7 @@
 """ Try to test systematically all cases of the math module.
 """
 
-import py, sys, math
+import pypy._py as py, sys, math
 from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem.module.test.math_cases import (MathTests,
                                                                 get_tester)

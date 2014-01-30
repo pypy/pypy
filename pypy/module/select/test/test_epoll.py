@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys
 
 # add a larger timeout for slow ARM machines

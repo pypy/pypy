@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.conftest import cdir

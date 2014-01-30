@@ -1,6 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
-import py
+import pypy._py as py
 import sys
 
 class AppTestArrayModule(AppTestCpythonExtensionBase):

@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import py
+import pypy._py as py
 from rpython.tool.udir import udir
 try:
     from lib_pypy import dbm

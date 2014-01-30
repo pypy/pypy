@@ -6,7 +6,7 @@ Helper functions for writing to terminals and files.
 
 
 import sys, os
-import py
+import pypy._py as py
 
 win32_and_ctypes = False
 if sys.platform == "win32":

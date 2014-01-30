@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.interpreter.gateway import interp2app
 
 class AppTestComparesByIdentity:

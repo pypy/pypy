@@ -163,7 +163,7 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, IntegerListStrategy)
 
     def test_list_empty_after_delete(self):
-        import py
+        import pypy._py as py
         py.test.skip("return to emptyliststrategy is not supported anymore")
         l = W_ListObject(self.space, [self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)

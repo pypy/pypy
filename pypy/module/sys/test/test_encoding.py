@@ -1,4 +1,4 @@
-import os, py
+import os, pypy._py as py
 from rpython.rlib import rlocale
 from pypy.module.sys.interp_encoding import _getfilesystemencoding
 from pypy.module.sys.interp_encoding import base_encoding

@@ -1,4 +1,4 @@
-import py, sys
+import pypy._py as py, sys
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions

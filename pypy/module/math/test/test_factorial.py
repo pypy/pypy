@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import math
 from pypy.module.math import app_math
 

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_config, make_objspace

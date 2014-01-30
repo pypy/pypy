@@ -1,6 +1,6 @@
 
 import marshal
-import py, os
+import pypy._py as py, os
 import time
 import struct
 from pypy.module.imp.importing import get_pyc_magic, _w_long

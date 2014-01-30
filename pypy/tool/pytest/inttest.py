@@ -2,7 +2,7 @@
 #
 # Most pypy tests are of this kind.
 
-import py
+import pypy._py as py
 import sys
 from pypy.interpreter.error import OperationError
 from pypy.conftest import PyPyClassCollector

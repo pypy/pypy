@@ -1,4 +1,4 @@
-import py, os, sys
+import pypy._py as py, os, sys
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib import rarithmetic, jit

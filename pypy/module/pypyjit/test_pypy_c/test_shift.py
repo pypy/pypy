@@ -1,4 +1,4 @@
-import py, sys
+import pypy._py as py, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 class TestShift(BaseTestPyPyC):

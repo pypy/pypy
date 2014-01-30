@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors

@@ -1,5 +1,5 @@
 from os import listdir
-import glob, os.path, py, re
+import glob, os.path, pypy._py as py, re
 
 this_dir = os.path.realpath(os.path.dirname(__file__))
 pypy_dir = os.path.realpath(os.path.join(this_dir, '..', '..'))

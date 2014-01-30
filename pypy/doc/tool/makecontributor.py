@@ -1,6 +1,6 @@
 # NOTE: run this script with LANG=en_US.UTF-8
 
-import py
+import pypy._py as py
 import sys
 from collections import defaultdict
 import operator

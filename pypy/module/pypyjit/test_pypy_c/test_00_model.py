@@ -2,7 +2,7 @@ from __future__ import with_statement
 import sys, os
 import types
 import subprocess
-import py
+import pypy._py as py
 from lib_pypy import disassembler
 from rpython.tool.udir import udir
 from rpython.tool import logparser

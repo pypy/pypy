@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 from py._cmdline import pycountloc as countloc 
 from py.xml import raw
 from pypy import conftest

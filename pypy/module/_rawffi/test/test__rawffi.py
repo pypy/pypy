@@ -3,7 +3,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module._rawffi.interp_rawffi import TYPEMAP, TYPEMAP_FLOAT_LETTERS
 from pypy.module._rawffi.tracker import Tracker
 
-import os, sys, py
+import os, sys, pypy._py as py
 
 class AppTestFfi:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from py.test import raises
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest.objspace import gettestobjspace

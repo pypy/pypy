@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import py
+import pypy._py as py
 
 from lib_pypy import cPickle
 

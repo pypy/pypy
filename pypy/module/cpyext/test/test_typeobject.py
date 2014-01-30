@@ -4,7 +4,7 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
-import py
+import pypy._py as py
 import sys
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):

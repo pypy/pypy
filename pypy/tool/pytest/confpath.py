@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import pypy
 import rpython
 from pypy.tool import lib_pypy

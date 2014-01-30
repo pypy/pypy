@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys, os
 from rpython.tool.udir import udir
 

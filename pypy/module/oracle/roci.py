@@ -3,7 +3,7 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.conftest import option
 import sys, os
-import py
+import pypy._py as py
 
 oracle_home = getattr(option, 'oracle_home',
                       os.environ.get("ORACLE_HOME"))

@@ -2,7 +2,7 @@
 Tests for the struct module implemented at interp-level in pypy/module/struct.
 """
 
-import py
+import pypy._py as py
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 

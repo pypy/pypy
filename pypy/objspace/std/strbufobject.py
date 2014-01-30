@@ -1,6 +1,6 @@
 import inspect
 
-import py
+import pypy._py as py
 
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import pypy
 from commands import getoutput, getstatusoutput
 ROOT = py.path.local(pypy.__file__).dirpath().dirpath()

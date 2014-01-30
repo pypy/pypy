@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from zipfile import ZIP_DEFLATED
 

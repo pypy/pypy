@@ -6,7 +6,7 @@ the html test reporter
 """
 import sys, os, re
 import pprint
-import py 
+import pypy._py as py
 from pypy.tool.pytest import result
 from pypy.tool.pytest.overview import ResultCache 
 

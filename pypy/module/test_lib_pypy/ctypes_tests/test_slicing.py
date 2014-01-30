@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from support import BaseCTypesTestChecker
 from ctypes import *
 

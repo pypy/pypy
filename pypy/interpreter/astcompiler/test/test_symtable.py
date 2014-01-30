@@ -1,5 +1,5 @@
 import string
-import py
+import pypy._py as py
 from pypy.interpreter.astcompiler import ast, astbuilder, symtable, consts
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.tool import lib_pypy
 
 def test_lib_pypy_exists():

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.objspace.std.complexobject import W_ComplexObject, \
     pow__Complex_Complex_ANY
 from pypy.objspace.std import complextype as cobjtype

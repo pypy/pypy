@@ -1,6 +1,5 @@
 import sys
-import py
-import py.test
+import pypy._py as py
 
 
 ## class AppTestSimpleArray:

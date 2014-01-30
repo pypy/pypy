@@ -3,7 +3,7 @@
 good assembler
 """
 
-import py
+import pypy._py as py
 from rpython.jit.metainterp import pyjitpl
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.warmspot import reset_jit, get_stats

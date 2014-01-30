@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
 from pypy.module._io import interp_bufferedio
 from pypy.interpreter.error import OperationError
-import py.test
+import pypy._py as py
 
 class AppTestBufferedReader:
     spaceconfig = dict(usemodules=['_io'])

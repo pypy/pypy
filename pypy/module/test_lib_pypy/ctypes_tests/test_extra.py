@@ -3,7 +3,7 @@ The purpose of this test file is to check how ctypes really work,
 down to what aliases what and what exact types operations return.
 """
 
-import py
+import pypy._py as py
 from ctypes import *
 from support import BaseCTypesTestChecker
 

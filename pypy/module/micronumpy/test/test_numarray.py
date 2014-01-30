@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys
 
 from pypy.conftest import option

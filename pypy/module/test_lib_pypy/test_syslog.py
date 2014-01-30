@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import sys, py
+import sys, pypy._py as py
 try:
     from lib_pypy import syslog
 except ImportError:

@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 py.test.skip("in-progress, maybe")
 
 class AppTest_Stackless:

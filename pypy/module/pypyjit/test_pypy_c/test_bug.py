@@ -1,4 +1,4 @@
-import os, sys, py, subprocess
+import os, sys, pypy._py as py, subprocess
 
 localdir = os.path.dirname(os.path.abspath(__file__))
 

@@ -1,4 +1,4 @@
-import py, os, sys
+import pypy._py as py, os, sys
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec

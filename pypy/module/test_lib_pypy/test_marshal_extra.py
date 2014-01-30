@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import py
+import pypy._py as py
 import sys
 import marshal as cpy_marshal
 from lib_pypy import _marshal as marshal

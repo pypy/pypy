@@ -1,5 +1,5 @@
 # coding: iso-8859-15
-import py
+import pypy._py as py
 import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, ObjectListStrategy

@@ -8,7 +8,7 @@ import math
 import sys
 import colorsys
 
-import py
+import pypy._py as py
 pyhtml = py.xml.html
 
 from result import (

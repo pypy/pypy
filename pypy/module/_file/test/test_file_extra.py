@@ -1,6 +1,6 @@
 import os, random, sys
 import rpython.tool.udir
-import py
+import pypy._py as py
 
 udir = rpython.tool.udir.udir.ensure('test_file_extra', dir=1)
 

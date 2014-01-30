@@ -1,4 +1,4 @@
-import py, datetime
+import pypy._py as py, datetime
 
 def test_license():
     lic = (py.path.local(__file__).dirpath().dirpath()

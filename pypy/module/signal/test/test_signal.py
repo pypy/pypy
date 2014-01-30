@@ -1,4 +1,4 @@
-import os, py, sys
+import os, pypy._py as py, sys
 import signal as cpy_signal
 
 

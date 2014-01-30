@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import pypy
 import pypy.module
 from pypy.module.sys.version import CPYTHON_VERSION

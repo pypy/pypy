@@ -1,4 +1,4 @@
-import py, pytest
+import pypy._py as py, pytest
 import sys
 
 def pytest_ignore_collect(path):

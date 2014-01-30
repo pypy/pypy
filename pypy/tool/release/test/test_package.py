@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 from pypy.conftest import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION

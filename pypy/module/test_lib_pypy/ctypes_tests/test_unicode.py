@@ -1,6 +1,6 @@
 # coding: latin-1
 import ctypes
-import py
+import pypy._py as py
 from support import BaseCTypesTestChecker
 
 try:

@@ -1,5 +1,5 @@
 from rpython.tool.udir import udir
-import py
+import pypy._py as py
 import sys
 
 # not an applevel test: errno is not preserved

@@ -1,4 +1,4 @@
-import py, sys, zlib, re
+import pypy._py as py, sys, zlib, re
 from pypy.tool import gdb_pypy
 
 class FakeGdb(object):

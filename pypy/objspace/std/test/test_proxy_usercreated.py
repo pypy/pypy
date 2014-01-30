@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.objspace.std.test.test_proxy_internals import AppProxy
 from pypy.interpreter.typedef import TypeDef

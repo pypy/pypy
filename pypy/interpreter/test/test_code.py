@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.astcompiler import consts
-import py
+import pypy._py as py
 
 class AppTestCodeIntrospection:
     def setup_class(cls):

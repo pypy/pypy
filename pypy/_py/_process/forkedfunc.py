@@ -7,7 +7,7 @@
     XXX see if tempdir handling is sane
 """
 
-import py
+import pypy._py as py
 import os
 import sys
 import marshal

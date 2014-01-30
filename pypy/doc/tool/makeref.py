@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 import pypy
 pypydir = py.path.local(pypy.__file__).join('..')
 distdir = pypydir.dirpath()

@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pycode import PyCode
 from rpython.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr,\

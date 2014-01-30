@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 # XXX importing/inheriting from an internal py lib class is hackish
 from confrest_oldpy import Project, Page, relpath

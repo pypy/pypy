@@ -14,7 +14,7 @@ XXX implement this API: (maybe put it into slogger.py?)
                      debug=py.log.STDOUT,
                      command=None)
 """
-import py, sys
+import pypy._py as py, sys
 
 class Message(object):
     def __init__(self, keywords, args):

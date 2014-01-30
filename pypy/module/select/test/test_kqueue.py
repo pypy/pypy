@@ -1,6 +1,6 @@
 # adapted from CPython: Lib/test/test_kqueue.py
 
-import py
+import pypy._py as py
 import sys
 
 class AppTestKqueue(object):

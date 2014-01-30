@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import py
+import pypy._py as py
 import string
 import re
 

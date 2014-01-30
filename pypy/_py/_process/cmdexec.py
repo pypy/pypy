@@ -4,7 +4,7 @@
 
 import os, sys
 import subprocess
-import py
+import pypy._py as py
 from subprocess import Popen, PIPE
 
 def cmdexec(cmd):

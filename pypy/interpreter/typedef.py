@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch

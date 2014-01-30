@@ -10,7 +10,7 @@ from rpython.translator.platform import platform
 
 import sys
 import weakref
-import py
+import pypy._py as py
 
 if sys.platform == "win32":
     libname = 'libexpat'

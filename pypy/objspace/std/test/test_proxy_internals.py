@@ -1,7 +1,7 @@
 
 """ test proxy internals like code, traceback, frame
 """
-import py
+import pypy._py as py
 
 class AppProxy(object):
     spaceconfig = {"objspace.std.withtproxy": True}

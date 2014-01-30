@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject

@@ -8,6 +8,6 @@ def setup(app):
     from pypy.doc.config import generate 
 
     from pypy.config import makerestdoc
-    import py
+    import pypy._py as py
     role = makerestdoc.register_config_role(py.path.local())
     app.add_role("config", role)

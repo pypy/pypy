@@ -1,5 +1,5 @@
 import sys
-import py
+import pypy._py as py
 ROOT = py.path.local(__file__).dirpath('..', '..', '..')
 sys.path.insert(0, str(ROOT))
 

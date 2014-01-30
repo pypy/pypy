@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.tool.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
 from pypy.tool.rest.rst import Directive, Text
 

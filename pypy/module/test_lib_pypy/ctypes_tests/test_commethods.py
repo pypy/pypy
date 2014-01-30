@@ -2,7 +2,7 @@
 # Can't resist from implementing some kind of mini-comtypes
 # theller ;-)
 
-import py
+import pypy._py as py
 import sys
 if sys.platform != "win32":
     py.test.skip('windows only test')

@@ -1,7 +1,7 @@
 
 """ This test checks whether args wrapping behavior is correct
 """
-import py
+import pypy._py as py
 import sys
 
 from ctypes import *

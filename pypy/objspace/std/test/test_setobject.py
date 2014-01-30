@@ -8,7 +8,7 @@ go there and invoke::
 This file just contains some basic tests that make sure, the implementation
 is not too wrong.
 """
-import py.test
+import pypy._py
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, IntegerSetStrategy
 from pypy.objspace.std.setobject import _initialize_set
 from pypy.objspace.std.setobject import newset

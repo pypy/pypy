@@ -1,4 +1,4 @@
-import py, os, errno
+import pypy._py as py, os, errno
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.error import decompose_valuefmt, get_operrcls2
 from pypy.interpreter.error import wrap_oserror, new_exception_class

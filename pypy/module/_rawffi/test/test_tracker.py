@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.conftest import option
 from pypy.module._rawffi.tracker import Tracker
 

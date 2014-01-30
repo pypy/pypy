@@ -1,4 +1,4 @@
-import py, os
+import pypy._py as py, os
 
 from rpython.rlib import libffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

@@ -1,6 +1,6 @@
 
 from rpython.tool.udir import udir
-import py
+import pypy._py as py
 import sys
 import pypy
 import subprocess

@@ -1,5 +1,5 @@
 import os
-import py
+import pypy._py as py
 from pypy.tool import isolate
 
 def test_init():

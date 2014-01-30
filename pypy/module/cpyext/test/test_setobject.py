@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
 from pypy.module.cpyext.test.test_api import BaseApiTest

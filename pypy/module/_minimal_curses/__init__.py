@@ -6,7 +6,7 @@ except Exception:   # probably ImportError or cffi's VerificationError
         # we prefer _curses so any constants added make it into _minimal_curses
         import _minimal_curses as _curses
     except ImportError:
-        import py
+        import pypy._py as py
         py.test.skip("no _curses or _minimal_curses module")  # no _curses at all
 
 from pypy.interpreter.mixedmodule import MixedModule

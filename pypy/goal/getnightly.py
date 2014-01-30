@@ -2,7 +2,7 @@
 
 import sys
 import os
-import py
+import pypy._py as py
 
 if sys.platform.startswith('linux'):
     arch = 'linux'

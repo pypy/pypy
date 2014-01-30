@@ -1,4 +1,4 @@
-import py, json
+import pypy._py as py, json
 
 def is_(x, y):
     return type(x) is type(y) and x == y

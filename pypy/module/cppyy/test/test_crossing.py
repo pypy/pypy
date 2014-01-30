@@ -1,4 +1,4 @@
-import py, os, sys
+import pypy._py as py, os, sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import platform

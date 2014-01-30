@@ -2,7 +2,7 @@
 Tests for the entry point of pypy-c, app_main.py.
 """
 from __future__ import with_statement
-import py
+import pypy._py as py
 import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager

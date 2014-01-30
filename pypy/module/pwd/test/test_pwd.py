@@ -1,5 +1,5 @@
 import os
-import py
+import pypy._py as py
 
 if os.name != 'posix':
     py.test.skip('pwd module only available on unix')

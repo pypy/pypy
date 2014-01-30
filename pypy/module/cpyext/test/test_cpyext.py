@@ -2,7 +2,7 @@ import sys
 import weakref
 import os
 
-import py
+import pypy._py as py
 
 from pypy.conftest import pypydir
 from pypy.interpreter.error import OperationError

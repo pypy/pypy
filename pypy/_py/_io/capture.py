@@ -1,6 +1,6 @@
 import os
 import sys
-import py
+import pypy._py as py
 import tempfile
 
 try:

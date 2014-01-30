@@ -3,7 +3,7 @@ from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            import_log, split_trace, Op,
                                            parse_log_counts)
 from pypy.tool.jitlogparser.storage import LoopStorage
-import py, sys
+import pypy._py as py, sys
 from rpython.jit.backend.detect_cpu import autodetect
 
 def parse(input, **kwds):

@@ -1,4 +1,4 @@
-import py, os, sys
+import pypy._py as py, os, sys
 
 # These tests are for the CINT backend only (they exercise ROOT features
 # and classes that are not loaded/available with the Reflex backend). At

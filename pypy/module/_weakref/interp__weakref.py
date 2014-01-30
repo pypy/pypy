@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, ObjSpace

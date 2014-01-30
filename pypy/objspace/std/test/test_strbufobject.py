@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from pypy.objspace.std.test import test_bytesobject
 

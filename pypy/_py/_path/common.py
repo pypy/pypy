@@ -1,7 +1,7 @@
 """
 """
 import os, sys
-import py
+import pypy._py as py
 
 class Checkers:
     _depend_on_existence = 'exists', 'link', 'dir', 'file'

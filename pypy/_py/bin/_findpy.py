@@ -31,7 +31,7 @@ if not searchpy(abspath(os.curdir)):
         if not searchpy(opd(__file__)):
             pass # let's hope it is just on sys.path
 
-import py
+import pypy._py as py
 import pytest
 
 if __name__ == '__main__':

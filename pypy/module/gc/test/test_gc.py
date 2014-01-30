@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 class AppTestGC(object):
     def test_collect(self):
@@ -73,7 +73,7 @@ class AppTestGcDumpHeap(object):
     pytestmark = py.test.mark.xfail(run=False)
 
     def setup_class(cls):
-        import py
+        import pypy._py as py
         from rpython.tool.udir import udir
         from rpython.rlib import rgc
         class X(object):
@@ -92,7 +92,7 @@ class AppTestGcDumpHeap(object):
         cls._fname = fname
 
     def teardown_class(cls):
-        import py
+        import pypy._py as py
         from rpython.rlib import rgc
         
         rgc._heap_stats = cls._heap_stats

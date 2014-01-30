@@ -2,7 +2,7 @@
 """ test transparent proxy features
 """
 
-import py
+import pypy._py as py
 
 class AppProxyBasic(object):
     spaceconfig = {"objspace.std.withtproxy": True}

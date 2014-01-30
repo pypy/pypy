@@ -4,7 +4,7 @@ from ctypes import *
 from ctypes.test import is_resource_enabled
 from support import BaseCTypesTestChecker
 
-import py
+import pypy._py as py
 import sys
 
 if sys.platform != "win32":

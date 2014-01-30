@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from pypy.interpreter import gateway
 from pypy.objspace.test import test_descriptor
 

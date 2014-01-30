@@ -1,5 +1,5 @@
 import sys
-import py
+import pypy._py as py
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
 from rpython.rlib import rsocket

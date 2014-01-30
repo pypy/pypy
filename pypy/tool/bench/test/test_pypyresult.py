@@ -1,5 +1,5 @@
 
-import py
+import pypy._py as py
 
 from pypy.tool.bench.pypyresult import ResultDB, BenchResult
 import pickle

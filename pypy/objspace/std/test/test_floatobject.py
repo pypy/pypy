@@ -1,6 +1,6 @@
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.multimethod import FailedToImplement
-import py, sys
+import pypy._py as py, sys
 
 class TestW_FloatObject:
 

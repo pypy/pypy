@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-import py.test
+import pypy._py as py
 
 
 class TestMixedModule(object):

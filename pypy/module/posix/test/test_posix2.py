@@ -9,7 +9,7 @@ from pypy.conftest import pypydir
 from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 import os
-import py
+import pypy._py as py
 import sys
 import signal
 

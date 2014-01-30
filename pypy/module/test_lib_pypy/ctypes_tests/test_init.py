@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 from ctypes import *
 
 py.test.skip("subclassing semantics and implementation details not implemented")

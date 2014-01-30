@@ -1,4 +1,4 @@
-import py, sys
+import pypy._py as py, sys
 from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app

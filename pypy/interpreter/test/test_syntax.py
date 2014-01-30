@@ -1,5 +1,5 @@
 from __future__ import with_statement
-import py
+import pypy._py as py
 
 def splitcases(s):
     lines = [line.rstrip() for line in s.split('\n')]

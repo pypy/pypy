@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 
 from rpython.config.config import *
 from pypy.config.makerestdoc import make_cmdline_overview

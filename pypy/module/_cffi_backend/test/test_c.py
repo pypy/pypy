@@ -15,7 +15,7 @@ Adding a test here involves:
    - if you could complete step 3, try running 'py.test test_file.py' here
 5. make the test pass in pypy ('py.test test_c.py')
 """
-import py, sys, ctypes
+import pypy._py as py, sys, ctypes
 if sys.version_info < (2, 6):
     py.test.skip("requires the b'' literal syntax")
 

@@ -14,7 +14,7 @@ import os
 import types
 import inspect
 
-import py
+import pypy._py as py
 
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments

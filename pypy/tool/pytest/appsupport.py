@@ -1,6 +1,6 @@
 from inspect import CO_VARARGS, CO_VARKEYWORDS
 
-import py
+import pypy._py as py
 from pypy.interpreter import gateway, pycode
 from pypy.interpreter.error import OperationError
 
