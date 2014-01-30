@@ -1,6 +1,6 @@
 """ core implementation of testing process: init, session, runtest loop. """
 
-import py
+import pypy._py as py
 import pytest, _pytest
 import os, sys, imp
 tracebackcutdir = py.path.local(_pytest.__file__).dirpath()

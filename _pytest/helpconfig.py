@@ -1,5 +1,5 @@
 """ version info, help messages, tracing configuration.  """
-import py
+import pypy._py as py
 import pytest
 import os, inspect, sys
 from _pytest.core import varnames

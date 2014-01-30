@@ -1,7 +1,7 @@
 """ basic collect and runtest protocol implementations """
 
-import py, sys, time
-from py._code.code import TerminalRepr
+import pypy._py as py, sys, time
+from pypy._py._code.code import TerminalRepr
 
 def pytest_namespace():
     return {

@@ -1,6 +1,6 @@
 """ interactive debugging with PDB, the Python Debugger. """
 
-import pytest, py
+import pytest, pypy._py as py
 import sys
 
 def pytest_addoption(parser):

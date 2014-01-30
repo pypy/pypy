@@ -1,4 +1,4 @@
-import py
+import pypy._py as py
 import sys, inspect
 from compiler import parse, ast, pycodegen
 from _pytest.assertion.util import format_explanation, BuiltinAssertionError

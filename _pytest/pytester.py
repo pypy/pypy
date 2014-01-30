@@ -1,13 +1,13 @@
 """ (disabled by default) support for testing py.test and py.test plugins. """
 
-import py, pytest
+import pypy._py as py, pytest
 import sys, os
 import re
 import inspect
 import time
 from fnmatch import fnmatch
 from _pytest.main import Session, EXIT_OK
-from py.builtin import print_
+from pypy._py.builtin import print_
 from _pytest.core import HookRelay
 
 def pytest_addoption(parser):
@@ -114,7 +114,7 @@ class HookRecorder:
 
     def contains(self, entries):
         __tracebackhide__ = True
-        from py.builtin import print_
+        from pypy._py.builtin import print_
         i = 0
         entries = list(entries)
         backlocals = py.std.sys._getframe(1).f_locals

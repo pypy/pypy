@@ -10,7 +10,7 @@ import struct
 import sys
 import types
 
-import py
+import pypy._py as py
 from _pytest.assertion import util
 
 

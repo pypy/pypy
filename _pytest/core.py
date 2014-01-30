@@ -4,7 +4,7 @@ pytest PluginManager, basic initialization and tracing.
 """
 import sys, os
 import inspect
-import py
+import pypy._py as py
 from _pytest import hookspec # the extension point definitions
 
 assert py.__version__.split(".")[:2] >= ['1', '4'], ("installation problem: "

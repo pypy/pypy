@@ -1,5 +1,5 @@
 """ generate a single-file self-contained version of py.test """
-import py
+import pypy._py as py
 
 def find_toplevel(name):
     for syspath in py.std.sys.path:

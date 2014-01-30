@@ -1,5 +1,5 @@
 """ submit failure or test session information to a pastebin service. """
-import py, sys
+import pypy._py as py, sys
 
 class url:
     base = "http://paste.pocoo.org"

@@ -1,9 +1,9 @@
 """ Python test discovery, setup and run of test functions. """
-import py
+import pypy._py as py
 import inspect
 import sys
 import pytest
-from py._code.code import TerminalRepr
+from pypy._py._code.code import TerminalRepr
 from _pytest.monkeypatch import monkeypatch
 
 import _pytest

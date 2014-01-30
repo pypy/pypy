@@ -1,6 +1,6 @@
 """ recording warnings during test function execution. """
 
-import py
+import pypy._py as py
 import sys, os
 
 def pytest_funcarg__recwarn(request):

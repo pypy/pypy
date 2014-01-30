@@ -6,7 +6,7 @@ This should replace oldinterpret.py eventually.
 import sys
 import ast
 
-import py
+import pypy._py as py
 from _pytest.assertion import util
 from _pytest.assertion.reinterpret import BuiltinAssertionError
 

@@ -3,7 +3,7 @@
 Based on initial code from Ross Lawley.
 """
 
-import py
+import pypy._py as py
 import os
 import re
 import sys

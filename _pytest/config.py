@@ -1,6 +1,6 @@
 """ command line options, ini-file and conftest.py processing. """
 
-import py
+import pypy._py as py
 import sys, os
 from _pytest.core import PluginManager
 import pytest
@@ -125,7 +125,7 @@ class MyOptionParser(py.std.optparse.OptionParser):
 
 class Conftest(object):
     """ the single place for accessing values and interacting
-        towards conftest modules from py.test objects.
+        towards conftest modules from pypy._py.test objects.
     """
     def __init__(self, onimport=None, confcutdir=None):
         self._path2confmods = {}

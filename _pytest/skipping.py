@@ -1,6 +1,6 @@
 """ support for skip/xfail functions and markers. """
 
-import py, pytest
+import pypy._py as py, pytest
 import sys
 
 def pytest_addoption(parser):

@@ -1,7 +1,7 @@
 """
 support for presenting detailed information in failing assertions.
 """
-import py
+import pypy._py as py
 import sys
 import pytest
 from _pytest.monkeypatch import monkeypatch

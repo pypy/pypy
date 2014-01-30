@@ -1,6 +1,6 @@
 """ per-test stdout/stderr capturing mechanisms, ``capsys`` and ``capfd`` function arguments.  """
 
-import pytest, py
+import pytest, pypy._py as py
 import os
 
 def pytest_addoption(parser):

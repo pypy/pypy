@@ -1,6 +1,6 @@
 """ (disabled by default) create result information in a plain text file. """
 
-import py
+import pypy._py as py
 
 def pytest_addoption(parser):
     group = parser.getgroup("terminal reporting", "resultlog plugin options")

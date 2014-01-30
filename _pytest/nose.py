@@ -1,6 +1,6 @@
 """ run test suites written for nose. """
 
-import pytest, py
+import pytest, pypy._py as py
 import inspect
 import sys
 

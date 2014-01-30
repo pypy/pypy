@@ -1,5 +1,5 @@
 """ support for providing temporary directories to test functions.  """
-import pytest, py
+import pytest, pypy._py as py
 from _pytest.monkeypatch import monkeypatch
 
 class TempdirHandler:

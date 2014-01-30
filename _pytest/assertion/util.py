@@ -1,6 +1,6 @@
 """Utilities for assertion debugging"""
 
-import py
+import pypy._py as py
 
 BuiltinAssertionError = py.builtin.builtins.AssertionError
 

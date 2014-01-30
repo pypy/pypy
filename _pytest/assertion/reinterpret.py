@@ -1,5 +1,5 @@
 import sys
-import py
+import pypy._py as py
 from _pytest.assertion.util import BuiltinAssertionError
 
 class AssertionError(BuiltinAssertionError):

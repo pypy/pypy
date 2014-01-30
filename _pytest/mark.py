@@ -1,5 +1,5 @@
 """ generic mechanism for marking and selecting python functions. """
-import pytest, py
+import pytest, pypy._py as py
 
 def pytest_namespace():
     return {'mark': MarkGenerator()}
@@ -115,7 +115,7 @@ class MarkGenerator:
     """ Factory for :class:`MarkDecorator` objects - exposed as
     a ``py.test.mark`` singleton instance.  Example::
 
-         import py
+         import pypy._py as py
          @py.test.mark.slowtest
          def test_function():
             pass

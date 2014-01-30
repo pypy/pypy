@@ -1,7 +1,7 @@
 """ discover and run doctests in modules and test files."""
 
-import pytest, py
-from py._code.code import TerminalRepr, ReprFileLocation
+import pytest, pypy._py as py
+from pypy._py._code.code import TerminalRepr, ReprFileLocation
 
 def pytest_addoption(parser):
     group = parser.getgroup("collect")
