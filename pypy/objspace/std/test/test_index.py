@@ -1,4 +1,4 @@
-from py.test import raises
+from pypy._py.test import raises
 
 class AppTest_IndexProtocol:
     def setup_class(self):

@@ -1,4 +1,4 @@
-from py.test import raises
+from pypy._py.test import raises
 
 from pypy.objspace.std import multimethod
 from pypy.objspace.std.multimethod import FailedToImplement

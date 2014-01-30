@@ -10,7 +10,7 @@ from pypy.module.bz2.test.support import CheckAllocation
 
 
 if os.name == "nt":
-    from py.test import skip
+    from pypy._py.test import skip
     skip("bz2 module is not available on Windows")
 
 def setup_module(mod):

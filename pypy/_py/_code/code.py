@@ -37,7 +37,7 @@ class Code(object):
     def fullsource(self):
         """ return a py.code.Source object for the full source file of the code
         """
-        from py._code import source
+        from pypy._py._code import source
         full, _ = source.findsource(self.raw)
         return full
     fullsource = property(fullsource, None, None,
@@ -715,7 +715,7 @@ oldbuiltins = {}
 def patch_builtins(assertion=True, compile=True):
     """ put compile and AssertionError builtins to Python's builtins. """
     if assertion:
-        from py._code import assertion
+        from pypy._py._code import assertion
         l = oldbuiltins.setdefault('AssertionError', [])
         l.append(py.builtin.builtins.AssertionError)
         py.builtin.builtins.AssertionError = assertion.AssertionError

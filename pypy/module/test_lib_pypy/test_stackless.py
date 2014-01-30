@@ -5,7 +5,7 @@ These tests are supposed to run on the following platforms:
 3. pypy-c
 """
 from __future__ import absolute_import
-from py.test import skip
+from pypy._py.test import skip
 try:
     import stackless
 except ImportError:

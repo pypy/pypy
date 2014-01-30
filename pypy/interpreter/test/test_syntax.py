@@ -765,7 +765,7 @@ pass
 
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
-    from py.test import raises
+    from pypy._py.test import raises
     for s in VALID:
         try:
             compile(s, '?', 'exec')

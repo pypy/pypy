@@ -7,9 +7,9 @@ but might also interact well with earlier versions.
 import os, sys, time, re
 import pypy._py as py
 from pypy._py import path, process
-from py._path import common
-from py._path import svnwc as svncommon
-from py._path.cacheutil import BuildcostAccessCache, AgingCache
+from pypy._py._path import common
+from pypy._py._path import svnwc as svncommon
+from pypy._py._path.cacheutil import BuildcostAccessCache, AgingCache
 
 DEBUG=False
 

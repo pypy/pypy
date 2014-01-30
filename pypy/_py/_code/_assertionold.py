@@ -1,7 +1,7 @@
 import pypy._py as py
 import sys, inspect
 from compiler import parse, ast, pycodegen
-from py._code.assertion import BuiltinAssertionError, _format_explanation
+from pypy._py._code.assertion import BuiltinAssertionError, _format_explanation
 
 passthroughex = py.builtin._sysex
 

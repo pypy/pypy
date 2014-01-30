@@ -495,7 +495,7 @@ def link_for_name(fromlink, module, name):
         return link
 
 def html_for_module(module):
-    from py.xml import html
+    from pypy._py.xml import html
     out = file_for_module(module)
     ourlink = link_for_module('', module)
     head = [html.title(module.name)]

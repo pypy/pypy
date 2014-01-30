@@ -1,4 +1,4 @@
-from py.test import raises
+from pypy._py.test import raises
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode

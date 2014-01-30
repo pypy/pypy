@@ -1,7 +1,7 @@
 
 import pypy._py as py
-from py._cmdline import pycountloc as countloc 
-from py.xml import raw
+from pypy._py._cmdline import pycountloc as countloc 
+from pypy._py.xml import raw
 from pypy import conftest
 
 pypydir = py.path.local(conftest.pypydir)

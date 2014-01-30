@@ -3,7 +3,7 @@ local path implementation.
 """
 import sys, os, stat, re, atexit
 import pypy._py as py
-from py._path import common
+from pypy._py._path import common
 
 iswin32 = sys.platform == "win32" or (getattr(os, '_name', False) == 'nt')
 

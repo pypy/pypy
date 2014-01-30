@@ -6,12 +6,12 @@ Tests for the zlib module.
 try:
     import zlib
 except ImportError:
-    import py; py.test.skip("no zlib module on this host Python")
+    import pypy._py as py; py.test.skip("no zlib module on this host Python")
 
 try:
     from pypy.module.zlib import interp_zlib
 except ImportError:
-    import py; py.test.skip("no zlib C library on this machine")
+    import pypy._py as py; py.test.skip("no zlib C library on this machine")
  
 def test_unsigned_to_signed_32bit():
     assert interp_zlib.unsigned_to_signed_32bit(123) == 123

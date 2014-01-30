@@ -7,7 +7,7 @@ import sys
 import ast
 
 import pypy._py as py
-from py._code.assertion import _format_explanation, BuiltinAssertionError
+from pypy._py._code.assertion import _format_explanation, BuiltinAssertionError
 
 
 if sys.platform.startswith("java") and sys.version_info < (2, 5, 2):
