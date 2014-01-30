@@ -84,6 +84,19 @@ class __extend__(W_NDimArray):
     def descr_get_dtype(self, space):
         return self.implementation.dtype
 
+    def descr_set_dtype(self, space, w_dtype):
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        if (dtype.get_size() != self.get_dtype().get_size() or
+                dtype.is_flexible_type() or self.get_dtype().is_flexible_type()):
+            raise OperationError(space.w_ValueError, space.wrap(
+                "new type not compatible with array."))
+        self.implementation.set_dtype(space, dtype)
+
+    def descr_del_dtype(self, space):
+        raise OperationError(space.w_AttributeError, space.wrap(
+            "Cannot delete array dtype"))
+
     def descr_get_ndim(self, space):
         return space.wrap(len(self.get_shape()))
 
@@ -489,6 +502,15 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 
+    def descr_itemset(self, space, args_w):
+        if len(args_w) == 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "itemset must have at least one argument"))
+        if len(args_w) != len(self.get_shape()) + 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "incorrect number of indices for array"))
+        self.descr_setitem(space, space.newtuple(args_w[:-1]), args_w[-1])
+
     def descr___array__(self, space, w_dtype=None):
         if not space.is_none(w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -628,10 +650,6 @@ class __extend__(W_NDimArray):
     def descr_getfield(self, space, w_dtype, offset):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "getfield not implemented yet"))
-
-    def descr_itemset(self, space, w_arg):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "itemset not implemented yet"))
 
     @unwrap_spec(new_order=str)
     def descr_newbyteorder(self, space, new_order=NPY_SWAP):
@@ -903,8 +921,8 @@ class __extend__(W_NDimArray):
             w_res = self.descr_mul(space, other)
             assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1), out)
-        dtype = interp_ufuncs.find_binop_result_dtype(space,
-                                     self.get_dtype(), other.get_dtype())
+        dtype = interp_ufuncs.find_binop_result_dtype(space, self.get_dtype(),
+                                                             other.get_dtype())
         if self.get_size() < 1 and other.get_size() < 1:
             # numpy compatability
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
@@ -912,25 +930,27 @@ class __extend__(W_NDimArray):
         out_shape, other_critical_dim = _match_dot_shapes(space, self, other)
         if out:
             matches = True
-            if len(out.get_shape()) != len(out_shape):
+            if dtype != out.get_dtype():
+                matches = False
+            elif not out.implementation.order == "C":
+                matches = False
+            elif len(out.get_shape()) != len(out_shape):
                 matches = False
             else:
                 for i in range(len(out_shape)):
                     if out.get_shape()[i] != out_shape[i]:
                         matches = False
                         break
-            if dtype != out.get_dtype():
-                matches = False
-            if not out.implementation.order == "C":
-                matches = False
             if not matches:
                 raise OperationError(space.w_ValueError, space.wrap(
-                    'output array is not acceptable (must have the right type, nr dimensions, and be a C-Array)'))
+                    'output array is not acceptable (must have the right type, '
+                    'nr dimensions, and be a C-Array)'))
             w_res = out
+            w_res.fill(space, self.get_dtype().coerce(space, None))
         else:
             w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_instance=self)
         # This is the place to add fpypy and blas
-        return loop.multidim_dot(space, self, other,  w_res, dtype,
+        return loop.multidim_dot(space, self, other, w_res, dtype,
                                  other_critical_dim)
 
     def descr_mean(self, space, __args__):
@@ -946,7 +966,8 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
                            cumulative=False):
-        def impl(self, space, w_axis=None, w_dtype=None, w_out=None):
+        @unwrap_spec(keepdims=bool)
+        def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
             if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
@@ -956,7 +977,7 @@ class __extend__(W_NDimArray):
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
                 space, self, promote_to_largest, w_axis,
-                False, out, w_dtype, cumulative=cumulative)
+                keepdims, out, w_dtype, cumulative=cumulative)
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
                     promote_to_largest, cumulative))
 
@@ -1288,7 +1309,9 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __gt__ = interp2app(W_NDimArray.descr_gt),
     __ge__ = interp2app(W_NDimArray.descr_ge),
 
-    dtype = GetSetProperty(W_NDimArray.descr_get_dtype),
+    dtype = GetSetProperty(W_NDimArray.descr_get_dtype,
+                           W_NDimArray.descr_set_dtype,
+                           W_NDimArray.descr_del_dtype),
     shape = GetSetProperty(W_NDimArray.descr_get_shape,
                            W_NDimArray.descr_set_shape),
     strides = GetSetProperty(W_NDimArray.descr_get_strides),
@@ -1336,6 +1359,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter,
                           W_NDimArray.descr_set_flatiter),
     item = interp2app(W_NDimArray.descr_item),
+    itemset = interp2app(W_NDimArray.descr_itemset),
     real = GetSetProperty(W_NDimArray.descr_get_real,
                           W_NDimArray.descr_set_real),
     imag = GetSetProperty(W_NDimArray.descr_get_imag,

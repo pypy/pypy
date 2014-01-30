@@ -10,7 +10,7 @@ from rpython.annotator.model import (
     SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
-    SomeWeakRef, SomeAddress, SomeTypedAddressAccess, SomeSingleFloat,
+    SomeWeakRef, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
@@ -826,50 +826,6 @@ class __extend__(pairtype(SomeString, SomePBC)):
             raise AnnotatorError('add on %r' % pbc)
         return s_ImpossibleValue
 
-# ____________________________________________________________
-# annotation of low-level types
-from rpython.annotator.model import SomePtr
-from rpython.annotator.model import ll_to_annotation, annotation_to_lltype
-
-class __extend__(pairtype(SomePtr, SomePtr)):
-    def union((p1, p2)):
-        assert p1.ll_ptrtype == p2.ll_ptrtype,("mixing of incompatible pointer types: %r, %r" %
-                                               (p1.ll_ptrtype, p2.ll_ptrtype))
-        return SomePtr(p1.ll_ptrtype)
-
-class __extend__(pairtype(SomePtr, SomeInteger)):
-
-    def getitem((p, int1)):
-        example = p.ll_ptrtype._example()
-        try:
-            v = example[0]
-        except IndexError:
-            return None       # impossible value, e.g. FixedSizeArray(0)
-        return ll_to_annotation(v)
-    getitem.can_only_throw = []
-
-    def setitem((p, int1), s_value):   # just doing checking
-        example = p.ll_ptrtype._example()
-        if example[0] is not None:  # ignore Void s_value
-            v_lltype = annotation_to_lltype(s_value)
-            example[0] = v_lltype._defl()
-    setitem.can_only_throw = []
-
-class __extend__(pairtype(SomePtr, SomeObject)):
-    def union((p, obj)):
-        assert False, ("mixing pointer type %r with something else %r" % (p.ll_ptrtype, obj))
-
-    def getitem((p, obj)):
-        assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
-
-    def setitem((p, obj), s_value):
-        assert False,"ptr %r setitem index not an int: %r" % (p.ll_ptrtype, obj)
-
-class __extend__(pairtype(SomeObject, SomePtr)):
-    def union((obj, p2)):
-        return pair(p2, obj).union()
-
-
 #_________________________________________
 # weakrefs
 
@@ -884,62 +840,3 @@ class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
             if basedef is None:    # no common base class! complain...
                 return SomeObject()
         return SomeWeakRef(basedef)
-
-#_________________________________________
-# memory addresses
-
-class __extend__(pairtype(SomeAddress, SomeAddress)):
-    def union((s_addr1, s_addr2)):
-        return SomeAddress()
-
-    def sub((s_addr1, s_addr2)):
-        if s_addr1.is_null_address() and s_addr2.is_null_address():
-            return getbookkeeper().immutablevalue(0)
-        return SomeInteger()
-
-    def is_((s_addr1, s_addr2)):
-        assert False, "comparisons with is not supported by addresses"
-
-class __extend__(pairtype(SomeTypedAddressAccess, SomeTypedAddressAccess)):
-    def union((s_taa1, s_taa2)):
-        assert s_taa1.type == s_taa2.type
-        return s_taa1
-
-class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
-    def getitem((s_taa, s_int)):
-        from rpython.annotator.model import lltype_to_annotation
-        return lltype_to_annotation(s_taa.type)
-    getitem.can_only_throw = []
-
-    def setitem((s_taa, s_int), s_value):
-        from rpython.annotator.model import annotation_to_lltype
-        assert annotation_to_lltype(s_value) is s_taa.type
-    setitem.can_only_throw = []
-
-
-class __extend__(pairtype(SomeAddress, SomeInteger)):
-    def add((s_addr, s_int)):
-        return SomeAddress()
-
-    def sub((s_addr, s_int)):
-        return SomeAddress()
-
-class __extend__(pairtype(SomeAddress, SomeImpossibleValue)):
-    # need to override this specifically to hide the 'raise UnionError'
-    # of pairtype(SomeAddress, SomeObject).
-    def union((s_addr, s_imp)):
-        return s_addr
-
-class __extend__(pairtype(SomeImpossibleValue, SomeAddress)):
-    # need to override this specifically to hide the 'raise UnionError'
-    # of pairtype(SomeObject, SomeAddress).
-    def union((s_imp, s_addr)):
-        return s_addr
-
-class __extend__(pairtype(SomeAddress, SomeObject)):
-    def union((s_addr, s_obj)):
-        raise UnionError(s_addr, s_obj)
-
-class __extend__(pairtype(SomeObject, SomeAddress)):
-    def union((s_obj, s_addr)):
-        raise UnionError(s_obj, s_addr)

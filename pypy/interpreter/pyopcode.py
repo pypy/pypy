@@ -744,6 +744,9 @@ class __extend__(pyframe.PyFrame):
             else:
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
+            if operror.w_type is space.w_None:
+                raise OperationError(space.w_TypeError,
+                    space.wrap("raise: the exception to re-raise was cleared"))
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
             raise RaiseWithExplicitTraceback(operror)

@@ -204,6 +204,9 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert array([256], 'B')[0] == 0
         assert array([32768], 'h')[0] == -32768
         assert array([65536], 'H')[0] == 0
+        a = array([65520], dtype='float64')
+        b = array(a, dtype='float16')
+        assert b == float('inf')
         if dtype('l').itemsize == 4: # 32-bit
             raises(OverflowError, "array([2**32/2], 'i')")
             raises(OverflowError, "array([2**32], 'I')")
@@ -948,6 +951,13 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.type is void
         assert d.char == 'V'
         assert d.names == ("x", "y", "z", "value")
+        d.names = ('a', 'b', 'c', 'd')
+        assert d.names == ('a', 'b', 'c', 'd')
+        exc = raises(ValueError, "d.names = ('a', 'b', 'c', 'c')")
+        assert exc.value[0] == "Duplicate field names given."
+        exc = raises(AttributeError, 'del d.names')
+        assert exc.value[0] == "Cannot delete dtype names attribute"
+        assert d.names == ('a', 'b', 'c', 'd')
         raises(KeyError, 'd["xyz"]')
         raises(KeyError, 'd.fields["xyz"]')
 

@@ -252,7 +252,19 @@ class W_Ufunc(W_Root):
         if out:
             out.set_scalar_value(res)
             return out
+        if keepdims:
+            shape = [1] * len(obj_shape)
+            out = W_NDimArray.from_shape(space, [1] * len(obj_shape), dtype, w_instance=obj)
+            out.implementation.setitem(0, res)
+            return out
         return res
+
+    def descr_outer(self, space, __args__):
+        return self._outer(space, __args__)
+
+    def _outer(self, space, __args__):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("outer product only supported for binary functions"))
 
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
@@ -432,6 +444,7 @@ W_Ufunc.typedef = TypeDef("ufunc",
     nin = interp_attrproperty("argcount", cls=W_Ufunc),
 
     reduce = interp2app(W_Ufunc.descr_reduce),
+    outer = interp2app(W_Ufunc.descr_outer),
 )
 
 
