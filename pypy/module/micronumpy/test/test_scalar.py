@@ -111,6 +111,13 @@ class AppTestScalar(BaseNumpyAppTest):
         b = buffer(a)
         assert str(b) == a
 
+    def test_byteswap(self):
+        import numpy as np
+        assert np.int64(123).byteswap() == 8863084066665136128
+        a = np.complex64(1+2j).byteswap()
+        assert repr(a.real).startswith('4.60060')
+        assert repr(a.imag).startswith('8.96831')
+
     def test_squeeze(self):
         import numpy as np
         assert np.True_.squeeze() is np.True_
