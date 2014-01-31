@@ -178,8 +178,13 @@ if WIN32:
                     int i;
                     for(i=1; i < 65000; i++) {
                         _dosmaperr(i);
-                        if (errno == EINVAL)
-                            continue;
+                        if (errno == EINVAL) {
+                            /* CPython issue #12802 */
+                            if (i == ERROR_DIRECTORY)
+                                errno = ENOTDIR;
+                            else
+                                continue;
+                        }
                         printf("%d\t%d\n", i, errno);
                     }
                     return 0;
@@ -201,7 +206,7 @@ if WIN32:
                 132: 13, 145: 41, 158: 13, 161: 2, 164: 11, 167: 13, 183: 17,
                 188: 8, 189: 8, 190: 8, 191: 8, 192: 8, 193: 8, 194: 8,
                 195: 8, 196: 8, 197: 8, 198: 8, 199: 8, 200: 8, 201: 8,
-                202: 8, 206: 2, 215: 11, 1816: 12,
+                202: 8, 206: 2, 215: 11, 267: 20, 1816: 12,
                 }
         else:
             output = os.popen(str(exename))

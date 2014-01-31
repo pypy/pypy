@@ -5,7 +5,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import rweakref
+from rpython.rlib import rweakref, rweaklist
 
 
 DEFAULT_BUFFER_SIZE = 8192
@@ -52,7 +52,6 @@ class W_IOBase(W_Root):
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
         if add_to_autoflusher:
-            self.streamholder = None # needed by AutoFlusher
             get_autoflusher(space).add(self)
 
     def getdict(self, space):
@@ -115,7 +114,6 @@ class W_IOBase(W_Root):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
-            get_autoflusher(space).remove(self)
 
     def flush_w(self, space):
         if self._CLOSED():
@@ -339,55 +337,35 @@ W_RawIOBase.typedef = TypeDef(
 # functions to make sure that all streams are flushed on exit
 # ------------------------------------------------------------
 
-class StreamHolder(object):
-    def __init__(self, w_iobase):
-        self.w_iobase_ref = rweakref.ref(w_iobase)
-        w_iobase.autoflusher = self
 
-    def autoflush(self, space):
-        w_iobase = self.w_iobase_ref()
-        if w_iobase is not None:
-            try:
-                space.call_method(w_iobase, 'flush')
-            except OperationError:
-                # Silencing all errors is bad, but getting randomly
-                # interrupted here is equally as bad, and potentially
-                # more frequent (because of shutdown issues).
-                pass 
-
-
-class AutoFlusher(object):
+class AutoFlusher(rweaklist.RWeakListMixin):
     def __init__(self, space):
-        self.streams = {}
+        self.initialize()
 
     def add(self, w_iobase):
-        assert w_iobase.streamholder is None
         if rweakref.has_weakref_support():
-            holder = StreamHolder(w_iobase)
-            w_iobase.streamholder = holder
-            self.streams[holder] = None
+            self.add_handle(w_iobase)
         #else:
         #   no support for weakrefs, so ignore and we
         #   will not get autoflushing
 
-    def remove(self, w_iobase):
-        holder = w_iobase.streamholder
-        if holder is not None:
-            try:
-                del self.streams[holder]
-            except KeyError:
-                # this can happen in daemon threads
-                pass
-
     def flush_all(self, space):
-        while self.streams:
-            for streamholder in self.streams.keys():
+        while True:
+            handles = self.get_all_handles()
+            if len(handles) == 0:
+                break
+            self.initialize()  # reset the state here
+            for wr in handles:
+                w_iobase = wr()
+                if w_iobase is None:
+                    continue
                 try:
-                    del self.streams[streamholder]
-                except KeyError:
-                    pass    # key was removed in the meantime
-                else:
-                    streamholder.autoflush(space)
+                    space.call_method(w_iobase, 'flush')
+                except OperationError:
+                    # Silencing all errors is bad, but getting randomly
+                    # interrupted here is equally as bad, and potentially
+                    # more frequent (because of shutdown issues).
+                    pass 
 
 def get_autoflusher(space):
     return space.fromcache(AutoFlusher)

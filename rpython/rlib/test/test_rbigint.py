@@ -214,8 +214,13 @@ class Test_rbigint(object):
         from rpython.rlib.rstring import ParseStringError
         assert rbigint.fromstr('123L').tolong() == 123
         assert rbigint.fromstr('123L  ').tolong() == 123
+        py.test.raises(ParseStringError, rbigint.fromstr, '123L  ',
+                       ignore_l_suffix=True)
         py.test.raises(ParseStringError, rbigint.fromstr, 'L')
         py.test.raises(ParseStringError, rbigint.fromstr, 'L  ')
+        e = py.test.raises(ParseStringError, rbigint.fromstr, 'L  ',
+                           fname='int')
+        assert 'int()' in e.value.msg
         assert rbigint.fromstr('123L', 4).tolong() == 27
         assert rbigint.fromstr('123L', 30).tolong() == 27000 + 1800 + 90 + 21
         assert rbigint.fromstr('123L', 22).tolong() == 10648 + 968 + 66 + 21
