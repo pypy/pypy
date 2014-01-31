@@ -254,13 +254,19 @@ class rbigint(object):
 
     @staticmethod
     @jit.elidable
-    @enforceargs(unicode, None)
-    def fromstr(s, base=0):
-        """As string_to_int(), but returns an rbigint."""
+    @enforceargs(unicode, None, None, None)
+    def fromstr(s, base=0, ignore_l_suffix=False, fname=u'long'):
+        """As string_to_int(), but optionally ignores an optional 'l' or
+        'L' suffix and returns an rbigint.
+        """
         from rpython.rlib.rstring import NumberStringParser, \
             strip_spaces
         s = literal = strip_spaces(s)
-        parser = NumberStringParser(s, literal, base, u'int')
+        if (not ignore_l_suffix and (s.endswith('l') or s.endswith('L')) and
+            base < 22):
+            # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
+            s = s[:-1]
+        parser = NumberStringParser(s, literal, base, fname)
         return rbigint._from_numberstring_parser(parser)
 
     @staticmethod

@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit
 from rpython.rlib.rshrinklist import AbstractShrinkList
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rweakref import dead_ref
 import weakref
 
 
@@ -143,14 +144,6 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
         return w_proxy
 
 # ____________________________________________________________
-
-class Dummy:
-    pass
-dead_ref = weakref.ref(Dummy())
-for i in range(5):
-    if dead_ref() is not None:
-        import gc; gc.collect()
-assert dead_ref() is None
 
 
 class W_WeakrefBase(W_Root):

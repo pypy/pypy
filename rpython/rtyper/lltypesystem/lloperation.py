@@ -141,7 +141,7 @@ class Entry(ExtRegistryEntry):
     _type_ = LLOp
 
     def compute_result_annotation(self, RESULTTYPE, *args):
-        from rpython.annotator.model import lltype_to_annotation
+        from rpython.rtyper.llannotation import lltype_to_annotation
         assert RESULTTYPE.is_constant()
         return lltype_to_annotation(RESULTTYPE.const)
 

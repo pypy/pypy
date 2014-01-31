@@ -72,6 +72,8 @@ def find_shape_and_elems(space, w_iterable, dtype):
     is_rec_type = dtype is not None and dtype.is_record_type()
     if is_rec_type and is_single_elem(space, w_iterable, is_rec_type):
         return [], [w_iterable]
+    if isinstance(w_iterable, W_NDimArray) and w_iterable.is_scalar():
+        return [], [w_iterable]
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
     while True:

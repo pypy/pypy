@@ -1,9 +1,10 @@
 import py
 
+from rpython.annotator import model as annmodel
 from rpython.annotator import policy, specialize
 from rpython.rtyper.lltypesystem.lltype import typeOf
 from rpython.rtyper.test.tool import BaseRtypingTest
-from rpython.rtyper.llannotation import SomePtr
+from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 
 
 class MyBase:
@@ -1702,7 +1703,6 @@ def test_hlinvoke_simple():
     from rpython.translator import translator
     from rpython.annotator import annrpython
     a = annrpython.RPythonAnnotator()
-    from rpython.annotator import model as annmodel
 
     s_f = a.bookkeeper.immutablevalue(f)
     a.bookkeeper.emulate_pbc_call('f', s_f, [annmodel.SomeInteger(), annmodel.SomeInteger()])
@@ -1721,7 +1721,7 @@ def test_hlinvoke_simple():
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)
-    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    s_ll_f = lltype_to_annotation(r_f.lowleveltype)
     ll_h_graph = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
     assert a.binding(ll_h_graph.getreturnvar()).knowntype == int
     rt.specialize_more_blocks()
@@ -1740,7 +1740,6 @@ def test_hlinvoke_simple2():
         return a - b
     from rpython.annotator import annrpython
     a = annrpython.RPythonAnnotator()
-    from rpython.annotator import model as annmodel
 
     def g(i):
         if i:
@@ -1769,7 +1768,7 @@ def test_hlinvoke_simple2():
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)
-    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    s_ll_f = lltype_to_annotation(r_f.lowleveltype)
     ll_h_graph= annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
     assert a.binding(ll_h_graph.getreturnvar()).knowntype == int
     rt.specialize_more_blocks()
@@ -1792,7 +1791,6 @@ def test_hlinvoke_hltype():
 
     from rpython.annotator import annrpython
     a = annrpython.RPythonAnnotator()
-    from rpython.annotator import model as annmodel
 
     def g():
         a = A(None)
@@ -1815,7 +1813,7 @@ def test_hlinvoke_hltype():
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)
-    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    s_ll_f = lltype_to_annotation(r_f.lowleveltype)
     A_repr = rclass.getinstancerepr(rt, a.bookkeeper.getdesc(A).
                                     getuniqueclassdef())
     ll_h_graph = annlowlevel.annotate_lowlevel_helper(
@@ -1842,7 +1840,6 @@ def test_hlinvoke_method_hltype():
 
     from rpython.annotator import annrpython
     a = annrpython.RPythonAnnotator()
-    from rpython.annotator import model as annmodel
 
     def g():
         a = A(None)
@@ -1872,7 +1869,7 @@ def test_hlinvoke_method_hltype():
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)
-    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    s_ll_f = lltype_to_annotation(r_f.lowleveltype)
     A_repr = rclass.getinstancerepr(rt, a.bookkeeper.getdesc(A).
                                     getuniqueclassdef())
     ll_h_graph = annlowlevel.annotate_lowlevel_helper(
@@ -1903,7 +1900,6 @@ def test_hlinvoke_pbc_method_hltype():
 
     from rpython.annotator import annrpython
     a = annrpython.RPythonAnnotator()
-    from rpython.annotator import model as annmodel
 
     i = Impl()
 
@@ -1928,7 +1924,7 @@ def test_hlinvoke_pbc_method_hltype():
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)
-    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    s_ll_f = lltype_to_annotation(r_f.lowleveltype)
 
     A_repr = rclass.getinstancerepr(rt, a.bookkeeper.getdesc(A).
                                     getuniqueclassdef())

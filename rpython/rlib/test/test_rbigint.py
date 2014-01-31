@@ -212,16 +212,19 @@ class Test_rbigint(object):
 
     def test_fromstr(self):
         from rpython.rlib.rstring import ParseStringError
-        assert rbigint.fromstr(u'123').tolong() == 123
-        assert rbigint.fromstr(u'123  ').tolong() == 123
-        py.test.raises(ParseStringError, rbigint.fromstr, u'123L')
-        py.test.raises(ParseStringError, rbigint.fromstr, u'123L  ')
+        assert rbigint.fromstr(u'123L').tolong() == 123
+        assert rbigint.fromstr(u'123L  ').tolong() == 123
+        py.test.raises(ParseStringError, rbigint.fromstr, u'123L  ',
+                       ignore_l_suffix=True)
         py.test.raises(ParseStringError, rbigint.fromstr, u'L')
         py.test.raises(ParseStringError, rbigint.fromstr, u'L  ')
-        assert rbigint.fromstr(u'123', 4).tolong() == 27
+        e = py.test.raises(ParseStringError, rbigint.fromstr, u'L  ',
+                           fname=u'int')
+        assert u'int()' in e.value.msg
+        assert rbigint.fromstr(u'123L', 4).tolong() == 27
         assert rbigint.fromstr(u'123L', 30).tolong() == 27000 + 1800 + 90 + 21
         assert rbigint.fromstr(u'123L', 22).tolong() == 10648 + 968 + 66 + 21
-        py.test.raises(ParseStringError, rbigint.fromstr, u'123L', 21)
+        assert rbigint.fromstr(u'123L', 21).tolong() == 441 + 42 + 3
         assert rbigint.fromstr(u'1891234174197319').tolong() == 1891234174197319
 
     def test_from_numberstring_parser(self):

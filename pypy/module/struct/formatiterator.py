@@ -3,6 +3,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.formatiterator import FormatIterator
+
 from pypy.interpreter.error import OperationError
 
 
@@ -43,8 +44,6 @@ class PackFormatIterator(FormatIterator):
             raise StructError("struct format requires more arguments")
         self.args_index += 1
         return w_obj
-
-    # accepts objects with __index__es
 
     def accept_int_arg(self):
         return self._accept_integral("int_w")
