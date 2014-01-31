@@ -256,6 +256,10 @@ class W_GenericBox(W_Root):
         value = space.is_true(self)
         return get_dtype_cache(space).w_booldtype.box(value)
 
+    def descr_zero(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        return get_dtype_cache(space).w_longdtype.box(0)
+
     def descr_ravel(self, space):
         from pypy.module.micronumpy.base import convert_to_array
         w_values = space.newtuple([self])
@@ -588,6 +592,8 @@ W_GenericBox.typedef = TypeDef("generic",
     tolist = interp2app(W_GenericBox.item),
     min = interp2app(W_GenericBox.descr_self),
     max = interp2app(W_GenericBox.descr_self),
+    argmin = interp2app(W_GenericBox.descr_zero),
+    argmax = interp2app(W_GenericBox.descr_zero),
     sum = interp2app(W_GenericBox.descr_self),
     prod = interp2app(W_GenericBox.descr_self),
     any = interp2app(W_GenericBox.descr_any),
