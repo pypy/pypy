@@ -149,8 +149,6 @@ def test_attr_immutability_delete(monkeypatch):
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
     map1 = obj.map
-    import pdb
-    pdb.set_trace()
     obj.deldictvalue(space, "a")
     obj.setdictvalue(space, "a", 20)
     assert obj.map.ever_mutated == True
