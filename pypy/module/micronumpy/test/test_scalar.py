@@ -102,6 +102,12 @@ class AppTestScalar(BaseNumpyAppTest):
         assert b == a
         assert b is not a
 
+    def test_methods(self):
+        import numpy as np
+        for a in [np.int32(2), np.float64(2.0), np.complex64(42)]:
+            for op in ['min', 'max', 'sum', 'prod']:
+                assert getattr(a, op)() == a
+
     def test_buffer(self):
         import numpy as np
         a = np.int32(123)
