@@ -85,7 +85,7 @@ def _from_intlike(space, w_longtype, w_intlike):
 
 def string_to_w_long(space, w_longtype, s, base=10):
     try:
-        bigint = rbigint.fromstr(s, base)
+        bigint = rbigint.fromstr(s, base, ignore_l_suffix=True, fname=u'int')
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
