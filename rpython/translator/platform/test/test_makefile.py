@@ -93,9 +93,10 @@ class TestMakefile(object):
         cfiles_precompiled_headers = []
         for i in range(nprecompiled_headers):
             pch_name =tmpdir.join('pcheader%03d.h' % i)
-            txt = ''
+            txt = '#ifndef PCHEADER%03d_H\n#define PCHEADER%03d_H\n' %(i, i)
             for j in range(3000):
                 txt += "int pcfunc%03d_%03d();\n" %(i, j)
+            txt += '#endif'
             pch_name.write(txt)    
             cfiles_precompiled_headers.append(pch_name)        
         # Create some cfiles with headers we want precompiled
@@ -108,12 +109,22 @@ class TestMakefile(object):
             txt += "int func%03d(){ return %d;};\n" % (i, i)
             c_name.write(txt)
             cfiles.append(c_name)        
-        mk = self.platform.gen_makefile(cfiles, eci, path=udir,
-                           cfile_precompilation=cfiles_precompiled_headers)
         if sys.platform == 'win32':
             clean = ('clean', '', 'for %f in ( $(OBJECTS) $(TARGET) ) do @if exist %f del /f %f')
         else:    
             clean = ('clean', '', 'rm -f $(OBJECTS) $(TARGET) ')
+        #write a non-precompiled header makefile
+        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir)
+        mk.rule(*clean)
+        mk.write()
+        t0 = time.clock()
+        self.platform.execute_makefile(mk)
+        t1 = time.clock()
+        t_normal = t1 - t0
+        self.platform.execute_makefile(mk, extra_opts=['clean'])
+        # Write a super-duper makefile with precompiled headers
+        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir,
+                           cfile_precompilation=cfiles_precompiled_headers,)
         mk.rule(*clean)
         mk.write()
         t0 = time.clock()
@@ -122,15 +133,6 @@ class TestMakefile(object):
         t_precompiled = t1 - t0
         res = self.platform.execute(mk.exe_name)
         self.check_res(res, '%d\n' %sum(range(ncfiles)))
-        self.platform.execute_makefile(mk, extra_opts=['clean'])
-        #Rewrite a non-precompiled header makefile
-        mk = self.platform.gen_makefile(cfiles, eci, path=udir)
-        mk.rule(*clean)
-        mk.write()
-        t0 = time.clock()
-        self.platform.execute_makefile(mk)
-        t1 = time.clock()
-        t_normal = t1 - t0
         print "precompiled haeder 'make' time %.2f, non-precompiled header time %.2f" %(t_precompiled, t_normal)
         assert t_precompiled < t_normal * 0.5
 
