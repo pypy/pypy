@@ -57,9 +57,6 @@ class W_UnicodeObject(W_Root):
             return None
         return space.wrap(compute_unique_id(space.unicode_w(self)))
 
-    def str_w(self, space):
-        return space.str_w(space.str(self))
-
     def unicode_w(self, space):
         return self._value
 
