@@ -144,7 +144,17 @@ def test_attr_immutability(monkeypatch):
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
 
-
+def test_attr_immutability_delete(monkeypatch):
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    map1 = obj.map
+    import pdb
+    pdb.set_trace()
+    obj.deldictvalue(space, "a")
+    obj.setdictvalue(space, "a", 20)
+    assert obj.map.ever_mutated == True
+    assert obj.map is map1
 
 def test_delete():
     for i, dattr in enumerate(["a", "b", "c"]):

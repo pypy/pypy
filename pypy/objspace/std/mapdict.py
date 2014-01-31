@@ -57,7 +57,7 @@ class AbstractAttribute(object):
         return True
 
     def delete(self, obj, selector):
-        return None
+        pass
 
     def find_map_attr(self, selector):
         if jit.we_are_jitted():
@@ -291,6 +291,7 @@ class PlainAttribute(AbstractAttribute):
     def delete(self, obj, selector):
         if selector == self.selector:
             # ok, attribute is deleted
+            self.ever_mutated = True
             return self.back.copy(obj)
         new_obj = self.back.delete(obj, selector)
         if new_obj is not None:
