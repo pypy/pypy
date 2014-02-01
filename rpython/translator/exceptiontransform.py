@@ -12,7 +12,7 @@ from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib.debug import ll_assert
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -164,7 +164,7 @@ class ExceptionTransformer(object):
         return fn
 
     def build_func(self, name, fn, inputtypes, rettype, **kwds):
-        l2a = annmodel.lltype_to_annotation
+        l2a = lltype_to_annotation
         graph = self.mixlevelannotator.getgraph(fn, map(l2a, inputtypes), l2a(rettype))
         return self.constant_func(name, inputtypes, rettype, graph,
                                   exception_policy="exc_helper", **kwds)

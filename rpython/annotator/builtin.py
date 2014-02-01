@@ -4,12 +4,12 @@ Built-in functions.
 import sys
 
 from rpython.annotator.model import (
-    SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple, s_Bool,
-    SomeUnicodeCodePoint, SomeAddress, SomeFloat, unionof, SomeUnicodeString,
+    SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple,
+    SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
-    SomeOrderedDict,
-    SomeByteArray, annotation_to_lltype, lltype_to_annotation,
-    ll_to_annotation, add_knowntypedata, s_ImpossibleValue,)
+    SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
+from rpython.rtyper.llannotation import (
+    SomeAddress, annotation_to_lltype, lltype_to_annotation, ll_to_annotation)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import description
 from rpython.flowspace.model import Constant
@@ -356,7 +356,7 @@ def robjmodel_keepalive_until_here(*args_s):
 
 @analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_ptr_to_adr)
 def llmemory_cast_ptr_to_adr(s):
-    from rpython.annotator.model import SomeInteriorPtr
+    from rpython.rtyper.llannotation import SomeInteriorPtr
     assert not isinstance(s, SomeInteriorPtr)
     return SomeAddress()
 
@@ -389,7 +389,7 @@ def analyze():
 
 
 # annotation of low-level types
-from rpython.annotator.model import SomePtr
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype
 
 @analyzer_for(lltype.malloc)

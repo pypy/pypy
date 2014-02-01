@@ -256,6 +256,10 @@ class W_GenericBox(W_Root):
         value = space.is_true(self)
         return get_dtype_cache(space).w_booldtype.box(value)
 
+    def descr_zero(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        return get_dtype_cache(space).w_longdtype.box(0)
+
     def descr_ravel(self, space):
         from pypy.module.micronumpy.base import convert_to_array
         w_values = space.newtuple([self])
@@ -326,6 +330,9 @@ class W_GenericBox(W_Root):
 
     def descr_buffer(self, space):
         return self.descr_ravel(space).descr_get_data(space)
+
+    def descr_byteswap(self, space):
+        return self.get_dtype(space).itemtype.byteswap(self)
 
     w_flags = None
     def descr_get_flags(self, space):
@@ -583,6 +590,12 @@ W_GenericBox.typedef = TypeDef("generic",
     __hash__ = interp2app(W_GenericBox.descr_hash),
 
     tolist = interp2app(W_GenericBox.item),
+    min = interp2app(W_GenericBox.descr_self),
+    max = interp2app(W_GenericBox.descr_self),
+    argmin = interp2app(W_GenericBox.descr_zero),
+    argmax = interp2app(W_GenericBox.descr_zero),
+    sum = interp2app(W_GenericBox.descr_self),
+    prod = interp2app(W_GenericBox.descr_self),
     any = interp2app(W_GenericBox.descr_any),
     all = interp2app(W_GenericBox.descr_all),
     ravel = interp2app(W_GenericBox.descr_ravel),
@@ -592,6 +605,7 @@ W_GenericBox.typedef = TypeDef("generic",
     view = interp2app(W_GenericBox.descr_view),
     squeeze = interp2app(W_GenericBox.descr_self),
     copy = interp2app(W_GenericBox.descr_copy),
+    byteswap = interp2app(W_GenericBox.descr_byteswap),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),

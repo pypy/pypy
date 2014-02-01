@@ -9,6 +9,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote, virtual_ref
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, lloperation, rclass, llmemory
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY, FieldListAccessor
@@ -23,7 +24,6 @@ class Entry(ExtRegistryEntry):
     _about_ = promote_virtualizable
 
     def compute_result_annotation(self, *args):
-        from rpython.annotator.model import lltype_to_annotation
         return lltype_to_annotation(lltype.Void)
 
     def specialize_call(self, hop):

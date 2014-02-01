@@ -291,7 +291,6 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_noop_ndmin(self):
         from numpypy import array
-
         arr = array([1], ndmin=3)
         assert arr.shape == (1, 1, 1)
 
@@ -320,6 +319,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = c.reshape(3, 4, 0)
         e = d.repeat(3, 0)
         assert e.shape == (9, 4, 0)
+        a = array(123)
+        b = array(a, dtype=float)
+        assert b == 123.0
+
+    def test_dtype_attribute(self):
+        import numpy as np
+        a = np.array(40000, dtype='uint16')
+        assert a.dtype == np.uint16
+        a.dtype = np.int16
+        assert a == -25536
+        a = np.array([1, 2, 3, 4, 40000], dtype='uint16')
+        assert a.dtype == np.uint16
+        a.dtype = np.int16
+        assert a[4] == -25536
+        exc = raises(ValueError, 'a.dtype = None')
+        assert exc.value[0] == 'new type not compatible with array.'
+        exc = raises(ValueError, 'a.dtype = np.int32')
+        assert exc.value[0] == 'new type not compatible with array.'
+        exc = raises(AttributeError, 'del a.dtype')
+        assert exc.value[0] == 'Cannot delete array dtype'
 
     def test_buffer(self):
         import numpy as np
@@ -397,10 +416,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ten == 10
 
     def test_empty(self):
-        """
-        Test that empty() works.
-        """
-
         from numpypy import empty
         a = empty(2)
         a[1] = 1.0
@@ -1383,6 +1398,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import arange, array
         a = arange(15).reshape(5, 3)
         assert a.sum() == 105
+        assert a.sum(keepdims=True) == 105
+        assert a.sum(keepdims=True).shape == (1, 1)
         assert a.max() == 14
         assert array([]).sum() == 0.0
         assert array([]).reshape(0, 2).sum() == 0.
@@ -1415,6 +1432,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, dtype
         a = array(range(1, 6))
         assert a.prod() == 120.0
+        assert a.prod(keepdims=True) == 120.0
+        assert a.prod(keepdims=True).shape == (1,)
         assert a[:4].prod() == 24.0
         for dt in ['bool', 'int8', 'uint8', 'int16', 'uint16']:
             a = array([True, False], dtype=dt)
@@ -1429,6 +1448,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.max() == 5.7
+        assert a.max(keepdims=True) == 5.7
+        assert a.max(keepdims=True).shape == (1,)
         b = array([])
         raises(ValueError, "b.max()")
         assert list(zeros((0, 2)).max(axis=1)) == []
@@ -1442,6 +1463,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.min() == -3.0
+        assert a.min(keepdims=True) == -3.0
+        assert a.min(keepdims=True).shape == (1,)
         b = array([])
         raises(ValueError, "b.min()")
         assert list(zeros((0, 2)).min(axis=1)) == []
@@ -1492,6 +1515,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.all() == False
         a[0] = 3.0
         assert a.all() == True
+        assert a.all(keepdims=True) == True
+        assert a.all(keepdims=True).shape == (1,)
         b = array([])
         assert b.all() == True
 
@@ -1499,6 +1524,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array(range(5))
         assert a.any() == True
+        assert a.any(keepdims=True) == True
+        assert a.any(keepdims=True).shape == (1,)
         b = zeros(5)
         assert b.any() == False
         c = array([])
@@ -2794,6 +2821,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert type(b[1]) is str
         assert b[0] == 1
         assert b[1] == 'ab'
+
+    def test_itemset(self):
+        import numpy as np
+        a = np.array(range(5))
+        exc = raises(ValueError, a.itemset)
+        assert exc.value[0] == 'itemset must have at least one argument'
+        exc = raises(ValueError, a.itemset, 1, 2, 3)
+        assert exc.value[0] == 'incorrect number of indices for array'
+        a.itemset(1, 5)
+        assert a[1] == 5
+        a = np.array(range(6)).reshape(2, 3)
+        a.itemset(1, 2, 100)
+        assert a[1, 2] == 100
 
     def test_index(self):
         import numpy as np

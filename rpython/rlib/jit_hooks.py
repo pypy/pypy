@@ -1,4 +1,5 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
     cast_base_ptr_to_instance, llstr)
@@ -15,7 +16,7 @@ def register_helper(s_result):
                 if (isinstance(s_result, annmodel.SomeObject) or
                     s_result is None):
                     return s_result
-                return annmodel.lltype_to_annotation(s_result)
+                return lltype_to_annotation(s_result)
 
             def specialize_call(self, hop):
                 from rpython.rtyper.lltypesystem import lltype
@@ -50,7 +51,7 @@ def _cast_to_gcref(obj):
 def emptyval():
     return lltype.nullptr(llmemory.GCREF.TO)
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
+@register_helper(SomePtr(llmemory.GCREF))
 def resop_new(no, llargs, llres):
     from rpython.jit.metainterp.history import ResOperation
 
@@ -61,7 +62,7 @@ def resop_new(no, llargs, llres):
         res = None
     return _cast_to_gcref(ResOperation(no, args, res))
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
+@register_helper(SomePtr(llmemory.GCREF))
 def boxint_new(no):
     from rpython.jit.metainterp.history import BoxInt
     return _cast_to_gcref(BoxInt(no))
@@ -74,7 +75,7 @@ def resop_getopnum(llop):
 def resop_getopname(llop):
     return llstr(_cast_to_resop(llop).getopname())
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
+@register_helper(SomePtr(llmemory.GCREF))
 def resop_getarg(llop, no):
     return _cast_to_gcref(_cast_to_resop(llop).getarg(no))
 
@@ -82,7 +83,7 @@ def resop_getarg(llop, no):
 def resop_setarg(llop, no, llbox):
     _cast_to_resop(llop).setarg(no, _cast_to_box(llbox))
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
+@register_helper(SomePtr(llmemory.GCREF))
 def resop_getresult(llop):
     return _cast_to_gcref(_cast_to_resop(llop).result)
 
@@ -94,15 +95,15 @@ def resop_setresult(llop, llbox):
 def box_getint(llbox):
     return _cast_to_box(llbox).getint()
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
+@register_helper(SomePtr(llmemory.GCREF))
 def box_clone(llbox):
     return _cast_to_gcref(_cast_to_box(llbox).clonebox())
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
+@register_helper(SomePtr(llmemory.GCREF))
 def box_constbox(llbox):
     return _cast_to_gcref(_cast_to_box(llbox).constbox())
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
+@register_helper(SomePtr(llmemory.GCREF))
 def box_nonconstbox(llbox):
     return _cast_to_gcref(_cast_to_box(llbox).nonconstbox())
 

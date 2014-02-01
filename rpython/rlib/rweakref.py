@@ -12,6 +12,14 @@ ref = weakref.ref    # basic regular weakrefs are supported in RPython
 def has_weakref_support():
     return True      # returns False if --no-translation-rweakref
 
+class Dummy:
+    pass
+dead_ref = weakref.ref(Dummy())
+for i in range(5):
+    if dead_ref() is not None:
+        import gc; gc.collect()
+assert dead_ref() is None      # a known-to-be-dead weakref object
+
 
 class RWeakValueDictionary(object):
     """A dictionary containing weak values."""

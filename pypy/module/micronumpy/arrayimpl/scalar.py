@@ -173,6 +173,10 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_ValueError, space.wrap(
             "total size of the array must be unchanged"))
 
+    def set_dtype(self, space, dtype):
+        self.value = self.value.convert_to(space, dtype)
+        self.dtype = dtype
+
     def reshape(self, space, orig_array, new_shape):
         return self.set_shape(space, orig_array, new_shape)
 

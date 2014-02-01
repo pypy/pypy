@@ -4,12 +4,11 @@ Unary operations on SomeValues.
 
 from __future__ import absolute_import
 
-from types import MethodType
 from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
-    SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
+    SomePBC, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper
@@ -757,62 +756,6 @@ class __extend__(SomePBC):
             # This should probably never happen
             raise AnnotatorError("Cannot call len on a pbc")
 
-# annotation of low-level types
-from rpython.annotator.model import SomePtr, SomeLLADTMeth
-from rpython.annotator.model import ll_to_annotation, lltype_to_annotation, annotation_to_lltype
-
-class __extend__(SomePtr):
-
-    def getattr(self, s_attr):
-        assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % self.ll_ptrtype
-        example = self.ll_ptrtype._example()
-        try:
-            v = example._lookup_adtmeth(s_attr.const)
-        except AttributeError:
-            v = getattr(example, s_attr.const)
-            return ll_to_annotation(v)
-        else:
-            if isinstance(v, MethodType):
-                from rpython.rtyper.lltypesystem import lltype
-                ll_ptrtype = lltype.typeOf(v.im_self)
-                assert isinstance(ll_ptrtype, (lltype.Ptr, lltype.InteriorPtr))
-                return SomeLLADTMeth(ll_ptrtype, v.im_func)
-            return getbookkeeper().immutablevalue(v)
-    getattr.can_only_throw = []
-
-    def len(self):
-        length = self.ll_ptrtype._example()._fixedlength()
-        if length is None:
-            return SomeObject.len(self)
-        else:
-            return immutablevalue(length)
-
-    def setattr(self, s_attr, s_value): # just doing checking
-        assert s_attr.is_constant(), "setattr on ptr %r with non-constant field-name" % self.ll_ptrtype
-        example = self.ll_ptrtype._example()
-        if getattr(example, s_attr.const) is not None:  # ignore Void s_value
-            v_lltype = annotation_to_lltype(s_value)
-            setattr(example, s_attr.const, v_lltype._defl())
-
-    def call(self, args):
-        args_s, kwds_s = args.unpack()
-        if kwds_s:
-            raise Exception("keyword arguments to call to a low-level fn ptr")
-        info = 'argument to ll function pointer call'
-        llargs = [annotation_to_lltype(s_arg,info)._defl() for s_arg in args_s]
-        v = self.ll_ptrtype._example()(*llargs)
-        return ll_to_annotation(v)
-
-    def bool(self):
-        return s_Bool
-
-class __extend__(SomeLLADTMeth):
-
-    def call(self, args):
-        bookkeeper = getbookkeeper()
-        s_func = bookkeeper.immutablevalue(self.func)
-        return s_func.call(args.prepend(lltype_to_annotation(self.ll_ptrtype)))
-
 #_________________________________________
 # weakrefs
 
@@ -822,20 +765,3 @@ class __extend__(SomeWeakRef):
             return s_None   # known to be a dead weakref
         else:
             return SomeInstance(self.classdef, can_be_None=True)
-
-#_________________________________________
-# memory addresses
-
-from rpython.rtyper.lltypesystem import llmemory
-
-class __extend__(SomeAddress):
-    def getattr(self, s_attr):
-        assert s_attr.is_constant()
-        assert isinstance(s_attr, SomeString)
-        assert s_attr.const in llmemory.supported_access_types
-        return SomeTypedAddressAccess(
-            llmemory.supported_access_types[s_attr.const])
-    getattr.can_only_throw = []
-
-    def bool(self):
-        return s_Bool

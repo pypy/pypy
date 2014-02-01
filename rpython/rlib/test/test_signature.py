@@ -2,6 +2,7 @@ import py
 from rpython.rlib.signature import signature, finishsigs, FieldSpec, ClassSpec
 from rpython.rlib import types
 from rpython.annotator import model
+from rpython.rtyper.llannotation import SomePtr
 from rpython.annotator.signature import SignatureError
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.lltypesystem import rstr
@@ -127,7 +128,7 @@ def test_ptr():
     def f(buf):
         pass
     argtype = getsig(f, policy=policy)[0]
-    assert isinstance(argtype, model.SomePtr)
+    assert isinstance(argtype, SomePtr)
     assert argtype.ll_ptrtype.TO == rstr.STR
 
     def g():
