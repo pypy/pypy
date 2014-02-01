@@ -1,6 +1,7 @@
 """
 Code for annotating low-level thingies.
 """
+from types import MethodType
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeSingleFloat, SomeFloat, SomeLongFloat, SomeChar,
@@ -108,6 +109,54 @@ class SomePtr(SomeObject):
     def can_be_none(self):
         return False
 
+    def getattr(self, s_attr):
+        from rpython.annotator.bookkeeper import getbookkeeper
+        if not s_attr.is_constant():
+            raise AnnotatorError("getattr on ptr %r with non-constant "
+                                 "field-name" % self.ll_ptrtype)
+        example = self.ll_ptrtype._example()
+        try:
+            v = example._lookup_adtmeth(s_attr.const)
+        except AttributeError:
+            v = getattr(example, s_attr.const)
+            return ll_to_annotation(v)
+        else:
+            if isinstance(v, MethodType):
+                ll_ptrtype = lltype.typeOf(v.im_self)
+                assert isinstance(ll_ptrtype, (lltype.Ptr, lltype.InteriorPtr))
+                return SomeLLADTMeth(ll_ptrtype, v.im_func)
+            return getbookkeeper().immutablevalue(v)
+    getattr.can_only_throw = []
+
+    def len(self):
+        from rpython.annotator.bookkeeper import getbookkeeper
+        length = self.ll_ptrtype._example()._fixedlength()
+        if length is None:
+            return SomeObject.len(self)
+        else:
+            return getbookkeeper().immutablevalue(length)
+
+    def setattr(self, s_attr, s_value): # just doing checking
+        if not s_attr.is_constant():
+            raise AnnotatorError("setattr on ptr %r with non-constant "
+                                 "field-name" % self.ll_ptrtype)
+        example = self.ll_ptrtype._example()
+        if getattr(example, s_attr.const) is not None:  # ignore Void s_value
+            v_lltype = annotation_to_lltype(s_value)
+            setattr(example, s_attr.const, v_lltype._defl())
+
+    def call(self, args):
+        args_s, kwds_s = args.unpack()
+        if kwds_s:
+            raise Exception("keyword arguments to call to a low-level fn ptr")
+        info = 'argument to ll function pointer call'
+        llargs = [annotation_to_lltype(s_arg, info)._defl() for s_arg in args_s]
+        v = self.ll_ptrtype._example()(*llargs)
+        return ll_to_annotation(v)
+
+    def bool(self):
+        return s_Bool
+
 
 class SomeInteriorPtr(SomePtr):
     def __init__(self, ll_ptrtype):
@@ -124,6 +173,13 @@ class SomeLLADTMeth(SomeObject):
 
     def can_be_none(self):
         return False
+
+    def call(self, args):
+        from rpython.annotator.bookkeeper import getbookkeeper
+        bookkeeper = getbookkeeper()
+        s_func = bookkeeper.immutablevalue(self.func)
+        return s_func.call(args.prepend(lltype_to_annotation(self.ll_ptrtype)))
+
 
 class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
