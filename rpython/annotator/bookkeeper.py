@@ -205,7 +205,7 @@ class Bookkeeper(object):
     def immutableconstant(self, const):
         return self.immutablevalue(const.value)
 
-    def immutablevalue(self, x, need_const=True):
+    def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
         # convert unbound methods to the underlying function
@@ -241,73 +241,51 @@ class Bookkeeper(object):
         elif tp is bytearray:
             result = SomeByteArray()
         elif tp is tuple:
-            result = SomeTuple(items = [self.immutablevalue(e, need_const) for e in x])
+            result = SomeTuple(items = [self.immutablevalue(e) for e in x])
         elif tp is float:
             result = SomeFloat()
         elif tp is list:
-            if need_const:
-                key = Constant(x)
-                try:
-                    return self.immutable_cache[key]
-                except KeyError:
-                    result = SomeList(ListDef(self, s_ImpossibleValue))
-                    self.immutable_cache[key] = result
-                    for e in x:
-                        result.listdef.generalize(self.immutablevalue(e))
-                    result.const_box = key
-                    return result
-            else:
-                listdef = ListDef(self, s_ImpossibleValue)
+            key = Constant(x)
+            try:
+                return self.immutable_cache[key]
+            except KeyError:
+                result = SomeList(ListDef(self, s_ImpossibleValue))
+                self.immutable_cache[key] = result
                 for e in x:
-                    listdef.generalize(self.immutablevalue(e, False))
-                result = SomeList(listdef)
+                    result.listdef.generalize(self.immutablevalue(e))
+                result.const_box = key
+                return result
         elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
             if tp is SomeOrderedDict.knowntype:
                 cls = SomeOrderedDict
             else:
                 cls = SomeDict
-            if need_const:
-                key = Constant(x)
-                try:
-                    return self.immutable_cache[key]
-                except KeyError:
-                    result = cls(DictDef(self,
-                                         s_ImpossibleValue,
-                                         s_ImpossibleValue,
-                                         is_r_dict = tp is r_dict))
-                    self.immutable_cache[key] = result
-                    if tp is r_dict:
-                        s_eqfn = self.immutablevalue(x.key_eq)
-                        s_hashfn = self.immutablevalue(x.key_hash)
-                        result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
-                                                                        s_hashfn)
-                    seen_elements = 0
-                    while seen_elements != len(x):
-                        items = x.items()
-                        for ek, ev in items:
-                            result.dictdef.generalize_key(self.immutablevalue(ek))
-                            result.dictdef.generalize_value(self.immutablevalue(ev))
-                            result.dictdef.seen_prebuilt_key(ek)
-                        seen_elements = len(items)
-                        # if the dictionary grew during the iteration,
-                        # start over again
-                    result.const_box = key
-                    return result
-            else:
-                dictdef = DictDef(self,
-                s_ImpossibleValue,
-                s_ImpossibleValue,
-                is_r_dict = tp is r_dict)
+            key = Constant(x)
+            try:
+                return self.immutable_cache[key]
+            except KeyError:
+                result = cls(DictDef(self,
+                                        s_ImpossibleValue,
+                                        s_ImpossibleValue,
+                                        is_r_dict = tp is r_dict))
+                self.immutable_cache[key] = result
                 if tp is r_dict:
                     s_eqfn = self.immutablevalue(x.key_eq)
                     s_hashfn = self.immutablevalue(x.key_hash)
-                    dictdef.dictkey.update_rdict_annotations(s_eqfn,
-                        s_hashfn)
-                for ek, ev in x.iteritems():
-                    dictdef.generalize_key(self.immutablevalue(ek, False))
-                    dictdef.generalize_value(self.immutablevalue(ev, False))
-                    dictdef.seen_prebuilt_key(ek)
-                result = cls(dictdef)
+                    result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
+                                                                    s_hashfn)
+                seen_elements = 0
+                while seen_elements != len(x):
+                    items = x.items()
+                    for ek, ev in items:
+                        result.dictdef.generalize_key(self.immutablevalue(ek))
+                        result.dictdef.generalize_value(self.immutablevalue(ev))
+                        result.dictdef.seen_prebuilt_key(ek)
+                    seen_elements = len(items)
+                    # if the dictionary grew during the iteration,
+                    # start over again
+                result.const_box = key
+                return result
         elif tp is weakref.ReferenceType:
             x1 = x()
             if x1 is None:
@@ -332,11 +310,11 @@ class Bookkeeper(object):
             if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
                 # global constant list, the find_method() returns non-None
-                s_self = self.immutablevalue(x.im_self, need_const)
+                s_self = self.immutablevalue(x.im_self)
                 result = s_self.find_method(x.im_func.__name__)
             elif hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
-                s_self = self.immutablevalue(x.__self__, need_const)
+                s_self = self.immutablevalue(x.__self__)
                 result = s_self.find_method(x.__name__)
                 assert result is not None
             else:
@@ -360,8 +338,7 @@ class Bookkeeper(object):
             return s_None
         else:
             raise Exception("Don't know how to represent %r" % (x,))
-        if need_const:
-            result.const = x
+        result.const = x
         return result
 
     def getdesc(self, pyobj):
