@@ -24,7 +24,6 @@ class RPythonAnnotator(object):
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
         import rpython.rtyper.extfuncregistry # has side effects
-        import rpython.rlib.nonconst # has side effects
 
         if translator is None:
             # interface for tests
