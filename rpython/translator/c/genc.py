@@ -388,7 +388,7 @@ class CStandaloneBuilder(CBuilder):
 
         if self.has_profopt():
             profopt = self.config.translation.profopt
-            mk.definition('ABS_TARGET', '$(shell python -c "import sys,os; print os.path.abspath(sys.argv[1])" $(TARGET))')
+            mk.definition('ABS_TARGET', str(targetdir.join('$(TARGET)')))
             mk.definition('DEFAULT_TARGET', 'profopt')
             mk.definition('PROFOPT', profopt)
 
