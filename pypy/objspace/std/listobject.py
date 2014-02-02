@@ -162,9 +162,9 @@ class W_ListObject(W_Root):
         return self
 
     @staticmethod
-    def newlist_bytes(space, list_s):
+    def newlist_bytes(space, list_b):
         strategy = space.fromcache(BytesListStrategy)
-        storage = strategy.erase(list_s)
+        storage = strategy.erase(list_b)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     @staticmethod

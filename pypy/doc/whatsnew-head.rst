@@ -52,3 +52,8 @@ unnecessary cleanup.
 .. branch: annotator
 Remove FlowObjSpace.
 Improve cohesion between rpython.flowspace and rpython.annotator.
+
+.. branch: detect-immutable-fields
+mapdicts keep track of whether or not an attribute is every assigned to
+multiple times. If it's only assigned once then an elidable lookup is used when
+possible.

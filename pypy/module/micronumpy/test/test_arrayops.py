@@ -56,6 +56,10 @@ class AppTestNumSupport(BaseNumpyAppTest):
         b = arange(12).reshape(4, 3)
         c = a.dot(b)
         assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+        c = a.dot(b.astype(float))
+        assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+        c = a.astype(float).dot(b)
+        assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
 
         a = arange(24).reshape(2, 3, 4)
         raises(ValueError, "a.dot(a)")
@@ -91,9 +95,11 @@ class AppTestNumSupport(BaseNumpyAppTest):
         out = arange(9).reshape(3, 3)
         c = dot(a, b, out=out)
         assert (c == out).all()
-        out = arange(9,dtype=float).reshape(3, 3)
+        assert (c == [[42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+        out = arange(9, dtype=float).reshape(3, 3)
         exc = raises(ValueError, dot, a, b, out)
-        assert exc.value[0].find('not acceptable') > 0
+        assert exc.value[0] == ('output array is not acceptable (must have the '
+                                'right type, nr dimensions, and be a C-Array)')
 
     def test_choose_basic(self):
         from numpypy import array

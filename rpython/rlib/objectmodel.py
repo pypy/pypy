@@ -750,6 +750,8 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
     argument.
     """
     flatten = {}
+    caller = sys._getframe(1)
+    caller_name = caller.f_globals.get('__name__')
     for base in inspect.getmro(M):
         if base is object:
             continue
@@ -764,13 +766,17 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
             elif isinstance(value, staticmethod):
                 func = value.__get__(42)
                 func = func_with_new_name(func, func.__name__)
+                if caller_name:
+                    # staticmethods lack a unique im_class so further
+                    # distinguish them from themselves
+                    func.__module__ = caller_name
                 value = staticmethod(func)
             elif isinstance(value, classmethod):
                 raise AssertionError("classmethods not supported "
                                      "in 'import_from_mixin'")
             flatten[key] = value
     #
-    target = sys._getframe(1).f_locals
+    target = caller.f_locals
     for key, value in flatten.items():
         if key in target:
             raise Exception("import_from_mixin: would overwrite the value "

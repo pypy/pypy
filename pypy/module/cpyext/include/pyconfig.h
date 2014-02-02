@@ -15,6 +15,8 @@ extern "C" {
 #define HAVE_UNICODE
 #define WITHOUT_COMPLEX
 #define HAVE_WCHAR_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_SYS_STAT_H 1
 
 /* PyPy supposes Py_UNICODE == wchar_t */
 #define HAVE_USABLE_WCHAR_T 1

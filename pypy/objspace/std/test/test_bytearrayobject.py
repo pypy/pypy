@@ -134,6 +134,7 @@ class AppTestBytesArray:
 
     def test_iter(self):
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
+        assert list(bytearray('hello').__iter__()) == [104, 101, 108, 108, 111]
 
     def test_compare(self):
         assert bytearray('hello') == bytearray('hello')

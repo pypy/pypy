@@ -8,11 +8,13 @@ import sys, types, inspect, weakref
 
 from rpython.flowspace.model import Constant
 from rpython.annotator.model import (SomeOrderedDict,
-    SomeString, SomeChar, SomeFloat, SomePtr, unionof, SomeInstance, SomeDict,
-    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
-    s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
+    SomeString, SomeChar, SomeFloat, unionof, SomeInstance, SomeDict,
+    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
+    s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType)
+from rpython.rtyper.llannotation import (
+    SomeAddress, SomePtr, SomeLLADTMeth, lltype_to_annotation)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef

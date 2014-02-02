@@ -181,6 +181,11 @@ class AppTestScalar(BaseNumpyAppTest):
             s = np.dtype([('a', 'int64'), ('b', 'int64')]).type('a' * 16)
             assert s.view('S16') == 'a' * 16
 
+    def test_as_integer_ratio(self):
+        import numpy as np
+        raises(AttributeError, 'np.float32(1.5).as_integer_ratio()')
+        assert np.float64(1.5).as_integer_ratio() == (3, 2)
+
     def test_complex_scalar_complex_cast(self):
         import numpy as np
         for tp in [np.csingle, np.cdouble, np.clongdouble]:
