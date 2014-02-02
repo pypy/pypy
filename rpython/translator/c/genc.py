@@ -845,5 +845,4 @@ def gen_source(database, modulename, targetdir,
 
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files()
-    files, eci = eci.get_module_files()
-    return eci, filename, sg.getextrafiles() + list(files), headers_to_precompile
+    return eci, filename, sg.getextrafiles(), headers_to_precompile
