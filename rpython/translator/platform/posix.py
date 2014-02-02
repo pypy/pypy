@@ -83,7 +83,7 @@ class BasePosix(Platform):
         return [entry[2:] for entry in out.split()]
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False, cfile_precompilation=None):
+                     shared=False, headers_to_precompile=[]):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:

@@ -21,7 +21,8 @@ class CLibraryBuilder(CBuilder):
             entrypoints.append(getfunctionptr(graph))
         return entrypoints
 
-    def gen_makefile(self, targetdir, exe_name=None):
+    def gen_makefile(self, targetdir, exe_name=None,
+                    headers_to_precompile=[]):
         pass # XXX finish
 
     def compile(self):

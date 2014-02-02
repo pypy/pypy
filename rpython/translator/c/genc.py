@@ -260,12 +260,13 @@ class CBuilder(object):
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
                 self.eci = self.eci.merge(ExternalCompilationInfo(
                     export_symbols=["pypy_main_startup", "pypy_debug_file"]))
-        self.eci, cfile, extra = gen_source(db, modulename, targetdir,
-                                            self.eci, defines=defines,
-                                            split=self.split)
+        self.eci, cfile, extra, headers_to_precompile = \
+                gen_source(db, modulename, targetdir,
+                           self.eci, defines=defines, split=self.split)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = self.eventually_copy(extra)
-        self.gen_makefile(targetdir, exe_name=exe_name)
+        self.gen_makefile(targetdir, exe_name=exe_name,
+                          headers_to_precompile=headers_to_precompile)
         return cfile
 
     def eventually_copy(self, cfiles):
@@ -375,13 +376,14 @@ class CStandaloneBuilder(CBuilder):
         self._compiled = True
         return self.executable_name
 
-    def gen_makefile(self, targetdir, exe_name=None):
+    def gen_makefile(self, targetdir, exe_name=None, headers_to_precompile=[]):
         cfiles = [self.c_source_filename] + self.extrafiles
         if exe_name is not None:
             exe_name = targetdir.join(exe_name)
         mk = self.translator.platform.gen_makefile(
             cfiles, self.eci,
             path=targetdir, exe_name=exe_name,
+            headers_to_precompile=headers_to_precompile,
             shared=self.config.translation.shared)
 
         if self.has_profopt():
@@ -511,6 +513,7 @@ class SourceGenerator:
     def __init__(self, database):
         self.database = database
         self.extrafiles = []
+        self.headers_to_precompile = []
         self.path = None
         self.namespace = NameManager()
 
@@ -539,6 +542,8 @@ class SourceGenerator:
         filepath = self.path.join(name)
         if name.endswith('.c'):
             self.extrafiles.append(filepath)
+        if name.endswith('.h'):
+            self.headers_to_precompile.append(filepath)
         return filepath.open('w')
 
     def getextrafiles(self):
@@ -732,12 +737,14 @@ def gen_forwarddecl(f, database):
     print >> f, "#endif"
 
 def gen_preimpl(f, database):
+    f.write('#ifndef _PY_PREIMPLE_H\n#define _PY_PREIMPL_H\n')
     if database.translator is None or database.translator.rtyper is None:
         return
     preimplementationlines = pre_include_code_lines(
         database, database.translator.rtyper)
     for line in preimplementationlines:
         print >> f, line
+    f.write('#endif /* _PY_PREIMPL_H */\n')    
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
@@ -799,6 +806,7 @@ def gen_source(database, modulename, targetdir,
     f = filename.open('w')
     incfilename = targetdir.join('common_header.h')
     fi = incfilename.open('w')
+    fi.write('#ifndef _PY_COMMON_HEADER_H\n#define _PY_COMMON_HEADER_H\n')
 
     #
     # Header
@@ -811,6 +819,7 @@ def gen_source(database, modulename, targetdir,
 
     eci.write_c_header(fi)
     print >> fi, '#include "src/g_prerequisite.h"'
+    fi.write('#endif /* _PY_COMMON_HEADER_H*/\n')
 
     fi.close()
 
@@ -822,6 +831,8 @@ def gen_source(database, modulename, targetdir,
     sg.set_strategy(targetdir, split)
     database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
+    headers_to_precompile = sg.headers_to_precompile[:]
+    headers_to_precompile.insert(0, incfilename)
 
     gen_startupcode(f, database)
     f.close()
@@ -835,4 +846,4 @@ def gen_source(database, modulename, targetdir,
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files()
     files, eci = eci.get_module_files()
-    return eci, filename, sg.getextrafiles() + list(files)
+    return eci, filename, sg.getextrafiles() + list(files), headers_to_precompile

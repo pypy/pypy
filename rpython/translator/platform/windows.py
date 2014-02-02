@@ -249,7 +249,7 @@ class MsvcPlatform(Platform):
 
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False, cfile_precompilation=None):
+                     shared=False, headers_to_precompile=[]):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -319,32 +319,35 @@ class MsvcPlatform(Platform):
             definitions.append(('_WIN64', '1'))
 
         rules = [
+            ('all', '$(DEFAULT_TARGET)', []),
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
-        if cfile_precompilation:
+        if len(headers_to_precompile)>0:
             stdafx_h = path.join('stdafx.h')
             txt  = '#ifndef PYPY_STDAFX_H\n'
             txt += '#define PYPY_STDAFX_H\n'
-            txt += '\n'.join(['#include "' + m.pathrel(c) + '"' for c in cfile_precompilation])
+            txt += '\n'.join(['#include "' + m.pathrel(c) + '"' for c in headers_to_precompile])
             txt += '\n#endif\n'
             stdafx_h.write(txt)
             stdafx_c = path.join('stdafx.c')
             stdafx_c.write('#include "stdafx.h"\n')
             definitions.append(('CREATE_PCH', '/Ycstdafx.h /Fpstdafx.pch /FIstdafx.h'))
             definitions.append(('USE_PCH', '/Yustdafx.h /Fpstdafx.pch /FIstdafx.h'))
-            rules.append(('all', 'stdafx.pch $(DEFAULT_TARGET)', []))
-            rules.append(('stdafx.pch', '', 
+            rules.append(('$(OBJECTS)', 'stdafx.pch', []))
+            rules.append(('stdafx.pch', 'stdafx.h', 
                '$(CC) stdafx.c /c /nologo $(CFLAGS) $(CFLAGSEXTRA) $(CREATE_PCH) $(INCLUDEDIRS)'))
             rules.append(('.c.obj', '', 
                     '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) /Fo$@ /c $< $(INCLUDEDIRS)'))
+            #Do not use precompiled headers for some files
+            rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
+                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
+            rules.append(('allocator.obj', 'allocator.c',
+                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
 
-            target_deps = 'stdafx.obj $(OBJECTS)'
         else:
-            rules.append(('all', '$(DEFAULT_TARGET)', []))
             rules.append(('.c.obj', '', 
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
-            target_deps = '$(OBJECTS)'
 
 
         for args in definitions:
@@ -366,12 +369,12 @@ class MsvcPlatform(Platform):
                                             rel_ofiles[-1])
             objects = ' @obj_names.rsp'
         if self.version < 80:
-            m.rule('$(TARGET)', target_deps,
+            m.rule('$(TARGET)', '$(OBJECTS)',
                     create_obj_response_file + [\
                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' /out:$@ $(LIBDIRS) $(LIBS)',
                    ])
         else:
-            m.rule('$(TARGET)', target_deps,
+            m.rule('$(TARGET)', '$(OBJECTS)',
                     create_obj_response_file + [\
                     '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
