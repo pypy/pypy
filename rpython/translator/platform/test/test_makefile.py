@@ -124,7 +124,7 @@ class TestMakefile(object):
         self.platform.execute_makefile(mk, extra_opts=['clean'])
         # Write a super-duper makefile with precompiled headers
         mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir,
-                           cfile_precompilation=cfiles_precompiled_headers,)
+                           headers_to_precompile=cfiles_precompiled_headers,)
         mk.rule(*clean)
         mk.write()
         t0 = time.clock()
