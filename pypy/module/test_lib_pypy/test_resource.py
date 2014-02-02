@@ -9,7 +9,7 @@ if os.name != 'posix':
 
 class AppTestResource:
 
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'itertools'))
+    spaceconfig = dict(usemodules=('_rawffi', 'itertools'))
 
     def setup_class(cls):
         rebuild.rebuild_one('resource.ctc.py')

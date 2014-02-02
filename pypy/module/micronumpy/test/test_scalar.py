@@ -20,7 +20,10 @@ class AppTestScalar(BaseNumpyAppTest):
         assert math.isnan(np.complex_(None))
         for c in ['i', 'I', 'l', 'L', 'q', 'Q']:
             assert np.dtype(c).type().dtype.char == c
-        assert np.dtype('L').type(sys.maxint + 42) == sys.maxint + 42
+        for c in ['l', 'q']:
+            assert np.dtype(c).type(sys.maxint) == sys.maxint
+        for c in ['L', 'Q']:
+            assert np.dtype(c).type(sys.maxint + 42) == sys.maxint + 42
 
     def test_builtin(self):
         import numpy as np
@@ -99,6 +102,16 @@ class AppTestScalar(BaseNumpyAppTest):
         assert b == a
         assert b is not a
 
+    def test_methods(self):
+        import numpy as np
+        for a in [np.int32(2), np.float64(2.0), np.complex64(42)]:
+            for op in ['min', 'max', 'sum', 'prod']:
+                assert getattr(a, op)() == a
+            for op in ['argmin', 'argmax']:
+                b = getattr(a, op)()
+                assert type(b) is np.int_
+                assert b == 0
+
     def test_buffer(self):
         import numpy as np
         a = np.int32(123)
@@ -107,6 +120,13 @@ class AppTestScalar(BaseNumpyAppTest):
         a = np.string_('abc')
         b = buffer(a)
         assert str(b) == a
+
+    def test_byteswap(self):
+        import numpy as np
+        assert np.int64(123).byteswap() == 8863084066665136128
+        a = np.complex64(1+2j).byteswap()
+        assert repr(a.real).startswith('4.60060')
+        assert repr(a.imag).startswith('8.96831')
 
     def test_squeeze(self):
         import numpy as np
@@ -177,6 +197,11 @@ class AppTestScalar(BaseNumpyAppTest):
         else:
             s = np.dtype([('a', 'int64'), ('b', 'int64')]).type('a' * 16)
             assert s.view('S16') == 'a' * 16
+
+    def test_as_integer_ratio(self):
+        import numpy as np
+        raises(AttributeError, 'np.float32(1.5).as_integer_ratio()')
+        assert np.float64(1.5).as_integer_ratio() == (3, 2)
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np

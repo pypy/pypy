@@ -9,7 +9,7 @@ from rpython.tool.error import (format_blocked_annotation_error,
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
-from rpython.annotator import model as annmodel, signature, unaryop, binaryop
+from rpython.annotator import model as annmodel, signature
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -24,7 +24,6 @@ class RPythonAnnotator(object):
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
         import rpython.rtyper.extfuncregistry # has side effects
-        import rpython.rlib.nonconst # has side effects
 
         if translator is None:
             # interface for tests
@@ -455,12 +454,12 @@ class RPythonAnnotator(object):
         # occour for this specific, typed operation.
         if block.exitswitch == c_last_exception:
             op = block.operations[-1]
-            if op.opname in binaryop.BINARY_OPERATIONS:
+            if op.dispatch == 2:
                 arg1 = self.binding(op.args[0])
                 arg2 = self.binding(op.args[1])
                 binop = getattr(pair(arg1, arg2), op.opname, None)
                 can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
-            elif op.opname in unaryop.UNARY_OPERATIONS:
+            elif op.dispatch == 1:
                 arg1 = self.binding(op.args[0])
                 opname = op.opname
                 if opname == 'contains': opname = 'op_contains'
@@ -610,44 +609,6 @@ class RPythonAnnotator(object):
 
     def noreturnvalue(self, op):
         return annmodel.s_ImpossibleValue  # no return value (hook method)
-
-    # XXX "contains" clash with SomeObject method
-    def consider_op_contains(self, seq, elem):
-        self.bookkeeper.count("contains", seq)
-        return seq.op_contains(elem)
-
-    def consider_op_newtuple(self, *args):
-        return annmodel.SomeTuple(items = args)
-
-    def consider_op_newlist(self, *args):
-        return self.bookkeeper.newlist(*args)
-
-    def consider_op_newdict(self):
-        return self.bookkeeper.newdict()
-
-
-    def _registeroperations(cls, unary_ops, binary_ops):
-        # All unary operations
-        d = {}
-        for opname in unary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
-def consider_op_%s(self, arg, *args):
-    return arg.%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-        # All binary operations
-        for opname in binary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
-def consider_op_%s(self, arg1, arg2, *args):
-    return pair(arg1,arg2).%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-    _registeroperations = classmethod(_registeroperations)
-
-# register simple operations handling
-RPythonAnnotator._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
 
 
 class BlockedInference(Exception):

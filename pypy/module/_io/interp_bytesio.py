@@ -11,7 +11,7 @@ import sys
 
 class W_BytesIO(RStringIO, W_BufferedIOBase):
     def __init__(self, space):
-        W_BufferedIOBase.__init__(self, space)
+        W_BufferedIOBase.__init__(self, space, add_to_autoflusher=False)
         self.init()
 
     def descr_init(self, space, w_initial_bytes=None):

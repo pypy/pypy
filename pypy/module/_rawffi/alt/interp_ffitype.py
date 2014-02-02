@@ -116,7 +116,7 @@ def build_ffi_types():
     types = [
         # note: most of the type name directly come from the C equivalent,
         # with the exception of bytes: in C, ubyte and char are equivalent,
-        # but for _ffi the first expects a number while the second a 1-length
+        # but for here the first expects a number while the second a 1-length
         # string
         W_FFIType('slong',     libffi.types.slong),
         W_FFIType('sint',      libffi.types.sint),

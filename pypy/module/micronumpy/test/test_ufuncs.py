@@ -1052,3 +1052,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 np.array([0, -1, -3, -6, -10])).all()
         assert (np.divide.accumulate(todivide) ==
                 np.array([2., 4., 16.])).all()
+
+    def test_outer(self):
+        import numpy as np
+        from numpypy import absolute
+        exc = raises(ValueError, np.absolute.outer, [-1, -2])
+        assert exc.value[0] == 'outer product only supported for binary functions'

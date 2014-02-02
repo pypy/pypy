@@ -3,7 +3,6 @@ from pypy.objspace.std.complexobject import W_ComplexObject, \
     pow__Complex_Complex_ANY
 from pypy.objspace.std import complextype as cobjtype
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std import StdObjSpace
 
 EPS = 1e-9

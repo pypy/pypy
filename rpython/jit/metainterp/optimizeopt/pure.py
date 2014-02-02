@@ -85,10 +85,6 @@ class OptPure(Optimization):
     def flush(self):
         assert self.postponed_op is None
 
-    def new(self):
-        assert self.postponed_op is None
-        return OptPure()
-
     def setup(self):
         self.optimizer.optpure = self
 

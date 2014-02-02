@@ -141,7 +141,7 @@ class Entry(ExtRegistryEntry):
     _type_ = LLOp
 
     def compute_result_annotation(self, RESULTTYPE, *args):
-        from rpython.annotator.model import lltype_to_annotation
+        from rpython.rtyper.llannotation import lltype_to_annotation
         assert RESULTTYPE.is_constant()
         return lltype_to_annotation(RESULTTYPE.const)
 
@@ -167,7 +167,7 @@ class Entry(ExtRegistryEntry):
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
 # Note that many exception-raising operations can be replaced by calls
-# to helper functions in rpython.rtyper.raisingops.raisingops.
+# to helper functions in rpython.rtyper.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {

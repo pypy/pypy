@@ -33,7 +33,7 @@ class W_CTypeStructOrUnion(W_CType):
         if self.fields_dict is None:
             space = self.space
             raise operationerrfmt(w_errorcls or space.w_TypeError,
-                                  "'%s' is not completed yet", self.name)
+                              "'%s' is opaque or not completed yet", self.name)
 
     def _alignof(self):
         self.check_complete(w_errorcls=self.space.w_ValueError)

@@ -1,6 +1,6 @@
 import py
 import os
-from rpython.translator.driver import TranslationDriver
+from rpython.translator.driver import TranslationDriver, shutil_copy
 from rpython.tool.udir import udir 
 
 def test_ctr():
@@ -74,4 +74,9 @@ def test_create_exe():
     assert dst_name.new(ext='dll').read() == 'dll'
     assert dst_name.new(purebasename='python27',ext='lib').read() == 'lib'
 
-
+def test_shutil_copy():
+    a = udir.join('file_a')
+    b = udir.join('file_a')
+    a.write('hello')
+    shutil_copy(str(a), str(b))
+    assert b.read() == 'hello'

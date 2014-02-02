@@ -2,9 +2,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floattype import float_typedef
-from pypy.objspace.std.stringtype import str_typedef
-from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
+from pypy.objspace.std.unicodeobject import W_UnicodeObject, unicode_from_object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
@@ -256,6 +256,10 @@ class W_GenericBox(W_Root):
         value = space.is_true(self)
         return get_dtype_cache(space).w_booldtype.box(value)
 
+    def descr_zero(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        return get_dtype_cache(space).w_longdtype.box(0)
+
     def descr_ravel(self, space):
         from pypy.module.micronumpy.base import convert_to_array
         w_values = space.newtuple([self])
@@ -327,6 +331,9 @@ class W_GenericBox(W_Root):
     def descr_buffer(self, space):
         return self.descr_ravel(space).descr_get_data(space)
 
+    def descr_byteswap(self, space):
+        return self.get_dtype(space).itemtype.byteswap(self)
+
     w_flags = None
     def descr_get_flags(self, space):
         if self.w_flags is None:
@@ -393,6 +400,9 @@ class W_Float32Box(W_FloatingBox, PrimitiveBox):
 
 class W_Float64Box(W_FloatingBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float64")
+
+    def descr_as_integer_ratio(self, space):
+        return space.call_method(self.item(space), 'as_integer_ratio')
 
 class W_ComplexFloatingBox(W_InexactBox):
     def descr_get_real(self, space):
@@ -510,7 +520,7 @@ class W_UnicodeBox(W_CharacterBox):
 
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
-        arg = space.unicode_w(unicode_from_object(space, w_arg))
+        arg = space.unicode_w(space.unicode_from_object(w_arg))
         # XXX size computations, we need tests anyway
         arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
         # XXX not this way, we need store
@@ -580,6 +590,12 @@ W_GenericBox.typedef = TypeDef("generic",
     __hash__ = interp2app(W_GenericBox.descr_hash),
 
     tolist = interp2app(W_GenericBox.item),
+    min = interp2app(W_GenericBox.descr_self),
+    max = interp2app(W_GenericBox.descr_self),
+    argmin = interp2app(W_GenericBox.descr_zero),
+    argmax = interp2app(W_GenericBox.descr_zero),
+    sum = interp2app(W_GenericBox.descr_self),
+    prod = interp2app(W_GenericBox.descr_self),
     any = interp2app(W_GenericBox.descr_any),
     all = interp2app(W_GenericBox.descr_all),
     ravel = interp2app(W_GenericBox.descr_ravel),
@@ -589,6 +605,7 @@ W_GenericBox.typedef = TypeDef("generic",
     view = interp2app(W_GenericBox.descr_view),
     squeeze = interp2app(W_GenericBox.descr_self),
     copy = interp2app(W_GenericBox.descr_copy),
+    byteswap = interp2app(W_GenericBox.descr_byteswap),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),
@@ -719,6 +736,7 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
     __module__ = "numpy",
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Float64Box.descr_reduce),
+    as_integer_ratio = interp2app(W_Float64Box.descr_as_integer_ratio),
 )
 
 W_ComplexFloatingBox.typedef = TypeDef("complexfloating", W_InexactBox.typedef,
@@ -773,13 +791,13 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
     __module__ = "numpy",
 )
 
-W_StringBox.typedef = TypeDef("string_", (W_CharacterBox.typedef, str_typedef),
+W_StringBox.typedef = TypeDef("string_", (W_CharacterBox.typedef, W_BytesObject.typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
     __len__ = interp2app(W_StringBox.descr_len),
 )
 
-W_UnicodeBox.typedef = TypeDef("unicode_", (W_CharacterBox.typedef, unicode_typedef),
+W_UnicodeBox.typedef = TypeDef("unicode_", (W_CharacterBox.typedef, W_UnicodeObject.typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
     __len__ = interp2app(W_UnicodeBox.descr_len),

@@ -74,6 +74,10 @@ fits into ASCII, has only two-byte characters or needs four-byte characters.
 The actual details would be rather differen in PyPy, but we would like to have
 the same optimization implemented.
 
+Or maybe not.  We can also play around with the idea of using a single
+representation: as a byte string in utf-8.  (This idea needs some extra logic
+for efficient indexing, like a cache.)
+
 .. _`optimized unicode representation`: http://www.python.org/dev/peps/pep-0393/
 
 Translation Toolchain

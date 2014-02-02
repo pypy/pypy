@@ -454,17 +454,19 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_ofs_length = self.unicode_descr.lendescr.offset
 
         def malloc_str(length):
+            type_id = llop.extract_ushort(llgroup.HALFWORD, str_type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                str_type_id, length, str_basesize, str_itemsize,
+                type_id, length, str_basesize, str_itemsize,
                 str_ofs_length)
         self.generate_function('malloc_str', malloc_str,
                                [lltype.Signed])
 
         def malloc_unicode(length):
+            type_id = llop.extract_ushort(llgroup.HALFWORD, unicode_type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                unicode_type_id, length, unicode_basesize, unicode_itemsize,
+                type_id, length, unicode_basesize, unicode_itemsize,
                 unicode_ofs_length)
         self.generate_function('malloc_unicode', malloc_unicode,
                                [lltype.Signed])

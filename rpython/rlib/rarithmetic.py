@@ -516,12 +516,12 @@ r_int = build_int('r_int', True, LONG_BIT)
 r_uint = build_int('r_uint', False, LONG_BIT)
 
 @register_flow_sc(r_uint)
-def sc_r_uint(space, w_value):
+def sc_r_uint(ctx, w_value):
     # (normally, the 32-bit constant is a long, and is not allowed to
     # show up in the flow graphs at all)
     if isinstance(w_value, Constant):
         return Constant(r_uint(w_value.value))
-    return space.appcall(r_uint, w_value)
+    return ctx.appcall(r_uint, w_value)
 
 
 r_longlong = build_int('r_longlong', True, 64)
@@ -690,9 +690,8 @@ def string_to_int(s, base=10):
     characters of 's'.  Raises ParseStringError in case of error.
     Raises ParseStringOverflowError in case the result does not fit.
     """
-    from rpython.rlib.rstring import NumberStringParser, \
-        ParseStringOverflowError, \
-        ParseStringError, strip_spaces
+    from rpython.rlib.rstring import (
+        NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
     p = NumberStringParser(s, literal, base, 'int')
     base = p.base

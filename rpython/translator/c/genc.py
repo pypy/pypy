@@ -364,6 +364,8 @@ class CStandaloneBuilder(CBuilder):
             extra_opts += ['-j', str(self.config.translation.make_jobs)]
         if self.config.translation.lldebug:
             extra_opts += ["lldebug"]
+        elif self.config.translation.lldebug0:
+            extra_opts += ["lldebug0"]
         self.translator.platform.execute_makefile(self.targetdir,
                                                   extra_opts)
         if shared:
@@ -398,6 +400,7 @@ class CStandaloneBuilder(CBuilder):
             ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPPY_USE_LINUXMEMCHK" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            ('lldebug0','', '$(MAKE) CFLAGS="-O0 $(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
             ]
         if self.has_profopt():

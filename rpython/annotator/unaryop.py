@@ -4,12 +4,12 @@ Unary operations on SomeValues.
 
 from __future__ import absolute_import
 
-from types import MethodType
+from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
-    SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
+    SomePBC, SomeType, s_ImpossibleValue,
+    s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
@@ -20,17 +20,8 @@ from rpython.annotator.model import AnnotatorError
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'bool', 'getattr', 'setattr', 'delattr',
-                        'simple_call', 'call_args', 'str', 'repr',
-                        'iter', 'next', 'invert', 'type', 'issubtype',
-                        'pos', 'neg', 'abs', 'hex', 'oct',
-                        'ord', 'int', 'float', 'long',
-                        'hash', 'id',    # <== not supported any more
-                        'getslice', 'setslice', 'delslice',
-                        'neg_ovf', 'abs_ovf', 'hint', 'unicode', 'unichr'])
-
-for opname in UNARY_OPERATIONS:
-    missing_operation(SomeObject, opname)
+UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
+                        if oper.dispatch == 1])
 
 
 class __extend__(SomeObject):
@@ -84,23 +75,18 @@ class __extend__(SomeObject):
         raise AnnotatorError("cannot use hash() in RPython")
 
     def str(self):
-        getbookkeeper().count('str', self)
         return SomeString()
 
     def unicode(self):
-        getbookkeeper().count('unicode', self)
         return SomeUnicodeString()
 
     def repr(self):
-        getbookkeeper().count('repr', self)
         return SomeString()
 
     def hex(self):
-        getbookkeeper().count('hex', self)
         return SomeString()
 
     def oct(self):
-        getbookkeeper().count('oct', self)
         return SomeString()
 
     def id(self):
@@ -144,6 +130,9 @@ class __extend__(SomeObject):
         raise AnnotatorError("Cannot find attribute %r on %r" % (attr, self))
     getattr.can_only_throw = []
 
+    def setattr(self, *args):
+        return s_ImpossibleValue
+
     def bind_callables_under(self, classdef, name):
         return self   # default unbound __get__ implementation
 
@@ -162,6 +151,20 @@ class __extend__(SomeObject):
 
     def hint(self, *args_s):
         return self
+
+    def getslice(self, *args):
+        return s_ImpossibleValue
+
+    def setslice(self, *args):
+        return s_ImpossibleValue
+
+    def delslice(self, *args):
+        return s_ImpossibleValue
+
+    def pos(self):
+        return s_ImpossibleValue
+    neg = abs = ord = invert = long = iter = next = pos
+
 
 class __extend__(SomeFloat):
 
@@ -237,7 +240,6 @@ class __extend__(SomeTuple):
         return immutablevalue(len(self.items))
 
     def iter(self):
-        getbookkeeper().count("tuple_iter", self)
         return SomeIterator(self)
     iter.can_only_throw = []
 
@@ -281,7 +283,6 @@ class __extend__(SomeList):
     method_pop.can_only_throw = [IndexError]
 
     def method_index(self, s_value):
-        getbookkeeper().count("list_index")
         self.listdef.generalize(s_value)
         return SomeInteger(nonneg=True)
 
@@ -472,7 +473,6 @@ class __extend__(SomeString,
     def method_join(self, s_list):
         if s_None.contains(s_list):
             return SomeImpossibleValue()
-        getbookkeeper().count("str_join", self)
         s_item = s_list.listdef.read_item()
         if s_None.contains(s_item):
             if isinstance(self, SomeUnicodeString):
@@ -489,7 +489,6 @@ class __extend__(SomeString,
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
-        getbookkeeper().count("str_split", self, patt)
         if max == -1 and patt.is_constant() and patt.const == "\0":
             no_nul = True
         else:
@@ -498,7 +497,6 @@ class __extend__(SomeString,
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(self, patt, max=-1):
-        getbookkeeper().count("str_rsplit", self, patt)
         s_item = self.basestringclass(no_nul=self.no_nul)
         return getbookkeeper().newlist(s_item)
 
@@ -709,8 +707,6 @@ class __extend__(SomeBuiltin):
         if self.s_self is not None:
             return self.analyser(self.s_self, *args)
         else:
-            if self.methodname:
-                getbookkeeper().count(self.methodname.replace('.', '_'), *args)
             return self.analyser(*args)
     simple_call.can_only_throw = _can_only_throw
 
@@ -760,62 +756,6 @@ class __extend__(SomePBC):
             # This should probably never happen
             raise AnnotatorError("Cannot call len on a pbc")
 
-# annotation of low-level types
-from rpython.annotator.model import SomePtr, SomeLLADTMeth
-from rpython.annotator.model import ll_to_annotation, lltype_to_annotation, annotation_to_lltype
-
-class __extend__(SomePtr):
-
-    def getattr(self, s_attr):
-        assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % self.ll_ptrtype
-        example = self.ll_ptrtype._example()
-        try:
-            v = example._lookup_adtmeth(s_attr.const)
-        except AttributeError:
-            v = getattr(example, s_attr.const)
-            return ll_to_annotation(v)
-        else:
-            if isinstance(v, MethodType):
-                from rpython.rtyper.lltypesystem import lltype
-                ll_ptrtype = lltype.typeOf(v.im_self)
-                assert isinstance(ll_ptrtype, (lltype.Ptr, lltype.InteriorPtr))
-                return SomeLLADTMeth(ll_ptrtype, v.im_func)
-            return getbookkeeper().immutablevalue(v)
-    getattr.can_only_throw = []
-
-    def len(self):
-        length = self.ll_ptrtype._example()._fixedlength()
-        if length is None:
-            return SomeObject.len(self)
-        else:
-            return immutablevalue(length)
-
-    def setattr(self, s_attr, s_value): # just doing checking
-        assert s_attr.is_constant(), "setattr on ptr %r with non-constant field-name" % self.ll_ptrtype
-        example = self.ll_ptrtype._example()
-        if getattr(example, s_attr.const) is not None:  # ignore Void s_value
-            v_lltype = annotation_to_lltype(s_value)
-            setattr(example, s_attr.const, v_lltype._defl())
-
-    def call(self, args):
-        args_s, kwds_s = args.unpack()
-        if kwds_s:
-            raise Exception("keyword arguments to call to a low-level fn ptr")
-        info = 'argument to ll function pointer call'
-        llargs = [annotation_to_lltype(s_arg,info)._defl() for s_arg in args_s]
-        v = self.ll_ptrtype._example()(*llargs)
-        return ll_to_annotation(v)
-
-    def bool(self):
-        return s_Bool
-
-class __extend__(SomeLLADTMeth):
-
-    def call(self, args):
-        bookkeeper = getbookkeeper()
-        s_func = bookkeeper.immutablevalue(self.func)
-        return s_func.call(args.prepend(lltype_to_annotation(self.ll_ptrtype)))
-
 #_________________________________________
 # weakrefs
 
@@ -825,20 +765,3 @@ class __extend__(SomeWeakRef):
             return s_None   # known to be a dead weakref
         else:
             return SomeInstance(self.classdef, can_be_None=True)
-
-#_________________________________________
-# memory addresses
-
-from rpython.rtyper.lltypesystem import llmemory
-
-class __extend__(SomeAddress):
-    def getattr(self, s_attr):
-        assert s_attr.is_constant()
-        assert isinstance(s_attr, SomeString)
-        assert s_attr.const in llmemory.supported_access_types
-        return SomeTypedAddressAccess(
-            llmemory.supported_access_types[s_attr.const])
-    getattr.can_only_throw = []
-
-    def bool(self):
-        return s_Bool

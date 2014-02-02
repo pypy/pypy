@@ -1,4 +1,4 @@
-import _ffi
+from _rawffi import alt
 
 class MetaStructure(type):
 
@@ -11,7 +11,7 @@ class MetaStructure(type):
         fields = dic.get('_fields_')
         if fields is None:
             return
-        struct_descr = _ffi._StructDescr(name, fields)
+        struct_descr = alt._StructDescr(name, fields)
         for field in fields:
             dic[field.name] = field
         dic['_struct_'] = struct_descr

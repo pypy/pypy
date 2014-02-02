@@ -51,7 +51,9 @@ class AppTest(object):
         l = [1, 2, 3]
         assert list_strategy(l) == "int"
         l = ["a", "b", "c"]
-        assert list_strategy(l) == "str"
+        assert list_strategy(l) == "bytes"
+        l = [u"a", u"b", u"c"]
+        assert list_strategy(l) == "unicode"
         l = [1.1, 2.2, 3.3]
         assert list_strategy(l) == "float"
         l = range(3)

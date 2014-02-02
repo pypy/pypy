@@ -837,11 +837,11 @@ def getimportlock(space):
 # CPython leaves a gap of 10 when it increases its own magic number.
 # To avoid assigning exactly the same numbers as CPython, we can pick
 # any number between CPython + 2 and CPython + 9.  Right now,
-# default_magic = CPython + 6.
+# default_magic = CPython + 7.
 #
-#     default_magic - 6    -- used by CPython without the -U option
-#     default_magic - 5    -- used by CPython with the -U option
-#     default_magic        -- used by PyPy [because of CALL_METHOD]
+#     CPython + 0                  -- used by CPython without the -U option
+#     CPython + 1                  -- used by CPython with the -U option
+#     CPython + 7 = default_magic  -- used by PyPy (incompatible!)
 #
 from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
