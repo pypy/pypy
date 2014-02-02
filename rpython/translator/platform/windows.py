@@ -336,18 +336,31 @@ class MsvcPlatform(Platform):
             definitions.append(('USE_PCH', '/Yustdafx.h /Fpstdafx.pch /FIstdafx.h'))
             rules.append(('$(OBJECTS)', 'stdafx.pch', []))
             rules.append(('stdafx.pch', 'stdafx.h', 
-               '$(CC) stdafx.c /c /nologo $(CFLAGS) $(CFLAGSEXTRA) $(CREATE_PCH) $(INCLUDEDIRS)'))
+               '$(CC) stdafx.c /c /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+               '$(CREATE_PCH) $(INCLUDEDIRS)'))
             rules.append(('.c.obj', '', 
-                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) /Fo$@ /c $< $(INCLUDEDIRS)'))
+                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
+                    '/Fo$@ /c $< $(INCLUDEDIRS)'))
             #Do not use precompiled headers for some files
-            rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
-                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
-            rules.append(('allocator.obj', 'allocator.c',
-                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
+            #rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
+            #        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
+            # nmake cannot handle wildcard target specifications, so we must
+            # create a rule for compiling each file from eci since they cannot use
+            # precompiled headers :(
+            no_precompile = []
+            for f in list(eci.separate_module_files):
+                f = m.pathrel(f)
+                if f not in no_precompile and f.endswith('.c'):
+                    no_precompile.append(f)
+                    target = f[:-1] + 'obj'
+                    rules.append((target, f,
+                        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                        '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
 
         else:
             rules.append(('.c.obj', '', 
-                          '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
+                          '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                          '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
         for args in definitions:
