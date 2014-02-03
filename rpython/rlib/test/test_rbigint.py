@@ -226,6 +226,7 @@ class Test_rbigint(object):
         assert rbigint.fromstr('123L', 22).tolong() == 10648 + 968 + 66 + 21
         assert rbigint.fromstr('123L', 21).tolong() == 441 + 42 + 3
         assert rbigint.fromstr('1891234174197319').tolong() == 1891234174197319
+        assert rbigint.fromstr2('123L', 4).tolong() == 27
 
     def test_from_numberstring_parser(self):
         from rpython.rlib.rstring import NumberStringParser
