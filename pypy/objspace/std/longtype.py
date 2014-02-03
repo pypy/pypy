@@ -67,8 +67,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
-                strval = space.bufferstr_w(w_value)
-                s = strval.decode('latin-1')
+                s = space.bufferstr_w(w_value)
             except OperationError:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("int() can't convert non-string "
@@ -86,7 +85,7 @@ def _from_intlike(space, w_longtype, w_intlike):
 def string_to_w_long(space, w_longtype, w_source, string, base=10):
     try:
         bigint = rbigint.fromstr(string, base, ignore_l_suffix=True,
-                                 fname=u'int')
+                                 fname='int')
     except ParseStringError as e:
         from pypy.objspace.std.inttype import wrap_parsestringerror
         raise wrap_parsestringerror(space, e, w_source)

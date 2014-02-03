@@ -94,8 +94,8 @@ def wrap_parsestringerror(space, e, w_source):
     if isinstance(e, InvalidBaseError):
         w_msg = space.wrap(e.msg)
     else:
-        w_msg = space.wrap('%s: %s' % (e.msg,
-                                       space.str_w(space.repr(w_source))))
+        w_msg = space.wrap(u'%s: %s' % (unicode(e.msg),
+                                        space.unicode_w(space.repr(w_source))))
     return OperationError(space.w_ValueError, w_msg)
 
 ## @unwrap_spec(w_x = WrappedDefault(0))

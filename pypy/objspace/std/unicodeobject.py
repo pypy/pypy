@@ -1144,9 +1144,7 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 #
 # In CPython3 the call to PyUnicode_EncodeDecimal has been replaced to a call
 # to PyUnicode_TransformDecimalToASCII, which is much simpler. Here, we do the
-# equivalent.
-#
-# Note that, differently than default, we return an *unicode* RPython string
+# equivalent plus the final step of encoding the result to utf-8.
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise operationerrfmt(space.w_TypeError, "expected unicode, got '%T'",
@@ -1164,7 +1162,7 @@ def unicode_to_decimal_w(space, w_unistr):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return u''.join(result)
+    return unicodehelper.encode_utf8(space, u''.join(result))
 
 
 _repr_function, _ = make_unicode_escape_function(

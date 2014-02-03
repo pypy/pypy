@@ -42,15 +42,8 @@ class W_Reader(W_Root):
         space = self.space
         field = field_builder.build()
         if self.numeric_field:
-            from rpython.rlib.rstring import ParseStringError
-            from rpython.rlib.rfloat import string_to_float
             self.numeric_field = False
-            try:
-                ff = string_to_float(field)
-            except ParseStringError as e:
-                from pypy.objspace.std.inttype import wrap_parsestringerror
-                raise wrap_parsestringerror(space, e, space.wrap(field))
-            w_obj = space.wrap(ff)
+            w_obj = space.call_function(space.w_float, space.wrap(field))
         else:
             w_obj = space.wrap(field)
         self.fields_w.append(w_obj)

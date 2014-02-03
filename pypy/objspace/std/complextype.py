@@ -1,4 +1,3 @@
-from rpython.tool.sourcetools import with_unicode_literals
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
@@ -19,7 +18,6 @@ complex_conjugate = StdObjSpaceMultiMethod('conjugate', 1,
 
 register_all(vars(),globals())
 
-@with_unicode_literals
 def _split_complex(s):
     slen = len(s)
     if slen == 0:
