@@ -35,12 +35,12 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             return _from_intlike(space, w_longtype, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            return string_to_w_long(space, w_longtype,
+            return string_to_w_long(space, w_longtype, w_value,
                                     unicode_to_decimal_w(space, w_value))
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
-            strvalue = space.bufferstr_w(w_value)
-            return string_to_w_long(space, w_longtype, strvalue.decode('latin-1'))
+            return string_to_w_long(space, w_longtype, w_value,
+                                    space.bufferstr_w(w_value))
         else:
             try:
                 w_buffer = space.buffer(w_value)
@@ -52,8 +52,8 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                     w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
-                return string_to_w_long(space, w_longtype,
-                                        buf.as_str().decode('latin-1'))
+                return string_to_w_long(space, w_longtype, w_value,
+                                        buf.as_str())
     else:
         try:
             base = space.int_w(w_base)
@@ -73,7 +73,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("int() can't convert non-string "
                                                 "with explicit base"))
-        return string_to_w_long(space, w_longtype, s, base)
+        return string_to_w_long(space, w_longtype, w_value, s, base)
 
 
 def _from_intlike(space, w_longtype, w_intlike):
@@ -83,12 +83,13 @@ def _from_intlike(space, w_longtype, w_intlike):
     return newbigint(space, w_longtype, space.bigint_w(w_obj))
 
 
-def string_to_w_long(space, w_longtype, s, base=10):
+def string_to_w_long(space, w_longtype, w_source, string, base=10):
     try:
-        bigint = rbigint.fromstr(s, base, ignore_l_suffix=True, fname=u'int')
-    except ParseStringError, e:
-        raise OperationError(space.w_ValueError,
-                             space.wrap(e.msg))
+        bigint = rbigint.fromstr(string, base, ignore_l_suffix=True,
+                                 fname=u'int')
+    except ParseStringError as e:
+        from pypy.objspace.std.inttype import wrap_parsestringerror
+        raise wrap_parsestringerror(space, e, w_source)
     return newbigint(space, w_longtype, bigint)
 string_to_w_long._dont_inline_ = True
 

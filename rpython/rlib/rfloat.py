@@ -25,7 +25,8 @@ del float_constants, int_constants, const
 
 globals().update(rffi_platform.configure(CConfig))
 
-@objectmodel.enforceargs(unicode)
+INVALID_MSG = "invalid literal for float()"
+
 def string_to_float(s):
     """
     Conversion of string to float.
@@ -37,10 +38,8 @@ def string_to_float(s):
     from rpython.rlib.rstring import strip_spaces, ParseStringError
 
     s = strip_spaces(s)
-
     if not s:
-        raise ParseStringError(u"empty string for float()")
-
+        raise ParseStringError(INVALID_MSG)
 
     try:
         ascii_s = s.encode('ascii')
@@ -72,9 +71,7 @@ def string_to_float(s):
     try:
         return rstring_to_float(ascii_s)
     except ValueError:
-        # note that we still put the original unicode string in the error
-        # message, not ascii_s
-        raise ParseStringError(u"invalid literal for float(): '%s'" % s)
+        raise ParseStringError(INVALID_MSG)
 
 def rstring_to_float(s):
     from rpython.rlib.rdtoa import strtod

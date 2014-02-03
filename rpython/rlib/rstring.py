@@ -282,6 +282,9 @@ class ParseStringError(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+class InvalidBaseError(ParseStringError):
+    """Signals an invalid base argument"""
+
 class ParseStringOverflowError(Exception):
     def __init__(self, parser):
         self.parser = parser
@@ -290,13 +293,12 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
-        raise ParseStringError(u"invalid literal for %s() with base %d: '%s'" %
-                               (self.fname, self.original_base, self.literal))
+        raise ParseStringError("invalid literal for %s() with base %d" %
+                               (self.fname, self.original_base))
 
     @enforceargs(None, unicode, unicode, int, unicode)
     @with_unicode_literals
     def __init__(self, s, literal, base, fname):
-        self.literal = literal
         self.fname = fname
         sign = 1
         if s.startswith('-'):
@@ -317,7 +319,7 @@ class NumberStringParser:
             else:
                 base = 10
         elif base < 2 or base > 36:
-            raise ParseStringError, u"%s() base must be >= 2 and <= 36" % (fname,)
+            raise InvalidBaseError("%s() base must be >= 2 and <= 36" % fname)
         self.base = base
 
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
