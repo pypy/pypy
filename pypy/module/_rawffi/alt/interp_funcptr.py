@@ -1,6 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, wrap_oserror, \
-    operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.module._rawffi.alt.interp_ffitype import W_FFIType
@@ -27,9 +26,9 @@ if os.name == 'nt':
                 func = CDLL.cdll.getpointer(name, argtypes, restype,
                                             flags = CDLL.flags)
             except KeyError:
-                raise operationerrfmt(
-                    space.w_AttributeError,
-                    "No symbol %s found in library %s", name, CDLL.name)
+                raise oefmt(space.w_AttributeError,
+                            "No symbol %s found in library %s",
+                            name, CDLL.name)
             except LibFFIError:
                 raise got_libffi_error(space)
 
@@ -41,9 +40,9 @@ if os.name == 'nt':
                     ordinal, argtypes, restype,
                     flags = CDLL.flags)
             except KeyError:
-                raise operationerrfmt(
-                    space.w_AttributeError,
-                    "No ordinal %d found in library %s", ordinal, CDLL.name)
+                raise oefmt(space.w_AttributeError,
+                            "No ordinal %d found in library %s",
+                            ordinal, CDLL.name)
             except LibFFIError:
                 raise got_libffi_error(space)
 
@@ -61,9 +60,8 @@ else:
             func = CDLL.cdll.getpointer(name, argtypes, restype,
                                         flags = CDLL.flags)
         except KeyError:
-            raise operationerrfmt(
-                space.w_AttributeError,
-                "No symbol %s found in library %s", name, CDLL.name)
+            raise oefmt(space.w_AttributeError,
+                        "No symbol %s found in library %s", name, CDLL.name)
         except LibFFIError:
             raise got_libffi_error(space)
 
@@ -97,9 +95,9 @@ class W_FuncPtr(W_Root):
             arg = 'arguments'
             if len(self.argtypes_w) == 1:
                 arg = 'argument'
-            raise operationerrfmt(space.w_TypeError,
-                                  '%s() takes exactly %d %s (%d given)',
-                                  self.func.name, expected, arg, given)
+            raise oefmt(space.w_TypeError,
+                        '%s() takes exactly %d %s (%d given)',
+                        self.func.name, expected, arg, given)
         #
         argchain = libffi.ArgChain()
         argpusher = PushArgumentConverter(space, argchain, self)
@@ -335,9 +333,8 @@ class W_CDLL(W_Root):
             address_as_uint = rffi.cast(lltype.Unsigned,
                                         self.cdll.getaddressindll(name))
         except KeyError:
-            raise operationerrfmt(
-                space.w_ValueError,
-                "No symbol %s found in library %s", name, self.name)
+            raise oefmt(space.w_ValueError,
+                        "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
 @unwrap_spec(name='str_or_None', mode=int)

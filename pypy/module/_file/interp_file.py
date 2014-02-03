@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -79,8 +79,7 @@ class W_File(W_AbstractStream):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
             ('U' in mode and ('w' in mode or 'a' in mode))):
             space = self.space
-            raise operationerrfmt(space.w_ValueError,
-                                  "invalid mode: '%s'", mode)
+            raise oefmt(space.w_ValueError, "invalid mode: '%s'", mode)
 
     def check_closed(self):
         if self.stream is None:

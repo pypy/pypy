@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
-from pypy.interpreter.error import operationerrfmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
                                      WrappedDefault
@@ -617,9 +617,9 @@ class __extend__(W_NDimArray):
                 "need at least 2 dimensions for diagonal"))
         if (axis1 < 0 or axis2 < 0 or axis1 >= len(self.get_shape()) or
             axis2 >= len(self.get_shape())):
-            raise operationerrfmt(space.w_ValueError,
-                 "axis1(=%d) and axis2(=%d) must be withing range (ndim=%d)",
-                                  axis1, axis2, len(self.get_shape()))
+            raise oefmt(space.w_ValueError,
+                        "axis1(=%d) and axis2(=%d) must be withing range "
+                        "(ndim=%d)", axis1, axis2, len(self.get_shape()))
         if axis1 == axis2:
             raise OperationError(space.w_ValueError, space.wrap(
                 "axis1 and axis2 cannot be the same"))
@@ -1410,8 +1410,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
                 # feed w_array back into array() for other properties
                 return array(space, w_array, w_dtype, False, w_order, subok, ndmin)
             else:
-                raise operationerrfmt(space.w_ValueError,
-                        "object __array__ method not producing an array")
+                raise oefmt(space.w_ValueError,
+                            "object __array__ method not producing an array")
 
     # scalars and strings w/o __array__ method
     isstr = space.isinstance_w(w_object, space.w_str)
@@ -1427,8 +1427,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     else:
         order = space.str_w(w_order)
         if order != 'C':  # or order != 'F':
-            raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
-                                  order)
+            raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
     # arrays with correct dtype
     dtype = interp_dtype.decode_w_dtype(space, w_dtype)

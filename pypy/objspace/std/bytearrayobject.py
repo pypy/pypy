@@ -6,7 +6,7 @@ from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -107,8 +107,9 @@ class W_BytearrayObject(W_Root):
 
     def ord(self, space):
         if len(self.data) != 1:
-            msg = "ord() expected a character, but string of length %d found"
-            raise operationerrfmt(space.w_TypeError, msg, len(self.data))
+            raise oefmt(space.w_TypeError,
+                        "ord() expected a character, but string of length %d "
+                        "found", len(self.data))
         return space.wrap(ord(self.data[0]))
 
     @staticmethod
@@ -140,14 +141,14 @@ class W_BytearrayObject(W_Root):
             if i >= length:
                 break
             if i + 1 == length:
-                raise operationerrfmt(space.w_ValueError, NON_HEX_MSG, i)
+                raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
 
             top = _hex_digit_to_int(hexstring[i])
             if top == -1:
-                raise operationerrfmt(space.w_ValueError, NON_HEX_MSG, i)
+                raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
             bot = _hex_digit_to_int(hexstring[i+1])
             if bot == -1:
-                raise operationerrfmt(space.w_ValueError, NON_HEX_MSG, i + 1)
+                raise oefmt(space.w_ValueError, NON_HEX_MSG, i + 1)
             data.append(chr(top*16 + bot))
 
         # in CPython bytearray.fromhex is a staticmethod, so
@@ -188,8 +189,7 @@ class W_BytearrayObject(W_Root):
                 raise
         else:
             if count < 0:
-                raise operationerrfmt(space.w_ValueError,
-                                      "bytearray negative count")
+                raise oefmt(space.w_ValueError, "bytearray negative count")
             self.data = ['\0'] * count
             return
 
@@ -321,8 +321,7 @@ class W_BytearrayObject(W_Root):
             try:
                 self.data[idx] = getbytevalue(space, w_other)
             except IndexError:
-                raise operationerrfmt(space.w_IndexError,
-                                      "bytearray index out of range")
+                raise oefmt(space.w_IndexError, "bytearray index out of range")
 
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
@@ -335,8 +334,8 @@ class W_BytearrayObject(W_Root):
             try:
                 del self.data[idx]
             except IndexError:
-                raise operationerrfmt(space.w_IndexError,
-                                      "bytearray deletion index out of range")
+                raise oefmt(space.w_IndexError,
+                            "bytearray deletion index out of range")
 
     def descr_append(self, space, w_item):
         self.data.append(getbytevalue(space, w_item))
@@ -363,9 +362,8 @@ class W_BytearrayObject(W_Root):
             result = self.data.pop(index)
         except IndexError:
             if not self.data:
-                raise operationerrfmt(space.w_IndexError,
-                                      "pop from empty bytearray")
-            raise operationerrfmt(space.w_IndexError, "pop index out of range")
+                raise oefmt(space.w_IndexError, "pop from empty bytearray")
+            raise oefmt(space.w_IndexError, "pop index out of range")
         return space.wrap(ord(result))
 
     def descr_remove(self, space, w_char):
@@ -373,8 +371,7 @@ class W_BytearrayObject(W_Root):
         try:
             self.data.remove(chr(char))
         except ValueError:
-            raise operationerrfmt(space.w_ValueError,
-                                  "value not found in bytearray")
+            raise oefmt(space.w_ValueError, "value not found in bytearray")
 
     _StringMethods_descr_contains = descr_contains
     def descr_contains(self, space, w_sub):
@@ -396,8 +393,7 @@ def _make_data(s):
 
 def _descr_contains_bytearray(data, space, char):
     if not 0 <= char < 256:
-        raise operationerrfmt(space.w_ValueError,
-                              "byte must be in range(0, 256)")
+        raise oefmt(space.w_ValueError, "byte must be in range(0, 256)")
     for c in data:
         if ord(c) == char:
             return space.w_True
@@ -410,15 +406,13 @@ def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)
         if len(string) != 1:
-            raise operationerrfmt(space.w_ValueError,
-                                  "string must be of size 1")
+            raise oefmt(space.w_ValueError, "string must be of size 1")
         return string[0]
 
     value = space.getindex_w(w_value, None)
     if not 0 <= value < 256:
         # this includes the OverflowError in case the long is too large
-        raise operationerrfmt(space.w_ValueError,
-                              "byte must be in range(0, 256)")
+        raise oefmt(space.w_ValueError, "byte must be in range(0, 256)")
     return chr(value)
 
 
@@ -1050,8 +1044,8 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
         w_s = list_w[i]
         if not (space.isinstance_w(w_s, space.w_str) or
                 space.isinstance_w(w_s, space.w_bytearray)):
-            msg = "sequence item %d: expected string, %T found"
-            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
+            raise oefmt(space.w_TypeError,
+                        "sequence item %d: expected string, %T found", i, w_s)
 
         if data and i != 0:
             newdata.extend(data)
@@ -1117,9 +1111,9 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
             assert start >= 0   # start<0 is only possible with slicelength==0
             del items[start:start+delta]
     elif len2 != slicelength:  # No resize for extended slices
-        raise operationerrfmt(space.w_ValueError, "attempt to "
-              "assign sequence of size %d to extended slice of size %d",
-              len2, slicelength)
+        raise oefmt(space.w_ValueError,
+                    "attempt to assign sequence of size %d to extended slice "
+                    "of size %d", len2, slicelength)
 
     if sequence2 is items:
         if step > 0:

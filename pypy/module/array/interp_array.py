@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
@@ -633,8 +633,8 @@ def make_array(mytype):
                     try:
                         item = unwrap(space.call_method(w_item, mytype.method))
                     except OperationError:
-                        msg = 'array item must be ' + mytype.unwrap[:-2]
-                        raise operationerrfmt(space.w_TypeError, msg)
+                        raise oefmt(space.w_TypeError,
+                                    "array item must be " + mytype.unwrap[:-2])
                 else:
                     raise
             if mytype.unwrap == 'bigint_w':

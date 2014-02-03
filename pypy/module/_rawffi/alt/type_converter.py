@@ -1,7 +1,7 @@
 from rpython.rlib import libffi
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import r_uint
-from pypy.interpreter.error import operationerrfmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._rawffi.alt.interp_ffitype import app_types
 
@@ -102,9 +102,8 @@ class FromAppLevelConverter(object):
             return w_arg
 
     def error(self, w_ffitype, w_obj):
-        raise operationerrfmt(self.space.w_TypeError,
-                              'Unsupported ffi type to convert: %s',
-                              w_ffitype.name)
+        raise oefmt(self.space.w_TypeError,
+                    "Unsupported ffi type to convert: %s", w_ffitype.name)
 
     def handle_signed(self, w_ffitype, w_obj, intval):
         """
@@ -275,9 +274,8 @@ class ToAppLevelConverter(object):
         return self.space.wrap(float(singlefloatval))
 
     def error(self, w_ffitype):
-        raise operationerrfmt(self.space.w_TypeError,
-                              'Unsupported ffi type to convert: %s',
-                              w_ffitype.name)
+        raise oefmt(self.space.w_TypeError,
+                    "Unsupported ffi type to convert: %s", w_ffitype.name)
 
     def get_longlong(self, w_ffitype):
         """
