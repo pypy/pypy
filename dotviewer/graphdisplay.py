@@ -613,6 +613,19 @@ class GraphDisplay(Display):
     def process_MouseButtonUp(self, event):
         self.dragging = None
         pygame.event.set_grab(False)
+        # handle directional scrolling
+        if event.button == 4:
+            self.pan((0, -1))
+            return
+        if event.button == 5:
+            self.pan((0, 1))
+            return
+        if event.button == 6:
+            self.pan((-1, 0))
+            return
+        if event.button == 7:
+            self.pan((1, 0))
+            return
         if self.click_time is not None and abs(time.time() - self.click_time) < 1:
             # click (no significant dragging)
             self.notifyclick(self.click_origin)
