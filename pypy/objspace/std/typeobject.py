@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict
@@ -263,8 +263,8 @@ class W_TypeObject(W_Object):
 
     def setdictvalue(w_self, space, name, w_value):
         if not w_self.is_heaptype():
-            msg = "can't set attributes on type object '%N'"
-            raise operationerrfmt(space.w_TypeError, msg, w_self)
+            raise oefmt(space.w_TypeError,
+                        "can't set attributes on type object '%N'", w_self)
         if name == "__del__" and name not in w_self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
@@ -287,8 +287,8 @@ class W_TypeObject(W_Object):
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         if not w_self.is_heaptype():
-            msg = "can't delete attributes on type object '%N'"
-            raise operationerrfmt(space.w_TypeError, msg, w_self)
+            raise oefmt(space.w_TypeError,
+                        "can't delete attributes on type object '%N'", w_self)
         try:
             del w_self.dict_w[key]
         except KeyError:
@@ -410,17 +410,16 @@ class W_TypeObject(W_Object):
     def check_user_subclass(w_self, w_subtype):
         space = w_self.space
         if not isinstance(w_subtype, W_TypeObject):
-            raise operationerrfmt(space.w_TypeError,
-                "X is not a type object ('%T')",
-                w_subtype)
+            raise oefmt(space.w_TypeError,
+                        "X is not a type object ('%T')", w_subtype)
         if not w_subtype.issubtype(w_self):
-            raise operationerrfmt(space.w_TypeError,
-                "%N.__new__(%N): %N is not a subtype of %N",
-                w_self, w_subtype, w_subtype, w_self)
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__(%N): %N is not a subtype of %N",
+                        w_self, w_subtype, w_subtype, w_self)
         if w_self.instancetypedef is not w_subtype.instancetypedef:
-            raise operationerrfmt(space.w_TypeError,
-                "%N.__new__(%N) is not safe, use %N.__new__()",
-                w_self, w_subtype, w_subtype)
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__(%N) is not safe, use %N.__new__()",
+                        w_self, w_subtype, w_subtype)
         return w_subtype
 
     def _cleanup_(w_self):
@@ -608,8 +607,7 @@ def _calculate_metaclass(space, w_metaclass, bases_w):
 
 def _precheck_for_new(space, w_type):
     if not isinstance(w_type, W_TypeObject):
-        raise operationerrfmt(space.w_TypeError, "X is not a type object (%T)",
-                              w_type)
+        raise oefmt(space.w_TypeError, "X is not a type object (%T)", w_type)
     return w_type
 
 # ____________________________________________________________
@@ -629,8 +627,7 @@ def descr_get__name__(space, w_type):
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
-        raise operationerrfmt(space.w_TypeError,
-                              "can't set %N.__name__", w_type)
+        raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
     w_type.name = space.str_w(w_value)
 
 def descr_get__mro__(space, w_type):
@@ -657,17 +654,16 @@ def descr_set__bases__(space, w_type, w_value):
     # this assumes all app-level type objects are W_TypeObject
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
-        raise operationerrfmt(space.w_TypeError,
-                              "can't set %N.__bases__", w_type)
+        raise oefmt(space.w_TypeError, "can't set %N.__bases__", w_type)
     if not space.isinstance_w(w_value, space.w_tuple):
-        raise operationerrfmt(space.w_TypeError,
-                              "can only assign tuple to %N.__bases__, not %T",
-                              w_type, w_value)
+        raise oefmt(space.w_TypeError,
+                    "can only assign tuple to %N.__bases__, not %T",
+                    w_type, w_value)
     newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
-        raise operationerrfmt(space.w_TypeError,
+        raise oefmt(space.w_TypeError,
                     "can only assign non-empty tuple to %N.__bases__, not ()",
-                              w_type)
+                    w_type)
 
     for w_newbase in newbases_w:
         if isinstance(w_newbase, W_TypeObject):
@@ -682,9 +678,9 @@ def descr_set__bases__(space, w_type, w_value):
     newlayout = w_newbestbase.get_full_instance_layout()
 
     if oldlayout != newlayout:
-        msg = "__bases__ assignment: '%N' object layout differs from '%N'"
-        raise operationerrfmt(space.w_TypeError, msg,
-                              w_newbestbase, w_oldbestbase)
+        raise oefmt(space.w_TypeError,
+                    "__bases__ assignment: '%N' object layout differs from "
+                    "'%N'", w_newbestbase, w_oldbestbase)
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated(None)
@@ -882,10 +878,8 @@ def check_and_find_best_base(space, bases_w):
                              space.wrap("a new-style class can't have "
                                         "only classic bases"))
     if not w_bestbase.instancetypedef.acceptable_as_base_class:
-        raise operationerrfmt(space.w_TypeError,
-                              "type '%N' is not an "
-                              "acceptable base class",
-                              w_bestbase)
+        raise oefmt(space.w_TypeError,
+                    "type '%N' is not an acceptable base class", w_bestbase)
 
     # check that all other bases' layouts are superclasses of the bestbase
     w_bestlayout = w_bestbase.w_same_layout_as or w_bestbase
@@ -1138,9 +1132,8 @@ def getattr__Type_ANY(space, w_type, w_name):
         return space.get(w_value, space.w_None, w_type)
     if w_descr is not None:
         return space.get(w_descr, w_type)
-    raise operationerrfmt(space.w_AttributeError,
-                          "type object '%N' has no attribute %R",
-                          w_type, w_name)
+    raise oefmt(space.w_AttributeError,
+                "type object '%N' has no attribute %R", w_type, w_name)
 
 
 # ____________________________________________________________
@@ -1200,8 +1193,7 @@ def mro_error(space, orderlists):
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
-        raise operationerrfmt(space.w_TypeError, "duplicate base class '%N'",
-                              candidate)
+        raise oefmt(space.w_TypeError, "duplicate base class '%N'", candidate)
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)

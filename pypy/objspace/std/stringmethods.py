@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import endswith, replace, rsplit, split, startswith
 
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -109,8 +109,7 @@ class StringMethods(object):
         if index < 0:
             index += selflen
         if index < 0 or index >= selflen:
-            raise operationerrfmt(space.w_IndexError,
-                                  "string index out of range")
+            raise oefmt(space.w_IndexError, "string index out of range")
         from pypy.objspace.std.bytesobject import W_BytesObject
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         if isinstance(self, W_BytesObject) or isinstance(self, W_BytearrayObject):
@@ -133,9 +132,8 @@ class StringMethods(object):
         value = self._val(space)
         fillchar = self._op_val(space, w_fillchar)
         if len(fillchar) != 1:
-            raise operationerrfmt(space.w_TypeError,
-                                  "center() argument 2 must be a single "
-                                  "character")
+            raise oefmt(space.w_TypeError,
+                        "center() argument 2 must be a single character")
 
         d = width - len(value)
         if d > 0:
@@ -169,8 +167,7 @@ class StringMethods(object):
         try:
             ovfcheck(len(splitted) * tabsize)
         except OverflowError:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "new string is too long")
+            raise oefmt(space.w_OverflowError, "new string is too long")
         expanded = oldtoken = splitted.pop(0)
 
         for token in splitted:
@@ -220,8 +217,8 @@ class StringMethods(object):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         res = value.find(self._op_val(space, w_sub), start, end)
         if res < 0:
-            raise operationerrfmt(space.w_ValueError,
-                                  "substring not found in string.index")
+            raise oefmt(space.w_ValueError,
+                        "substring not found in string.index")
 
         return space.wrap(res)
 
@@ -229,8 +226,8 @@ class StringMethods(object):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         res = value.rfind(self._op_val(space, w_sub), start, end)
         if res < 0:
-            raise operationerrfmt(space.w_ValueError,
-                                  "substring not found in string.rindex")
+            raise oefmt(space.w_ValueError,
+                        "substring not found in string.rindex")
 
         return space.wrap(res)
 
@@ -347,10 +344,9 @@ class StringMethods(object):
         for i in range(size):
             w_s = list_w[i]
             if self._join_check_item(space, w_s):
-                raise operationerrfmt(
-                    space.w_TypeError,
-                    "sequence item %d: expected %s, %T found",
-                    i, self._generic_name(), w_s)
+                raise oefmt(space.w_TypeError,
+                            "sequence item %d: expected %s, %T found",
+                            i, self._generic_name(), w_s)
             prealloc_size += len(self._op_val(space, w_s))
 
         sb = self._builder(prealloc_size)
@@ -365,9 +361,8 @@ class StringMethods(object):
         value = self._val(space)
         fillchar = self._op_val(space, w_fillchar)
         if len(fillchar) != 1:
-            raise operationerrfmt(space.w_TypeError,
-                                  "ljust() argument 2 must be a single "
-                                  "character")
+            raise oefmt(space.w_TypeError,
+                        "ljust() argument 2 must be a single character")
         d = width - len(value)
         if d > 0:
             fillchar = fillchar[0]    # annotator hint: it's a single character
@@ -380,9 +375,8 @@ class StringMethods(object):
         value = self._val(space)
         fillchar = self._op_val(space, w_fillchar)
         if len(fillchar) != 1:
-            raise operationerrfmt(space.w_TypeError,
-                                  "rjust() argument 2 must be a single "
-                                  "character")
+            raise oefmt(space.w_TypeError,
+                        "rjust() argument 2 must be a single character")
         d = width - len(value)
         if d > 0:
             fillchar = fillchar[0]    # annotator hint: it's a single character
@@ -401,7 +395,7 @@ class StringMethods(object):
         value = self._val(space)
         sub = self._op_val(space, w_sub)
         if not sub:
-            raise operationerrfmt(space.w_ValueError, "empty separator")
+            raise oefmt(space.w_ValueError, "empty separator")
         pos = value.find(sub)
         if pos == -1:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
@@ -420,7 +414,7 @@ class StringMethods(object):
         value = self._val(space)
         sub = self._op_val(space, w_sub)
         if not sub:
-            raise operationerrfmt(space.w_ValueError, "empty separator")
+            raise oefmt(space.w_ValueError, "empty separator")
         pos = value.rfind(sub)
         if pos == -1:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
@@ -443,8 +437,7 @@ class StringMethods(object):
         try:
             res = replace(input, sub, by, count)
         except OverflowError:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "replace string is too long")
+            raise oefmt(space.w_OverflowError, "replace string is too long")
         return self._new(res)
 
     @unwrap_spec(maxsplit=int)
@@ -459,7 +452,7 @@ class StringMethods(object):
         by = self._op_val(space, w_sep)
         bylen = len(by)
         if bylen == 0:
-            raise operationerrfmt(space.w_ValueError, "empty separator")
+            raise oefmt(space.w_ValueError, "empty separator")
         res = split(value, by, maxsplit)
         return self._newlist_unwrapped(space, res)
 
@@ -474,7 +467,7 @@ class StringMethods(object):
         by = self._op_val(space, w_sep)
         bylen = len(by)
         if bylen == 0:
-            raise operationerrfmt(space.w_ValueError, "empty separator")
+            raise oefmt(space.w_ValueError, "empty separator")
         res = rsplit(value, by, maxsplit)
         return self._newlist_unwrapped(space, res)
 
@@ -640,9 +633,8 @@ class StringMethods(object):
         else:
             table = self._op_val(space, w_table)
             if len(table) != 256:
-                raise operationerrfmt(
-                    space.w_ValueError,
-                    "translation table must be 256 characters long")
+                raise oefmt(space.w_ValueError,
+                            "translation table must be 256 characters long")
 
         string = self._val(space)
         deletechars = self._op_val(space, w_deletechars)

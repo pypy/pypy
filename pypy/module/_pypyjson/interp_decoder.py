@@ -4,7 +4,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
 from rpython.rtyper.annlowlevel import llstr, hlunicode
@@ -80,7 +80,7 @@ class JSONDecoder(object):
 
     @specialize.arg(1)
     def _raise(self, msg, *args):
-        raise operationerrfmt(self.space.w_ValueError, msg, *args)
+        raise oefmt(self.space.w_ValueError, msg, *args)
 
     def decode_any(self, i):
         i = self.skip_whitespace(i)
@@ -398,7 +398,8 @@ def loads(space, w_s):
         if i < len(s):
             start = i
             end = len(s) - 1
-            raise operationerrfmt(space.w_ValueError, "Extra data: char %d - %d", start, end)
+            raise oefmt(space.w_ValueError,
+                        "Extra data: char %d - %d", start, end)
         return w_res
     finally:
         decoder.close()

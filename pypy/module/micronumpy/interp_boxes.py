@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import operationerrfmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.bytesobject import W_BytesObject
@@ -118,9 +118,8 @@ class W_GenericBox(W_Root):
     _attrs_ = ['w_flags']
 
     def descr__new__(space, w_subtype, __args__):
-        raise operationerrfmt(space.w_TypeError,
-                              "cannot create '%N' instances",
-                              w_subtype)
+        raise oefmt(space.w_TypeError,
+                    "cannot create '%N' instances", w_subtype)
 
     def get_dtype(self, space):
         return self._get_dtype(space)

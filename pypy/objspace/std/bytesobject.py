@@ -8,7 +8,7 @@ from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import StringBuffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std.stdtypedef import StdTypeDef
@@ -406,8 +406,9 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def ord(self, space):
         if len(self._value) != 1:
-            msg = "ord() expected a character, but string of length %d found"
-            raise operationerrfmt(space.w_TypeError, msg, len(self._value))
+            raise oefmt(space.w_TypeError,
+                        "ord() expected a character, but string of length %d "
+                        "found", len(self._value))
         return space.wrap(ord(self._value[0]))
 
     def _new(self, value):

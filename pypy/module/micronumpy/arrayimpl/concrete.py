@@ -5,7 +5,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
 from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
      calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -130,10 +130,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             if idx < 0:
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
-                raise operationerrfmt(space.w_IndexError,
-                      "index %d is out of bounds for axis %d with size %d",
-                      idx, i, self.get_shape()[i],
-                )
+                raise oefmt(space.w_IndexError,
+                            "index %d is out of bounds for axis %d with size "
+                            "%d", idx, i, self.get_shape()[i])
             item += idx * strides[i]
         return item
 
@@ -147,10 +146,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             if idx < 0:
                 idx = shape[i] + idx
             if idx < 0 or idx >= shape[i]:
-                raise operationerrfmt(space.w_IndexError,
-                      "index %d is out of bounds for axis %d with size %d",
-                      idx, i, self.get_shape()[i],
-                )
+                raise oefmt(space.w_IndexError,
+                            "index %d is out of bounds for axis %d with size "
+                            "%d", idx, i, self.get_shape()[i])
             item += idx * strides[i]
         return item
 

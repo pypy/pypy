@@ -1,6 +1,6 @@
 import os
 
-from pypy.interpreter.error import operationerrfmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
@@ -49,7 +49,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if not (space.isinstance_w(w_file, space.w_unicode) or
             space.isinstance_w(w_file, space.w_str) or
             space.isinstance_w(w_file, space.w_int)):
-        raise operationerrfmt(space.w_TypeError, "invalid file: %R", w_file)
+        raise oefmt(space.w_TypeError, "invalid file: %R", w_file)
 
     reading = writing = appending = updating = text = binary = universal = False
 
@@ -57,9 +57,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     for flag in mode:
         uniq_mode[flag] = None
     if len(uniq_mode) != len(mode):
-        raise operationerrfmt(space.w_ValueError,
-            "invalid mode: %s", mode
-        )
+        raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
     for flag in mode:
         if flag == "r":
             reading = True
@@ -77,9 +75,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
             universal = True
             reading = True
         else:
-            raise operationerrfmt(space.w_ValueError,
-                "invalid mode: %s", mode
-            )
+            raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
 
     rawmode = ""
     if reading:
@@ -153,7 +149,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     elif reading:
         buffer_cls = W_BufferedReader
     else:
-        raise operationerrfmt(space.w_ValueError, "unknown mode: '%s'", mode)
+        raise oefmt(space.w_ValueError, "unknown mode: '%s'", mode)
     w_buffer = space.call_function(
         space.gettypefor(buffer_cls), w_raw, space.wrap(buffering)
     )

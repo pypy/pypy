@@ -2,8 +2,8 @@
 Struct and unions.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 
 from rpython.rlib import jit
@@ -32,8 +32,8 @@ class W_CTypeStructOrUnion(W_CType):
     def check_complete(self, w_errorcls=None):
         if self.fields_dict is None:
             space = self.space
-            raise operationerrfmt(w_errorcls or space.w_TypeError,
-                              "'%s' is opaque or not completed yet", self.name)
+            raise oefmt(w_errorcls or space.w_TypeError,
+                        "'%s' is opaque or not completed yet", self.name)
 
     def _alignof(self):
         self.check_complete(w_errorcls=self.space.w_ValueError)
@@ -106,9 +106,9 @@ class W_CTypeStructOrUnion(W_CType):
             space.isinstance_w(w_ob, space.w_tuple)):
             lst_w = space.listview(w_ob)
             if len(lst_w) > len(self.fields_list):
-                raise operationerrfmt(space.w_ValueError,
-                        "too many initializers for '%s' (got %d)",
-                                      self.name, len(lst_w))
+                raise oefmt(space.w_ValueError,
+                            "too many initializers for '%s' (got %d)",
+                            self.name, len(lst_w))
             for i in range(len(lst_w)):
                 optvarsize = self.fields_list[i].write_v(cdata, lst_w[i],
                                                          optvarsize)
@@ -161,10 +161,9 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
         space = self.space
         n = space.int_w(space.len(w_ob))
         if n > 1:
-            raise operationerrfmt(space.w_ValueError,
-                                  "initializer for '%s': %d items given, but "
-                                  "only one supported (use a dict if needed)",
-                                  self.name, n)
+            raise oefmt(space.w_ValueError,
+                        "initializer for '%s': %d items given, but only one "
+                        "supported (use a dict if needed)", self.name, n)
 
 
 class W_CField(W_Root):
@@ -295,10 +294,9 @@ class W_CField(W_Root):
             fmin = r_longlong(0)
             fmax = r_longlong((r_ulonglong(1) << self.bitsize) - 1)
         if value < fmin or value > fmax:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "value %d outside the range allowed by the "
-                                  "bit field width: %d <= x <= %d",
-                                  value, fmin, fmax)
+            raise oefmt(space.w_OverflowError,
+                        "value %d outside the range allowed by the bit field "
+                        "width: %d <= x <= %d", value, fmin, fmax)
         rawmask = ((r_ulonglong(1) << self.bitsize) - 1) << self.bitshift
         rawvalue = r_ulonglong(value) << self.bitshift
         rawfielddata = misc.read_raw_unsigned_data(cdata, ctype.size)

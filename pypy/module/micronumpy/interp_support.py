@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype, loop
@@ -64,9 +64,9 @@ def _fromstring_bin(space, s, count, length, dtype):
     if count == -1:
         count = length / itemsize
     if length % itemsize != 0:
-        raise operationerrfmt(space.w_ValueError,
-                              "string length %d not divisable by item size %d",
-                              length, itemsize)
+        raise oefmt(space.w_ValueError,
+                    "string length %d not divisable by item size %d",
+                    length, itemsize)
     if count * itemsize > length:
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
@@ -92,9 +92,9 @@ def unwrap_axis_arg(space, shapelen, w_axis):
     else:
         axis = space.int_w(w_axis)
         if axis < -shapelen or axis>= shapelen:
-            raise operationerrfmt(space.w_ValueError,
-                "axis entry %d is out of bounds [%d, %d)", axis,
-                -shapelen, shapelen)
+            raise oefmt(space.w_ValueError,
+                        "axis entry %d is out of bounds [%d, %d)",
+                        axis, -shapelen, shapelen)
         if axis < 0:
             axis += shapelen
     return axis

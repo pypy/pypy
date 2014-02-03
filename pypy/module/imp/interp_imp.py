@@ -1,7 +1,7 @@
 from pypy.module.imp import importing
 from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyparser import pyparse
@@ -64,9 +64,7 @@ def find_module(space, w_name, w_path=None):
     find_info = importing.find_module(
         space, name, w_name, name, w_path, use_loader=False)
     if not find_info:
-        raise operationerrfmt(
-            space.w_ImportError,
-            "No module named %s", name)
+        raise oefmt(space.w_ImportError, "No module named %s", name)
 
     w_filename = space.fsdecode(space.wrapbytes(find_info.filename))
     stream = find_info.stream

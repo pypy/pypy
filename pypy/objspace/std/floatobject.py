@@ -1,5 +1,6 @@
 import operator
-from pypy.interpreter.error import OperationError, operationerrfmt
+
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std import model, newformat
 from pypy.objspace.std.floattype import float_typedef, W_AbstractFloatObject
 from pypy.objspace.std.multimethod import FailedToImplementArgs

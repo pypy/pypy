@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
 from pypy.interpreter import gateway
 from pypy.objspace.descroperation import Object
@@ -32,9 +32,9 @@ def descr__class__(space, w_obj):
 def descr_set___class__(space, w_obj, w_newcls):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_newcls, W_TypeObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "__class__ must be set to new-style class, not '%T' object",
-                              w_newcls)
+        raise oefmt(space.w_TypeError,
+                    "__class__ must be set to new-style class, not '%T' "
+                    "object", w_newcls)
     if not w_newcls.is_heaptype():
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ assignment: only for heap types"))
@@ -43,9 +43,9 @@ def descr_set___class__(space, w_obj, w_newcls):
     if w_oldcls.get_full_instance_layout() == w_newcls.get_full_instance_layout():
         w_obj.setclass(space, w_newcls)
     else:
-        raise operationerrfmt(space.w_TypeError,
-                              "__class__ assignment: '%N' object layout differs from '%N'",
-                              w_oldcls, w_newcls)
+        raise oefmt(space.w_TypeError,
+                    "__class__ assignment: '%N' object layout differs from "
+                    "'%N'", w_oldcls, w_newcls)
 
 
 app = gateway.applevel("""
