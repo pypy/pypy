@@ -1,7 +1,6 @@
 from __future__ import with_statement
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import (
-    OperationError, operationerrfmt, wrap_oserror)
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -102,8 +101,7 @@ class SSLContext(W_Root):
         elif protocol == PY_SSL_VERSION_SSL23:
             method = libssl_SSLv23_method()
         else:
-            raise operationerrfmt(space.w_ValueError,
-                                  "invalid protocol version")
+            raise oefmt(space.w_ValueError, "invalid protocol version")
         self.ctx = libssl_SSL_CTX_new(method)
 
         # Defaults

@@ -502,8 +502,7 @@ class W_BytesObject(W_AbstractBytesObject):
         Example: bytes.fromhex('B9 01EF') -> b'\xb9\x01\xef'.
         """
         if not space.is_w(space.type(w_hexstring), space.w_unicode):
-            raise operationerrfmt(space.w_TypeError, "must be str, not %T",
-                                  w_hexstring)
+            raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
         from pypy.objspace.std.bytearrayobject import _hexstring_to_array
         hexstring = space.unicode_w(w_hexstring)
         bytes = ''.join(_hexstring_to_array(space, hexstring))
@@ -614,8 +613,8 @@ class W_BytesObject(W_AbstractBytesObject):
                 else:
                     raise
             if not 0 <= char < 256:
-                raise operationerrfmt(space.w_ValueError,
-                                      "character must be in range(256)")
+                raise oefmt(space.w_ValueError,
+                            "character must be in range(256)")
             return space.newbool(self._value.find(chr(char)) >= 0)
         return self._StringMethods_descr_contains(space, w_sub)
 
@@ -726,8 +725,8 @@ def makebytesdata_w(space, w_source):
     if w_bytes_method is not None:
         w_bytes = space.get_and_call_function(w_bytes_method, w_source)
         if not space.isinstance_w(w_bytes, space.w_bytes):
-            msg = "__bytes__ returned non-bytes (type '%T')"
-            raise operationerrfmt(space.w_TypeError, msg, w_bytes)
+            raise oefmt(space.w_TypeError,
+                        "__bytes__ returned non-bytes (type '%T')", w_bytes)
         return [c for c in space.bytes_w(w_bytes)]
 
     # String-like argument

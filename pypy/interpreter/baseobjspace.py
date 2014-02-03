@@ -838,9 +838,9 @@ class ObjSpace(object):
                     raise
                 break  # done
             if idx == expected_length:
-                raise operationerrfmt(self.w_ValueError,
-                                      "too many values to unpack (expected %d)",
-                                      expected_length)
+                raise oefmt(self.w_ValueError,
+                            "too many values to unpack (expected %d)",
+                            expected_length)
             items[idx] = w_item
             idx += 1
         if idx < expected_length:

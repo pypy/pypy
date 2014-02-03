@@ -787,9 +787,9 @@ class __extend__(pyframe.PyFrame):
                 plural = ''
             else:
                 plural = 's'
-            raise operationerrfmt(self.space.w_ValueError,
-                                  "need more than %d value%s to unpack",
-                                  itemcount, plural)
+            raise oefmt(self.space.w_ValueError,
+                        "need more than %d value%s to unpack",
+                        itemcount, plural)
         right = itemcount - right
         assert right >= 0
         # push values in reverse order
@@ -835,8 +835,8 @@ class __extend__(pyframe.PyFrame):
         # fall-back
         w_value = self._load_global(w_varname)
         if w_value is None:
-            message = "name %R is not defined"
-            raise operationerrfmt(self.space.w_NameError, message, w_varname)
+            raise oefmt(self.space.w_NameError,
+                        "name %R is not defined", w_varname)
         self.pushvalue(w_value)
 
     def _load_global(self, w_varname):
@@ -1560,9 +1560,8 @@ def source_as_str(space, w_source, funcname, what, flags):
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
-            raise operationerrfmt(space.w_TypeError,
-                                  "%s() arg 1 must be a %s object",
-                                  funcname, what)
+            raise oefmt(space.w_TypeError,
+                        "%s() arg 1 must be a %s object", funcname, what)
     return source, flags
 
 
@@ -1570,14 +1569,13 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
     """Ensure globals/locals exist and are of the correct type"""
     if (not space.is_none(w_globals) and
         not space.isinstance_w(w_globals, space.w_dict)):
-        raise operationerrfmt(space.w_TypeError,
-                              '%s() arg 2 must be a dict, not %T',
-                              funcname, w_globals)
+        raise oefmt(space.w_TypeError,
+                    '%s() arg 2 must be a dict, not %T', funcname, w_globals)
     if (not space.is_none(w_locals) and
         space.lookup(w_locals, '__getitem__') is None):
-        raise operationerrfmt(space.w_TypeError,
-                              '%s() arg 3 must be a mapping or None, not %T',
-                              funcname, w_locals)
+        raise oefmt(space.w_TypeError,
+                    '%s() arg 3 must be a mapping or None, not %T',
+                    funcname, w_locals)
 
     if space.is_none(w_globals):
         if caller is None:

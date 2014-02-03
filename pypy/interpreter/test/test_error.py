@@ -82,14 +82,14 @@ def test_oefmt_R(space):
     expected = "illegal newline value: \"'PyLadies'\""
     assert operr._compute_value(space) == expected
 
-def test_operationerrfmt_unicode(space):
-    operr = operationerrfmt("w_type", "abc %s", u"àèìòù")
+def test_oefmt_unicode(space):
+    operr = oefmt("w_type", "abc %s", u"àèìòù")
     val = operr._compute_value(space)
     assert val == u"abc àèìòù"
 
-def test_operationerrfmt_utf8(space):
+def test_oefmt_utf8(space):
     arg = u"àèìòù".encode('utf-8')
-    operr = operationerrfmt("w_type", "abc %8", arg)
+    operr = oefmt("w_type", "abc %8", arg)
     val = operr._compute_value(space)
     assert val == u"abc àèìòù"
 

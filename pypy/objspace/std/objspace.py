@@ -404,13 +404,12 @@ class StdObjSpace(ObjSpace):
 
     def _wrap_expected_length(self, expected, got):
         if got > expected:
-            raise operationerrfmt(self.w_ValueError,
-                                  "too many values to unpack (expected %d)",
-                                  expected)
+            raise oefmt(self.w_ValueError,
+                        "too many values to unpack (expected %d)", expected)
         else:
-            raise operationerrfmt(self.w_ValueError,
-                                  "need more than %d value%s to unpack",
-                                  got, got != 1 and "s" or "")
+            raise oefmt(self.w_ValueError,
+                        "need more than %d value%s to unpack",
+                        got, "" if got == 1 else "s")
 
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):

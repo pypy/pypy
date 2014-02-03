@@ -99,9 +99,8 @@ class W_UnicodeObject(W_Root):
     def _op_val(self, space, w_other):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
-        raise operationerrfmt(space.w_TypeError,
-                              "Can't convert '%T' object to str implicitly",
-                              w_other)
+        raise oefmt(space.w_TypeError,
+                    "Can't convert '%T' object to str implicitly", w_other)
 
     def _chr(self, char):
         assert len(char) == 1

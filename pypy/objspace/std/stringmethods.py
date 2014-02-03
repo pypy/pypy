@@ -44,8 +44,8 @@ class StringMethods(object):
         list_to = makebytesdata_w(space, w_to)
 
         if len(list_from) != len(list_to):
-            raise operationerrfmt(space.w_ValueError,
-                                  "maketrans arguments must have same length")
+            raise oefmt(space.w_ValueError,
+                        "maketrans arguments must have same length")
 
         for i in range(len(list_from)):
             pos_from = ord(list_from[i])
@@ -510,9 +510,9 @@ class StringMethods(object):
             if not e.match(space, space.w_TypeError):
                 raise
             wanted = self._generic_name()
-            raise operationerrfmt(space.w_TypeError,
-                                  "startswith first arg must be %s or a tuple "
-                                  "of %s, not %T", wanted, wanted, w_prefix)
+            raise oefmt(space.w_TypeError,
+                        "startswith first arg must be %s or a tuple of %s, "
+                        "not %T", wanted, wanted, w_prefix)
         return space.newbool(res)
 
     def _startswith(self, space, value, w_prefix, start, end):
@@ -532,9 +532,9 @@ class StringMethods(object):
             if not e.match(space, space.w_TypeError):
                 raise
             wanted = self._generic_name()
-            raise operationerrfmt(space.w_TypeError,
-                                  "endswith first arg must be %s or a tuple "
-                                  "of %s, not %T", wanted, wanted, w_suffix)
+            raise oefmt(space.w_TypeError,
+                        "endswith first arg must be %s or a tuple of %s, not "
+                        "%T", wanted, wanted, w_suffix)
         return space.newbool(res)
 
     def _endswith(self, space, value, w_prefix, start, end):

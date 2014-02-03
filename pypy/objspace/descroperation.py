@@ -251,9 +251,8 @@ class DescrOperation(object):
         w_restype = space.type(w_res)
         # Note there is no check for bool here because the only possible
         # instances of bool are w_False and w_True, which are checked above.
-        raise operationerrfmt(space.w_TypeError,
-                              "__bool__ should return bool, returned %T",
-                              w_obj)
+        raise oefmt(space.w_TypeError,
+                    "__bool__ should return bool, returned %T", w_obj)
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):
@@ -477,9 +476,8 @@ class DescrOperation(object):
     def buffer(space, w_obj):
         w_impl = space.lookup(w_obj, '__buffer__')
         if w_impl is None:
-            raise operationerrfmt(space.w_TypeError,
-                                  "'%T' does not support the buffer interface",
-                                  w_obj)
+            raise oefmt(space.w_TypeError,
+                        "'%T' does not support the buffer interface", w_obj)
         return space.get_and_call_function(w_impl, w_obj)
 
 
@@ -598,8 +596,8 @@ def _make_comparison_impl(symbol, specialnames):
             return space.not_(space.eq(w_obj1, w_obj2))
         #
         # if we arrived here, they are unorderable
-        raise operationerrfmt(space.w_TypeError, "unorderable types: %T %s %T",
-                              w_obj1, symbol, w_obj2)
+        raise oefmt(space.w_TypeError,
+                    "unorderable types: %T %s %T", w_obj1, symbol, w_obj2)
 
     return func_with_new_name(comparison_impl, 'comparison_%s_impl'%left.strip('_'))
 

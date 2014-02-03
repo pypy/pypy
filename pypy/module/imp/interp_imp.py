@@ -237,6 +237,6 @@ def source_from_cache(space, pathname):
     does not conform to PEP 3147 format, ValueError will be raised."""
     sourcename = importing.make_source_pathname(pathname)
     if sourcename is None:
-        raise operationerrfmt(space.w_ValueError,
-                              "Not a PEP 3147 pyc path: %s", pathname)
+        raise oefmt(space.w_ValueError,
+                    "Not a PEP 3147 pyc path: %s", pathname)
     return space.fsdecode(space.wrapbytes(sourcename))

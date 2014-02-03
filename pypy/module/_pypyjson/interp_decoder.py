@@ -388,8 +388,7 @@ class JSONDecoder(object):
 
 def loads(space, w_s):
     if space.isinstance_w(w_s, space.w_bytes):
-        raise operationerrfmt(space.w_TypeError,
-                              "Expected string, got %T", w_s)
+        raise oefmt(space.w_TypeError, "Expected string, got %T", w_s)
     s = space.str_w(w_s)
     decoder = JSONDecoder(space, s)
     try:

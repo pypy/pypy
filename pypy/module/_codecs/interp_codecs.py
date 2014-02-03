@@ -329,9 +329,8 @@ def surrogatepass_errors(space, w_exc):
             raise OperationError(space.type(w_exc), w_exc)
         return space.newtuple([space.wrap(unichr(ch)), space.wrap(start + 3)])
     else:
-        raise operationerrfmt(space.w_TypeError,
-                              "don't know how to handle %T in error callback",
-                              w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def surrogateescape_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -369,9 +368,8 @@ def surrogateescape_errors(space, w_exc):
         return space.newtuple([space.wrap(replace),
                                space.wrap(start + consumed)])
     else:
-        raise operationerrfmt(space.w_TypeError,
-                              "don't know how to handle %T in error callback",
-                              w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def register_builtin_error_handlers(space):
     "NOT_RPYTHON"

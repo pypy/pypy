@@ -3,7 +3,7 @@ Interp-level implementation of the basic space operations.
 """
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.runicode import UNICHR
 import __builtin__
@@ -105,9 +105,8 @@ This returns an int when called with one argument, otherwise the
 same type as the number. ndigits may be negative."""
     round = space.lookup(w_number, '__round__')
     if round is None:
-        raise operationerrfmt(space.w_TypeError,
-                              "type %T doesn't define __round__ method",
-                              w_number)
+        raise oefmt(space.w_TypeError,
+                    "type %T doesn't define __round__ method", w_number)
     if w_ndigits is None:
         return space.get_and_call_function(round, w_number)
     else:
