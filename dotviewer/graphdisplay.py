@@ -136,6 +136,7 @@ class GraphDisplay(Display):
         Click on objects to move around
         Drag with the left mouse button to zoom in/out
         Drag with the right mouse button to scroll
+        Use scroll wheel do scroll up or down
     """.replace('\n    ', '\n').strip()  # poor man's dedent
 
 
