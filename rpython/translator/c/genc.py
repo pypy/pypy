@@ -377,7 +377,8 @@ class CStandaloneBuilder(CBuilder):
         return self.executable_name
 
     def gen_makefile(self, targetdir, exe_name=None, headers_to_precompile=[]):
-        cfiles = [self.c_source_filename] + self.extrafiles
+        cfiles = [self.c_source_filename] + self.extrafiles + list(self.eci.separate_module_files)
+        xxx
         if exe_name is not None:
             exe_name = targetdir.join(exe_name)
         mk = self.translator.platform.gen_makefile(

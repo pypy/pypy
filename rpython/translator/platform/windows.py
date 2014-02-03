@@ -349,7 +349,7 @@ class MsvcPlatform(Platform):
             # precompiled headers :(
             no_precompile = []
             for f in list(eci.separate_module_files):
-                f = m.pathrel(f)
+                f = m.pathrel(py.path.local(f))
                 if f not in no_precompile and f.endswith('.c'):
                     no_precompile.append(f)
                     target = f[:-1] + 'obj'
