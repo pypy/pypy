@@ -8,6 +8,12 @@ from rpython.tool.pairtype import extendabletype
 from rpython.tool.sourcetools import func_with_new_name
 
 
+def raise_attriberr(space, w_obj, name):
+    raise operationerrfmt(space.w_AttributeError,
+                          "'%T' object has no attribute '%s'",
+                          w_obj, name)
+
+
 def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
             space.isinstance_w(w_obj, space.w_unicode)):
@@ -2793,7 +2799,7 @@ mod.typedef = typedef.TypeDef("mod",
 
 def Module_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -2834,7 +2840,7 @@ Module.typedef = typedef.TypeDef("Module",
 
 def Interactive_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -2879,7 +2885,7 @@ def Expression_get_body(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     return space.wrap(w_self.body)
 
 def Expression_set_body(space, w_self, w_new_value):
@@ -2922,7 +2928,7 @@ Expression.typedef = typedef.TypeDef("Expression",
 
 def Suite_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -2967,7 +2973,7 @@ def stmt_get_lineno(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'lineno')
+        raise_attriberr(space, w_self, 'lineno')
     return space.wrap(w_self.lineno)
 
 def stmt_set_lineno(space, w_self, w_new_value):
@@ -2988,7 +2994,7 @@ def stmt_get_col_offset(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'col_offset')
+        raise_attriberr(space, w_self, 'col_offset')
     return space.wrap(w_self.col_offset)
 
 def stmt_set_col_offset(space, w_self, w_new_value):
@@ -3018,7 +3024,7 @@ def FunctionDef_get_name(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'name')
+        raise_attriberr(space, w_self, 'name')
     return space.wrap(w_self.name)
 
 def FunctionDef_set_name(space, w_self, w_new_value):
@@ -3039,7 +3045,7 @@ def FunctionDef_get_args(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'args')
+        raise_attriberr(space, w_self, 'args')
     return space.wrap(w_self.args)
 
 def FunctionDef_set_args(space, w_self, w_new_value):
@@ -3056,7 +3062,7 @@ def FunctionDef_set_args(space, w_self, w_new_value):
 
 def FunctionDef_get_body(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -3072,7 +3078,7 @@ def FunctionDef_set_body(space, w_self, w_new_value):
 
 def FunctionDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 32:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'decorator_list')
+        raise_attriberr(space, w_self, 'decorator_list')
     if w_self.w_decorator_list is None:
         if w_self.decorator_list is None:
             list_w = []
@@ -3121,7 +3127,7 @@ def ClassDef_get_name(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'name')
+        raise_attriberr(space, w_self, 'name')
     return space.wrap(w_self.name)
 
 def ClassDef_set_name(space, w_self, w_new_value):
@@ -3138,7 +3144,7 @@ def ClassDef_set_name(space, w_self, w_new_value):
 
 def ClassDef_get_bases(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'bases')
+        raise_attriberr(space, w_self, 'bases')
     if w_self.w_bases is None:
         if w_self.bases is None:
             list_w = []
@@ -3154,7 +3160,7 @@ def ClassDef_set_bases(space, w_self, w_new_value):
 
 def ClassDef_get_body(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -3170,7 +3176,7 @@ def ClassDef_set_body(space, w_self, w_new_value):
 
 def ClassDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 32:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'decorator_list')
+        raise_attriberr(space, w_self, 'decorator_list')
     if w_self.w_decorator_list is None:
         if w_self.decorator_list is None:
             list_w = []
@@ -3220,7 +3226,7 @@ def Return_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Return_set_value(space, w_self, w_new_value):
@@ -3263,7 +3269,7 @@ Return.typedef = typedef.TypeDef("Return",
 
 def Delete_get_targets(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'targets')
+        raise_attriberr(space, w_self, 'targets')
     if w_self.w_targets is None:
         if w_self.targets is None:
             list_w = []
@@ -3304,7 +3310,7 @@ Delete.typedef = typedef.TypeDef("Delete",
 
 def Assign_get_targets(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'targets')
+        raise_attriberr(space, w_self, 'targets')
     if w_self.w_targets is None:
         if w_self.targets is None:
             list_w = []
@@ -3324,7 +3330,7 @@ def Assign_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Assign_set_value(space, w_self, w_new_value):
@@ -3373,7 +3379,7 @@ def AugAssign_get_target(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'target')
+        raise_attriberr(space, w_self, 'target')
     return space.wrap(w_self.target)
 
 def AugAssign_set_target(space, w_self, w_new_value):
@@ -3396,7 +3402,7 @@ def AugAssign_get_op(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'op')
+        raise_attriberr(space, w_self, 'op')
     return operator_to_class[w_self.op - 1]()
 
 def AugAssign_set_op(space, w_self, w_new_value):
@@ -3419,7 +3425,7 @@ def AugAssign_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def AugAssign_set_value(space, w_self, w_new_value):
@@ -3468,7 +3474,7 @@ def Print_get_dest(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'dest')
+        raise_attriberr(space, w_self, 'dest')
     return space.wrap(w_self.dest)
 
 def Print_set_dest(space, w_self, w_new_value):
@@ -3487,7 +3493,7 @@ def Print_set_dest(space, w_self, w_new_value):
 
 def Print_get_values(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'values')
+        raise_attriberr(space, w_self, 'values')
     if w_self.w_values is None:
         if w_self.values is None:
             list_w = []
@@ -3507,7 +3513,7 @@ def Print_get_nl(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'nl')
+        raise_attriberr(space, w_self, 'nl')
     return space.wrap(w_self.nl)
 
 def Print_set_nl(space, w_self, w_new_value):
@@ -3555,7 +3561,7 @@ def For_get_target(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'target')
+        raise_attriberr(space, w_self, 'target')
     return space.wrap(w_self.target)
 
 def For_set_target(space, w_self, w_new_value):
@@ -3578,7 +3584,7 @@ def For_get_iter(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'iter')
+        raise_attriberr(space, w_self, 'iter')
     return space.wrap(w_self.iter)
 
 def For_set_iter(space, w_self, w_new_value):
@@ -3597,7 +3603,7 @@ def For_set_iter(space, w_self, w_new_value):
 
 def For_get_body(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -3613,7 +3619,7 @@ def For_set_body(space, w_self, w_new_value):
 
 def For_get_orelse(space, w_self):
     if not w_self.initialization_state & 32:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'orelse')
+        raise_attriberr(space, w_self, 'orelse')
     if w_self.w_orelse is None:
         if w_self.orelse is None:
             list_w = []
@@ -3662,7 +3668,7 @@ def While_get_test(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'test')
+        raise_attriberr(space, w_self, 'test')
     return space.wrap(w_self.test)
 
 def While_set_test(space, w_self, w_new_value):
@@ -3681,7 +3687,7 @@ def While_set_test(space, w_self, w_new_value):
 
 def While_get_body(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -3697,7 +3703,7 @@ def While_set_body(space, w_self, w_new_value):
 
 def While_get_orelse(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'orelse')
+        raise_attriberr(space, w_self, 'orelse')
     if w_self.w_orelse is None:
         if w_self.orelse is None:
             list_w = []
@@ -3745,7 +3751,7 @@ def If_get_test(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'test')
+        raise_attriberr(space, w_self, 'test')
     return space.wrap(w_self.test)
 
 def If_set_test(space, w_self, w_new_value):
@@ -3764,7 +3770,7 @@ def If_set_test(space, w_self, w_new_value):
 
 def If_get_body(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -3780,7 +3786,7 @@ def If_set_body(space, w_self, w_new_value):
 
 def If_get_orelse(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'orelse')
+        raise_attriberr(space, w_self, 'orelse')
     if w_self.w_orelse is None:
         if w_self.orelse is None:
             list_w = []
@@ -3828,7 +3834,7 @@ def With_get_context_expr(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'context_expr')
+        raise_attriberr(space, w_self, 'context_expr')
     return space.wrap(w_self.context_expr)
 
 def With_set_context_expr(space, w_self, w_new_value):
@@ -3851,7 +3857,7 @@ def With_get_optional_vars(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'optional_vars')
+        raise_attriberr(space, w_self, 'optional_vars')
     return space.wrap(w_self.optional_vars)
 
 def With_set_optional_vars(space, w_self, w_new_value):
@@ -3870,7 +3876,7 @@ def With_set_optional_vars(space, w_self, w_new_value):
 
 def With_get_body(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -3917,7 +3923,7 @@ def Raise_get_type(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'type')
+        raise_attriberr(space, w_self, 'type')
     return space.wrap(w_self.type)
 
 def Raise_set_type(space, w_self, w_new_value):
@@ -3940,7 +3946,7 @@ def Raise_get_inst(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'inst')
+        raise_attriberr(space, w_self, 'inst')
     return space.wrap(w_self.inst)
 
 def Raise_set_inst(space, w_self, w_new_value):
@@ -3963,7 +3969,7 @@ def Raise_get_tback(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'tback')
+        raise_attriberr(space, w_self, 'tback')
     return space.wrap(w_self.tback)
 
 def Raise_set_tback(space, w_self, w_new_value):
@@ -4008,7 +4014,7 @@ Raise.typedef = typedef.TypeDef("Raise",
 
 def TryExcept_get_body(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -4024,7 +4030,7 @@ def TryExcept_set_body(space, w_self, w_new_value):
 
 def TryExcept_get_handlers(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'handlers')
+        raise_attriberr(space, w_self, 'handlers')
     if w_self.w_handlers is None:
         if w_self.handlers is None:
             list_w = []
@@ -4040,7 +4046,7 @@ def TryExcept_set_handlers(space, w_self, w_new_value):
 
 def TryExcept_get_orelse(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'orelse')
+        raise_attriberr(space, w_self, 'orelse')
     if w_self.w_orelse is None:
         if w_self.orelse is None:
             list_w = []
@@ -4085,7 +4091,7 @@ TryExcept.typedef = typedef.TypeDef("TryExcept",
 
 def TryFinally_get_body(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -4101,7 +4107,7 @@ def TryFinally_set_body(space, w_self, w_new_value):
 
 def TryFinally_get_finalbody(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'finalbody')
+        raise_attriberr(space, w_self, 'finalbody')
     if w_self.w_finalbody is None:
         if w_self.finalbody is None:
             list_w = []
@@ -4148,7 +4154,7 @@ def Assert_get_test(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'test')
+        raise_attriberr(space, w_self, 'test')
     return space.wrap(w_self.test)
 
 def Assert_set_test(space, w_self, w_new_value):
@@ -4171,7 +4177,7 @@ def Assert_get_msg(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'msg')
+        raise_attriberr(space, w_self, 'msg')
     return space.wrap(w_self.msg)
 
 def Assert_set_msg(space, w_self, w_new_value):
@@ -4215,7 +4221,7 @@ Assert.typedef = typedef.TypeDef("Assert",
 
 def Import_get_names(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'names')
+        raise_attriberr(space, w_self, 'names')
     if w_self.w_names is None:
         if w_self.names is None:
             list_w = []
@@ -4260,7 +4266,7 @@ def ImportFrom_get_module(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'module')
+        raise_attriberr(space, w_self, 'module')
     return space.wrap(w_self.module)
 
 def ImportFrom_set_module(space, w_self, w_new_value):
@@ -4280,7 +4286,7 @@ def ImportFrom_set_module(space, w_self, w_new_value):
 
 def ImportFrom_get_names(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'names')
+        raise_attriberr(space, w_self, 'names')
     if w_self.w_names is None:
         if w_self.names is None:
             list_w = []
@@ -4300,7 +4306,7 @@ def ImportFrom_get_level(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'level')
+        raise_attriberr(space, w_self, 'level')
     return space.wrap(w_self.level)
 
 def ImportFrom_set_level(space, w_self, w_new_value):
@@ -4348,7 +4354,7 @@ def Exec_get_body(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     return space.wrap(w_self.body)
 
 def Exec_set_body(space, w_self, w_new_value):
@@ -4371,7 +4377,7 @@ def Exec_get_globals(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'globals')
+        raise_attriberr(space, w_self, 'globals')
     return space.wrap(w_self.globals)
 
 def Exec_set_globals(space, w_self, w_new_value):
@@ -4394,7 +4400,7 @@ def Exec_get_locals(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'locals')
+        raise_attriberr(space, w_self, 'locals')
     return space.wrap(w_self.locals)
 
 def Exec_set_locals(space, w_self, w_new_value):
@@ -4439,7 +4445,7 @@ Exec.typedef = typedef.TypeDef("Exec",
 
 def Global_get_names(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'names')
+        raise_attriberr(space, w_self, 'names')
     if w_self.w_names is None:
         if w_self.names is None:
             list_w = []
@@ -4484,7 +4490,7 @@ def Expr_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Expr_set_value(space, w_self, w_new_value):
@@ -4582,7 +4588,7 @@ def expr_get_lineno(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'lineno')
+        raise_attriberr(space, w_self, 'lineno')
     return space.wrap(w_self.lineno)
 
 def expr_set_lineno(space, w_self, w_new_value):
@@ -4603,7 +4609,7 @@ def expr_get_col_offset(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'col_offset')
+        raise_attriberr(space, w_self, 'col_offset')
     return space.wrap(w_self.col_offset)
 
 def expr_set_col_offset(space, w_self, w_new_value):
@@ -4633,7 +4639,7 @@ def BoolOp_get_op(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'op')
+        raise_attriberr(space, w_self, 'op')
     return boolop_to_class[w_self.op - 1]()
 
 def BoolOp_set_op(space, w_self, w_new_value):
@@ -4652,7 +4658,7 @@ def BoolOp_set_op(space, w_self, w_new_value):
 
 def BoolOp_get_values(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'values')
+        raise_attriberr(space, w_self, 'values')
     if w_self.w_values is None:
         if w_self.values is None:
             list_w = []
@@ -4698,7 +4704,7 @@ def BinOp_get_left(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'left')
+        raise_attriberr(space, w_self, 'left')
     return space.wrap(w_self.left)
 
 def BinOp_set_left(space, w_self, w_new_value):
@@ -4721,7 +4727,7 @@ def BinOp_get_op(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'op')
+        raise_attriberr(space, w_self, 'op')
     return operator_to_class[w_self.op - 1]()
 
 def BinOp_set_op(space, w_self, w_new_value):
@@ -4744,7 +4750,7 @@ def BinOp_get_right(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'right')
+        raise_attriberr(space, w_self, 'right')
     return space.wrap(w_self.right)
 
 def BinOp_set_right(space, w_self, w_new_value):
@@ -4793,7 +4799,7 @@ def UnaryOp_get_op(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'op')
+        raise_attriberr(space, w_self, 'op')
     return unaryop_to_class[w_self.op - 1]()
 
 def UnaryOp_set_op(space, w_self, w_new_value):
@@ -4816,7 +4822,7 @@ def UnaryOp_get_operand(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'operand')
+        raise_attriberr(space, w_self, 'operand')
     return space.wrap(w_self.operand)
 
 def UnaryOp_set_operand(space, w_self, w_new_value):
@@ -4864,7 +4870,7 @@ def Lambda_get_args(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'args')
+        raise_attriberr(space, w_self, 'args')
     return space.wrap(w_self.args)
 
 def Lambda_set_args(space, w_self, w_new_value):
@@ -4885,7 +4891,7 @@ def Lambda_get_body(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     return space.wrap(w_self.body)
 
 def Lambda_set_body(space, w_self, w_new_value):
@@ -4933,7 +4939,7 @@ def IfExp_get_test(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'test')
+        raise_attriberr(space, w_self, 'test')
     return space.wrap(w_self.test)
 
 def IfExp_set_test(space, w_self, w_new_value):
@@ -4956,7 +4962,7 @@ def IfExp_get_body(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     return space.wrap(w_self.body)
 
 def IfExp_set_body(space, w_self, w_new_value):
@@ -4979,7 +4985,7 @@ def IfExp_get_orelse(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'orelse')
+        raise_attriberr(space, w_self, 'orelse')
     return space.wrap(w_self.orelse)
 
 def IfExp_set_orelse(space, w_self, w_new_value):
@@ -5024,7 +5030,7 @@ IfExp.typedef = typedef.TypeDef("IfExp",
 
 def Dict_get_keys(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'keys')
+        raise_attriberr(space, w_self, 'keys')
     if w_self.w_keys is None:
         if w_self.keys is None:
             list_w = []
@@ -5040,7 +5046,7 @@ def Dict_set_keys(space, w_self, w_new_value):
 
 def Dict_get_values(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'values')
+        raise_attriberr(space, w_self, 'values')
     if w_self.w_values is None:
         if w_self.values is None:
             list_w = []
@@ -5083,7 +5089,7 @@ Dict.typedef = typedef.TypeDef("Dict",
 
 def Set_get_elts(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'elts')
+        raise_attriberr(space, w_self, 'elts')
     if w_self.w_elts is None:
         if w_self.elts is None:
             list_w = []
@@ -5128,7 +5134,7 @@ def ListComp_get_elt(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'elt')
+        raise_attriberr(space, w_self, 'elt')
     return space.wrap(w_self.elt)
 
 def ListComp_set_elt(space, w_self, w_new_value):
@@ -5147,7 +5153,7 @@ def ListComp_set_elt(space, w_self, w_new_value):
 
 def ListComp_get_generators(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'generators')
+        raise_attriberr(space, w_self, 'generators')
     if w_self.w_generators is None:
         if w_self.generators is None:
             list_w = []
@@ -5193,7 +5199,7 @@ def SetComp_get_elt(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'elt')
+        raise_attriberr(space, w_self, 'elt')
     return space.wrap(w_self.elt)
 
 def SetComp_set_elt(space, w_self, w_new_value):
@@ -5212,7 +5218,7 @@ def SetComp_set_elt(space, w_self, w_new_value):
 
 def SetComp_get_generators(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'generators')
+        raise_attriberr(space, w_self, 'generators')
     if w_self.w_generators is None:
         if w_self.generators is None:
             list_w = []
@@ -5258,7 +5264,7 @@ def DictComp_get_key(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'key')
+        raise_attriberr(space, w_self, 'key')
     return space.wrap(w_self.key)
 
 def DictComp_set_key(space, w_self, w_new_value):
@@ -5281,7 +5287,7 @@ def DictComp_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def DictComp_set_value(space, w_self, w_new_value):
@@ -5300,7 +5306,7 @@ def DictComp_set_value(space, w_self, w_new_value):
 
 def DictComp_get_generators(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'generators')
+        raise_attriberr(space, w_self, 'generators')
     if w_self.w_generators is None:
         if w_self.generators is None:
             list_w = []
@@ -5347,7 +5353,7 @@ def GeneratorExp_get_elt(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'elt')
+        raise_attriberr(space, w_self, 'elt')
     return space.wrap(w_self.elt)
 
 def GeneratorExp_set_elt(space, w_self, w_new_value):
@@ -5366,7 +5372,7 @@ def GeneratorExp_set_elt(space, w_self, w_new_value):
 
 def GeneratorExp_get_generators(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'generators')
+        raise_attriberr(space, w_self, 'generators')
     if w_self.w_generators is None:
         if w_self.generators is None:
             list_w = []
@@ -5412,7 +5418,7 @@ def Yield_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Yield_set_value(space, w_self, w_new_value):
@@ -5459,7 +5465,7 @@ def Compare_get_left(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'left')
+        raise_attriberr(space, w_self, 'left')
     return space.wrap(w_self.left)
 
 def Compare_set_left(space, w_self, w_new_value):
@@ -5478,7 +5484,7 @@ def Compare_set_left(space, w_self, w_new_value):
 
 def Compare_get_ops(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'ops')
+        raise_attriberr(space, w_self, 'ops')
     if w_self.w_ops is None:
         if w_self.ops is None:
             list_w = []
@@ -5494,7 +5500,7 @@ def Compare_set_ops(space, w_self, w_new_value):
 
 def Compare_get_comparators(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'comparators')
+        raise_attriberr(space, w_self, 'comparators')
     if w_self.w_comparators is None:
         if w_self.comparators is None:
             list_w = []
@@ -5542,7 +5548,7 @@ def Call_get_func(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'func')
+        raise_attriberr(space, w_self, 'func')
     return space.wrap(w_self.func)
 
 def Call_set_func(space, w_self, w_new_value):
@@ -5561,7 +5567,7 @@ def Call_set_func(space, w_self, w_new_value):
 
 def Call_get_args(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'args')
+        raise_attriberr(space, w_self, 'args')
     if w_self.w_args is None:
         if w_self.args is None:
             list_w = []
@@ -5577,7 +5583,7 @@ def Call_set_args(space, w_self, w_new_value):
 
 def Call_get_keywords(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'keywords')
+        raise_attriberr(space, w_self, 'keywords')
     if w_self.w_keywords is None:
         if w_self.keywords is None:
             list_w = []
@@ -5597,7 +5603,7 @@ def Call_get_starargs(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 32:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'starargs')
+        raise_attriberr(space, w_self, 'starargs')
     return space.wrap(w_self.starargs)
 
 def Call_set_starargs(space, w_self, w_new_value):
@@ -5620,7 +5626,7 @@ def Call_get_kwargs(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 64:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'kwargs')
+        raise_attriberr(space, w_self, 'kwargs')
     return space.wrap(w_self.kwargs)
 
 def Call_set_kwargs(space, w_self, w_new_value):
@@ -5673,7 +5679,7 @@ def Repr_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Repr_set_value(space, w_self, w_new_value):
@@ -5720,7 +5726,7 @@ def Num_get_n(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'n')
+        raise_attriberr(space, w_self, 'n')
     return w_self.n
 
 def Num_set_n(space, w_self, w_new_value):
@@ -5765,7 +5771,7 @@ def Str_get_s(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 's')
+        raise_attriberr(space, w_self, 's')
     return w_self.s
 
 def Str_set_s(space, w_self, w_new_value):
@@ -5810,7 +5816,7 @@ def Attribute_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Attribute_set_value(space, w_self, w_new_value):
@@ -5833,7 +5839,7 @@ def Attribute_get_attr(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'attr')
+        raise_attriberr(space, w_self, 'attr')
     return space.wrap(w_self.attr)
 
 def Attribute_set_attr(space, w_self, w_new_value):
@@ -5854,7 +5860,7 @@ def Attribute_get_ctx(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'ctx')
+        raise_attriberr(space, w_self, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Attribute_set_ctx(space, w_self, w_new_value):
@@ -5903,7 +5909,7 @@ def Subscript_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Subscript_set_value(space, w_self, w_new_value):
@@ -5926,7 +5932,7 @@ def Subscript_get_slice(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'slice')
+        raise_attriberr(space, w_self, 'slice')
     return space.wrap(w_self.slice)
 
 def Subscript_set_slice(space, w_self, w_new_value):
@@ -5949,7 +5955,7 @@ def Subscript_get_ctx(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'ctx')
+        raise_attriberr(space, w_self, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Subscript_set_ctx(space, w_self, w_new_value):
@@ -5998,7 +6004,7 @@ def Name_get_id(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'id')
+        raise_attriberr(space, w_self, 'id')
     return space.wrap(w_self.id)
 
 def Name_set_id(space, w_self, w_new_value):
@@ -6019,7 +6025,7 @@ def Name_get_ctx(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'ctx')
+        raise_attriberr(space, w_self, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Name_set_ctx(space, w_self, w_new_value):
@@ -6063,7 +6069,7 @@ Name.typedef = typedef.TypeDef("Name",
 
 def List_get_elts(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'elts')
+        raise_attriberr(space, w_self, 'elts')
     if w_self.w_elts is None:
         if w_self.elts is None:
             list_w = []
@@ -6083,7 +6089,7 @@ def List_get_ctx(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'ctx')
+        raise_attriberr(space, w_self, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
 
 def List_set_ctx(space, w_self, w_new_value):
@@ -6128,7 +6134,7 @@ List.typedef = typedef.TypeDef("List",
 
 def Tuple_get_elts(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'elts')
+        raise_attriberr(space, w_self, 'elts')
     if w_self.w_elts is None:
         if w_self.elts is None:
             list_w = []
@@ -6148,7 +6154,7 @@ def Tuple_get_ctx(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'ctx')
+        raise_attriberr(space, w_self, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Tuple_set_ctx(space, w_self, w_new_value):
@@ -6197,7 +6203,7 @@ def Const_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return w_self.value
 
 def Const_set_value(space, w_self, w_new_value):
@@ -6315,7 +6321,7 @@ def Slice_get_lower(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'lower')
+        raise_attriberr(space, w_self, 'lower')
     return space.wrap(w_self.lower)
 
 def Slice_set_lower(space, w_self, w_new_value):
@@ -6338,7 +6344,7 @@ def Slice_get_upper(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'upper')
+        raise_attriberr(space, w_self, 'upper')
     return space.wrap(w_self.upper)
 
 def Slice_set_upper(space, w_self, w_new_value):
@@ -6361,7 +6367,7 @@ def Slice_get_step(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'step')
+        raise_attriberr(space, w_self, 'step')
     return space.wrap(w_self.step)
 
 def Slice_set_step(space, w_self, w_new_value):
@@ -6406,7 +6412,7 @@ Slice.typedef = typedef.TypeDef("Slice",
 
 def ExtSlice_get_dims(space, w_self):
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'dims')
+        raise_attriberr(space, w_self, 'dims')
     if w_self.w_dims is None:
         if w_self.dims is None:
             list_w = []
@@ -6451,7 +6457,7 @@ def Index_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def Index_set_value(space, w_self, w_new_value):
@@ -6722,7 +6728,7 @@ def comprehension_get_target(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'target')
+        raise_attriberr(space, w_self, 'target')
     return space.wrap(w_self.target)
 
 def comprehension_set_target(space, w_self, w_new_value):
@@ -6745,7 +6751,7 @@ def comprehension_get_iter(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'iter')
+        raise_attriberr(space, w_self, 'iter')
     return space.wrap(w_self.iter)
 
 def comprehension_set_iter(space, w_self, w_new_value):
@@ -6764,7 +6770,7 @@ def comprehension_set_iter(space, w_self, w_new_value):
 
 def comprehension_get_ifs(space, w_self):
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'ifs')
+        raise_attriberr(space, w_self, 'ifs')
     if w_self.w_ifs is None:
         if w_self.ifs is None:
             list_w = []
@@ -6811,7 +6817,7 @@ def excepthandler_get_lineno(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'lineno')
+        raise_attriberr(space, w_self, 'lineno')
     return space.wrap(w_self.lineno)
 
 def excepthandler_set_lineno(space, w_self, w_new_value):
@@ -6832,7 +6838,7 @@ def excepthandler_get_col_offset(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'col_offset')
+        raise_attriberr(space, w_self, 'col_offset')
     return space.wrap(w_self.col_offset)
 
 def excepthandler_set_col_offset(space, w_self, w_new_value):
@@ -6862,7 +6868,7 @@ def ExceptHandler_get_type(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'type')
+        raise_attriberr(space, w_self, 'type')
     return space.wrap(w_self.type)
 
 def ExceptHandler_set_type(space, w_self, w_new_value):
@@ -6885,7 +6891,7 @@ def ExceptHandler_get_name(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'name')
+        raise_attriberr(space, w_self, 'name')
     return space.wrap(w_self.name)
 
 def ExceptHandler_set_name(space, w_self, w_new_value):
@@ -6904,7 +6910,7 @@ def ExceptHandler_set_name(space, w_self, w_new_value):
 
 def ExceptHandler_get_body(space, w_self):
     if not w_self.initialization_state & 16:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'body')
+        raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
             list_w = []
@@ -6947,7 +6953,7 @@ ExceptHandler.typedef = typedef.TypeDef("ExceptHandler",
 
 def arguments_get_args(space, w_self):
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'args')
+        raise_attriberr(space, w_self, 'args')
     if w_self.w_args is None:
         if w_self.args is None:
             list_w = []
@@ -6967,7 +6973,7 @@ def arguments_get_vararg(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'vararg')
+        raise_attriberr(space, w_self, 'vararg')
     return space.wrap(w_self.vararg)
 
 def arguments_set_vararg(space, w_self, w_new_value):
@@ -6991,7 +6997,7 @@ def arguments_get_kwarg(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 4:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'kwarg')
+        raise_attriberr(space, w_self, 'kwarg')
     return space.wrap(w_self.kwarg)
 
 def arguments_set_kwarg(space, w_self, w_new_value):
@@ -7011,7 +7017,7 @@ def arguments_set_kwarg(space, w_self, w_new_value):
 
 def arguments_get_defaults(space, w_self):
     if not w_self.initialization_state & 8:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'defaults')
+        raise_attriberr(space, w_self, 'defaults')
     if w_self.w_defaults is None:
         if w_self.defaults is None:
             list_w = []
@@ -7060,7 +7066,7 @@ def keyword_get_arg(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'arg')
+        raise_attriberr(space, w_self, 'arg')
     return space.wrap(w_self.arg)
 
 def keyword_set_arg(space, w_self, w_new_value):
@@ -7081,7 +7087,7 @@ def keyword_get_value(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'value')
+        raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
 def keyword_set_value(space, w_self, w_new_value):
@@ -7129,7 +7135,7 @@ def alias_get_name(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'name')
+        raise_attriberr(space, w_self, 'name')
     return space.wrap(w_self.name)
 
 def alias_set_name(space, w_self, w_new_value):
@@ -7150,7 +7156,7 @@ def alias_get_asname(space, w_self):
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
-        raise operationerrfmt(space.w_AttributeError, "'%T' object has no attribute '%s'", w_self, 'asname')
+        raise_attriberr(space, w_self, 'asname')
     return space.wrap(w_self.asname)
 
 def alias_set_asname(space, w_self, w_new_value):

@@ -409,8 +409,7 @@ class AppExposeVisitor(ASDLVisitor):
             self.emit("    if w_obj is not None:", 1)
             self.emit("        return w_obj", 1)
         self.emit("if not w_self.initialization_state & %s:" % (flag,), 1)
-        self.emit("raise operationerrfmt(space.w_AttributeError, \"'%%T' object has no attribute '%%s'\", w_self, '%s')" %
-                  (field.name,), 2)
+        self.emit("raise_attriberr(space, w_self, '%s')" % (field.name,), 2)
         if field.seq:
             self.emit("if w_self.w_%s is None:" % (field.name,), 1)
             self.emit("if w_self.%s is None:" % (field.name,), 2)
@@ -544,6 +543,12 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.pairtype import extendabletype
 from rpython.tool.sourcetools import func_with_new_name
+
+
+def raise_attriberr(space, w_obj, name):
+    raise operationerrfmt(space.w_AttributeError,
+                          \"'%T' object has no attribute '%s'\",
+                          w_obj, name)
 
 
 def check_string(space, w_obj):
