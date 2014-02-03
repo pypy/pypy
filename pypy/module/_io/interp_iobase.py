@@ -1,9 +1,9 @@
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rweakref, rweaklist
 
@@ -180,10 +180,9 @@ class W_IOBase(W_Root):
             if has_peek:
                 w_readahead = space.call_method(self, "peek", space.wrap(1))
                 if not space.isinstance_w(w_readahead, space.w_str):
-                    raise operationerrfmt(
-                        space.w_IOError,
-                        "peek() should have returned a bytes object, not '%T'",
-                        w_readahead)
+                    raise oefmt(space.w_IOError,
+                                "peek() should have returned a bytes object, "
+                                "not '%T'", w_readahead)
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
@@ -206,10 +205,9 @@ class W_IOBase(W_Root):
 
             w_read = space.call_method(self, "read", space.wrap(nreadahead))
             if not space.isinstance_w(w_read, space.w_str):
-                raise operationerrfmt(
-                    space.w_IOError,
-                    "peek() should have returned a bytes object, not '%T'",
-                    w_read)
+                raise oefmt(space.w_IOError,
+                            "peek() should have returned a bytes object, not "
+                            "'%T'", w_read)
             read = space.str_w(w_read)
             if not read:
                 break

@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
      interpindirect2app
@@ -53,9 +53,9 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise operationerrfmt(space.w_TypeError,
-                    "long() argument must be a string or a number, not '%T'",
-                    w_value)
+                raise oefmt(space.w_TypeError,
+                            "long() argument must be a string or a number, "
+                            "not '%T'", w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
                 return string_to_w_long(space, w_longtype, w_value,

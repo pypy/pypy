@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
@@ -442,8 +442,9 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return dtype
         if w_dtype is dtype.w_box_type:
             return dtype
-    msg = "data type not understood (value of type %T not expected here)"
-    raise operationerrfmt(space.w_TypeError, msg, w_dtype)
+    raise oefmt(space.w_TypeError,
+                "data type not understood (value of type %T not expected "
+                "here)", w_dtype)
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpy",

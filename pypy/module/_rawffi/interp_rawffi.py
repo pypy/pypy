@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
@@ -89,8 +89,7 @@ def letter2tp(space, key):
     try:
         return PRIMITIVE_ARRAY_TYPES[key]
     except KeyError:
-        raise operationerrfmt(space.w_ValueError,
-                              "Unknown type letter %s", key)
+        raise oefmt(space.w_ValueError, "Unknown type letter %s", key)
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
@@ -141,9 +140,9 @@ def got_libffi_error(space):
                          space.wrap("not supported by libffi"))
 
 def wrap_dlopenerror(space, e, filename):
-    msg = e.msg if e.msg else 'unspecified error'
-    return operationerrfmt(space.w_OSError, 'Cannot load library %s: %s',
-                           filename, msg)
+    return oefmt(space.w_OSError,
+                 "Cannot load library %s: %s",
+                 filename, e.msg if e.msg else "unspecified error")
 
 
 class W_CDLL(W_Root):
@@ -186,8 +185,9 @@ class W_CDLL(W_Root):
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
                                               flags)
             except KeyError:
-                raise operationerrfmt(space.w_AttributeError,
-                    "No symbol %s found in library %s", name, self.name)
+                raise oefmt(space.w_AttributeError,
+                            "No symbol %s found in library %s",
+                            name, self.name)
             except LibFFIError:
                 raise got_libffi_error(space)
 
@@ -197,8 +197,9 @@ class W_CDLL(W_Root):
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
                                                         ffi_restype, flags)
             except KeyError:
-                raise operationerrfmt(space.w_AttributeError,
-                    "No symbol %d found in library %s", ordinal, self.name)
+                raise oefmt(space.w_AttributeError,
+                            "No symbol %d found in library %s",
+                            ordinal, self.name)
             except LibFFIError:
                 raise got_libffi_error(space)
         else:
@@ -215,8 +216,7 @@ class W_CDLL(W_Root):
             address_as_uint = rffi.cast(lltype.Unsigned,
                                         self.cdll.getaddressindll(name))
         except KeyError:
-            raise operationerrfmt(space.w_ValueError,
-                                  "Cannot find symbol %s", name)
+            raise oefmt(space.w_ValueError, "Cannot find symbol %s", name)
         return space.wrap(address_as_uint)
 
 @unwrap_spec(name='str_or_None')
@@ -454,9 +454,9 @@ class W_FuncPtr(W_Root):
         from pypy.module._rawffi.structure import W_Structure
         argnum = len(args_w)
         if argnum != len(self.argshapes):
-            msg = "Wrong number of arguments: expected %d, got %d"
-            raise operationerrfmt(space.w_TypeError, msg,
-                                  len(self.argshapes), argnum)
+            raise oefmt(space.w_TypeError,
+                        "Wrong number of arguments: expected %d, got %d",
+                        len(self.argshapes), argnum)
         args_ll = []
         for i in range(argnum):
             argshape = self.argshapes[i]
@@ -466,27 +466,25 @@ class W_FuncPtr(W_Root):
                 xsize, xalignment = size_alignment(self.ptr.argtypes[i])
                 if (arg.shape.size != xsize or
                     arg.shape.alignment != xalignment):
-                    msg = ("Argument %d should be a structure of size %d and "
-                           "alignment %d, "
-                           "got instead size %d and alignment %d")
-                    raise operationerrfmt(space.w_TypeError, msg, i+1,
-                            xsize, xalignment, arg.shape.size,
-                            arg.shape.alignment)
+                    raise oefmt(space.w_TypeError,
+                                "Argument %d should be a structure of size %d "
+                                "and alignment %d, got instead size %d and "
+                                "alignment %d", i + 1, xsize, xalignment,
+                                arg.shape.size, arg.shape.alignment)
             else:
                 arg = space.interp_w(W_ArrayInstance, w_arg)
                 if arg.length != 1:
-                    msg = ("Argument %d should be an array of length 1, "
-                           "got length %d")
-                    raise operationerrfmt(space.w_TypeError, msg,
-                                          i+1, arg.length)
+                    raise oefmt(space.w_TypeError,
+                                "Argument %d should be an array of length 1, "
+                                "got length %d", i+1, arg.length)
                 argletter = argshape.itemcode
                 letter = arg.shape.itemcode
                 if letter != argletter:
                     if not (argletter in TYPEMAP_PTR_LETTERS and
                             letter in TYPEMAP_PTR_LETTERS):
-                        msg = "Argument %d should be typecode %s, got %s"
-                        raise operationerrfmt(space.w_TypeError, msg,
-                                              i+1, argletter, letter)
+                        raise oefmt(space.w_TypeError,
+                                    "Argument %d should be typecode %s, got "
+                                    "%s", i + 1, argletter, letter)
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll
 
@@ -533,8 +531,8 @@ def _create_new_accessor(func_name, name):
         try:
             return space.wrap(intmask(getattr(TYPEMAP[tp_letter], name)))
         except KeyError:
-            raise operationerrfmt(space.w_ValueError,
-                        "Unknown type specification %s", tp_letter)
+            raise oefmt(space.w_ValueError, "Unknown type specification %s",
+                        tp_letter)
     return func_with_new_name(accessor, func_name)
 
 sizeof = _create_new_accessor('sizeof', 'c_size')

@@ -1,7 +1,7 @@
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
      interpindirect2app
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
@@ -130,9 +130,9 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise operationerrfmt(space.w_TypeError,
-                    "int() argument must be a string or a number, not '%T'",
-                    w_value)
+                raise oefmt(space.w_TypeError,
+                            "int() argument must be a string or a number, not "
+                            "'%T'", w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
                 value, w_longval = string_to_int_or_long(space, w_value,

@@ -1,7 +1,7 @@
 from __future__ import with_statement
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
@@ -50,16 +50,15 @@ class W_Library(W_Root):
             isinstance(w_ctype.ctitem, ctypevoid.W_CTypeVoid)):
             ok = True
         if not ok:
-            raise operationerrfmt(space.w_TypeError,
-                                  "function cdata expected, got '%s'",
-                                  w_ctype.name)
+            raise oefmt(space.w_TypeError,
+                        "function cdata expected, got '%s'", w_ctype.name)
         #
         try:
             cdata = dlsym(self.handle, name)
         except KeyError:
-            raise operationerrfmt(space.w_KeyError,
-                                  "function '%s' not found in library '%s'",
-                                  name, self.name)
+            raise oefmt(space.w_KeyError,
+                        "function '%s' not found in library '%s'",
+                        name, self.name)
         return W_CData(space, rffi.cast(rffi.CCHARP, cdata), w_ctype)
 
     @unwrap_spec(w_ctype=W_CType, name=str)
@@ -68,9 +67,9 @@ class W_Library(W_Root):
         try:
             cdata = dlsym(self.handle, name)
         except KeyError:
-            raise operationerrfmt(space.w_KeyError,
-                                  "variable '%s' not found in library '%s'",
-                                  name, self.name)
+            raise oefmt(space.w_KeyError,
+                        "variable '%s' not found in library '%s'",
+                        name, self.name)
         return w_ctype.convert_to_object(rffi.cast(rffi.CCHARP, cdata))
 
     @unwrap_spec(w_ctype=W_CType, name=str)
@@ -79,9 +78,9 @@ class W_Library(W_Root):
         try:
             cdata = dlsym(self.handle, name)
         except KeyError:
-            raise operationerrfmt(space.w_KeyError,
-                                  "variable '%s' not found in library '%s'",
-                                  name, self.name)
+            raise oefmt(space.w_KeyError,
+                        "variable '%s' not found in library '%s'",
+                        name, self.name)
         w_ctype.convert_from_object(rffi.cast(rffi.CCHARP, cdata), w_value)
 
 

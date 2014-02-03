@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app
@@ -49,8 +49,7 @@ def _get_char(space, w_src, default, name):
         return src[0]
     if len(src) == 0:
         return '\0'
-    raise operationerrfmt(space.w_TypeError,
-                          '"%s" must be a 1-character string', name)
+    raise oefmt(space.w_TypeError, '"%s" must be a 1-character string', name)
 
 def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
                    w_escapechar, w_lineterminator, w_quotechar, w_quoting,

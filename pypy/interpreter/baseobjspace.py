@@ -11,8 +11,7 @@ from rpython.rlib.rarithmetic import r_uint
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
-from pypy.interpreter.error import (OperationError, operationerrfmt,
-    new_exception_class)
+from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 
@@ -61,9 +60,9 @@ class W_Root(object):
         return False
 
     def setdict(self, space, w_dict):
-        raise operationerrfmt(space.w_TypeError,
-                              "attribute '__dict__' of %T objects "
-                              "is not writable", self)
+        raise oefmt(space.w_TypeError,
+                     "attribute '__dict__' of %T objects is not writable",
+                     self)
 
     # to be used directly only by space.type implementations
     def getclass(self, space):
@@ -123,8 +122,8 @@ class W_Root(object):
             classname = '?'
         else:
             classname = wrappable_class_name(RequiredClass)
-        msg = "'%s' object expected, got '%T' instead"
-        raise operationerrfmt(space.w_TypeError, msg, classname, self)
+        raise oefmt(space.w_TypeError,
+                    "'%s' object expected, got '%T' instead", classname, self)
 
     # used by _weakref implemenation
 
@@ -132,8 +131,8 @@ class W_Root(object):
         return None
 
     def setweakref(self, space, weakreflifeline):
-        raise operationerrfmt(space.w_TypeError,
-            "cannot create weak reference to '%T' object", self)
+        raise oefmt(space.w_TypeError,
+                    "cannot create weak reference to '%T' object", self)
 
     def delweakref(self):
         pass
@@ -215,25 +214,25 @@ class W_Root(object):
         self._typed_unwrap_error(space, "integer")
 
     def _typed_unwrap_error(self, space, expected):
-        raise operationerrfmt(space.w_TypeError, "expected %s, got %T object",
-                              expected, self)
+        raise oefmt(space.w_TypeError,
+                    "expected %s, got %T object", expected, self)
 
     def int(self, space):
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
-            raise operationerrfmt(space.w_TypeError,
-                  "unsupported operand type for int(): '%T'", self)
+            raise oefmt(space.w_TypeError,
+                        "unsupported operand type for int(): '%T'", self)
         w_result = space.get_and_call_function(w_impl, self)
 
         if (space.isinstance_w(w_result, space.w_int) or
             space.isinstance_w(w_result, space.w_long)):
             return w_result
-        msg = "__int__ returned non-int (type '%T')"
-        raise operationerrfmt(space.w_TypeError, msg, w_result)
+        raise oefmt(space.w_TypeError,
+                    "__int__ returned non-int (type '%T')", w_result)
 
     def ord(self, space):
-        msg = "ord() expected string of length 1, but %T found"
-        raise operationerrfmt(space.w_TypeError, msg, self)
+        raise oefmt(space.w_TypeError,
+                    "ord() expected string of length 1, but %T found", self)
 
     def __spacebind__(self, space):
         return self
@@ -430,10 +429,9 @@ class ObjSpace(object):
         try:
             w_mod = self.builtin_modules[name]
         except KeyError:
-            raise operationerrfmt(
-                self.w_SystemError,
-                "getbuiltinmodule() called "
-                "with non-builtin module %s", name)
+            raise oefmt(self.w_SystemError,
+                        "getbuiltinmodule() called with non-builtin module %s",
+                        name)
         else:
             # Add the module to sys.modules
             self.setitem(w_modules, w_name, w_mod)
@@ -753,9 +751,10 @@ class ObjSpace(object):
         if can_be_None and self.is_none(w_obj):
             return None
         if not isinstance(w_obj, RequiredClass):   # or obj is None
-            msg = "'%s' object expected, got '%N' instead"
-            raise operationerrfmt(self.w_TypeError, msg,
-                wrappable_class_name(RequiredClass), w_obj.getclass(self))
+            raise oefmt(self.w_TypeError,
+                        "'%s' object expected, got '%N' instead",
+                        wrappable_class_name(RequiredClass),
+                        w_obj.getclass(self))
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
@@ -832,13 +831,9 @@ class ObjSpace(object):
             items[idx] = w_item
             idx += 1
         if idx < expected_length:
-            if idx == 1:
-                plural = ""
-            else:
-                plural = "s"
-            raise operationerrfmt(self.w_ValueError,
-                                  "need more than %d value%s to unpack",
-                                  idx, plural)
+            raise oefmt(self.w_ValueError,
+                        "need more than %d value%s to unpack",
+                        idx, "" if idx == 1 else "s")
         return items
 
     def unpackiterable_unroll(self, w_iterable, expected_length):
@@ -1257,8 +1252,8 @@ class ObjSpace(object):
         except OperationError, err:
             if objdescr is None or not err.match(self, self.w_TypeError):
                 raise
-            msg = "%s must be an integer, not %T"
-            raise operationerrfmt(self.w_TypeError, msg, objdescr, w_obj)
+            raise oefmt(self.w_TypeError, "%s must be an integer, not %T",
+                        objdescr, w_obj)
         try:
             index = self.int_w(w_index)
         except OperationError, err:
@@ -1271,9 +1266,9 @@ class ObjSpace(object):
                 else:
                     return sys.maxint
             else:
-                raise operationerrfmt(
-                    w_exception, "cannot fit '%T' into an index-sized integer",
-                    w_obj)
+                raise oefmt(w_exception,
+                            "cannot fit '%T' into an index-sized integer",
+                            w_obj)
         else:
             return index
 
@@ -1517,9 +1512,9 @@ class ObjSpace(object):
                 )
         fd = self.int_w(w_fd)
         if fd < 0:
-            raise operationerrfmt(self.w_ValueError,
-                "file descriptor cannot be a negative integer (%d)", fd
-            )
+            raise oefmt(self.w_ValueError,
+                        "file descriptor cannot be a negative integer (%d)",
+                        fd)
         return fd
 
     def warn(self, w_msg, w_warningcls, stacklevel=2):

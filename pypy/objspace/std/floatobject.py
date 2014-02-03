@@ -1,5 +1,6 @@
 import operator
-from pypy.interpreter.error import OperationError, operationerrfmt
+
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std import model, newformat
 from pypy.objspace.std.floattype import float_typedef, W_AbstractFloatObject
 from pypy.objspace.std.multimethod import FailedToImplementArgs
@@ -427,9 +428,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     try:
         result = _pow(space, x, y)
     except PowDomainError:
-        raise operationerrfmt(space.w_ValueError,
-                              "negative number cannot be raised to a "
-                              "fractional power")
+        raise oefmt(space.w_ValueError,
+                    "negative number cannot be raised to a fractional power")
     return W_FloatObject(result)
 
 class PowDomainError(ValueError):
