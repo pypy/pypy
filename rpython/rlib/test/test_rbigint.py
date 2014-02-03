@@ -212,24 +212,24 @@ class Test_rbigint(object):
 
     def test_fromstr(self):
         from rpython.rlib.rstring import ParseStringError
-        assert rbigint.fromstr(u'123L').tolong() == 123
-        assert rbigint.fromstr(u'123L  ').tolong() == 123
-        py.test.raises(ParseStringError, rbigint.fromstr, u'123L  ',
+        assert rbigint.fromstr('123L').tolong() == 123
+        assert rbigint.fromstr('123L  ').tolong() == 123
+        py.test.raises(ParseStringError, rbigint.fromstr, '123L  ',
                        ignore_l_suffix=True)
-        py.test.raises(ParseStringError, rbigint.fromstr, u'L')
-        py.test.raises(ParseStringError, rbigint.fromstr, u'L  ')
-        e = py.test.raises(ParseStringError, rbigint.fromstr, u'L  ',
-                           fname=u'int')
-        assert u'int()' in e.value.msg
-        assert rbigint.fromstr(u'123L', 4).tolong() == 27
-        assert rbigint.fromstr(u'123L', 30).tolong() == 27000 + 1800 + 90 + 21
-        assert rbigint.fromstr(u'123L', 22).tolong() == 10648 + 968 + 66 + 21
-        assert rbigint.fromstr(u'123L', 21).tolong() == 441 + 42 + 3
-        assert rbigint.fromstr(u'1891234174197319').tolong() == 1891234174197319
+        py.test.raises(ParseStringError, rbigint.fromstr, 'L')
+        py.test.raises(ParseStringError, rbigint.fromstr, 'L  ')
+        e = py.test.raises(ParseStringError, rbigint.fromstr, 'L  ',
+                           fname='int')
+        assert 'int()' in e.value.msg
+        assert rbigint.fromstr('123L', 4).tolong() == 27
+        assert rbigint.fromstr('123L', 30).tolong() == 27000 + 1800 + 90 + 21
+        assert rbigint.fromstr('123L', 22).tolong() == 10648 + 968 + 66 + 21
+        assert rbigint.fromstr('123L', 21).tolong() == 441 + 42 + 3
+        assert rbigint.fromstr('1891234174197319').tolong() == 1891234174197319
 
     def test_from_numberstring_parser(self):
         from rpython.rlib.rstring import NumberStringParser
-        parser = NumberStringParser(u"1231231241", u"1231231241", 10, u"long")
+        parser = NumberStringParser("1231231241", "1231231241", 10, "long")
         assert rbigint._from_numberstring_parser(parser).tolong() == 1231231241
 
     def test_add(self):

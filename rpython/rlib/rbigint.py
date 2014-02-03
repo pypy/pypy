@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
-from rpython.rlib.objectmodel import we_are_translated, specialize, enforceargs
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -254,8 +254,7 @@ class rbigint(object):
 
     @staticmethod
     @jit.elidable
-    @enforceargs(unicode, None, None, None)
-    def fromstr(s, base=0, ignore_l_suffix=False, fname=u'long'):
+    def fromstr(s, base=0, ignore_l_suffix=False, fname='long'):
         """As string_to_int(), but optionally ignores an optional 'l' or
         'L' suffix and returns an rbigint.
         """

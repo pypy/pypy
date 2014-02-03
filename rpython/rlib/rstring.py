@@ -6,12 +6,11 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import newlist_hint, specialize, enforceargs
+from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
-from rpython.tool.sourcetools import with_unicode_literals
 
 
 # -------------- public API for string functions -----------------------
@@ -264,8 +263,6 @@ def endswith(u_self, suffix, start=0, end=sys.maxint):
 
 # -------------- numeric parsing support --------------------
 
-@enforceargs(unicode)
-@with_unicode_literals
 def strip_spaces(s):
     # XXX this is not locale-dependent
     p = 0
@@ -278,7 +275,6 @@ def strip_spaces(s):
     return s[p:q]
 
 class ParseStringError(Exception):
-    @enforceargs(None, unicode)
     def __init__(self, msg):
         self.msg = msg
 
@@ -296,8 +292,6 @@ class NumberStringParser:
         raise ParseStringError("invalid literal for %s() with base %d" %
                                (self.fname, self.original_base))
 
-    @enforceargs(None, unicode, unicode, int, unicode)
-    @with_unicode_literals
     def __init__(self, s, literal, base, fname):
         self.fname = fname
         sign = 1
@@ -337,7 +331,6 @@ class NumberStringParser:
     def rewind(self):
         self.i = 0
 
-    @with_unicode_literals
     def next_digit(self): # -1 => exhausted
         if self.i < self.n:
             c = self.s[self.i]

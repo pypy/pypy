@@ -41,22 +41,7 @@ def string_to_float(s):
     if not s:
         raise ParseStringError(INVALID_MSG)
 
-    try:
-        ascii_s = s.encode('ascii')
-    except UnicodeEncodeError:
-        # if s is not ASCII, it certainly is not a float literal (because the
-        # unicode-decimal to ascii-decimal conversion already happened
-        # earlier). We just set ascii_s to something which will fail when
-        # passed to rstring_to_float, to keep the code as similar as possible
-        # to the one we have on default.
-        #
-        # Note that CPython does something different and it encodes the string
-        # to UTF-8 before trying to parse it. We cannot since .encode('utf-8')
-        # is not RPython. However, it doesn't change anything since the UTF-8
-        # encoded string would make rstring_to_float to fail anyway.
-        ascii_s = "not a float"
-
-    low = ascii_s.lower()
+    low = s.lower()
     if low == "-inf" or low == "-infinity":
         return -INFINITY
     elif low == "inf" or low == "+inf":
@@ -69,7 +54,7 @@ def string_to_float(s):
         return -NAN
 
     try:
-        return rstring_to_float(ascii_s)
+        return rstring_to_float(s)
     except ValueError:
         raise ParseStringError(INVALID_MSG)
 
