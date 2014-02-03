@@ -249,7 +249,8 @@ class MsvcPlatform(Platform):
 
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False, headers_to_precompile=[]):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -348,7 +349,7 @@ class MsvcPlatform(Platform):
             # create a rule for compiling each file from eci since they cannot use
             # precompiled headers :(
             no_precompile = []
-            for f in list(eci.separate_module_files):
+            for f in list(no_precompile_cfiles):
                 f = m.pathrel(py.path.local(f))
                 if f not in no_precompile and f.endswith('.c'):
                     no_precompile.append(f)

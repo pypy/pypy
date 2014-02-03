@@ -100,7 +100,8 @@ class Platform(object):
         return ExecutionResult(returncode, stdout, stderr)
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False, headers_to_precompile=[]):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):

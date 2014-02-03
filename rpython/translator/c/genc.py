@@ -377,14 +377,16 @@ class CStandaloneBuilder(CBuilder):
         return self.executable_name
 
     def gen_makefile(self, targetdir, exe_name=None, headers_to_precompile=[]):
-        cfiles = [self.c_source_filename] + self.extrafiles + list(self.eci.separate_module_files)
-        xxx
+        module_files = self.eventually_copy(self.eci.separate_module_files)
+        self.eci.separate_module_files = []
+        cfiles = [self.c_source_filename] + self.extrafiles + list(module_files)
         if exe_name is not None:
             exe_name = targetdir.join(exe_name)
         mk = self.translator.platform.gen_makefile(
             cfiles, self.eci,
             path=targetdir, exe_name=exe_name,
             headers_to_precompile=headers_to_precompile,
+            no_precompile_cfiles = module_files,
             shared=self.config.translation.shared)
 
         if self.has_profopt():
