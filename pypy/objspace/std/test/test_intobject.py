@@ -497,7 +497,7 @@ class AppTestInt:
         import sys
         if '__pypy__' not in sys.builtin_module_names:
             skip('PyPy 2.x/CPython 3.4 only')
-        for value in b'  1j ', u'  1٢٣٤j ':
+        for value in b'  1j ', '  1٢٣٤j ':
             try:
                 int(value)
             except ValueError as e:
