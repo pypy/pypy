@@ -27,11 +27,11 @@ def make_specialised_class(typetuple):
                 w_obj = values_w[i]
                 val_type = typetuple[i]
                 if val_type == int:
-                    unwrapped = space.int_w(w_obj)
+                    unwrapped = w_obj.int_w(space)
                 elif val_type == float:
-                    unwrapped = space.float_w(w_obj)
+                    unwrapped = w_obj.float_w(space)
                 elif val_type == str:
-                    unwrapped = space.str_w(w_obj)
+                    unwrapped = w_obj.str_w(space)
                 elif val_type == object:
                     unwrapped = w_obj
                 else:
@@ -127,16 +127,15 @@ Cls_oo = make_specialised_class((object, object))
 Cls_ff = make_specialised_class((float, float))
 
 def makespecialisedtuple(space, list_w):
+    from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.floatobject import W_FloatObject
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
-        w_type1 = space.type(w_arg1)
-        if w_type1 is space.w_int:
-            w_type2 = space.type(w_arg2)
-            if w_type2 is space.w_int:
+        if isinstance(w_arg1, W_IntObject):
+            if isinstance(w_arg2, W_IntObject):
                 return Cls_ii(space, w_arg1, w_arg2)
-        elif w_type1 is space.w_float:
-            w_type2 = space.type(w_arg2)
-            if w_type2 is space.w_float:
+        elif isinstance(w_arg1, W_FloatObject):
+            if isinstance(w_arg2, W_FloatObject):
                 return Cls_ff(space, w_arg1, w_arg2)
         return Cls_oo(space, w_arg1, w_arg2)
     else:
