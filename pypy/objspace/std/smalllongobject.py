@@ -9,7 +9,7 @@ from rpython.rlib.rarithmetic import LONGLONG_BIT, intmask, r_longlong, r_uint
 from rpython.rlib.rbigint import rbigint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
@@ -49,20 +49,19 @@ class W_SmallLongObject(W_AbstractLongObject):
         b = intmask(a)
         if b == a:
             return b
-        raise operationerrfmt(space.w_OverflowError,
-                              "long int too large to convert to int")
+        raise oefmt(space.w_OverflowError,
+                    "long int too large to convert to int")
 
     def uint_w(self, space):
         a = self.longlong
         if a < 0:
-            raise operationerrfmt(space.w_ValueError,
-                                  "cannot convert negative integer to "
-                                  "unsigned int")
+            raise oefmt(space.w_ValueError,
+                        "cannot convert negative integer to unsigned int")
         b = r_uint(a)
         if r_longlong(b) == a:
             return b
-        raise operationerrfmt(space.w_OverflowError,
-                              "long int too large to convert to unsigned int")
+        raise oefmt(space.w_OverflowError,
+                    "long int too large to convert to unsigned int")
 
     def bigint_w(self, space):
         return self.asbigint()
@@ -133,8 +132,7 @@ class W_SmallLongObject(W_AbstractLongObject):
 
         z = w_modulus.longlong
         if z == 0:
-            raise operationerrfmt(space.w_ValueError,
-                                  "pow() 3rd argument cannot be 0")
+            raise oefmt(space.w_ValueError, "pow() 3rd argument cannot be 0")
         try:
             return _pow_impl(space, self.longlong, w_exponent, z)
         except ValueError:
@@ -260,8 +258,7 @@ class W_SmallLongObject(W_AbstractLongObject):
                 raise OverflowError
             z = x // y
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "integer division by zero")
+            raise oefmt(space.w_ZeroDivisionError, "integer division by zero")
         return W_SmallLongObject(z)
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
@@ -276,8 +273,7 @@ class W_SmallLongObject(W_AbstractLongObject):
                 raise OverflowError
             z = x % y
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "integer modulo by zero")
+            raise oefmt(space.w_ZeroDivisionError, "integer modulo by zero")
         return W_SmallLongObject(z)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
 
@@ -289,8 +285,7 @@ class W_SmallLongObject(W_AbstractLongObject):
                 raise OverflowError
             z = x // y
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "integer divmod by zero")
+            raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
         # no overflow possible
         m = x % y
         return space.newtuple([W_SmallLongObject(z), W_SmallLongObject(m)])
@@ -306,7 +301,7 @@ class W_SmallLongObject(W_AbstractLongObject):
                 raise OverflowError
             return W_SmallLongObject(c)
         if b < 0:
-            raise operationerrfmt(space.w_ValueError, "negative shift count")
+            raise oefmt(space.w_ValueError, "negative shift count")
         # b >= LONGLONG_BIT
         if a == 0:
             return self
@@ -319,8 +314,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         b = space.int_w(w_other)
         if r_uint(b) >= LONGLONG_BIT: # not (0 <= b < LONGLONG_BIT)
             if b < 0:
-                raise operationerrfmt(space.w_ValueError,
-                                      "negative shift count")
+                raise oefmt(space.w_ValueError, "negative shift count")
             # b >= LONGLONG_BIT
             if a == 0:
                 return self
@@ -398,9 +392,9 @@ def _pow_impl(space, iv, w_int2, iz):
     iw = space.int_w(w_int2)
     if iw < 0:
         if iz != 0:
-            raise operationerrfmt(space.w_TypeError,
-                                  "pow() 2nd argument cannot be negative when "
-                                  "3rd argument specified")
+            raise oefmt(space.w_TypeError,
+                        "pow() 2nd argument cannot be negative when 3rd "
+                        "argument specified")
         raise ValueError
     temp = iv
     ix = r_longlong(1)

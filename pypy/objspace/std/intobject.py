@@ -20,7 +20,7 @@ from rpython.tool.sourcetools import func_renamer, func_with_new_name
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import Buffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std import newformat
@@ -161,8 +161,8 @@ class W_AbstractIntObject(W_Root):
         elif isinstance(w_modulus, W_AbstractIntObject):
             z = space.int_w(w_modulus)
             if z == 0:
-                raise operationerrfmt(space.w_ValueError,
-                                      "pow() 3rd argument cannot be 0")
+                raise oefmt(space.w_ValueError,
+                            "pow() 3rd argument cannot be 0")
         else:
             # can't return NotImplemented (space.pow doesn't do full
             # ternary, i.e. w_modulus.__zpow__(self, w_exponent)), so
@@ -307,8 +307,7 @@ class W_AbstractIntObject(W_Root):
         try:
             z = ovfcheck(x // y)
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "integer division by zero")
+            raise oefmt(space.w_ZeroDivisionError, "integer division by zero")
         return wrapint(space, z)
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
@@ -319,8 +318,7 @@ class W_AbstractIntObject(W_Root):
         x = float(space.int_w(self))
         y = float(space.int_w(w_other))
         if y == 0.0:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "division by zero")
+            raise oefmt(space.w_ZeroDivisionError, "division by zero")
         return space.wrap(x / y)
     descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
 
@@ -330,8 +328,7 @@ class W_AbstractIntObject(W_Root):
         try:
             z = ovfcheck(x % y)
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "integer modulo by zero")
+            raise oefmt(space.w_ZeroDivisionError, "integer modulo by zero")
         return wrapint(space, z)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
 
@@ -341,8 +338,7 @@ class W_AbstractIntObject(W_Root):
         try:
             z = ovfcheck(x // y)
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "integer divmod by zero")
+            raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
         # no overflow possible
         m = x % y
         w = space.wrap
@@ -356,7 +352,7 @@ class W_AbstractIntObject(W_Root):
             c = ovfcheck(a << b)
             return wrapint(space, c)
         if b < 0:
-            raise operationerrfmt(space.w_ValueError, "negative shift count")
+            raise oefmt(space.w_ValueError, "negative shift count")
         # b >= LONG_BIT
         if a == 0:
             return self.int(space)
@@ -368,8 +364,7 @@ class W_AbstractIntObject(W_Root):
         b = space.int_w(w_other)
         if r_uint(b) >= LONG_BIT: # not (0 <= b < LONG_BIT)
             if b < 0:
-                raise operationerrfmt(space.w_ValueError,
-                                      "negative shift count")
+                raise oefmt(space.w_ValueError, "negative shift count")
             # b >= LONG_BIT
             if a == 0:
                 return self.int(space)
@@ -414,9 +409,8 @@ class W_IntObject(W_AbstractIntObject):
     def uint_w(self, space):
         intval = self.intval
         if intval < 0:
-            raise operationerrfmt(space.w_ValueError,
-                                  "cannot convert negative integer to "
-                                  "unsigned")
+            raise oefmt(space.w_ValueError,
+                        "cannot convert negative integer to unsigned")
         return r_uint(intval)
 
     def bigint_w(self, space):
@@ -459,9 +453,9 @@ def _ovf2long(space, opname, self, w_other):
 def _pow_impl(space, iv, iw, iz):
     if iw < 0:
         if iz != 0:
-            raise operationerrfmt(space.w_TypeError,
-                                  "pow() 2nd argument cannot be negative when "
-                                  "3rd argument specified")
+            raise oefmt(space.w_TypeError,
+                        "pow() 2nd argument cannot be negative when 3rd "
+                        "argument specified")
         # bounce it, since it always returns float
         raise ValueError
     temp = iv
@@ -572,9 +566,9 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise operationerrfmt(space.w_TypeError,
-                    "int() argument must be a string or a number, not '%T'",
-                    w_value)
+                raise oefmt(space.w_TypeError,
+                            "int() argument must be a string or a number, "
+                            "not '%T'", w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
                 value, w_longval = _string_to_int_or_long(space, w_value,
@@ -590,16 +584,16 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
             try:
                 s = space.str_w(w_value)
             except OperationError as e:
-                raise operationerrfmt(space.w_TypeError,
-                                      "int() can't convert non-string with "
-                                      "explicit base")
+                raise oefmt(space.w_TypeError,
+                            "int() can't convert non-string with explicit "
+                            "base")
 
         value, w_longval = _string_to_int_or_long(space, w_value, s, base)
 
     if w_longval is not None:
         if not space.is_w(w_inttype, space.w_int):
-            raise operationerrfmt(space.w_OverflowError,
-                                  "long int too large to convert to int")
+            raise oefmt(space.w_OverflowError,
+                        "long int too large to convert to int")
         return w_longval
     elif space.is_w(w_inttype, space.w_int):
         # common case

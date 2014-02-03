@@ -10,7 +10,7 @@ from rpython.tool.sourcetools import func_renamer, func_with_new_name
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import Buffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std import newformat
@@ -78,18 +78,17 @@ class W_AbstractLongObject(W_Root):
         try:
             return space.wrap(bigint.bit_length())
         except OverflowError:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "too many digits in integer")
+            raise oefmt(space.w_OverflowError, "too many digits in integer")
 
     def _truediv(self, space, w_other):
         try:
             f = self.asbigint().truediv(w_other.asbigint())
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "long division or modulo by zero")
+            raise oefmt(space.w_ZeroDivisionError,
+                        "long division or modulo by zero")
         except OverflowError:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "long/long too large for a float")
+            raise oefmt(space.w_OverflowError,
+                        "long/long too large for a float")
         return space.newfloat(f)
 
     @delegate_other
@@ -226,8 +225,8 @@ class W_LongObject(W_AbstractLongObject):
         try:
             return self.num.tofloat()
         except OverflowError:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "long int too large to convert to float")
+            raise oefmt(space.w_OverflowError,
+                        "long int too large to convert to float")
 
     def toint(self):
         return self.num.toint()
@@ -249,20 +248,18 @@ class W_LongObject(W_AbstractLongObject):
         try:
             return self.num.toint()
         except OverflowError:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "long int too large to convert to int")
+            raise oefmt(space.w_OverflowError,
+                        "long int too large to convert to int")
 
     def uint_w(self, space):
         try:
             return self.num.touint()
         except ValueError:
-            raise operationerrfmt(space.w_ValueError,
-                                  "cannot convert negative integer to "
-                                  "unsigned int")
+            raise oefmt(space.w_ValueError,
+                        "cannot convert negative integer to unsigned int")
         except OverflowError:
-            raise operationerrfmt(space.w_OverflowError,
-                                  "long int too large to convert to unsigned "
-                                  "int")
+            raise oefmt(space.w_OverflowError,
+                        "long int too large to convert to unsigned int")
 
     def bigint_w(self, space):
         return self.num
@@ -318,14 +315,13 @@ class W_LongObject(W_AbstractLongObject):
             return space.w_NotImplemented
 
         if w_exponent.asbigint().sign < 0:
-            raise operationerrfmt(space.w_TypeError,
-                                  "pow() 2nd argument cannot be negative when "
-                                  "3rd argument specified")
+            raise oefmt(space.w_TypeError,
+                        "pow() 2nd argument cannot be negative when 3rd "
+                        "argument specified")
         try:
             result = self.num.pow(w_exponent.asbigint(), w_modulus.asbigint())
         except ValueError:
-            raise operationerrfmt(space.w_ValueError,
-                                  "pow 3rd argument cannot be 0")
+            raise oefmt(space.w_ValueError, "pow 3rd argument cannot be 0")
         return W_LongObject(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
@@ -410,23 +406,21 @@ class W_LongObject(W_AbstractLongObject):
 
     def _lshift(self, space, w_other):
         if w_other.asbigint().sign < 0:
-            raise operationerrfmt(space.w_ValueError, "negative shift count")
+            raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big
-            raise operationerrfmt(space.w_OverflowError,
-                                  "shift count too large")
+            raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
 
     def _rshift(self, space, w_other):
         if w_other.asbigint().sign < 0:
-            raise operationerrfmt(space.w_ValueError, "negative shift count")
+            raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big # XXX maybe just return 0L instead?
-            raise operationerrfmt(space.w_OverflowError,
-                                  "shift count too large")
+            raise oefmt(space.w_OverflowError, "shift count too large")
         return newlong(space, self.num.rshift(shift))
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift)
 
@@ -434,8 +428,8 @@ class W_LongObject(W_AbstractLongObject):
         try:
             z = self.num.floordiv(w_other.asbigint())
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "long division or modulo by zero")
+            raise oefmt(space.w_ZeroDivisionError,
+                        "long division or modulo by zero")
         return newlong(space, z)
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
@@ -446,8 +440,8 @@ class W_LongObject(W_AbstractLongObject):
         try:
             z = self.num.mod(w_other.asbigint())
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "long division or modulo by zero")
+            raise oefmt(space.w_ZeroDivisionError,
+                        "long division or modulo by zero")
         return newlong(space, z)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
 
@@ -455,8 +449,8 @@ class W_LongObject(W_AbstractLongObject):
         try:
             div, mod = self.num.divmod(w_other.asbigint())
         except ZeroDivisionError:
-            raise operationerrfmt(space.w_ZeroDivisionError,
-                                  "long division or modulo by zero")
+            raise oefmt(space.w_ZeroDivisionError,
+                        "long division or modulo by zero")
         return space.newtuple([newlong(space, div), newlong(space, mod)])
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
 
@@ -517,9 +511,9 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise operationerrfmt(space.w_TypeError,
-                    "long() argument must be a string or a number, not '%T'",
-                    w_value)
+                raise oefmt(space.w_TypeError,
+                            "long() argument must be a string or a number, "
+                            "not '%T'", w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
                 return _string_to_w_long(space, w_longtype, w_value,
@@ -534,9 +528,9 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             try:
                 s = space.str_w(w_value)
             except OperationError:
-                raise operationerrfmt(space.w_TypeError,
-                                      "long() can't convert non-string with "
-                                      "explicit base")
+                raise oefmt(space.w_TypeError,
+                            "long() can't convert non-string with explicit "
+                            "base")
         return _string_to_w_long(space, w_longtype, w_value, s, base)
 
 
