@@ -34,25 +34,24 @@ def descr__new__(space, w_floattype, w_x):
         value = space.float_w(w_obj)
     elif (space.isinstance_w(w_value, space.w_str) or
           space.isinstance_w(w_value, space.w_bytearray)):
-        strvalue = space.bufferstr_w(w_value)
-        try:
-            value = rfloat.string_to_float(strvalue)
-        except ParseStringError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.msg))
+        value = _string_to_float(space, w_value, space.bufferstr_w(w_value))
     elif space.isinstance_w(w_value, space.w_unicode):
         from unicodeobject import unicode_to_decimal_w
-        strvalue = unicode_to_decimal_w(space, w_value)
-        try:
-            value = rfloat.string_to_float(strvalue)
-        except ParseStringError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.msg))
+        value = _string_to_float(space, w_value,
+                                 unicode_to_decimal_w(space, w_value))
     else:
         value = space.float_w(w_x)
     w_obj = space.allocate_instance(W_FloatObject, w_floattype)
     W_FloatObject.__init__(w_obj, value)
     return w_obj
+
+
+def _string_to_float(space, w_source, string):
+    try:
+        return rfloat.string_to_float(string)
+    except ParseStringError as e:
+        from pypy.objspace.std.inttype import wrap_parsestringerror
+        raise wrap_parsestringerror(space, e, w_source)
 
 
 def detect_floatformat():

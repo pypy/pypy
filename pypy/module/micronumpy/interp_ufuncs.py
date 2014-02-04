@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
@@ -192,8 +192,8 @@ class W_Ufunc(W_Root):
             for i in range(shapelen):
                 if space.is_none(w_axis) or i == axis:
                     if obj_shape[i] == 0:
-                        raise operationerrfmt(space.w_ValueError, "zero-size array to "
-                                "%s.reduce without identity", self.name)
+                        raise oefmt(space.w_ValueError, "zero-size array to "
+                                    "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumulative:
@@ -212,20 +212,20 @@ class W_Ufunc(W_Root):
                 # XXX maybe we need to do broadcasting here, although I must
                 #     say I don't understand the details for axis reduce
                 if len(out.get_shape()) > len(shape):
-                    raise operationerrfmt(space.w_ValueError,
-                        'output parameter for reduction operation %s' +
-                        ' has too many dimensions', self.name)
+                    raise oefmt(space.w_ValueError,
+                                "output parameter for reduction operation %s "
+                                "has too many dimensions", self.name)
                 elif len(out.get_shape()) < len(shape):
-                    raise operationerrfmt(space.w_ValueError,
-                        'output parameter for reduction operation %s' +
-                        ' does not have enough dimensions', self.name)
+                    raise oefmt(space.w_ValueError,
+                                "output parameter for reduction operation %s "
+                                "does not have enough dimensions", self.name)
                 elif out.get_shape() != shape:
-                    raise operationerrfmt(space.w_ValueError,
-                        'output parameter shape mismatch, expecting [%s]' +
-                        ' , got [%s]',
-                        ",".join([str(x) for x in shape]),
-                        ",".join([str(x) for x in out.get_shape()]),
-                        )
+                    raise oefmt(space.w_ValueError,
+                                "output parameter shape mismatch, expecting "
+                                "[%s], got [%s]",
+                                ",".join([str(x) for x in shape]),
+                                ",".join([str(x) for x in out.get_shape()]),
+                                )
                 dtype = out.get_dtype()
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
@@ -243,9 +243,9 @@ class W_Ufunc(W_Root):
             return out
         if out:
             if len(out.get_shape())>0:
-                raise operationerrfmt(space.w_ValueError, "output parameter "
-                              "for reduction operation %s has too many"
-                              " dimensions",self.name)
+                raise oefmt(space.w_ValueError,
+                            "output parameter for reduction operation %s has "
+                            "too many dimensions", self.name)
             dtype = out.get_dtype()
         res = loop.compute_reduce(space, obj, dtype, self.func, self.done_func,
                                   self.identity)
@@ -305,7 +305,7 @@ class W_Ufunc1(W_Ufunc):
                                                 'output must be an array'))
             res_dtype = out.get_dtype()
             #if not w_obj.get_dtype().can_cast_to(res_dtype):
-            #    raise operationerrfmt(space.w_TypeError,
+            #    raise oefmt(space.w_TypeError,
             #        "Cannot cast ufunc %s output from dtype('%s') to dtype('%s') with casting rule 'same_kind'", self.name, w_obj.get_dtype().name, res_dtype.name)
         elif self.bool_result:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
@@ -580,9 +580,9 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
                 return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
-    raise operationerrfmt(space.w_NotImplementedError,
-        'unable to create dtype from objects, ' '"%T" instance not supported',
-        w_obj)
+    raise oefmt(space.w_NotImplementedError,
+                'unable to create dtype from objects, "%T" instance not '
+                'supported', w_obj)
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                        bool_result):

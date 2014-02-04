@@ -11,7 +11,7 @@ import operator
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
     interp2app)
 from pypy.interpreter.generator import GeneratorIterator
@@ -1376,9 +1376,9 @@ class AbstractUnwrappedStrategy(object):
                 assert start >= 0
                 del items[start:start + delta]
         elif len2 != slicelength:  # No resize for extended slices
-            raise operationerrfmt(self.space.w_ValueError, "attempt to "
-                  "assign sequence of size %d to extended slice of size %d",
-                  len2, slicelength)
+            raise oefmt(self.space.w_ValueError,
+                        "attempt to assign sequence of size %d to extended "
+                        "slice of size %d", len2, slicelength)
 
         if len2 == 0:
             other_items = []

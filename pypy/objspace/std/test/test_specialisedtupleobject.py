@@ -214,6 +214,14 @@ class AppTestW_SpecialisedTupleObject:
         assert a == (1, 2.2,) + b
         assert not a != (1, 2.2) + b
 
+    def test_subclasses(self):
+        class I(int): pass
+        class F(float): pass
+        t = (I(42), I(43))
+        assert type(t[0]) is I
+        t = (F(42), F(43))
+        assert type(t[0]) is F
+
 
 class AppTestAll(test_tupleobject.AppTestW_TupleObject):
     spaceconfig = {"objspace.std.withspecialisedtuple": True}

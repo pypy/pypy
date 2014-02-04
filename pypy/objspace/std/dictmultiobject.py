@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
@@ -226,8 +226,8 @@ class W_DictMultiObject(W_Root):
             space.raise_key_error(w_key)
 
     def descr_reversed(self, space):
-        raise operationerrfmt(space.w_TypeError,
-                              'argument to reversed() must be a sequence')
+        raise oefmt(space.w_TypeError,
+                    "argument to reversed() must be a sequence")
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
@@ -293,9 +293,9 @@ class W_DictMultiObject(W_Root):
         """
         len_defaults = len(defaults_w)
         if len_defaults > 1:
-            raise operationerrfmt(space.w_TypeError,
-                                  "pop expected at most 2 arguments, got %d",
-                                  1 + len_defaults)
+            raise oefmt(space.w_TypeError,
+                        "pop expected at most 2 arguments, got %d",
+                        1 + len_defaults)
         w_item = self.getitem(w_key)
         if w_item is None:
             if len_defaults > 0:

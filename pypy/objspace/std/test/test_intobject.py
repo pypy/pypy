@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 import sys
 from pypy.objspace.std import intobject as iobj
@@ -516,6 +517,18 @@ class AppTestInt:
         e = raises(TypeError, int, [])
         assert str(e.value) == (
             "int() argument must be a string or a number, not 'list'")
+
+    def test_invalid_literal_message(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy 2.x/CPython 3.4 only')
+        for value in b'  1j ', u'  1٢٣٤j ':
+            try:
+                int(value)
+            except ValueError as e:
+                assert repr(value) in str(e)
+            else:
+                assert False, value
 
 
 class AppTestIntOptimizedAdd(AppTestInt):

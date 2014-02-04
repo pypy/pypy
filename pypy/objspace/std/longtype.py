@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
      interpindirect2app
@@ -41,10 +41,11 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                 w_obj = space.int(w_obj)
             return newbigint(space, w_longtype, space.bigint_w(w_obj))
         elif space.isinstance_w(w_value, space.w_str):
-            return string_to_w_long(space, w_longtype, space.str_w(w_value))
+            return string_to_w_long(space, w_longtype, w_value,
+                                    space.str_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            return string_to_w_long(space, w_longtype,
+            return string_to_w_long(space, w_longtype, w_value,
                                     unicode_to_decimal_w(space, w_value))
         else:
             try:
@@ -52,12 +53,13 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise operationerrfmt(space.w_TypeError,
-                    "long() argument must be a string or a number, not '%T'",
-                    w_value)
+                raise oefmt(space.w_TypeError,
+                            "long() argument must be a string or a number, "
+                            "not '%T'", w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
-                return string_to_w_long(space, w_longtype, buf.as_str())
+                return string_to_w_long(space, w_longtype, w_value,
+                                        buf.as_str())
     else:
         base = space.int_w(w_base)
 
@@ -71,15 +73,15 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("long() can't convert non-string "
                                                 "with explicit base"))
-        return string_to_w_long(space, w_longtype, s, base)
+        return string_to_w_long(space, w_longtype, w_value, s, base)
 
 
-def string_to_w_long(space, w_longtype, s, base=10):
+def string_to_w_long(space, w_longtype, w_source, string, base=10):
     try:
-        bigint = rbigint.fromstr(s, base)
-    except ParseStringError, e:
-        raise OperationError(space.w_ValueError,
-                             space.wrap(e.msg))
+        bigint = rbigint.fromstr2(string, base)
+    except ParseStringError as e:
+        from pypy.objspace.std.inttype import wrap_parsestringerror
+        raise wrap_parsestringerror(space, e, w_source)
     return newbigint(space, w_longtype, bigint)
 string_to_w_long._dont_inline_ = True
 

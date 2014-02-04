@@ -269,6 +269,13 @@ class rbigint(object):
         return rbigint._from_numberstring_parser(parser)
 
     @staticmethod
+    @jit.elidable
+    def fromstr2(s, base=0):
+        """A sub-version of fromstr(), already elidable to be JIT-called
+        with only two arguments."""
+        return rbigint.fromstr(s, base)
+
+    @staticmethod
     def _from_numberstring_parser(parser):
         return parse_digit_string(parser)
 
