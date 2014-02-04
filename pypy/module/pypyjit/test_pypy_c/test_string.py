@@ -80,7 +80,7 @@ class TestString(BaseTestPyPyC):
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
-            p93 = call(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=3>)
+            p93 = call(ConstClass(fromstr2), p25, 16, descr=<Callr . ri EF=3>)
             guard_no_exception(descr=...)
             i94 = call(ConstClass(rbigint.toint), p93, descr=<Calli . r EF=3>)
             guard_no_exception(descr=...)

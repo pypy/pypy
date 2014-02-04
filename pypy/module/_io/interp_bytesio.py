@@ -1,7 +1,7 @@
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
@@ -105,8 +105,8 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
                 raise OperationError(space.w_OverflowError, space.wrap(
                     "new position too large"))
         else:
-            raise operationerrfmt(space.w_ValueError,
-                "whence must be between 0 and 2, not %d", whence)
+            raise oefmt(space.w_ValueError,
+                        "whence must be between 0 and 2, not %d", whence)
 
         self.seek(pos, whence)
         return space.wrap(self.tell())
@@ -137,9 +137,9 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
         self._check_closed(space)
 
         if space.len_w(w_state) != 3:
-            raise operationerrfmt(space.w_TypeError,
-                "%T.__setstate__ argument should be 3-tuple, got %T",
-                self, w_state)
+            raise oefmt(space.w_TypeError,
+                        "%T.__setstate__ argument should be 3-tuple, got %T",
+                        self, w_state)
         w_content, w_pos, w_dict = space.unpackiterable(w_state, 3)
         self.truncate(0)
         self.write_w(space, w_content)

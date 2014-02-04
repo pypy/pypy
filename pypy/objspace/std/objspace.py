@@ -2,7 +2,7 @@ import __builtin__
 import types
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod)
@@ -367,9 +367,9 @@ class StdObjSpace(ObjSpace):
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
         else:
-            raise operationerrfmt(self.w_TypeError,
-                                  "%N.__new__(%N): only for the type %N",
-                                  w_type, w_subtype, w_type)
+            raise oefmt(self.w_TypeError,
+                        "%N.__new__(%N): only for the type %N",
+                        w_type, w_subtype, w_type)
         return instance
     allocate_instance._annspecialcase_ = "specialize:arg(1)"
 

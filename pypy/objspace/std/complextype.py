@@ -1,5 +1,5 @@
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
@@ -222,9 +222,8 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     # Check that it is not a string (on which space.float() would succeed).
     if (space.isinstance_w(w_complex, space.w_str) or
         space.isinstance_w(w_complex, space.w_unicode)):
-        raise operationerrfmt(space.w_TypeError,
-                              "complex number expected, got '%T'",
-                              w_complex)
+        raise oefmt(space.w_TypeError,
+                    "complex number expected, got '%T'", w_complex)
     #
     return (space.float_w(space.float(w_complex)), 0.0)
 

@@ -1,7 +1,7 @@
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module._io.interp_textio import W_TextIOBase, W_IncrementalNewlineDecoder
 from pypy.module._io.interp_iobase import convert_size
 
@@ -28,7 +28,7 @@ class W_StringIO(W_TextIOBase):
 
         if (newline is not None and newline != u"" and newline != u"\n" and
             newline != u"\r" and newline != u"\r\n"):
-            # Not using operationerrfmt() because I don't know how to ues it
+            # Not using oefmt() because I don't know how to ues it
             # with unicode
             raise OperationError(space.w_ValueError,
                 space.mod(
@@ -70,9 +70,9 @@ class W_StringIO(W_TextIOBase):
         # someday to extend the object's state without breaking
         # backwards-compatibility
         if not space.isinstance_w(w_state, space.w_tuple) or space.len_w(w_state) < 4:
-            raise operationerrfmt(space.w_TypeError,
-                "%T.__setstate__ argument should be a 4-tuple, got %T",
-                self, w_state)
+            raise oefmt(space.w_TypeError,
+                        "%T.__setstate__ argument should be a 4-tuple, got %T",
+                        self, w_state)
         w_initval, w_readnl, w_pos, w_dict = space.unpackiterable(w_state, 4)
         # Initialize state
         self.descr_init(space, w_initval, w_readnl)
@@ -95,9 +95,9 @@ class W_StringIO(W_TextIOBase):
         self.pos = pos
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
-                raise operationerrfmt(space.w_TypeError,
-                    "fourth item of state should be a dict, got a %T",
-                    w_dict)
+                raise oefmt(space.w_TypeError,
+                            "fourth item of state should be a dict, got a %T",
+                            w_dict)
             # Alternatively, we could replace the internal dictionary
             # completely. However, it seems more practical to just update it.
             space.call_method(self.w_dict, "update", w_dict)
@@ -125,9 +125,8 @@ class W_StringIO(W_TextIOBase):
 
     def write_w(self, space, w_obj):
         if not space.isinstance_w(w_obj, space.w_unicode):
-            raise operationerrfmt(space.w_TypeError,
-                                  "unicode argument expected, got '%T'",
-                                  w_obj)
+            raise oefmt(space.w_TypeError,
+                        "unicode argument expected, got '%T'", w_obj)
         self._check_closed(space)
 
         orig_size = space.len_w(w_obj)
@@ -199,13 +198,10 @@ class W_StringIO(W_TextIOBase):
         self._check_closed(space)
 
         if not 0 <= mode <= 2:
-            raise operationerrfmt(space.w_ValueError,
-                "Invalid whence (%d, should be 0, 1 or 2)", mode
-            )
+            raise oefmt(space.w_ValueError,
+                        "Invalid whence (%d, should be 0, 1 or 2)", mode)
         elif mode == 0 and pos < 0:
-            raise operationerrfmt(space.w_ValueError,
-                "negative seek position: %d", pos
-            )
+            raise oefmt(space.w_ValueError, "negative seek position: %d", pos)
         elif mode != 0 and pos != 0:
             raise OperationError(space.w_IOError,
                 space.wrap("Can't do nonzero cur-relative seeks")
@@ -229,9 +225,7 @@ class W_StringIO(W_TextIOBase):
             size = space.int_w(w_size)
 
         if size < 0:
-            raise operationerrfmt(space.w_ValueError,
-                "Negative size value %d", size
-            )
+            raise oefmt(space.w_ValueError, "Negative size value %d", size)
 
         if size < len(self.buf):
             self.resize_buffer(size)
