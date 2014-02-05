@@ -50,14 +50,17 @@ class Darwin(posix.BasePosix):
         return ["-Wl,-exported_symbols_list,%s" % (response_file,)]
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False, cfile_precompilation=None):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
         if len(fs) > 0:
             # concat (-framework, FrameworkName) pairs
             self.extra_libs += tuple(map(" ".join, zip(fs[::2], fs[1::2])))
         mk = super(Darwin, self).gen_makefile(cfiles, eci, exe_name, path,
-                                              shared, cfile_precompilation)
+                                shared=shared,
+                                headers_to_precompile=headers_to_precompile,
+                                no_precompile_cfiles = no_precompile_cfiles)
         return mk
 
 
