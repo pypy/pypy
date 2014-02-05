@@ -6,6 +6,13 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from StringIO import StringIO
 import re, sys
 
+import time
+if sys.platform == 'win32':
+    get_time = time.clock
+else:
+    get_time = time.time
+
+
 def test_simple_makefile():
     m = Makefile()
     m.definition('CC', 'xxx')
@@ -31,7 +38,7 @@ def test_redefinition():
     m.write(s)
     val = s.getvalue()
     assert not re.search('CC += +xxx', val, re.M)
-    assert re.search('CC += +yyy', val, re.M)    
+    assert re.search('CC += +yyy', val, re.M)
 
 class TestMakefile(object):
     platform = host
@@ -41,13 +48,13 @@ class TestMakefile(object):
         assert res.out == expected
         if self.strict_on_stderr:
             assert res.err == ''
-        assert res.returncode == 0        
-    
+        assert res.returncode == 0
+
     def test_900_files(self):
         txt = '#include <stdio.h>\n'
         for i in range(900):
             txt += 'int func%03d();\n' % i
-        txt += 'int main() {\n    int j=0;'    
+        txt += 'int main() {\n    int j=0;'
         for i in range(900):
             txt += '    j += func%03d();\n' % i
         txt += '    printf("%d\\n", j);\n'
@@ -71,7 +78,6 @@ class TestMakefile(object):
         self.check_res(res, '%d\n' %sum(range(900)))
 
     def test_precompiled_headers(self):
-        import time
         tmpdir = udir.join('precompiled_headers').ensure(dir=1)
         # Create an eci that should not use precompiled headers
         eci = ExternalCompilationInfo(include_dirs=[tmpdir])
@@ -79,7 +85,7 @@ class TestMakefile(object):
         eci.separate_module_files = [main_c]
         ncfiles = 10
         nprecompiled_headers = 20
-        txt = ''
+        txt = '#include <stdio.h>\n'
         for i in range(ncfiles):
             txt += "int func%03d();\n" % i
         txt += "\nint main(int argc, char * argv[])\n"
@@ -97,8 +103,8 @@ class TestMakefile(object):
             for j in range(3000):
                 txt += "int pcfunc%03d_%03d();\n" %(i, j)
             txt += '#endif'
-            pch_name.write(txt)    
-            cfiles_precompiled_headers.append(pch_name)        
+            pch_name.write(txt)
+            cfiles_precompiled_headers.append(pch_name)
         # Create some cfiles with headers we want precompiled
         cfiles = []
         for i in range(ncfiles):
@@ -108,18 +114,18 @@ class TestMakefile(object):
                 txt += '#include "%s"\n' % pch_name
             txt += "int func%03d(){ return %d;};\n" % (i, i)
             c_name.write(txt)
-            cfiles.append(c_name)        
+            cfiles.append(c_name)
         if sys.platform == 'win32':
             clean = ('clean', '', 'for %f in ( $(OBJECTS) $(TARGET) ) do @if exist %f del /f %f')
-        else:    
+        else:
             clean = ('clean', '', 'rm -f $(OBJECTS) $(TARGET) ')
         #write a non-precompiled header makefile
         mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir)
         mk.rule(*clean)
         mk.write()
-        t0 = time.clock()
+        t0 = get_time()
         self.platform.execute_makefile(mk)
-        t1 = time.clock()
+        t1 = get_time()
         t_normal = t1 - t0
         self.platform.execute_makefile(mk, extra_opts=['clean'])
         # Write a super-duper makefile with precompiled headers
@@ -127,13 +133,13 @@ class TestMakefile(object):
                            headers_to_precompile=cfiles_precompiled_headers,)
         mk.rule(*clean)
         mk.write()
-        t0 = time.clock()
+        t0 = get_time()
         self.platform.execute_makefile(mk)
-        t1 = time.clock()
+        t1 = get_time()
         t_precompiled = t1 - t0
         res = self.platform.execute(mk.exe_name)
         self.check_res(res, '%d\n' %sum(range(ncfiles)))
         print "precompiled haeder 'make' time %.2f, non-precompiled header time %.2f" %(t_precompiled, t_normal)
-        assert t_precompiled < t_normal * 0.5
+        assert t_precompiled < t_normal * 0.8
 
-   
+
