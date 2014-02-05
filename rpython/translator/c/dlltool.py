@@ -31,6 +31,8 @@ class CLibraryBuilder(CBuilder):
         extsymeci = ExternalCompilationInfo(export_symbols=export_symbols)
         self.eci = self.eci.merge(extsymeci)
         files = [self.c_source_filename] + self.extrafiles
+        files += self.eventually_copy(self.eci.separate_module_files)
+        self.eci.separate_module_files = ()
         oname = self.name
         self.so_name = self.translator.platform.compile(files, self.eci,
                                                         standalone=False,
