@@ -3,10 +3,7 @@
 
 /* Linux GCC implementation */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
 #include <sched.h>
-#endif
 
 static cpu_set_t base_cpu_set;
 static int profiling_setup = 0;
