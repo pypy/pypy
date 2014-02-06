@@ -158,29 +158,16 @@ class BasePosix(Platform):
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
             ]
+        for args in definitions:
+            m.definition(*args)
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
             ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
+            ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 
-        if len(headers_to_precompile)>0:
-            stdafx_h = path.join('stdafx.h')
-            txt  = '#ifndef PYPY_STDAFX_H\n'
-            txt += '#define PYPY_STDAFX_H\n'
-            txt += '\n'.join(['#include "' + m.pathrel(c) + '"' for c in headers_to_precompile])
-            txt += '\n#endif\n'
-            stdafx_h.write(txt)
-            rules.append(('$(OBJECTS)', 'stdafx.h.gch', []))
-            rules.append(('%.h.gch', '%.h',
-                    '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'))
-            rules.append(('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -include stdafx.h -o $@ -c $< $(INCLUDEDIRS)'))
-        else:
-            rules.append(('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'))
-
-        for args in definitions:
-            m.definition(*args)
         for rule in rules:
             m.rule(*rule)
 

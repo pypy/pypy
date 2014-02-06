@@ -31,7 +31,7 @@ def Windows_x64(cc=None):
     raise Exception("Win64 is not supported.  You must either build for Win32"
                     " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
-
+    
 def _get_msvc_env(vsver, x64flag):
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
@@ -94,7 +94,7 @@ class MsvcPlatform(Platform):
     name = "msvc"
     so_ext = 'dll'
     exe_ext = 'exe'
-
+    
     relevant_environ = ('PATH', 'INCLUDE', 'LIB')
 
     cc = 'cl.exe'
@@ -105,7 +105,7 @@ class MsvcPlatform(Platform):
     standalone_only = ()
     shared_only = ()
     environ = None
-
+    
     def __init__(self, cc=None, x64=False):
         self.x64 = x64
         msvc_compiler_environ = find_msvc_env(x64)
@@ -136,7 +136,7 @@ class MsvcPlatform(Platform):
         else:
             masm32 = 'ml.exe'
             masm64 = 'ml64.exe'
-
+        
         if x64:
             self.masm = masm64
         else:
@@ -336,10 +336,10 @@ class MsvcPlatform(Platform):
             definitions.append(('CREATE_PCH', '/Ycstdafx.h /Fpstdafx.pch /FIstdafx.h'))
             definitions.append(('USE_PCH', '/Yustdafx.h /Fpstdafx.pch /FIstdafx.h'))
             rules.append(('$(OBJECTS)', 'stdafx.pch', []))
-            rules.append(('stdafx.pch', 'stdafx.h',
+            rules.append(('stdafx.pch', 'stdafx.h', 
                '$(CC) stdafx.c /c /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                '$(CREATE_PCH) $(INCLUDEDIRS)'))
-            rules.append(('.c.obj', '',
+            rules.append(('.c.obj', '', 
                     '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
                     '/Fo$@ /c $< $(INCLUDEDIRS)'))
             #Do not use precompiled headers for some files
@@ -359,7 +359,7 @@ class MsvcPlatform(Platform):
                         '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
 
         else:
-            rules.append(('.c.obj', '',
+            rules.append(('.c.obj', '', 
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
@@ -369,7 +369,7 @@ class MsvcPlatform(Platform):
 
         for rule in rules:
             m.rule(*rule)
-
+        
         objects = ' $(OBJECTS)'
         create_obj_response_file = []
         if len(' '.join(rel_ofiles)) > 4000:
@@ -378,7 +378,7 @@ class MsvcPlatform(Platform):
             for i in range(len(rel_ofiles) - 1):
                 create_obj_response_file.append('echo %s >> obj_names.rsp' % \
                                                 rel_ofiles[i])
-            # use cmd /c for the last one so that the file is flushed
+            # use cmd /c for the last one so that the file is flushed 
             create_obj_response_file.append('cmd /c echo %s >> obj_names.rsp' % \
                                             rel_ofiles[-1])
             objects = ' @obj_names.rsp'
