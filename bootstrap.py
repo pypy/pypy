@@ -81,6 +81,14 @@ def gen_env_sh(shared_dir):
         f.write("alias pypytest='%s %s'\n" %
                 (sys.executable, os.path.join(SCRIPT_DIR, "pytest.py")))
 
+        cc=""
+        if sys.platform.startswith("openbsd"):
+            cc="CC=egcc"
+
+        f.write("alias rpython='%s %s %s'\n" %
+                (cc, sys.executable,
+                os.path.join(SCRIPT_DIR, "rpython", "bin", "rpython")))
+
 def force_symlink(src, dest):
     if os.path.exists(dest):
         os.unlink(dest)
