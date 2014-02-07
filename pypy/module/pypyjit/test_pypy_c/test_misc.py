@@ -333,8 +333,8 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_id("struct")
         if sys.maxint == 2 ** 63 - 1:
             extra = """
-            i8 = int_lt(i4, -2147483648)
-            guard_false(i8, descr=...)
+            i8 = int_ge(i4, -2147483648)
+            guard_true(i8, descr=...)
             """
         else:
             extra = ""

@@ -6,7 +6,6 @@
 # XXX We should try to generalize and single out one approach to dynamic
 # XXX code compilation.
 
-import types
 import sys, os, inspect, new
 import py
 
@@ -296,40 +295,3 @@ def rpython_wrapper(f, template, templateargs=None, **globaldict):
     result.func_defaults = f.func_defaults
     result.func_dict.update(f.func_dict)
     return result
-
-
-def _convert_const_maybe(x, encoding):
-    if isinstance(x, str):
-        return x.decode(encoding)
-    elif isinstance(x, tuple):
-        items = [_convert_const_maybe(item, encoding) for item in x]
-        return tuple(items)
-    return x
-
-def with_unicode_literals(fn=None, **kwds):
-    """Decorator that replace all string literals with unicode literals.
-    Similar to 'from __future__ import string literals' at function level.
-    Useful to limit changes in the py3k branch.
-    """
-    encoding = kwds.pop('encoding', 'ascii')
-    if kwds:
-        raise TypeError("Unexpected keyword argument(s): %s" % ', '.join(kwds.keys()))
-    def decorator(fn):
-        co = fn.func_code
-        new_consts = []
-        for const in co.co_consts:
-            new_consts.append(_convert_const_maybe(const, encoding))
-        new_consts = tuple(new_consts)
-        new_code = types.CodeType(co.co_argcount, co.co_nlocals, co.co_stacksize,
-                                  co.co_flags, co.co_code, new_consts, co.co_names,
-                                  co.co_varnames, co.co_filename, co.co_name,
-                                  co.co_firstlineno, co.co_lnotab)
-        fn.func_code = new_code
-        return fn
-    #
-    # support the usage of @with_unicode_literals instead of @with_unicode_literals()
-    if fn is not None:
-        assert type(fn) is types.FunctionType
-        return decorator(fn)
-    else:
-        return decorator
