@@ -249,7 +249,8 @@ class MsvcPlatform(Platform):
 
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -318,14 +319,53 @@ class MsvcPlatform(Platform):
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
-        for args in definitions:
-            m.definition(*args)
-
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('.c.obj', '', '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'),
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
+
+        if len(headers_to_precompile)>0:
+            stdafx_h = path.join('stdafx.h')
+            txt  = '#ifndef PYPY_STDAFX_H\n'
+            txt += '#define PYPY_STDAFX_H\n'
+            txt += '\n'.join(['#include "' + m.pathrel(c) + '"' for c in headers_to_precompile])
+            txt += '\n#endif\n'
+            stdafx_h.write(txt)
+            stdafx_c = path.join('stdafx.c')
+            stdafx_c.write('#include "stdafx.h"\n')
+            definitions.append(('CREATE_PCH', '/Ycstdafx.h /Fpstdafx.pch /FIstdafx.h'))
+            definitions.append(('USE_PCH', '/Yustdafx.h /Fpstdafx.pch /FIstdafx.h'))
+            rules.append(('$(OBJECTS)', 'stdafx.pch', []))
+            rules.append(('stdafx.pch', 'stdafx.h', 
+               '$(CC) stdafx.c /c /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+               '$(CREATE_PCH) $(INCLUDEDIRS)'))
+            rules.append(('.c.obj', '', 
+                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
+                    '/Fo$@ /c $< $(INCLUDEDIRS)'))
+            #Do not use precompiled headers for some files
+            #rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
+            #        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
+            # nmake cannot handle wildcard target specifications, so we must
+            # create a rule for compiling each file from eci since they cannot use
+            # precompiled headers :(
+            no_precompile = []
+            for f in list(no_precompile_cfiles):
+                f = m.pathrel(py.path.local(f))
+                if f not in no_precompile and f.endswith('.c'):
+                    no_precompile.append(f)
+                    target = f[:-1] + 'obj'
+                    rules.append((target, f,
+                        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                        '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
+
+        else:
+            rules.append(('.c.obj', '', 
+                          '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                          '/Fo$@ /c $< $(INCLUDEDIRS)'))
+
+
+        for args in definitions:
+            m.definition(*args)
 
         for rule in rules:
             m.rule(*rule)
@@ -392,6 +432,25 @@ class MsvcPlatform(Platform):
 
         self._handle_error(returncode, stdout, stderr, path.join('make'))
 
+class WinDefinition(posix.Definition):
+    def write(self, f):
+        def write_list(prefix, lst):
+            lst = lst or ['']
+            for i, fn in enumerate(lst):
+                print >> f, prefix, fn,
+                if i < len(lst)-1:
+                    print >> f, '\\'
+                else:
+                    print >> f
+                prefix = ' ' * len(prefix)
+        name, value = self.name, self.value
+        if isinstance(value, str):
+            f.write('%s = %s\n' % (name, value))
+        else:
+            write_list('%s =' % (name,), value)
+        f.write('\n')
+
+
 class NMakefile(posix.GnuMakefile):
     def write(self, out=None):
         # nmake expands macros when it parses rules.
@@ -410,6 +469,14 @@ class NMakefile(posix.GnuMakefile):
         if out is None:
             f.close()
 
+    def definition(self, name, value):
+        defs = self.defs
+        defn = WinDefinition(name, value)
+        if name in defs:
+            self.lines[defs[name]] = defn
+        else:
+            defs[name] = len(self.lines)
+            self.lines.append(defn)
 
 class MingwPlatform(posix.BasePosix):
     name = 'mingw32'
