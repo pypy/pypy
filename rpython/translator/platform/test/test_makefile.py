@@ -4,7 +4,7 @@ from rpython.translator.platform import host
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from StringIO import StringIO
-import re, sys
+import re, sys, py
 
 def test_simple_makefile():
     m = Makefile()
@@ -71,6 +71,8 @@ class TestMakefile(object):
         self.check_res(res, '%d\n' %sum(range(900)))
 
     def test_precompiled_headers(self):
+        if self.platform.cc != 'cl.exe':
+            py.test.skip("Only MSVC profits from precompiled headers")
         import time
         tmpdir = udir.join('precompiled_headers').ensure(dir=1)
         # Create an eci that should not use precompiled headers
@@ -111,15 +113,17 @@ class TestMakefile(object):
             cfiles.append(c_name)        
         if sys.platform == 'win32':
             clean = ('clean', '', 'for %f in ( $(OBJECTS) $(TARGET) ) do @if exist %f del /f %f')
+            get_time = time.clock
         else:    
             clean = ('clean', '', 'rm -f $(OBJECTS) $(TARGET) ')
+            get_time = time.time
         #write a non-precompiled header makefile
         mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir)
         mk.rule(*clean)
         mk.write()
-        t0 = time.clock()
+        t0 = get_time()
         self.platform.execute_makefile(mk)
-        t1 = time.clock()
+        t1 = get_time()
         t_normal = t1 - t0
         self.platform.execute_makefile(mk, extra_opts=['clean'])
         # Write a super-duper makefile with precompiled headers
@@ -127,9 +131,9 @@ class TestMakefile(object):
                            headers_to_precompile=cfiles_precompiled_headers,)
         mk.rule(*clean)
         mk.write()
-        t0 = time.clock()
+        t0 = get_time()
         self.platform.execute_makefile(mk)
-        t1 = time.clock()
+        t1 = get_time()
         t_precompiled = t1 - t0
         res = self.platform.execute(mk.exe_name)
         self.check_res(res, '%d\n' %sum(range(ncfiles)))
