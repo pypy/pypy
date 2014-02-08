@@ -275,7 +275,8 @@ class ConstFloat(Const):
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
-            return self.value == other.value
+            return (longlong.extract_bits(self.value) ==
+                    longlong.extract_bits(other.value))
         return False
 
     def nonnull(self):
