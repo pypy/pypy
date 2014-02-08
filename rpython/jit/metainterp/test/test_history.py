@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.history import *
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.rfloat import NAN, INFINITY
 
 
 def test_repr():
@@ -38,3 +39,20 @@ def test_same_constant():
     assert not c3a.same_constant(c1b)
     assert not c3a.same_constant(c2b)
     assert     c3a.same_constant(c3b)
+
+def test_same_constant_float():
+    c1 = Const._new(12.34)
+    c2 = Const._new(12.34)
+    c3 = Const._new(NAN)
+    c4 = Const._new(NAN)
+    c5 = Const._new(INFINITY)
+    c6 = Const._new(INFINITY)
+    assert c1.same_constant(c2)
+    assert c3.same_constant(c4)
+    assert c5.same_constant(c6)
+    assert not c1.same_constant(c4)
+    assert not c1.same_constant(c6)
+    assert not c3.same_constant(c2)
+    assert not c3.same_constant(c6)
+    assert not c5.same_constant(c2)
+    assert not c5.same_constant(c4)
