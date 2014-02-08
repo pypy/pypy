@@ -275,6 +275,9 @@ class ConstFloat(Const):
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
+            # careful in this comparison: if self.value and other.value
+            # are both NaN, stored as regular floats, then it will turn
+            # out to be false...
             return (longlong.extract_bits(self.value) ==
                     longlong.extract_bits(other.value))
         return False
