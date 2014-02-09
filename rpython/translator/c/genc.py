@@ -432,8 +432,8 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('ASMFILES', sfiles)
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
-            if sys.platform == 'win32':
-                mk.definition('DEBUGFLAGS', '/MD /Zi')
+            if self.translator.platform.name == 'msvc':
+                mk.definition('DEBUGFLAGS', '-MD -Zi')
             else:
                 if self.config.translation.shared:
                     mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
@@ -489,11 +489,11 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
 
         else:
-            if sys.platform == 'win32':
-                mk.definition('DEBUGFLAGS', '/MD /Zi')
+            if self.translator.platform.name == 'msvc':
+                mk.definition('DEBUGFLAGS', '-MD -Zi')
             else:
                 mk.definition('DEBUGFLAGS', '-O1 -g')
-        if sys.platform == 'win32':
+        if self.translator.platform.name == 'msvc':
             mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
         else:
             mk.rule('debug_target', '$(TARGET)', '#')

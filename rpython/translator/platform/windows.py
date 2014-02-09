@@ -314,6 +314,7 @@ class MsvcPlatform(Platform):
             ('CC_LINK', self.link),
             ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
+            ('MAKE', 'nmake.exe'),
             ('_WIN32', '1'),
             ]
         if self.x64:
