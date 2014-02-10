@@ -1,5 +1,5 @@
 
-import os
+import os, sys, py
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
@@ -184,3 +184,15 @@ class TestDirect:
             got = f.readline()
             assert got == ''
             f.close()
+
+
+class TestPopen:
+    def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("not for win32")
+
+    def test_popen(self):
+        f = rfile.create_popen_file("python -c 'print 42'", "r")
+        s = f.read()
+        f.close()
+        assert s == '42\n'

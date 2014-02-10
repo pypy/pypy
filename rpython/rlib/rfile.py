@@ -47,6 +47,9 @@ c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT, macro=True)
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
                      rffi.CCHARP)
 
+c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
+c_pclose = llexternal('pclose', [lltype.Ptr(FILE)], rffi.INT)
+
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
 
@@ -75,6 +78,21 @@ def create_temp_rfile():
         raise OSError(errno, os.strerror(errno))
     return RFile(res)
 
+def create_popen_file(command, type):
+    ll_command = rffi.str2charp(command)
+    try:
+        ll_type = rffi.str2charp(type)
+        try:
+            ll_f = c_popen(ll_command, ll_type)
+            if not ll_f:
+                errno = rposix.get_errno()
+                raise OSError(errno, os.strerror(errno))
+        finally:
+            lltype.free(ll_type, flavor='raw')
+    finally:
+        lltype.free(ll_command, flavor='raw')
+    return RPopenFile(ll_f)
+
 class RFile(object):
     def __init__(self, ll_file):
         self.ll_file = ll_file
@@ -100,11 +118,14 @@ class RFile(object):
     def close(self):
         if self.ll_file:
             # double close is allowed
-            res = c_close(self.ll_file)
+            res = self._do_close()
             self.ll_file = lltype.nullptr(FILE)
             if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
+
+    def _do_close(self):
+        return c_close(self.ll_file)
 
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
@@ -234,3 +255,9 @@ class RFile(object):
             finally:
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise ValueError("I/O operation on closed file")
+
+
+class RPopenFile(RFile):
+
+    def _do_close(self):
+        return c_pclose(self.ll_file)
