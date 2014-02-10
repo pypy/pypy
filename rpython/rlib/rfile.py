@@ -144,9 +144,7 @@ class RFile(object):
                         if c_feof(ll_file):
                             # ok, finished
                             return s.build()
-                        errno = c_ferror(ll_file)
-                        c_clearerror(ll_file)
-                        raise OSError(errno, os.strerror(errno))
+                        raise _error(ll_file)
                     s.append_charpsize(buf, returned_size)
             finally:
                 lltype.free(buf, flavor='raw')
@@ -157,8 +155,7 @@ class RFile(object):
                 returned_size = intmask(returned_size)  # is between 0 and size
                 if returned_size == 0:
                     if not c_feof(ll_file):
-                        errno = c_ferror(ll_file)
-                        raise OSError(errno, os.strerror(errno))
+                        raise _error(ll_file)
                 s = rffi.str_from_buffer(raw_buf, gc_buf, size, returned_size)
             finally:
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
@@ -215,8 +212,7 @@ class RFile(object):
         if not result:
             if c_feof(self.ll_file):   # ok
                 return 0
-            errno = c_ferror(self.ll_file)
-            raise OSError(errno, os.strerror(errno))
+            raise _error(self.ll_file)
         #
         # Assume that fgets() works as documented, and additionally
         # never writes beyond the final \0, which the CPython
@@ -259,3 +255,9 @@ class RFile(object):
 
 class RPopenFile(RFile):
     _do_close = staticmethod(c_pclose)
+
+
+def _error(ll_file):
+    errno = c_ferror(ll_file)
+    c_clearerror(ll_file)
+    raise OSError(errno, os.strerror(errno))
