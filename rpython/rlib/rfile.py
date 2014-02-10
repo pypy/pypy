@@ -116,16 +116,16 @@ class RFile(object):
             rffi.free_nonmovingbuffer(value, ll_value)
 
     def close(self):
-        if self.ll_file:
+        ll_f = self.ll_file
+        if ll_f:
             # double close is allowed
-            res = self._do_close()
             self.ll_file = lltype.nullptr(FILE)
+            res = self._do_close(ll_f)
             if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
 
-    def _do_close(self):
-        return c_close(self.ll_file)
+    _do_close = staticmethod(c_close)    # overridden in RPopenFile
 
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
@@ -258,6 +258,4 @@ class RFile(object):
 
 
 class RPopenFile(RFile):
-
-    def _do_close(self):
-        return c_pclose(self.ll_file)
+    _do_close = staticmethod(c_pclose)
