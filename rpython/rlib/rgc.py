@@ -15,7 +15,6 @@ collect = gc.collect
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
-    So far only implemented by the Boehm GC and the semispace/generation GCs.
     """
     pass
 
