@@ -142,6 +142,15 @@ class TestDirect:
         cls.tmpdir = udir.join('test_rfile_direct')
         cls.tmpdir.ensure(dir=True)
 
+    def test_read_a_lot(self):
+        fname = str(self.tmpdir.join('file_read_a_lot'))
+        with open(fname, 'w') as f:
+            f.write('dupa' * 999)
+        f = rfile.create_file(fname, 'r')
+        s = f.read()
+        assert s == 'dupa' * 999
+        f.close()
+
     def test_readline(self):
         fname = str(self.tmpdir.join('file_readline'))
         j = 0

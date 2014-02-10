@@ -29,9 +29,9 @@ CC = platform.configure(CConfig)
 OFF_T = CC['off_t']
 c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
 c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
-c_write = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
+c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                      lltype.Ptr(FILE)], rffi.SIZE_T)
-c_read = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
+c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                    lltype.Ptr(FILE)], rffi.SIZE_T)
 c_feof = llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
 c_ferror = llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
@@ -40,7 +40,7 @@ c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
                           rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
-c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], lltype.Signed)
+c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
 c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT, macro=True)
 
@@ -89,18 +89,11 @@ class RFile(object):
         try:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
-            total_bytes = 0
-            ll_current = ll_value
-            while total_bytes < len(value):
-                bytes = c_write(ll_current, 1, len(value) - r_uint(total_bytes),
-                                ll_file)
-                if bytes == 0:
-                    errno = rposix.get_errno()
-                    raise OSError(errno, os.strerror(errno))
-                total_bytes += bytes
-                ll_current = rffi.cast(rffi.CCHARP,
-                                       rffi.cast(lltype.Unsigned, ll_value) +
-                                       total_bytes)
+            length = len(value)
+            bytes = c_fwrite(ll_value, 1, length, ll_file)
+            if bytes != length:
+                errno = rposix.get_errno()
+                raise OSError(errno, os.strerror(errno))
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
 
@@ -124,7 +117,8 @@ class RFile(object):
             try:
                 s = StringBuilder()
                 while True:
-                    returned_size = c_read(buf, 1, BASE_BUF_SIZE, ll_file)
+                    returned_size = c_fread(buf, 1, BASE_BUF_SIZE, ll_file)
+                    returned_size = intmask(returned_size)  # is between 0 and BASE_BUF_SIZE
                     if returned_size == 0:
                         if c_feof(ll_file):
                             # ok, finished
@@ -138,13 +132,13 @@ class RFile(object):
         else:
             raw_buf, gc_buf = rffi.alloc_buffer(size)
             try:
-                returned_size = c_read(raw_buf, 1, size, ll_file)
+                returned_size = c_fread(raw_buf, 1, size, ll_file)
+                returned_size = intmask(returned_size)  # is between 0 and size
                 if returned_size == 0:
                     if not c_feof(ll_file):
                         errno = c_ferror(ll_file)
                         raise OSError(errno, os.strerror(errno))
-                s = rffi.str_from_buffer(raw_buf, gc_buf, size,
-                                         rffi.cast(lltype.Signed, returned_size))
+                s = rffi.str_from_buffer(raw_buf, gc_buf, size, returned_size)
             finally:
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
             return s
