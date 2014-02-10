@@ -27,11 +27,11 @@ def make_specialised_class(typetuple):
                 w_obj = values_w[i]
                 val_type = typetuple[i]
                 if val_type == int:
-                    unwrapped = space.int_w(w_obj)
+                    unwrapped = w_obj.int_w(space)
                 elif val_type == float:
-                    unwrapped = space.float_w(w_obj)
+                    unwrapped = w_obj.float_w(space)
                 elif val_type == str:
-                    unwrapped = space.str_w(w_obj)
+                    unwrapped = w_obj.str_w(space)
                 elif val_type == object:
                     unwrapped = w_obj
                 else:
@@ -129,7 +129,7 @@ Cls_ff = make_specialised_class((float, float))
 def is_int_w(space, w_obj):
     """Determine if obj can be safely casted to an int_w"""
     try:
-        space.int_w(w_obj)
+        w_obj.int_w(space)
     except OperationError, e:
         if not (e.match(space, space.w_OverflowError) or
                 e.match(space, space.w_TypeError)):
@@ -138,16 +138,16 @@ def is_int_w(space, w_obj):
     return True
 
 def makespecialisedtuple(space, list_w):
+    # XXX: hardcoded to W_LongObject until py3k W_IntObject is restored
+    from pypy.objspace.std.longobject import W_LongObject
+    from pypy.objspace.std.floatobject import W_FloatObject
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
-        w_type1 = space.type(w_arg1)
-        if w_type1 is space.w_int and is_int_w(space, w_arg1):
-            w_type2 = space.type(w_arg2)
-            if w_type2 is space.w_int and is_int_w(space, w_arg2):
+        if type(w_arg1) is W_LongObject and is_int_w(space, w_arg1):
+            if type(w_arg2) is W_LongObject and is_int_w(space, w_arg2):
                 return Cls_ii(space, w_arg1, w_arg2)
-        elif w_type1 is space.w_float:
-            w_type2 = space.type(w_arg2)
-            if w_type2 is space.w_float:
+        elif type(w_arg1) is W_FloatObject:
+            if type(w_arg2) is W_FloatObject:
                 return Cls_ff(space, w_arg1, w_arg2)
         return Cls_oo(space, w_arg1, w_arg2)
     else:

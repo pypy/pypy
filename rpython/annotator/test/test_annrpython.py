@@ -4139,6 +4139,16 @@ class TestAnnotateTestCase:
             a.build_types(f, [str])
         assert ("Cannot prove that the object is callable" in exc.value.msg)
 
+    def test_UnionError_on_PBC(self):
+        l = ['a', 1]
+        def f(x):
+            l.append(x)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as excinfo:
+            a.build_types(f, [int])
+        assert 'Happened at file' in excinfo.value.source
+        assert 'Known variable annotations:' in excinfo.value.source
+
     def test_str_format_error(self):
         def f(s, x):
             return s.format(x)

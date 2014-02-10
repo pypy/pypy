@@ -57,3 +57,13 @@ Improve cohesion between rpython.flowspace and rpython.annotator.
 mapdicts keep track of whether or not an attribute is every assigned to
 multiple times. If it's only assigned once then an elidable lookup is used when
 possible.
+
+.. branch: precompiled-headers
+Create a Makefile using precompiled headers for MSVC platforms.
+The downside is a messy nmake-compatible Makefile. Since gcc shows minimal
+speedup, it was not implemented.
+
+.. branch: camelot
+With a properly configured 256-color terminal (TERM=...-256color), the
+Mandelbrot set shown during translation now uses a range of 50 colours.
+Essential!

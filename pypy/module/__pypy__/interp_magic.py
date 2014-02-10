@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
+from pypy.interpreter.pyframe import PyFrame
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
@@ -108,6 +109,11 @@ def set_debug(space, debug):
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
     rgc.add_memory_pressure(estimate)
+
+@unwrap_spec(w_frame=PyFrame)
+def locals_to_fast(space, w_frame):
+    assert isinstance(w_frame, PyFrame)
+    w_frame.locals2fast()
 
 @unwrap_spec(w_value=WrappedDefault(None), w_tb=WrappedDefault(None))
 def normalize_exc(space, w_type, w_value=None, w_tb=None):
