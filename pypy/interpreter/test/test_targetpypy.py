@@ -12,8 +12,10 @@ def test_exeucte_source(space):
     _, d = create_entry_point(space, None)
     execute_source = d['pypy_execute_source']
     lls = rffi.str2charp("import sys; sys.modules['xyz'] = 3")
-    execute_source(lls)
+    res = execute_source(lls)
     lltype.free(lls, flavor='raw')
+    assert lltype.typeOf(res) == rffi.INT
+    assert rffi.cast(lltype.Signed, res) == 0
     x = space.int_w(space.getitem(space.getattr(space.builtin_modules['sys'],
                                                 space.wrap('modules')),
                                                 space.wrap('xyz')))
@@ -24,5 +26,5 @@ def test_exeucte_source(space):
     # did not crash - the same globals
     pypy_setup_home = d['pypy_setup_home']
     lls = rffi.str2charp(__file__)
-    pypy_setup_home(lls, 1)
+    pypy_setup_home(lls, rffi.cast(rffi.INT, 1))
     lltype.free(lls, flavor='raw')

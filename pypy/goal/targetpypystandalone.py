@@ -90,9 +90,10 @@ def create_entry_point(space, w_dict):
     return f
     """)
 
-    @entrypoint('main', [rffi.CCHARP, lltype.Signed], c_name='pypy_setup_home')
+    @entrypoint('main', [rffi.CCHARP, rffi.INT], c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
+        verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home:
             home = rffi.charp2str(ll_home)
         else:
@@ -120,7 +121,8 @@ def create_entry_point(space, w_dict):
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
         source = rffi.charp2str(ll_source)
-        return _pypy_execute_source(source)
+        res = _pypy_execute_source(source)
+        return rffi.cast(rffi.INT, res)
 
     @entrypoint('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
