@@ -142,20 +142,6 @@ to be got from them!):
 
 * `hg`
 
-Experiment (again) with LLVM backend for RPython compilation
-------------------------------------------------------------
-
-We already tried working with LLVM and at the time, LLVM was not mature enough
-for our needs. It's possible that this has changed, reviving the LLVM backend
-(or writing new from scratch) for static compilation would be a good project.
-
-(On the other hand, just generating C code and using clang might be enough.
-The issue with that is the so-called "asmgcc GC root finder", which has tons
-of issues of this own.  In my opinion (arigo), it would be definitely a
-better project to try to optimize the alternative, the "shadowstack" GC root
-finder, which is nicely portable.  So far it gives a pypy that is around
-7% slower.)
-
 Embedding PyPy
 ----------------------------------------
 
