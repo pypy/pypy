@@ -14,13 +14,13 @@ void rpython_startup_code(void);
 
 
 /* Initialize the home directory of PyPy.  It is necessary to call this.
-  
+
    Call it with "home" being the file name of the libpypy.so, for
    example; it will be used as a starting point when searching for the
    lib-python and lib_pypy directories.  They are searched from
    "home/..", "home/../..", etc.  Returns 0 if everything was fine.  If
    an error occurs, returns 1 and (if verbose != 0) prints some
-   information to stderr. 
+   information to stderr.
  */
 int pypy_setup_home(char *home, int verbose);
 
