@@ -28,7 +28,7 @@ int pypy_setup_home(char *home, int verbose);
 /* If your program has multiple threads, then you need to call
    pypy_init_threads() once at init time, and then pypy_thread_attach()
    once in each other thread that just started and in which you want to
-   use pypy_execute_source().
+   run Python code (including via callbacks, see below).
  */
 void pypy_init_threads(void);
 void pypy_thread_attach(void);
