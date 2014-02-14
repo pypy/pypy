@@ -9,7 +9,7 @@ import operator
 import sys
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import instantiate, specialize
+from rpython.rlib.objectmodel import instantiate, import_from_mixin, specialize
 from rpython.rlib.rarithmetic import (
     LONG_BIT, is_valid_int, ovfcheck, r_uint, string_to_int)
 from rpython.rlib.rbigint import rbigint
@@ -29,27 +29,197 @@ from pypy.objspace.std.model import (
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
+SENTINEL = object()
+
+
 class W_AbstractIntObject(W_Root):
 
     __slots__ = ()
 
     def int(self, space):
         """x.__int__() <==> int(x)"""
-        raise NotImplementedError
+
+    def descr_format(self, space, w_format_spec):
+        pass
 
     def descr_coerce(self, space, w_other):
         """x.__coerce__(y) <==> coerce(x, y)"""
+
+    def descr_pow(self, space, w_exponent, w_modulus=None):
+        """x.__pow__(y[, z]) <==> pow(x, y[, z])"""
+    descr_rpow = func_with_new_name(descr_pow, 'descr_rpow')
+    descr_rpow.__doc__ = "y.__rpow__(x[, z]) <==> pow(x, y[, z])"
+
+    def _abstract_unaryop(opname, doc=SENTINEL):
+        if doc is SENTINEL:
+            doc = 'x.__%s__() <==> %s(x)' % (opname, opname)
+        @func_renamer('descr_' + opname)
+        def descr_unaryop(self, space):
+            pass
+        descr_unaryop.__doc__ = doc
+        return descr_unaryop
+
+    descr_repr = _abstract_unaryop('repr')
+    descr_str = _abstract_unaryop('str')
+
+    descr_conjugate = _abstract_unaryop(
+        'conjugate', "Returns self, the complex conjugate of any int.")
+    descr_bit_length = _abstract_unaryop('bit_length', """\
+        int.bit_length() -> int
+
+        Number of bits necessary to represent self in binary.
+        >>> bin(37)
+        '0b100101'
+        >>> (37).bit_length()
+        6""")
+    descr_hash = _abstract_unaryop('hash')
+    descr_oct = _abstract_unaryop('oct')
+    descr_hex = _abstract_unaryop('hex')
+    descr_getnewargs = _abstract_unaryop('getnewargs', None)
+
+    descr_long = _abstract_unaryop('long')
+    descr_index = _abstract_unaryop(
+        'index', "x[y:z] <==> x[y.__index__():z.__index__()]")
+    descr_trunc = _abstract_unaryop('trunc',
+                                    "Truncating an Integral returns itself.")
+    descr_float = _abstract_unaryop('float')
+
+    descr_pos = _abstract_unaryop('pos', "x.__pos__() <==> +x")
+    descr_neg = _abstract_unaryop('neg', "x.__neg__() <==> -x")
+    descr_abs = _abstract_unaryop('abs')
+    descr_nonzero = _abstract_unaryop('nonzero', "x.__nonzero__() <==> x != 0")
+    descr_invert = _abstract_unaryop('invert', "x.__invert__() <==> ~x")
+
+    def _abstract_cmpop(opname):
+        @func_renamer('descr_' + opname)
+        def descr_cmp(self, space, w_other):
+            pass
+        descr_cmp.__doc__ = 'x.__%s__(y) <==> x%sy' % (opname, CMP_OPS[opname])
+        return descr_cmp
+
+    descr_lt = _abstract_cmpop('lt')
+    descr_le = _abstract_cmpop('le')
+    descr_eq = _abstract_cmpop('eq')
+    descr_ne = _abstract_cmpop('ne')
+    descr_gt = _abstract_cmpop('gt')
+    descr_ge = _abstract_cmpop('ge')
+
+    def _abstract_binop(opname):
+        oper = BINARY_OPS.get(opname)
+        if oper == '%':
+            oper = '%%'
+        oper = '%s(%%s, %%s)' % opname if not oper else '%%s%s%%s' % oper
+        @func_renamer('descr_' + opname)
+        def descr_binop(self, space, w_other):
+            pass
+        descr_binop.__doc__ = "x.__%s__(y) <==> %s" % (opname,
+                                                       oper % ('x', 'y'))
+        descr_rbinop = func_with_new_name(descr_binop, 'descr_r' + opname)
+        descr_rbinop.__doc__ = "x.__r%s__(y) <==> %s" % (opname,
+                                                         oper % ('y', 'x'))
+        return descr_binop, descr_rbinop
+
+    descr_add, descr_radd = _abstract_binop('add')
+    descr_sub, descr_rsub = _abstract_binop('sub')
+    descr_mul, descr_rmul = _abstract_binop('mul')
+
+    descr_and, descr_rand = _abstract_binop('and')
+    descr_or, descr_ror = _abstract_binop('or')
+    descr_xor, descr_rxor = _abstract_binop('xor')
+
+    descr_lshift, descr_rlshift = _abstract_binop('lshift')
+    descr_rshift, descr_rrshift = _abstract_binop('rshift')
+
+    descr_floordiv, descr_rfloordiv = _abstract_binop('floordiv')
+    descr_div, descr_rdiv = _abstract_binop('div')
+    descr_truediv, descr_rtruediv = _abstract_binop('truediv')
+    descr_mod, descr_rmod = _abstract_binop('mod')
+    descr_divmod, descr_rdivmod = _abstract_binop('divmod')
+
+    def descr_get_numerator(self, space):
+        return self.int(space)
+    descr_get_real = descr_get_numerator
+
+    def descr_get_denominator(self, space):
+        return wrapint(space, 1)
+
+    def descr_get_imag(self, space):
+        return wrapint(space, 0)
+
+
+def _floordiv(space, x, y):
+    try:
+        z = ovfcheck(x // y)
+    except ZeroDivisionError:
+        raise oefmt(space.w_ZeroDivisionError, "integer division by zero")
+    return wrapint(space, z)
+_div = _floordiv
+
+
+def _truediv(space, x, y):
+    a = float(x)
+    b = float(y)
+    if b == 0.0:
+        raise oefmt(space.w_ZeroDivisionError, "division by zero")
+    return space.wrap(a / b)
+
+
+def _mod(space, x, y):
+    try:
+        z = ovfcheck(x % y)
+    except ZeroDivisionError:
+        raise oefmt(space.w_ZeroDivisionError, "integer modulo by zero")
+    return wrapint(space, z)
+
+
+def _divmod(space, x, y):
+    try:
+        z = ovfcheck(x // y)
+    except ZeroDivisionError:
+        raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
+    # no overflow possible
+    m = x % y
+    w = space.wrap
+    return space.newtuple([w(z), w(m)])
+
+
+def _lshift(space, a, b):
+    if r_uint(b) < LONG_BIT: # 0 <= b < LONG_BIT
+        c = ovfcheck(a << b)
+        return wrapint(space, c)
+    if b < 0:
+        raise oefmt(space.w_ValueError, "negative shift count")
+    # b >= LONG_BIT
+    if a == 0:
+        return wrapint(space, a)
+    raise OverflowError
+
+
+def _rshift(space, a, b):
+    if r_uint(b) >= LONG_BIT: # not (0 <= b < LONG_BIT)
+        if b < 0:
+            raise oefmt(space.w_ValueError, "negative shift count")
+        # b >= LONG_BIT
+        if a == 0:
+            return wrapint(space, a)
+        a = -1 if a < 0 else 0
+    else:
+        a = a >> b
+    return wrapint(space, a)
+
+
+class IntMethods(object):
+
+    def descr_coerce(self, space, w_other):
         if not isinstance(w_other, W_AbstractIntObject):
             return space.w_NotImplemented
         return space.newtuple([self, w_other])
 
     def descr_long(self, space):
-        """x.__long__() <==> long(x)"""
         from pypy.objspace.std.longobject import W_LongObject
         return W_LongObject.fromint(space, self.int_w(space))
 
     def descr_hash(self, space):
-        """x.__hash__() <==> hash(x)"""
         # unlike CPython, we don't special-case the value -1 in most of
         # our hash functions, so there is not much sense special-casing
         # it here either.  Make sure this is consistent with the hash of
@@ -57,22 +227,17 @@ class W_AbstractIntObject(W_Root):
         return self.int(space)
 
     def descr_nonzero(self, space):
-        """x.__nonzero__() <==> x != 0"""
-        return space.newbool(space.int_w(self) != 0)
+        return space.newbool(self.int_w(space) != 0)
 
     def descr_invert(self, space):
-        """x.__invert__() <==> ~x"""
-        return wrapint(space, ~space.int_w(self))
+        return wrapint(space, ~self.int_w(space))
 
     def descr_pos(self, space):
-        """x.__pos__() <==> +x"""
         return self.int(space)
-    descr_trunc = func_with_new_name(descr_pos, 'descr_trunc')
-    descr_trunc.__doc__ = 'Truncating an Integral returns itself.'
+    descr_trunc = descr_pos # XX: descr_index/conjugate
 
     def descr_neg(self, space):
-        """x.__neg__() <==> -x"""
-        a = space.int_w(self)
+        a = self.int_w(space)
         try:
             x = ovfcheck(-a)
         except OverflowError:
@@ -83,45 +248,31 @@ class W_AbstractIntObject(W_Root):
         return wrapint(space, x)
 
     def descr_abs(self, space):
-        """x.__abs__() <==> abs(x)"""
-        pos = space.int_w(self) >= 0
+        pos = self.int_w(space) >= 0
         return self.int(space) if pos else self.descr_neg(space)
 
     def descr_index(self, space):
-        """x[y:z] <==> x[y.__index__():z.__index__()]"""
         return self.int(space)
 
     def descr_float(self, space):
-        """x.__float__() <==> float(x)"""
-        a = space.int_w(self)
+        a = self.int_w(space)
         x = float(a)
         return space.newfloat(x)
 
     def descr_oct(self, space):
-        """x.__oct__() <==> oct(x)"""
-        return space.wrap(oct(space.int_w(self)))
+        return space.wrap(oct(self.int_w(space)))
 
     def descr_hex(self, space):
-        """x.__hex__() <==> hex(x)"""
-        return space.wrap(hex(space.int_w(self)))
+        return space.wrap(hex(self.int_w(space)))
 
     def descr_getnewargs(self, space):
-        return space.newtuple([wrapint(space, space.int_w(self))])
+        return space.newtuple([wrapint(space, self.int_w(space))])
 
     def descr_conjugate(self, space):
-        """Returns self, the complex conjugate of any int."""
-        return space.int(self)
+        return self.int(space)
 
     def descr_bit_length(self, space):
-        """int.bit_length() -> int
-
-        Number of bits necessary to represent self in binary.
-        >>> bin(37)
-        '0b100101'
-        >>> (37).bit_length()
-        6
-        """
-        val = space.int_w(self)
+        val = self.int_w(space)
         if val < 0:
             val = -val
         bits = 0
@@ -131,35 +282,24 @@ class W_AbstractIntObject(W_Root):
         return space.wrap(bits)
 
     def descr_repr(self, space):
-        """x.__repr__() <==> repr(x)"""
         res = str(self.int_w(space))
         return space.wrap(res)
-    descr_str = func_with_new_name(descr_repr, 'descr_str')
-    descr_str.__doc__ = "x.__str__() <==> str(x)"
+    descr_str = descr_repr
 
     def descr_format(self, space, w_format_spec):
         return newformat.run_formatter(space, w_format_spec,
                                        "format_int_or_long", self,
                                        newformat.INT_KIND)
 
-    def descr_get_denominator(self, space):
-        return space.wrap(1)
-
-    def descr_get_imag(self, space):
-        return space.wrap(0)
-
-    descr_get_numerator = descr_get_real = descr_conjugate
-
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_modulus=None):
-        """x.__pow__(y[, z]) <==> pow(x, y[, z])"""
         if not isinstance(w_exponent, W_AbstractIntObject):
             return space.w_NotImplemented
 
         if space.is_none(w_modulus):
             z = 0
         elif isinstance(w_modulus, W_AbstractIntObject):
-            z = space.int_w(w_modulus)
+            z = w_modulus.int_w(space)
             if z == 0:
                 raise oefmt(space.w_ValueError,
                             "pow() 3rd argument cannot be 0")
@@ -169,8 +309,8 @@ class W_AbstractIntObject(W_Root):
             # handle it ourselves
             return self._ovfpow2long(space, w_exponent, w_modulus)
 
-        x = space.int_w(self)
-        y = space.int_w(w_exponent)
+        x = self.int_w(space)
+        y = w_exponent.int_w(space)
         try:
             result = _pow_impl(space, x, y, z)
         except (OverflowError, ValueError):
@@ -179,7 +319,6 @@ class W_AbstractIntObject(W_Root):
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_rpow(self, space, w_base, w_modulus=None):
-        """y.__rpow__(x[, z]) <==> pow(x, y[, z])"""
         if not isinstance(w_base, W_AbstractIntObject):
             return space.w_NotImplemented
         return w_base.descr_pow(space, self, w_modulus)
@@ -195,12 +334,14 @@ class W_AbstractIntObject(W_Root):
         op = getattr(operator, opname)
         @func_renamer('descr_' + opname)
         def descr_cmp(self, space, w_other):
-            if not isinstance(w_other, W_AbstractIntObject):
+            i = self.int_w(space)
+            if isinstance(w_other, W_IntObject):
+                j = w_other.intval
+            elif isinstance(w_other, W_AbstractIntObject):
+                j = w_other.int_w(space)
+            else:
                 return space.w_NotImplemented
-            i = space.int_w(self)
-            j = space.int_w(w_other)
             return space.newbool(op(i, j))
-        descr_cmp.__doc__ = 'x.__%s__(y) <==> x%sy' % (opname, CMP_OPS[opname])
         return descr_cmp
 
     descr_lt = _make_descr_cmp('lt')
@@ -213,17 +354,16 @@ class W_AbstractIntObject(W_Root):
     def _make_generic_descr_binop(opname, ovf=True):
         op = getattr(operator,
                      opname + '_' if opname in ('and', 'or') else opname)
-        oper = BINARY_OPS.get(opname)
-        doc = "x.__%s__(y) <==> x%sy" % (opname, oper)
-        rdoc = "x.__r%s__(y) <==> y%sx" % (opname, oper)
 
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
-            if not isinstance(w_other, W_AbstractIntObject):
+            x = self.int_w(space)
+            if isinstance(w_other, W_IntObject):
+                y = w_other.intval
+            elif isinstance(w_other, W_AbstractIntObject):
+                y = w_other.int_w(space)
+            else:
                 return space.w_NotImplemented
-
-            x = space.int_w(self)
-            y = space.int_w(w_other)
             if ovf:
                 try:
                     z = ovfcheck(op(x, y))
@@ -232,27 +372,28 @@ class W_AbstractIntObject(W_Root):
             else:
                 z = op(x, y)
             return wrapint(space, z)
-        descr_binop.__doc__ = doc
 
         if opname in COMMUTATIVE_OPS:
-            descr_rbinop = func_with_new_name(descr_binop, 'descr_r' + opname)
-        else:
-            @func_renamer('descr_r' + opname)
-            def descr_rbinop(self, space, w_other):
-                if not isinstance(w_other, W_AbstractIntObject):
-                    return space.w_NotImplemented
+            return descr_binop, func_with_new_name(descr_binop,
+                                                   'descr_r' + opname)
 
-                x = space.int_w(self)
-                y = space.int_w(w_other)
-                if ovf:
-                    try:
-                        z = ovfcheck(op(y, x))
-                    except OverflowError:
-                        return _ovf2long(space, opname, w_other, self)
-                else:
-                    z = op(y, x)
-                return wrapint(space, z)
-        descr_rbinop.__doc__ = rdoc
+        @func_renamer('descr_r' + opname)
+        def descr_rbinop(self, space, w_other):
+            x = self.int_w(space)
+            if isinstance(w_other, W_IntObject):
+                y = w_other.intval
+            elif isinstance(w_other, W_AbstractIntObject):
+                y = w_other.int_w(space)
+            else:
+                return space.w_NotImplemented
+            if ovf:
+                try:
+                    z = ovfcheck(op(y, x))
+                except OverflowError:
+                    return _ovf2long(space, opname, w_other, self)
+            else:
+                z = op(y, x)
+            return wrapint(space, z)
 
         return descr_binop, descr_rbinop
 
@@ -266,116 +407,53 @@ class W_AbstractIntObject(W_Root):
 
     def _make_descr_binop(func, ovf=True):
         opname = func.__name__[1:]
-        oper = BINARY_OPS.get(opname)
-        if oper == '%':
-            oper = '%%'
-        oper = '%s(%%s, %%s)' % opname if not oper else '%%s%s%%s' % oper
 
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
-            if not isinstance(w_other, W_AbstractIntObject):
+            x = self.int_w(space)
+            if isinstance(w_other, W_IntObject):
+                y = w_other.intval
+            elif isinstance(w_other, W_AbstractIntObject):
+                y = w_other.int_w(space)
+            else:
                 return space.w_NotImplemented
             if ovf:
                 try:
-                    return func(self, space, w_other)
+                    return func(space, x, y)
                 except OverflowError:
                     return _ovf2long(space, opname, self, w_other)
             else:
-                return func(self, space, w_other)
-        descr_binop.__doc__ = "x.__%s__(y) <==> %s" % (opname,
-                                                       oper % ('x', 'y'))
+                return func(space, x, y)
 
         @func_renamer('descr_r' + opname)
         def descr_rbinop(self, space, w_other):
-            if not isinstance(w_other, W_AbstractIntObject):
+            x = self.int_w(space)
+            if isinstance(w_other, W_IntObject):
+                y = w_other.intval
+            elif isinstance(w_other, W_AbstractIntObject):
+                y = w_other.int_w(space)
+            else:
                 return space.w_NotImplemented
             if ovf:
                 try:
-                    return func(w_other, space, self)
+                    return func(space, y, x)
                 except OverflowError:
                     return _ovf2long(space, opname, w_other, self)
             else:
-                return func(w_other, space, self)
-        descr_rbinop.__doc__ = "x.__r%s__(y) <==> %s" % (opname,
-                                                         oper % ('y', 'x'))
-
+                return func(space, y, x)
         return descr_binop, descr_rbinop
 
-    def _floordiv(self, space, w_other):
-        x = space.int_w(self)
-        y = space.int_w(w_other)
-        try:
-            z = ovfcheck(x // y)
-        except ZeroDivisionError:
-            raise oefmt(space.w_ZeroDivisionError, "integer division by zero")
-        return wrapint(space, z)
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
-
-    _div = func_with_new_name(_floordiv, '_div')
     descr_div, descr_rdiv = _make_descr_binop(_div)
-
-    def _truediv(self, space, w_other):
-        x = float(space.int_w(self))
-        y = float(space.int_w(w_other))
-        if y == 0.0:
-            raise oefmt(space.w_ZeroDivisionError, "division by zero")
-        return space.wrap(x / y)
     descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
-
-    def _mod(self, space, w_other):
-        x = space.int_w(self)
-        y = space.int_w(w_other)
-        try:
-            z = ovfcheck(x % y)
-        except ZeroDivisionError:
-            raise oefmt(space.w_ZeroDivisionError, "integer modulo by zero")
-        return wrapint(space, z)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
-
-    def _divmod(self, space, w_other):
-        x = space.int_w(self)
-        y = space.int_w(w_other)
-        try:
-            z = ovfcheck(x // y)
-        except ZeroDivisionError:
-            raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
-        # no overflow possible
-        m = x % y
-        w = space.wrap
-        return space.newtuple([w(z), w(m)])
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
-
-    def _lshift(self, space, w_other):
-        a = space.int_w(self)
-        b = space.int_w(w_other)
-        if r_uint(b) < LONG_BIT: # 0 <= b < LONG_BIT
-            c = ovfcheck(a << b)
-            return wrapint(space, c)
-        if b < 0:
-            raise oefmt(space.w_ValueError, "negative shift count")
-        # b >= LONG_BIT
-        if a == 0:
-            return self.int(space)
-        raise OverflowError
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
-
-    def _rshift(self, space, w_other):
-        a = space.int_w(self)
-        b = space.int_w(w_other)
-        if r_uint(b) >= LONG_BIT: # not (0 <= b < LONG_BIT)
-            if b < 0:
-                raise oefmt(space.w_ValueError, "negative shift count")
-            # b >= LONG_BIT
-            if a == 0:
-                return self.int(space)
-            a = -1 if a < 0 else 0
-        else:
-            a = a >> b
-        return wrapint(space, a)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
 
 class W_IntObject(W_AbstractIntObject):
+    import_from_mixin(IntMethods)
 
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
@@ -393,7 +471,7 @@ class W_IntObject(W_AbstractIntObject):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        return space.int_w(self) == space.int_w(w_other)
+        return self.int_w(space) == w_other.int_w(space)
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -634,8 +712,8 @@ interpret the base from the string as an integer literal.
         W_AbstractIntObject.descr_get_imag,
         doc="the imaginary part of a complex number"),
 
-    __repr__ = interp2app(W_AbstractIntObject.descr_repr),
-    __str__ = interp2app(W_AbstractIntObject.descr_str),
+    __repr__ = interpindirect2app(W_AbstractIntObject.descr_repr),
+    __str__ = interpindirect2app(W_AbstractIntObject.descr_str),
 
     conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
     bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),

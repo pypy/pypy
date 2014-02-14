@@ -1,15 +1,17 @@
 import operator
 
+from rpython.rlib.objectmodel import import_from_mixin
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rbigint import rbigint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
-from pypy.objspace.std.intobject import W_AbstractIntObject
+from pypy.objspace.std.intobject import IntMethods, W_AbstractIntObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
 class W_BoolObject(W_AbstractIntObject):
+    import_from_mixin(IntMethods)
 
     _immutable_fields_ = ['boolval']
 
