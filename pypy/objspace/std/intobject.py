@@ -234,7 +234,7 @@ class IntMethods(object):
 
     def descr_pos(self, space):
         return self.int(space)
-    descr_trunc = descr_pos # XX: descr_index/conjugate
+    descr_index = descr_trunc = descr_conjugate = descr_pos
 
     def descr_neg(self, space):
         a = self.int_w(space)
@@ -251,9 +251,6 @@ class IntMethods(object):
         pos = self.int_w(space) >= 0
         return self.int(space) if pos else self.descr_neg(space)
 
-    def descr_index(self, space):
-        return self.int(space)
-
     def descr_float(self, space):
         a = self.int_w(space)
         x = float(a)
@@ -267,9 +264,6 @@ class IntMethods(object):
 
     def descr_getnewargs(self, space):
         return space.newtuple([wrapint(space, self.int_w(space))])
-
-    def descr_conjugate(self, space):
-        return self.int(space)
 
     def descr_bit_length(self, space):
         val = self.int_w(space)
