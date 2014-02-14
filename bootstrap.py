@@ -54,15 +54,14 @@ def fetch_shared():
 
 def fetch_pyro():
     if not os.path.exists(PYRO_DIR):
-        if not os.path.exists(PYRO_DIR):
-            print("Cloning pyrolog...")
-            os.chdir(DEPS_DIR)
-            sh.hg("clone", "-u", "unipycation", PYRO_REPO, PYRO_DIR,
-                    _out=sys.stdout, _err=sys.stderr)
-        else:
-            print("Updating pyrolog...")
-            os.chdir(PYRO_DIR)
-            sh.hg("pull", "-u", _out=sys.stdout, _err=sys.stderr)
+        print("Cloning pyrolog...")
+        os.chdir(DEPS_DIR)
+        sh.hg("clone", "-u", "unipycation", PYRO_REPO, PYRO_DIR,
+                _out=sys.stdout, _err=sys.stderr)
+    else:
+        print("Updating pyrolog...")
+        os.chdir(PYRO_DIR)
+        sh.hg("pull", "-u", _out=sys.stdout, _err=sys.stderr)
 
 #
 # CONFIGURE

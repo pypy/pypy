@@ -12,6 +12,7 @@ else:
 
 env = os.environ.copy()
 env["CC"] = cc
+env["PYTHONPATH"] = os.path.join(SCRIPT_DIR, "deps", "pyrolog")
 
 os.chdir(os.path.join(SCRIPT_DIR, "pypy", "goal"))
 
