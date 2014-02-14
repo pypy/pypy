@@ -164,6 +164,25 @@ class ArrayDescr(AbstractDescr):
     def is_array_of_structs(self):
         return isinstance(self.A.OF, lltype.Struct)
 
+    def is_item_integer_bounded(self):
+        return getkind(self.A.OF) == 'int' \
+            and rffi.sizeof(self.A.OF) < symbolic.WORD
+
+    def get_item_integer_min(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
+    def get_item_integer_max(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
+
 class InteriorFieldDescr(AbstractDescr):
     def __init__(self, A, fieldname):
         self.A = A

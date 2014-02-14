@@ -344,6 +344,15 @@ class OptIntBounds(Optimization):
             v1.intbound.make_ge(IntLowerBound(descr.get_integer_min()))
             v1.intbound.make_lt(IntUpperBound(descr.get_integer_max() + 1))
 
+    def optimize_GETARRAYITEM_RAW(self, op):
+        self.emit_operation(op)
+        descr = op.getdescr()
+        if descr.is_item_integer_bounded():
+            v1 = self.getvalue(op.result)
+            v1.intbound.make_ge(IntLowerBound(descr.get_item_integer_min()))
+            v1.intbound.make_lt(
+                IntUpperBound(descr.get_item_integer_max() + 1))
+
     def optimize_UNICODEGETITEM(self, op):
         self.emit_operation(op)
         v1 = self.getvalue(op.result)

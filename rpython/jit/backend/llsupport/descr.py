@@ -203,6 +203,28 @@ class ArrayDescr(ArrayOrFieldDescr):
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
 
+    def is_item_integer_bounded(self):
+        return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
+            and self.itemsize < symbolic.WORD
+
+    def get_item_integer_min(self):
+        if self.flag == FLAG_UNSIGNED:
+            return intbounds.get_integer_min(True, self.itemsize)
+        elif self.flag == FLAG_SIGNED:
+            return intbounds.get_integer_min(False, self.itemsize)
+
+        assert False
+
+    def get_item_integer_max(self):
+        if self.flag == FLAG_UNSIGNED:
+            return intbounds.get_integer_max(True, self.itemsize)
+        elif self.flag == FLAG_SIGNED:
+            return intbounds.get_integer_max(False, self.itemsize)
+
+        assert False
+
+
+
     def repr_of_descr(self):
         return '<Array%s %s>' % (self.flag, self.itemsize)
 
