@@ -103,8 +103,7 @@ with PyPy see the `compatibility wiki`_.
 
 .. _`extension modules`: cpython_differences.html#extension-modules
 .. _`cpython differences`: cpython_differences.html
-.. _`compatibility wiki`:
-.. https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 
 ---------------------------------
