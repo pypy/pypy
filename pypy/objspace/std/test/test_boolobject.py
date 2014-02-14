@@ -60,6 +60,8 @@ class AppTestAppBoolTest:
         assert True ^ True is False
         assert False ^ False is False
         assert True ^ False is True
+        assert True & 1 == 1
+        assert False & 0 == 0 & 0
 
     def test_new(self):
         assert bool.__new__(bool, "hi") is True

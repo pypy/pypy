@@ -6,7 +6,8 @@ from rpython.rlib.rbigint import rbigint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
-from pypy.objspace.std.intobject import IntMethods, W_AbstractIntObject
+from pypy.objspace.std.intobject import (
+    IntMethods, W_AbstractIntObject, W_IntObject)
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
@@ -53,13 +54,13 @@ class W_BoolObject(W_AbstractIntObject):
 
     def make_bitwise_binop(opname):
         descr_name = 'descr_' + opname
-        super_op = getattr(W_AbstractIntObject, descr_name)
+        int_op = getattr(W_IntObject, descr_name)
         op = getattr(operator,
                      opname + '_' if opname in ('and', 'or') else opname)
         @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
             if not isinstance(w_other, W_BoolObject):
-                return super_op(self, space, w_other)
+                return int_op(self.int(space), space, w_other)
             return space.newbool(op(self.boolval, w_other.boolval))
         return descr_binop, func_with_new_name(descr_binop, 'descr_r' + opname)
 
