@@ -498,13 +498,11 @@ class W_IntObject(W_AbstractIntObject):
         return float(self.intval)
 
     def int(self, space):
-        if (type(self) is not W_IntObject and
-            space.is_overloaded(self, space.w_int, '__int__')):
-            return W_Root.int(self, space)
-        if space.is_w(space.type(self), space.w_int):
+        if type(self) is W_IntObject:
             return self
-        a = self.intval
-        return space.newint(a)
+        if not space.is_overloaded(self, space.w_int, '__int__'):
+            return space.newint(self.intval)
+        return W_Root.int(self, space)
 
 
 def _recover_with_smalllong(space):
