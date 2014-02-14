@@ -103,6 +103,26 @@ class FieldDescr(ArrayOrFieldDescr):
     def is_field_signed(self):
         return self.flag == FLAG_SIGNED
 
+    def is_integer_bounded(self):
+        return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
+            and self.field_size < symbolic.WORD
+
+    def get_integer_min(self):
+        if self.flag == FLAG_UNSIGNED:
+            return 0
+        elif self.flag == FLAG_SIGNED:
+            return -(1 << ((self.field_size << 3) - 1))
+
+        assert False
+
+    def get_integer_max(self):
+        if self.flag == FLAG_UNSIGNED:
+            return (1 << (self.field_size << 3)) - 1
+        elif self.flag == FLAG_SIGNED:
+            return (1 << ((self.field_size << 3) - 1)) - 1
+
+        assert False
+
     def sort_key(self):
         return self.offset
 
