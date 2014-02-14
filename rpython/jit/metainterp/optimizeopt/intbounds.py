@@ -9,6 +9,20 @@ from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 
 
+def get_integer_min(is_unsigned, byte_size):
+    if is_unsigned:
+        return 0
+    else:
+        return -(1 << ((byte_size << 3) - 1))
+
+
+def get_integer_max(is_unsigned, byte_size):
+    if is_unsigned:
+        return (1 << (byte_size << 3)) - 1
+    else:
+        return (1 << ((byte_size << 3) - 1)) - 1
+
+
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
@@ -321,6 +335,14 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.result)
         v1.intbound.make_ge(IntLowerBound(0))
         v1.intbound.make_lt(IntUpperBound(256))
+
+    def optimize_GETFIELD_GC(self, op):
+        self.emit_operation(op)
+        descr = op.getdescr()
+        if descr.is_integer_bounded():
+            v1 = self.getvalue(op.result)
+            v1.intbound.make_ge(IntLowerBound(descr.get_integer_min()))
+            v1.intbound.make_lt(IntUpperBound(descr.get_integer_max() + 1))
 
     def optimize_UNICODEGETITEM(self, op):
         self.emit_operation(op)

@@ -5200,7 +5200,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
-    def test_cmp_outside_intbounds(self):
+    def test_getfield_cmp_outside_intbounds(self):
         ops = """
         [p0]
         i0 = getfield_gc(p0, descr=chardescr)

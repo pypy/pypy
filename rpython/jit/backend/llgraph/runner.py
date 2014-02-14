@@ -1,10 +1,12 @@
 import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
+from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -118,6 +120,24 @@ class FieldDescr(AbstractDescr):
 
     def is_field_signed(self):
         return _is_signed_kind(self.FIELD)
+
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
 
 def _is_signed_kind(TYPE):
     return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and

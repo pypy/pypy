@@ -6,6 +6,7 @@ from rpython.jit.metainterp.history import AbstractDescr, getkind
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
+from rpython.jit.metainterp.optimizeopt import intbounds
 
 
 class GcCache(object):
@@ -109,17 +110,17 @@ class FieldDescr(ArrayOrFieldDescr):
 
     def get_integer_min(self):
         if self.flag == FLAG_UNSIGNED:
-            return 0
+            return intbounds.get_integer_min(True, self.field_size)
         elif self.flag == FLAG_SIGNED:
-            return -(1 << ((self.field_size << 3) - 1))
+            return intbounds.get_integer_min(False, self.field_size)
 
         assert False
 
     def get_integer_max(self):
         if self.flag == FLAG_UNSIGNED:
-            return (1 << (self.field_size << 3)) - 1
+            return intbounds.get_integer_max(True, self.field_size)
         elif self.flag == FLAG_SIGNED:
-            return (1 << ((self.field_size << 3) - 1)) - 1
+            return intbounds.get_integer_max(False, self.field_size)
 
         assert False
 
