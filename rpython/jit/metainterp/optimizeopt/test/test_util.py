@@ -92,6 +92,7 @@ class LLtypeMixin(object):
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
                                         ('floatval', lltype.Float),
+                                        ('charval', lltype.Char),
                                         ('next', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
@@ -108,6 +109,7 @@ class LLtypeMixin(object):
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
+    chardescr = cpu.fielddescrof(NODE, 'charval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 

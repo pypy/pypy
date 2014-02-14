@@ -5200,6 +5200,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_cmp_outside_intbounds(self):
+        ops = """
+        [p0]
+        i0 = getfield_gc(p0, descr=chardescr)
+        i1 = int_lt(i0, 256)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        i0 = getfield_gc(p0, descr=chardescr)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
