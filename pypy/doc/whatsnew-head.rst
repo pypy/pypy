@@ -67,3 +67,6 @@ speedup, it was not implemented.
 With a properly configured 256-color terminal (TERM=...-256color), the
 Mandelbrot set shown during translation now uses a range of 50 colours.
 Essential!
+
+.. branch: NonConstant
+Simplify implementation of NonConstant.
