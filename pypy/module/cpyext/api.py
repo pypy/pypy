@@ -910,6 +910,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     # implement function callbacks and generate function decls
     functions = []
     pypy_decls = []
+    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
+    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
     pypy_decls.append("#ifndef PYPY_STANDALONE\n")
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("extern \"C\" {")
@@ -953,6 +955,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decls.append("}")
     pypy_decls.append("#endif")
     pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
+    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
 
     pypy_decl_h = udir.join('pypy_decl.h')
     pypy_decl_h.write('\n'.join(pypy_decls))

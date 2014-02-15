@@ -65,7 +65,8 @@ def test_open_read_write_seek_close():
 
     f1 = compile(does_stuff, [])
     f1()
-    assert open(filename, 'r').read() == "hello world\n"
+    with open(filename, 'r') as fid:
+        assert fid.read() == "hello world\n"
     os.unlink(filename)
 
 def test_big_read():
@@ -296,8 +297,10 @@ def test_chdir():
         os.chdir(path)
         return os.getcwd()
     f1 = compile(does_stuff, [str])
-    # different on windows please
-    assert f1('/tmp') == os.path.realpath('/tmp')
+    if os.name == 'nt':
+        assert f1(os.environment['TEMP']) == os.path.realpath(os.environment['TEMP'])
+    else:    
+        assert f1('/tmp') == os.path.realpath('/tmp')
 
 def test_mkdir_rmdir():
     def does_stuff(path, delete):

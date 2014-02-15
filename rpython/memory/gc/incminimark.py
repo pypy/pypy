@@ -1837,6 +1837,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 if self.objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
+                elif self.old_objects_with_weakrefs.non_empty():
+                    # Weakref support: clear the weak pointers to dying objects
+                    # (if we call deal_with_objects_with_finalizers(), it will
+                    # invoke invalidate_old_weakrefs() itself directly)
+                    self.invalidate_old_weakrefs()
 
                 ll_assert(not self.objects_to_trace.non_empty(),
                           "objects_to_trace should be empty")
@@ -1846,9 +1851,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.more_objects_to_trace.delete()
 
                 #
-                # Weakref support: clear the weak pointers to dying objects
-                if self.old_objects_with_weakrefs.non_empty():
-                    self.invalidate_old_weakrefs()
+                # Light finalizers
                 if self.old_objects_with_light_finalizers.non_empty():
                     self.deal_with_old_objects_with_finalizers()
                 #objects_to_trace processed fully, can move on to sweeping
@@ -2206,6 +2209,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             self._recursively_bump_finalization_state_from_1_to_2(x)
 
+        # Clear the weak pointers to dying objects.  Also clears them if
+        # they point to objects which have the GCFLAG_FINALIZATION_ORDERING
+        # bit set here.  These are objects which will be added to
+        # run_finalizers().
+        self.invalidate_old_weakrefs()
+
         while marked.non_empty():
             x = marked.popleft()
             state = self._finalization_state(x)
@@ -2333,7 +2342,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert((self.header(pointing_to).tid & GCFLAG_NO_HEAP_PTRS)
                       == 0, "registered old weakref should not "
                             "point to a NO_HEAP_PTRS obj")
-            if self.header(pointing_to).tid & GCFLAG_VISITED:
+            tid = self.header(pointing_to).tid
+            if ((tid & (GCFLAG_VISITED | GCFLAG_FINALIZATION_ORDERING)) ==
+                        GCFLAG_VISITED):
                 new_with_weakref.append(obj)
             else:
                 (obj + offset).address[0] = llmemory.NULL
