@@ -5282,6 +5282,22 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_getinterior_outside_intbounds(self):
+        ops = """
+        [p0]
+        f0 = getinteriorfield_gc(p0, 0, descr=fc_array_floatdescr)
+        i0 = getinteriorfield_gc(p0, 0, descr=fc_array_chardescr)
+        i1 = int_lt(i0, 256)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        f0 = getinteriorfield_gc(p0, 0, descr=fc_array_floatdescr)
+        i0 = getinteriorfield_gc(p0, 0, descr=fc_array_chardescr)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

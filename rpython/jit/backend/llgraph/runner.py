@@ -201,6 +201,24 @@ class InteriorFieldDescr(AbstractDescr):
     def is_float_field(self):
         return getkind(self.FIELD) == 'float'
 
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
 _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),
                 'i': 0,

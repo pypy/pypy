@@ -225,6 +225,12 @@ class LLtypeMixin(object):
     rawarraydescr_char = cpu.arraydescrof(lltype.Array(lltype.Char,
                                                        hints={'nolength': True}))
 
+    fc_array = lltype.GcArray(
+        lltype.Struct(
+            "floatchar", ("float", lltype.Float), ("char", lltype.Char)))
+    fc_array_descr = cpu.arraydescrof(fc_array)
+    fc_array_floatdescr = cpu.interiorfielddescrof(fc_array, "float")
+    fc_array_chardescr = cpu.interiorfielddescrof(fc_array, "char")
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),

@@ -346,6 +346,8 @@ class OptIntBounds(Optimization):
 
     optimize_GETFIELD_GC = optimize_GETFIELD_RAW
 
+    optimize_GETINTERIORFIELD_GC = optimize_GETFIELD_RAW
+
     def optimize_GETARRAYITEM_RAW(self, op):
         self.emit_operation(op)
         descr = op.getdescr()

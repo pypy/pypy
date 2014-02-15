@@ -273,6 +273,15 @@ class InteriorFieldDescr(AbstractDescr):
     def is_float_field(self):
         return self.fielddescr.is_float_field()
 
+    def is_integer_bounded(self):
+        return self.fielddescr.is_integer_bounded()
+
+    def get_integer_min(self):
+        return self.fielddescr.get_integer_min()
+
+    def get_integer_max(self):
+        return self.fielddescr.get_integer_max()
+
     def repr_of_descr(self):
         return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()
 
