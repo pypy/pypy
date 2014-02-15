@@ -435,10 +435,13 @@ def test_bytearray_descr():
 
 
 def test_descr_integer_bounded():
-    descr = FieldDescr('descr', 0, 1, FLAG_SIGNED)
+    descr = FieldDescr('descr', 0, symbolic.SIZEOF_CHAR, FLAG_SIGNED)
     assert descr.is_integer_bounded()
 
     descr = FieldDescr('descr', 0, symbolic.WORD, FLAG_UNSIGNED)
+    assert not descr.is_integer_bounded()
+
+    descr = FieldDescr('descr', 0, symbolic.SIZEOF_FLOAT, FLAG_FLOAT)
     assert not descr.is_integer_bounded()
 
 
