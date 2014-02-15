@@ -5200,6 +5200,104 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_getfield_cmp_above_bounds(self):
+        ops = """
+        [p0]
+        i0 = getfield_gc(p0, descr=chardescr)
+        i1 = int_lt(i0, 256)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        i0 = getfield_gc(p0, descr=chardescr)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_getfield_cmp_below_bounds(self):
+        ops = """
+        [p0]
+        i0 = getfield_gc(p0, descr=chardescr)
+        i1 = int_gt(i0, -1)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        i0 = getfield_gc(p0, descr=chardescr)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_getfield_cmp_in_bounds(self):
+        ops = """
+        [p0]
+        i0 = getfield_gc(p0, descr=chardescr)
+        i1 = int_gt(i0, 0)
+        guard_true(i1) []
+        i2 = int_lt(i0, 255)
+        guard_true(i2) []
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_getfieldraw_cmp_outside_bounds(self):
+        ops = """
+        [p0]
+        i0 = getfield_raw(p0, descr=chardescr)
+        i1 = int_gt(i0, -1)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        i0 = getfield_raw(p0, descr=chardescr)
+        """
+        self.optimize_loop(ops, expected)
+
+
+    def test_rawarray_cmp_outside_intbounds(self):
+        ops = """
+        [i0]
+        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr_char)
+        i2 = int_lt(i1, 256)
+        guard_true(i2) []
+        """
+
+        expected = """
+        [i0]
+        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr_char)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_gcarray_outside_intbounds(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = int_lt(i0, 256)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_getinterior_outside_intbounds(self):
+        ops = """
+        [p0]
+        f0 = getinteriorfield_gc(p0, 0, descr=fc_array_floatdescr)
+        i0 = getinteriorfield_gc(p0, 0, descr=fc_array_chardescr)
+        i1 = int_lt(i0, 256)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        f0 = getinteriorfield_gc(p0, 0, descr=fc_array_floatdescr)
+        i0 = getinteriorfield_gc(p0, 0, descr=fc_array_chardescr)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

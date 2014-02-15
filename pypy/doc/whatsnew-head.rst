@@ -70,3 +70,7 @@ Essential!
 
 .. branch: NonConstant
 Simplify implementation of NonConstant.
+
+.. branch: array-propagate-len
+Kill some guards and operations in JIT traces by adding integer bounds
+propagation for getfield_(raw|gc) and getarrayitem_(raw|gc).
