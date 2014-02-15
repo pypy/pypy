@@ -5239,6 +5239,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_getfieldraw_cmp_outside_bounds(self):
+        ops = """
+        [p0]
+        i0 = getfield_raw(p0, descr=chardescr)
+        i1 = int_gt(i0, -1)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        i0 = getfield_raw(p0, descr=chardescr)
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_rawarray_cmp_outside_intbounds(self):
         ops = """
         [i0]
