@@ -5239,7 +5239,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
-
     def test_rawarray_cmp_outside_intbounds(self):
         ops = """
         [i0]
@@ -5251,6 +5250,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr_char)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_gcarray_outside_intbounds(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = int_lt(i0, 256)
+        guard_true(i1) []
+        """
+
+        expected = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
         """
         self.optimize_loop(ops, expected)
 

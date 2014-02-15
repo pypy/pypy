@@ -206,6 +206,8 @@ class LLtypeMixin(object):
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_FREE))
 
+    chararray = lltype.GcArray(lltype.Char)
+    chararraydescr = cpu.arraydescrof(chararray)
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(
