@@ -5563,6 +5563,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 self.name = name
             def sort_key(self):
                 return id(self)
+            def is_integer_bounded(self):
+                return False
 
 
         for n in ('inst_w_seq', 'inst_index', 'inst_w_list', 'inst_length',
