@@ -202,9 +202,6 @@ class Bookkeeper(object):
         position."""
         return SomeDict(self.getdictdef())
 
-    def immutableconstant(self, const):
-        return self.immutablevalue(const.value)
-
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
