@@ -336,13 +336,15 @@ class OptIntBounds(Optimization):
         v1.intbound.make_ge(IntLowerBound(0))
         v1.intbound.make_lt(IntUpperBound(256))
 
-    def optimize_GETFIELD_GC(self, op):
+    def optimize_GETFIELD_RAW(self, op):
         self.emit_operation(op)
         descr = op.getdescr()
         if descr.is_integer_bounded():
             v1 = self.getvalue(op.result)
             v1.intbound.make_ge(IntLowerBound(descr.get_integer_min()))
             v1.intbound.make_lt(IntUpperBound(descr.get_integer_max() + 1))
+
+    optimize_GETFIELD_GC = optimize_GETFIELD_RAW
 
     def optimize_GETARRAYITEM_RAW(self, op):
         self.emit_operation(op)
