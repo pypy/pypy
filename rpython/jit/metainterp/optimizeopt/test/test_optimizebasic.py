@@ -5303,7 +5303,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p0]
         i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
         i1 = int_and(i0, 255)
-        jump(i1)
+        i2 = int_and(i1, -1)
+        jump(i2)
         """
 
         expected = """
