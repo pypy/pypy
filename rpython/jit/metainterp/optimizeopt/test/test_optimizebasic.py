@@ -5304,7 +5304,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
         i1 = int_and(i0, 255)
         i2 = int_and(i1, -1)
-        jump(i2)
+        i3 = int_and(511, i2)
+        jump(i3)
         """
 
         expected = """
@@ -5319,7 +5320,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p0]
         i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
         i1 = int_and(i0, 257)
-        jump(i1)
+        i2 = getarrayitem_gc(p0, 1, descr=chararraydescr)a
+        i3 = int_and(259, i2)
+        jump(i1, i3)
         """
         self.optimize_loop(ops, ops)
 
