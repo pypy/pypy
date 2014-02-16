@@ -9,17 +9,17 @@ from __future__ import unicode_literals
 import collections
 import decimal
 from itertools import permutations
-import singledispatch as functools
-from singledispatch_helpers import Support
+from . import singledispatch as functools
+from .singledispatch_helpers import Support
 try:
     from collections import ChainMap
 except ImportError:
-    from singledispatch_helpers import ChainMap
+    from .singledispatch_helpers import ChainMap
     collections.ChainMap = ChainMap
 try:
     from collections import OrderedDict
 except ImportError:
-    from singledispatch_helpers import OrderedDict
+    from .singledispatch_helpers import OrderedDict
     collections.OrderedDict = OrderedDict
 try:
     import unittest2 as unittest
