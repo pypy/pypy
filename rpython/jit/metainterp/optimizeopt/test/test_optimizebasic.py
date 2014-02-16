@@ -5320,7 +5320,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p0]
         i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
         i1 = int_and(i0, 257)
-        i2 = getarrayitem_gc(p0, 1, descr=chararraydescr)a
+        i2 = getarrayitem_gc(p0, 1, descr=chararraydescr)
         i3 = int_and(259, i2)
         jump(i1, i3)
         """
