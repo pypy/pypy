@@ -5298,6 +5298,30 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_intand_1mask_covering_bitrange(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = int_and(i0, 255)
+        jump(i1)
+        """
+
+        expected = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_intand_maskwith0_in_bitrange(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = int_and(i0, 257)
+        jump(i1)
+        """
+        self.optimize_loop(ops, ops)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
