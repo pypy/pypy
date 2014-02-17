@@ -5358,6 +5358,39 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_int_or_cmp_above_bounds(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=chararraydescr)
+        i2 = int_or(i0, i1)
+        i3 = int_le(i2, 255)
+        guard_true(i3) []
+        jump(i2)
+        """
+
+        expected = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=chararraydescr)
+        i2 = int_or(i0, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_or_cmp_below_bounds(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=chararraydescr)
+        i2 = int_or(i0, i1)
+        i3 = int_lt(i2, 255)
+        guard_true(i3) []
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
