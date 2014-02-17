@@ -78,3 +78,7 @@ propagation for getfield_(raw|gc) and getarrayitem_(raw|gc).
 .. branch: optimize-int-and
 Optimize away INT_AND with constant mask of 1s that fully cover the bitrange
 of other operand.
+
+.. branch: bounds-int-add-or
+Propagate appropriate bounds through INT_(OR|XOR|AND) operations if the
+operands are positive to kill some guards

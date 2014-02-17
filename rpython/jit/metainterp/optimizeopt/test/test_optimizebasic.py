@@ -5326,6 +5326,114 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_int_and_cmp_above_bounds(self):
+        ops = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_and(i0, i1)
+        i3 = int_le(i2, 255)
+        guard_true(i3) []
+        jump(i2)
+        """
+
+        expected = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_and(i0, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_and_cmp_below_bounds(self):
+        ops = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_and(i0, i1)
+        i3 = int_lt(i2, 255)
+        guard_true(i3) []
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_int_or_cmp_above_bounds(self):
+        ops = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_or(i0, i1)
+        i3 = int_le(i2, 65535)
+        guard_true(i3) []
+        jump(i2)
+        """
+
+        expected = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_or(i0, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_or_cmp_below_bounds(self):
+        ops = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_or(i0, i1)
+        i3 = int_lt(i2, 65535)
+        guard_true(i3) []
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_int_xor_cmp_above_bounds(self):
+        ops = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_xor(i0, i1)
+        i3 = int_le(i2, 65535)
+        guard_true(i3) []
+        jump(i2)
+        """
+
+        expected = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_xor(i0, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_xor_cmp_below_bounds(self):
+        ops = """
+        [p0,p1]
+        i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
+        i1 = getarrayitem_gc(p1, 0, descr=u2arraydescr)
+        i2 = int_xor(i0, i1)
+        i3 = int_lt(i2, 65535)
+        guard_true(i3) []
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_int_or_same_arg(self):
+        ops = """
+        [i0]
+        i1 = int_or(i0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
