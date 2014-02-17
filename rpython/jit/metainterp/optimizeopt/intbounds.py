@@ -23,6 +23,17 @@ def get_integer_max(is_unsigned, byte_size):
         return (1 << ((byte_size << 3) - 1)) - 1
 
 
+def next_power2(val):
+    """Calculate next power of 2 greater than val.
+
+       Danger: this can overflow, use only when val is sufficiently
+       lower than symbolic.WORD"""
+    power = 1
+    while power < val + 1:
+        power <<= 1
+    return power
+
+
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
@@ -82,6 +93,8 @@ class OptIntBounds(Optimization):
             val = v1.box.getint()
             if val >= 0:
                 r.intbound.intersect(IntBound(0, val))
+        elif v1.intbound.lower >= 0 and v2.intbound.lower >= 0:
+            pass
 
     def optimize_INT_SUB(self, op):
         v1 = self.getvalue(op.getarg(0))
