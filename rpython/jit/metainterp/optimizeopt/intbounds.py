@@ -7,6 +7,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0, MODE_ARRAY, MODE_STR, MODE_UNICODE)
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.backend.llsupport import symbolic
 
 
 def get_integer_min(is_unsigned, byte_size):
@@ -94,7 +95,10 @@ class OptIntBounds(Optimization):
             if val >= 0:
                 r.intbound.intersect(IntBound(0, val))
         elif v1.intbound.lower >= 0 and v2.intbound.lower >= 0:
-            pass
+            lesser = min(v1.intbound.upper, v2.intbound.upper)
+            # check if next_power2 won't overflow
+            if lesser < (1 << ((symbolic.WORD - 1) << 3)):
+                r.intbound.intersect(IntBound(0, next_power2(lesser) - 1))
 
     def optimize_INT_SUB(self, op):
         v1 = self.getvalue(op.getarg(0))
