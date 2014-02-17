@@ -55,43 +55,8 @@ OPTIONS
     Print translation information about this PyPy executable.
 
 --jit *arg*
-    Low level JIT parameters. Format is
-    *arg*\ ``=``\ *value*\ [``,``\ *arg*\ ``=``\ *value*\ ...]
-
-    ``off``
-        Disable the JIT.
-
-    ``threshold=``\ *value*
-        Number of times a loop has to run for it to become hot.
-
-    ``function_threshold=``\ *value*
-        Number of times a function must run for it to become traced from
-        start.
-
-    ``inlining=``\ *value*
-        Inline python functions or not (``1``/``0``).
-
-    ``loop_longevity=``\ *value*
-        A parameter controlling how long loops will be kept before being
-        freed, an estimate.
-
-    ``max_retrace_guards=``\ *value*
-        Number of extra guards a retrace can cause.
-
-    ``retrace_limit=``\ *value*
-        How many times we can try retracing before giving up.
-
-    ``trace_eagerness=``\ *value*
-        Number of times a guard has to fail before we start compiling a
-        bridge.
-
-    ``trace_limit=``\ *value*
-        Number of recorded operations before we abort tracing with
-        ``ABORT_TRACE_TOO_LONG``.
-
-    ``enable_opts=``\ *value*
-        Optimizations to enabled or ``all``.
-        Warning, this option is dangerous, and should be avoided.
+    Low level JIT parameters.  Mostly internal.  Run ``--jit help``
+    for more information.
 
 ENVIRONMENT
 ===========
@@ -144,7 +109,7 @@ ENVIRONMENT
         Multiple prefixes can be specified, comma-separated.
         Only sections whose name match the prefix will be logged.
 
-    ``PYPYLOG``\ =\ ``jit-log-opt,jit-backend:``\ *logfile* will
+    ``PYPYLOG=jit-log-opt,jit-backend:logfile`` will
     generate a log suitable for *jitviewer*, a tool for debugging
     performance issues under PyPy.
 
