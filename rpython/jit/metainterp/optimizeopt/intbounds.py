@@ -68,25 +68,14 @@ class OptIntBounds(Optimization):
     optimize_GUARD_FALSE = optimize_GUARD_TRUE
     optimize_GUARD_VALUE = optimize_GUARD_TRUE
 
-    def optimize_INT_OR(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        self.emit_operation(op)
-        r = self.getvalue(op.result)
-
-        if v1.intbound.known_ge(IntBound(0, 0)) and \
-           v2.intbound.known_ge(IntBound(0, 0)):
-            mostsignificant = v1.intbound.upper | v2.intbound.upper
-            # check if next_power2 won't overflow
-            if mostsignificant < (1 << ((symbolic.WORD - 1) << 3)):
-                r.intbound.intersect(
-                    IntBound(0, next_power2(mostsignificant) - 1))
-
-    def optimize_INT_XOR(self, op):
+    def optimize_INT_OR_or_XOR(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1 is v2:
-            self.make_constant_int(op.result, 0)
+            if op.getopnum() == rop.INT_OR:
+                self.make_equal_to(op.result, v1)
+            else:
+                self.make_constant_int(op.result, 0)
             return
         self.emit_operation(op)
         if v1.intbound.known_ge(IntBound(0, 0)) and \
@@ -99,6 +88,8 @@ class OptIntBounds(Optimization):
             if mostsignificant < (1 << ((symbolic.WORD - 1) << 3)):
                 r.intbound.make_lt(IntUpperBound(next_power2(mostsignificant)))
 
+    optimize_INT_OR = optimize_INT_OR_or_XOR
+    optimize_INT_XOR = optimize_INT_OR_or_XOR
 
     def optimize_INT_AND(self, op):
         v1 = self.getvalue(op.getarg(0))
