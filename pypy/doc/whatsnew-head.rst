@@ -75,7 +75,7 @@ Simplify implementation of NonConstant.
 Kill some guards and operations in JIT traces by adding integer bounds
 propagation for getfield_(raw|gc) and getarrayitem_(raw|gc).
 
-.. branch: optimize-int-and:
+.. branch: optimize-int-and
 Optimize away INT_AND with constant mask of 1s that fully cover the bitrange
 of other operand.
 
