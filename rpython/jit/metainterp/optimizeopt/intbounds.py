@@ -74,7 +74,8 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         r = self.getvalue(op.result)
 
-        if v1.intbound.lower >= 0 and v2.intbound.lower >= 0:
+        if v1.intbound.known_ge(IntBound(0, 0)) and \
+           v2.intbound.known_ge(IntBound(0, 0)):
             mostsignificant = v1.intbound.upper | v2.intbound.upper
             # check if next_power2 won't overflow
             if mostsignificant < (1 << ((symbolic.WORD - 1) << 3)):
@@ -92,11 +93,11 @@ class OptIntBounds(Optimization):
            v2.intbound.known_ge(IntBound(0, 0)):
             r = self.getvalue(op.result)
             r.intbound.make_ge(IntLowerBound(0))
-        if v1.intbound.lower >= 0 and v2.intbound.lower >= 0:
-            lesser = min(v1.intbound.upper, v2.intbound.upper)
+
+            mostsignificant = v1.intbound.upper | v2.intbound.upper
             # check if next_power2 won't overflow
-            if lesser < (1 << ((symbolic.WORD - 1) << 3)):
-                r.intbound.intersect(IntBound(0, next_power2(lesser) - 1))
+            if mostsignificant < (1 << ((symbolic.WORD - 1) << 3)):
+                r.intbound.make_lt(IntUpperBound(next_power2(mostsignificant)))
 
 
     def optimize_INT_AND(self, op):
@@ -113,7 +114,8 @@ class OptIntBounds(Optimization):
             val = v1.box.getint()
             if val >= 0:
                 r.intbound.intersect(IntBound(0, val))
-        elif v1.intbound.lower >= 0 and v2.intbound.lower >= 0:
+        elif v1.intbound.known_ge(IntBound(0, 0)) and \
+          v2.intbound.known_ge(IntBound(0, 0)):
             lesser = min(v1.intbound.upper, v2.intbound.upper)
             # check if next_power2 won't overflow
             if lesser < (1 << ((symbolic.WORD - 1) << 3)):
