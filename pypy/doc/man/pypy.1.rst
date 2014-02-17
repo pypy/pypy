@@ -19,10 +19,10 @@ OPTIONS
     Skip assert statements.
 
 -OO
-    Remove docstrings when importing modules in addition to -O.
+    Remove docstrings when importing modules in addition to ``-O``.
 
--c *cmd*
-    Program passed in as CMD (terminates option list).
+-c CMD
+    Program passed in as ``CMD`` (terminates option list).
 
 -S
     Do not ``import site`` on initialization.
@@ -36,10 +36,10 @@ OPTIONS
 -h, --help
     Show a help message and exit.
 
--m *mod*
+-m MOD
     Library module to be run as a script (terminates option list).
 
--W *arg*
+-W ARG
     Warning control (*arg* is *action*:*message*:*category*:*module*:*lineno*).
 
 -E
@@ -54,7 +54,7 @@ OPTIONS
 --info
     Print translation information about this PyPy executable.
 
---jit *arg*
+--jit ARG
     Low level JIT parameters.  Mostly internal.  Run ``--jit help``
     for more information.
 
