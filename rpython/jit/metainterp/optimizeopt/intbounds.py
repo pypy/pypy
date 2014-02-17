@@ -24,15 +24,15 @@ def get_integer_max(is_unsigned, byte_size):
         return (1 << ((byte_size << 3) - 1)) - 1
 
 
-def next_power2(val):
-    """Calculate next power of 2 greater than val.
-
-       Danger: this can overflow, use only when val is sufficiently
-       lower than symbolic.WORD"""
-    power = 1
-    while power < val + 1:
-        power <<= 1
-    return power
+def next_pow2_m1(n):
+    """Calculate next power of 2 greater than n minus one."""
+    n |= n >> 1
+    n |= n >> 2
+    n |= n >> 4
+    n |= n >> 8
+    n |= n >> 16
+    n |= n >> 32
+    return n
 
 
 class OptIntBounds(Optimization):
