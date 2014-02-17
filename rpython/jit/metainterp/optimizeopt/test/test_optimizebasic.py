@@ -5352,7 +5352,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i0 = getarrayitem_gc(p0, 0, descr=chararraydescr)
         i1 = getarrayitem_gc(p0, 1, descr=chararraydescr)
         i2 = int_and(i0, i1)
-        i3 = int_le(i2, 80)
+        i3 = int_lt(i2, 255)
         guard_true(i3) []
         jump(i2)
         """
