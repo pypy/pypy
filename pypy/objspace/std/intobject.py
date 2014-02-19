@@ -484,6 +484,12 @@ class W_IntObject(W_AbstractIntObject):
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
+    @staticmethod
+    @unwrap_spec(w_x=WrappedDefault(0))
+    def descr_new(space, w_inttype, w_x, w_base=None):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        return _new_int(space, w_inttype, w_x, w_base)
+
 
 def _recover_with_smalllong(space):
     # True if there is a chance that a SmallLong would fit when an Int
@@ -584,8 +590,7 @@ def wrap_parsestringerror(space, e, w_source):
     return OperationError(space.w_ValueError, w_msg)
 
 
-@unwrap_spec(w_x=WrappedDefault(0))
-def descr__new__(space, w_inttype, w_x, w_base=None):
+def _new_int(space, w_inttype, w_x, w_base=None):
     w_longval = None
     w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
@@ -675,7 +680,7 @@ The base defaults to 10.  Valid bases are 0 and 2-36.  Base 0 means to
 interpret the base from the string as an integer literal.
 >>> int('0b100', base=0)
 4""",
-    __new__ = interp2app(descr__new__),
+    __new__ = interp2app(W_IntObject.descr_new),
 
     numerator = typedef.GetSetProperty(
         W_IntObject.descr_get_numerator,
