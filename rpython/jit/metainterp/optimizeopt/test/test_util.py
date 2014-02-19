@@ -1,6 +1,6 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
@@ -208,6 +208,8 @@ class LLtypeMixin(object):
 
     chararray = lltype.GcArray(lltype.Char)
     chararraydescr = cpu.arraydescrof(chararray)
+    u2array = lltype.GcArray(rffi.USHORT)
+    u2arraydescr = cpu.arraydescrof(u2array)
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(

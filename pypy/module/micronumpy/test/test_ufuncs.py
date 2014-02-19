@@ -756,13 +756,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(ValueError, maximum.reduce, zeros((2, 0)), axis=1)
 
     def test_reduce_1d(self):
-        from numpypy import add, maximum, less
+        from numpypy import array, add, maximum, less, float16, complex64
 
         assert less.reduce([5, 4, 3, 2, 1])
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
+
+        assert add.reduce(array([True, False] * 200)) == 200
+        assert add.reduce(array([True, False] * 200, dtype='int8')) == 200
+        assert add.reduce(array([True, False] * 200), dtype='int8') == -56
+        assert type(add.reduce(array([True, False] * 200, dtype='float16'))) is float16
+        assert type(add.reduce(array([True, False] * 200, dtype='complex64'))) is complex64
 
     def test_reduceND(self):
         from numpypy import add, arange
@@ -1025,7 +1031,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
 
     def test_accumulate(self):
-        from numpypy import add, multiply, arange
+        from numpypy import add, subtract, multiply, divide, arange, dtype
         assert (add.accumulate([2, 3, 5]) == [2, 5, 10]).all()
         assert (multiply.accumulate([2, 3, 5]) == [2, 6, 30]).all()
         a = arange(4).reshape(2,2)
@@ -1041,6 +1047,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         print b
         assert (b == [[0, 0, 1], [1, 3, 5]]).all()
         assert b.dtype == int
+        assert add.accumulate([True]*200)[-1] == 200
+        assert add.accumulate([True]*200).dtype == dtype('int')
+        assert subtract.accumulate([True]*200).dtype == dtype('bool')
+        assert divide.accumulate([True]*200).dtype == dtype('int8')
 
     def test_noncommutative_reduce_accumulate(self):
         import numpypy as np

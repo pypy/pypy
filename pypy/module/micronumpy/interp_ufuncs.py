@@ -19,12 +19,15 @@ def done_if_false(dtype, val):
 
 
 class W_Ufunc(W_Root):
-    _immutable_fields_ = ["name", "promote_to_float", "promote_bools", "identity",
-            "int_only", "allow_bool", "allow_complex", "complex_to_float"]
+    _immutable_fields_ = [
+        "name", "promote_to_largest", "promote_to_float", "promote_bools",
+        "identity", "int_only", "allow_bool", "allow_complex", "complex_to_float"
+    ]
 
-    def __init__(self, name, promote_to_float, promote_bools, identity,
-                 int_only, allow_bool, allow_complex, complex_to_float):
+    def __init__(self, name, promote_to_largest, promote_to_float, promote_bools,
+                 identity, int_only, allow_bool, allow_complex, complex_to_float):
         self.name = name
+        self.promote_to_largest = promote_to_largest
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
         self.identity = identity
@@ -88,9 +91,8 @@ class W_Ufunc(W_Root):
                                                 'output must be an array'))
         else:
             out = w_out
-        return self.reduce(space, w_obj, False, #do not promote_to_largest
-                    w_axis, True, #keepdims must be true
-                    out, w_dtype, cumulative=True)
+        return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
+                           out, w_dtype, cumulative=True)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
@@ -154,15 +156,13 @@ class W_Ufunc(W_Root):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
-                                                'output must be an array'))
+                'output must be an array'))
         else:
             out = w_out
-        promote_to_largest = False
-        return self.reduce(space, w_obj, promote_to_largest, w_axis, keepdims, out,
-                           w_dtype)
+        return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
-    def reduce(self, space, w_obj, promote_to_largest, w_axis,
-               keepdims=False, out=None, dtype=None, cumulative=False):
+    def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
+               cumulative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -185,8 +185,8 @@ class W_Ufunc(W_Root):
                 dtype = find_unaryop_result_dtype(
                     space, obj.get_dtype(),
                     promote_to_float=self.promote_to_float,
-                    promote_to_largest=promote_to_largest,
-                    promote_bools=True
+                    promote_to_largest=self.promote_to_largest,
+                    promote_bools=self.promote_bools,
                 )
         if self.identity is None:
             for i in range(shapelen):
@@ -263,18 +263,18 @@ class W_Ufunc(W_Root):
         return self._outer(space, __args__)
 
     def _outer(self, space, __args__):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("outer product only supported for binary functions"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "outer product only supported for binary functions"))
 
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
     argcount = 1
 
-    def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-            identity=None, bool_result=False, int_only=False,
+    def __init__(self, func, name, promote_to_largest=False, promote_to_float=False,
+            promote_bools=False, identity=None, bool_result=False, int_only=False,
             allow_bool=True, allow_complex=True, complex_to_float=False):
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_bool, allow_complex, complex_to_float)
+        W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
+                         identity, int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
         self.bool_result = bool_result
 
@@ -336,11 +336,11 @@ class W_Ufunc2(W_Ufunc):
     _immutable_fields_ = ["func", "comparison_func", "done_func"]
     argcount = 2
 
-    def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-            identity=None, comparison_func=False, int_only=False,
+    def __init__(self, func, name, promote_to_largest=False, promote_to_float=False,
+            promote_bools=False, identity=None, comparison_func=False, int_only=False,
             allow_bool=True, allow_complex=True, complex_to_float=False):
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_bool, allow_complex, complex_to_float)
+        W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
+                         identity, int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
         self.comparison_func = comparison_func
         if name == 'logical_and':
@@ -606,9 +606,9 @@ class UfuncState(object):
     def __init__(self, space):
         "NOT_RPYTHON"
         for ufunc_def in [
-            ("add", "add", 2, {"identity": 0}),
+            ("add", "add", 2, {"identity": 0, "promote_to_largest": True}),
             ("subtract", "sub", 2),
-            ("multiply", "mul", 2, {"identity": 1}),
+            ("multiply", "mul", 2, {"identity": 1, "promote_to_largest": True}),
             ("bitwise_and", "bitwise_and", 2, {"identity": 1,
                                                "int_only": True}),
             ("bitwise_or", "bitwise_or", 2, {"identity": 0,

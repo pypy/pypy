@@ -964,8 +964,7 @@ class __extend__(W_NDimArray):
 
     # ----------------------- reduce -------------------------------
 
-    def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
-                           cumulative=False):
+    def _reduce_ufunc_impl(ufunc_name, cumulative=False):
         @unwrap_spec(keepdims=bool)
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
             if space.is_none(w_out):
@@ -976,13 +975,11 @@ class __extend__(W_NDimArray):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
-                space, self, promote_to_largest, w_axis,
-                keepdims, out, w_dtype, cumulative=cumulative)
-        return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
-                    promote_to_largest, cumulative))
+                space, self, w_axis, keepdims, out, w_dtype, cumulative=cumulative)
+        return func_with_new_name(impl, "reduce_%s_impl_%d" % (ufunc_name, cumulative))
 
-    descr_sum = _reduce_ufunc_impl("add", True)
-    descr_prod = _reduce_ufunc_impl("multiply", True)
+    descr_sum = _reduce_ufunc_impl("add")
+    descr_prod = _reduce_ufunc_impl("multiply")
     descr_max = _reduce_ufunc_impl("maximum")
     descr_min = _reduce_ufunc_impl("minimum")
     descr_all = _reduce_ufunc_impl('logical_and')
