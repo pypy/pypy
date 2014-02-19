@@ -198,6 +198,35 @@ def _rshift(space, a, b):
     return wrapint(space, a)
 
 
+@jit.look_inside_iff(lambda space, iv, iw, iz:
+                     jit.isconstant(iw) and jit.isconstant(iz))
+def _pow(space, iv, iw, iz):
+    """Helper for pow"""
+    if iw < 0:
+        if iz != 0:
+            raise oefmt(space.w_TypeError,
+                        "pow() 2nd argument cannot be negative when 3rd "
+                        "argument specified")
+        # bounce it, since it always returns float
+        raise ValueError
+    temp = iv
+    ix = 1
+    while iw > 0:
+        if iw & 1:
+            ix = ovfcheck(ix * temp)
+        iw >>= 1   # Shift exponent down by 1 bit
+        if iw == 0:
+            break
+        temp = ovfcheck(temp * temp) # Square the value of temp
+        if iz:
+            # If we did a multiplication, perform a modulo
+            ix %= iz
+            temp %= iz
+    if iz:
+        ix %= iz
+    return ix
+
+
 class W_IntObject(W_AbstractIntObject):
 
     __slots__ = 'intval'
@@ -248,6 +277,12 @@ class W_IntObject(W_AbstractIntObject):
         if not space.is_overloaded(self, space.w_int, '__int__'):
             return space.newint(self.intval)
         return W_Root.int(self, space)
+
+    @staticmethod
+    @unwrap_spec(w_x=WrappedDefault(0))
+    def descr_new(space, w_inttype, w_x, w_base=None):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        return _new_int(space, w_inttype, w_x, w_base)
 
     descr_pos = func_with_new_name(int, 'descr_pos')
     descr_index = func_with_new_name(int, 'descr_index')
@@ -356,7 +391,7 @@ class W_IntObject(W_AbstractIntObject):
         x = self.intval
         y = w_exponent.intval
         try:
-            result = _pow_impl(space, x, y, z)
+            result = _pow(space, x, y, z)
         except (OverflowError, ValueError):
             return self._ovfpow2long(space, w_exponent, w_modulus)
         return space.wrap(result)
@@ -484,59 +519,6 @@ class W_IntObject(W_AbstractIntObject):
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
-    @staticmethod
-    @unwrap_spec(w_x=WrappedDefault(0))
-    def descr_new(space, w_inttype, w_x, w_base=None):
-        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
-        return _new_int(space, w_inttype, w_x, w_base)
-
-
-def _recover_with_smalllong(space):
-    # True if there is a chance that a SmallLong would fit when an Int
-    # does not
-    return (space.config.objspace.std.withsmalllong and
-            sys.maxint == 2147483647)
-
-
-@specialize.arg(1)
-def _ovf2long(space, opname, self, w_other):
-    if _recover_with_smalllong(space) and opname != 'truediv':
-        from pypy.objspace.std import smalllongobject
-        op = getattr(smalllongobject, opname + '_ovr')
-        return op(space, self, w_other)
-    self = self.descr_long(space)
-    w_other = w_other.descr_long(space)
-    return getattr(self, 'descr_' + opname)(space, w_other)
-
-
-# helper for pow()
-@jit.look_inside_iff(lambda space, iv, iw, iz:
-                     jit.isconstant(iw) and jit.isconstant(iz))
-def _pow_impl(space, iv, iw, iz):
-    if iw < 0:
-        if iz != 0:
-            raise oefmt(space.w_TypeError,
-                        "pow() 2nd argument cannot be negative when 3rd "
-                        "argument specified")
-        # bounce it, since it always returns float
-        raise ValueError
-    temp = iv
-    ix = 1
-    while iw > 0:
-        if iw & 1:
-            ix = ovfcheck(ix * temp)
-        iw >>= 1   # Shift exponent down by 1 bit
-        if iw == 0:
-            break
-        temp = ovfcheck(temp * temp) # Square the value of temp
-        if iz:
-            # If we did a multiplication, perform a modulo
-            ix %= iz
-            temp %= iz
-    if iz:
-        ix %= iz
-    return ix
-
 
 def wrapint(space, x):
     if not space.config.objspace.std.withprebuiltint:
@@ -559,6 +541,35 @@ def wrapint(space, x):
     return w_res
 
 
+def wrap_parsestringerror(space, e, w_source):
+    if isinstance(e, InvalidBaseError):
+        w_msg = space.wrap(e.msg)
+    else:
+        w_msg = space.wrap('%s: %s' % (e.msg,
+                                       space.str_w(space.repr(w_source))))
+    return OperationError(space.w_ValueError, w_msg)
+
+
+def _recover_with_smalllong(space):
+    """True if there is a chance that a SmallLong would fit when an Int
+    does not
+    """
+    return (space.config.objspace.std.withsmalllong and
+            sys.maxint == 2147483647)
+
+
+@specialize.arg(1)
+def _ovf2long(space, opname, self, w_other):
+    """Handle overflowing to smalllong or long"""
+    if _recover_with_smalllong(space) and opname != 'truediv':
+        from pypy.objspace.std import smalllongobject
+        op = getattr(smalllongobject, opname + '_ovr')
+        return op(space, self, w_other)
+    self = self.descr_long(space)
+    w_other = w_other.descr_long(space)
+    return getattr(self, 'descr_' + opname)(space, w_other)
+
+
 @jit.elidable
 def _string_to_int_or_long(space, w_source, string, base=10):
     w_longval = None
@@ -579,15 +590,6 @@ def _retry_to_w_long(space, parser, w_source):
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     return space.newlong_from_rbigint(bigint)
-
-
-def wrap_parsestringerror(space, e, w_source):
-    if isinstance(e, InvalidBaseError):
-        w_msg = space.wrap(e.msg)
-    else:
-        w_msg = space.wrap('%s: %s' % (e.msg,
-                                       space.str_w(space.repr(w_source))))
-    return OperationError(space.w_ValueError, w_msg)
 
 
 def _new_int(space, w_inttype, w_x, w_base=None):
