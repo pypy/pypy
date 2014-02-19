@@ -38,7 +38,13 @@ def new_dtype_getter(name):
         return get_dtype_cache(space).dtypes_by_name[name]
 
     def new(space, w_subtype, w_value=None):
+        from pypy.module.micronumpy.interp_numarray import array
         dtype = _get_dtype(space)
+        if not space.is_none(w_value):
+            w_arr = array(space, w_value, dtype, copy=False)
+            if len(w_arr.get_shape()) != 0:
+                return w_arr
+            w_value = w_arr.get_scalar_value()
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
 
     def descr_reduce(self, space):

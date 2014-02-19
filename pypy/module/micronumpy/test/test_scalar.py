@@ -24,6 +24,11 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.dtype(c).type(sys.maxint) == sys.maxint
         for c in ['L', 'Q']:
             assert np.dtype(c).type(sys.maxint + 42) == sys.maxint + 42
+        assert np.float32(np.array([True, False])).dtype == np.float32
+        assert type(np.float32(np.array([True]))) is np.ndarray
+        assert type(np.float32(1.0)) is np.float32
+        a = np.array([True, False])
+        assert np.bool_(a) is a
 
     def test_builtin(self):
         import numpy as np

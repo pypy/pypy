@@ -697,6 +697,9 @@ class AppTestTypes(BaseAppTestDtypes):
         b = X(10)
         assert type(b) is X
         assert b.m() == 12
+        b = X(numpy.array([1, 2, 3]))
+        assert type(b) is numpy.ndarray
+        assert b.dtype.type is numpy.float64
 
     def test_long_as_index(self):
         from numpypy import int_, float64
