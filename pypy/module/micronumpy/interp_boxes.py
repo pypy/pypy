@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floattype import float_typedef
-from pypy.objspace.std.unicodeobject import W_UnicodeObject, unicode_from_object
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT

@@ -121,7 +121,7 @@ w_one = W_ComplexObject(1, 0)
 
 
 def delegate_Bool2Complex(space, w_bool):
-    return W_ComplexObject(w_bool.boolval, 0.0)
+    return W_ComplexObject(w_bool.intval, 0.0)
 
 def delegate_Int2Complex(space, w_int):
     return W_ComplexObject(w_int.intval, 0.0)

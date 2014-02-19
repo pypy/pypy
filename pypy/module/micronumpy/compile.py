@@ -189,7 +189,7 @@ class FakeSpace(object):
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
-        return w_obj.boolval
+        return bool(w_obj.intval)
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
@@ -257,7 +257,7 @@ class FloatObject(W_Root):
 class BoolObject(W_Root):
     tp = FakeSpace.w_bool
     def __init__(self, boolval):
-        self.boolval = boolval
+        self.intval = boolval
 
 class IntObject(W_Root):
     tp = FakeSpace.w_int

@@ -55,7 +55,7 @@ registerimplementation(W_FloatObject)
 
 # bool-to-float delegation
 def delegate_Bool2Float(space, w_bool):
-    return W_FloatObject(float(w_bool.boolval))
+    return W_FloatObject(float(w_bool.intval))
 
 # int-to-float delegation
 def delegate_Int2Float(space, w_intobj):

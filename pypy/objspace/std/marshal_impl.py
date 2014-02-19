@@ -98,10 +98,7 @@ def unmarshal_None(space, u, tc):
 register(TYPE_NONE, unmarshal_None)
 
 def marshal_w__Bool(space, w_bool, m):
-    if w_bool.boolval:
-        m.atom(TYPE_TRUE)
-    else:
-        m.atom(TYPE_FALSE)
+    m.atom(TYPE_TRUE if w_bool.intval else TYPE_FALSE)
 
 def unmarshal_Bool(space, u, tc):
     if tc == TYPE_TRUE:

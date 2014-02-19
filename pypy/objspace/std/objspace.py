@@ -516,7 +516,7 @@ class StdObjSpace(ObjSpace):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.
         if type(w_obj) is W_BoolObject:
-            return w_obj.boolval
+            return bool(w_obj.intval)
         return self._DescrOperation_is_true(w_obj)
 
     def getattr(self, w_obj, w_name):

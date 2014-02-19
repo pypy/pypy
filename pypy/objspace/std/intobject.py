@@ -38,15 +38,14 @@ class W_AbstractIntObject(W_Root):
 
     def int(self, space):
         """x.__int__() <==> int(x)"""
+        raise NotImplementedError
 
     def descr_format(self, space, w_format_spec):
-        pass
-
-    def descr_coerce(self, space, w_other):
-        """x.__coerce__(y) <==> coerce(x, y)"""
+        raise NotImplementedError
 
     def descr_pow(self, space, w_exponent, w_modulus=None):
         """x.__pow__(y[, z]) <==> pow(x, y[, z])"""
+        raise NotImplementedError
     descr_rpow = func_with_new_name(descr_pow, 'descr_rpow')
     descr_rpow.__doc__ = "y.__rpow__(x[, z]) <==> pow(x, y[, z])"
 
@@ -55,13 +54,14 @@ class W_AbstractIntObject(W_Root):
             doc = 'x.__%s__() <==> %s(x)' % (opname, opname)
         @func_renamer('descr_' + opname)
         def descr_unaryop(self, space):
-            pass
+            raise NotImplementedError
         descr_unaryop.__doc__ = doc
         return descr_unaryop
 
     descr_repr = _abstract_unaryop('repr')
     descr_str = _abstract_unaryop('str')
 
+    descr_coerce = _abstract_unaryop('coerce')
     descr_conjugate = _abstract_unaryop(
         'conjugate', "Returns self, the complex conjugate of any int.")
     descr_bit_length = _abstract_unaryop('bit_length', """\
@@ -93,7 +93,7 @@ class W_AbstractIntObject(W_Root):
     def _abstract_cmpop(opname):
         @func_renamer('descr_' + opname)
         def descr_cmp(self, space, w_other):
-            pass
+            raise NotImplementedError
         descr_cmp.__doc__ = 'x.__%s__(y) <==> x%sy' % (opname, CMP_OPS[opname])
         return descr_cmp
 
@@ -111,7 +111,7 @@ class W_AbstractIntObject(W_Root):
         oper = '%s(%%s, %%s)' % opname if not oper else '%%s%s%%s' % oper
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
-            pass
+            raise NotImplementedError
         descr_binop.__doc__ = "x.__%s__(y) <==> %s" % (opname,
                                                        oper % ('x', 'y'))
         descr_rbinop = func_with_new_name(descr_binop, 'descr_r' + opname)
@@ -136,16 +136,6 @@ class W_AbstractIntObject(W_Root):
     descr_mod, descr_rmod = _abstract_binop('mod')
     descr_divmod, descr_rdivmod = _abstract_binop('divmod')
 
-    def descr_get_numerator(self, space):
-        return self.int(space)
-    descr_get_real = descr_get_numerator
-
-    def descr_get_denominator(self, space):
-        return wrapint(space, 1)
-
-    def descr_get_imag(self, space):
-        return wrapint(space, 0)
-
 
 def _floordiv(space, x, y):
     try:
@@ -153,7 +143,7 @@ def _floordiv(space, x, y):
     except ZeroDivisionError:
         raise oefmt(space.w_ZeroDivisionError, "integer division by zero")
     return wrapint(space, z)
-_div = _floordiv
+_div = func_with_new_name(_floordiv, '_div')
 
 
 def _truediv(space, x, y):
@@ -208,246 +198,7 @@ def _rshift(space, a, b):
     return wrapint(space, a)
 
 
-class IntMethods(object):
-
-    def descr_coerce(self, space, w_other):
-        if not isinstance(w_other, W_AbstractIntObject):
-            return space.w_NotImplemented
-        return space.newtuple([self, w_other])
-
-    def descr_long(self, space):
-        from pypy.objspace.std.longobject import W_LongObject
-        return W_LongObject.fromint(space, self.int_w(space))
-
-    def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
-
-    def descr_nonzero(self, space):
-        return space.newbool(self.int_w(space) != 0)
-
-    def descr_invert(self, space):
-        return wrapint(space, ~self.int_w(space))
-
-    def descr_pos(self, space):
-        return self.int(space)
-    descr_index = descr_trunc = descr_conjugate = descr_pos
-
-    def descr_neg(self, space):
-        a = self.int_w(space)
-        try:
-            x = ovfcheck(-a)
-        except OverflowError:
-            if _recover_with_smalllong(space):
-                from pypy.objspace.std.smalllongobject import neg_ovr
-                return neg_ovr(space, self)
-            return self.descr_long(space).descr_neg(space)
-        return wrapint(space, x)
-
-    def descr_abs(self, space):
-        pos = self.int_w(space) >= 0
-        return self.int(space) if pos else self.descr_neg(space)
-
-    def descr_float(self, space):
-        a = self.int_w(space)
-        x = float(a)
-        return space.newfloat(x)
-
-    def descr_oct(self, space):
-        return space.wrap(oct(self.int_w(space)))
-
-    def descr_hex(self, space):
-        return space.wrap(hex(self.int_w(space)))
-
-    def descr_getnewargs(self, space):
-        return space.newtuple([wrapint(space, self.int_w(space))])
-
-    def descr_bit_length(self, space):
-        val = self.int_w(space)
-        if val < 0:
-            val = -val
-        bits = 0
-        while val:
-            bits += 1
-            val >>= 1
-        return space.wrap(bits)
-
-    def descr_repr(self, space):
-        res = str(self.int_w(space))
-        return space.wrap(res)
-    descr_str = descr_repr
-
-    def descr_format(self, space, w_format_spec):
-        return newformat.run_formatter(space, w_format_spec,
-                                       "format_int_or_long", self,
-                                       newformat.INT_KIND)
-
-    @unwrap_spec(w_modulus=WrappedDefault(None))
-    def descr_pow(self, space, w_exponent, w_modulus=None):
-        if not isinstance(w_exponent, W_AbstractIntObject):
-            return space.w_NotImplemented
-
-        if space.is_none(w_modulus):
-            z = 0
-        elif isinstance(w_modulus, W_AbstractIntObject):
-            z = w_modulus.int_w(space)
-            if z == 0:
-                raise oefmt(space.w_ValueError,
-                            "pow() 3rd argument cannot be 0")
-        else:
-            # can't return NotImplemented (space.pow doesn't do full
-            # ternary, i.e. w_modulus.__zpow__(self, w_exponent)), so
-            # handle it ourselves
-            return self._ovfpow2long(space, w_exponent, w_modulus)
-
-        x = self.int_w(space)
-        y = w_exponent.int_w(space)
-        try:
-            result = _pow_impl(space, x, y, z)
-        except (OverflowError, ValueError):
-            return self._ovfpow2long(space, w_exponent, w_modulus)
-        return space.wrap(result)
-
-    @unwrap_spec(w_modulus=WrappedDefault(None))
-    def descr_rpow(self, space, w_base, w_modulus=None):
-        if not isinstance(w_base, W_AbstractIntObject):
-            return space.w_NotImplemented
-        return w_base.descr_pow(space, self, w_modulus)
-
-    def _ovfpow2long(self, space, w_exponent, w_modulus):
-        if space.is_none(w_modulus) and _recover_with_smalllong(space):
-            from pypy.objspace.std.smalllongobject import pow_ovr
-            return pow_ovr(space, self, w_exponent)
-        self = self.descr_long(space)
-        return self.descr_pow(space, w_exponent, w_modulus)
-
-    def _make_descr_cmp(opname):
-        op = getattr(operator, opname)
-        @func_renamer('descr_' + opname)
-        def descr_cmp(self, space, w_other):
-            i = self.int_w(space)
-            if isinstance(w_other, W_IntObject):
-                j = w_other.intval
-            elif isinstance(w_other, W_AbstractIntObject):
-                j = w_other.int_w(space)
-            else:
-                return space.w_NotImplemented
-            return space.newbool(op(i, j))
-        return descr_cmp
-
-    descr_lt = _make_descr_cmp('lt')
-    descr_le = _make_descr_cmp('le')
-    descr_eq = _make_descr_cmp('eq')
-    descr_ne = _make_descr_cmp('ne')
-    descr_gt = _make_descr_cmp('gt')
-    descr_ge = _make_descr_cmp('ge')
-
-    def _make_generic_descr_binop(opname, ovf=True):
-        op = getattr(operator,
-                     opname + '_' if opname in ('and', 'or') else opname)
-
-        @func_renamer('descr_' + opname)
-        def descr_binop(self, space, w_other):
-            x = self.int_w(space)
-            if isinstance(w_other, W_IntObject):
-                y = w_other.intval
-            elif isinstance(w_other, W_AbstractIntObject):
-                y = w_other.int_w(space)
-            else:
-                return space.w_NotImplemented
-            if ovf:
-                try:
-                    z = ovfcheck(op(x, y))
-                except OverflowError:
-                    return _ovf2long(space, opname, self, w_other)
-            else:
-                z = op(x, y)
-            return wrapint(space, z)
-
-        if opname in COMMUTATIVE_OPS:
-            return descr_binop, func_with_new_name(descr_binop,
-                                                   'descr_r' + opname)
-
-        @func_renamer('descr_r' + opname)
-        def descr_rbinop(self, space, w_other):
-            x = self.int_w(space)
-            if isinstance(w_other, W_IntObject):
-                y = w_other.intval
-            elif isinstance(w_other, W_AbstractIntObject):
-                y = w_other.int_w(space)
-            else:
-                return space.w_NotImplemented
-            if ovf:
-                try:
-                    z = ovfcheck(op(y, x))
-                except OverflowError:
-                    return _ovf2long(space, opname, w_other, self)
-            else:
-                z = op(y, x)
-            return wrapint(space, z)
-
-        return descr_binop, descr_rbinop
-
-    descr_add, descr_radd = _make_generic_descr_binop('add')
-    descr_sub, descr_rsub = _make_generic_descr_binop('sub')
-    descr_mul, descr_rmul = _make_generic_descr_binop('mul')
-
-    descr_and, descr_rand = _make_generic_descr_binop('and', ovf=False)
-    descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
-    descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
-
-    def _make_descr_binop(func, ovf=True):
-        opname = func.__name__[1:]
-
-        @func_renamer('descr_' + opname)
-        def descr_binop(self, space, w_other):
-            x = self.int_w(space)
-            if isinstance(w_other, W_IntObject):
-                y = w_other.intval
-            elif isinstance(w_other, W_AbstractIntObject):
-                y = w_other.int_w(space)
-            else:
-                return space.w_NotImplemented
-            if ovf:
-                try:
-                    return func(space, x, y)
-                except OverflowError:
-                    return _ovf2long(space, opname, self, w_other)
-            else:
-                return func(space, x, y)
-
-        @func_renamer('descr_r' + opname)
-        def descr_rbinop(self, space, w_other):
-            x = self.int_w(space)
-            if isinstance(w_other, W_IntObject):
-                y = w_other.intval
-            elif isinstance(w_other, W_AbstractIntObject):
-                y = w_other.int_w(space)
-            else:
-                return space.w_NotImplemented
-            if ovf:
-                try:
-                    return func(space, y, x)
-                except OverflowError:
-                    return _ovf2long(space, opname, w_other, self)
-            else:
-                return func(space, y, x)
-        return descr_binop, descr_rbinop
-
-    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
-    descr_div, descr_rdiv = _make_descr_binop(_div)
-    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
-    descr_mod, descr_rmod = _make_descr_binop(_mod)
-    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
-    descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
-    descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
-
-
 class W_IntObject(W_AbstractIntObject):
-    import_from_mixin(IntMethods)
 
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
@@ -465,7 +216,7 @@ class W_IntObject(W_AbstractIntObject):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        return self.int_w(space) == w_other.int_w(space)
+        return self.intval == w_other.intval
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -497,6 +248,241 @@ class W_IntObject(W_AbstractIntObject):
         if not space.is_overloaded(self, space.w_int, '__int__'):
             return space.newint(self.intval)
         return W_Root.int(self, space)
+
+    descr_pos = func_with_new_name(int, 'descr_pos')
+    descr_index = func_with_new_name(int, 'descr_index')
+    descr_trunc = func_with_new_name(int, 'descr_trunc')
+    descr_conjugate = func_with_new_name(int, 'descr_conjugate')
+
+    def descr_get_numerator(self, space):
+        return self.int(space)
+    descr_get_real = descr_get_numerator
+
+    def descr_get_denominator(self, space):
+        return wrapint(space, 1)
+
+    def descr_get_imag(self, space):
+        return wrapint(space, 0)
+
+    def descr_coerce(self, space, w_other):
+        if not isinstance(w_other, W_AbstractIntObject):
+            return space.w_NotImplemented
+        return space.newtuple([self, w_other])
+
+    def descr_long(self, space):
+        from pypy.objspace.std.longobject import W_LongObject
+        return W_LongObject.fromint(space, self.intval)
+
+    def descr_hash(self, space):
+        # unlike CPython, we don't special-case the value -1 in most of
+        # our hash functions, so there is not much sense special-casing
+        # it here either.  Make sure this is consistent with the hash of
+        # floats and longs.
+        return self.int(space)
+
+    def descr_nonzero(self, space):
+        return space.newbool(self.intval != 0)
+
+    def descr_invert(self, space):
+        return wrapint(space, ~self.intval)
+
+    def descr_neg(self, space):
+        a = self.intval
+        try:
+            x = ovfcheck(-a)
+        except OverflowError:
+            if _recover_with_smalllong(space):
+                from pypy.objspace.std.smalllongobject import neg_ovr
+                return neg_ovr(space, self)
+            return self.descr_long(space).descr_neg(space)
+        return wrapint(space, x)
+
+    def descr_abs(self, space):
+        pos = self.intval >= 0
+        return self.int(space) if pos else self.descr_neg(space)
+
+    def descr_float(self, space):
+        a = self.intval
+        x = float(a)
+        return space.newfloat(x)
+
+    def descr_oct(self, space):
+        return space.wrap(oct(self.intval))
+
+    def descr_hex(self, space):
+        return space.wrap(hex(self.intval))
+
+    def descr_getnewargs(self, space):
+        return space.newtuple([wrapint(space, self.intval)])
+
+    def descr_bit_length(self, space):
+        val = self.intval
+        if val < 0:
+            val = -val
+        bits = 0
+        while val:
+            bits += 1
+            val >>= 1
+        return space.wrap(bits)
+
+    def descr_repr(self, space):
+        res = str(self.intval)
+        return space.wrap(res)
+    descr_str = func_with_new_name(descr_repr, 'descr_str')
+
+    def descr_format(self, space, w_format_spec):
+        return newformat.run_formatter(space, w_format_spec,
+                                       "format_int_or_long", self,
+                                       newformat.INT_KIND)
+
+    @unwrap_spec(w_modulus=WrappedDefault(None))
+    def descr_pow(self, space, w_exponent, w_modulus=None):
+        if not isinstance(w_exponent, W_IntObject):
+            return space.w_NotImplemented
+
+        if space.is_none(w_modulus):
+            z = 0
+        elif isinstance(w_modulus, W_IntObject):
+            z = w_modulus.intval
+            if z == 0:
+                raise oefmt(space.w_ValueError,
+                            "pow() 3rd argument cannot be 0")
+        else:
+            # can't return NotImplemented (space.pow doesn't do full
+            # ternary, i.e. w_modulus.__zpow__(self, w_exponent)), so
+            # handle it ourselves
+            return self._ovfpow2long(space, w_exponent, w_modulus)
+
+        x = self.intval
+        y = w_exponent.intval
+        try:
+            result = _pow_impl(space, x, y, z)
+        except (OverflowError, ValueError):
+            return self._ovfpow2long(space, w_exponent, w_modulus)
+        return space.wrap(result)
+
+    @unwrap_spec(w_modulus=WrappedDefault(None))
+    def descr_rpow(self, space, w_base, w_modulus=None):
+        if not isinstance(w_base, W_IntObject):
+            return space.w_NotImplemented
+        return w_base.descr_pow(space, self, w_modulus)
+
+    def _ovfpow2long(self, space, w_exponent, w_modulus):
+        if space.is_none(w_modulus) and _recover_with_smalllong(space):
+            from pypy.objspace.std.smalllongobject import pow_ovr
+            return pow_ovr(space, self, w_exponent)
+        self = self.descr_long(space)
+        return self.descr_pow(space, w_exponent, w_modulus)
+
+    def _make_descr_cmp(opname):
+        op = getattr(operator, opname)
+        @func_renamer('descr_' + opname)
+        def descr_cmp(self, space, w_other):
+            if not isinstance(w_other, W_IntObject):
+                return space.w_NotImplemented
+            i = self.intval
+            j = w_other.intval
+            return space.newbool(op(i, j))
+        return descr_cmp
+
+    descr_lt = _make_descr_cmp('lt')
+    descr_le = _make_descr_cmp('le')
+    descr_eq = _make_descr_cmp('eq')
+    descr_ne = _make_descr_cmp('ne')
+    descr_gt = _make_descr_cmp('gt')
+    descr_ge = _make_descr_cmp('ge')
+
+    def _make_generic_descr_binop(opname, ovf=True):
+        op = getattr(operator,
+                     opname + '_' if opname in ('and', 'or') else opname)
+
+        @func_renamer('descr_' + opname)
+        def descr_binop(self, space, w_other):
+            if not isinstance(w_other, W_IntObject):
+                return space.w_NotImplemented
+
+            x = self.intval
+            y = w_other.intval
+            if ovf:
+                try:
+                    z = ovfcheck(op(x, y))
+                except OverflowError:
+                    return _ovf2long(space, opname, self, w_other)
+            else:
+                z = op(x, y)
+            return wrapint(space, z)
+
+        if opname in COMMUTATIVE_OPS:
+            return descr_binop, func_with_new_name(descr_binop,
+                                                   'descr_r' + opname)
+
+        @func_renamer('descr_r' + opname)
+        def descr_rbinop(self, space, w_other):
+            if not isinstance(w_other, W_IntObject):
+                return space.w_NotImplemented
+
+            x = self.intval
+            y = w_other.intval
+            if ovf:
+                try:
+                    z = ovfcheck(op(y, x))
+                except OverflowError:
+                    return _ovf2long(space, opname, w_other, self)
+            else:
+                z = op(y, x)
+            return wrapint(space, z)
+
+        return descr_binop, descr_rbinop
+
+    descr_add, descr_radd = _make_generic_descr_binop('add')
+    descr_sub, descr_rsub = _make_generic_descr_binop('sub')
+    descr_mul, descr_rmul = _make_generic_descr_binop('mul')
+
+    descr_and, descr_rand = _make_generic_descr_binop('and', ovf=False)
+    descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
+    descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
+
+    def _make_descr_binop(func, ovf=True):
+        opname = func.__name__[1:]
+
+        @func_renamer('descr_' + opname)
+        def descr_binop(self, space, w_other):
+            if not isinstance(w_other, W_IntObject):
+                return space.w_NotImplemented
+
+            x = self.intval
+            y = w_other.intval
+            if ovf:
+                try:
+                    return func(space, x, y)
+                except OverflowError:
+                    return _ovf2long(space, opname, self, w_other)
+            else:
+                return func(space, x, y)
+
+        @func_renamer('descr_r' + opname)
+        def descr_rbinop(self, space, w_other):
+            if not isinstance(w_other, W_IntObject):
+                return space.w_NotImplemented
+
+            x = self.intval
+            y = w_other.intval
+            if ovf:
+                try:
+                    return func(space, y, x)
+                except OverflowError:
+                    return _ovf2long(space, opname, w_other, self)
+            else:
+                return func(space, y, x)
+        return descr_binop, descr_rbinop
+
+    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
+    descr_div, descr_rdiv = _make_descr_binop(_div)
+    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
+    descr_mod, descr_rmod = _make_descr_binop(_mod)
+    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
+    descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
+    descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
 
 def _recover_with_smalllong(space):
@@ -674,7 +660,7 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
         return w_obj
 
 
-W_AbstractIntObject.typedef = StdTypeDef("int",
+W_IntObject.typedef = StdTypeDef("int",
     __doc__ = """int(x=0) -> int or long
 int(x, base=10) -> int or long
 
@@ -692,79 +678,135 @@ interpret the base from the string as an integer literal.
     __new__ = interp2app(descr__new__),
 
     numerator = typedef.GetSetProperty(
-        W_AbstractIntObject.descr_get_numerator,
+        W_IntObject.descr_get_numerator,
         doc="the numerator of a rational number in lowest terms"),
     denominator = typedef.GetSetProperty(
-        W_AbstractIntObject.descr_get_denominator,
+        W_IntObject.descr_get_denominator,
         doc="the denominator of a rational number in lowest terms"),
     real = typedef.GetSetProperty(
-        W_AbstractIntObject.descr_get_real,
+        W_IntObject.descr_get_real,
         doc="the real part of a complex number"),
     imag = typedef.GetSetProperty(
-        W_AbstractIntObject.descr_get_imag,
+        W_IntObject.descr_get_imag,
         doc="the imaginary part of a complex number"),
 
-    __repr__ = interpindirect2app(W_AbstractIntObject.descr_repr),
-    __str__ = interpindirect2app(W_AbstractIntObject.descr_str),
+    __repr__ = interp2app(W_IntObject.descr_repr,
+                          doc=W_AbstractIntObject.descr_repr.__doc__),
+    __str__ = interp2app(W_IntObject.descr_str,
+                         doc=W_AbstractIntObject.descr_str.__doc__),
 
-    conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
-    bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),
-    __format__ = interpindirect2app(W_AbstractIntObject.descr_format),
-    __hash__ = interpindirect2app(W_AbstractIntObject.descr_hash),
-    __coerce__ = interpindirect2app(W_AbstractIntObject.descr_coerce),
-    __oct__ = interpindirect2app(W_AbstractIntObject.descr_oct),
-    __hex__ = interpindirect2app(W_AbstractIntObject.descr_hex),
-    __getnewargs__ = interpindirect2app(W_AbstractIntObject.descr_getnewargs),
+    conjugate = interp2app(W_IntObject.descr_conjugate,
+                           doc=W_AbstractIntObject.descr_conjugate.__doc__),
+    bit_length = interp2app(W_IntObject.descr_bit_length,
+                            doc=W_AbstractIntObject.descr_bit_length.__doc__),
+    __format__ = interp2app(W_IntObject.descr_format,
+                            doc=W_AbstractIntObject.descr_format.__doc__),
+    __hash__ = interp2app(W_IntObject.descr_hash,
+                          doc=W_AbstractIntObject.descr_hash.__doc__),
+    __coerce__ = interp2app(W_IntObject.descr_coerce,
+                            doc=W_AbstractIntObject.descr_coerce.__doc__),
+    __oct__ = interp2app(W_IntObject.descr_oct,
+                         doc=W_AbstractIntObject.descr_oct.__doc__),
+    __hex__ = interp2app(W_IntObject.descr_hex,
+                         doc=W_AbstractIntObject.descr_hex.__doc__),
+    __getnewargs__ = interp2app(
+        W_IntObject.descr_getnewargs,
+        doc=W_AbstractIntObject.descr_getnewargs.__doc__),
 
-    __int__ = interpindirect2app(W_AbstractIntObject.int),
-    __long__ = interpindirect2app(W_AbstractIntObject.descr_long),
-    __index__ = interpindirect2app(W_AbstractIntObject.descr_index),
-    __trunc__ = interpindirect2app(W_AbstractIntObject.descr_trunc),
-    __float__ = interpindirect2app(W_AbstractIntObject.descr_float),
+    __int__ = interp2app(W_IntObject.int,
+                         doc=W_AbstractIntObject.int.__doc__),
+    __long__ = interp2app(W_IntObject.descr_long,
+                          doc=W_AbstractIntObject.descr_long.__doc__),
+    __index__ = interp2app(W_IntObject.descr_index,
+                           doc=W_AbstractIntObject.descr_index.__doc__),
+    __trunc__ = interp2app(W_IntObject.descr_trunc,
+                           doc=W_AbstractIntObject.descr_trunc.__doc__),
+    __float__ = interp2app(W_IntObject.descr_float,
+                           doc=W_AbstractIntObject.descr_float.__doc__),
 
-    __pos__ = interpindirect2app(W_AbstractIntObject.descr_pos),
-    __neg__ = interpindirect2app(W_AbstractIntObject.descr_neg),
-    __abs__ = interpindirect2app(W_AbstractIntObject.descr_abs),
-    __nonzero__ = interpindirect2app(W_AbstractIntObject.descr_nonzero),
-    __invert__ = interpindirect2app(W_AbstractIntObject.descr_invert),
+    __pos__ = interp2app(W_IntObject.descr_pos,
+                         doc=W_AbstractIntObject.descr_pos.__doc__),
+    __neg__ = interp2app(W_IntObject.descr_neg,
+                         doc=W_AbstractIntObject.descr_neg.__doc__),
+    __abs__ = interp2app(W_IntObject.descr_abs,
+                         doc=W_AbstractIntObject.descr_abs.__doc__),
+    __nonzero__ = interp2app(W_IntObject.descr_nonzero,
+                             doc=W_AbstractIntObject.descr_nonzero.__doc__),
+    __invert__ = interp2app(W_IntObject.descr_invert,
+                            doc=W_AbstractIntObject.descr_invert.__doc__),
 
-    __lt__ = interpindirect2app(W_AbstractIntObject.descr_lt),
-    __le__ = interpindirect2app(W_AbstractIntObject.descr_le),
-    __eq__ = interpindirect2app(W_AbstractIntObject.descr_eq),
-    __ne__ = interpindirect2app(W_AbstractIntObject.descr_ne),
-    __gt__ = interpindirect2app(W_AbstractIntObject.descr_gt),
-    __ge__ = interpindirect2app(W_AbstractIntObject.descr_ge),
+    __lt__ = interp2app(W_IntObject.descr_lt,
+                        doc=W_AbstractIntObject.descr_lt.__doc__),
+    __le__ = interp2app(W_IntObject.descr_le,
+                        doc=W_AbstractIntObject.descr_le.__doc__),
+    __eq__ = interp2app(W_IntObject.descr_eq,
+                        doc=W_AbstractIntObject.descr_eq.__doc__),
+    __ne__ = interp2app(W_IntObject.descr_ne,
+                        doc=W_AbstractIntObject.descr_ne.__doc__),
+    __gt__ = interp2app(W_IntObject.descr_gt,
+                        doc=W_AbstractIntObject.descr_gt.__doc__),
+    __ge__ = interp2app(W_IntObject.descr_ge,
+                        doc=W_AbstractIntObject.descr_ge.__doc__),
 
-    __add__ = interpindirect2app(W_AbstractIntObject.descr_add),
-    __radd__ = interpindirect2app(W_AbstractIntObject.descr_radd),
-    __sub__ = interpindirect2app(W_AbstractIntObject.descr_sub),
-    __rsub__ = interpindirect2app(W_AbstractIntObject.descr_rsub),
-    __mul__ = interpindirect2app(W_AbstractIntObject.descr_mul),
-    __rmul__ = interpindirect2app(W_AbstractIntObject.descr_rmul),
+    __add__ = interp2app(W_IntObject.descr_add,
+                         doc=W_AbstractIntObject.descr_add.__doc__),
+    __radd__ = interp2app(W_IntObject.descr_radd,
+                          doc=W_AbstractIntObject.descr_radd.__doc__),
+    __sub__ = interp2app(W_IntObject.descr_sub,
+                         doc=W_AbstractIntObject.descr_sub.__doc__),
+    __rsub__ = interp2app(W_IntObject.descr_rsub,
+                          doc=W_AbstractIntObject.descr_rsub.__doc__),
+    __mul__ = interp2app(W_IntObject.descr_mul,
+                         doc=W_AbstractIntObject.descr_mul.__doc__),
+    __rmul__ = interp2app(W_IntObject.descr_rmul,
+                          doc=W_AbstractIntObject.descr_rmul.__doc__),
 
-    __and__ = interpindirect2app(W_AbstractIntObject.descr_and),
-    __rand__ = interpindirect2app(W_AbstractIntObject.descr_rand),
-    __or__ = interpindirect2app(W_AbstractIntObject.descr_or),
-    __ror__ = interpindirect2app(W_AbstractIntObject.descr_ror),
-    __xor__ = interpindirect2app(W_AbstractIntObject.descr_xor),
-    __rxor__ = interpindirect2app(W_AbstractIntObject.descr_rxor),
+    __and__ = interp2app(W_IntObject.descr_and,
+                         doc=W_AbstractIntObject.descr_and.__doc__),
+    __rand__ = interp2app(W_IntObject.descr_rand,
+                          doc=W_AbstractIntObject.descr_rand.__doc__),
+    __or__ = interp2app(W_IntObject.descr_or,
+                        doc=W_AbstractIntObject.descr_or.__doc__),
+    __ror__ = interp2app(W_IntObject.descr_ror,
+                         doc=W_AbstractIntObject.descr_ror.__doc__),
+    __xor__ = interp2app(W_IntObject.descr_xor,
+                         doc=W_AbstractIntObject.descr_xor.__doc__),
+    __rxor__ = interp2app(W_IntObject.descr_rxor,
+                          doc=W_AbstractIntObject.descr_rxor.__doc__),
 
-    __lshift__ = interpindirect2app(W_AbstractIntObject.descr_lshift),
-    __rlshift__ = interpindirect2app(W_AbstractIntObject.descr_rlshift),
-    __rshift__ = interpindirect2app(W_AbstractIntObject.descr_rshift),
-    __rrshift__ = interpindirect2app(W_AbstractIntObject.descr_rrshift),
+    __lshift__ = interp2app(W_IntObject.descr_lshift,
+                            doc=W_AbstractIntObject.descr_lshift.__doc__),
+    __rlshift__ = interp2app(W_IntObject.descr_rlshift,
+                             doc=W_AbstractIntObject.descr_rlshift.__doc__),
+    __rshift__ = interp2app(W_IntObject.descr_rshift,
+                            doc=W_AbstractIntObject.descr_rshift.__doc__),
+    __rrshift__ = interp2app(W_IntObject.descr_rrshift,
+                             doc=W_AbstractIntObject.descr_rrshift.__doc__),
 
-    __floordiv__ = interpindirect2app(W_AbstractIntObject.descr_floordiv),
-    __rfloordiv__ = interpindirect2app(W_AbstractIntObject.descr_rfloordiv),
-    __div__ = interpindirect2app(W_AbstractIntObject.descr_div),
-    __rdiv__ = interpindirect2app(W_AbstractIntObject.descr_rdiv),
-    __truediv__ = interpindirect2app(W_AbstractIntObject.descr_truediv),
-    __rtruediv__ = interpindirect2app(W_AbstractIntObject.descr_rtruediv),
-    __mod__ = interpindirect2app(W_AbstractIntObject.descr_mod),
-    __rmod__ = interpindirect2app(W_AbstractIntObject.descr_rmod),
-    __divmod__ = interpindirect2app(W_AbstractIntObject.descr_divmod),
-    __rdivmod__ = interpindirect2app(W_AbstractIntObject.descr_rdivmod),
+    __floordiv__ = interp2app(W_IntObject.descr_floordiv,
+                              doc=W_AbstractIntObject.descr_floordiv.__doc__),
+    __rfloordiv__ = interp2app(
+        W_IntObject.descr_rfloordiv,
+        doc=W_AbstractIntObject.descr_rfloordiv.__doc__),
+    __div__ = interp2app(W_IntObject.descr_div,
+                         doc=W_AbstractIntObject.descr_div.__doc__),
+    __rdiv__ = interp2app(W_IntObject.descr_rdiv,
+                          doc=W_AbstractIntObject.descr_rdiv.__doc__),
+    __truediv__ = interp2app(W_IntObject.descr_truediv,
+                             doc=W_AbstractIntObject.descr_truediv.__doc__),
+    __rtruediv__ = interp2app(W_IntObject.descr_rtruediv,
+                              doc=W_AbstractIntObject.descr_rtruediv.__doc__),
+    __mod__ = interp2app(W_IntObject.descr_mod,
+                         doc=W_AbstractIntObject.descr_mod.__doc__),
+    __rmod__ = interp2app(W_IntObject.descr_rmod,
+                          doc=W_AbstractIntObject.descr_rmod.__doc__),
+    __divmod__ = interp2app(W_IntObject.descr_divmod,
+                            doc=W_AbstractIntObject.descr_divmod.__doc__),
+    __rdivmod__ = interp2app(W_IntObject.descr_rdivmod,
+                             doc=W_AbstractIntObject.descr_rdivmod.__doc__),
 
-    __pow__ = interpindirect2app(W_AbstractIntObject.descr_pow),
-    __rpow__ = interpindirect2app(W_AbstractIntObject.descr_rpow),
+    __pow__ = interp2app(W_IntObject.descr_pow,
+                         doc=W_AbstractIntObject.descr_pow.__doc__),
+    __rpow__ = interp2app(W_IntObject.descr_rpow,
+                          doc=W_AbstractIntObject.descr_rpow.__doc__),
 )
