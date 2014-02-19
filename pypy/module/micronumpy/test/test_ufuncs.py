@@ -1031,7 +1031,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
 
     def test_accumulate(self):
-        from numpypy import add, multiply, arange, dtype
+        from numpypy import add, subtract, multiply, divide, arange, dtype
         assert (add.accumulate([2, 3, 5]) == [2, 5, 10]).all()
         assert (multiply.accumulate([2, 3, 5]) == [2, 6, 30]).all()
         a = arange(4).reshape(2,2)
@@ -1049,6 +1049,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert b.dtype == int
         assert add.accumulate([True]*200)[-1] == 200
         assert add.accumulate([True]*200).dtype == dtype('int')
+        assert subtract.accumulate([True]*200).dtype == dtype('bool')
+        assert divide.accumulate([True]*200).dtype == dtype('int8')
 
     def test_noncommutative_reduce_accumulate(self):
         import numpypy as np

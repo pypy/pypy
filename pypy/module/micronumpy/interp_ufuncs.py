@@ -186,7 +186,7 @@ class W_Ufunc(W_Root):
                     space, obj.get_dtype(),
                     promote_to_float=self.promote_to_float,
                     promote_to_largest=self.promote_to_largest,
-                    promote_bools=True
+                    promote_bools=self.promote_bools,
                 )
         if self.identity is None:
             for i in range(shapelen):
