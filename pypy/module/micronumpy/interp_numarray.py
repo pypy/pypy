@@ -1410,13 +1410,13 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
                 raise oefmt(space.w_ValueError,
                             "object __array__ method not producing an array")
 
+    dtype = interp_dtype.decode_w_dtype(space, w_dtype)
+
     # scalars and strings w/o __array__ method
     isstr = space.isinstance_w(w_object, space.w_str)
     if not issequence_w(space, w_object) or isstr:
-        if space.is_none(w_dtype) or isstr:
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
-        dtype = space.interp_w(interp_dtype.W_Dtype,
-                space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        if dtype is None or dtype.is_str_or_unicode():
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         return W_NDimArray.new_scalar(space, dtype, w_object)
 
     if space.is_none(w_order):
@@ -1427,7 +1427,6 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
     # arrays with correct dtype
-    dtype = interp_dtype.decode_w_dtype(space, w_dtype)
     if isinstance(w_object, W_NDimArray) and \
             (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
         shape = w_object.get_shape()

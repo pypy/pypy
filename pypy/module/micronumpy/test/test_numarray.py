@@ -294,6 +294,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         arr = array([1], ndmin=3)
         assert arr.shape == (1, 1, 1)
 
+    def test_array_init(self):
+        import numpy as np
+        a = np.array('123', dtype='int64')
+        assert a == 123
+        assert a.dtype == np.int64
+        a = np.array('123', dtype='intp')
+        assert a == 123
+        assert a.dtype == np.intp
+
     def test_array_copy(self):
         from numpypy import array
         a = array(range(12)).reshape(3,4)
