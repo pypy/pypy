@@ -257,7 +257,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "special case the 'list[integer]' expressions",
                    default=False),
         BoolOption("builtinshortcut",
-                   "a shortcut for operations between built-in types",
+                   "a shortcut for operations between built-in types. XXX: "
+                   "deprecated, not really a shortcut any more.",
                    default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
@@ -301,7 +302,6 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
-        #config.objspace.std.suggest(builtinshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)
