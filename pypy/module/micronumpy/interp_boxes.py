@@ -170,8 +170,7 @@ class W_GenericBox(W_Root):
 
     def descr_float(self, space):
         box = self.convert_to(space, W_Float64Box._get_dtype(space))
-        assert isinstance(box, PrimitiveBox)
-        return space.wrap(box.value)
+        return space.float(box.item(space))
 
     def descr_oct(self, space):
         return space.oct(self.descr_int(space))

@@ -2204,6 +2204,12 @@ class AppTestNumArray(BaseNumpyAppTest):
                 assert exc.value.message == "don't know how to convert " \
                                             "scalar number to %s" % op
 
+    def test__float__(self):
+        import numpy as np
+        assert float(np.array(1.5)) == 1.5
+        exc = raises(TypeError, "float(np.array([1.5, 2.5]))")
+        assert exc.value[0] == 'only length-1 arrays can be converted to Python scalars'
+
     def test__reduce__(self):
         from numpypy import array, dtype
         from cPickle import loads, dumps
