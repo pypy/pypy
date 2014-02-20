@@ -1277,17 +1277,23 @@ class ComplexFloating(object):
     #def mod(self, v1, v2):
     #    return math.fmod(v1, v2)
 
-    @complex_binary_op
     def pow(self, v1, v2):
-        try:
-            return rcomplex.c_pow(v1, v2)
-        except ZeroDivisionError:
-            return rfloat.NAN, rfloat.NAN
-        except OverflowError:
-            return rfloat.INFINITY, -math.copysign(rfloat.INFINITY, v1[1])
-        except ValueError:
-            return rfloat.NAN, rfloat.NAN
-
+        y = self.for_computation(self.unbox(v2))
+        if y[1] == 0:
+            if y[0] == 0:
+                return self.box_complex(1, 0)
+            if y[0] == 1:
+                return v1
+            if y[0] == 2:
+                return self.mul(v1, v1)
+        x = self.for_computation(self.unbox(v1))
+        if x[0] == 0 and x[1] == 0:
+            if y[0] > 0 and y[1] == 0:
+                return self.box_complex(0, 0)
+            return self.box_complex(rfloat.NAN, rfloat.NAN)
+        b = self.for_computation(self.unbox(self.log(v1)))
+        return self.exp(self.box_complex(b[0] * y[0] - b[1] * y[1],
+                                         b[0] * y[1] + b[1] * y[0]))
 
     #complex copysign does not exist in numpy
     #@complex_binary_op
