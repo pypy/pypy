@@ -402,6 +402,8 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             dim = space.int_w(w_dim)
             shape.append(dim)
             size *= dim
+        if size == 1:
+            return subdtype
         return W_Dtype(types.VoidType(), NPY_VOID, NPY_VOIDLTR,
                        "void" + str(8 * subdtype.get_size() * size),
                        NPY_VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox),

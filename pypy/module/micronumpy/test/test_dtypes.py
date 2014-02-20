@@ -72,6 +72,15 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_dtype_from_tuple(self):
         import numpy as np
+        d = np.dtype((np.int64, 0))
+        assert d == np.dtype(('i8', 0,))
+        assert d.shape == (0,)
+        d = np.dtype((np.int64, 1))
+        assert d == np.dtype('i8')
+        assert d.shape == ()
+        d = np.dtype((np.int64, 1,))
+        assert d == np.dtype('i8')
+        assert d.shape == ()
         d = np.dtype((np.int64, 4))
         assert d == np.dtype(('i8', (4,)))
         assert d.shape == (4,)
