@@ -123,6 +123,11 @@ class W_Dtype(W_Root):
             return '|S' + str(self.get_size())
         return self.name
 
+    def get_float_dtype(self, space):
+        assert self.kind == NPY_COMPLEXLTR
+        assert self.float_type is not None
+        return get_dtype_cache(space).dtypes_by_name[self.byteorder + self.float_type]
+
     def descr_str(self, space):
         return space.wrap(self.get_name())
 
@@ -697,7 +702,7 @@ class DtypeCache(object):
             char=NPY_CFLOATLTR,
             w_box_type = space.gettypefor(interp_boxes.W_Complex64Box),
             aliases=['csingle'],
-            float_type = self.w_float32dtype,
+            float_type=NPY_FLOATLTR,
         )
         self.w_complex128dtype = W_Dtype(
             types.Complex128(),
@@ -709,7 +714,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_complex,
                                     space.gettypefor(interp_boxes.W_ComplexFloatingBox)],
             aliases=["complex", 'cfloat', 'cdouble'],
-            float_type = self.w_float64dtype,
+            float_type=NPY_DOUBLELTR,
         )
         self.w_complexlongdtype = W_Dtype(
             types.ComplexLong(),
@@ -719,7 +724,7 @@ class DtypeCache(object):
             char=NPY_CLONGDOUBLELTR,
             w_box_type = space.gettypefor(interp_boxes.W_ComplexLongBox),
             aliases=["clongdouble", "clongfloat"],
-            float_type = self.w_floatlongdtype,
+            float_type=NPY_LONGDOUBLELTR,
         )
         self.w_stringdtype = W_Dtype(
             types.StringType(),

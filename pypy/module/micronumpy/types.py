@@ -1061,6 +1061,9 @@ class ComplexFloating(object):
         l = len(s) // 2
         real = comp.runpack_str(space, s[:l])
         imag = comp.runpack_str(space, s[l:])
+        if not self.native:
+            real = comp.byteswap(real)
+            imag = comp.byteswap(imag)
         return self.composite(real, imag)
 
     @staticmethod
@@ -1121,6 +1124,9 @@ class ComplexFloating(object):
     def _read(self, storage, i, offset):
         real = raw_storage_getitem(self.T, storage, i + offset)
         imag = raw_storage_getitem(self.T, storage, i + offset + rffi.sizeof(self.T))
+        if not self.native:
+            real = byteswap(real)
+            imag = byteswap(imag)
         return real, imag
 
     def read(self, arr, i, offset, dtype=None):
@@ -1128,8 +1134,12 @@ class ComplexFloating(object):
         return self.box_complex(real, imag)
 
     def _write(self, storage, i, offset, value):
-        raw_storage_setitem(storage, i + offset, value[0])
-        raw_storage_setitem(storage, i + offset + rffi.sizeof(self.T), value[1])
+        real, imag = value
+        if not self.native:
+            real = byteswap(real)
+            imag = byteswap(imag)
+        raw_storage_setitem(storage, i + offset, real)
+        raw_storage_setitem(storage, i + offset + rffi.sizeof(self.T), imag)
 
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box))

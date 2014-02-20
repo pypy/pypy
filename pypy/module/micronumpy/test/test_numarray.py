@@ -3028,6 +3028,20 @@ class AppTestSupport(BaseNumpyAppTest):
         v = fromstring("abcd", dtype="|S2")
         assert v[0] == "ab"
         assert v[1] == "cd"
+        v = fromstring('@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a',
+                       dtype=dtype('>c16'))
+        assert v.tostring() == \
+            '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
+        assert v[0] == 2.2-1.1j
+        assert v.real == 2.2
+        assert v.imag == -1.1
+        v = fromstring('\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf',
+                       dtype=dtype('<c16'))
+        assert v.tostring() == \
+            '\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf'
+        assert v[0] == 2.2-1.1j
+        assert v.real == 2.2
+        assert v.imag == -1.1
 
     def test_fromstring_types(self):
         from numpypy import fromstring, array, dtype
@@ -3092,6 +3106,10 @@ class AppTestSupport(BaseNumpyAppTest):
                 raises(NotImplementedError, a.tostring, order)
             else:
                 assert a.tostring(order) == '\x01\x03\x02\x04'
+        assert array(2.2-1.1j, dtype='>c16').tostring() == \
+            '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
+        assert array(2.2-1.1j, dtype='<c16').tostring() == \
+            '\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf'
 
 
 class AppTestRepr(BaseNumpyAppTest):

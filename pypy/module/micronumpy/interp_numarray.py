@@ -323,8 +323,8 @@ class __extend__(W_NDimArray):
         return wrap_impl(space, w_subtype, self, copy)
 
     def descr_get_real(self, space):
-        return wrap_impl(space, space.type(self), self,
-                         self.implementation.get_real(self))
+        ret = self.implementation.get_real(space, self)
+        return wrap_impl(space, space.type(self), self, ret)
 
     def descr_get_imag(self, space):
         ret = self.implementation.get_imag(space, self)
