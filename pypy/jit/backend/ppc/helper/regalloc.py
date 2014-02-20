@@ -1,0 +1,127 @@
+from pypy.jit.metainterp.history import ConstInt, Box, FLOAT
+
+IMM_SIZE = 2 ** 15 - 1
+
+def check_imm_box(arg, size=IMM_SIZE, allow_zero=True):
+    if isinstance(arg, ConstInt):
+        return _check_imm_arg(arg.getint(), size, allow_zero)
+    return False
+
+def _check_imm_arg(arg, size=IMM_SIZE, allow_zero=True):
+    assert not isinstance(arg, ConstInt)
+    #if not we_are_translated():
+    #    if not isinstance(arg, int):
+    #        import pdb; pdb.set_trace()
+    i = arg
+    if allow_zero:
+        lower_bound = i >= 0
+    else:
+        lower_bound = i > 0
+    return i <= size and lower_bound
+
+def prepare_cmp_op():
+    def f(self, op):
+        boxes = op.getarglist()
+        arg0, arg1 = boxes
+        imm_a0 = check_imm_box(arg0)
+        imm_a1 = check_imm_box(arg1)
+        l0 = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
+
+        if imm_a1 and not imm_a0:
+            l1 = self._ensure_value_is_boxed(arg1, boxes)
+        else:
+            l1 = self._ensure_value_is_boxed(arg1, forbidden_vars=boxes)
+
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op.result)
+        return [l0, l1, res]
+    return f
+
+def prepare_unary_cmp():
+    def f(self, op):
+        a0 = op.getarg(0)
+        assert isinstance(a0, Box)
+        reg = self._ensure_value_is_boxed(a0)
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op.result, [a0])
+        return [reg, res]
+    return f
+
+def prepare_unary_int_op():
+    def f(self, op):
+        l0 = self._ensure_value_is_boxed(op.getarg(0))
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op.result)
+        return [l0, res]
+    return f
+
+def prepare_binary_int_op_with_imm():
+    def f(self, op):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        boxes = op.getarglist()
+        l0 = self._ensure_value_is_boxed(a0, boxes)
+        if isinstance(a1, ConstInt) and _check_imm_arg(a1.getint()):
+            l1 = self.convert_to_imm(a1)
+        else:
+            l1 = self._ensure_value_is_boxed(a1, boxes)
+        locs = [l0, l1]
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op.result)
+        return locs + [res]
+    return f
+
+def prepare_binary_int_op():
+    def f(self, op):
+        boxes = op.getarglist()
+        b0, b1 = boxes
+
+        reg1 = self._ensure_value_is_boxed(b0, forbidden_vars=boxes)
+        reg2 = self._ensure_value_is_boxed(b1, forbidden_vars=boxes)
+
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [reg1, reg2, res]
+    return f
+
+def prepare_float_op(name=None, base=True, float_result=True, guard=False):
+    if guard:
+        def f(self, op, guard_op):
+            locs = []
+            loc1 = self._ensure_value_is_boxed(op.getarg(0))
+            locs.append(loc1)
+            if base:
+                loc2 = self._ensure_value_is_boxed(op.getarg(1))
+                locs.append(loc2)
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            if guard_op is None:
+                res = self.force_allocate_reg(op.result)
+                assert float_result == (op.result.type == FLOAT)
+                locs.append(res)
+                return locs
+            else:
+                args = self._prepare_guard(guard_op, locs)
+                return args
+    else:
+        def f(self, op):
+            locs = []
+            loc1 = self._ensure_value_is_boxed(op.getarg(0))
+            locs.append(loc1)
+            if base:
+                loc2 = self._ensure_value_is_boxed(op.getarg(1))
+                locs.append(loc2)
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            res = self.force_allocate_reg(op.result)
+            assert float_result == (op.result.type == FLOAT)
+            locs.append(res)
+            return locs
+    if name:
+        f.__name__ = name
+    return f
+
