@@ -10,6 +10,10 @@ class TestUfuncCoercion(object):
         int8_dtype = get_dtype_cache(space).w_int8dtype
         int32_dtype = get_dtype_cache(space).w_int32dtype
         float64_dtype = get_dtype_cache(space).w_float64dtype
+        c64_dtype = get_dtype_cache(space).w_complex64dtype
+        c128_dtype = get_dtype_cache(space).w_complex128dtype
+        cld_dtype = get_dtype_cache(space).w_complexlongdtype
+        fld_dtype = get_dtype_cache(space).w_floatlongdtype
 
         # Basic pairing
         assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
@@ -17,6 +21,9 @@ class TestUfuncCoercion(object):
         assert find_binop_result_dtype(space, float64_dtype, bool_dtype) is float64_dtype
         assert find_binop_result_dtype(space, int32_dtype, int8_dtype) is int32_dtype
         assert find_binop_result_dtype(space, int32_dtype, bool_dtype) is int32_dtype
+        assert find_binop_result_dtype(space, c64_dtype, float64_dtype) is c128_dtype
+        assert find_binop_result_dtype(space, c64_dtype, fld_dtype) is cld_dtype
+        assert find_binop_result_dtype(space, c128_dtype, fld_dtype) is cld_dtype
 
         # With promote bool (happens on div), the result is that the op should
         # promote bools to int8
@@ -1068,3 +1075,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from numpypy import absolute
         exc = raises(ValueError, np.absolute.outer, [-1, -2])
         assert exc.value[0] == 'outer product only supported for binary functions'
+
+    def test_promotion(self):
+        import numpy as np
+        assert np.add(np.float16(0), np.int16(0)).dtype == np.float32
+        assert np.add(np.float16(0), np.int32(0)).dtype == np.float64
+        assert np.add(np.float16(0), np.int64(0)).dtype == np.float64
+        assert np.add(np.float16(0), np.float32(0)).dtype == np.float32
+        assert np.add(np.float16(0), np.float64(0)).dtype == np.float64
+        assert np.add(np.float16(0), np.longdouble(0)).dtype == np.longdouble
+        assert np.add(np.float16(0), np.complex64(0)).dtype == np.complex64
+        assert np.add(np.float16(0), np.complex128(0)).dtype == np.complex128

@@ -461,9 +461,17 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
     # Everything numeric promotes to complex
     if dt2.is_complex_type() or dt1.is_complex_type():
+        if dt2.num == NPY_HALF:
+            dt1, dt2 = dt2, dt1
         if dt2.num == NPY_CFLOAT:
+            if dt1.num == NPY_DOUBLE:
+                return interp_dtype.get_dtype_cache(space).w_complex128dtype
+            elif dt1.num == NPY_LONGDOUBLE:
+                return interp_dtype.get_dtype_cache(space).w_complexlongdtype
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
         elif dt2.num == NPY_CDOUBLE:
+            if dt1.num == NPY_LONGDOUBLE:
+                return interp_dtype.get_dtype_cache(space).w_complexlongdtype
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
         elif dt2.num == NPY_CLONGDOUBLE:
             return interp_dtype.get_dtype_cache(space).w_complexlongdtype
@@ -474,11 +482,16 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
     if dt1.kind == dt2.kind and not dt2.is_flexible_type():
+        if dt2.num == NPY_HALF:
+            return dt1
         return dt2
 
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == NPY_FLOATINGLTR or dt1.kind == NPY_GENBOOLLTR:
-        # Float32 + 8-bit int = Float64
+        if dt2.num == NPY_HALF and dt1.itemtype.get_element_size() == 2:
+            return interp_dtype.get_dtype_cache(space).w_float32dtype
+        if dt2.num == NPY_HALF and dt1.itemtype.get_element_size() >= 4:
+            return interp_dtype.get_dtype_cache(space).w_float64dtype
         if dt2.num == NPY_FLOAT and dt1.itemtype.get_element_size() >= 4:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
         return dt2
@@ -509,7 +522,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
-        newdtype.kind == NPY_FLOATINGLTR):
+            newdtype.kind == NPY_FLOATINGLTR):
         return newdtype
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
