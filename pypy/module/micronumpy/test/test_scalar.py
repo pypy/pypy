@@ -210,8 +210,8 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_tostring(self):
         import numpy as np
-        assert np.int64(123).tostring() == np.array(123, dtype=int).tostring()
-        assert np.int64(123).tostring('C') == np.array(123, dtype=int).tostring()
+        assert np.int64(123).tostring() == np.array(123, dtype='i8').tostring()
+        assert np.int64(123).tostring('C') == np.array(123, dtype='i8').tostring()
         assert np.float64(1.5).tostring() == np.array(1.5, dtype=float).tostring()
         exc = raises(TypeError, 'np.int64(123).tostring("Z")')
         assert exc.value[0] == 'order not understood'
