@@ -208,6 +208,14 @@ class AppTestScalar(BaseNumpyAppTest):
         raises(AttributeError, 'np.float32(1.5).as_integer_ratio()')
         assert np.float64(1.5).as_integer_ratio() == (3, 2)
 
+    def test_tostring(self):
+        import numpy as np
+        assert np.int64(123).tostring() == np.array(123, dtype=int).tostring()
+        assert np.int64(123).tostring('C') == np.array(123, dtype=int).tostring()
+        assert np.float64(1.5).tostring() == np.array(1.5, dtype=float).tostring()
+        exc = raises(TypeError, 'np.int64(123).tostring("Z")')
+        assert exc.value[0] == 'order not understood'
+
     def test_complex_scalar_complex_cast(self):
         import numpy as np
         for tp in [np.csingle, np.cdouble, np.clongdouble]:
