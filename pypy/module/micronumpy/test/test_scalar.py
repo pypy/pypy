@@ -216,6 +216,14 @@ class AppTestScalar(BaseNumpyAppTest):
         exc = raises(TypeError, 'np.int64(123).tostring("Z")')
         assert exc.value[0] == 'order not understood'
 
+    def test_reshape(self):
+        import numpy as np
+        assert np.int64(123).reshape((1,)) == 123
+        assert np.int64(123).reshape(1).shape == (1,)
+        assert np.int64(123).reshape((1,)).shape == (1,)
+        exc = raises(ValueError, "np.int64(123).reshape((2,))")
+        assert exc.value[0] == 'total size of new array must be unchanged'
+
     def test_complex_scalar_complex_cast(self):
         import numpy as np
         for tp in [np.csingle, np.cdouble, np.clongdouble]:

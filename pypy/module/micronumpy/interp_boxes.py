@@ -343,6 +343,10 @@ class W_GenericBox(W_Root):
         w_meth = space.getattr(self.descr_ravel(space), space.wrap('tostring'))
         return space.call_args(w_meth, __args__)
 
+    def descr_reshape(self, space, __args__):
+        w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
+        return space.call_args(w_meth, __args__)
+
     w_flags = None
     def descr_get_flags(self, space):
         if self.w_flags is None:
@@ -616,6 +620,7 @@ W_GenericBox.typedef = TypeDef("generic",
     copy = interp2app(W_GenericBox.descr_copy),
     byteswap = interp2app(W_GenericBox.descr_byteswap),
     tostring = interp2app(W_GenericBox.descr_tostring),
+    reshape = interp2app(W_GenericBox.descr_reshape),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),
