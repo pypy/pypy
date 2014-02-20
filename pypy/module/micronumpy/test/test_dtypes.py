@@ -572,6 +572,7 @@ class AppTestTypes(BaseAppTestDtypes):
             raises(OverflowError, numpy.int64, 9223372036854775808)
             raises(OverflowError, numpy.int64, 18446744073709551615)
         raises(OverflowError, numpy.uint64, 18446744073709551616)
+        assert numpy.uint64((2<<63) - 1) == (2<<63) - 1
 
     def test_float16(self):
         import numpy

@@ -35,6 +35,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert int(np.str_('12')) == 12
         exc = raises(ValueError, "int(np.str_('abc'))")
         assert exc.value.message.startswith('invalid literal for int()')
+        assert int(np.uint64((2<<63) - 1)) == (2<<63) - 1
         assert oct(np.int32(11)) == '013'
         assert oct(np.float32(11.6)) == '013'
         assert oct(np.complex64(11-12j)) == '013'
