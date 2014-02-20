@@ -57,6 +57,7 @@ def detect_model_from_host_platform():
             'i86pc': MODEL_X86,    # Solaris/Intel
             'x86': MODEL_X86,      # Apple
             'Power Macintosh': MODEL_PPC_64,
+            'ppc64': MODEL_PPC_64
             'x86_64': MODEL_X86,
             'amd64': MODEL_X86,    # freebsd
             'AMD64': MODEL_X86,    # win64
