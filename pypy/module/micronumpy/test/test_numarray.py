@@ -3006,6 +3006,10 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (m == [1.0, -1.0, 2.0, 3.0]).all()
         n = fromstring("3.4 2.0 3.8 2.2", dtype='int32', sep=" ")
         assert (n == [3]).all()
+        n = fromstring('\x00\x00\x00{', dtype='>i4')
+        assert n == 123
+        n = fromstring('W\xb0', dtype='>f2')
+        assert n == 123.
         o = fromstring("1.0 2f.0f 3.8 2.2", dtype='float32', sep=" ")
         assert len(o) == 2
         assert o[0] == 1.0

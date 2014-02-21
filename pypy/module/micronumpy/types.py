@@ -198,7 +198,9 @@ class Primitive(object):
             self._write(storage, i, offset, value)
 
     def runpack_str(self, space, s):
-        v = runpack(self.format_code, s)
+        v = rffi.cast(self.T, runpack(self.format_code, s))
+        if not self.native:
+            v = byteswap(v)
         return self.box(v)
 
     @simple_binary_op
@@ -972,8 +974,10 @@ class Float16(BaseType, Float):
 
     def runpack_str(self, space, s):
         assert len(s) == 2
-        fval = unpack_float(s, native_is_bigendian)
-        return self.box(fval)
+        fval = self.box(unpack_float(s, native_is_bigendian))
+        if not self.native:
+            fval = self.byteswap(fval)
+        return fval
 
     def default_fromstring(self, space):
         return self.box(-1.0)
@@ -1599,8 +1603,10 @@ elif interp_boxes.long_double_size in (12, 16):
 
         def runpack_str(self, space, s):
             assert len(s) == interp_boxes.long_double_size
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
+            fval = self.box(unpack_float80(s, native_is_bigendian))
+            if not self.native:
+                fval = self.byteswap(fval)
+            return fval
 
         def byteswap(self, w_v):
             value = self.unbox(w_v)
