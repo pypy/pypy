@@ -147,10 +147,8 @@ def rms(cp, size):
 
 def _sum2(cp1, cp2, length):
     size = 2
-    total = 0
-    for i in range(length):
-        total += getsample(cp1, size, i) * getsample(cp2, size, i)
-    return total
+    return sum(getsample(cp1, size, i) * getsample(cp2, size, i)
+               for i in range(length))
 
 
 def findfit(cp1, cp2):
