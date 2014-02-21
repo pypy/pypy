@@ -294,6 +294,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         arr = array([1], ndmin=3)
         assert arr.shape == (1, 1, 1)
 
+    def test_array_init(self):
+        import numpy as np
+        a = np.array('123', dtype='int64')
+        assert a == 123
+        assert a.dtype == np.int64
+        a = np.array('123', dtype='intp')
+        assert a == 123
+        assert a.dtype == np.intp
+
     def test_array_copy(self):
         from numpypy import array
         a = array(range(12)).reshape(3,4)
@@ -2186,6 +2195,12 @@ class AppTestNumArray(BaseNumpyAppTest):
                 assert exc.value.message == "don't know how to convert " \
                                             "scalar number to %s" % op
 
+    def test__float__(self):
+        import numpy as np
+        assert float(np.array(1.5)) == 1.5
+        exc = raises(TypeError, "float(np.array([1.5, 2.5]))")
+        assert exc.value[0] == 'only length-1 arrays can be converted to Python scalars'
+
     def test__reduce__(self):
         from numpypy import array, dtype
         from cPickle import loads, dumps
@@ -2648,7 +2663,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert arange(3)[array(1)] == 1
 
     def test_fill(self):
-        from numpypy import array
+        from numpypy import array, empty
         a = array([1, 2, 3])
         a.fill(10)
         assert (a == [10, 10, 10]).all()
@@ -2670,6 +2685,20 @@ class AppTestMultiDim(BaseNumpyAppTest):
         e = array(10, dtype=complex)
         e.fill(1.5-3j)
         assert e == 1.5-3j
+
+        a = empty(5, dtype='S3')
+        a.fill('abc')
+        for i in a:
+            assert i == 'abc'
+
+        a = empty(10, dtype=[(_, int) for _ in 'abcde'])
+        a.fill(123)
+        for i in a:
+            import sys
+            if '__pypy__' in sys.builtin_module_names:
+                assert tuple(i) == (123,) + (0,) * 4
+            else:
+                assert tuple(i) == (123,) * 5
 
     def test_array_indexing_bool(self):
         from numpypy import arange
@@ -2982,6 +3011,10 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (m == [1.0, -1.0, 2.0, 3.0]).all()
         n = fromstring("3.4 2.0 3.8 2.2", dtype='int32', sep=" ")
         assert (n == [3]).all()
+        n = fromstring('\x00\x00\x00{', dtype='>i4')
+        assert n == 123
+        n = fromstring('W\xb0', dtype='>f2')
+        assert n == 123.
         o = fromstring("1.0 2f.0f 3.8 2.2", dtype='float32', sep=" ")
         assert len(o) == 2
         assert o[0] == 1.0
@@ -3004,6 +3037,20 @@ class AppTestSupport(BaseNumpyAppTest):
         v = fromstring("abcd", dtype="|S2")
         assert v[0] == "ab"
         assert v[1] == "cd"
+        v = fromstring('@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a',
+                       dtype=dtype('>c16'))
+        assert v.tostring() == \
+            '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
+        assert v[0] == 2.2-1.1j
+        assert v.real == 2.2
+        assert v.imag == -1.1
+        v = fromstring('\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf',
+                       dtype=dtype('<c16'))
+        assert v.tostring() == \
+            '\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf'
+        assert v[0] == 2.2-1.1j
+        assert v.real == 2.2
+        assert v.imag == -1.1
 
     def test_fromstring_types(self):
         from numpypy import fromstring, array, dtype
@@ -3068,6 +3115,16 @@ class AppTestSupport(BaseNumpyAppTest):
                 raises(NotImplementedError, a.tostring, order)
             else:
                 assert a.tostring(order) == '\x01\x03\x02\x04'
+        assert array(2.2-1.1j, dtype='>c16').tostring() == \
+            '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
+        assert array(2.2-1.1j, dtype='<c16').tostring() == \
+            '\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf'
+
+    def test_str(self):
+        from numpypy import array
+        assert str(array([1, 2, 3])) == '[1 2 3]'
+        assert str(array(['abc'], 'S3')) == "['abc']"
+        assert str(array('abc')) == 'abc'
 
 
 class AppTestRepr(BaseNumpyAppTest):
@@ -3081,13 +3138,9 @@ class AppTestRepr(BaseNumpyAppTest):
         cache.w_array_str = None
         cache.w_array_repr = None
 
-    def test_repr_str(self):
-        py3k_skip('fixme later')
         from numpypy import array
         assert repr(array([1, 2, 3])) == 'array([1, 2, 3])'
-        assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
         assert repr(array(['abc'], 'S3')) == "array(['abc'])"
-        assert str(array(['abc'], 'S3')) == "array(['abc'])"
 
     def teardown_class(cls):
         if option.runappdirect:
@@ -3112,7 +3165,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         raises(IndexError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0
         assert a[0]['y'] == 0
-        raises(ValueError, "a[0] = (1, 2, 3)")
+        exc = raises(ValueError, "a[0] = (1, 2, 3)")
+        assert exc.value[0] == 'size of tuple must match number of fields.'
         a[0]['x'] = 13
         assert a[0]['x'] == 13
         a[1] = (1, 2)
@@ -3424,8 +3478,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             assert str(a) == "[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], " \
                                                   "[[7, 8, 9], [10, 11, 12]]])]"
         else:
-            assert str(a) == "array([('aaaa', 1.0, 8.0, [1, 2, 3, 4, 5, 6, " \
-                                                        "7, 8, 9, 10, 11, 12])])"
+            assert str(a) == "[('aaaa', 1.0, 8.0, [1, 2, 3, 4, 5, 6, " \
+                                                  "7, 8, 9, 10, 11, 12])]"
 
     def test_issue_1589(self):
         import numpypy as numpy
@@ -3437,6 +3491,20 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         import numpypy as np
         a = np.array([1,2,3], dtype='int16')
         assert (a * 2).dtype == np.dtype('int16')
+
+    def test_coerce_record(self):
+        import numpy as np
+        dt = np.dtype([('a', '?'), ('b', '?')])
+        b = np.array([True, True])
+        a = np.array([b, b, b], dtype=dt)
+        assert a.shape == (3, 2)
+        for i in a.flat:
+            assert tuple(i) == (True, False)
+
+        dt = np.dtype([('A', '<i8'), ('B', '<f8'), ('C', '<c16')])
+        b = np.array((999999, 1e+20, 1e+20+0j), dtype=dt)
+        a = np.array(b, copy=False, dtype=dt.descr)
+        assert tuple(a[()]) == (999999, 1e+20, 1e+20+0j)
 
 
 class AppTestPyPy(BaseNumpyAppTest):

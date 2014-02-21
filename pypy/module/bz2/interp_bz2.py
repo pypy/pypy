@@ -31,7 +31,7 @@ class CConfig:
     _compilation_info_ = eci
     calling_conv = 'c'
 
-    CHECK_LIBRARY = platform.Has('dump("x", (int)&BZ2_bzCompress)')
+    CHECK_LIBRARY = platform.Has('dump("x", (long)&BZ2_bzCompress)')
 
     off_t = platform.SimpleType("off_t", rffi.LONGLONG)
     size_t = platform.SimpleType("size_t", rffi.ULONG)

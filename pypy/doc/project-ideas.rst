@@ -142,32 +142,17 @@ to be got from them!):
 
 * `hg`
 
-Experiment (again) with LLVM backend for RPython compilation
-------------------------------------------------------------
-
-We already tried working with LLVM and at the time, LLVM was not mature enough
-for our needs. It's possible that this has changed, reviving the LLVM backend
-(or writing new from scratch) for static compilation would be a good project.
-
-(On the other hand, just generating C code and using clang might be enough.
-The issue with that is the so-called "asmgcc GC root finder", which has tons
-of issues of this own.  In my opinion (arigo), it would be definitely a
-better project to try to optimize the alternative, the "shadowstack" GC root
-finder, which is nicely portable.  So far it gives a pypy that is around
-7% slower.)
-
 Embedding PyPy
 ----------------------------------------
 
 Note: there is a basic proof-of-concept for that as a `uwsgi pypy plugin`_
 
 Being able to embed PyPy, say with its own limited C API, would be
-useful.  But here is the most interesting variant, straight from
-EuroPython live discussion :-)  We can have a generic "libpypy.so" that
-can be used as a placeholder dynamic library, and when it gets loaded,
-it runs a .py module that installs (via ctypes) the interface it wants
-exported.  This would give us a one-size-fits-all generic .so file to be
-imported by any application that wants to load .so files :-)
+useful.  But there is a possibly better variant: use CFFI.  With some
+minimal tools atop CFFI, it would be possible to write a pure Python
+library, and then compile automatically from it an .so/.dll file that is
+a dynamic-link library with whatever C API we want.  This gives us a
+one-size-fits-all generic way to make .so/.dll files from Python.
 
 .. _`uwsgi pypy plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
 

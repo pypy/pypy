@@ -614,6 +614,8 @@ class __extend__(SomeIterator):
         return can_throw
 
     def next(self):
+        if s_None.contains(self.s_container):
+            return s_ImpossibleValue     # so far
         if self.variant == ("enumerate",):
             s_item = self.s_container.getanyitem()
             return SomeTuple((SomeInteger(nonneg=True), s_item))
