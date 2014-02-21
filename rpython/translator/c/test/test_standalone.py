@@ -16,6 +16,20 @@ from rpython.tool.udir import udir
 from rpython.conftest import cdir
 from rpython.conftest import option
 
+def setup_module(module):
+    if os.name == 'nt':
+        # Do not open dreaded dialog box on segfault
+        import ctypes
+        SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
+        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+        module.old_err_mode = old_err_mode
+
+def teardown_module(module):
+    if os.name == 'nt':
+        import ctypes
+        ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
 
 class StandaloneTests(object):
     config = None

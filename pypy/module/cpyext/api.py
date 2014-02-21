@@ -16,7 +16,7 @@ from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
 from rpython.translator import platform
 from pypy.module.cpyext.state import State
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
@@ -910,6 +910,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     # implement function callbacks and generate function decls
     functions = []
     pypy_decls = []
+    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
+    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
     pypy_decls.append("#ifndef PYPY_STANDALONE\n")
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("extern \"C\" {")
@@ -953,6 +955,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decls.append("}")
     pypy_decls.append("#endif")
     pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
+    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
 
     pypy_decl_h = udir.join('pypy_decl.h')
     pypy_decl_h.write('\n'.join(pypy_decls))
@@ -1105,17 +1108,14 @@ def load_extension_module(space, path, name):
             finally:
                 lltype.free(ll_libname, flavor='raw')
         except rdynload.DLOpenError, e:
-            raise operationerrfmt(
-                space.w_ImportError,
-                "unable to load extension module '%s': %s",
-                path, e.msg)
+            raise oefmt(space.w_ImportError,
+                        "unable to load extension module '%s': %s",
+                        path, e.msg)
         try:
             initptr = rdynload.dlsym(dll, 'init%s' % (name.split('.')[-1],))
         except KeyError:
-            raise operationerrfmt(
-                space.w_ImportError,
-                "function init%s not found in library %s",
-                name, path)
+            raise oefmt(space.w_ImportError,
+                        "function init%s not found in library %s", name, path)
         initfunc = rffi.cast(initfunctype, initptr)
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()

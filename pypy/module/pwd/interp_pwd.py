@@ -1,8 +1,8 @@
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import operationerrfmt
 from rpython.rlib.rarithmetic import intmask
 
 eci = ExternalCompilationInfo(
@@ -62,8 +62,7 @@ def getpwuid(space, uid):
     """
     pw = c_getpwuid(uid)
     if not pw:
-        raise operationerrfmt(space.w_KeyError,
-            "getpwuid(): uid not found: %d", uid)
+        raise oefmt(space.w_KeyError, "getpwuid(): uid not found: %d", uid)
     return make_struct_passwd(space, pw)
 
 @unwrap_spec(name=str)
@@ -76,8 +75,7 @@ def getpwnam(space, name):
     """
     pw = c_getpwnam(name)
     if not pw:
-        raise operationerrfmt(space.w_KeyError,
-            "getpwnam(): name not found: %s", name)
+        raise oefmt(space.w_KeyError, "getpwnam(): name not found: %s", name)
     return make_struct_passwd(space, pw)
 
 def getpwall(space):

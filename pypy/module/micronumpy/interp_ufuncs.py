@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
@@ -19,12 +19,15 @@ def done_if_false(dtype, val):
 
 
 class W_Ufunc(W_Root):
-    _immutable_fields_ = ["name", "promote_to_float", "promote_bools", "identity",
-            "int_only", "allow_bool", "allow_complex", "complex_to_float"]
+    _immutable_fields_ = [
+        "name", "promote_to_largest", "promote_to_float", "promote_bools",
+        "identity", "int_only", "allow_bool", "allow_complex", "complex_to_float"
+    ]
 
-    def __init__(self, name, promote_to_float, promote_bools, identity,
-                 int_only, allow_bool, allow_complex, complex_to_float):
+    def __init__(self, name, promote_to_largest, promote_to_float, promote_bools,
+                 identity, int_only, allow_bool, allow_complex, complex_to_float):
         self.name = name
+        self.promote_to_largest = promote_to_largest
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
         self.identity = identity
@@ -88,9 +91,8 @@ class W_Ufunc(W_Root):
                                                 'output must be an array'))
         else:
             out = w_out
-        return self.reduce(space, w_obj, False, #do not promote_to_largest
-                    w_axis, True, #keepdims must be true
-                    out, w_dtype, cumulative=True)
+        return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
+                           out, w_dtype, cumulative=True)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
@@ -154,15 +156,13 @@ class W_Ufunc(W_Root):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
-                                                'output must be an array'))
+                'output must be an array'))
         else:
             out = w_out
-        promote_to_largest = False
-        return self.reduce(space, w_obj, promote_to_largest, w_axis, keepdims, out,
-                           w_dtype)
+        return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
-    def reduce(self, space, w_obj, promote_to_largest, w_axis,
-               keepdims=False, out=None, dtype=None, cumulative=False):
+    def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
+               cumulative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -185,15 +185,15 @@ class W_Ufunc(W_Root):
                 dtype = find_unaryop_result_dtype(
                     space, obj.get_dtype(),
                     promote_to_float=self.promote_to_float,
-                    promote_to_largest=promote_to_largest,
-                    promote_bools=True
+                    promote_to_largest=self.promote_to_largest,
+                    promote_bools=self.promote_bools,
                 )
         if self.identity is None:
             for i in range(shapelen):
                 if space.is_none(w_axis) or i == axis:
                     if obj_shape[i] == 0:
-                        raise operationerrfmt(space.w_ValueError, "zero-size array to "
-                                "%s.reduce without identity", self.name)
+                        raise oefmt(space.w_ValueError, "zero-size array to "
+                                    "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumulative:
@@ -212,20 +212,20 @@ class W_Ufunc(W_Root):
                 # XXX maybe we need to do broadcasting here, although I must
                 #     say I don't understand the details for axis reduce
                 if len(out.get_shape()) > len(shape):
-                    raise operationerrfmt(space.w_ValueError,
-                        'output parameter for reduction operation %s' +
-                        ' has too many dimensions', self.name)
+                    raise oefmt(space.w_ValueError,
+                                "output parameter for reduction operation %s "
+                                "has too many dimensions", self.name)
                 elif len(out.get_shape()) < len(shape):
-                    raise operationerrfmt(space.w_ValueError,
-                        'output parameter for reduction operation %s' +
-                        ' does not have enough dimensions', self.name)
+                    raise oefmt(space.w_ValueError,
+                                "output parameter for reduction operation %s "
+                                "does not have enough dimensions", self.name)
                 elif out.get_shape() != shape:
-                    raise operationerrfmt(space.w_ValueError,
-                        'output parameter shape mismatch, expecting [%s]' +
-                        ' , got [%s]',
-                        ",".join([str(x) for x in shape]),
-                        ",".join([str(x) for x in out.get_shape()]),
-                        )
+                    raise oefmt(space.w_ValueError,
+                                "output parameter shape mismatch, expecting "
+                                "[%s], got [%s]",
+                                ",".join([str(x) for x in shape]),
+                                ",".join([str(x) for x in out.get_shape()]),
+                                )
                 dtype = out.get_dtype()
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
@@ -243,14 +243,19 @@ class W_Ufunc(W_Root):
             return out
         if out:
             if len(out.get_shape())>0:
-                raise operationerrfmt(space.w_ValueError, "output parameter "
-                              "for reduction operation %s has too many"
-                              " dimensions",self.name)
+                raise oefmt(space.w_ValueError,
+                            "output parameter for reduction operation %s has "
+                            "too many dimensions", self.name)
             dtype = out.get_dtype()
         res = loop.compute_reduce(space, obj, dtype, self.func, self.done_func,
                                   self.identity)
         if out:
             out.set_scalar_value(res)
+            return out
+        if keepdims:
+            shape = [1] * len(obj_shape)
+            out = W_NDimArray.from_shape(space, [1] * len(obj_shape), dtype, w_instance=obj)
+            out.implementation.setitem(0, res)
             return out
         return res
 
@@ -258,18 +263,18 @@ class W_Ufunc(W_Root):
         return self._outer(space, __args__)
 
     def _outer(self, space, __args__):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("outer product only supported for binary functions"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "outer product only supported for binary functions"))
 
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
     argcount = 1
 
-    def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-            identity=None, bool_result=False, int_only=False,
+    def __init__(self, func, name, promote_to_largest=False, promote_to_float=False,
+            promote_bools=False, identity=None, bool_result=False, int_only=False,
             allow_bool=True, allow_complex=True, complex_to_float=False):
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_bool, allow_complex, complex_to_float)
+        W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
+                         identity, int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
         self.bool_result = bool_result
 
@@ -300,7 +305,7 @@ class W_Ufunc1(W_Ufunc):
                                                 'output must be an array'))
             res_dtype = out.get_dtype()
             #if not w_obj.get_dtype().can_cast_to(res_dtype):
-            #    raise operationerrfmt(space.w_TypeError,
+            #    raise oefmt(space.w_TypeError,
             #        "Cannot cast ufunc %s output from dtype('%s') to dtype('%s') with casting rule 'same_kind'", self.name, w_obj.get_dtype().name, res_dtype.name)
         elif self.bool_result:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
@@ -331,11 +336,11 @@ class W_Ufunc2(W_Ufunc):
     _immutable_fields_ = ["func", "comparison_func", "done_func"]
     argcount = 2
 
-    def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-            identity=None, comparison_func=False, int_only=False,
+    def __init__(self, func, name, promote_to_largest=False, promote_to_float=False,
+            promote_bools=False, identity=None, comparison_func=False, int_only=False,
             allow_bool=True, allow_complex=True, complex_to_float=False):
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_bool, allow_complex, complex_to_float)
+        W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
+                         identity, int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
         self.comparison_func = comparison_func
         if name == 'logical_and':
@@ -456,9 +461,17 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
     # Everything numeric promotes to complex
     if dt2.is_complex_type() or dt1.is_complex_type():
+        if dt2.num == NPY_HALF:
+            dt1, dt2 = dt2, dt1
         if dt2.num == NPY_CFLOAT:
+            if dt1.num == NPY_DOUBLE:
+                return interp_dtype.get_dtype_cache(space).w_complex128dtype
+            elif dt1.num == NPY_LONGDOUBLE:
+                return interp_dtype.get_dtype_cache(space).w_complexlongdtype
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
         elif dt2.num == NPY_CDOUBLE:
+            if dt1.num == NPY_LONGDOUBLE:
+                return interp_dtype.get_dtype_cache(space).w_complexlongdtype
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
         elif dt2.num == NPY_CLONGDOUBLE:
             return interp_dtype.get_dtype_cache(space).w_complexlongdtype
@@ -469,11 +482,16 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
     if dt1.kind == dt2.kind and not dt2.is_flexible_type():
+        if dt2.num == NPY_HALF:
+            return dt1
         return dt2
 
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == NPY_FLOATINGLTR or dt1.kind == NPY_GENBOOLLTR:
-        # Float32 + 8-bit int = Float64
+        if dt2.num == NPY_HALF and dt1.itemtype.get_element_size() == 2:
+            return interp_dtype.get_dtype_cache(space).w_float32dtype
+        if dt2.num == NPY_HALF and dt1.itemtype.get_element_size() >= 4:
+            return interp_dtype.get_dtype_cache(space).w_float64dtype
         if dt2.num == NPY_FLOAT and dt1.itemtype.get_element_size() >= 4:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
         return dt2
@@ -504,7 +522,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
-        newdtype.kind == NPY_FLOATINGLTR):
+            newdtype.kind == NPY_FLOATINGLTR):
         return newdtype
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
@@ -575,9 +593,9 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
                 return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
-    raise operationerrfmt(space.w_NotImplementedError,
-        'unable to create dtype from objects, ' '"%T" instance not supported',
-        w_obj)
+    raise oefmt(space.w_NotImplementedError,
+                'unable to create dtype from objects, "%T" instance not '
+                'supported', w_obj)
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                        bool_result):
@@ -601,9 +619,9 @@ class UfuncState(object):
     def __init__(self, space):
         "NOT_RPYTHON"
         for ufunc_def in [
-            ("add", "add", 2, {"identity": 0}),
+            ("add", "add", 2, {"identity": 0, "promote_to_largest": True}),
             ("subtract", "sub", 2),
-            ("multiply", "mul", 2, {"identity": 1}),
+            ("multiply", "mul", 2, {"identity": 1, "promote_to_largest": True}),
             ("bitwise_and", "bitwise_and", 2, {"identity": 1,
                                                "int_only": True}),
             ("bitwise_or", "bitwise_or", 2, {"identity": 0,

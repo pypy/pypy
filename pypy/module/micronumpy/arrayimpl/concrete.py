@@ -5,7 +5,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
 from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
      calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -86,25 +86,25 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides, backstrides, new_shape,
                           self, orig_array, dtype=dtype)
 
-    def get_real(self, orig_array):
+    def get_real(self, space, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
-            dtype =  self.dtype.float_type
+            dtype = self.dtype.get_float_dtype(space)
             return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array, dtype=dtype)
         return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array)
 
     def set_real(self, space, orig_array, w_value):
-        tmp = self.get_real(orig_array)
+        tmp = self.get_real(space, orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
     def get_imag(self, space, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
-            dtype =  self.dtype.float_type
+            dtype = self.dtype.get_float_dtype(space)
             return SliceArray(self.start + dtype.get_size(), strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
@@ -130,10 +130,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             if idx < 0:
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
-                raise operationerrfmt(space.w_IndexError,
-                      "index %d is out of bounds for axis %d with size %d",
-                      idx, i, self.get_shape()[i],
-                )
+                raise oefmt(space.w_IndexError,
+                            "index %d is out of bounds for axis %d with size "
+                            "%d", idx, i, self.get_shape()[i])
             item += idx * strides[i]
         return item
 
@@ -147,10 +146,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             if idx < 0:
                 idx = shape[i] + idx
             if idx < 0 or idx >= shape[i]:
-                raise operationerrfmt(space.w_IndexError,
-                      "index %d is out of bounds for axis %d with size %d",
-                      idx, i, self.get_shape()[i],
-                )
+                raise oefmt(space.w_IndexError,
+                            "index %d is out of bounds for axis %d with size "
+                            "%d", idx, i, self.get_shape()[i])
             item += idx * strides[i]
         return item
 
@@ -366,6 +364,9 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                                                     self.order)
         return SliceArray(0, strides, backstrides, new_shape, self,
                           orig_array)
+
+    def set_dtype(self, space, dtype):
+        self.dtype = dtype
 
     def argsort(self, space, w_axis):
         from pypy.module.micronumpy.arrayimpl.sort import argsort_array

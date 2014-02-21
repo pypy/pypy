@@ -25,6 +25,7 @@ from rpython.rlib.rstring import StringBuilder
 degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
+log10 = math.log(10)
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -198,7 +199,9 @@ class Primitive(object):
             self._write(storage, i, offset, value)
 
     def runpack_str(self, space, s):
-        v = runpack(self.format_code, s)
+        v = rffi.cast(self.T, runpack(self.format_code, s))
+        if not self.native:
+            v = byteswap(v)
         return self.box(v)
 
     @simple_binary_op
@@ -404,6 +407,7 @@ class Integer(Primitive):
         if w_item is None:
             return self.box(0)
         return self.box(space.int_w(space.call_function(space.w_int, w_item)))
+
     def _coerce(self, space, w_item):
         return self._base_coerce(space, w_item)
 
@@ -971,15 +975,17 @@ class Float16(BaseType, Float):
 
     def runpack_str(self, space, s):
         assert len(s) == 2
-        fval = unpack_float(s, native_is_bigendian)
-        return self.box(fval)
+        fval = self.box(unpack_float(s, native_is_bigendian))
+        if not self.native:
+            fval = self.byteswap(fval)
+        return fval
 
     def default_fromstring(self, space):
         return self.box(-1.0)
 
     def byteswap(self, w_v):
         value = self.unbox(w_v)
-        hbits = float_pack(value,2)
+        hbits = float_pack(value, 2)
         swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
@@ -990,11 +996,14 @@ class Float16(BaseType, Float):
         return float_unpack(r_ulonglong(hbits), 2)
 
     def _write(self, storage, i, offset, value):
-        hbits = rffi.cast(self._STORAGE_T, float_pack(value, 2))
+        try:
+            hbits = float_pack(value, 2)
+        except OverflowError:
+            hbits = float_pack(rfloat.INFINITY, 2)
+        hbits = rffi.cast(self._STORAGE_T, hbits)
         if not self.native:
             hbits = byteswap(hbits)
-        raw_storage_setitem(storage, i + offset,
-                rffi.cast(self._STORAGE_T, hbits))
+        raw_storage_setitem(storage, i + offset, hbits)
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
@@ -1057,6 +1066,9 @@ class ComplexFloating(object):
         l = len(s) // 2
         real = comp.runpack_str(space, s[:l])
         imag = comp.runpack_str(space, s[l:])
+        if not self.native:
+            real = comp.byteswap(real)
+            imag = comp.byteswap(imag)
         return self.composite(real, imag)
 
     @staticmethod
@@ -1117,6 +1129,9 @@ class ComplexFloating(object):
     def _read(self, storage, i, offset):
         real = raw_storage_getitem(self.T, storage, i + offset)
         imag = raw_storage_getitem(self.T, storage, i + offset + rffi.sizeof(self.T))
+        if not self.native:
+            real = byteswap(real)
+            imag = byteswap(imag)
         return real, imag
 
     def read(self, arr, i, offset, dtype=None):
@@ -1124,8 +1139,12 @@ class ComplexFloating(object):
         return self.box_complex(real, imag)
 
     def _write(self, storage, i, offset, value):
-        raw_storage_setitem(storage, i + offset, value[0])
-        raw_storage_setitem(storage, i + offset + rffi.sizeof(self.T), value[1])
+        real, imag = value
+        if not self.native:
+            real = byteswap(real)
+            imag = byteswap(imag)
+        raw_storage_setitem(storage, i + offset, real)
+        raw_storage_setitem(storage, i + offset + rffi.sizeof(self.T), imag)
 
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box))
@@ -1273,17 +1292,23 @@ class ComplexFloating(object):
     #def mod(self, v1, v2):
     #    return math.fmod(v1, v2)
 
-    @complex_binary_op
     def pow(self, v1, v2):
-        try:
-            return rcomplex.c_pow(v1, v2)
-        except ZeroDivisionError:
-            return rfloat.NAN, rfloat.NAN
-        except OverflowError:
-            return rfloat.INFINITY, -math.copysign(rfloat.INFINITY, v1[1])
-        except ValueError:
-            return rfloat.NAN, rfloat.NAN
-
+        y = self.for_computation(self.unbox(v2))
+        if y[1] == 0:
+            if y[0] == 0:
+                return self.box_complex(1, 0)
+            if y[0] == 1:
+                return v1
+            if y[0] == 2:
+                return self.mul(v1, v1)
+        x = self.for_computation(self.unbox(v1))
+        if x[0] == 0 and x[1] == 0:
+            if y[0] > 0 and y[1] == 0:
+                return self.box_complex(0, 0)
+            return self.box_complex(rfloat.NAN, rfloat.NAN)
+        b = self.for_computation(self.unbox(self.log(v1)))
+        return self.exp(self.box_complex(b[0] * y[0] - b[1] * y[1],
+                                         b[0] * y[1] + b[1] * y[0]))
 
     #complex copysign does not exist in numpy
     #@complex_binary_op
@@ -1525,22 +1550,25 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def log(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        return rcomplex.c_log(*v)
+        try:
+            return rcomplex.c_log(*v)
+        except ValueError:
+            return -rfloat.INFINITY, math.atan2(v[1], v[0])
 
     @complex_unary_op
     def log2(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        r = rcomplex.c_log(*v)
+        try:
+            r = rcomplex.c_log(*v)
+        except ValueError:
+            r = -rfloat.INFINITY, math.atan2(v[1], v[0])
         return r[0] / log2, r[1] / log2
 
     @complex_unary_op
     def log10(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        return rcomplex.c_log10(*v)
+        try:
+            return rcomplex.c_log10(*v)
+        except ValueError:
+            return -rfloat.INFINITY, math.atan2(v[1], v[0]) / log10
 
     @complex_unary_op
     def log1p(self, v):
@@ -1579,8 +1607,10 @@ elif interp_boxes.long_double_size in (12, 16):
 
         def runpack_str(self, space, s):
             assert len(s) == interp_boxes.long_double_size
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
+            fval = self.box(unpack_float80(s, native_is_bigendian))
+            if not self.native:
+                fval = self.byteswap(fval)
+            return fval
 
         def byteswap(self, w_v):
             value = self.unbox(w_v)
@@ -1840,25 +1870,30 @@ class RecordType(FlexibleType):
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
+        from pypy.module.micronumpy.base import W_NDimArray
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
         if w_item is not None:
-            # we treat every sequence as sequence, no special support
-            # for arrays
-            if not space.issequence_w(w_item):
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "expected sequence"))
-            if len(dtype.fields) != space.len_w(w_item):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "wrong length"))
-            items_w = space.fixedview(w_item)
+            if space.isinstance_w(w_item, space.w_tuple):
+                if len(dtype.fields) != space.len_w(w_item):
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "size of tuple must match number of fields."))
+                items_w = space.fixedview(w_item)
+            elif isinstance(w_item, W_NDimArray) and w_item.is_scalar():
+                items_w = space.fixedview(w_item.get_scalar_value())
+            else:
+                # XXX support initializing from readable buffers
+                items_w = [w_item]
         else:
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.get_size(), dtype)
-        for i in range(len(items_w)):
+        for i in range(len(dtype.fields)):
             ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
             itemtype = subdtype.itemtype
-            w_box = itemtype.coerce(space, subdtype, items_w[i])
+            try:
+                w_box = itemtype.coerce(space, subdtype, items_w[i])
+            except IndexError:
+                w_box = itemtype.coerce(space, subdtype, None)
             itemtype.store(arr, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 

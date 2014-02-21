@@ -338,9 +338,10 @@ class Entry(ExtRegistryEntry):
     _about_ = newlist_hint
 
     def compute_result_annotation(self, s_sizehint):
-        from rpython.annotator.model import SomeInteger
+        from rpython.annotator.model import SomeInteger, AnnotatorError
 
-        assert isinstance(s_sizehint, SomeInteger)
+        if not isinstance(s_sizehint, SomeInteger):
+            raise AnnotatorError("newlist_hint() argument must be an int")
         s_l = self.bookkeeper.newlist()
         s_l.listdef.listitem.resize()
         return s_l
@@ -365,8 +366,13 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_l, s_sizehint):
         from rpython.annotator import model as annmodel
-        assert isinstance(s_l, annmodel.SomeList)
-        assert isinstance(s_sizehint, annmodel.SomeInteger)
+        if annmodel.s_None.contains(s_l):
+            return   # first argument is only None so far, but we
+                     # expect a generalization later
+        if not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        if not isinstance(s_sizehint, annmodel.SomeInteger):
+            raise annmodel.AnnotatorError("Second argument must be an integer")
         s_l.listdef.listitem.resize()
 
     def specialize_call(self, hop):

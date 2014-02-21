@@ -57,3 +57,28 @@ Improve cohesion between rpython.flowspace and rpython.annotator.
 mapdicts keep track of whether or not an attribute is every assigned to
 multiple times. If it's only assigned once then an elidable lookup is used when
 possible.
+
+.. branch: precompiled-headers
+Create a Makefile using precompiled headers for MSVC platforms.
+The downside is a messy nmake-compatible Makefile. Since gcc shows minimal
+speedup, it was not implemented.
+
+.. branch: camelot
+With a properly configured 256-color terminal (TERM=...-256color), the
+Mandelbrot set shown during translation now uses a range of 50 colours.
+Essential!
+
+.. branch: NonConstant
+Simplify implementation of NonConstant.
+
+.. branch: array-propagate-len
+Kill some guards and operations in JIT traces by adding integer bounds
+propagation for getfield_(raw|gc) and getarrayitem_(raw|gc).
+
+.. branch: optimize-int-and
+Optimize away INT_AND with constant mask of 1s that fully cover the bitrange
+of other operand.
+
+.. branch: bounds-int-add-or
+Propagate appropriate bounds through INT_(OR|XOR|AND) operations if the
+operands are positive to kill some guards

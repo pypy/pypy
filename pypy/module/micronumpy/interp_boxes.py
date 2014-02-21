@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import operationerrfmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.bytesobject import W_BytesObject
@@ -38,7 +38,13 @@ def new_dtype_getter(name):
         return get_dtype_cache(space).dtypes_by_name[name]
 
     def new(space, w_subtype, w_value=None):
+        from pypy.module.micronumpy.interp_numarray import array
         dtype = _get_dtype(space)
+        if not space.is_none(w_value):
+            w_arr = array(space, w_value, dtype, copy=False)
+            if len(w_arr.get_shape()) != 0:
+                return w_arr
+            w_value = w_arr.get_scalar_value().item(space)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
 
     def descr_reduce(self, space):
@@ -118,9 +124,8 @@ class W_GenericBox(W_Root):
     _attrs_ = ['w_flags']
 
     def descr__new__(space, w_subtype, __args__):
-        raise operationerrfmt(space.w_TypeError,
-                              "cannot create '%N' instances",
-                              w_subtype)
+        raise oefmt(space.w_TypeError,
+                    "cannot create '%N' instances", w_subtype)
 
     def get_dtype(self, space):
         return self._get_dtype(space)
@@ -150,19 +155,22 @@ class W_GenericBox(W_Root):
         return space.index(self.item(space))
 
     def descr_int(self, space):
-        box = self.convert_to(space, W_LongBox._get_dtype(space))
-        assert isinstance(box, W_LongBox)
-        return space.wrap(box.value)
+        if isinstance(self, W_UnsignedIntegerBox):
+            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        else:
+            box = self.convert_to(space, W_Int64Box._get_dtype(space))
+        return space.int(box.item(space))
 
     def descr_long(self, space):
-        box = self.convert_to(space, W_Int64Box._get_dtype(space))
-        assert isinstance(box, W_Int64Box)
-        return space.wrap(box.value)
+        if isinstance(self, W_UnsignedIntegerBox):
+            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        else:
+            box = self.convert_to(space, W_Int64Box._get_dtype(space))
+        return space.long(box.item(space))
 
     def descr_float(self, space):
         box = self.convert_to(space, W_Float64Box._get_dtype(space))
-        assert isinstance(box, W_Float64Box)
-        return space.wrap(box.value)
+        return space.float(box.item(space))
 
     def descr_oct(self, space):
         return space.oct(self.descr_int(space))
@@ -256,6 +264,10 @@ class W_GenericBox(W_Root):
         value = space.is_true(self)
         return get_dtype_cache(space).w_booldtype.box(value)
 
+    def descr_zero(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        return get_dtype_cache(space).w_longdtype.box(0)
+
     def descr_ravel(self, space):
         from pypy.module.micronumpy.base import convert_to_array
         w_values = space.newtuple([self])
@@ -326,6 +338,17 @@ class W_GenericBox(W_Root):
 
     def descr_buffer(self, space):
         return self.descr_ravel(space).descr_get_data(space)
+
+    def descr_byteswap(self, space):
+        return self.get_dtype(space).itemtype.byteswap(self)
+
+    def descr_tostring(self, space, __args__):
+        w_meth = space.getattr(self.descr_ravel(space), space.wrap('tostring'))
+        return space.call_args(w_meth, __args__)
+
+    def descr_reshape(self, space, __args__):
+        w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
+        return space.call_args(w_meth, __args__)
 
     w_flags = None
     def descr_get_flags(self, space):
@@ -583,6 +606,12 @@ W_GenericBox.typedef = TypeDef("generic",
     __hash__ = interp2app(W_GenericBox.descr_hash),
 
     tolist = interp2app(W_GenericBox.item),
+    min = interp2app(W_GenericBox.descr_self),
+    max = interp2app(W_GenericBox.descr_self),
+    argmin = interp2app(W_GenericBox.descr_zero),
+    argmax = interp2app(W_GenericBox.descr_zero),
+    sum = interp2app(W_GenericBox.descr_self),
+    prod = interp2app(W_GenericBox.descr_self),
     any = interp2app(W_GenericBox.descr_any),
     all = interp2app(W_GenericBox.descr_all),
     ravel = interp2app(W_GenericBox.descr_ravel),
@@ -592,6 +621,9 @@ W_GenericBox.typedef = TypeDef("generic",
     view = interp2app(W_GenericBox.descr_view),
     squeeze = interp2app(W_GenericBox.descr_self),
     copy = interp2app(W_GenericBox.descr_copy),
+    byteswap = interp2app(W_GenericBox.descr_byteswap),
+    tostring = interp2app(W_GenericBox.descr_tostring),
+    reshape = interp2app(W_GenericBox.descr_reshape),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),

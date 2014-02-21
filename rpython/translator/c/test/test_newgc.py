@@ -658,7 +658,8 @@ class UsingFrameworkTest(object):
 
     def test_open_read_write_seek_close(self):
         self.run('open_read_write_seek_close')
-        assert open(self.filename, 'r').read() == "hello world\n"
+        with open(self.filename, 'r') as fid:
+            assert fid.read() == "hello world\n"
         os.unlink(self.filename)
 
     def define_callback_with_collect(cls):

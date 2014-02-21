@@ -29,9 +29,9 @@ CC = platform.configure(CConfig)
 OFF_T = CC['off_t']
 c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
 c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
-c_write = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
+c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                      lltype.Ptr(FILE)], rffi.SIZE_T)
-c_read = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
+c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                    lltype.Ptr(FILE)], rffi.SIZE_T)
 c_feof = llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
 c_ferror = llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
@@ -40,12 +40,15 @@ c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
                           rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
-c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], lltype.Signed)
+c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
 c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT, macro=True)
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
                      rffi.CCHARP)
+
+c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
+c_pclose = llexternal('pclose', [lltype.Ptr(FILE)], rffi.INT)
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
@@ -75,6 +78,21 @@ def create_temp_rfile():
         raise OSError(errno, os.strerror(errno))
     return RFile(res)
 
+def create_popen_file(command, type):
+    ll_command = rffi.str2charp(command)
+    try:
+        ll_type = rffi.str2charp(type)
+        try:
+            ll_f = c_popen(ll_command, ll_type)
+            if not ll_f:
+                errno = rposix.get_errno()
+                raise OSError(errno, os.strerror(errno))
+        finally:
+            lltype.free(ll_type, flavor='raw')
+    finally:
+        lltype.free(ll_command, flavor='raw')
+    return RPopenFile(ll_f)
+
 class RFile(object):
     def __init__(self, ll_file):
         self.ll_file = ll_file
@@ -89,29 +107,25 @@ class RFile(object):
         try:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
-            total_bytes = 0
-            ll_current = ll_value
-            while total_bytes < len(value):
-                bytes = c_write(ll_current, 1, len(value) - r_uint(total_bytes),
-                                ll_file)
-                if bytes == 0:
-                    errno = rposix.get_errno()
-                    raise OSError(errno, os.strerror(errno))
-                total_bytes += bytes
-                ll_current = rffi.cast(rffi.CCHARP,
-                                       rffi.cast(lltype.Unsigned, ll_value) +
-                                       total_bytes)
+            length = len(value)
+            bytes = c_fwrite(ll_value, 1, length, ll_file)
+            if bytes != length:
+                errno = rposix.get_errno()
+                raise OSError(errno, os.strerror(errno))
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
 
     def close(self):
-        if self.ll_file:
+        ll_f = self.ll_file
+        if ll_f:
             # double close is allowed
-            res = c_close(self.ll_file)
             self.ll_file = lltype.nullptr(FILE)
+            res = self._do_close(ll_f)
             if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
+
+    _do_close = staticmethod(c_close)    # overridden in RPopenFile
 
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
@@ -124,27 +138,25 @@ class RFile(object):
             try:
                 s = StringBuilder()
                 while True:
-                    returned_size = c_read(buf, 1, BASE_BUF_SIZE, ll_file)
+                    returned_size = c_fread(buf, 1, BASE_BUF_SIZE, ll_file)
+                    returned_size = intmask(returned_size)  # is between 0 and BASE_BUF_SIZE
                     if returned_size == 0:
                         if c_feof(ll_file):
                             # ok, finished
                             return s.build()
-                        errno = c_ferror(ll_file)
-                        c_clearerror(ll_file)
-                        raise OSError(errno, os.strerror(errno))
+                        raise _error(ll_file)
                     s.append_charpsize(buf, returned_size)
             finally:
                 lltype.free(buf, flavor='raw')
         else:
             raw_buf, gc_buf = rffi.alloc_buffer(size)
             try:
-                returned_size = c_read(raw_buf, 1, size, ll_file)
+                returned_size = c_fread(raw_buf, 1, size, ll_file)
+                returned_size = intmask(returned_size)  # is between 0 and size
                 if returned_size == 0:
                     if not c_feof(ll_file):
-                        errno = c_ferror(ll_file)
-                        raise OSError(errno, os.strerror(errno))
-                s = rffi.str_from_buffer(raw_buf, gc_buf, size,
-                                         rffi.cast(lltype.Signed, returned_size))
+                        raise _error(ll_file)
+                s = rffi.str_from_buffer(raw_buf, gc_buf, size, returned_size)
             finally:
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
             return s
@@ -200,8 +212,7 @@ class RFile(object):
         if not result:
             if c_feof(self.ll_file):   # ok
                 return 0
-            errno = c_ferror(self.ll_file)
-            raise OSError(errno, os.strerror(errno))
+            raise _error(self.ll_file)
         #
         # Assume that fgets() works as documented, and additionally
         # never writes beyond the final \0, which the CPython
@@ -240,3 +251,13 @@ class RFile(object):
             finally:
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise ValueError("I/O operation on closed file")
+
+
+class RPopenFile(RFile):
+    _do_close = staticmethod(c_pclose)
+
+
+def _error(ll_file):
+    errno = c_ferror(ll_file)
+    c_clearerror(ll_file)
+    raise OSError(errno, os.strerror(errno))

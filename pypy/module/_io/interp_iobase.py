@@ -1,11 +1,11 @@
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import rweakref
+from rpython.rlib import rweakref, rweaklist
 
 
 DEFAULT_BUFFER_SIZE = 8192
@@ -44,15 +44,15 @@ def check_seekable_w(space, w_obj):
 
 
 class W_IOBase(W_Root):
-    def __init__(self, space):
+    def __init__(self, space, add_to_autoflusher=True):
         # XXX: IOBase thinks it has to maintain its own internal state in
         # `__IOBase_closed` and call flush() by itself, but it is redundant
         # with whatever behaviour a non-trivial derived class will implement.
         self.space = space
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
-        self.streamholder = None # needed by AutoFlusher
-        get_autoflusher(space).add(self)
+        if add_to_autoflusher:
+            get_autoflusher(space).add(self)
 
     def getdict(self, space):
         return self.w_dict
@@ -114,7 +114,6 @@ class W_IOBase(W_Root):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
-            get_autoflusher(space).remove(self)
 
     def flush_w(self, space):
         if self._CLOSED():
@@ -181,10 +180,9 @@ class W_IOBase(W_Root):
             if has_peek:
                 w_readahead = space.call_method(self, "peek", space.wrap(1))
                 if not space.isinstance_w(w_readahead, space.w_str):
-                    raise operationerrfmt(
-                        space.w_IOError,
-                        "peek() should have returned a bytes object, not '%T'",
-                        w_readahead)
+                    raise oefmt(space.w_IOError,
+                                "peek() should have returned a bytes object, "
+                                "not '%T'", w_readahead)
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
@@ -207,10 +205,9 @@ class W_IOBase(W_Root):
 
             w_read = space.call_method(self, "read", space.wrap(nreadahead))
             if not space.isinstance_w(w_read, space.w_str):
-                raise operationerrfmt(
-                    space.w_IOError,
-                    "peek() should have returned a bytes object, not '%T'",
-                    w_read)
+                raise oefmt(space.w_IOError,
+                            "peek() should have returned a bytes object, not "
+                            "'%T'", w_read)
             read = space.str_w(w_read)
             if not read:
                 break
@@ -338,55 +335,35 @@ W_RawIOBase.typedef = TypeDef(
 # functions to make sure that all streams are flushed on exit
 # ------------------------------------------------------------
 
-class StreamHolder(object):
-    def __init__(self, w_iobase):
-        self.w_iobase_ref = rweakref.ref(w_iobase)
-        w_iobase.autoflusher = self
 
-    def autoflush(self, space):
-        w_iobase = self.w_iobase_ref()
-        if w_iobase is not None:
-            try:
-                space.call_method(w_iobase, 'flush')
-            except OperationError:
-                # Silencing all errors is bad, but getting randomly
-                # interrupted here is equally as bad, and potentially
-                # more frequent (because of shutdown issues).
-                pass 
-
-
-class AutoFlusher(object):
+class AutoFlusher(rweaklist.RWeakListMixin):
     def __init__(self, space):
-        self.streams = {}
+        self.initialize()
 
     def add(self, w_iobase):
-        assert w_iobase.streamholder is None
         if rweakref.has_weakref_support():
-            holder = StreamHolder(w_iobase)
-            w_iobase.streamholder = holder
-            self.streams[holder] = None
+            self.add_handle(w_iobase)
         #else:
         #   no support for weakrefs, so ignore and we
         #   will not get autoflushing
 
-    def remove(self, w_iobase):
-        holder = w_iobase.streamholder
-        if holder is not None:
-            try:
-                del self.streams[holder]
-            except KeyError:
-                # this can happen in daemon threads
-                pass
-
     def flush_all(self, space):
-        while self.streams:
-            for streamholder in self.streams.keys():
+        while True:
+            handles = self.get_all_handles()
+            if len(handles) == 0:
+                break
+            self.initialize()  # reset the state here
+            for wr in handles:
+                w_iobase = wr()
+                if w_iobase is None:
+                    continue
                 try:
-                    del self.streams[streamholder]
-                except KeyError:
-                    pass    # key was removed in the meantime
-                else:
-                    streamholder.autoflush(space)
+                    space.call_method(w_iobase, 'flush')
+                except OperationError:
+                    # Silencing all errors is bad, but getting randomly
+                    # interrupted here is equally as bad, and potentially
+                    # more frequent (because of shutdown issues).
+                    pass 
 
 def get_autoflusher(space):
     return space.fromcache(AutoFlusher)

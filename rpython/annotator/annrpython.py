@@ -24,7 +24,6 @@ class RPythonAnnotator(object):
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
         import rpython.rtyper.extfuncregistry # has side effects
-        import rpython.rlib.nonconst # has side effects
 
         if translator is None:
             # interface for tests
@@ -237,9 +236,7 @@ class RPythonAnnotator(object):
                 else:
                     raise
         elif isinstance(arg, Constant):
-            #if arg.value is undefined_value:   # undefined local variables
-            #    return annmodel.s_ImpossibleValue
-            return self.bookkeeper.immutableconstant(arg)
+            return self.bookkeeper.immutablevalue(arg.value)
         else:
             raise TypeError('Variable or Constant expected, got %r' % (arg,))
 
@@ -583,18 +580,18 @@ class RPythonAnnotator(object):
 
     def consider_op(self, block, opindex):
         op = block.operations[opindex]
-        argcells = [self.binding(a) for a in op.args]
-
-        # let's be careful about avoiding propagated SomeImpossibleValues
-        # to enter an op; the latter can result in violations of the
-        # more general results invariant: e.g. if SomeImpossibleValue enters is_
-        #  is_(SomeImpossibleValue, None) -> SomeBool
-        #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
-        # boom -- in the assert of setbinding()
-        for arg in argcells:
-            if isinstance(arg, annmodel.SomeImpossibleValue):
-                raise BlockedInference(self, op, opindex)
         try:
+            argcells = [self.binding(a) for a in op.args]
+
+            # let's be careful about avoiding propagated SomeImpossibleValues
+            # to enter an op; the latter can result in violations of the
+            # more general results invariant: e.g. if SomeImpossibleValue enters is_
+            #  is_(SomeImpossibleValue, None) -> SomeBool
+            #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
+            # boom -- in the assert of setbinding()
+            for arg in argcells:
+                if isinstance(arg, annmodel.SomeImpossibleValue):
+                    raise BlockedInference(self, op, opindex)
             resultcell = op.consider(self, *argcells)
         except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             graph = self.bookkeeper.position_key[0]
