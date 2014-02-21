@@ -250,8 +250,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         IntOption("methodcachesizeexp",
                   " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
-        BoolOption("optimized_int_add",
-                   "special case the addition of two integers in BINARY_ADD",
+        BoolOption("intshortcut",
+                   "special case addition and subtraction of two integers in BINARY_ADD/"
+                   "/BINARY_SUBTRACT and their inplace counterparts",
                    default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
@@ -302,7 +303,7 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
-        config.objspace.std.suggest(optimized_int_add=True)
+        config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)

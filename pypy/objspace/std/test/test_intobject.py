@@ -554,8 +554,8 @@ class AppTestInt:
         assert 3 .__coerce__(4L) == NotImplemented
 
 
-class AppTestIntOptimizedAdd(AppTestInt):
-    spaceconfig = {"objspace.std.optimized_int_add": True}
+class AppTestIntShortcut(AppTestInt):
+    spaceconfig = {"objspace.std.intshortcut": True}
 
     def test_inplace(self):
         # ensure other inplace ops still work
