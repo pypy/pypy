@@ -675,14 +675,14 @@ if _POSIX:
         return m
 
     def alloc_hinted(hintp, map_size):
-        flags = NonConstant(MAP_PRIVATE | MAP_ANONYMOUS)
-        prot = NonConstant(PROT_EXEC | PROT_READ | PROT_WRITE)
+        flags = MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_EXEC | PROT_READ | PROT_WRITE
         return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
 
     def clear_large_memory_chunk_aligned(addr, map_size):
         addr = rffi.cast(PTR, addr)
-        flags = NonConstant(MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)
-        prot = NonConstant(PROT_READ | PROT_WRITE)
+        flags = MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_READ | PROT_WRITE
         res = c_mmap_safe(addr, map_size, prot, flags, -1, 0)
         return res == addr
 
