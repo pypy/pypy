@@ -1,8 +1,11 @@
-import __builtin__
+import __builtin__ as builtins
 import math
 import struct
 from fractions import gcd
 from ctypes import create_string_buffer
+
+
+_buffer = buffer
 
 
 class error(Exception):
@@ -42,7 +45,7 @@ def _get_sample(cp, size, i, signed=True):
     fmt = _struct_format(size, signed)
     start = i * size
     end = start + size
-    return struct.unpack_from(fmt, buffer(cp)[start:end])[0]
+    return struct.unpack_from(fmt, _buffer(cp)[start:end])[0]
 
 
 def _put_sample(cp, size, i, val, signed=True):
@@ -79,7 +82,7 @@ def _get_minval(size, signed=True):
 def _get_clipfn(size, signed=True):
     maxval = _get_maxval(size, signed)
     minval = _get_minval(size, signed)
-    return lambda val: __builtin__.max(min(val, maxval), minval)
+    return lambda val: builtins.max(min(val, maxval), minval)
 
 
 def _overflow(val, size, signed=True):
@@ -109,7 +112,7 @@ def max(cp, size):
     if len(cp) == 0:
         return 0
 
-    return __builtin__.max(abs(sample) for sample in _get_samples(cp, size))
+    return builtins.max(abs(sample) for sample in _get_samples(cp, size))
 
 
 def minmax(cp, size):
@@ -117,8 +120,8 @@ def minmax(cp, size):
 
     max_sample, min_sample = 0, 0
     for sample in _get_samples(cp, size):
-        max_sample = __builtin__.max(sample, max_sample)
-        min_sample = __builtin__.min(sample, min_sample)
+        max_sample = builtins.max(sample, max_sample)
+        min_sample = builtins.min(sample, min_sample)
 
     return min_sample, max_sample
 
@@ -176,7 +179,7 @@ def findfit(cp1, cp2):
         aj_lm1 = _get_sample(cp1, size, i + len2 - 1)
 
         sum_aij_2 += aj_lm1**2 - aj_m1**2
-        sum_aij_ri = _sum2(buffer(cp1)[i*size:], cp2, len2)
+        sum_aij_ri = _sum2(_buffer(cp1)[i*size:], cp2, len2)
 
         result = (sum_ri_2 * sum_aij_2 - sum_aij_ri * sum_aij_ri) / sum_aij_2
 
@@ -184,7 +187,7 @@ def findfit(cp1, cp2):
             best_result = result
             best_i = i
 
-    factor = _sum2(buffer(cp1)[best_i*size:], cp2, len2) / sum_ri_2
+    factor = _sum2(_buffer(cp1)[best_i*size:], cp2, len2) / sum_ri_2
 
     return best_i, factor
 
@@ -494,13 +497,13 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
 
                 # slice off extra bytes
                 trim_index = (out_i * bytes_per_frame) - len(retval)
-                retval = buffer(retval)[:trim_index]
+                retval = _buffer(retval)[:trim_index]
 
                 return (retval, (d, tuple(samps)))
 
             for chan in range(nchannels):
                 prev_i[chan] = cur_i[chan]
-                cur_i[chan] = samples.next()
+                cur_i[chan] = next(samples)
 
                 cur_i[chan] = (
                     (weightA * cur_i[chan] + weightB * prev_i[chan])
