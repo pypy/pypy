@@ -1873,22 +1873,24 @@ class RecordType(FlexibleType):
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
         if w_item is not None:
-            # we treat every sequence as sequence, no special support
-            # for arrays
-            if not space.issequence_w(w_item):
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "expected sequence"))
-            if len(dtype.fields) != space.len_w(w_item):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "wrong length"))
-            items_w = space.fixedview(w_item)
+            if space.isinstance_w(w_item, space.w_tuple):
+                if len(dtype.fields) != space.len_w(w_item):
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "size of tuple must match number of fields."))
+                items_w = space.fixedview(w_item)
+            else:
+                # XXX support initializing from readable buffers
+                items_w = [w_item]
         else:
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.get_size(), dtype)
-        for i in range(len(items_w)):
+        for i in range(len(dtype.fields)):
             ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
             itemtype = subdtype.itemtype
-            w_box = itemtype.coerce(space, subdtype, items_w[i])
+            try:
+                w_box = itemtype.coerce(space, subdtype, items_w[i])
+            except IndexError:
+                w_box = itemtype.coerce(space, subdtype, None)
             itemtype.store(arr, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 

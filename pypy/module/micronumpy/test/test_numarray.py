@@ -3161,7 +3161,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         raises(IndexError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0
         assert a[0]['y'] == 0
-        raises(ValueError, "a[0] = (1, 2, 3)")
+        exc = raises(ValueError, "a[0] = (1, 2, 3)")
+        assert exc.value[0] == 'size of tuple must match number of fields.'
         a[0]['x'] = 13
         assert a[0]['x'] == 13
         a[1] = (1, 2)
@@ -3486,6 +3487,15 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         import numpypy as np
         a = np.array([1,2,3], dtype='int16')
         assert (a * 2).dtype == np.dtype('int16')
+
+    def test_coerce_record(self):
+        import numpy as np
+        dt = np.dtype([('a', '?'), ('b', '?')])
+        b = np.array([True, True])
+        a = np.array([b, b, b], dtype=dt)
+        assert a.shape == (3, 2)
+        for i in a.flat:
+            assert tuple(i) == (True, False)
 
 
 class AppTestPyPy(BaseNumpyAppTest):
