@@ -2,6 +2,7 @@
 
 import operator
 
+from rpython.rlib.rarithmetic import r_uint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
@@ -23,6 +24,12 @@ class W_BoolObject(W_IntObject):
 
     def unwrap(self, space):
         return bool(self.intval)
+
+    def uint_w(self, space):
+        return r_uint(self.intval)
+
+    def int(self, space):
+        return space.newint(self.intval)
 
     @staticmethod
     @unwrap_spec(w_obj=WrappedDefault(False))
