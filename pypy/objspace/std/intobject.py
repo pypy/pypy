@@ -11,7 +11,7 @@ import sys
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import instantiate, import_from_mixin, specialize
 from rpython.rlib.rarithmetic import (
-    LONG_BIT, is_valid_int, ovfcheck, r_uint, string_to_int)
+    LONG_BIT, is_valid_int, ovfcheck, r_longlong, r_uint, string_to_int)
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import (
     InvalidBaseError, ParseStringError, ParseStringOverflowError)
@@ -172,6 +172,14 @@ def _divmod(space, x, y):
     return space.newtuple([w(z), w(m)])
 
 
+def _divmod_ovf2small(space, x, y):
+    from pypy.objspace.std.smalllongobject import W_SmallLongObject
+    a = r_longlong(x)
+    b = r_longlong(y)
+    return space.newtuple([W_SmallLongObject(a // b),
+                           W_SmallLongObject(a % b)])
+
+
 def _lshift(space, a, b):
     if r_uint(b) < LONG_BIT: # 0 <= b < LONG_BIT
         c = ovfcheck(a << b)
@@ -182,6 +190,13 @@ def _lshift(space, a, b):
     if a == 0:
         return wrapint(space, a)
     raise OverflowError
+
+
+def _lshift_ovf2small(space, a, b):
+    from pypy.objspace.std.smalllongobject import W_SmallLongObject
+    w_a = W_SmallLongObject.fromint(a)
+    w_b = W_SmallLongObject.fromint(b)
+    return w_a.descr_lshift(space, w_b)
 
 
 def _rshift(space, a, b):
@@ -224,6 +239,45 @@ def _pow(space, iv, iw, iz):
     if iz:
         ix %= iz
     return ix
+
+
+def _pow_ovf2long(space, iv, iw, w_modulus):
+    if space.is_none(w_modulus) and _recover_with_smalllong(space):
+        from pypy.objspace.std.smalllongobject import _pow as _pow_small
+        try:
+            # XXX: shouldn't have to pass r_longlong(0) here (see
+            # 4fa4c6b93a84)
+            return _pow_small(space, r_longlong(iv), iw, r_longlong(0))
+        except (OverflowError, ValueError):
+            pass
+    from pypy.objspace.std.longobject import W_LongObject
+    w_iv = W_LongObject.fromint(space, iv)
+    w_iw = W_LongObject.fromint(space, iw)
+    return w_iv.descr_pow(space, w_iw, w_modulus)
+
+
+def _make_ovf2long(opname, ovf2small=None):
+    op = getattr(operator, opname, None)
+    assert op or ovf2small
+
+    def ovf2long(space, x, y):
+        """Handle overflowing to smalllong or long"""
+        if _recover_with_smalllong(space):
+            if ovf2small:
+                return ovf2small(space, x, y)
+            # Assume a generic operation without an explicit ovf2small
+            # handler
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            a = r_longlong(x)
+            b = r_longlong(y)
+            return W_SmallLongObject(op(a, b))
+
+        from pypy.objspace.std.longobject import W_LongObject
+        w_x = W_LongObject.fromint(space, x)
+        w_y = W_LongObject.fromint(space, y)
+        return getattr(w_x, 'descr_' + opname)(space, w_y)
+
+    return ovf2long
 
 
 class W_IntObject(W_AbstractIntObject):
@@ -326,13 +380,14 @@ class W_IntObject(W_AbstractIntObject):
     def descr_neg(self, space):
         a = self.intval
         try:
-            x = ovfcheck(-a)
+            b = ovfcheck(-a)
         except OverflowError:
             if _recover_with_smalllong(space):
-                from pypy.objspace.std.smalllongobject import neg_ovr
-                return neg_ovr(space, self)
+                from pypy.objspace.std.smalllongobject import W_SmallLongObject
+                x = r_longlong(a)
+                return W_SmallLongObject(-x)
             return self.descr_long(space).descr_neg(space)
-        return wrapint(space, x)
+        return wrapint(space, b)
 
     def descr_abs(self, space):
         pos = self.intval >= 0
@@ -377,6 +432,9 @@ class W_IntObject(W_AbstractIntObject):
         if not isinstance(w_exponent, W_IntObject):
             return space.w_NotImplemented
 
+        x = self.intval
+        y = w_exponent.intval
+
         if space.is_none(w_modulus):
             z = 0
         elif isinstance(w_modulus, W_IntObject):
@@ -388,14 +446,12 @@ class W_IntObject(W_AbstractIntObject):
             # can't return NotImplemented (space.pow doesn't do full
             # ternary, i.e. w_modulus.__zpow__(self, w_exponent)), so
             # handle it ourselves
-            return self._ovfpow2long(space, w_exponent, w_modulus)
+            return _pow_ovf2long(space, x, y, w_modulus)
 
-        x = self.intval
-        y = w_exponent.intval
         try:
             result = _pow(space, x, y, z)
         except (OverflowError, ValueError):
-            return self._ovfpow2long(space, w_exponent, w_modulus)
+            return _pow_ovf2long(space, x, y, w_modulus)
         return space.wrap(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
@@ -403,13 +459,6 @@ class W_IntObject(W_AbstractIntObject):
         if not isinstance(w_base, W_IntObject):
             return space.w_NotImplemented
         return w_base.descr_pow(space, self, w_modulus)
-
-    def _ovfpow2long(self, space, w_exponent, w_modulus):
-        if space.is_none(w_modulus) and _recover_with_smalllong(space):
-            from pypy.objspace.std.smalllongobject import pow_ovr
-            return pow_ovr(space, self, w_exponent)
-        self = self.descr_long(space)
-        return self.descr_pow(space, w_exponent, w_modulus)
 
     def _make_descr_cmp(opname):
         op = getattr(operator, opname)
@@ -433,6 +482,8 @@ class W_IntObject(W_AbstractIntObject):
         op = getattr(operator,
                      opname + '_' if opname in ('and', 'or') else opname)
         descr_rname = 'descr_r' + opname
+        if ovf:
+            ovf2long = _make_ovf2long(opname)
 
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
@@ -445,7 +496,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(x, y))
                 except OverflowError:
-                    return _ovf2long(space, opname, self, w_other)
+                    return ovf2long(space, x, y)
             else:
                 z = op(x, y)
             return wrapint(space, z)
@@ -467,7 +518,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(y, x))
                 except OverflowError:
-                    return _ovf2long(space, opname, w_other, self)
+                    return ovf2long(space, y, x)
             else:
                 z = op(y, x)
             return wrapint(space, z)
@@ -482,8 +533,10 @@ class W_IntObject(W_AbstractIntObject):
     descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
     descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
 
-    def _make_descr_binop(func, ovf=True):
+    def _make_descr_binop(func, ovf=True, ovf2small=None):
         opname = func.__name__[1:]
+        if ovf:
+            ovf2long = _make_ovf2long(opname, ovf2small)
 
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
@@ -496,7 +549,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, x, y)
                 except OverflowError:
-                    return _ovf2long(space, opname, self, w_other)
+                    return ovf2long(space, x, y)
             else:
                 return func(space, x, y)
 
@@ -511,20 +564,22 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, y, x)
                 except OverflowError:
-                    return _ovf2long(space, opname, w_other, self)
+                    return ovf2long(space, y, x)
             else:
                 return func(space, y, x)
 
         return descr_binop, descr_rbinop
 
-    descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
+    descr_lshift, descr_rlshift = _make_descr_binop(
+        _lshift, ovf2small=_lshift_ovf2small)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
     descr_div, descr_rdiv = _make_descr_binop(_div)
     descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
-    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
+    descr_divmod, descr_rdivmod = _make_descr_binop(
+        _divmod, ovf2small=_divmod_ovf2small)
 
 
 def wrapint(space, x):
@@ -563,18 +618,6 @@ def _recover_with_smalllong(space):
     """
     return (space.config.objspace.std.withsmalllong and
             sys.maxint == 2147483647)
-
-
-@specialize.arg(1)
-def _ovf2long(space, opname, self, w_other):
-    """Handle overflowing to smalllong or long"""
-    if _recover_with_smalllong(space) and opname != 'truediv':
-        from pypy.objspace.std import smalllongobject
-        op = getattr(smalllongobject, opname + '_ovr')
-        return op(space, self, w_other)
-    self = self.descr_long(space)
-    w_other = w_other.descr_long(space)
-    return getattr(self, 'descr_' + opname)(space, w_other)
 
 
 @jit.elidable

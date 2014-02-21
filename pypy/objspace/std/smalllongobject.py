@@ -112,10 +112,12 @@ class W_SmallLongObject(W_AbstractLongObject):
         elif not isinstance(w_exponent, W_AbstractIntObject):
             return space.w_NotImplemented
 
+        x = self.longlong
+        y = space.int_w(w_exponent)
+
         if space.is_none(w_modulus):
             try:
-                return _pow_impl(space, self.longlong, w_exponent,
-                                 r_longlong(0))
+                return _pow(space, x, y, r_longlong(0))
             except ValueError:
                 self = self.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
@@ -134,7 +136,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         if z == 0:
             raise oefmt(space.w_ValueError, "pow() 3rd argument cannot be 0")
         try:
-            return _pow_impl(space, self.longlong, w_exponent, z)
+            return _pow(space, x, y, z)
         except ValueError:
             self = self.descr_float(space)
             return space.pow(self, w_exponent, w_modulus)
@@ -384,15 +386,14 @@ def delegate_SmallLong2Complex(space, w_small):
 
 def _int2small(space, w_int):
     # XXX: W_IntObject.descr_long should probably return W_SmallLongs
-    return W_SmallLongObject(r_longlong(w_int.int_w(space)))
+    return W_SmallLongObject.fromint(w_int.int_w(space))
 
 
 def _small2long(space, w_small):
     return W_LongObject(w_small.asbigint())
 
 
-def _pow_impl(space, iv, w_int2, iz):
-    iw = space.int_w(w_int2)
+def _pow(space, iv, iw, iz):
     if iw < 0:
         if iz != 0:
             raise oefmt(space.w_TypeError,
@@ -415,57 +416,3 @@ def _pow_impl(space, iv, w_int2, iz):
     if iz:
         ix %= iz
     return W_SmallLongObject(ix)
-
-
-def add_ovr(space, w_int1, w_int2):
-    x = r_longlong(space.int_w(w_int1))
-    y = r_longlong(space.int_w(w_int2))
-    return W_SmallLongObject(x + y)
-
-def sub_ovr(space, w_int1, w_int2):
-    x = r_longlong(space.int_w(w_int1))
-    y = r_longlong(space.int_w(w_int2))
-    return W_SmallLongObject(x - y)
-
-def mul_ovr(space, w_int1, w_int2):
-    x = r_longlong(space.int_w(w_int1))
-    y = r_longlong(space.int_w(w_int2))
-    return W_SmallLongObject(x * y)
-
-def floordiv_ovr(space, w_int1, w_int2):
-    x = r_longlong(space.int_w(w_int1))
-    y = r_longlong(space.int_w(w_int2))
-    return W_SmallLongObject(x // y)
-div_ovr = floordiv_ovr
-
-def mod_ovr(space, w_int1, w_int2):
-    x = r_longlong(space.int_w(w_int1))
-    y = r_longlong(space.int_w(w_int2))
-    return W_SmallLongObject(x % y)
-
-def divmod_ovr(space, w_int1, w_int2):
-    return space.newtuple([div_ovr(space, w_int1, w_int2),
-                           mod_ovr(space, w_int1, w_int2)])
-
-def pow_ovr(space, w_int1, w_int2):
-    try:
-        return _pow_impl(space, r_longlong(space.int_w(w_int1)), w_int2,
-                         r_longlong(0))
-    except (OverflowError, ValueError):
-        w_a = _small2long(space, w_int1)
-        w_b = _small2long(space, w_int2)
-        return w_a.descr_pow(space, w_b, space.w_None)
-
-def neg_ovr(space, w_int):
-    a = r_longlong(space.int_w(w_int))
-    return W_SmallLongObject(-a)
-
-def abs_ovr(space, w_int):
-    a = r_longlong(space.int_w(w_int))
-    if a < 0:
-        a = -a
-    return W_SmallLongObject(a)
-
-def lshift_ovr(space, w_int1, w_int2):
-    w_a = _int2small(space, w_int1)
-    return w_a.descr_lshift(space, w_int2)
