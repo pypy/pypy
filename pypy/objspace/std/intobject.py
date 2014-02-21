@@ -35,6 +35,22 @@ class W_AbstractIntObject(W_Root):
 
     __slots__ = ()
 
+    def is_w(self, space, w_other):
+        from pypy.objspace.std.boolobject import W_BoolObject
+        if (not isinstance(w_other, W_AbstractIntObject) or
+            isinstance(w_other, W_BoolObject)):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        return space.int_w(self) == space.int_w(w_other)
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        b = space.bigint_w(self)
+        b = b.lshift(3).or_(rbigint.fromint(IDTAG_INT))
+        return space.newlong_from_rbigint(b)
+
     def int(self, space):
         """x.__int__() <==> int(x)"""
         raise NotImplementedError
@@ -292,20 +308,6 @@ class W_IntObject(W_AbstractIntObject):
     def __repr__(self):
         """representation for debugging purposes"""
         return "%s(%d)" % (self.__class__.__name__, self.intval)
-
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_IntObject):
-            return False
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return self is w_other
-        return self.intval == w_other.intval
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(IDTAG_INT))
-        return space.newlong_from_rbigint(b)
 
     def int_w(self, space):
         return int(self.intval)

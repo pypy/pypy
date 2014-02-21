@@ -22,6 +22,12 @@ class W_BoolObject(W_IntObject):
         """representation for debugging purposes"""
         return "%s(%s)" % (self.__class__.__name__, bool(self.intval))
 
+    def is_w(self, space, w_other):
+        return self is w_other
+
+    def immutable_unique_id(self, space):
+        return None
+
     def unwrap(self, space):
         return bool(self.intval)
 

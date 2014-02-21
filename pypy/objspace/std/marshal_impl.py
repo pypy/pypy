@@ -101,10 +101,7 @@ def marshal_w__Bool(space, w_bool, m):
     m.atom(TYPE_TRUE if w_bool.intval else TYPE_FALSE)
 
 def unmarshal_Bool(space, u, tc):
-    if tc == TYPE_TRUE:
-        return space.w_True
-    else:
-        return space.w_False
+    return space.newbool(tc == TYPE_TRUE)
 register(TYPE_TRUE + TYPE_FALSE, unmarshal_Bool)
 
 def marshal_w__Type(space, w_type, m):
