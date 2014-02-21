@@ -4753,7 +4753,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     def test_bound_and(self):
         ops = """
-        [i0]
+        []
+        i0 = escape()
         i1 = int_and(i0, 255)
         i2 = int_lt(i1, 500)
         guard_true(i2) []
@@ -4779,10 +4780,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i14) []
         i15 = int_ge(i1, 20)
         guard_true(i15) []
-        jump(i1)
+        jump()
         """
         expected = """
-        [i0]
+        []
+        i0 = escape()
         i1 = int_and(i0, 255)
         i12 = int_lt(i1, 100)
         guard_true(i12) []
@@ -4792,7 +4794,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i14) []
         i15 = int_ge(i1, 20)
         guard_true(i15) []
-        jump(i1)
+        jump()
         """
         self.optimize_loop(ops, expected)
 
@@ -5563,6 +5565,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 self.name = name
             def sort_key(self):
                 return id(self)
+            def is_integer_bounded(self):
+                return False
 
 
         for n in ('inst_w_seq', 'inst_index', 'inst_w_list', 'inst_length',

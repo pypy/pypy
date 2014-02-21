@@ -78,22 +78,22 @@ class Scalar(base.BaseArrayImplementation):
             scalar.value = dtype.itemtype.runpack_str(space, self.value.raw_str())
         return scalar
 
-    def get_real(self, orig_array):
+    def get_real(self, space, orig_array):
         if self.dtype.is_complex_type():
-            scalar = Scalar(self.dtype.float_type)
+            scalar = Scalar(self.dtype.get_float_dtype(space))
             scalar.value = self.value.convert_real_to(scalar.dtype)
             return scalar
         return self
 
     def set_real(self, space, orig_array, w_val):
         w_arr = convert_to_array(space, w_val)
-        dtype = self.dtype.float_type or self.dtype
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
                 "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         if self.dtype.is_complex_type():
+            dtype = self.dtype.get_float_dtype(space)
             self.value = self.dtype.itemtype.composite(
                                w_arr.get_scalar_value().convert_to(space, dtype),
                                self.value.convert_imag_to(dtype))
@@ -102,30 +102,26 @@ class Scalar(base.BaseArrayImplementation):
 
     def get_imag(self, space, orig_array):
         if self.dtype.is_complex_type():
-            scalar = Scalar(self.dtype.float_type)
+            scalar = Scalar(self.dtype.get_float_dtype(space))
             scalar.value = self.value.convert_imag_to(scalar.dtype)
             return scalar
         scalar = Scalar(self.dtype)
-        if self.dtype.is_flexible_type():
-            scalar.value = self.value
-        else:
-            scalar.value = scalar.dtype.itemtype.box(0)
+        scalar.value = scalar.dtype.coerce(space, None)
         return scalar
 
     def set_imag(self, space, orig_array, w_val):
         #Only called on complex dtype
         assert self.dtype.is_complex_type()
         w_arr = convert_to_array(space, w_val)
-        dtype = self.dtype.float_type
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
                 "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
+        dtype = self.dtype.get_float_dtype(space)
         self.value = self.dtype.itemtype.composite(
                             self.value.convert_real_to(dtype),
-                            w_arr.get_scalar_value().convert_to(space, dtype),
-                            )
+                            w_arr.get_scalar_value().convert_to(space, dtype))
 
     def descr_getitem(self, space, _, w_idx):
         if space.isinstance_w(w_idx, space.w_tuple):

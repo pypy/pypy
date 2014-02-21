@@ -6,6 +6,7 @@ from rpython.jit.metainterp.history import AbstractDescr, getkind
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
+from rpython.jit.metainterp.optimizeopt import intbounds
 
 
 class GcCache(object):
@@ -103,6 +104,26 @@ class FieldDescr(ArrayOrFieldDescr):
     def is_field_signed(self):
         return self.flag == FLAG_SIGNED
 
+    def is_integer_bounded(self):
+        return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
+            and self.field_size < symbolic.WORD
+
+    def get_integer_min(self):
+        if self.flag == FLAG_UNSIGNED:
+            return intbounds.get_integer_min(True, self.field_size)
+        elif self.flag == FLAG_SIGNED:
+            return intbounds.get_integer_min(False, self.field_size)
+
+        assert False
+
+    def get_integer_max(self):
+        if self.flag == FLAG_UNSIGNED:
+            return intbounds.get_integer_max(True, self.field_size)
+        elif self.flag == FLAG_SIGNED:
+            return intbounds.get_integer_max(False, self.field_size)
+
+        assert False
+
     def sort_key(self):
         return self.offset
 
@@ -182,6 +203,28 @@ class ArrayDescr(ArrayOrFieldDescr):
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
 
+    def is_item_integer_bounded(self):
+        return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
+            and self.itemsize < symbolic.WORD
+
+    def get_item_integer_min(self):
+        if self.flag == FLAG_UNSIGNED:
+            return intbounds.get_integer_min(True, self.itemsize)
+        elif self.flag == FLAG_SIGNED:
+            return intbounds.get_integer_min(False, self.itemsize)
+
+        assert False
+
+    def get_item_integer_max(self):
+        if self.flag == FLAG_UNSIGNED:
+            return intbounds.get_integer_max(True, self.itemsize)
+        elif self.flag == FLAG_SIGNED:
+            return intbounds.get_integer_max(False, self.itemsize)
+
+        assert False
+
+
+
     def repr_of_descr(self):
         return '<Array%s %s>' % (self.flag, self.itemsize)
 
@@ -229,6 +272,15 @@ class InteriorFieldDescr(AbstractDescr):
 
     def is_float_field(self):
         return self.fielddescr.is_float_field()
+
+    def is_integer_bounded(self):
+        return self.fielddescr.is_integer_bounded()
+
+    def get_integer_min(self):
+        return self.fielddescr.get_integer_min()
+
+    def get_integer_max(self):
+        return self.fielddescr.get_integer_max()
 
     def repr_of_descr(self):
         return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()

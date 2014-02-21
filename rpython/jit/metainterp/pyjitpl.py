@@ -739,6 +739,7 @@ class MIFrame(object):
 
     def emit_force_virtualizable(self, fielddescr, box):
         vinfo = fielddescr.get_vinfo()
+        assert vinfo is not None
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
         tokenbox = mi.execute_and_record(rop.GETFIELD_GC, token_descr, box)

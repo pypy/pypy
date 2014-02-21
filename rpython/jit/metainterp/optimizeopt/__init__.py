@@ -63,7 +63,7 @@ def optimize_trace(metainterp_sd, loop, enable_opts, inline_short_preamble=True)
             optimizer.propagate_all_forward()
     finally:
         debug_stop("jit-optimize")
-        
+
 if __name__ == '__main__':
     print ALL_OPTS_NAMES
 

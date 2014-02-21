@@ -38,7 +38,13 @@ def new_dtype_getter(name):
         return get_dtype_cache(space).dtypes_by_name[name]
 
     def new(space, w_subtype, w_value=None):
+        from pypy.module.micronumpy.interp_numarray import array
         dtype = _get_dtype(space)
+        if not space.is_none(w_value):
+            w_arr = array(space, w_value, dtype, copy=False)
+            if len(w_arr.get_shape()) != 0:
+                return w_arr
+            w_value = w_arr.get_scalar_value().item(space)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
 
     def descr_reduce(self, space):
@@ -149,19 +155,22 @@ class W_GenericBox(W_Root):
         return space.index(self.item(space))
 
     def descr_int(self, space):
-        box = self.convert_to(space, W_LongBox._get_dtype(space))
-        assert isinstance(box, W_LongBox)
-        return space.wrap(box.value)
+        if isinstance(self, W_UnsignedIntegerBox):
+            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        else:
+            box = self.convert_to(space, W_Int64Box._get_dtype(space))
+        return space.int(box.item(space))
 
     def descr_long(self, space):
-        box = self.convert_to(space, W_Int64Box._get_dtype(space))
-        assert isinstance(box, W_Int64Box)
-        return space.wrap(box.value)
+        if isinstance(self, W_UnsignedIntegerBox):
+            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        else:
+            box = self.convert_to(space, W_Int64Box._get_dtype(space))
+        return space.long(box.item(space))
 
     def descr_float(self, space):
         box = self.convert_to(space, W_Float64Box._get_dtype(space))
-        assert isinstance(box, W_Float64Box)
-        return space.wrap(box.value)
+        return space.float(box.item(space))
 
     def descr_oct(self, space):
         return space.oct(self.descr_int(space))
@@ -332,6 +341,14 @@ class W_GenericBox(W_Root):
 
     def descr_byteswap(self, space):
         return self.get_dtype(space).itemtype.byteswap(self)
+
+    def descr_tostring(self, space, __args__):
+        w_meth = space.getattr(self.descr_ravel(space), space.wrap('tostring'))
+        return space.call_args(w_meth, __args__)
+
+    def descr_reshape(self, space, __args__):
+        w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
+        return space.call_args(w_meth, __args__)
 
     w_flags = None
     def descr_get_flags(self, space):
@@ -605,6 +622,8 @@ W_GenericBox.typedef = TypeDef("generic",
     squeeze = interp2app(W_GenericBox.descr_self),
     copy = interp2app(W_GenericBox.descr_copy),
     byteswap = interp2app(W_GenericBox.descr_byteswap),
+    tostring = interp2app(W_GenericBox.descr_tostring),
+    reshape = interp2app(W_GenericBox.descr_reshape),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),

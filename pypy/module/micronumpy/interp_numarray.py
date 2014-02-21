@@ -262,24 +262,30 @@ class __extend__(W_NDimArray):
     def descr_str(self, space):
         cache = get_appbridge_cache(space)
         if cache.w_array_str is None:
-            return space.wrap(self.dump_data())
+            return space.wrap(self.dump_data(prefix='', separator='', suffix=''))
         return space.call_function(cache.w_array_str, self)
 
-    def dump_data(self, prefix='array(', suffix=')'):
+    def dump_data(self, prefix='array(', separator=',', suffix=')'):
         i = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
         s.append(prefix)
-        s.append('[')
+        if not self.is_scalar():
+            s.append('[')
         while not i.done():
             if first:
                 first = False
             else:
-                s.append(', ')
-            s.append(dtype.itemtype.str_format(i.getitem()))
+                s.append(separator)
+                s.append(' ')
+            if self.is_scalar() and dtype.is_str_type():
+                s.append(dtype.itemtype.to_str(i.getitem()))
+            else:
+                s.append(dtype.itemtype.str_format(i.getitem()))
             i.next()
-        s.append(']')
+        if not self.is_scalar():
+            s.append(']')
         s.append(suffix)
         return s.build()
 
@@ -323,8 +329,8 @@ class __extend__(W_NDimArray):
         return wrap_impl(space, w_subtype, self, copy)
 
     def descr_get_real(self, space):
-        return wrap_impl(space, space.type(self), self,
-                         self.implementation.get_real(self))
+        ret = self.implementation.get_real(space, self)
+        return wrap_impl(space, space.type(self), self, ret)
 
     def descr_get_imag(self, space):
         ret = self.implementation.get_imag(space, self)
@@ -964,8 +970,7 @@ class __extend__(W_NDimArray):
 
     # ----------------------- reduce -------------------------------
 
-    def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
-                           cumulative=False):
+    def _reduce_ufunc_impl(ufunc_name, cumulative=False):
         @unwrap_spec(keepdims=bool)
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
             if space.is_none(w_out):
@@ -976,13 +981,11 @@ class __extend__(W_NDimArray):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
-                space, self, promote_to_largest, w_axis,
-                keepdims, out, w_dtype, cumulative=cumulative)
-        return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
-                    promote_to_largest, cumulative))
+                space, self, w_axis, keepdims, out, w_dtype, cumulative=cumulative)
+        return func_with_new_name(impl, "reduce_%s_impl_%d" % (ufunc_name, cumulative))
 
-    descr_sum = _reduce_ufunc_impl("add", True)
-    descr_prod = _reduce_ufunc_impl("multiply", True)
+    descr_sum = _reduce_ufunc_impl("add")
+    descr_prod = _reduce_ufunc_impl("multiply")
     descr_max = _reduce_ufunc_impl("maximum")
     descr_min = _reduce_ufunc_impl("minimum")
     descr_all = _reduce_ufunc_impl('logical_and')
@@ -1002,11 +1005,18 @@ class __extend__(W_NDimArray):
             if self.get_size() == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" % op_name))
-            return space.wrap(getattr(loop, 'arg' + op_name)(self))
+            op = getattr(loop, op_name)
+            try:
+                res = op(self)
+            except AttributeError:
+                raise oefmt(space.w_NotImplementedError,
+                            '%s not implemented for %s',
+                            op_name, self.get_dtype().itemtype)
+            return space.wrap(res)
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
-    descr_argmax = _reduce_argmax_argmin_impl("max")
-    descr_argmin = _reduce_argmax_argmin_impl("min")
+    descr_argmax = _reduce_argmax_argmin_impl("argmax")
+    descr_argmin = _reduce_argmax_argmin_impl("argmin")
 
     def descr_int(self, space):
         shape = self.get_shape()
@@ -1413,13 +1423,13 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
                 raise oefmt(space.w_ValueError,
                             "object __array__ method not producing an array")
 
+    dtype = interp_dtype.decode_w_dtype(space, w_dtype)
+
     # scalars and strings w/o __array__ method
     isstr = space.isinstance_w(w_object, space.w_str)
     if not issequence_w(space, w_object) or isstr:
-        if space.is_none(w_dtype) or isstr:
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
-        dtype = space.interp_w(interp_dtype.W_Dtype,
-                space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        if dtype is None or dtype.is_str_or_unicode():
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         return W_NDimArray.new_scalar(space, dtype, w_object)
 
     if space.is_none(w_order):
@@ -1430,7 +1440,6 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
     # arrays with correct dtype
-    dtype = interp_dtype.decode_w_dtype(space, w_dtype)
     if isinstance(w_object, W_NDimArray) and \
             (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
         shape = w_object.get_shape()

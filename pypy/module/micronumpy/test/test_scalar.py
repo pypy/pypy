@@ -24,12 +24,18 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.dtype(c).type(sys.maxint) == sys.maxint
         for c in ['L', 'Q']:
             assert np.dtype(c).type(sys.maxint + 42) == sys.maxint + 42
+        assert np.float32(np.array([True, False])).dtype == np.float32
+        assert type(np.float32(np.array([True]))) is np.ndarray
+        assert type(np.float32(1.0)) is np.float32
+        a = np.array([True, False])
+        assert np.bool_(a) is a
 
     def test_builtin(self):
         import numpy as np
         assert int(np.str_('12')) == 12
         exc = raises(ValueError, "int(np.str_('abc'))")
         assert exc.value.message.startswith('invalid literal for int()')
+        assert int(np.uint64((2<<63) - 1)) == (2<<63) - 1
         assert oct(np.int32(11)) == '013'
         assert oct(np.float32(11.6)) == '013'
         assert oct(np.complex64(11-12j)) == '013'
@@ -202,6 +208,22 @@ class AppTestScalar(BaseNumpyAppTest):
         import numpy as np
         raises(AttributeError, 'np.float32(1.5).as_integer_ratio()')
         assert np.float64(1.5).as_integer_ratio() == (3, 2)
+
+    def test_tostring(self):
+        import numpy as np
+        assert np.int64(123).tostring() == np.array(123, dtype='i8').tostring()
+        assert np.int64(123).tostring('C') == np.array(123, dtype='i8').tostring()
+        assert np.float64(1.5).tostring() == np.array(1.5, dtype=float).tostring()
+        exc = raises(TypeError, 'np.int64(123).tostring("Z")')
+        assert exc.value[0] == 'order not understood'
+
+    def test_reshape(self):
+        import numpy as np
+        assert np.int64(123).reshape((1,)) == 123
+        assert np.int64(123).reshape(1).shape == (1,)
+        assert np.int64(123).reshape((1,)).shape == (1,)
+        exc = raises(ValueError, "np.int64(123).reshape((2,))")
+        assert exc.value[0] == 'total size of new array must be unchanged'
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np

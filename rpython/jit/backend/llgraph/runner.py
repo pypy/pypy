@@ -1,10 +1,12 @@
 import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
+from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -119,6 +121,24 @@ class FieldDescr(AbstractDescr):
     def is_field_signed(self):
         return _is_signed_kind(self.FIELD)
 
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
 def _is_signed_kind(TYPE):
     return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
             rffi.cast(TYPE, -1) == -1)
@@ -144,6 +164,25 @@ class ArrayDescr(AbstractDescr):
     def is_array_of_structs(self):
         return isinstance(self.A.OF, lltype.Struct)
 
+    def is_item_integer_bounded(self):
+        return getkind(self.A.OF) == 'int' \
+            and rffi.sizeof(self.A.OF) < symbolic.WORD
+
+    def get_item_integer_min(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
+    def get_item_integer_max(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
+
 class InteriorFieldDescr(AbstractDescr):
     def __init__(self, A, fieldname):
         self.A = A
@@ -161,6 +200,24 @@ class InteriorFieldDescr(AbstractDescr):
 
     def is_float_field(self):
         return getkind(self.FIELD) == 'float'
+
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
 
 _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),

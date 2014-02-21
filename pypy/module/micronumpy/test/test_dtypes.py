@@ -72,6 +72,15 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_dtype_from_tuple(self):
         import numpy as np
+        d = np.dtype((np.int64, 0))
+        assert d == np.dtype(('i8', 0,))
+        assert d.shape == (0,)
+        d = np.dtype((np.int64, 1))
+        assert d == np.dtype('i8')
+        assert d.shape == ()
+        d = np.dtype((np.int64, 1,))
+        assert d == np.dtype('i8')
+        assert d.shape == ()
         d = np.dtype((np.int64, 4))
         assert d == np.dtype(('i8', (4,)))
         assert d.shape == (4,)
@@ -563,6 +572,7 @@ class AppTestTypes(BaseAppTestDtypes):
             raises(OverflowError, numpy.int64, 9223372036854775808)
             raises(OverflowError, numpy.int64, 18446744073709551615)
         raises(OverflowError, numpy.uint64, 18446744073709551616)
+        assert numpy.uint64((2<<63) - 1) == (2<<63) - 1
 
     def test_float16(self):
         import numpy
@@ -697,6 +707,9 @@ class AppTestTypes(BaseAppTestDtypes):
         b = X(10)
         assert type(b) is X
         assert b.m() == 12
+        b = X(numpy.array([1, 2, 3]))
+        assert type(b) is numpy.ndarray
+        assert b.dtype.type is numpy.float64
 
     def test_long_as_index(self):
         from numpypy import int_, float64

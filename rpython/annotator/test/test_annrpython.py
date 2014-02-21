@@ -4170,6 +4170,21 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         assert isinstance(a.build_types(f, []), annmodel.SomeOrderedDict)
 
+    def test_enumerate_none(self):
+        # enumerate(None) can occur as an intermediate step during a full
+        # annotation, because the None will be generalized later to
+        # None-or-list for example
+        def f(flag):
+            if flag:
+                x = None
+            else:
+                x = [42]
+            return enumerate(x).next()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert s.items[1].const == 42
+
 
 def g(n):
     return [0, 1, 2, n]

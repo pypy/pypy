@@ -86,25 +86,25 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides, backstrides, new_shape,
                           self, orig_array, dtype=dtype)
 
-    def get_real(self, orig_array):
+    def get_real(self, space, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
-            dtype =  self.dtype.float_type
+            dtype = self.dtype.get_float_dtype(space)
             return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array, dtype=dtype)
         return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array)
 
     def set_real(self, space, orig_array, w_value):
-        tmp = self.get_real(orig_array)
+        tmp = self.get_real(space, orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
     def get_imag(self, space, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
-            dtype =  self.dtype.float_type
+            dtype = self.dtype.get_float_dtype(space)
             return SliceArray(self.start + dtype.get_size(), strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
