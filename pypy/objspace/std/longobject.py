@@ -347,8 +347,6 @@ class W_LongObject(W_AbstractLongObject):
         op = getattr(rbigint, opname)
         @delegate_other
         def descr_impl(self, space, w_other):
-            # XXX: previous impl had all kinds of shortcuts between
-            # smalllong and int/long
             return space.newbool(op(self.num, w_other.asbigint()))
         return func_with_new_name(descr_impl, "descr_" + opname)
 
@@ -377,7 +375,6 @@ class W_LongObject(W_AbstractLongObject):
             @func_renamer(descr_rname)
             @delegate_other
             def descr_rbinop(self, space, w_other):
-                # XXX: delegate, for --objspace-std-withsmalllong
                 return W_LongObject(op(w_other.asbigint(), self.num))
 
         return descr_binop, descr_rbinop
