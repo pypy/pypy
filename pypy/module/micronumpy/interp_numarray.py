@@ -262,24 +262,30 @@ class __extend__(W_NDimArray):
     def descr_str(self, space):
         cache = get_appbridge_cache(space)
         if cache.w_array_str is None:
-            return space.wrap(self.dump_data())
+            return space.wrap(self.dump_data(prefix='', separator='', suffix=''))
         return space.call_function(cache.w_array_str, self)
 
-    def dump_data(self, prefix='array(', suffix=')'):
+    def dump_data(self, prefix='array(', separator=',', suffix=')'):
         i = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
         s.append(prefix)
-        s.append('[')
+        if not self.is_scalar():
+            s.append('[')
         while not i.done():
             if first:
                 first = False
             else:
-                s.append(', ')
-            s.append(dtype.itemtype.str_format(i.getitem()))
+                s.append(separator)
+                s.append(' ')
+            if self.is_scalar() and dtype.is_str_type():
+                s.append(dtype.itemtype.to_str(i.getitem()))
+            else:
+                s.append(dtype.itemtype.str_format(i.getitem()))
             i.next()
-        s.append(']')
+        if not self.is_scalar():
+            s.append(']')
         s.append(suffix)
         return s.build()
 

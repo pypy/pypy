@@ -3115,6 +3115,12 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array(2.2-1.1j, dtype='<c16').tostring() == \
             '\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf'
 
+    def test_str(self):
+        from numpypy import array
+        assert str(array([1, 2, 3])) == '[1 2 3]'
+        assert str(array(['abc'], 'S3')) == "['abc']"
+        assert str(array('abc')) == 'abc'
+
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
@@ -3127,12 +3133,10 @@ class AppTestRepr(BaseNumpyAppTest):
         cache.w_array_str = None
         cache.w_array_repr = None
 
-    def test_repr_str(self):
+    def test_repr(self):
         from numpypy import array
         assert repr(array([1, 2, 3])) == 'array([1, 2, 3])'
-        assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
         assert repr(array(['abc'], 'S3')) == "array(['abc'])"
-        assert str(array(['abc'], 'S3')) == "array(['abc'])"
 
     def teardown_class(cls):
         if option.runappdirect:
@@ -3469,8 +3473,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             assert str(a) == "[('aaaa', 1.0, 8.0, [[[1, 2, 3], [4, 5, 6]], " \
                                                   "[[7, 8, 9], [10, 11, 12]]])]"
         else:
-            assert str(a) == "array([('aaaa', 1.0, 8.0, [1, 2, 3, 4, 5, 6, " \
-                                                        "7, 8, 9, 10, 11, 12])])"
+            assert str(a) == "[('aaaa', 1.0, 8.0, [1, 2, 3, 4, 5, 6, " \
+                                                  "7, 8, 9, 10, 11, 12])]"
 
     def test_issue_1589(self):
         import numpypy as numpy

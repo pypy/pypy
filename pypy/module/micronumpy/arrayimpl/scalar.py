@@ -106,10 +106,7 @@ class Scalar(base.BaseArrayImplementation):
             scalar.value = self.value.convert_imag_to(scalar.dtype)
             return scalar
         scalar = Scalar(self.dtype)
-        if self.dtype.is_flexible_type():
-            scalar.value = self.value
-        else:
-            scalar.value = scalar.dtype.itemtype.box(0)
+        scalar.value = scalar.dtype.coerce(space, None)
         return scalar
 
     def set_imag(self, space, orig_array, w_val):

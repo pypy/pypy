@@ -477,6 +477,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == max(a[i], b[i])
 
     def test_basic(self):
+        import sys
         from numpypy import (dtype, add, array, dtype,
             subtract as sub, multiply, divide, negative, absolute as abs,
             floor_divide, real, imag, sign)
@@ -507,9 +508,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert str(exc.value) == \
             "could not broadcast input array from shape (2) into shape ()"
         a = array('abc')
-        assert str(a.real) == str(a)
-        # numpy imag for flexible types returns self
-        assert str(a.imag) == str(a)
+        assert str(a.real) == 'abc'
+        assert str(a.imag) == ''
         for t in 'complex64', 'complex128', 'clongdouble':
             complex_ = dtype(t).type
             O = complex(0, 0)
@@ -578,10 +578,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
             # numpy actually raises an AttributeError,
             # but numpypy raises a TypeError
-            exc = raises((TypeError, AttributeError), 'c2.real = 10.')
-            assert str(exc.value) == "readonly attribute"
-            exc = raises((TypeError, AttributeError), 'c2.imag = 10.')
-            assert str(exc.value) == "readonly attribute"
+            if '__pypy__' in sys.builtin_module_names:
+                exct, excm = TypeError, 'readonly attribute'
+            else:
+                exct, excm = AttributeError, 'is not writable'
+            exc = raises(exct, 'c2.real = 10.')
+            assert excm in exc.value[0]
+            exc = raises(exct, 'c2.imag = 10.')
+            assert excm in exc.value[0]
             assert(real(c2) == 3.0)
             assert(imag(c2) == 4.0)
 
