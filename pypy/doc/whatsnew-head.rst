@@ -82,3 +82,6 @@ of other operand.
 .. branch: bounds-int-add-or
 Propagate appropriate bounds through INT_(OR|XOR|AND) operations if the
 operands are positive to kill some guards
+
+.. branch: remove-intlong-smm
+kills int/long/smalllong/bool multimethods
