@@ -1870,6 +1870,7 @@ class RecordType(FlexibleType):
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
+        from pypy.module.micronumpy.base import W_NDimArray
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
         if w_item is not None:
@@ -1878,6 +1879,8 @@ class RecordType(FlexibleType):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "size of tuple must match number of fields."))
                 items_w = space.fixedview(w_item)
+            elif isinstance(w_item, W_NDimArray) and w_item.is_scalar():
+                items_w = space.fixedview(w_item.get_scalar_value())
             else:
                 # XXX support initializing from readable buffers
                 items_w = [w_item]

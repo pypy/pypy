@@ -3497,6 +3497,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         for i in a.flat:
             assert tuple(i) == (True, False)
 
+        dt = np.dtype([('A', '<i8'), ('B', '<f8'), ('C', '<c16')])
+        b = np.array((999999, 1e+20, 1e+20+0j), dtype=dt)
+        a = np.array(b, copy=False, dtype=dt.descr)
+        assert tuple(a[()]) == (999999, 1e+20, 1e+20+0j)
+
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
