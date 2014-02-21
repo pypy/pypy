@@ -36,7 +36,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 # types
-from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.intobject import wrapint
 from pypy.objspace.std.unicodeobject import wrapunicode
 
 class StdObjSpace(ObjSpace):
@@ -548,7 +548,7 @@ class StdObjSpace(ObjSpace):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.
         if type(w_obj) is W_BoolObject:
-            return w_obj.boolval
+            return bool(w_obj.intval)
         return self._DescrOperation_is_true(w_obj)
 
     def getattr(self, w_obj, w_name):

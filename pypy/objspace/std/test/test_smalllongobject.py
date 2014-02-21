@@ -2,6 +2,7 @@ import py
 import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject
+from pypy.objspace.std.test.test_intobject import AppTestInt, TestW_IntObject
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.interpreter.error import OperationError
@@ -112,13 +113,23 @@ class AppTestSmallLong(test_longobject.AppTestLong):
             assert 'SmallLong' in __pypy__.internal_repr(x - y)
 
     def test_sl_lshift(self):
-        x = 1
-        assert x << 1 == 2
-        assert x << 30 == 1073741824
-        assert x << 31 == 2147483648
-        assert x << 32 == 4294967296
-        assert x << 62 == 4611686018427387904
-        assert x << 63 == 9223372036854775808
-        assert x << 64 == 18446744073709551616
-        assert (x << 31) << 31 == 4611686018427387904
-        assert (x << 32) << 32 == 18446744073709551616
+        # XXX: was [1, 1L]
+        for x in [1, 1]:
+            x = 1
+            assert x << 1 == 2
+            assert x << 30 == 1073741824
+            assert x << 31 == 2147483648
+            assert x << 32 == 4294967296
+            assert x << 62 == 4611686018427387904
+            assert x << 63 == 9223372036854775808
+            assert x << 64 == 18446744073709551616
+            assert (x << 31) << 31 == 4611686018427387904
+            assert (x << 32) << 32 == 18446744073709551616
+
+
+class TestW_IntObjectWithSmallLong(TestW_IntObject):
+    spaceconfig = {"objspace.std.withsmalllong": True}
+
+
+class AppTestIntWithSmallLong(AppTestInt):
+    spaceconfig = {"objspace.std.withsmalllong": True}

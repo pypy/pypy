@@ -176,6 +176,7 @@ class AppTestLong:
     def test_pow(self):
         x = 0
         assert pow(x, 0, 1) == 0
+        assert pow(-1, -1) == -1.0
 
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)
@@ -386,6 +387,11 @@ class AppTestLong:
         e = raises(TypeError, int, [])
         assert str(e.value) == (
             "int() argument must be a string or a number, not 'list'")
+
+    def test_coerce(self):
+        assert 3.__coerce__(4) == (3, 4)
+        assert 3.__coerce__(4) == (3, 4)
+        assert 3.__coerce__(object()) == NotImplemented
 
     def test_large_identity(self):
         import sys

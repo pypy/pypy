@@ -6,6 +6,7 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.longtype import long_typedef
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
@@ -19,8 +20,8 @@ from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.constants import *
 
 
-MIXIN_32 = (long_typedef,) if LONG_BIT == 32 else ()
-MIXIN_64 = (long_typedef,) if LONG_BIT == 64 else ()
+MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
+MIXIN_64 = (W_IntObject.typedef,) if LONG_BIT == 64 else ()
 
 #long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
 #import os
@@ -710,7 +711,7 @@ W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntegerBox.typedef,
 )
 
 W_LongBox.typedef = TypeDef("int%d" % LONG_BIT,
-    (W_SignedIntegerBox.typedef, long_typedef),
+    (W_SignedIntegerBox.typedef, W_IntObject.typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_LongBox.descr__new__.im_func),
     __index__ = interp2app(W_LongBox.descr_index),
