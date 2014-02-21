@@ -104,17 +104,17 @@ def test_socketio():
     class SocketProc(VirtualizedSocketProc, SimpleIOSandboxedProc):
         def build_virtual_root(self):
             pass
-    
+
     def entry_point(argv):
         fd = os.open("tcp://python.org:80", os.O_RDONLY, 0777)
         os.write(fd, 'GET /\n')
-        print os.read(fd, 30)
+        print os.read(fd, 50)
         return 0
     exe = compile(entry_point)
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
-    assert output.startswith('<!DOCTYPE')
+    assert output.startswith('HTTP/1.0 503 Service Unavailable')
 
 def test_oserror():
     def entry_point(argv):
