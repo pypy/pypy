@@ -600,22 +600,22 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                        bool_result):
     dtype_cache = interp_dtype.get_dtype_cache(space)
-    def get_op(itemtype):
+    def get_op(dtype):
         try:
-            return getattr(itemtype, op_name)
+            return getattr(dtype.itemtype, op_name)
         except AttributeError:
             raise oefmt(space.w_NotImplementedError,
                         "%s not implemented for %s",
-                        ufunc_name, repr(itemtype))
+                        ufunc_name, dtype.name)
     if argcount == 1:
         def impl(res_dtype, value):
-            res = get_op(res_dtype.itemtype)(value)
+            res = get_op(res_dtype)(value)
             if bool_result:
                 return dtype_cache.w_booldtype.box(res)
             return res
     elif argcount == 2:
         def impl(res_dtype, lvalue, rvalue):
-            res = get_op(res_dtype.itemtype)(lvalue, rvalue)
+            res = get_op(res_dtype)(lvalue, rvalue)
             if comparison_func:
                 return dtype_cache.w_booldtype.box(res)
             return res
