@@ -28,7 +28,7 @@ from pypy.objspace.std.tupleobject   import W_AbstractTupleObject
 from pypy.objspace.std.listobject    import W_ListObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
-from pypy.objspace.std.smalllongobject    import W_SmallLongObject
+from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 

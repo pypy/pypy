@@ -200,28 +200,31 @@ class W_SmallLongObject(W_AbstractLongObject):
                 return func(self, space, w_other)
 
         if opname in COMMUTATIVE_OPS:
-            descr_rbinop = func_with_new_name(descr_binop, descr_rname)
-        else:
-            long_rop = getattr(W_LongObject, descr_rname)
             @func_renamer(descr_rname)
             def descr_rbinop(self, space, w_other):
-                if isinstance(w_other, W_AbstractIntObject):
-                    w_other = _int2small(space, w_other)
-                elif not isinstance(w_other, W_AbstractLongObject):
-                    return space.w_NotImplemented
-                elif not isinstance(w_other, W_SmallLongObject):
-                    self = _small2long(space, self)
-                    return long_rop(self, space, w_other)
+                return descr_binop(self, space, w_other)
+            return descr_binop, descr_rbinop
 
-                if ovf:
-                    try:
-                        return func(w_other, space, self)
-                    except OverflowError:
-                        self = _small2long(space, self)
-                        w_other = _small2long(space, w_other)
-                        return long_rop(self, space, w_other)
-                else:
+        long_rop = getattr(W_LongObject, descr_rname)
+        @func_renamer(descr_rname)
+        def descr_rbinop(self, space, w_other):
+            if isinstance(w_other, W_AbstractIntObject):
+                w_other = _int2small(space, w_other)
+            elif not isinstance(w_other, W_AbstractLongObject):
+                return space.w_NotImplemented
+            elif not isinstance(w_other, W_SmallLongObject):
+                self = _small2long(space, self)
+                return long_rop(self, space, w_other)
+
+            if ovf:
+                try:
                     return func(w_other, space, self)
+                except OverflowError:
+                    self = _small2long(space, self)
+                    w_other = _small2long(space, w_other)
+                    return long_rop(self, space, w_other)
+            else:
+                return func(w_other, space, self)
 
         return descr_binop, descr_rbinop
 

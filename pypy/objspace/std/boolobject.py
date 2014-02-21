@@ -50,6 +50,7 @@ class W_BoolObject(W_IntObject):
         int_op = getattr(W_IntObject, descr_name)
         op = getattr(operator,
                      opname + '_' if opname in ('and', 'or') else opname)
+
         @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
             if not isinstance(w_other, W_BoolObject):
@@ -57,7 +58,12 @@ class W_BoolObject(W_IntObject):
             a = bool(self.intval)
             b = bool(w_other.intval)
             return space.newbool(op(a, b))
-        return descr_binop, func_with_new_name(descr_binop, 'descr_r' + opname)
+
+        @func_renamer('descr_r' + opname)
+        def descr_rbinop(self, space, w_other):
+            return descr_binop(self, space, w_other)
+
+        return descr_binop, descr_rbinop
 
     descr_and, descr_rand = _make_bitwise_binop('and')
     descr_or, descr_ror = _make_bitwise_binop('or')

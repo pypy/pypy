@@ -21,8 +21,7 @@ from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import (
-    WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.objspace.std import newformat
 from pypy.objspace.std.model import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
@@ -284,14 +283,23 @@ class W_IntObject(W_AbstractIntObject):
         """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
         return _new_int(space, w_inttype, w_x, w_base)
 
-    descr_pos = func_with_new_name(int, 'descr_pos')
-    descr_index = func_with_new_name(int, 'descr_index')
-    descr_trunc = func_with_new_name(int, 'descr_trunc')
-    descr_conjugate = func_with_new_name(int, 'descr_conjugate')
-
-    def descr_get_numerator(self, space):
+    def descr_hash(self, space):
+        # unlike CPython, we don't special-case the value -1 in most of
+        # our hash functions, so there is not much sense special-casing
+        # it here either.  Make sure this is consistent with the hash of
+        # floats and longs.
         return self.int(space)
-    descr_get_real = descr_get_numerator
+
+    def _int(self, space):
+        return self.int(space)
+
+    descr_pos = func_with_new_name(_int, 'descr_pos')
+    descr_index = func_with_new_name(_int, 'descr_index')
+    descr_trunc = func_with_new_name(_int, 'descr_trunc')
+    descr_conjugate = func_with_new_name(_int, 'descr_conjugate')
+
+    descr_get_numerator = func_with_new_name(_int, 'descr_get_numerator')
+    descr_get_real = func_with_new_name(_int, 'descr_get_real')
 
     def descr_get_denominator(self, space):
         return wrapint(space, 1)
@@ -305,15 +313,9 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([self, w_other])
 
     def descr_long(self, space):
+        # XXX: should try smalllong
         from pypy.objspace.std.longobject import W_LongObject
         return W_LongObject.fromint(space, self.intval)
-
-    def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
 
     def descr_nonzero(self, space):
         return space.newbool(self.intval != 0)
@@ -430,6 +432,7 @@ class W_IntObject(W_AbstractIntObject):
     def _make_generic_descr_binop(opname, ovf=True):
         op = getattr(operator,
                      opname + '_' if opname in ('and', 'or') else opname)
+        descr_rname = 'descr_r' + opname
 
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
@@ -448,10 +451,12 @@ class W_IntObject(W_AbstractIntObject):
             return wrapint(space, z)
 
         if opname in COMMUTATIVE_OPS:
-            return descr_binop, func_with_new_name(descr_binop,
-                                                   'descr_r' + opname)
+            @func_renamer(descr_rname)
+            def descr_rbinop(self, space, w_other):
+                return descr_binop(self, space, w_other)
+            return descr_binop, descr_rbinop
 
-        @func_renamer('descr_r' + opname)
+        @func_renamer(descr_rname)
         def descr_rbinop(self, space, w_other):
             if not isinstance(w_other, W_IntObject):
                 return space.w_NotImplemented
@@ -509,15 +514,17 @@ class W_IntObject(W_AbstractIntObject):
                     return _ovf2long(space, opname, w_other, self)
             else:
                 return func(space, y, x)
+
         return descr_binop, descr_rbinop
+
+    descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
+    descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
     descr_div, descr_rdiv = _make_descr_binop(_div)
     descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
-    descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
-    descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
 
 def wrapint(space, x):
@@ -600,8 +607,8 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         # check for easy cases
         if type(w_value) is W_IntObject:
             value = w_value.intval
-        elif space.lookup(w_value, '__int__') is not None or \
-                space.lookup(w_value, '__trunc__') is not None:
+        elif (space.lookup(w_value, '__int__') is not None or
+              space.lookup(w_value, '__trunc__') is not None):
             # otherwise, use the __int__() or the __trunc__() methods
             w_obj = w_value
             if space.lookup(w_obj, '__int__') is None:

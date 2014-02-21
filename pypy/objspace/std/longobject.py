@@ -361,6 +361,7 @@ class W_LongObject(W_AbstractLongObject):
 
     def _make_generic_descr_binop(opname):
         methname = opname + '_' if opname in ('and', 'or') else opname
+        descr_rname = 'descr_r' + opname
         op = getattr(rbigint, methname)
 
         @func_renamer('descr_' + opname)
@@ -369,9 +370,11 @@ class W_LongObject(W_AbstractLongObject):
             return W_LongObject(op(self.num, w_other.asbigint()))
 
         if opname in COMMUTATIVE_OPS:
-            descr_rbinop = func_with_new_name(descr_binop, 'descr_r' + opname)
+            @func_renamer(descr_rname)
+            def descr_rbinop(self, space, w_other):
+                return descr_binop(self, space, w_other)
         else:
-            @func_renamer('descr_r' + opname)
+            @func_renamer(descr_rname)
             @delegate_other
             def descr_rbinop(self, space, w_other):
                 # XXX: delegate, for --objspace-std-withsmalllong
