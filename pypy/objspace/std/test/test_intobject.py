@@ -556,3 +556,12 @@ class AppTestInt:
 
 class AppTestIntOptimizedAdd(AppTestInt):
     spaceconfig = {"objspace.std.optimized_int_add": True}
+
+    def test_inplace(self):
+        # ensure other inplace ops still work
+        l = []
+        l += xrange(5)
+        assert l == list(range(5))
+        a = 8.5
+        a -= .5
+        assert a == 8
