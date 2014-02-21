@@ -36,6 +36,22 @@ def int_BINARY_ADD(self, oparg, next_instr):
     self.pushvalue(w_result)
 
 
+def int_BINARY_SUBTRACT(self, oparg, next_instr):
+    space = self.space
+    w_2 = self.popvalue()
+    w_1 = self.popvalue()
+    if type(w_1) is W_IntObject and type(w_2) is W_IntObject:
+        try:
+            z = ovfcheck(w_1.intval - w_2.intval)
+        except OverflowError:
+            w_result = w_1.descr_sub(space, w_2)
+        else:
+            w_result = space.newint(z)
+    else:
+        w_result = space.sub(w_1, w_2)
+    self.pushvalue(w_result)
+
+
 def list_BINARY_SUBSCR(self, oparg, next_instr):
     space = self.space
     w_2 = self.popvalue()
@@ -56,6 +72,9 @@ def build_frame(space):
         pass
     if space.config.objspace.std.optimized_int_add:
         StdObjSpaceFrame.BINARY_ADD = int_BINARY_ADD
+        StdObjSpaceFrame.INPLACE_ADD = int_BINARY_ADD
+        StdObjSpaceFrame.BINARY_SUB = int_BINARY_SUBTRACT
+        StdObjSpaceFrame.INPLACE_SUBTRACT = int_BINARY_SUBTRACT
     if space.config.objspace.std.optimized_list_getitem:
         StdObjSpaceFrame.BINARY_SUBSCR = list_BINARY_SUBSCR
     from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD

@@ -310,6 +310,13 @@ class AppTestInt:
                 return 42
         assert I(1).conjugate() == 1
 
+    def test_inplace(self):
+        a = 1
+        a += 1
+        assert a == 2
+        a -= 1
+        assert a == 1
+
     def test_trunc(self):
         import math
         assert math.trunc(1) == 1
