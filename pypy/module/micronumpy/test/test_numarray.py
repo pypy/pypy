@@ -3516,6 +3516,29 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = np.array(b, copy=False, dtype=dt.descr)
         assert tuple(a[()]) == (999999, 1e+20, 1e+20+0j)
 
+    def test_reduce_record(self):
+        import numpy as np
+        dt = np.dtype([('a', float), ('b', float)])
+        a = np.array(list(zip(range(10), reversed(range(10)))), dtype=dt)
+        exc = raises(TypeError, np.maximum.reduce, a)
+        assert exc.value[0] == 'cannot perform reduce with flexible type'
+        v = a.view((float, 2))
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            m = np.maximum.reduce(v)
+            assert (m == [9, 9]).all()
+            m = np.maximum.reduce(v, axis=None)
+            assert (m == [9, 9]).all()
+            m = np.maximum.reduce(v, axis=-1)
+            assert (m == [9, 8, 7, 6, 5, 5, 6, 7, 8, 9]).all()
+            m = v.argmax()
+            assert m == 1
+        else:
+            exc = raises(NotImplementedError, np.maximum.reduce, v)
+            assert exc.value[0] == "maximum not implemented for VoidType"
+            exc = raises(NotImplementedError, "v.argmax()")
+            assert exc.value[0] == "argmax not implemented for VoidType"
+
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

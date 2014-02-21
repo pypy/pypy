@@ -1005,11 +1005,18 @@ class __extend__(W_NDimArray):
             if self.get_size() == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" % op_name))
-            return space.wrap(getattr(loop, 'arg' + op_name)(self))
+            op = getattr(loop, op_name)
+            try:
+                res = op(self)
+            except AttributeError:
+                raise oefmt(space.w_NotImplementedError,
+                            '%s not implemented for %s',
+                            op_name, self.get_dtype().itemtype)
+            return space.wrap(res)
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
-    descr_argmax = _reduce_argmax_argmin_impl("max")
-    descr_argmin = _reduce_argmax_argmin_impl("min")
+    descr_argmax = _reduce_argmax_argmin_impl("argmax")
+    descr_argmin = _reduce_argmax_argmin_impl("argmin")
 
     def descr_int(self, space):
         shape = self.get_shape()
