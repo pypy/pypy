@@ -48,7 +48,7 @@ class W_Reader(W_Root):
             try:
                 ff = string_to_float(field)
             except ParseStringError as e:
-                from pypy.objspace.std.inttype import wrap_parsestringerror
+                from pypy.objspace.std.intobject import wrap_parsestringerror
                 raise wrap_parsestringerror(space, e, space.wrap(field))
             w_obj = space.wrap(ff)
         else:

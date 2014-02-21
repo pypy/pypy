@@ -3,8 +3,8 @@ from pypy.module.pypyjit import policy
 pypypolicy = policy.PyPyJitPolicy()
 
 def test_id_any():
-    from pypy.objspace.std.intobject import add__Int_Int
-    assert pypypolicy.look_inside_function(add__Int_Int)
+    from pypy.objspace.std.intobject import W_IntObject
+    assert pypypolicy.look_inside_function(W_IntObject.descr_add)
 
 def test_bigint():
     from rpython.rlib.rbigint import rbigint
