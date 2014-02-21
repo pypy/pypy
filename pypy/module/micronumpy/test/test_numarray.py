@@ -3523,22 +3523,22 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         exc = raises(TypeError, np.maximum.reduce, a)
         assert exc.value[0] == 'cannot perform reduce with flexible type'
         v = a.view((float, 2))
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            m = np.maximum.reduce(v)
-            assert (m == [9, 9]).all()
-            m = np.maximum.reduce(v, axis=None)
-            assert (m == [9, 9]).all()
-            m = np.maximum.reduce(v, axis=-1)
-            assert (m == [9, 8, 7, 6, 5, 5, 6, 7, 8, 9]).all()
-            m = v.argmax()
-            assert m == 1
-        else:
-            exc = raises(NotImplementedError, np.maximum.reduce, v)
-            assert exc.value[0] == "maximum not implemented for void128"
-            exc = raises(NotImplementedError, "v.argmax()")
-            assert exc.value[0] == "argmax not implemented for void128"
-
+        assert v.dtype == np.dtype(float)
+        assert v.shape == (10, 2)
+        m = np.maximum.reduce(v)
+        assert (m == [9, 9]).all()
+        m = np.maximum.reduce(v, axis=None)
+        assert (m == [9, 9]).all()
+        m = np.maximum.reduce(v, axis=-1)
+        assert (m == [9, 8, 7, 6, 5, 5, 6, 7, 8, 9]).all()
+        m = v.argmax()
+        assert m == 1
+        v = a.view(('float32', 4))
+        assert v.dtype == np.dtype('float32')
+        assert v.shape == (10, 4)
+        assert v[0][-1] == 2.53125
+        exc = raises(ValueError, "a.view(('float32', 2))")
+        assert exc.value[0] == 'new type not compatible with array.'
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

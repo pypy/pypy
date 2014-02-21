@@ -773,11 +773,16 @@ class __extend__(W_NDimArray):
         old_itemsize = self.get_dtype().get_size()
         new_itemsize = dtype.get_size()
         impl = self.implementation
-        new_shape = self.get_shape()[:]
-        dims = len(new_shape)
         if new_itemsize == 0:
             raise OperationError(space.w_TypeError, space.wrap(
                 "data-type must not be 0-sized"))
+        if dtype.subdtype is None:
+            new_shape = self.get_shape()[:]
+            dims = len(new_shape)
+        else:
+            new_shape = self.get_shape() + dtype.shape
+            dtype = dtype.subdtype
+            dims = 0
         if dims == 0:
             # Cannot resize scalars
             if old_itemsize != new_itemsize:
