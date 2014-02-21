@@ -25,6 +25,7 @@ from rpython.rlib.rstring import StringBuilder
 degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
+log10 = math.log(10)
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -1549,22 +1550,25 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def log(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        return rcomplex.c_log(*v)
+        try:
+            return rcomplex.c_log(*v)
+        except ValueError:
+            return -rfloat.INFINITY, math.atan2(v[1], v[0])
 
     @complex_unary_op
     def log2(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        r = rcomplex.c_log(*v)
+        try:
+            r = rcomplex.c_log(*v)
+        except ValueError:
+            r = -rfloat.INFINITY, math.atan2(v[1], v[0])
         return r[0] / log2, r[1] / log2
 
     @complex_unary_op
     def log10(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        return rcomplex.c_log10(*v)
+        try:
+            return rcomplex.c_log10(*v)
+        except ValueError:
+            return -rfloat.INFINITY, math.atan2(v[1], v[0]) / log10
 
     @complex_unary_op
     def log1p(self, v):

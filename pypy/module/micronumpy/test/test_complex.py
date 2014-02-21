@@ -412,7 +412,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 except OverflowError:
                     res = cmpl(inf, nan)
                 except ValueError:
-                    res = cmpl(ninf, 0)
+                    res = cmpl(ninf, math.atan2(a[i].imag, a[i].real) / log_2)
                 msg = 'result of log2(%r(%r)) got %r expected %r\n ' % \
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
