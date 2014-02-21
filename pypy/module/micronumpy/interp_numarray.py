@@ -1011,7 +1011,7 @@ class __extend__(W_NDimArray):
             except AttributeError:
                 raise oefmt(space.w_NotImplementedError,
                             '%s not implemented for %s',
-                            op_name, self.get_dtype().itemtype)
+                            op_name, self.get_dtype().name)
             return space.wrap(res)
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 

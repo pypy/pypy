@@ -3535,9 +3535,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             assert m == 1
         else:
             exc = raises(NotImplementedError, np.maximum.reduce, v)
-            assert exc.value[0] == "maximum not implemented for VoidType"
+            assert exc.value[0] == "maximum not implemented for void128"
             exc = raises(NotImplementedError, "v.argmax()")
-            assert exc.value[0] == "argmax not implemented for VoidType"
+            assert exc.value[0] == "argmax not implemented for void128"
 
 
 class AppTestPyPy(BaseNumpyAppTest):
