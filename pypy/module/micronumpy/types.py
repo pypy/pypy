@@ -1897,11 +1897,20 @@ class RecordType(FlexibleType):
             itemtype.store(arr, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
-    @jit.unroll_safe
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
-        for k in range(box.dtype.get_size()):
-            arr.storage[k + i + ofs] = box.arr.storage[k + box.ofs]
+        self._store(arr.storage, i, ofs, box, box.dtype.get_size())
+
+    @jit.unroll_safe
+    def _store(self, storage, i, ofs, box, size):
+        for k in range(size):
+            storage[k + i + ofs] = box.arr.storage[k + box.ofs]
+
+    def fill(self, storage, width, box, start, stop, offset):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        assert width == box.dtype.get_size()
+        for i in xrange(start, stop, width):
+            self._store(storage, i, offset, box, width)
 
     def byteswap(self, w_v):
         # XXX implement
