@@ -170,7 +170,7 @@ class W_Ufunc(W_Root):
         obj = convert_to_array(space, w_obj)
         if obj.get_dtype().is_flexible_type():
             raise OperationError(space.w_TypeError,
-                      space.wrap('cannot perform reduce for flexible type'))
+                      space.wrap('cannot perform reduce with flexible type'))
         obj_shape = obj.get_shape()
         if obj.is_scalar():
             return obj.get_scalar_value()
@@ -598,15 +598,22 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                        bool_result):
     dtype_cache = interp_dtype.get_dtype_cache(space)
+    def get_op(dtype):
+        try:
+            return getattr(dtype.itemtype, op_name)
+        except AttributeError:
+            raise oefmt(space.w_NotImplementedError,
+                        "%s not implemented for %s",
+                        ufunc_name, dtype.name)
     if argcount == 1:
         def impl(res_dtype, value):
-            res = getattr(res_dtype.itemtype, op_name)(value)
+            res = get_op(res_dtype)(value)
             if bool_result:
                 return dtype_cache.w_booldtype.box(res)
             return res
     elif argcount == 2:
         def impl(res_dtype, lvalue, rvalue):
-            res = getattr(res_dtype.itemtype, op_name)(lvalue, rvalue)
+            res = get_op(res_dtype)(lvalue, rvalue)
             if comparison_func:
                 return dtype_cache.w_booldtype.box(res)
             return res
