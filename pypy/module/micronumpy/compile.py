@@ -5,6 +5,7 @@ It should not be imported by the module itself
 
 import re
 
+from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
@@ -74,6 +75,7 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
+        self.w_NotImplemented = special.NotImplemented(self)
 
     def _freeze_(self):
         return True
@@ -193,6 +195,9 @@ class FakeSpace(object):
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
+
+    def eq_w(self, w_obj, w_what):
+        return w_obj == w_what
 
     def issubtype(self, w_type1, w_type2):
         return BoolObject(True)

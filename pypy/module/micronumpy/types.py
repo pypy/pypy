@@ -1944,6 +1944,20 @@ class RecordType(FlexibleType):
         pieces.append(")")
         return "".join(pieces)
 
+    def eq(self, v1, v2):
+        assert isinstance(v1, interp_boxes.W_VoidBox)
+        assert isinstance(v2, interp_boxes.W_VoidBox)
+        s1 = v1.dtype.get_size()
+        s2 = v2.dtype.get_size()
+        assert s1 == s2
+        for i in range(s1):
+            if v1.arr.storage[v1.ofs + i] != v2.arr.storage[v2.ofs + i]:
+                return False
+        return True
+
+    def ne(self, v1, v2):
+        return not self.eq(v1, v2)
+
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:
         IntP = tp

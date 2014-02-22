@@ -371,17 +371,23 @@ class W_Ufunc2(W_Ufunc):
         w_ldtype = w_lhs.get_dtype()
         w_rdtype = w_rhs.get_dtype()
         if w_ldtype.is_str_type() and w_rdtype.is_str_type() and \
-           self.comparison_func:
+                self.comparison_func:
             pass
         elif (w_ldtype.is_str_type() or w_rdtype.is_str_type()) and \
-            self.comparison_func and w_out is None:
+                self.comparison_func and w_out is None:
             return space.wrap(False)
-        elif (w_ldtype.is_flexible_type() or \
-                w_rdtype.is_flexible_type()):
-            raise OperationError(space.w_TypeError, space.wrap(
-                 'unsupported operand dtypes %s and %s for "%s"' % \
-                 (w_rdtype.get_name(), w_ldtype.get_name(),
-                  self.name)))
+        elif w_ldtype.is_flexible_type() or w_rdtype.is_flexible_type():
+            if self.comparison_func:
+                if self.name == 'equal' or self.name == 'not_equal':
+                    res = w_ldtype.eq(space, w_rdtype)
+                    if not res:
+                        return space.wrap(self.name == 'not_equal')
+                else:
+                    return space.w_NotImplemented
+            else:
+                raise oefmt(space.w_TypeError,
+                    'unsupported operand dtypes %s and %s for "%s"',
+                    w_rdtype.name, w_ldtype.name, self.name)
 
         if self.are_common_types(w_ldtype, w_rdtype):
             if not w_lhs.is_scalar() and w_rhs.is_scalar():

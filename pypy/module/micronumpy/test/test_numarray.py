@@ -3573,6 +3573,28 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         exc = raises(ValueError, "a.view(('float32', 2))")
         assert exc.value[0] == 'new type not compatible with array.'
 
+    def test_record_ufuncs(self):
+        import numpy as np
+        a = np.zeros(3, dtype=[('a', 'i8'), ('b', 'i8')])
+        b = np.zeros(3, dtype=[('a', 'i8'), ('b', 'i8')])
+        c = np.zeros(3, dtype=[('a', 'f8'), ('b', 'f8')])
+        d = np.ones(3, dtype=[('a', 'i8'), ('b', 'i8')])
+        e = np.ones(3, dtype=[('a', 'i8'), ('b', 'i8'), ('c', 'i8')])
+        exc = raises(TypeError, abs, a)
+        assert exc.value[0] == 'Not implemented for this type'
+        assert (a == a).all()
+        assert not (a != a).any()
+        assert (a == b).all()
+        assert not (a != b).any()
+        assert a != c
+        assert not a == c
+        assert (a != d).all()
+        assert not (a == d).any()
+        assert a != e
+        assert not a == e
+        assert np.greater(a, a) is NotImplemented
+        assert np.less_equal(a, a) is NotImplemented
+
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
