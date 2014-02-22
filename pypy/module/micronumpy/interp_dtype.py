@@ -357,8 +357,8 @@ def dtype_from_list(space, w_lst):
     fields = {}
     offset = 0
     fieldnames = []
-    for w_elem in lst_w:
-        size = 1
+    for i in range(len(lst_w)):
+        w_elem = lst_w[i]
         w_shape = space.newtuple([])
         if space.len_w(w_elem) == 3:
             w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
@@ -368,11 +368,13 @@ def dtype_from_list(space, w_lst):
             w_fldname, w_flddesc = space.fixedview(w_elem, 2)
         subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
         fldname = space.str_w(w_fldname)
+        if fldname == '':
+            fldname = 'f%d' % i
         if fldname in fields:
-            raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
+            raise oefmt(space.w_ValueError, "two fields with the same name")
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
-        offset += subdtype.get_size() * size
+        offset += subdtype.get_size()
         fieldnames.append(fldname)
     itemtype = types.RecordType()
     return W_Dtype(itemtype, NPY_VOID, NPY_VOIDLTR,

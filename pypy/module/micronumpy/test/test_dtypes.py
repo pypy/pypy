@@ -991,6 +991,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.type is void
         assert d.char == 'V'
         assert d.names == ("x", "y", "z", "value")
+        d.names = ('a', '', 'c', 'd')
+        assert d.names == ('a', '', 'c', 'd')
         d.names = ('a', 'b', 'c', 'd')
         assert d.names == ('a', 'b', 'c', 'd')
         exc = raises(ValueError, "d.names = ('a', 'b', 'c', 'c')")
@@ -1000,6 +1002,14 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.names == ('a', 'b', 'c', 'd')
         raises(KeyError, 'd["xyz"]')
         raises(KeyError, 'd.fields["xyz"]')
+        d = dtype([('', '<i8'), ('', '<f8')])
+        assert d.descr == [('f0', '<i8'), ('f1', '<f8')]
+        d = dtype([('', '<i8'), ('b', '<f8')])
+        assert d.descr == [('f0', '<i8'), ('b', '<f8')]
+        d = dtype([('a', '<i8'), ('', '<f8')])
+        assert d.descr == [('a', '<i8'), ('f1', '<f8')]
+        exc = raises(ValueError, "dtype([('a', '<i8'), ('a', '<f8')])")
+        assert exc.value[0] == 'two fields with the same name'
 
     def test_create_from_dict(self):
         import numpy as np
