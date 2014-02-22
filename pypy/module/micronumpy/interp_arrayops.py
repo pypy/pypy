@@ -98,15 +98,25 @@ def dot(space, w_obj1, w_obj2, w_out=None):
     return w_arr.descr_dot(space, w_obj2, w_out)
 
 
-@unwrap_spec(axis=int)
-def concatenate(space, w_args, axis=0):
+def concatenate(space, w_args, w_axis=None):
     args_w = space.listview(w_args)
     if len(args_w) == 0:
-        raise OperationError(space.w_ValueError, space.wrap("need at least one array to concatenate"))
+        raise oefmt(space.w_ValueError, "need at least one array to concatenate")
     args_w = [convert_to_array(space, w_arg) for w_arg in args_w]
+    if w_axis is None:
+        w_axis = space.wrap(0)
+    if space.is_none(w_axis):
+        args_w = [w_arg.reshape(space,
+                                space.newlist([w_arg.descr_get_size(space)]))
+                  for w_arg in args_w]
+        w_axis = space.wrap(0)
     dtype = args_w[0].get_dtype()
     shape = args_w[0].get_shape()[:]
     ndim = len(shape)
+    if ndim == 0:
+        raise oefmt(space.w_ValueError,
+                    "zero-dimensional arrays cannot be concatenated")
+    axis = space.int_w(w_axis)
     orig_axis = axis
     if axis < 0:
         axis = ndim + axis

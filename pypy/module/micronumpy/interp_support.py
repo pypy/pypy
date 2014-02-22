@@ -91,7 +91,7 @@ def unwrap_axis_arg(space, shapelen, w_axis):
         axis = maxint
     else:
         axis = space.int_w(w_axis)
-        if axis < -shapelen or axis>= shapelen:
+        if axis < -shapelen or axis >= shapelen:
             raise oefmt(space.w_ValueError,
                         "axis entry %d is out of bounds [%d, %d)",
                         axis, -shapelen, shapelen)

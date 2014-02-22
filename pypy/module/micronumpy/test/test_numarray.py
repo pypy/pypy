@@ -1773,6 +1773,18 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_concatenate(self):
         from numpypy import array, concatenate, dtype
+        exc = raises(ValueError, concatenate, (array(1.5), array(2.5)))
+        assert exc.value[0] == 'zero-dimensional arrays cannot be concatenated'
+        a = concatenate((array(1.5), array(2.5)), axis=None)
+        assert (a == [1.5, 2.5]).all()
+        assert exc.value[0] == 'zero-dimensional arrays cannot be concatenated'
+        exc = raises(ValueError, concatenate, (array([1.5]), array(2.5)))
+        assert exc.value[0] == 'all the input arrays must have same number ' \
+                               'of dimensions'
+        exc = raises(ValueError, concatenate, (array(1.5), array([2.5])))
+        assert exc.value[0] == 'zero-dimensional arrays cannot be concatenated'
+        a = concatenate((array([1.5]), array([2.5])))
+        assert (a == [1.5, 2.5]).all()
         a1 = array([0,1,2])
         a2 = array([3,4,5])
         a = concatenate((a1, a2))
@@ -1783,6 +1795,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0,1,2,3,4,5]).all()
         a = concatenate((a1, a2), axis=-1)
         assert (a == [0,1,2,3,4,5]).all()
+        a = concatenate((a1, a2), axis=None)
+        assert (a == [0,1,2,3,4,5]).all()
 
         b1 = array([[1, 2], [3, 4]])
         b2 = array([[5, 6]])
@@ -1790,6 +1804,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [[1, 2],[3, 4],[5, 6]]).all()
         c = concatenate((b1, b2.T), axis=1)
         assert (c == [[1, 2, 5],[3, 4, 6]]).all()
+        c1 = concatenate((b1, b2), axis=None)
+        assert (c1 == [1, 2, 3, 4, 5, 6]).all()
         d = concatenate(([0],[1]))
         assert (d == [0,1]).all()
         e1 = array([[0,1],[2,3]])
