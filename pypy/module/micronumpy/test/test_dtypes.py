@@ -68,7 +68,11 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert exc.value.message == "There are no fields in dtype int8."
 
         exc = raises(TypeError, dtype, (1, 2))
-        assert 'data type not understood' in str(exc.value)
+        assert exc.value[0] == 'data type not understood'
+        exc = raises(TypeError, dtype, lambda: 42)
+        assert exc.value[0] == 'data type not understood'
+        exc = raises(TypeError, dtype, 'oooo')
+        assert exc.value[0] == 'data type "oooo" not understood'
         raises(KeyError, 'dtype(int)["asdasd"]')
 
     def test_dtype_from_tuple(self):
@@ -364,6 +368,18 @@ class AppTestDtypes(BaseAppTestDtypes):
             s1 = np.array(123, dtype=dt1).tostring()
             s2 = np.array(123, dtype=dt2).byteswap().tostring()
             assert s1 == s2
+
+    def test_object(self):
+        import numpy as np
+        import sys
+        class O(object):
+            pass
+        for o in [object, O]:
+            if '__pypy__' not in sys.builtin_module_names:
+                assert np.dtype(o).str == '|O8'
+            else:
+                exc = raises(NotImplementedError, "np.dtype(o)")
+                assert exc.value[0] == 'object dtype not implemented'
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):

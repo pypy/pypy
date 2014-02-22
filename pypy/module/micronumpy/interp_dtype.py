@@ -429,8 +429,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             pass
         if name[0] in 'VSUc' or name[0] in '<>=|' and name[1] in 'VSUc':
             return variable_dtype(space, name)
-        raise OperationError(space.w_TypeError, space.wrap(
-            "data type %s not understood" % name))
+        raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
     elif space.isinstance_w(w_dtype, space.w_tuple):
@@ -449,9 +448,9 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return dtype
         if w_dtype is dtype.w_box_type:
             return dtype
-    raise oefmt(space.w_TypeError,
-                "data type not understood (value of type %T not expected "
-                "here)", w_dtype)
+    if space.isinstance_w(w_dtype, space.w_type):
+        raise oefmt(space.w_NotImplementedError, "object dtype not implemented")
+    raise oefmt(space.w_TypeError, "data type not understood")
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpy",
