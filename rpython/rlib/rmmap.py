@@ -55,7 +55,7 @@ if _POSIX:
     # constants, look in sys/mman.h and platform docs for the meaning
     # some constants are linux only so they will be correctly exposed outside
     # depending on the OS
-    constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
+    constant_names = ['MAP_SHARED', 'MAP_PRIVATE',
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
@@ -675,16 +675,9 @@ if _POSIX:
         return m
 
     def alloc_hinted(hintp, map_size):
-        flags = NonConstant(MAP_PRIVATE | MAP_ANONYMOUS)
-        prot = NonConstant(PROT_EXEC | PROT_READ | PROT_WRITE)
+        flags = MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_EXEC | PROT_READ | PROT_WRITE
         return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
-
-    def clear_large_memory_chunk_aligned(addr, map_size):
-        addr = rffi.cast(PTR, addr)
-        flags = NonConstant(MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)
-        prot = NonConstant(PROT_READ | PROT_WRITE)
-        res = c_mmap_safe(addr, map_size, prot, flags, -1, 0)
-        return res == addr
 
     # XXX is this really necessary?
     class Hint:
