@@ -40,7 +40,11 @@ class W_BytearrayObject(W_Root):
         return len(self.data)
 
     def _getitem_result(self, space, index):
-        return space.wrap(ord(self.data[index]))
+        try:
+            character = self.data[index]
+        except IndexError:
+            raise oefmt(space.w_IndexError, "bytearray index out of range")
+        return space.wrap(ord(character))
 
     def _val(self, space):
         return space.bufferstr_w(self)
