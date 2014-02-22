@@ -313,11 +313,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                                                     self.order)
         impl = ConcreteArray(self.get_shape(), dtype, self.order,
                              strides, backstrides)
-        if self.dtype.is_str_or_unicode() and not dtype.is_str_or_unicode():
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "astype(%s) not implemented yet" % self.dtype))
-        else:
-            loop.setslice(space, impl.get_shape(), impl, self)
+        loop.setslice(space, impl.get_shape(), impl, self)
         return impl
 
 

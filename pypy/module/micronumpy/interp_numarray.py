@@ -566,13 +566,17 @@ class __extend__(W_NDimArray):
         return contig.argsort(space, w_axis)
 
     def descr_astype(self, space, w_dtype):
-        dtype = space.interp_w(interp_dtype.W_Dtype,
+        cur_dtype = self.get_dtype()
+        new_dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        if new_dtype.shape:
+            raise oefmt(space.w_NotImplementedError,
+                "%s.astype(%s) not implemented yet", cur_dtype.name, new_dtype.name)
         impl = self.implementation
         if isinstance(impl, scalar.Scalar):
-            return W_NDimArray.new_scalar(space, dtype, impl.value)
+            return W_NDimArray.new_scalar(space, new_dtype, impl.value)
         else:
-            new_impl = impl.astype(space, dtype)
+            new_impl = impl.astype(space, new_dtype)
             return wrap_impl(space, space.type(self), self, new_impl)
 
     def descr_get_base(self, space):

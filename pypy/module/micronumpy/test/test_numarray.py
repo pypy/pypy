@@ -2081,12 +2081,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(3.1415).astype('S3').dtype
         assert a.itemsize == 3
 
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            a = array(['1', '2','3']).astype(float)
-            assert a[2] == 3.0
-        else:
-            raises(NotImplementedError, array(['1', '2', '3']).astype, float)
+        a = array(['1', '2','3']).astype(float)
+        assert a[2] == 3.0
 
         a = array('123')
         assert a.astype('i8') == 123
@@ -3426,6 +3422,27 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0, 0, 0].shape == (10,)
         exc = raises(ValueError, "a[0, 0]['z']")
         assert exc.value.message == 'field named z not found'
+
+        import sys
+        a = array(1.5, dtype=float)
+        assert a.shape == ()
+        if '__pypy__' not in sys.builtin_module_names:
+            a = a.astype((float, 2))
+            repr(a)  # check for crash
+            assert a.shape == (2,)
+            assert tuple(a) == (1.5, 1.5)
+        else:
+            raises(NotImplementedError, "a.astype((float, 2))")
+
+        a = array([1.5], dtype=float)
+        assert a.shape == (1,)
+        if '__pypy__' not in sys.builtin_module_names:
+            a = a.astype((float, 2))
+            repr(a)  # check for crash
+            assert a.shape == (1, 2)
+            assert tuple(a[0]) == (1.5, 1.5)
+        else:
+            raises(NotImplementedError, "a.astype((float, 2))")
 
     def test_subarray_multiple_rows(self):
         import numpypy as np
