@@ -39,6 +39,9 @@ class W_BytearrayObject(W_Root):
     def _len(self):
         return len(self.data)
 
+    def _getitem_result(self, space, index):
+        return space.wrap(ord(self.data[index]))
+
     def _val(self, space):
         return space.bufferstr_w(self)
 
