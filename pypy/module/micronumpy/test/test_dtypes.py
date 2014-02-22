@@ -47,6 +47,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d.kind == 'b'
         assert dtype(d) is d
         assert dtype('bool') is d
+        assert dtype('|b1') is d
         assert repr(type(d)) == "<type 'numpy.dtype'>"
 
         assert dtype('int8').num == 1
@@ -803,10 +804,12 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('float').str == byteorder + 'f8'
         assert dtype('f').str == byteorder + 'f4'
         assert dtype('=f').str == byteorder + 'f4'
+        assert dtype('|f').str == byteorder + 'f4'
         assert dtype('>f').str == '>f4'
         assert dtype('<f').str == '<f4'
         assert dtype('d').str == byteorder + 'f8'
         assert dtype('=d').str == byteorder + 'f8'
+        assert dtype('|d').str == byteorder + 'f8'
         assert dtype('>d').str == '>f8'
         assert dtype('<d').str == '<f8'
         # strange

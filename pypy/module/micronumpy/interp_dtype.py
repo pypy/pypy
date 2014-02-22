@@ -816,6 +816,7 @@ class DtypeCache(object):
                 self.dtypes_by_name[can_name] = dtype
                 self.dtypes_by_name[NPY_NATBYTE + can_name] = dtype
                 self.dtypes_by_name[NPY_NATIVE + can_name] = dtype
+                self.dtypes_by_name[NPY_IGNORE + can_name] = dtype
                 new_name = NPY_OPPBYTE + can_name
                 itemtype = type(dtype.itemtype)(False)
                 self.dtypes_by_name[new_name] = W_Dtype(
