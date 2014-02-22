@@ -289,6 +289,9 @@ class W_Dtype(W_Root):
             return space.wrap(0)
         return space.wrap(len(self.fields))
 
+    def descr_hash(self, space):
+        return space.hash(self.descr_reduce(space))
+
     def descr_reduce(self, space):
         w_class = space.type(self)
 
@@ -465,6 +468,7 @@ W_Dtype.typedef = TypeDef("dtype",
     __getitem__ = interp2app(W_Dtype.descr_getitem),
     __len__ = interp2app(W_Dtype.descr_len),
 
+    __hash__ = interp2app(W_Dtype.descr_hash),
     __reduce__ = interp2app(W_Dtype.descr_reduce),
     __setstate__ = interp2app(W_Dtype.descr_setstate),
     newbyteorder = interp2app(W_Dtype.descr_newbyteorder),

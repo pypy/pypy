@@ -351,13 +351,13 @@ class AppTestDtypes(BaseAppTestDtypes):
             dt2 = dt.newbyteorder("<")
             dt3 = dt.newbyteorder(">")
             assert dt.byteorder != dt1.byteorder
-            #assert hash(dt) == hash(dt1)
+            assert hash(dt) == hash(dt1)
             if dt == dt2:
                 assert dt.byteorder != dt2.byteorder
-                #assert hash(dt) == hash(dt2)
+                assert hash(dt) == hash(dt2)
             else:
                 assert dt.byteorder != dt3.byteorder
-                #assert hash(dt) == hash(dt3)
+                assert hash(dt) == hash(dt3)
 
             exc = raises(ValueError, dt.newbyteorder, 'XX')
             assert exc.value[0] == 'XX is an unrecognized byteorder'
