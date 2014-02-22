@@ -104,8 +104,8 @@ on the `development mailing list`_.
 .. _`PyPy blog`: http://morepypy.blogspot.com/
 .. _`development bug/feature tracker`: https://bugs.pypy.org
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
-.. _`Mercurial commit mailing list`: http://python.org/mailman/listinfo/pypy-commit
-.. _`development mailing list`: http://python.org/mailman/listinfo/pypy-dev
+.. _`Mercurial commit mailing list`: http://mail.python.org/mailman/listinfo/pypy-commit
+.. _`development mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
