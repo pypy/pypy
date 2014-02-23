@@ -336,10 +336,6 @@ class W_ComplexObject(W_AbstractComplexObject):
         return space.newtuple([space.newfloat(self.realval),
                                space.newfloat(self.imagval)])
 
-    def descr_conjugate(self, space):
-        """(A+Bj).conjugate() -> A-Bj"""
-        return space.newcomplex(self.realval, -self.imagval)
-
     def descr_add(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
         return W_ComplexObject(self.realval + w_rhs.realval,
@@ -444,6 +440,10 @@ class W_ComplexObject(W_AbstractComplexObject):
         except OverflowError:
             raise OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
         return w_p
+
+    def descr_conjugate(self, space):
+        """(A+Bj).conjugate() -> A-Bj"""
+        return space.newcomplex(self.realval, -self.imagval)
 
 registerimplementation(W_ComplexObject)
 
@@ -581,7 +581,6 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __getnewargs__ = interp2app(W_ComplexObject.descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
-    conjugate = interp2app(W_ComplexObject.descr_conjugate),
 
     __add__ = interp2app(W_ComplexObject.descr_add),
     __radd__ = interp2app(W_ComplexObject.descr_radd),
@@ -600,6 +599,8 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __divmod__ = interp2app(W_ComplexObject.descr_divmod),
     __rdivmod__ = interp2app(W_ComplexObject.descr_rdivmod),
     __pow__ = interp2app(W_ComplexObject.descr_pow),
+
+    conjugate = interp2app(W_ComplexObject.descr_conjugate),
     )
 
 W_ComplexObject.typedef.registermethods(globals())
