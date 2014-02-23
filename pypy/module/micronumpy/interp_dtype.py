@@ -1,3 +1,4 @@
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -8,6 +9,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import jit
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.conversion_utils import byteorder_converter
 from pypy.module.micronumpy.constants import *
 
@@ -391,9 +393,17 @@ def dtype_from_dict(space, w_dict):
         "dtype from dict"))
 
 
-def dtype_from_spec(space, name):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "dtype from spec"))
+def dtype_from_spec(space, w_spec):
+    w_lst = get_appbridge_cache(space).call_method(space,
+        'numpy.core._internal', '_commastring', Arguments(space, [w_spec]))
+    if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
+        raise oefmt(space.w_RuntimeError,
+                    "_commastring is not returning a list with len >= 1")
+    if space.len_w(w_lst) == 1:
+        return descr__new__(space, space.gettypefor(W_Dtype),
+                            space.getitem(w_lst, space.wrap(0)))
+    else:
+        return dtype_from_list(space, w_lst)
 
 
 def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
@@ -427,7 +437,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     elif space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
         if ',' in name:
-            return dtype_from_spec(space, name)
+            return dtype_from_spec(space, w_dtype)
         try:
             return cache.dtypes_by_name[name]
         except KeyError:

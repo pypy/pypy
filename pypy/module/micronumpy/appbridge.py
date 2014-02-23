@@ -4,6 +4,7 @@ class AppBridgeCache(object):
     w__mean = None
     w__var = None
     w__std = None
+    w__commastring = None
     w_array_repr = None
     w_array_str = None
 
