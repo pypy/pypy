@@ -489,8 +489,6 @@ w_one = W_ComplexObject(1, 0)
 def to_complex(space, w_obj):
     if isinstance(w_obj, W_ComplexObject):
         return w_obj
-    if space.isinstance_w(w_obj, space.w_bool):
-        return W_ComplexObject(w_obj.intval, 0.0)
     if space.isinstance_w(w_obj, space.w_int):
         return W_ComplexObject(w_obj.intval, 0.0)
     if space.isinstance_w(w_obj, space.w_long):
