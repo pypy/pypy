@@ -16,7 +16,8 @@ from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.constants import *
+from rpython.rlib import jit
+from pypy.module.micronumpy.constants import NPY_LONGDOUBLELTR, NPY_CLONGDOUBLELTR
 
 
 MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
@@ -33,6 +34,7 @@ long_double_size = 8
 
 
 def new_dtype_getter(name):
+    @jit.elidable
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return get_dtype_cache(space).dtypes_by_name[name]
