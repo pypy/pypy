@@ -23,9 +23,9 @@ class W_AbstractComplexObject(W_Root):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        real1 = space.float_w(space.getattr(self,    space.wrap("real")))
+        real1 = space.float_w(space.getattr(self, space.wrap("real")))
         real2 = space.float_w(space.getattr(w_other, space.wrap("real")))
-        imag1 = space.float_w(space.getattr(self,    space.wrap("imag")))
+        imag1 = space.float_w(space.getattr(self, space.wrap("imag")))
         imag2 = space.float_w(space.getattr(w_other, space.wrap("imag")))
         real1 = float2longlong(real1)
         real2 = float2longlong(real2)
@@ -73,7 +73,7 @@ def _split_complex(s):
     realstart = i
     pc = s[i]
     while i < slen and s[i] != ' ':
-        if s[i] in ('+','-') and pc not in ('e','E') and i != realstart:
+        if s[i] in ('+', '-') and pc not in ('e', 'E') and i != realstart:
             break
         pc = s[i]
         i += 1
@@ -108,7 +108,7 @@ def _split_complex(s):
     if imagsign == ' ':
         raise ValueError
 
-    i+=1
+    i += 1
     # whitespace
     while i < slen and s[i] == ' ':
         i += 1
@@ -118,7 +118,7 @@ def _split_complex(s):
     imagstart = i
     pc = s[i]
     while i < slen and s[i] != ' ':
-        if s[i] in ('+','-') and pc not in ('e','E'):
+        if s[i] in ('+', '-') and pc not in ('e', 'E'):
             break
         pc = s[i]
         i += 1
@@ -126,14 +126,14 @@ def _split_complex(s):
     imagstop = i - 1
     if imagstop < 0:
         raise ValueError
-    if s[imagstop] not in ('j','J'):
+    if s[imagstop] not in ('j', 'J'):
         raise ValueError
     if imagstop < imagstart:
         raise ValueError
 
-    while i<slen and s[i] == ' ':
+    while i < slen and s[i] == ' ':
         i += 1
-    if i <  slen:
+    if i < slen:
         raise ValueError
 
     realpart = s[realstart:realstop]
@@ -145,7 +145,6 @@ def _split_complex(s):
         imagpart = imagsign + imagpart
 
     return realpart, imagpart
-
 
 
 def unpackcomplex(space, w_complex, strict_typing=True):
@@ -222,7 +221,7 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def __repr__(self):
         """ representation for debugging purposes """
-        return "<W_ComplexObject(%f,%f)>" % (self.realval, self.imagval)
+        return "<W_ComplexObject(%f, %f)>" % (self.realval, self.imagval)
 
     def as_tuple(self):
         return (self.realval, self.imagval)
@@ -287,7 +286,7 @@ class W_ComplexObject(W_AbstractComplexObject):
             return W_ComplexObject(w_obj.floatval, 0.0)
 
     @staticmethod
-    @unwrap_spec(w_real = WrappedDefault(0.0))
+    @unwrap_spec(w_real=WrappedDefault(0.0))
     def descr__new__(space, w_complextype, w_real, w_imag=None):
         from pypy.objspace.std.complexobject import W_ComplexObject
 
@@ -297,7 +296,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         # is itself a subclass of complex.
         noarg2 = w_imag is None
         if (noarg2 and space.is_w(w_complextype, space.w_complex)
-                   and space.is_w(space.type(w_real), space.w_complex)):
+            and space.is_w(space.type(w_real), space.w_complex)):
             return w_real
 
         if space.isinstance_w(w_real, space.w_str) or \
@@ -637,4 +636,4 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __pow__ = interp2app(W_ComplexObject.descr_pow),
 
     conjugate = interp2app(W_ComplexObject.descr_conjugate),
-    )
+)
