@@ -6,7 +6,7 @@ from pypy.module.micronumpy.strides import shape_agreement,\
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.micronumpy.conversion_utils import clipmode_converter
-from pypy.module.micronumpy.constants import *
+from pypy.module.micronumpy import constants as NPY
 
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
@@ -238,12 +238,12 @@ def put(space, w_arr, w_indices, w_values, w_mode):
         index = index_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
-            if mode == NPY_RAISE:
+            if mode == NPY.RAISE:
                 raise OperationError(space.w_IndexError, space.wrap(
                     "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
-            elif mode == NPY_WRAP:
+            elif mode == NPY.WRAP:
                 index = index % arr.get_size()
-            elif mode == NPY_CLIP:
+            elif mode == NPY.CLIP:
                 if index < 0:
                     index = 0
                 else:

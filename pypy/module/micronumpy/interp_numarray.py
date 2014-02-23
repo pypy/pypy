@@ -23,7 +23,7 @@ from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 from pypy.module.micronumpy.conversion_utils import order_converter, multi_axis_converter
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.constants import *
+from pypy.module.micronumpy import constants as NPY
 
 def _find_shape(space, w_size, dtype):
     if space.is_none(w_size):
@@ -110,8 +110,8 @@ class __extend__(W_NDimArray):
         self.fill(space, self.get_dtype().coerce(space, w_value))
 
     def descr_tostring(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY_CORDER)
-        if order == NPY_FORTRANORDER:
+        order = order_converter(space, w_order, NPY.CORDER)
+        if order == NPY.FORTRANORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         return space.wrap(loop.tostring(space, self))
@@ -320,8 +320,8 @@ class __extend__(W_NDimArray):
         return self.implementation.get_scalar_value()
 
     def descr_copy(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY_KEEPORDER)
-        if order == NPY_FORTRANORDER:
+        order = order_converter(space, w_order, NPY.KEEPORDER)
+        if order == NPY.FORTRANORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         copy = self.implementation.copy(space)
@@ -375,7 +375,7 @@ class __extend__(W_NDimArray):
         numpy.reshape : equivalent function
         """
         args_w, kw_w = __args__.unpack()
-        order = NPY_CORDER
+        order = NPY.CORDER
         if kw_w:
             if "order" in kw_w:
                 order = order_converter(space, kw_w["order"], order)
@@ -383,10 +383,10 @@ class __extend__(W_NDimArray):
             if kw_w:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "reshape() got unexpected keyword argument(s)"))
-        if order == NPY_KEEPORDER:
+        if order == NPY.KEEPORDER:
             raise OperationError(space.w_ValueError, space.wrap(
                 "order 'K' is not permitted for reshaping"))
-        if order != NPY_CORDER and order != NPY_ANYORDER:
+        if order != NPY.CORDER and order != NPY.ANYORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         if len(args_w) == 1:
@@ -561,7 +561,7 @@ class __extend__(W_NDimArray):
         # by converting nonnative byte order.
         if self.is_scalar():
             return space.wrap(0)
-        dtype = self.get_dtype().descr_newbyteorder(space, NPY_NATIVE)
+        dtype = self.get_dtype().descr_newbyteorder(space, NPY.NATIVE)
         contig = self.implementation.astype(space, dtype)
         return contig.argsort(space, w_axis)
 
@@ -662,7 +662,7 @@ class __extend__(W_NDimArray):
             "getfield not implemented yet"))
 
     @unwrap_spec(new_order=str)
-    def descr_newbyteorder(self, space, new_order=NPY_SWAP):
+    def descr_newbyteorder(self, space, new_order=NPY.SWAP):
         return self.descr_view(space,
             self.get_dtype().descr_newbyteorder(space, new_order))
 
@@ -1138,7 +1138,7 @@ class __extend__(W_NDimArray):
                  "__setstate__ called with len(args[1])==%d, not 5 or 4" % lens))
         shape = space.getitem(w_state, space.wrap(base_index))
         dtype = space.getitem(w_state, space.wrap(base_index+1))
-        isfortran = space.getitem(w_state, space.wrap(base_index+2))
+        #isfortran = space.getitem(w_state, space.wrap(base_index+2))
         storage = space.getitem(w_state, space.wrap(base_index+3))
         if not isinstance(dtype, interp_dtype.W_Dtype):
             raise OperationError(space.w_ValueError, space.wrap(
@@ -1192,8 +1192,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                                                   w_base=w_buffer,
                                                   writable=buf.is_writable())
 
-    order = order_converter(space, w_order, NPY_CORDER)
-    if order == NPY_CORDER:
+    order = order_converter(space, w_order, NPY.CORDER)
+    if order == NPY.CORDER:
         order = 'C'
     else:
         order = 'F'

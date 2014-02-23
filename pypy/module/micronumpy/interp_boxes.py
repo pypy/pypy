@@ -17,7 +17,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
-from pypy.module.micronumpy.constants import NPY_LONGDOUBLELTR, NPY_CLONGDOUBLELTR
+from pypy.module.micronumpy import constants as NPY
 
 
 MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
@@ -445,10 +445,10 @@ class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
 
 if long_double_size in (8, 12, 16):
     class W_FloatLongBox(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_LONGDOUBLELTR)
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGDOUBLELTR)
 
     class W_ComplexLongBox(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_CLONGDOUBLELTR)
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CLONGDOUBLELTR)
         _COMPONENTS_BOX = W_FloatLongBox
 
 class W_FlexibleBox(W_GenericBox):

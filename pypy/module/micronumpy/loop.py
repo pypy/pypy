@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
 from pypy.module.micronumpy.support import index_w
-from pypy.module.micronumpy.constants import *
+from pypy.module.micronumpy import constants as NPY
 
 call2_driver = jit.JitDriver(name='numpy_call2',
                              greens = ['shapelen', 'func', 'calc_dtype',
@@ -597,13 +597,13 @@ def choose(space, arr, choices, shape, dtype, out, mode):
                                       mode=mode)
         index = index_w(space, arr_iter.getitem())
         if index < 0 or index >= len(iterators):
-            if mode == NPY_RAISE:
+            if mode == NPY.RAISE:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "invalid entry in choice array"))
-            elif mode == NPY_WRAP:
+            elif mode == NPY.WRAP:
                 index = index % (len(iterators))
             else:
-                assert mode == NPY_CLIP
+                assert mode == NPY.CLIP
                 if index < 0:
                     index = 0
                 else:
