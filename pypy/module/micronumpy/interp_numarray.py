@@ -969,13 +969,16 @@ class __extend__(W_NDimArray):
                                  other_critical_dim)
 
     def descr_mean(self, space, __args__):
-        return get_appbridge_cache(space).call_method(space, '_mean', self, __args__)
+        return get_appbridge_cache(space).call_method(space,
+            'numpy.core._methods', '_mean', __args__.prepend(self))
 
     def descr_var(self, space, __args__):
-        return get_appbridge_cache(space).call_method(space, '_var', self, __args__)
+        return get_appbridge_cache(space).call_method(space,
+            'numpy.core._methods', '_var', __args__.prepend(self))
 
     def descr_std(self, space, __args__):
-        return get_appbridge_cache(space).call_method(space, '_std', self, __args__)
+        return get_appbridge_cache(space).call_method(space,
+            'numpy.core._methods', '_std', __args__.prepend(self))
 
     # ----------------------- reduce -------------------------------
 
