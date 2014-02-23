@@ -2684,7 +2684,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert arange(3)[array(1)] == 1
 
     def test_fill(self):
-        from numpypy import array, empty
+        from numpypy import array, empty, dtype, zeros
         a = array([1, 2, 3])
         a.fill(10)
         assert (a == [10, 10, 10]).all()
@@ -2720,6 +2720,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
                 assert tuple(i) == (123,) + (0,) * 4
             else:
                 assert tuple(i) == (123,) * 5
+
+        a = zeros(3, dtype=dtype(complex).newbyteorder())
+        a.fill(1.5+2.5j)
+        for i in a:
+            assert i == 1.5+2.5j
 
     def test_array_indexing_bool(self):
         from numpypy import arange

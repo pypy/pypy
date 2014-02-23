@@ -1054,13 +1054,6 @@ class ComplexFloating(object):
         op = '+' if imag >= 0 or rfloat.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
-    def fill(self, storage, width, box, start, stop, offset):
-        real, imag = self.unbox(box)
-        for i in xrange(start, stop, width):
-            raw_storage_setitem(storage, i+offset, real)
-            raw_storage_setitem(storage,
-                    i+offset+rffi.sizeof(self.T), imag)
-
     def runpack_str(self, space, s):
         comp = self.ComponentBoxType._get_dtype(space).itemtype
         l = len(s) // 2
@@ -1148,6 +1141,11 @@ class ComplexFloating(object):
 
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box))
+
+    def fill(self, storage, width, box, start, stop, offset):
+        value = self.unbox(box)
+        for i in xrange(start, stop, width):
+            self._write(storage, i, offset, value)
 
     @complex_binary_op
     def add(self, v1, v2):
