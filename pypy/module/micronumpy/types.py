@@ -9,8 +9,8 @@ from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
-from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
-                                  raw_storage_getitem)
+from rpython.rlib.rawstorage import (alloc_raw_storage,
+    raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -174,7 +174,7 @@ class Primitive(object):
         raise NotImplementedError
 
     def _read(self, storage, i, offset):
-        res = raw_storage_getitem(self.T, storage, i + offset)
+        res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
         if not self.native:
             res = byteswap(res)
         return res
@@ -182,7 +182,7 @@ class Primitive(object):
     def _write(self, storage, i, offset, value):
         if not self.native:
             value = byteswap(value)
-        raw_storage_setitem(storage, i + offset, value)
+        raw_storage_setitem_unaligned(storage, i + offset, value)
 
     def read(self, arr, i, offset, dtype=None):
         return self.box(self._read(arr.storage, i, offset))
@@ -990,7 +990,7 @@ class Float16(BaseType, Float):
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
     def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        hbits = raw_storage_getitem_unaligned(self._STORAGE_T, storage, i + offset)
         if not self.native:
             hbits = byteswap(hbits)
         return float_unpack(r_ulonglong(hbits), 2)
@@ -1003,7 +1003,7 @@ class Float16(BaseType, Float):
         hbits = rffi.cast(self._STORAGE_T, hbits)
         if not self.native:
             hbits = byteswap(hbits)
-        raw_storage_setitem(storage, i + offset, hbits)
+        raw_storage_setitem_unaligned(storage, i + offset, hbits)
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
@@ -1120,8 +1120,8 @@ class ComplexFloating(object):
         return real, imag
 
     def _read(self, storage, i, offset):
-        real = raw_storage_getitem(self.T, storage, i + offset)
-        imag = raw_storage_getitem(self.T, storage, i + offset + rffi.sizeof(self.T))
+        real = raw_storage_getitem_unaligned(self.T, storage, i + offset)
+        imag = raw_storage_getitem_unaligned(self.T, storage, i + offset + rffi.sizeof(self.T))
         if not self.native:
             real = byteswap(real)
             imag = byteswap(imag)
@@ -1136,8 +1136,8 @@ class ComplexFloating(object):
         if not self.native:
             real = byteswap(real)
             imag = byteswap(imag)
-        raw_storage_setitem(storage, i + offset, real)
-        raw_storage_setitem(storage, i + offset + rffi.sizeof(self.T), imag)
+        raw_storage_setitem_unaligned(storage, i + offset, real)
+        raw_storage_setitem_unaligned(storage, i + offset + rffi.sizeof(self.T), imag)
 
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box))
