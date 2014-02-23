@@ -8,6 +8,7 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import r_longlong
 
 
