@@ -18,12 +18,6 @@ from rpython.rlib.rfloat import (
 from rpython.rlib.rstring import ParseStringError
 
 
-# ERRORCODES
-
-ERR_WRONG_SECOND = "complex() can't take second arg if first is a string"
-ERR_MALFORMED = "complex() arg is a malformed string"
-
-
 class W_AbstractComplexObject(W_Object):
     __slots__ = ()
 
@@ -215,6 +209,9 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     return (space.float_w(space.float(w_complex)), 0.0)
 
 
+ERR_MALFORMED = "complex() arg is a malformed string"
+
+
 class W_ComplexObject(W_AbstractComplexObject):
     """This is a reimplementation of the CPython "PyComplexObject"
     """
@@ -367,6 +364,10 @@ class W_ComplexObject(W_AbstractComplexObject):
         w_rhs = to_complex(space, w_rhs)
         return self.mul(w_rhs)
 
+    def descr_rmul(self, space, w_lhs):
+        w_lhs = to_complex(space, w_lhs)
+        return w_lhs.mul(self)
+
     def descr_truediv(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
         try:
@@ -374,12 +375,26 @@ class W_ComplexObject(W_AbstractComplexObject):
         except ZeroDivisionError, e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
+    def descr_rtruediv(self, space, w_lhs):
+        w_lhs = to_complex(space, w_lhs)
+        try:
+            return w_lhs.div(self)
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+
     def descr_floordiv(self, space, w_rhs):
-        w_rhs = to_complex(space, w_rhs)
         w_rhs = to_complex(space, w_rhs)
         # don't care about the slight slowdown you get from using divmod
         try:
             return self.divmod(space, w_rhs)[0]
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+
+    def descr_rfloordiv(self, space, w_lhs):
+        w_lhs = to_complex(space, w_lhs)
+        # don't care about the slight slowdown you get from using divmod
+        try:
+            return w_lhs.divmod(space, self)[0]
         except ZeroDivisionError, e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
@@ -390,10 +405,25 @@ class W_ComplexObject(W_AbstractComplexObject):
         except ZeroDivisionError, e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
+    def descr_rmod(self, space, w_lhs):
+        w_lhs = to_complex(space, w_lhs)
+        try:
+            return w_lhs.divmod(space, self)[1]
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+
     def descr_divmod(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
         try:
             div, mod = self.divmod(space, w_rhs)
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        return space.newtuple([div, mod])
+
+    def descr_rdivmod(self, space, w_lhs):
+        w_lhs = to_complex(space, w_lhs)
+        try:
+            div, mod = w_lhs.divmod(space, self)
         except ZeroDivisionError, e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
         return space.newtuple([div, mod])
@@ -558,11 +588,17 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __sub__ = interp2app(W_ComplexObject.descr_sub),
     __rsub__ = interp2app(W_ComplexObject.descr_rsub),
     __mul__ = interp2app(W_ComplexObject.descr_mul),
+    __rmul__ = interp2app(W_ComplexObject.descr_rmul),
     __div__ = interp2app(W_ComplexObject.descr_truediv),
+    __rdiv__ = interp2app(W_ComplexObject.descr_rtruediv),
     __truediv__ = interp2app(W_ComplexObject.descr_truediv),
+    __rtruediv__ = interp2app(W_ComplexObject.descr_rtruediv),
     __floordiv__ = interp2app(W_ComplexObject.descr_floordiv),
+    __rfloordiv__ = interp2app(W_ComplexObject.descr_rfloordiv),
     __mod__ = interp2app(W_ComplexObject.descr_mod),
+    __rmod__ = interp2app(W_ComplexObject.descr_rmod),
     __divmod__ = interp2app(W_ComplexObject.descr_divmod),
+    __rdivmod__ = interp2app(W_ComplexObject.descr_rdivmod),
     __pow__ = interp2app(W_ComplexObject.descr_pow),
     )
 
