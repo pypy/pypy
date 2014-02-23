@@ -336,6 +336,12 @@ class W_ComplexObject(W_AbstractComplexObject):
         return space.newtuple([space.newfloat(self.realval),
                                space.newfloat(self.imagval)])
 
+    def descr_hash(self, space):
+        hashreal = _hash_float(space, self.realval)
+        hashimg = _hash_float(space, self.imagval)
+        combined = intmask(hashreal + 1000003 * hashimg)
+        return space.newint(combined)
+
     def descr_add(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
         return W_ComplexObject(self.realval + w_rhs.realval,
@@ -463,12 +469,6 @@ def to_complex(space, w_obj):
     if space.isinstance_w(w_obj, space.w_float):
         return W_ComplexObject(w_obj.floatval, 0.0)
 
-def hash__Complex(space, w_value):
-    hashreal = _hash_float(space, w_value.realval)
-    hashimg = _hash_float(space, w_value.imagval)
-    combined = intmask(hashreal + 1000003 * hashimg)
-    return space.newint(combined)
-
 def neg__Complex(space, w_complex):
     return W_ComplexObject(-w_complex.realval, -w_complex.imagval)
 
@@ -581,6 +581,8 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __getnewargs__ = interp2app(W_ComplexObject.descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
+
+    __hash__ = interp2app(W_ComplexObject.descr_hash),
 
     __add__ = interp2app(W_ComplexObject.descr_add),
     __radd__ = interp2app(W_ComplexObject.descr_radd),
