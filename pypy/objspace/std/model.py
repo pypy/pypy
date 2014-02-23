@@ -136,11 +136,9 @@ class StdTypeModel:
 
         self.typeorder[boolobject.W_BoolObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
-            (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
             ]
         self.typeorder[intobject.W_IntObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
-            (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
         if config.objspace.std.withsmalllong:
             from pypy.objspace.std import smalllongobject
@@ -150,12 +148,6 @@ class StdTypeModel:
                 ]
         self.typeorder[longobject.W_LongObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
-            (complexobject.W_ComplexObject,
-                    complexobject.delegate_Long2Complex),
-            ]
-        self.typeorder[floatobject.W_FloatObject] += [
-            (complexobject.W_ComplexObject,
-                    complexobject.delegate_Float2Complex),
             ]
 
         if config.objspace.std.withstrbuf:

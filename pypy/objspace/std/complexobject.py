@@ -343,83 +343,101 @@ class W_ComplexObject(W_AbstractComplexObject):
         """(A+Bj).conjugate() -> A-Bj"""
         return space.newcomplex(self.realval, -self.imagval)
 
+    def descr_add(self, space, w_rhs):
+        w_rhs = to_complex(space, w_rhs)
+        return W_ComplexObject(self.realval + w_rhs.realval,
+                               self.imagval + w_rhs.imagval)
+
+    def descr_radd(self, space, w_lhs):
+        w_lhs = to_complex(space, w_lhs)
+        return W_ComplexObject(w_lhs.realval + self.realval,
+                               w_lhs.imagval + self.imagval)
+
+    def descr_sub(self, space, w_rhs):
+        w_rhs = to_complex(space, w_rhs)
+        return W_ComplexObject(self.realval - w_rhs.realval,
+                               self.imagval - w_rhs.imagval)
+
+    def descr_rsub(self, space, w_lhs):
+        w_lhs = to_complex(space, w_lhs)
+        return W_ComplexObject(w_lhs.realval - self.realval,
+                               w_lhs.imagval - self.imagval)
+
+    def descr_mul(self, space, w_rhs):
+        w_rhs = to_complex(space, w_rhs)
+        return self.mul(w_rhs)
+
+    def descr_truediv(self, space, w_rhs):
+        w_rhs = to_complex(space, w_rhs)
+        try:
+            return self.div(w_rhs)
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+
+    def descr_floordiv(self, space, w_rhs):
+        w_rhs = to_complex(space, w_rhs)
+        w_rhs = to_complex(space, w_rhs)
+        # don't care about the slight slowdown you get from using divmod
+        try:
+            return self.divmod(space, w_rhs)[0]
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+
+    def descr_mod(self, space, w_rhs):
+        w_rhs = to_complex(space, w_rhs)
+        try:
+            return self.divmod(space, w_rhs)[1]
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+
+    def descr_divmod(self, space, w_rhs):
+        w_rhs = to_complex(space, w_rhs)
+        try:
+            div, mod = self.divmod(space, w_rhs)
+        except ZeroDivisionError, e:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        return space.newtuple([div, mod])
+
+    @unwrap_spec(w_third_arg=WrappedDefault(None))
+    def descr_pow(self, space, w_exponent, w_third_arg):
+        w_exponent = to_complex(space, w_exponent)
+        if not space.is_w(w_third_arg, space.w_None):
+            raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
+        try:
+            r = w_exponent.realval
+            if w_exponent.imagval == 0.0 and -100.0 <= r <= 100.0 and r == int(r):
+                w_p = self.pow_small_int(int(r))
+            else:
+                w_p = self.pow(w_exponent)
+        except ZeroDivisionError:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap("0.0 to a negative or complex power"))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
+        return w_p
+
 registerimplementation(W_ComplexObject)
 
 w_one = W_ComplexObject(1, 0)
 
 
-def delegate_Bool2Complex(space, w_bool):
-    return W_ComplexObject(w_bool.intval, 0.0)
-
-def delegate_Int2Complex(space, w_int):
-    return W_ComplexObject(w_int.intval, 0.0)
-
-def delegate_Long2Complex(space, w_long):
-    dval = w_long.tofloat(space)
-    return W_ComplexObject(dval, 0.0)
-
-def delegate_Float2Complex(space, w_float):
-    return W_ComplexObject(w_float.floatval, 0.0)
+def to_complex(space, w_obj):
+    if isinstance(w_obj, W_ComplexObject):
+        return w_obj
+    if space.isinstance_w(w_obj, space.w_bool):
+        return W_ComplexObject(w_obj.intval, 0.0)
+    if space.isinstance_w(w_obj, space.w_int):
+        return W_ComplexObject(w_obj.intval, 0.0)
+    if space.isinstance_w(w_obj, space.w_long):
+        dval = w_obj.tofloat(space)
+        return W_ComplexObject(dval, 0.0)
+    if space.isinstance_w(w_obj, space.w_float):
+        return W_ComplexObject(w_obj.floatval, 0.0)
 
 def hash__Complex(space, w_value):
     hashreal = _hash_float(space, w_value.realval)
     hashimg = _hash_float(space, w_value.imagval)
     combined = intmask(hashreal + 1000003 * hashimg)
     return space.newint(combined)
-
-def add__Complex_Complex(space, w_complex1, w_complex2):
-    return W_ComplexObject(w_complex1.realval + w_complex2.realval,
-                           w_complex1.imagval + w_complex2.imagval)
-
-def sub__Complex_Complex(space, w_complex1, w_complex2):
-    return W_ComplexObject(w_complex1.realval - w_complex2.realval,
-                           w_complex1.imagval - w_complex2.imagval)
-
-def mul__Complex_Complex(space, w_complex1, w_complex2):
-    return w_complex1.mul(w_complex2)
-
-def div__Complex_Complex(space, w_complex1, w_complex2):
-    try:
-        return w_complex1.div(w_complex2)
-    except ZeroDivisionError, e:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
-
-truediv__Complex_Complex = div__Complex_Complex
-
-def mod__Complex_Complex(space, w_complex1, w_complex2):
-    try:
-        return w_complex1.divmod(space, w_complex2)[1]
-    except ZeroDivisionError, e:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
-
-def divmod__Complex_Complex(space, w_complex1, w_complex2):
-    try:
-        div, mod = w_complex1.divmod(space, w_complex2)
-    except ZeroDivisionError, e:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
-    return space.newtuple([div, mod])
-
-def floordiv__Complex_Complex(space, w_complex1, w_complex2):
-    # don't care about the slight slowdown you get from using divmod
-    try:
-        return w_complex1.divmod(space, w_complex2)[0]
-    except ZeroDivisionError, e:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
-
-def pow__Complex_Complex_ANY(space, w_complex, w_exponent, thirdArg):
-    if not space.is_w(thirdArg, space.w_None):
-        raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
-    try:
-        r = w_exponent.realval
-        if w_exponent.imagval == 0.0 and -100.0 <= r <= 100.0 and r == int(r):
-            w_p = w_complex.pow_small_int(int(r))
-        else:
-            w_p = w_complex.pow(w_exponent)
-    except ZeroDivisionError:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap("0.0 to a negative or complex power"))
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
-    return w_p
 
 def neg__Complex(space, w_complex):
     return W_ComplexObject(-w_complex.realval, -w_complex.imagval)
@@ -473,6 +491,7 @@ def nonzero__Complex(space, w_complex):
                          (w_complex.imagval != 0.0))
 
 def coerce__Complex_Complex(space, w_complex1, w_complex2):
+    #w_complex2 = to_complex(w_complex2)
     return space.newtuple([w_complex1, w_complex2])
 
 def float__Complex(space, w_complex):
@@ -532,7 +551,19 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __getnewargs__ = interp2app(W_ComplexObject.descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
-    conjugate = interp2app(W_ComplexObject.descr_conjugate)
+    conjugate = interp2app(W_ComplexObject.descr_conjugate),
+
+    __add__ = interp2app(W_ComplexObject.descr_add),
+    __radd__ = interp2app(W_ComplexObject.descr_radd),
+    __sub__ = interp2app(W_ComplexObject.descr_sub),
+    __rsub__ = interp2app(W_ComplexObject.descr_rsub),
+    __mul__ = interp2app(W_ComplexObject.descr_mul),
+    __div__ = interp2app(W_ComplexObject.descr_truediv),
+    __truediv__ = interp2app(W_ComplexObject.descr_truediv),
+    __floordiv__ = interp2app(W_ComplexObject.descr_floordiv),
+    __mod__ = interp2app(W_ComplexObject.descr_mod),
+    __divmod__ = interp2app(W_ComplexObject.descr_divmod),
+    __pow__ = interp2app(W_ComplexObject.descr_pow),
     )
 
 W_ComplexObject.typedef.registermethods(globals())
