@@ -333,11 +333,73 @@ class W_ComplexObject(W_AbstractComplexObject):
         return space.newtuple([space.newfloat(self.realval),
                                space.newfloat(self.imagval)])
 
+    def _format_float(self, x, code, precision):
+        # like float2string, except that the ".0" is not necessary
+        if isinf(x):
+            if x > 0.0:
+                return "inf"
+            else:
+                return "-inf"
+        elif isnan(x):
+            return "nan"
+        else:
+            return formatd(x, code, precision)
+
+    def _repr_format(self, x):
+        return self._format_float(x, 'r', 0)
+
+    def _str_format(self, x):
+        return self._format_float(x, 'g', DTSF_STR_PRECISION)
+
+    def descr_repr(self, space):
+        if self.realval == 0 and copysign(1., self.realval) == 1.:
+            return space.wrap(self._repr_format(self.imagval) + 'j')
+        sign = (copysign(1., self.imagval) == 1. or
+                isnan(self.imagval)) and '+' or ''
+        return space.wrap('(' + self._repr_format(self.realval)
+                          + sign + self._repr_format(self.imagval) + 'j)')
+
+    def descr_str(self, space):
+        if self.realval == 0 and copysign(1., self.realval) == 1.:
+            return space.wrap(self._str_format(self.imagval) + 'j')
+        sign = (copysign(1., self.imagval) == 1. or
+                isnan(self.imagval)) and '+' or ''
+        return space.wrap('(' + self._str_format(self.realval)
+                          + sign + self._str_format(self.imagval) + 'j)')
+
     def descr_hash(self, space):
         hashreal = _hash_float(space, self.realval)
         hashimg = _hash_float(space, self.imagval)
         combined = intmask(hashreal + 1000003 * hashimg)
         return space.newint(combined)
+
+    def descr_coerce(self, space, w_other):
+        w_other = to_complex(space, w_other)
+        if w_other is None:
+            return space.w_NotImplemented
+        return space.newtuple([self, w_other])
+
+    def descr_format(self, space, w_format_spec):
+        return newformat.run_formatter(space, w_format_spec, "format_complex", self)
+
+    def descr_nonzero(self, space):
+        return space.newbool((self.realval != 0.0) or (self.imagval != 0.0))
+
+    def descr_float(self, space):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("can't convert complex to float; use abs(z)"))
+
+    def descr_neg(self, space):
+        return W_ComplexObject(-self.realval, -self.imagval)
+
+    def descr_pos(self, space):
+        return W_ComplexObject(self.realval, self.imagval)
+
+    def descr_abs(self, space):
+        try:
+            return space.newfloat(math.hypot(self.realval, self.imagval))
+        except OverflowError, e:
+            raise OperationError(space.w_OverflowError, space.wrap(str(e)))
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_ComplexObject):
@@ -522,67 +584,6 @@ def to_complex(space, w_obj):
     if space.isinstance_w(w_obj, space.w_float):
         return W_ComplexObject(w_obj.floatval, 0.0)
 
-def neg__Complex(space, w_complex):
-    return W_ComplexObject(-w_complex.realval, -w_complex.imagval)
-
-def pos__Complex(space, w_complex):
-    return W_ComplexObject(w_complex.realval, w_complex.imagval)
-
-def abs__Complex(space, w_complex):
-    try:
-        return space.newfloat(math.hypot(w_complex.realval, w_complex.imagval))
-    except OverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(str(e)))
-
-def nonzero__Complex(space, w_complex):
-    return space.newbool((w_complex.realval != 0.0) or
-                         (w_complex.imagval != 0.0))
-
-def coerce__Complex_ANY(space, w_complex1, w_complex2):
-    w_complex2 = to_complex(space, w_complex2)
-    if w_complex2 is None:
-        return space.w_NotImplemented
-    return space.newtuple([w_complex1, w_complex2])
-
-def float__Complex(space, w_complex):
-    raise OperationError(space.w_TypeError, space.wrap("can't convert complex to float; use abs(z)"))
-
-def format_float(x, code, precision):
-    # like float2string, except that the ".0" is not necessary
-    if isinf(x):
-        if x > 0.0:
-            return "inf"
-        else:
-            return "-inf"
-    elif isnan(x):
-        return "nan"
-    else:
-        return formatd(x, code, precision)
-
-def repr_format(x):
-    return format_float(x, 'r', 0)
-def str_format(x):
-    return format_float(x, 'g', DTSF_STR_PRECISION)
-
-def repr__Complex(space, w_complex):
-    if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
-        return space.wrap(repr_format(w_complex.imagval) + 'j')
-    sign = (copysign(1., w_complex.imagval) == 1. or
-            isnan(w_complex.imagval)) and '+' or ''
-    return space.wrap('(' + repr_format(w_complex.realval)
-                      + sign + repr_format(w_complex.imagval) + 'j)')
-
-def str__Complex(space, w_complex):
-    if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
-        return space.wrap(str_format(w_complex.imagval) + 'j')
-    sign = (copysign(1., w_complex.imagval) == 1. or
-            isnan(w_complex.imagval)) and '+' or ''
-    return space.wrap('(' + str_format(w_complex.realval)
-                      + sign + str_format(w_complex.imagval) + 'j)')
-
-def format__Complex_ANY(space, w_complex, w_format_spec):
-    return newformat.run_formatter(space, w_format_spec, "format_complex", w_complex)
-
 def complexwprop(name):
     def fget(space, w_obj):
         from pypy.objspace.std.complexobject import W_ComplexObject
@@ -601,7 +602,16 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __getnewargs__ = interp2app(W_ComplexObject.descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
+    __repr__ = interp2app(W_ComplexObject.descr_repr),
+    __str__ = interp2app(W_ComplexObject.descr_str),
     __hash__ = interp2app(W_ComplexObject.descr_hash),
+    __coerce__ = interp2app(W_ComplexObject.descr_coerce),
+    __format__ = interp2app(W_ComplexObject.descr_format),
+    __nonzero__ = interp2app(W_ComplexObject.descr_nonzero),
+    __float__ = interp2app(W_ComplexObject.descr_float),
+    __neg__ = interp2app(W_ComplexObject.descr_neg),
+    __pos__ = interp2app(W_ComplexObject.descr_pos),
+    __abs__ = interp2app(W_ComplexObject.descr_abs),
 
     __eq__ = interp2app(W_ComplexObject.descr_eq),
     __ne__ = interp2app(W_ComplexObject.descr_ne),
