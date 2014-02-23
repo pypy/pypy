@@ -33,6 +33,7 @@ long_double_size = 8
 
 
 def new_dtype_getter(name):
+    @jit.elidable
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return get_dtype_cache(space).dtypes_by_name[name]
