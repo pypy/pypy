@@ -3287,6 +3287,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
 
+    def test_count_nonzero(self):
+        import numpy as np
+        import sys
+        d = [('f0', 'i4'), ('f1', 'i4', 2)]
+        arr = np.array([0, 1])
+        if '__pypy__' not in sys.builtin_module_names:
+            arr = arr.astype(d)[:1]
+            assert np.count_nonzero(arr) == 0
+        else:
+            raises(NotImplementedError, "arr.astype(d)")
+
     def test_string_record(self):
         from numpypy import dtype, array
 

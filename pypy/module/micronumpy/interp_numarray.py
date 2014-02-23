@@ -569,7 +569,7 @@ class __extend__(W_NDimArray):
         cur_dtype = self.get_dtype()
         new_dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
-        if new_dtype.shape:
+        if new_dtype.num == NPY.VOID:
             raise oefmt(space.w_NotImplementedError,
                 "%s.astype(%s) not implemented yet", cur_dtype.name, new_dtype.name)
         impl = self.implementation
