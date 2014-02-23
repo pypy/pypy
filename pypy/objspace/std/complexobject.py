@@ -344,34 +344,48 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_add(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
         return W_ComplexObject(self.realval + w_rhs.realval,
                                self.imagval + w_rhs.imagval)
 
     def descr_radd(self, space, w_lhs):
         w_lhs = to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
         return W_ComplexObject(w_lhs.realval + self.realval,
                                w_lhs.imagval + self.imagval)
 
     def descr_sub(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
         return W_ComplexObject(self.realval - w_rhs.realval,
                                self.imagval - w_rhs.imagval)
 
     def descr_rsub(self, space, w_lhs):
         w_lhs = to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
         return W_ComplexObject(w_lhs.realval - self.realval,
                                w_lhs.imagval - self.imagval)
 
     def descr_mul(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
         return self.mul(w_rhs)
 
     def descr_rmul(self, space, w_lhs):
         w_lhs = to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
         return w_lhs.mul(self)
 
     def descr_truediv(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
         try:
             return self.div(w_rhs)
         except ZeroDivisionError, e:
@@ -379,6 +393,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_rtruediv(self, space, w_lhs):
         w_lhs = to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
         try:
             return w_lhs.div(self)
         except ZeroDivisionError, e:
@@ -386,6 +402,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_floordiv(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
         # don't care about the slight slowdown you get from using divmod
         try:
             return self.divmod(space, w_rhs)[0]
@@ -394,6 +412,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_rfloordiv(self, space, w_lhs):
         w_lhs = to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
         # don't care about the slight slowdown you get from using divmod
         try:
             return w_lhs.divmod(space, self)[0]
@@ -402,6 +422,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_mod(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
         try:
             return self.divmod(space, w_rhs)[1]
         except ZeroDivisionError, e:
@@ -409,6 +431,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_rmod(self, space, w_lhs):
         w_lhs = to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
         try:
             return w_lhs.divmod(space, self)[1]
         except ZeroDivisionError, e:
@@ -416,6 +440,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_divmod(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
         try:
             div, mod = self.divmod(space, w_rhs)
         except ZeroDivisionError, e:
@@ -424,6 +450,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def descr_rdivmod(self, space, w_lhs):
         w_lhs = to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
         try:
             div, mod = w_lhs.divmod(space, self)
         except ZeroDivisionError, e:
@@ -433,6 +461,8 @@ class W_ComplexObject(W_AbstractComplexObject):
     @unwrap_spec(w_third_arg=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_third_arg):
         w_exponent = to_complex(space, w_exponent)
+        if w_exponent is None:
+            return space.w_NotImplemented
         if not space.is_w(w_third_arg, space.w_None):
             raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
         try:
@@ -522,6 +552,8 @@ def nonzero__Complex(space, w_complex):
 
 def coerce__Complex_ANY(space, w_complex1, w_complex2):
     w_complex2 = to_complex(space, w_complex2)
+    if w_complex2 is None:
+        return space.w_NotImplemented
     return space.newtuple([w_complex1, w_complex2])
 
 def float__Complex(space, w_complex):
