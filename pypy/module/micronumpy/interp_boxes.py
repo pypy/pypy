@@ -16,6 +16,7 @@ from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import jit
 from pypy.module.micronumpy.constants import *
 
 
