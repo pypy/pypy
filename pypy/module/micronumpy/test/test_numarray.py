@@ -24,6 +24,7 @@ class MockDtype(object):
     def get_size(self):
         return 1
 
+
 def create_slice(space, a, chunks):
     return Chunks(chunks).apply(space, W_NDimArray(a)).implementation
 

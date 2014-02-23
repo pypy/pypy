@@ -1,5 +1,5 @@
-import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+
 
 class AppTestOutArg(BaseNumpyAppTest):
     def test_reduce_out(self):

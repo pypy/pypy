@@ -1,5 +1,5 @@
-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+
 
 class AppTestNumSupport(BaseNumpyAppTest):
     def test_where(self):

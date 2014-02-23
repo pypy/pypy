@@ -1,5 +1,6 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
+
 class AppTestAppBridge(BaseNumpyAppTest):
     def test_array_methods(self):
         import numpy as np

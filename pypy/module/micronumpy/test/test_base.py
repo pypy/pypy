@@ -1,5 +1,6 @@
-from pypy.module.micronumpy import constants as NPY
 from pypy.conftest import option
+from pypy.module.micronumpy import constants as NPY
+
 
 class BaseNumpyAppTest(object):
     spaceconfig = dict(usemodules=['micronumpy'])

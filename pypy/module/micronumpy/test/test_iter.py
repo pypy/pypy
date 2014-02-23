@@ -1,8 +1,10 @@
 from pypy.module.micronumpy.iter import MultiDimViewIterator
 from pypy.module.micronumpy.arrayimpl.scalar import ScalarIterator
 
+
 class MockArray(object):
     size = 1
+
 
 class TestIterDirect(object):
     def test_C_viewiterator(self):

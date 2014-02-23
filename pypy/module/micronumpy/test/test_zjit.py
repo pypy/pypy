@@ -1,15 +1,14 @@
-
 """ Tests that check if JIT-compiled numpy operations produce reasonably
 good assembler
 """
 
 import py
-from rpython.jit.metainterp import pyjitpl
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.warmspot import reset_jit, get_stats
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
+
 
 class TestNumpyJIt(LLJitMixin):
     graph = None
@@ -56,7 +55,7 @@ class TestNumpyJIt(LLJitMixin):
             elif isinstance(w_res, interp_boxes.W_BoolBox):
                 return float(w_res.value)
             raise TypeError(w_res)
-      
+
         if self.graph is None:
             interp, graph = self.meta_interp(f, [0],
                                              listops=True,
