@@ -1,7 +1,7 @@
 import functools
 import math
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
@@ -1896,6 +1896,10 @@ class RecordType(FlexibleType):
                 w_box = itemtype.coerce(space, subdtype, None)
             itemtype.store(arr, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
+
+    def runpack_str(self, space, s):
+        raise oefmt(space.w_NotImplementedError,
+                    "fromstring not implemented for record types")
 
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)

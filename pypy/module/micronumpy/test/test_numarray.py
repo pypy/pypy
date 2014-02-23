@@ -3058,6 +3058,7 @@ class AppTestSupport(BaseNumpyAppTest):
         v = fromstring("abcd", dtype="|S2")
         assert v[0] == "ab"
         assert v[1] == "cd"
+
         v = fromstring('@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a',
                        dtype=dtype('>c16'))
         assert v.tostring() == \
@@ -3072,6 +3073,18 @@ class AppTestSupport(BaseNumpyAppTest):
         assert v[0] == 2.2-1.1j
         assert v.real == 2.2
         assert v.imag == -1.1
+
+        d = [('f0', 'i4'), ('f1', 'u2', (2, 3))]
+        if '__pypy__' not in sys.builtin_module_names:
+            r = fromstring('abcdefghijklmnop'*4*3, dtype=d)
+            assert (r[0:3:2]['f1'] == r['f1'][0:3:2]).all()
+            assert (r[0:3:2]['f1'][0] == r[0:3:2][0]['f1']).all()
+            assert (r[0:3:2]['f1'][0][()] == r[0:3:2][0]['f1'][()]).all()
+            assert r[0:3:2]['f1'][0].strides == r[0:3:2][0]['f1'].strides
+        else:
+            exc = raises(NotImplementedError, fromstring,
+                         'abcdefghijklmnop'*4*3, dtype=d)
+            assert exc.value[0] == "fromstring not implemented for record types"
 
     def test_fromstring_types(self):
         from numpypy import fromstring, array, dtype
