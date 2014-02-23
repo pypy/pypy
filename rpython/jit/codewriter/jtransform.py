@@ -967,8 +967,7 @@ class Transformer(object):
         if self._is_rclass_instance(op.args[0]):
             assert self._is_rclass_instance(op.args[1])
             op = SpaceOperation('instance_ptr_eq', op.args, op.result)
-            prefix = 'instance_'
-        op1 = self._rewrite_equality(op, prefix + 'ptr_iszero')
+        op1 = self._rewrite_equality(op, 'ptr_iszero')
         return self._rewrite_cmp_ptrs(op1)
 
     def rewrite_op_ptr_ne(self, op):
@@ -976,8 +975,7 @@ class Transformer(object):
         if self._is_rclass_instance(op.args[0]):
             assert self._is_rclass_instance(op.args[1])
             op = SpaceOperation('instance_ptr_ne', op.args, op.result)
-            prefix = 'instance_'
-        op1 = self._rewrite_equality(op, prefix + 'ptr_nonzero')
+        op1 = self._rewrite_equality(op, 'ptr_nonzero')
         return self._rewrite_cmp_ptrs(op1)
 
     rewrite_op_ptr_iszero = _rewrite_cmp_ptrs

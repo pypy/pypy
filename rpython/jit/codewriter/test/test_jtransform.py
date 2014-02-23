@@ -705,8 +705,8 @@ def test_instance_ptr_eq():
     c0 = const(lltype.nullptr(rclass.OBJECT))
 
     for opname, newopname, reducedname in [
-        ('ptr_eq', 'instance_ptr_eq', 'instance_ptr_iszero'),
-        ('ptr_ne', 'instance_ptr_ne', 'instance_ptr_nonzero')
+        ('ptr_eq', 'instance_ptr_eq', 'ptr_iszero'),
+        ('ptr_ne', 'instance_ptr_ne', 'ptr_nonzero')
     ]:
         op = SpaceOperation(opname, [v1, v2], v3)
         op1 = Transformer().rewrite_operation(op)
