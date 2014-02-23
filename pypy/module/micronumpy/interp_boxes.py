@@ -6,7 +6,7 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.complextype import complex_typedef
+from pypy.objspace.std.complexobject import W_ComplexObject
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
@@ -770,7 +770,7 @@ W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
-W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
+W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, W_ComplexObject.typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex128Box.descr_reduce),
@@ -785,7 +785,7 @@ if long_double_size in (8, 12, 16):
         __reduce__ = interp2app(W_FloatLongBox.descr_reduce),
     )
 
-    W_ComplexLongBox.typedef = TypeDef("complex%d" % (long_double_size * 16), (W_ComplexFloatingBox.typedef, complex_typedef),
+    W_ComplexLongBox.typedef = TypeDef("complex%d" % (long_double_size * 16), (W_ComplexFloatingBox.typedef, W_ComplexObject.typedef),
         __module__ = "numpy",
         __new__ = interp2app(W_ComplexLongBox.descr__new__.im_func),
         __reduce__ = interp2app(W_ComplexLongBox.descr_reduce),

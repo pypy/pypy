@@ -33,7 +33,6 @@ class StdTypeModel:
         class result:
             from pypy.objspace.std.objecttype import object_typedef
             from pypy.objspace.std.floattype  import float_typedef
-            from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.nonetype import none_typedef
@@ -58,6 +57,7 @@ class StdTypeModel:
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
         from pypy.objspace.std import longobject
+        from pypy.objspace.std import complexobject
         from pypy.objspace.std import noneobject
         from pypy.objspace.std import iterobject
         from pypy.objspace.std import unicodeobject
@@ -82,6 +82,7 @@ class StdTypeModel:
         self.pythontypes.append(intobject.W_IntObject.typedef)
         self.pythontypes.append(boolobject.W_BoolObject.typedef)
         self.pythontypes.append(longobject.W_LongObject.typedef)
+        self.pythontypes.append(complexobject.W_ComplexObject.typedef)
 
         # the set of implementation types
         self.typeorder = {

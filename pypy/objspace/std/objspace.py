@@ -270,7 +270,7 @@ class StdObjSpace(ObjSpace):
         return W_ComplexObject(realval, imagval)
 
     def unpackcomplex(self, w_complex):
-        from pypy.objspace.std.complextype import unpackcomplex
+        from pypy.objspace.std.complexobject import unpackcomplex
         return unpackcomplex(self, w_complex)
 
     def newlong(self, val): # val is an int
