@@ -1,11 +1,10 @@
 import math
 
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std import newformat
 from pypy.objspace.std.floatobject import _hash_float
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask, r_ulonglong
@@ -15,7 +14,7 @@ from rpython.rlib.rfloat import (
 from rpython.rlib.rstring import ParseStringError
 
 
-class W_AbstractComplexObject(W_Object):
+class W_AbstractComplexObject(W_Root):
     __slots__ = ()
 
     def is_w(self, space, w_other):
@@ -568,7 +567,6 @@ class W_ComplexObject(W_AbstractComplexObject):
         """(A+Bj).conjugate() -> A-Bj"""
         return space.newcomplex(self.realval, -self.imagval)
 
-registerimplementation(W_ComplexObject)
 
 w_one = W_ComplexObject(1, 0)
 
@@ -640,6 +638,3 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
 
     conjugate = interp2app(W_ComplexObject.descr_conjugate),
     )
-
-W_ComplexObject.typedef.registermethods(globals())
-register_all(vars(), globals())
