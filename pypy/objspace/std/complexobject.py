@@ -342,6 +342,34 @@ class W_ComplexObject(W_AbstractComplexObject):
         combined = intmask(hashreal + 1000003 * hashimg)
         return space.newint(combined)
 
+    def descr_eq(self, space, w_other):
+        if isinstance(w_other, W_ComplexObject):
+            return space.newbool((self.realval == w_other.realval) and
+                                 (self.imagval == w_other.imagval))
+        if (space.isinstance_w(w_other, space.w_int) or
+            space.isinstance_w(w_other, space.w_long)):
+            if self.imagval:
+                return space.w_False
+            return space.eq(space.newfloat(self.realval), w_other)
+        return space.w_NotImplemented
+
+    def descr_ne(self, space, w_other):
+        if isinstance(w_other, W_ComplexObject):
+            return space.newbool((self.realval != w_other.realval) or
+                                 (self.imagval != w_other.imagval))
+        if (space.isinstance_w(w_other, space.w_int) or
+            space.isinstance_w(w_other, space.w_long)):
+            if self.imagval:
+                return space.w_True
+            return space.ne(space.newfloat(self.realval), w_other)
+        return space.w_NotImplemented
+
+    def _fail_cmp(self, space, w_other):
+        if isinstance(w_other, W_ComplexObject):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap('cannot compare complex numbers using <, <=, >, >='))
+        return space.w_NotImplemented
+
     def descr_add(self, space, w_rhs):
         w_rhs = to_complex(space, w_rhs)
         if w_rhs is None:
@@ -509,41 +537,6 @@ def abs__Complex(space, w_complex):
     except OverflowError, e:
         raise OperationError(space.w_OverflowError, space.wrap(str(e)))
 
-def eq__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1.realval == w_complex2.realval) and
-            (w_complex1.imagval == w_complex2.imagval))
-
-def ne__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1.realval != w_complex2.realval) or
-            (w_complex1.imagval != w_complex2.imagval))
-
-def eq__Complex_Long(space, w_complex1, w_long2):
-    if w_complex1.imagval:
-        return space.w_False
-    return space.eq(space.newfloat(w_complex1.realval), w_long2)
-eq__Complex_Int = eq__Complex_Long
-
-def eq__Long_Complex(space, w_long1, w_complex2):
-    return eq__Complex_Long(space, w_complex2, w_long1)
-eq__Int_Complex = eq__Long_Complex
-
-def ne__Complex_Long(space, w_complex1, w_long2):
-    if w_complex1.imagval:
-        return space.w_True
-    return space.ne(space.newfloat(w_complex1.realval), w_long2)
-ne__Complex_Int = ne__Complex_Long
-
-def ne__Long_Complex(space, w_long1, w_complex2):
-    return ne__Complex_Long(space, w_complex2, w_long1)
-ne__Int_Complex = ne__Long_Complex
-
-def lt__Complex_Complex(space, w_complex1, w_complex2):
-    raise OperationError(space.w_TypeError, space.wrap('cannot compare complex numbers using <, <=, >, >='))
-
-gt__Complex_Complex = lt__Complex_Complex
-ge__Complex_Complex = lt__Complex_Complex
-le__Complex_Complex = lt__Complex_Complex
-
 def nonzero__Complex(space, w_complex):
     return space.newbool((w_complex.realval != 0.0) or
                          (w_complex.imagval != 0.0))
@@ -611,8 +604,14 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __getnewargs__ = interp2app(W_ComplexObject.descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
-
     __hash__ = interp2app(W_ComplexObject.descr_hash),
+
+    __eq__ = interp2app(W_ComplexObject.descr_eq),
+    __ne__ = interp2app(W_ComplexObject.descr_ne),
+    __lt__ = interp2app(W_ComplexObject._fail_cmp),
+    __le__ = interp2app(W_ComplexObject._fail_cmp),
+    __gt__ = interp2app(W_ComplexObject._fail_cmp),
+    __ge__ = interp2app(W_ComplexObject._fail_cmp),
 
     __add__ = interp2app(W_ComplexObject.descr_add),
     __radd__ = interp2app(W_ComplexObject.descr_radd),
