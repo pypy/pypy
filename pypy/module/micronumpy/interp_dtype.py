@@ -357,26 +357,31 @@ class W_Dtype(W_Root):
                        self.w_box_type, endian, size=self.size)
 
 
-def dtype_from_list(space, w_lst):
+@specialize.arg(2)
+def dtype_from_list(space, w_lst, simple):
     lst_w = space.listview(w_lst)
     fields = {}
     offset = 0
     fieldnames = []
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
-        w_shape = space.newtuple([])
-        if space.len_w(w_elem) == 3:
-            w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
-            if not base.issequence_w(space, w_shape):
-                w_shape = space.newtuple([w_shape])
-        else:
-            w_fldname, w_flddesc = space.fixedview(w_elem, 2)
-        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
-        fldname = space.str_w(w_fldname)
-        if fldname == '':
+        if simple:
+            subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_elem)
             fldname = 'f%d' % i
-        if fldname in fields:
-            raise oefmt(space.w_ValueError, "two fields with the same name")
+        else:
+            w_shape = space.newtuple([])
+            if space.len_w(w_elem) == 3:
+                w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
+                if not base.issequence_w(space, w_shape):
+                    w_shape = space.newtuple([w_shape])
+            else:
+                w_fldname, w_flddesc = space.fixedview(w_elem, 2)
+            subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
+            fldname = space.str_w(w_fldname)
+            if fldname == '':
+                fldname = 'f%d' % i
+            if fldname in fields:
+                raise oefmt(space.w_ValueError, "two fields with the same name")
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         offset += subdtype.get_size()
@@ -403,7 +408,7 @@ def dtype_from_spec(space, w_spec):
         return descr__new__(space, space.gettypefor(W_Dtype),
                             space.getitem(w_lst, space.wrap(0)))
     else:
-        return dtype_from_list(space, w_lst)
+        return dtype_from_list(space, w_lst, True)
 
 
 def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
@@ -446,7 +451,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
-        return dtype_from_list(space, w_dtype)
+        return dtype_from_list(space, w_dtype, False)
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
         w_dtype1 = space.getitem(w_dtype, space.wrap(1))
