@@ -315,6 +315,22 @@ class AppTestDtypes(BaseAppTestDtypes):
         ]:
             assert hash(tp(value)) == hash(value)
 
+        d1 = numpy.dtype([('f0', 'i4'), ('f1', 'i4')])
+        d2 = numpy.dtype([('f0', 'i4'), ('f1', 'i4')])
+        d3 = numpy.dtype([('f0', 'i4'), ('f2', 'i4')])
+        d4 = numpy.dtype([('f0', 'i4'), ('f1', d1)])
+        d5 = numpy.dtype([('f0', 'i4'), ('f1', d2)])
+        d6 = numpy.dtype([('f0', 'i4'), ('f1', d3)])
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            assert hash(d1) == hash(d2)
+            assert hash(d1) != hash(d3)
+            assert hash(d4) == hash(d5)
+            assert hash(d4) != hash(d6)
+        else:
+            for d in [d1, d2, d3, d4, d5, d6]:
+                raises(TypeError, hash, d)
+
     def test_pickle(self):
         from numpypy import array, dtype
         from cPickle import loads, dumps
