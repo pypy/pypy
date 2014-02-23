@@ -3,11 +3,8 @@ import math
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std import newformat
-from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.floatobject import _hash_float
 from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from rpython.rlib import jit, rcomplex
