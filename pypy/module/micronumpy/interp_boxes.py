@@ -17,7 +17,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
-from pypy.module.micronumpy.constants import *
+from pypy.module.micronumpy.constants import NPY_LONGDOUBLELTR, NPY_CLONGDOUBLELTR
 
 
 MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
