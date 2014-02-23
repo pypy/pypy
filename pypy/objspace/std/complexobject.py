@@ -490,8 +490,8 @@ def nonzero__Complex(space, w_complex):
     return space.newbool((w_complex.realval != 0.0) or
                          (w_complex.imagval != 0.0))
 
-def coerce__Complex_Complex(space, w_complex1, w_complex2):
-    #w_complex2 = to_complex(w_complex2)
+def coerce__Complex_ANY(space, w_complex1, w_complex2):
+    w_complex2 = to_complex(space, w_complex2)
     return space.newtuple([w_complex1, w_complex2])
 
 def float__Complex(space, w_complex):
