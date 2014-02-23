@@ -312,7 +312,7 @@ class W_Ufunc1(W_Ufunc):
         else:
             res_dtype = calc_dtype
             if self.complex_to_float and calc_dtype.is_complex_type():
-                if calc_dtype.name == 'complex64':
+                if calc_dtype.num == NPY.CFLOAT:
                     res_dtype = interp_dtype.get_dtype_cache(space).w_float32dtype
                 else:
                     res_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
