@@ -14,38 +14,6 @@ from rpython.rlib.rfloat import (
 from rpython.rlib.rstring import ParseStringError
 
 
-class W_AbstractComplexObject(W_Root):
-    __slots__ = ()
-
-    def is_w(self, space, w_other):
-        from rpython.rlib.longlong2float import float2longlong
-        if not isinstance(w_other, W_AbstractComplexObject):
-            return False
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return self is w_other
-        real1 = space.float_w(space.getattr(self, space.wrap("real")))
-        real2 = space.float_w(space.getattr(w_other, space.wrap("real")))
-        imag1 = space.float_w(space.getattr(self, space.wrap("imag")))
-        imag2 = space.float_w(space.getattr(w_other, space.wrap("imag")))
-        real1 = float2longlong(real1)
-        real2 = float2longlong(real2)
-        imag1 = float2longlong(imag1)
-        imag2 = float2longlong(imag2)
-        return real1 == real2 and imag1 == imag2
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        from rpython.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_COMPLEX as tag
-        real = space.float_w(space.getattr(self, space.wrap("real")))
-        imag = space.float_w(space.getattr(self, space.wrap("imag")))
-        real_b = rbigint.fromrarith_int(float2longlong(real))
-        imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
-        val = real_b.lshift(64).or_(imag_b).lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(val)
-
-
 def _split_complex(s):
     slen = len(s)
     if slen == 0:
@@ -206,7 +174,7 @@ def unpackcomplex(space, w_complex, strict_typing=True):
 ERR_MALFORMED = "complex() arg is a malformed string"
 
 
-class W_ComplexObject(W_AbstractComplexObject):
+class W_ComplexObject(W_Root):
     """This is a reimplementation of the CPython "PyComplexObject"
     """
     _immutable_fields_ = ['realval', 'imagval']
@@ -269,6 +237,34 @@ class W_ComplexObject(W_AbstractComplexObject):
             self = self.mul(self)
 
         return w_result
+
+    def is_w(self, space, w_other):
+        from rpython.rlib.longlong2float import float2longlong
+        if not isinstance(w_other, W_ComplexObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        real1 = space.float_w(space.getattr(self, space.wrap("real")))
+        real2 = space.float_w(space.getattr(w_other, space.wrap("real")))
+        imag1 = space.float_w(space.getattr(self, space.wrap("imag")))
+        imag2 = space.float_w(space.getattr(w_other, space.wrap("imag")))
+        real1 = float2longlong(real1)
+        real2 = float2longlong(real2)
+        imag1 = float2longlong(imag1)
+        imag2 = float2longlong(imag2)
+        return real1 == real2 and imag1 == imag2
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from rpython.rlib.longlong2float import float2longlong
+        from pypy.objspace.std.model import IDTAG_COMPLEX as tag
+        real = space.float_w(space.getattr(self, space.wrap("real")))
+        imag = space.float_w(space.getattr(self, space.wrap("imag")))
+        real_b = rbigint.fromrarith_int(float2longlong(real))
+        imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
+        val = real_b.lshift(64).or_(imag_b).lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(val)
 
     def int(self, space):
         raise oefmt(space.w_TypeError,
