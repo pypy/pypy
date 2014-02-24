@@ -10,9 +10,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from rpython.rlib import jit
 from rpython.tool.sourcetools import compile2
 
-__all__ = ['StdTypeDef', 'SMM']
-
-SMM = StdObjSpaceMultiMethod
+__all__ = ['StdTypeDef']
 
 
 class StdTypeDef(TypeDef):
