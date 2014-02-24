@@ -56,7 +56,10 @@ class W_Dtype(W_Root):
         self.w_box_type = w_box_type
         self.float_type = float_type
         if byteorder is None:
-            byteorder = NPY.IGNORE if self.num == NPY.STRING else NPY.NATIVE
+            if itemtype.get_element_size() == 1:
+                byteorder = NPY.IGNORE
+            else:
+                byteorder = NPY.NATIVE
         self.byteorder = byteorder
         self.names = names
         self.fields = fields
@@ -140,7 +143,7 @@ class W_Dtype(W_Root):
                 self.descr_get_shape(space)]))
         else:
             if self.is_flexible_type():
-                return space.wrap('|' + self.char + str(self.get_size()))
+                return self.descr_get_str(space)
             else:
                 return self.descr_get_name(space)
 
@@ -152,7 +155,11 @@ class W_Dtype(W_Root):
                                 self.descr_get_shape(space)])
         else:
             if self.is_flexible_type():
-                r = space.wrap(self.char + str(self.get_size()))
+                if self.byteorder != NPY.IGNORE:
+                    byteorder = NPY.NATBYTE if self.is_native() else NPY.OPPBYTE
+                else:
+                    byteorder = ''
+                r = space.wrap(byteorder + self.char + str(self.size))
             else:
                 r = self.descr_get_name(space)
         return space.wrap("dtype(%s)" % space.str_w(space.repr(r)))

@@ -182,7 +182,7 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_repr_str(self):
         from numpypy import dtype
-
+        b = dtype(int).newbyteorder().newbyteorder().byteorder
         assert '.dtype' in repr(dtype)
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
@@ -193,9 +193,15 @@ class AppTestDtypes(BaseAppTestDtypes):
         d = dtype('S5')
         assert repr(d) == "dtype('S5')"
         assert str(d) == "|S5"
+        d = dtype('U5')
+        assert repr(d) == "dtype('%sU5')" % b
+        assert str(d) == "%sU5" % b
         d = dtype(('<f8', 2))
         assert repr(d) == "dtype(('<f8', (2,)))"
         assert str(d) == "('<f8', (2,))"
+        d = dtype('V16')
+        assert repr(d) == "dtype('V16')"
+        assert str(d) == "|V16"
 
     def test_bool_array(self):
         from numpypy import array, False_, True_
@@ -865,6 +871,8 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('>S5').byteorder == '|'
         assert dtype('<S5').byteorder == '|'
         assert dtype('<S5').newbyteorder('=').byteorder == '|'
+        assert dtype('void').byteorder == '|'
+        assert dtype((int, 2)).byteorder == '|'
 
     def test_dtype_str(self):
         from numpypy import dtype
