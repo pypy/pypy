@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict
@@ -684,7 +684,7 @@ def _precheck_for_new(space, w_type):
 
 def _check(space, w_type, msg="descriptor is for 'type'"):
     if not isinstance(w_type, W_TypeObject):
-        raise oefmt(space.w_TypeError, msg)
+        raise OperationError(space.w_TypeError, space.wrap(msg))
     return w_type
 
 
