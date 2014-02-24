@@ -855,7 +855,7 @@ def type_issubtype(w_obj, space, w_sub):
 def type_isinstance(w_obj, space, w_inst):
     return space.newbool(space.type(w_inst).issubtype(w_obj))
 
-type_typedef = StdTypeDef("type",
+W_TypeObject.typedef = StdTypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
@@ -880,7 +880,7 @@ type_typedef = StdTypeDef("type",
     __eq__ = gateway.interp2app(W_TypeObject.descr_eq),
     __ne__ = gateway.interp2app(W_TypeObject.descr_ne),
 )
-W_TypeObject.typedef = type_typedef
+
 
 # ____________________________________________________________
 # Initialization of type objects
