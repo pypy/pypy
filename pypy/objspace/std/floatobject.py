@@ -12,10 +12,10 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
+from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION, float_as_rbigint_ratio)
-from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
 
