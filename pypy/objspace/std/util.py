@@ -1,4 +1,4 @@
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from rpython.rlib.rstring import InvalidBaseError
 
 
@@ -30,7 +30,7 @@ def get_positive_index(where, length):
 
 def wrap_parsestringerror(space, e, w_source):
     if isinstance(e, InvalidBaseError):
-        raise oefmt(space.w_ValueError, e.msg)
+        raise OperationError(space.w_ValueError, space.wrap(e.msg))
     else:
         raise oefmt(space.w_ValueError, '%s: %s',
                     e.msg, space.str_w(space.repr(w_source)))
