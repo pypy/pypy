@@ -9,7 +9,7 @@ from pypy.objspace.std import newformat
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
 from rpython.rlib.rfloat import (
@@ -18,11 +18,6 @@ from rpython.rlib.rfloat import (
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
-
-
-float_as_integer_ratio = SMM("as_integer_ratio", 1)
-float_is_integer = SMM("is_integer", 1)
-float_hex = SMM("hex", 1)
 
 
 def detect_floatformat():
@@ -574,14 +569,69 @@ class W_FloatObject(W_Object):
             return space.w_NotImplemented
         return w_lhs.descr_pow(space, self, w_third_arg)
 
-    def descr_conjugate(self, space):
-        return space.float(self)
-
     def descr_get_real(self, space):
         return space.float(self)
 
     def descr_get_imag(self, space):
         return space.wrap(0.0)
+
+    def descr_conjugate(self, space):
+        return space.float(self)
+
+    def descr_is_integer(self, space):
+        v = self.floatval
+        if not rfloat.isfinite(v):
+            return space.w_False
+        return space.wrap(math.floor(v) == v)
+
+    def descr_as_integer_ratio(self, space):
+        value = self.floatval
+        try:
+            num, den = float_as_rbigint_ratio(value)
+        except OverflowError:
+            w_msg = space.wrap("cannot pass infinity to as_integer_ratio()")
+            raise OperationError(space.w_OverflowError, w_msg)
+        except ValueError:
+            w_msg = space.wrap("cannot pass nan to as_integer_ratio()")
+            raise OperationError(space.w_ValueError, w_msg)
+
+        w_num = space.newlong_from_rbigint(num)
+        w_den = space.newlong_from_rbigint(den)
+        # Try to return int
+        return space.newtuple([space.int(w_num), space.int(w_den)])
+
+    def descr_hex(self, space):
+        value = self.floatval
+        if not isfinite(value):
+            return self.descr_str(space)
+        if value == 0.0:
+            if copysign(1., value) == -1.:
+                return space.wrap("-0x0.0p+0")
+            else:
+                return space.wrap("0x0.0p+0")
+        mant, exp = math.frexp(value)
+        shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
+        mant = math.ldexp(mant, shift)
+        mant = abs(mant)
+        exp -= shift
+        result = ['\0'] * ((TOHEX_NBITS - 1) // 4 + 2)
+        result[0] = _char_from_hex(int(mant))
+        mant -= int(mant)
+        result[1] = "."
+        for i in range((TOHEX_NBITS - 1) // 4):
+            mant *= 16.0
+            result[i + 2] = _char_from_hex(int(mant))
+            mant -= int(mant)
+        if exp < 0:
+            sign = "-"
+        else:
+            sign = "+"
+        exp = abs(exp)
+        s = ''.join(result)
+        if value < 0.0:
+            return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+        else:
+            return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
 
 registerimplementation(W_FloatObject)
@@ -634,9 +684,12 @@ Convert a string or number to a floating point number, if possible.''',
     __pow__ = interp2app(W_FloatObject.descr_pow),
     __rpow__ = interp2app(W_FloatObject.descr_rpow),
 
-    conjugate = interp2app(W_FloatObject.descr_conjugate),
     real = GetSetProperty(W_FloatObject.descr_get_real),
     imag = GetSetProperty(W_FloatObject.descr_get_imag),
+    conjugate = interp2app(W_FloatObject.descr_conjugate),
+    is_integer = interp2app(W_FloatObject.descr_is_integer),
+    as_integer_ratio = interp2app(W_FloatObject.descr_as_integer_ratio),
+    hex = interp2app(W_FloatObject.descr_hex),
 )
 W_FloatObject.typedef.registermethods(globals())
 
@@ -645,39 +698,6 @@ def _char_from_hex(number):
     return "0123456789abcdef"[number]
 
 TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
-
-def float_hex__Float(space, w_float):
-    value = w_float.floatval
-    if not isfinite(value):
-        return w_float.descr_str(space)
-    if value == 0.0:
-        if copysign(1., value) == -1.:
-            return space.wrap("-0x0.0p+0")
-        else:
-            return space.wrap("0x0.0p+0")
-    mant, exp = math.frexp(value)
-    shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
-    mant = math.ldexp(mant, shift)
-    mant = abs(mant)
-    exp -= shift
-    result = ['\0'] * ((TOHEX_NBITS - 1) // 4 + 2)
-    result[0] = _char_from_hex(int(mant))
-    mant -= int(mant)
-    result[1] = "."
-    for i in range((TOHEX_NBITS - 1) // 4):
-        mant *= 16.0
-        result[i + 2] = _char_from_hex(int(mant))
-        mant -= int(mant)
-    if exp < 0:
-        sign = "-"
-    else:
-        sign = "+"
-    exp = abs(exp)
-    s = ''.join(result)
-    if value < 0.0:
-        return space.wrap("-0x%sp%s%d" % (s, sign, exp))
-    else:
-        return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
 def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
@@ -872,27 +892,5 @@ def _pow(space, x, y):
         z = -z
     return z
 
-
-def float_as_integer_ratio__Float(space, w_float):
-    value = w_float.floatval
-    try:
-        num, den = float_as_rbigint_ratio(value)
-    except OverflowError:
-        w_msg = space.wrap("cannot pass infinity to as_integer_ratio()")
-        raise OperationError(space.w_OverflowError, w_msg)
-    except ValueError:
-        w_msg = space.wrap("cannot pass nan to as_integer_ratio()")
-        raise OperationError(space.w_ValueError, w_msg)
-
-    w_num = space.newlong_from_rbigint(num)
-    w_den = space.newlong_from_rbigint(den)
-    # Try to return int
-    return space.newtuple([space.int(w_num), space.int(w_den)])
-
-def float_is_integer__Float(space, w_float):
-    v = w_float.floatval
-    if not rfloat.isfinite(v):
-        return space.w_False
-    return space.wrap(math.floor(v) == v)
 
 register_all(vars(), globals())
