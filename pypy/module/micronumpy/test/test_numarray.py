@@ -387,12 +387,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros(()).shape == ()
         assert zeros((), dtype='S') == ''
         assert zeros((), dtype='S').shape == ()
+        assert zeros((), dtype='S').dtype == '|S1'
 
     def test_empty_like(self):
         import numpy as np
         a = np.empty_like(np.zeros(()))
         assert a.shape == ()
         assert a.dtype == np.float_
+        a = np.empty_like(a, dtype='S')
+        assert a.dtype == '|S1'
         a = np.zeros((2, 3))
         assert a.shape == (2, 3)
         a[0,0] = 1
@@ -1677,11 +1680,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "data-type must not be 0-sized"
         assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
-        assert a.view('S4') == 'abc1'
         import sys
         if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.view, [('a', 'i2'), ('b', 'i2')])
+            raises(ValueError, a.view, 'S4')
+            raises(ValueError, a.view, [('a', 'i2'), ('b', 'i2')])
         else:
+            assert a.view('S4') == 'abc1'
             b = a.view([('a', 'i2'), ('b', 'i2')])
             assert b.shape == (1,)
             assert b[0][0] == 25185
@@ -3397,6 +3401,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
         assert a == 'x'
+        a = array('abc', 'S2')
+        assert a.dtype.str == '|S2'
+        assert a == 'ab'
+        a = array('abc', 'S5')
+        assert a.dtype.str == '|S5'
+        assert a == 'abc'
 
     def test_newbyteorder(self):
         import numpy as np

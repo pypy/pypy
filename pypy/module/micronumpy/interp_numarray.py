@@ -1447,7 +1447,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     # scalars and strings w/o __array__ method
     isstr = space.isinstance_w(w_object, space.w_str)
     if not issequence_w(space, w_object) or isstr:
-        if dtype is None or dtype.is_str_or_unicode():
+        if dtype is None or (dtype.is_str_or_unicode() and dtype.get_size() < 1):
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         return W_NDimArray.new_scalar(space, dtype, w_object)
 
@@ -1500,6 +1500,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 def zeros(space, w_shape, w_dtype=None, w_order=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    if dtype.is_str_or_unicode() and dtype.get_size() < 1:
+        dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     shape = _find_shape(space, w_shape, dtype)
     return W_NDimArray.from_shape(space, shape, dtype=dtype)
 
@@ -1511,6 +1513,8 @@ def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     else:
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        if dtype.is_str_or_unicode() and dtype.get_size() < 1:
+            dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     return W_NDimArray.from_shape(space, w_a.get_shape(), dtype=dtype,
                                   w_instance=w_a if subok else None)
 

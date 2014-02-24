@@ -1661,15 +1661,17 @@ class StringType(FlexibleType):
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
-        from pypy.module.micronumpy.interp_dtype import new_string_dtype
         if isinstance(w_item, interp_boxes.W_StringBox):
             return w_item
         if w_item is None:
             w_item = space.wrap('')
         arg = space.str_w(space.str(w_item))
-        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
-        for i in range(len(arg)):
+        arr = VoidBoxStorage(dtype.size, dtype)
+        j = min(len(arg), dtype.size)
+        for i in range(j):
             arr.storage[i] = arg[i]
+        for j in range(j, dtype.size):
+            arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
 
     def store(self, arr, i, offset, box):
