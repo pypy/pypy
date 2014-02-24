@@ -137,6 +137,8 @@ class W_SliceObject(W_Root):
     def descr_lt(self, space, w_other):
         if space.is_w(self, w_other):
             return space.w_False   # see comments in descr_eq()
+        if not isinstance(w_other, W_SliceObject):
+            return space.w_NotImplemented
         if space.eq_w(self.w_start, w_other.w_start):
             if space.eq_w(self.w_stop, w_other.w_stop):
                 return space.lt(self.w_step, w_other.w_step)
