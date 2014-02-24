@@ -33,7 +33,6 @@ class StdTypeModel:
         class result:
             from pypy.objspace.std.objecttype import object_typedef
             from pypy.objspace.std.typeobject   import type_typedef
-            from pypy.objspace.std.slicetype  import slice_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
 
@@ -82,6 +81,7 @@ class StdTypeModel:
         self.pythontypes.append(longobject.W_LongObject.typedef)
         self.pythontypes.append(floatobject.W_FloatObject.typedef)
         self.pythontypes.append(complexobject.W_ComplexObject.typedef)
+        self.pythontypes.append(sliceobject.W_SliceObject.typedef)
 
         # the set of implementation types
         self.typeorder = {

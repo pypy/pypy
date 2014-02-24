@@ -16,13 +16,13 @@ from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
     interp2app)
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.signature import Signature
-from pypy.objspace.std import slicetype
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.iterobject import (W_FastListIterObject,
     W_ReverseSeqIterObject)
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
+    normalize_simple_slice)
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -624,8 +624,7 @@ class W_ListObject(W_Root):
         first index of value'''
         # needs to be safe against eq_w() mutating the w_list behind our back
         size = self.length()
-        i, stop = slicetype.unwrap_start_stop(
-                space, size, w_start, w_stop, True)
+        i, stop = unwrap_start_stop(space, size, w_start, w_stop, True)
         try:
             i = self.find(w_value, i, stop)
         except ValueError:

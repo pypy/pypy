@@ -7,8 +7,8 @@ from rpython.rlib.rstring import endswith, replace, rsplit, split, startswith
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
-from pypy.objspace.std import slicetype
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
+    normalize_simple_slice)
 
 
 class StringMethods(object):
@@ -24,8 +24,8 @@ class StringMethods(object):
     def _convert_idx_params(self, space, w_start, w_end, upper_bound=False):
         value = self._val(space)
         lenself = len(value)
-        start, end = slicetype.unwrap_start_stop(
-            space, lenself, w_start, w_end, upper_bound=upper_bound)
+        start, end = unwrap_start_stop(space, lenself, w_start, w_end,
+                                       upper_bound=upper_bound)
         return (value, start, end)
 
     def descr_len(self, space):
