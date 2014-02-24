@@ -303,10 +303,10 @@ class W_GenericBox(W_Root):
         else:
             dtype = space.interp_w(W_Dtype,
                 space.call_function(space.gettypefor(W_Dtype), w_dtype))
-            if dtype.get_size() == 0:
+            if dtype.elsize == 0:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "data-type must not be 0-sized"))
-            if dtype.get_size() != self.get_dtype(space).get_size():
+            if dtype.elsize != self.get_dtype(space).elsize:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array."))
         if dtype.is_str_or_unicode():
@@ -327,7 +327,7 @@ class W_GenericBox(W_Root):
         return space.wrap(1)
 
     def descr_get_itemsize(self, space):
-        return self.get_dtype(space).descr_get_itemsize(space)
+        return space.wrap(self.get_dtype(space).elsize)
 
     def descr_get_shape(self, space):
         return space.newtuple([])

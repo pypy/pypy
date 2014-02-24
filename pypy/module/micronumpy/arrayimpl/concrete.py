@@ -55,7 +55,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         loop.setslice(space, shape, self, impl)
 
     def get_size(self):
-        return self.size // self.dtype.get_size()
+        return self.size // self.dtype.elsize
 
     def get_storage_size(self):
         return self.size
@@ -105,7 +105,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
             dtype = self.dtype.get_float_dtype(space)
-            return SliceArray(self.start + dtype.get_size(), strides,
+            return SliceArray(self.start + dtype.elsize, strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
@@ -324,7 +324,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         make_sure_not_resized(strides)
         make_sure_not_resized(backstrides)
         self.shape = shape
-        self.size = support.product(shape) * dtype.get_size()
+        self.size = support.product(shape) * dtype.elsize
         self.order = order
         self.dtype = dtype
         self.strides = strides
@@ -352,7 +352,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                                          self.get_shape())
 
     def fill(self, space, box):
-        self.dtype.itemtype.fill(self.storage, self.dtype.get_size(),
+        self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
                                  box, 0, self.size, 0)
 
     def set_shape(self, space, orig_array, new_shape):
@@ -425,7 +425,7 @@ class SliceArray(BaseConcreteArray):
         self.storage = parent.storage
         self.order = parent.order
         self.dtype = dtype
-        self.size = support.product(shape) * self.dtype.get_size()
+        self.size = support.product(shape) * self.dtype.elsize
         self.start = start
         self.orig_arr = orig_arr
 
@@ -460,12 +460,12 @@ class SliceArray(BaseConcreteArray):
             strides = []
             backstrides = []
             dtype = self.dtype
-            s = self.get_strides()[0] // dtype.get_size()
+            s = self.get_strides()[0] // dtype.elsize
             if self.order == 'C':
                 new_shape.reverse()
             for sh in new_shape:
-                strides.append(s * dtype.get_size())
-                backstrides.append(s * (sh - 1) * dtype.get_size())
+                strides.append(s * dtype.elsize)
+                backstrides.append(s * (sh - 1) * dtype.elsize)
                 s *= max(1, sh)
             if self.order == 'C':
                 strides.reverse()

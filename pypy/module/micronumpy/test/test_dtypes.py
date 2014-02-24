@@ -58,6 +58,7 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'
+        assert dtype('void').name == 'void'
         assert dtype(int).fields is None
         assert dtype(int).names is None
         assert dtype(int).hasobject is False

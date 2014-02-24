@@ -519,7 +519,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         if dt2.is_record_type():
             return dt2
         if dt1.is_str_or_unicode():
-            if dt2.get_size() >= dt1.get_size():
+            if dt2.elsize >= dt1.elsize:
                 return dt2
             return dt1
         return dt2
@@ -542,10 +542,10 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
     if promote_to_largest:
         if dt.kind == NPY.GENBOOLLTR or dt.kind == NPY.SIGNEDLTR:
-            if dt.get_size() * 8 < LONG_BIT:
+            if dt.elsize * 8 < LONG_BIT:
                 return interp_dtype.get_dtype_cache(space).w_longdtype
         elif dt.kind == NPY.UNSIGNEDLTR:
-            if dt.get_size() * 8 < LONG_BIT:
+            if dt.elsize * 8 < LONG_BIT:
                 return interp_dtype.get_dtype_cache(space).w_ulongdtype
         else:
             assert dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR
@@ -596,7 +596,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             return interp_dtype.variable_dtype(space,
                                                'S%d' % space.len_w(w_obj))
         elif current_guess.num == NPY.STRING:
-            if current_guess.get_size() < space.len_w(w_obj):
+            if current_guess.elsize < space.len_w(w_obj):
                 return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess

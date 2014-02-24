@@ -59,7 +59,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
     return space.wrap(a)
 
 def _fromstring_bin(space, s, count, length, dtype):
-    itemsize = dtype.get_size()
+    itemsize = dtype.elsize
     assert itemsize >= 0
     if count == -1:
         count = length / itemsize

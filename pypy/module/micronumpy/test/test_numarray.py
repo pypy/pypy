@@ -14,15 +14,9 @@ class MockDtype(object):
         def malloc(size):
             return None
 
-        @staticmethod
-        def get_element_size():
-            return 1
-
     def __init__(self):
         self.base = self
-
-    def get_size(self):
-        return 1
+        self.elsize = 1
 
 
 def create_slice(space, a, chunks):
