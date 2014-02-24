@@ -45,7 +45,7 @@ class W_Dtype(W_Root):
     ]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
-                 float_type=None, byteorder=NPY.NATIVE, names=[], fields={},
+                 float_type=None, byteorder=None, names=[], fields={},
                  size=1, shape=[], subdtype=None,
                  alternate_constructors=[], aliases=[]):
         self.itemtype = itemtype
@@ -55,6 +55,8 @@ class W_Dtype(W_Root):
         self.char = char
         self.w_box_type = w_box_type
         self.float_type = float_type
+        if byteorder is None:
+            byteorder = NPY.IGNORE if self.num == NPY.STRING else NPY.NATIVE
         self.byteorder = byteorder
         self.names = names
         self.fields = fields
@@ -124,7 +126,10 @@ class W_Dtype(W_Root):
     def get_float_dtype(self, space):
         assert self.kind == NPY.COMPLEXLTR
         assert self.float_type is not None
-        return get_dtype_cache(space).dtypes_by_name[self.byteorder + self.float_type]
+        dtype = get_dtype_cache(space).dtypes_by_name[self.float_type]
+        if self.byteorder == NPY.OPPBYTE:
+            dtype = dtype.descr_newbyteorder(space)
+        return dtype
 
     def descr_str(self, space):
         if self.fields:
@@ -157,6 +162,11 @@ class W_Dtype(W_Root):
 
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
+
+    def descr_get_isbuiltin(self, space):
+        if self.fields is None:
+            return space.wrap(1)
+        return space.wrap(0)
 
     def descr_get_subdtype(self, space):
         if self.subdtype is None:
@@ -405,7 +415,8 @@ class W_Dtype(W_Root):
                 endian = newendian
         itemtype = self.itemtype.__class__(endian in (NPY.NATIVE, NPY.NATBYTE))
         return W_Dtype(itemtype, self.num, self.kind, self.name, self.char,
-                       self.w_box_type, byteorder=endian, size=self.size)
+                       self.w_box_type, self.float_type, byteorder=endian,
+                       size=self.size)
 
 
 @specialize.arg(2)
@@ -492,10 +503,15 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         name = space.str_w(w_dtype)
         if ',' in name:
             return dtype_from_spec(space, w_dtype)
+        cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
-            return cache.dtypes_by_name[name]
+            dtype = cache.dtypes_by_name[cname]
         except KeyError:
             pass
+        else:
+            if name[0] == NPY.OPPBYTE:
+                dtype = dtype.descr_newbyteorder(space)
+            return dtype
         if name[0] in 'VSUc' or name[0] in '<>=|' and name[1] in 'VSUc':
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
@@ -544,6 +560,7 @@ W_Dtype.typedef = TypeDef("dtype",
     byteorder = interp_attrproperty("byteorder", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
+    isbuiltin = GetSetProperty(W_Dtype.descr_get_isbuiltin),
 
     subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
     str = GetSetProperty(W_Dtype.descr_get_str),
@@ -874,6 +891,7 @@ class DtypeCache(object):
         # we reverse, so the stuff with lower numbers override stuff with
         # higher numbers
         for dtype in reversed(self.builtin_dtypes):
+            dtype.fields = None  # mark these as builtin
             self.dtypes_by_num[dtype.num] = dtype
             self.dtypes_by_name[dtype.name] = dtype
             for can_name in [dtype.kind + str(dtype.get_size()),
@@ -882,16 +900,8 @@ class DtypeCache(object):
                 self.dtypes_by_name[NPY.NATBYTE + can_name] = dtype
                 self.dtypes_by_name[NPY.NATIVE + can_name] = dtype
                 self.dtypes_by_name[NPY.IGNORE + can_name] = dtype
-                new_name = NPY.OPPBYTE + can_name
-                itemtype = type(dtype.itemtype)(False)
-                self.dtypes_by_name[new_name] = W_Dtype(
-                    itemtype, dtype.num, dtype.kind, new_name, dtype.char,
-                    dtype.w_box_type, byteorder=NPY.OPPBYTE,
-                    float_type=dtype.float_type)
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
-        for dtype in self.dtypes_by_name.values():
-            dtype.fields = None  # mark these as builtin
 
         typeinfo_full = {
             'LONGLONG': self.w_int64dtype,

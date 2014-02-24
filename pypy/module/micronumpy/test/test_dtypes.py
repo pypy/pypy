@@ -40,6 +40,7 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_dtype_basic(self):
         from numpypy import dtype
+        import sys
 
         d = dtype('?')
         assert d.num == 0
@@ -47,6 +48,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype(d) is d
         assert dtype('bool') is d
         assert dtype('|b1') is d
+        b = '>' if sys.byteorder == 'little' else '<'
+        assert dtype(b + 'i4') is not dtype(b + 'i4')
         assert repr(type(d)) == "<type 'numpy.dtype'>"
         exc = raises(ValueError, "d.names = []")
         assert exc.value[0] == "there are no fields defined"
@@ -156,6 +159,26 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         a = array(range(5), long)
         assert a.dtype is dtype(long)
+
+    def test_isbuiltin(self):
+        import numpy as np
+        import sys
+        assert np.dtype('?').isbuiltin == 1
+        assert np.dtype(int).newbyteorder().isbuiltin == 0
+        assert np.dtype(np.dtype(int)).isbuiltin == 1
+        assert np.dtype('=i4').isbuiltin == 1
+        b = '>' if sys.byteorder == 'little' else '<'
+        assert np.dtype(b + 'i4').isbuiltin == 0
+        assert np.dtype(b + 'i4').newbyteorder().isbuiltin == 0
+        b = '<' if sys.byteorder == 'little' else '>'
+        assert np.dtype(b + 'i4').isbuiltin == 1
+        assert np.dtype(b + 'i4').newbyteorder().isbuiltin == 0
+        assert np.dtype((int, 2)).isbuiltin == 0
+        assert np.dtype([('', int), ('', float)]).isbuiltin == 0
+        assert np.dtype('void').isbuiltin == 1
+        assert np.dtype(str).isbuiltin == 1
+        assert np.dtype('S0').isbuiltin == 1
+        assert np.dtype('S5').isbuiltin == 0
 
     def test_repr_str(self):
         from numpypy import dtype
@@ -837,6 +860,11 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype(nnp + 'i8').byteorder == nnp
         assert dtype('=i8').byteorder == '='
         assert dtype(byteorder + 'i8').byteorder == '='
+        assert dtype(str).byteorder == '|'
+        assert dtype('S5').byteorder == '|'
+        assert dtype('>S5').byteorder == '|'
+        assert dtype('<S5').byteorder == '|'
+        assert dtype('<S5').newbyteorder('=').byteorder == '|'
 
     def test_dtype_str(self):
         from numpypy import dtype
@@ -860,6 +888,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('string').str == '|S0'
         assert dtype('unicode').str == byteorder + 'U0'
         assert dtype(('string', 7)).str == '|S7'
+        assert dtype('=S5').str == '|S5'
         assert dtype(('unicode', 7)).str == '<U7'
         assert dtype([('', 'f8')]).str == "|V8"
         assert dtype(('f8', 2)).str == "|V16"

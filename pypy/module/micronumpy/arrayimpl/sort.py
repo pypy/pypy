@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy import interp_dtype, types
+from pypy.module.micronumpy import interp_dtype, types, constants as NPY
 from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
@@ -310,9 +310,9 @@ def make_sort_function(space, itemtype, comp_type, count=1):
 def sort_array(arr, space, w_axis, w_order):
     cache = space.fromcache(SortCache) # that populates SortClasses
     itemtype = arr.dtype.itemtype
-    if not arr.dtype.is_native():
-        raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-native btyeorder not supported yet"))
+    if arr.dtype.byteorder == NPY.OPPBYTE:
+        raise oefmt(space.w_NotImplementedError,
+                    "sorting of non-native byteorder not supported yet")
     for tp in all_types:
         if isinstance(itemtype, tp[0]):
             return cache._lookup(tp)(arr, space, w_axis,
