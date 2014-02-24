@@ -83,6 +83,10 @@ class TestUfuncCoercion(object):
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_constants(self):
+        import numpy as np
+        assert np.FLOATING_POINT_SUPPORT == 1
+
     def test_ufunc_instance(self):
         from numpypy import add, ufunc
 
