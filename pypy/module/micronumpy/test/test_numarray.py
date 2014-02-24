@@ -2259,6 +2259,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[b] = 1.
         assert (a == [[1., 1., 1.]]).all()
 
+    def test_ellipsis_indexing(self):
+        import numpy as np
+        a = np.array(1.5)
+        assert a[...] is a
+        a = np.array([1, 2, 3])
+        assert a[...] is a
+
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])

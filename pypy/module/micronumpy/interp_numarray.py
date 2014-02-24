@@ -218,7 +218,9 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
+        if space.is_w(w_idx, space.w_Ellipsis):
+            return self
+        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
                 and len(w_idx.get_shape()) > 0:
             return self.getitem_filter(space, w_idx)
         try:
