@@ -34,7 +34,6 @@ class StdTypeModel:
             from pypy.objspace.std.objecttype import object_typedef
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
-            from pypy.objspace.std.nonetype import none_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
 
@@ -67,6 +66,7 @@ class StdTypeModel:
 
         # not-multimethod based types
 
+        self.pythontypes.append(noneobject.W_NoneObject.typedef)
         self.pythontypes.append(tupleobject.W_TupleObject.typedef)
         self.pythontypes.append(listobject.W_ListObject.typedef)
         self.pythontypes.append(dictmultiobject.W_DictMultiObject.typedef)
