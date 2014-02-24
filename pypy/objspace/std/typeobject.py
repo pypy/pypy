@@ -6,7 +6,6 @@ from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
@@ -550,6 +549,78 @@ class W_TypeObject(W_Object):
     def delweakref(self):
         self._lifeline_ = None
 
+    def descr_call(self, space, __args__):
+        promote(self)
+        # invoke the __new__ of the type
+        if not we_are_jitted():
+            # note that the annotator will figure out that self.w_new_function
+            # can only be None if the newshortcut config option is not set
+            w_newfunc = self.w_new_function
+        else:
+            # for the JIT it is better to take the slow path because normal lookup
+            # is nicely optimized, but the self.w_new_function attribute is not
+            # known to the JIT
+            w_newfunc = None
+        if w_newfunc is None:
+            w_newtype, w_newdescr = self.lookup_where('__new__')
+            w_newfunc = space.get(w_newdescr, self)
+            if (space.config.objspace.std.newshortcut and
+                not we_are_jitted() and
+                isinstance(w_newtype, W_TypeObject)):
+                self.w_new_function = w_newfunc
+        w_newobject = space.call_obj_args(w_newfunc, self, __args__)
+        call_init = space.isinstance_w(w_newobject, self)
+
+        # maybe invoke the __init__ of the type
+        if (call_init and not (space.is_w(self, space.w_type) and
+            not __args__.keywords and len(__args__.arguments_w) == 1)):
+            w_descr = space.lookup(w_newobject, '__init__')
+            w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
+            if not space.is_w(w_result, space.w_None):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("__init__() should return None"))
+        return w_newobject
+
+    def descr_repr(self, space):
+        w_mod = self.get_module()
+        if not space.isinstance_w(w_mod, space.w_str):
+            mod = None
+        else:
+            mod = space.str_w(w_mod)
+        if not self.is_heaptype():
+            kind = 'type'
+        else:
+            kind = 'class'
+        if mod is not None and mod != '__builtin__':
+            return space.wrap("<%s '%s.%s'>" % (kind, mod, self.name))
+        else:
+            return space.wrap("<%s '%s'>" % (kind, self.name))
+
+    def descr_getattribute(self, space, w_name):
+        name = space.str_w(w_name)
+        w_descr = space.lookup(self, name)
+        if w_descr is not None:
+            if space.is_data_descr(w_descr):
+                w_get = space.lookup(w_descr, "__get__")
+                if w_get is not None:
+                    return space.get_and_call_function(w_get, w_descr, self,
+                                                       space.type(self))
+        w_value = self.lookup(name)
+        if w_value is not None:
+            # __get__(None, type): turns e.g. functions into unbound methods
+            return space.get(w_value, space.w_None, self)
+        if w_descr is not None:
+            return space.get(w_descr, self)
+        raise oefmt(space.w_AttributeError,
+                    "type object '%N' has no attribute %R", self, w_name)
+
+    def descr_eq(self, space, w_other):
+        return space.is_(self, w_other)
+
+    def descr_ne(self, space, w_other):
+        return space.newbool(not space.is_w(self, w_other))
+
+
 def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
     "This is used to create user-defined classes only."
     # XXX check types
@@ -810,7 +881,13 @@ type_typedef = StdTypeDef("type",
     __weakref__ = weakref_descr,
     __instancecheck__ = gateway.interp2app(type_isinstance),
     __subclasscheck__ = gateway.interp2app(type_issubtype),
-    )
+
+    __call__ = gateway.interp2app(W_TypeObject.descr_call),
+    __repr__ = gateway.interp2app(W_TypeObject.descr_repr),
+    __getattribute__ = gateway.interp2app(W_TypeObject.descr_getattribute),
+    __eq__ = gateway.interp2app(W_TypeObject.descr_eq),
+    __ne__ = gateway.interp2app(W_TypeObject.descr_ne),
+)
 W_TypeObject.typedef = type_typedef
 
 # ____________________________________________________________
@@ -1057,80 +1134,12 @@ def is_mro_purely_of_types(mro_w):
 
 # ____________________________________________________________
 
-def call__Type(space, w_type, __args__):
-    promote(w_type)
-    # invoke the __new__ of the type
-    if not we_are_jitted():
-        # note that the annotator will figure out that w_type.w_new_function
-        # can only be None if the newshortcut config option is not set
-        w_newfunc = w_type.w_new_function
-    else:
-        # for the JIT it is better to take the slow path because normal lookup
-        # is nicely optimized, but the w_type.w_new_function attribute is not
-        # known to the JIT
-        w_newfunc = None
-    if w_newfunc is None:
-        w_newtype, w_newdescr = w_type.lookup_where('__new__')
-        w_newfunc = space.get(w_newdescr, w_type)
-        if (space.config.objspace.std.newshortcut and
-            not we_are_jitted() and
-            isinstance(w_newtype, W_TypeObject)):
-            w_type.w_new_function = w_newfunc
-    w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
-    call_init = space.isinstance_w(w_newobject, w_type)
-
-    # maybe invoke the __init__ of the type
-    if (call_init and not (space.is_w(w_type, space.w_type) and
-        not __args__.keywords and len(__args__.arguments_w) == 1)):
-        w_descr = space.lookup(w_newobject, '__init__')
-        w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
-        if not space.is_w(w_result, space.w_None):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("__init__() should return None"))
-    return w_newobject
-
 def _issubtype(w_sub, w_type):
     return w_type in w_sub.mro_w
 
 @elidable_promote()
 def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
     return _issubtype(w_sub, w_type)
-
-def repr__Type(space, w_obj):
-    w_mod = w_obj.get_module()
-    if not space.isinstance_w(w_mod, space.w_str):
-        mod = None
-    else:
-        mod = space.str_w(w_mod)
-    if not w_obj.is_heaptype():
-        kind = 'type'
-    else:
-        kind = 'class'
-    if mod is not None and mod != '__builtin__':
-        return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
-    else:
-        return space.wrap("<%s '%s'>" % (kind, w_obj.name))
-
-def getattr__Type_ANY(space, w_type, w_name):
-    name = space.str_w(w_name)
-    w_descr = space.lookup(w_type, name)
-    if w_descr is not None:
-        if space.is_data_descr(w_descr):
-            w_get = space.lookup(w_descr, "__get__")
-            if w_get is not None:
-                return space.get_and_call_function(w_get, w_descr, w_type,
-                                                   space.type(w_type))
-    w_value = w_type.lookup(name)
-    if w_value is not None:
-        # __get__(None, type): turns e.g. functions into unbound methods
-        return space.get(w_value, space.w_None, w_type)
-    if w_descr is not None:
-        return space.get(w_descr, w_type)
-    raise oefmt(space.w_AttributeError,
-                "type object '%N' has no attribute %R", w_type, w_name)
-
-def eq__Type_Type(space, w_self, w_other):
-    return space.is_(w_self, w_other)
 
 
 # ____________________________________________________________
@@ -1201,7 +1210,3 @@ def mro_error(space, orderlists):
     names = [cls.getname(space) for cls in cycle]
     raise OperationError(space.w_TypeError,
         space.wrap("cycle among base classes: " + ' < '.join(names)))
-
-# ____________________________________________________________
-
-register_all(vars())
