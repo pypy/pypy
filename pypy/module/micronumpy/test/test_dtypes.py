@@ -160,6 +160,12 @@ class AppTestDtypes(BaseAppTestDtypes):
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
         assert str(d) == "bool"
+        d = dtype([('', '<f8')])
+        assert repr(d) == "dtype([('f0', '<f8')])"
+        assert str(d) == "[('f0', '<f8')]"
+        d = dtype('S5')
+        assert repr(d) == "dtype('S5')"
+        assert str(d) == "|S5"
 
     def test_bool_array(self):
         from numpypy import array, False_, True_
@@ -848,6 +854,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('unicode').str == byteorder + 'U0'
         assert dtype(('string', 7)).str == '|S7'
         assert dtype(('unicode', 7)).str == '<U7'
+        assert dtype([('', 'f8')]).str == "|V8"
 
     def test_intp(self):
         from numpypy import dtype

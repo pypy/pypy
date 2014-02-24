@@ -119,21 +119,30 @@ class W_Dtype(W_Root):
     def get_size(self):
         return self.size * self.itemtype.get_element_size()
 
-    def get_name(self):
-        if self.char == 'S':
-            return '|S' + str(self.get_size())
-        return self.name
-
     def get_float_dtype(self, space):
         assert self.kind == NPY.COMPLEXLTR
         assert self.float_type is not None
         return get_dtype_cache(space).dtypes_by_name[self.byteorder + self.float_type]
 
     def descr_str(self, space):
-        return space.wrap(self.get_name())
+        if not self.is_record_type():
+            if self.char == 'S':
+                s = '|S' + str(self.get_size())
+            else:
+                s = self.name
+            return space.wrap(s)
+        return space.str(self.descr_get_descr(space))
 
     def descr_repr(self, space):
-        return space.wrap("dtype('%s')" % self.get_name())
+        if not self.is_record_type():
+            if self.char == 'S':
+                s = 'S' + str(self.get_size())
+            else:
+                s = self.name
+            r = space.wrap(s)
+        else:
+            r = self.descr_get_descr(space)
+        return space.wrap("dtype(%s)" % space.str_w(space.repr(r)))
 
     def descr_get_itemsize(self, space):
         return space.wrap(self.get_size())
