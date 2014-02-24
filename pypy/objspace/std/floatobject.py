@@ -2,13 +2,12 @@ import math
 import operator
 import sys
 
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std import newformat
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
@@ -122,7 +121,7 @@ def make_compare_func(opname):
     return _compare
 
 
-class W_FloatObject(W_Object):
+class W_FloatObject(W_Root):
     """This is a implementation of the app-level 'float' type.
     The constructor takes an RPython float as an argument."""
     _immutable_fields_ = ['floatval']
@@ -139,7 +138,7 @@ class W_FloatObject(W_Object):
     def int(self, space):
         if (type(self) is not W_FloatObject and
             space.is_overloaded(self, space.w_float, '__int__')):
-            return W_Object.int(self, space)
+            return W_Root.int(self, space)
         try:
             value = ovfcheck_float_to_int(self.floatval)
         except OverflowError:
@@ -634,8 +633,6 @@ class W_FloatObject(W_Object):
             return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
 
-registerimplementation(W_FloatObject)
-
 W_FloatObject.typedef = StdTypeDef("float",
     __doc__ = '''float(x) -> floating point number
 
@@ -691,7 +688,6 @@ Convert a string or number to a floating point number, if possible.''',
     as_integer_ratio = interp2app(W_FloatObject.descr_as_integer_ratio),
     hex = interp2app(W_FloatObject.descr_hex),
 )
-W_FloatObject.typedef.registermethods(globals())
 
 
 def _char_from_hex(number):
@@ -891,6 +887,3 @@ def _pow(space, x, y):
     if negate_result:
         z = -z
     return z
-
-
-register_all(vars(), globals())
