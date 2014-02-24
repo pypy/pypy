@@ -171,9 +171,6 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     return (space.float_w(space.float(w_complex)), 0.0)
 
 
-ERR_MALFORMED = "complex() arg is a malformed string"
-
-
 class W_ComplexObject(W_Root):
     _immutable_fields_ = ['realval', 'imagval']
 
@@ -301,12 +298,14 @@ class W_ComplexObject(W_Root):
             try:
                 realstr, imagstr = _split_complex(space.str_w(w_real))
             except ValueError:
-                raise oefmt(space.w_ValueError, ERR_MALFORMED)
+                raise oefmt(space.w_ValueError,
+                            "complex() arg is a malformed string")
             try:
                 realval = string_to_float(realstr)
                 imagval = string_to_float(imagstr)
             except ParseStringError:
-                raise oefmt(space.w_ValueError, ERR_MALFORMED)
+                raise oefmt(space.w_ValueError,
+                            "complex() arg is a malformed string")
 
         else:
             # non-string arguments
