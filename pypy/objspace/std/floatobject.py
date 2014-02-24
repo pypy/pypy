@@ -113,7 +113,8 @@ def make_compare_func(opname):
                 res = op(f1, f2)
             return space.newbool(res)
         if space.isinstance_w(w_other, space.w_long):
-            return space.newbool(do_compare_bigint(self.floatval, w_other.num))
+            return space.newbool(do_compare_bigint(self.floatval,
+                                                   space.bigint_w(w_other)))
         return space.w_NotImplemented
     return func_with_new_name(_compare, 'descr_' + opname)
 
