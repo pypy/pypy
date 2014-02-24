@@ -3,7 +3,7 @@ import operator
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std import newformat
@@ -197,8 +197,7 @@ class W_FloatObject(W_Root):
             return space.wrap(_float_format)
         elif kind == "double":
             return space.wrap(_double_format)
-        raise OperationError(space.w_ValueError,
-                             space.wrap("only float and double are valid"))
+        raise oefmt(space.w_ValueError, "only float and double are valid")
 
     @staticmethod
     @unwrap_spec(s=str)
@@ -209,8 +208,7 @@ class W_FloatObject(W_Root):
         while i < length and s[i].isspace():
             i += 1
         if i == length:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("invalid hex string"))
+            raise oefmt(space.w_ValueError, "invalid hex string")
         sign = 1
         if s[i] == "-":
             sign = -1
@@ -218,8 +216,7 @@ class W_FloatObject(W_Root):
         elif s[i] == "+":
             i += 1
         if length == i:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("invalid hex string"))
+            raise oefmt(space.w_ValueError, "invalid hex string")
         if s[i] == "i" or s[i] == "I":
             i += 1
             if length - i >= 2 and s[i:i + 2].lower() == "nf":
@@ -250,28 +247,24 @@ class W_FloatObject(W_Root):
             total_digits = co_end - co_start
             float_digits = co_end - whole_end
             if not total_digits:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("invalid hex string"))
+                raise oefmt(space.w_ValueError, "invalid hex string")
             const_one = rfloat.DBL_MIN_EXP - rfloat.DBL_MANT_DIG + sys.maxint // 2
             const_two = sys.maxint // 2 + 1 - rfloat.DBL_MAX_EXP
             if total_digits > min(const_one, const_two) // 4:
-                raise OperationError(space.w_ValueError, space.wrap("way too long"))
+                raise oefmt(space.w_ValueError, "way too long")
             if i < length and (s[i] == "p" or s[i] == "P"):
                 i += 1
                 if i == length:
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("invalid hex string"))
+                    raise oefmt(space.w_ValueError, "invalid hex string")
                 exp_sign = 1
                 if s[i] == "-" or s[i] == "+":
                     if s[i] == "-":
                         exp_sign = -1
                     i += 1
                     if i == length:
-                        raise OperationError(space.w_ValueError,
-                                             space.wrap("invalid hex string"))
+                        raise oefmt(space.w_ValueError, "invalid hex string")
                 if not s[i].isdigit():
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("invalid hex string"))
+                    raise oefmt(space.w_ValueError, "invalid hex string")
                 exp = ord(s[i]) - ord('0')
                 i += 1
                 while i < length and s[i].isdigit():
@@ -296,7 +289,7 @@ class W_FloatObject(W_Root):
             if not total_digits or exp <= -sys.maxint / 2:
                 value = 0.0
             elif exp >= sys.maxint // 2:
-                raise OperationError(space.w_OverflowError, space.wrap("too large"))
+                raise oefmt(space.w_OverflowError, "too large")
             else:
                 exp -=  4 * float_digits
                 top_exp = exp + 4 * (total_digits - 1)
@@ -307,8 +300,7 @@ class W_FloatObject(W_Root):
                 if top_exp < rfloat.DBL_MIN_EXP - rfloat.DBL_MANT_DIG:
                     value = 0.0
                 elif top_exp > rfloat.DBL_MAX_EXP:
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap("too large"))
+                    raise oefmt(space.w_OverflowError, "too large")
                 else:
                     lsb = max(top_exp, rfloat.DBL_MIN_EXP) - rfloat.DBL_MANT_DIG
                     value = 0
@@ -341,14 +333,12 @@ class W_FloatObject(W_Root):
                                 mant_dig = rfloat.DBL_MANT_DIG
                                 if (top_exp == rfloat.DBL_MAX_EXP and
                                     value == math.ldexp(2 * half_eps, mant_dig)):
-                                    raise OperationError(space.w_OverflowError,
-                                                         space.wrap("too large"))
+                                    raise oefmt(space.w_OverflowError, "too large")
                         value = math.ldexp(value, (exp + 4*key_digit))
         while i < length and s[i].isspace():
             i += 1
         if i != length:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("invalid hex string"))
+            raise oefmt(space.w_ValueError, "invalid hex string")
         w_float = space.wrap(sign * value)
         return space.call_function(w_cls, w_float)
 
@@ -391,12 +381,11 @@ class W_FloatObject(W_Root):
         try:
             return W_LongObject.fromfloat(space, self.floatval)
         except OverflowError:
-            raise OperationError(
-                space.w_OverflowError,
-                space.wrap("cannot convert float infinity to integer"))
+            raise oefmt(space.w_OverflowError,
+                        "cannot convert float infinity to integer")
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("cannot convert float NaN to integer"))
+            raise oefmt(space.w_ValueError,
+                        "cannot convert float NaN to integer")
 
     def descr_trunc(self, space):
         whole = math.modf(self.floatval)[1]
@@ -468,7 +457,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         rhs = w_rhs.floatval
         if rhs == 0.0:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
+            raise oefmt(space.w_ZeroDivisionError, "float division")
         return W_FloatObject(self.floatval / rhs)
 
     def descr_rdiv(self, space, w_lhs):
@@ -477,7 +466,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         selfval = self.floatval
         if selfval == 0.0:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
+            raise oefmt(space.w_ZeroDivisionError, "float division")
         return W_FloatObject(w_lhs.floatval / selfval)
 
     def descr_floordiv(self, space, w_rhs):
@@ -499,7 +488,7 @@ class W_FloatObject(W_Root):
         x = self.floatval
         y = w_rhs.floatval
         if y == 0.0:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap("float modulo"))
+            raise oefmt(space.w_ZeroDivisionError, "float modulo")
         try:
             mod = math.fmod(x, y)
         except ValueError:
@@ -547,8 +536,8 @@ class W_FloatObject(W_Root):
         if w_rhs is None:
             return space.w_NotImplemented
         if not space.is_w(w_third_arg, space.w_None):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "pow() 3rd argument not allowed unless all arguments are integers"))
+            raise oefmt(space.w_TypeError, "pow() 3rd argument not allowed "
+                                           "unless all arguments are integers")
         x = self.floatval
         y = w_rhs.floatval
 
@@ -586,11 +575,11 @@ class W_FloatObject(W_Root):
         try:
             num, den = float_as_rbigint_ratio(value)
         except OverflowError:
-            w_msg = space.wrap("cannot pass infinity to as_integer_ratio()")
-            raise OperationError(space.w_OverflowError, w_msg)
+            raise oefmt(space.w_OverflowError,
+                        "cannot pass infinity to as_integer_ratio()")
         except ValueError:
-            w_msg = space.wrap("cannot pass nan to as_integer_ratio()")
-            raise OperationError(space.w_ValueError, w_msg)
+            raise oefmt(space.w_ValueError,
+                        "cannot pass nan to as_integer_ratio()")
 
         w_num = space.newlong_from_rbigint(num)
         w_den = space.newlong_from_rbigint(den)
@@ -760,7 +749,7 @@ def _divmod_w(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap("float modulo"))
+        raise oefmt(space.w_ZeroDivisionError, "float modulo")
     try:
         mod = math.fmod(x, y)
     except ValueError:
@@ -846,9 +835,8 @@ def _pow(space, x, y):
 
     if x == 0.0:
         if y < 0.0:
-            raise OperationError(space.w_ZeroDivisionError,
-                                 space.wrap("0.0 cannot be raised to "
-                                            "a negative power"))
+            raise oefmt(space.w_ZeroDivisionError,
+                        "0.0 cannot be raised to a negative power")
 
     negate_result = False
     # special case: "(-1.0) ** bignum" should not raise PowDomainError,
@@ -876,11 +864,9 @@ def _pow(space, x, y):
         # We delegate to our implementation of math.pow() the error detection.
         z = math.pow(x,y)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                                    space.wrap("float power"))
+        raise oefmt(space.w_OverflowError, "float power")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("float power"))
+        raise oefmt(space.w_ValueError, "float power")
 
     if negate_result:
         z = -z
