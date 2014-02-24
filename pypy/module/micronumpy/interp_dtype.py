@@ -536,54 +536,53 @@ def variable_dtype(space, name):
         try:
             size = int(name[1:])
         except ValueError:
-            raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
+            raise oefmt(space.w_TypeError, "data type not understood")
     if char == NPY.CHARLTR:
         char = NPY.STRINGLTR
         size = 1
 
     if char == NPY.STRINGLTR:
-        itemtype = types.StringType()
-        name = 'string'
-        num = NPY.STRING
-        w_box_type = space.gettypefor(interp_boxes.W_StringBox)
-    elif char == NPY.VOIDLTR:
-        itemtype = types.VoidType()
-        name = 'void'
-        num = NPY.VOID
-        w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
+        return new_string_dtype(space, size)
     elif char == NPY.UNICODELTR:
-        itemtype = types.UnicodeType()
-        name = 'unicode'
-        num = NPY.UNICODE
-        w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox)
-    else:
-        assert False
-    return W_Dtype(itemtype, num, char, name, char, w_box_type, size=size)
+        return new_unicode_dtype(space, size)
+    elif char == NPY.VOIDLTR:
+        return new_void_dtype(space, size)
+    assert False
 
 
 def new_string_dtype(space, size):
-    itemtype = types.StringType()
     return W_Dtype(
-        itemtype,
+        types.StringType(),
         size=size,
         num=NPY.STRING,
         kind=NPY.STRINGLTR,
         name='string',
         char=NPY.STRINGLTR,
-        w_box_type = space.gettypefor(interp_boxes.W_StringBox),
+        w_box_type=space.gettypefor(interp_boxes.W_StringBox),
     )
 
 
 def new_unicode_dtype(space, size):
-    itemtype = types.UnicodeType()
     return W_Dtype(
-        itemtype,
+        types.UnicodeType(),
         size=size,
         num=NPY.UNICODE,
         kind=NPY.UNICODELTR,
         name='unicode',
         char=NPY.UNICODELTR,
-        w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox),
+        w_box_type=space.gettypefor(interp_boxes.W_UnicodeBox),
+    )
+
+
+def new_void_dtype(space, size):
+    return W_Dtype(
+        types.VoidType(),
+        size=size,
+        num=NPY.VOID,
+        kind=NPY.VOIDLTR,
+        name='void',
+        char=NPY.VOIDLTR,
+        w_box_type=space.gettypefor(interp_boxes.W_VoidBox),
     )
 
 
