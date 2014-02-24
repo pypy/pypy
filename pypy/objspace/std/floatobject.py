@@ -7,7 +7,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault, in
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std import newformat
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
@@ -314,6 +313,160 @@ class W_FloatObject(W_AbstractFloatObject):
         w_float = space.wrap(sign * value)
         return space.call_function(w_cls, w_float)
 
+    def _to_float(self, space, w_obj):
+        if isinstance(w_obj, W_FloatObject):
+            return w_obj
+        if space.isinstance_w(w_obj, space.w_int):
+            return W_FloatObject(float(w_obj.intval))
+        if space.isinstance_w(w_obj, space.w_long):
+            return W_FloatObject(w_obj.tofloat(space))
+
+    def descr_coerce(self, space, w_other):
+        w_other = self._to_float(space, w_other)
+        if w_other is None:
+            return space.w_NotImplemented
+        return space.newtuple([self, w_other])
+
+    def descr_add(self, space, w_rhs):
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        return W_FloatObject(self.floatval + w_rhs.floatval)
+
+    def descr_radd(self, space, w_lhs):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return W_FloatObject(w_lhs.floatval + self.floatval)
+
+    def descr_sub(self, space, w_rhs):
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        return W_FloatObject(self.floatval - w_rhs.floatval)
+
+    def descr_rsub(self, space, w_lhs):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return W_FloatObject(w_lhs.floatval - self.floatval)
+
+    def descr_mul(self, space, w_rhs):
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        return W_FloatObject(self.floatval * w_rhs.floatval)
+
+    def descr_rmul(self, space, w_lhs):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return W_FloatObject(w_lhs.floatval * self.floatval)
+
+    def descr_div(self, space, w_rhs):
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        rhs = w_rhs.floatval
+        if rhs == 0.0:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
+        return W_FloatObject(self.floatval / rhs)
+
+    def descr_rdiv(self, space, w_lhs):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        lhs = w_lhs.floatval
+        if lhs == 0.0:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
+        return W_FloatObject(lhs / self.floatval)
+
+    def descr_floordiv(self, space, w_rhs):
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        return _divmod_w(space, self, w_rhs)[0]
+
+    def descr_rfloordiv(self, space, w_lhs):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return _divmod_w(space, w_lhs, self)[0]
+
+    def descr_mod(self, space, w_rhs):
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        x = self.floatval
+        y = w_rhs.floatval
+        if y == 0.0:
+            raise OperationError(space.w_ZeroDivisionError, space.wrap("float modulo"))
+        try:
+            mod = math.fmod(x, y)
+        except ValueError:
+            mod = rfloat.NAN
+        else:
+            if mod:
+                # ensure the remainder has the same sign as the denominator
+                if (y < 0.0) != (mod < 0.0):
+                    mod += y
+            else:
+                # the remainder is zero, and in the presence of signed zeroes
+                # fmod returns different results across platforms; ensure
+                # it has the same sign as the denominator; we'd like to do
+                # "mod = y * 0.0", but that may get optimized away
+                mod = copysign(0.0, y)
+
+        return W_FloatObject(mod)
+
+    def descr_rmod(self, space, w_lhs):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return w_lhs.descr_mod(space, self)
+
+    def descr_divmod(self, space, w_rhs):
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        return space.newtuple(_divmod_w(space, self, w_rhs))
+
+    def descr_rdivmod(self, space, w_lhs):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return space.newtuple(_divmod_w(space, w_lhs, self))
+
+    @unwrap_spec(w_third_arg=WrappedDefault(None))
+    def descr_pow(self, space, w_rhs, w_third_arg):
+        # This raises FailedToImplement in cases like overflow where a
+        # (purely theoretical) big-precision float implementation would have
+        # a chance to give a result, and directly OperationError for errors
+        # that we want to force to be reported to the user.
+
+        w_rhs = self._to_float(space, w_rhs)
+        if w_rhs is None:
+            return space.w_NotImplemented
+        if not space.is_w(w_third_arg, space.w_None):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "pow() 3rd argument not allowed unless all arguments are integers"))
+        x = self.floatval
+        y = w_rhs.floatval
+
+        try:
+            result = _pow(space, x, y)
+        except PowDomainError:
+            raise oefmt(space.w_ValueError,
+                        "negative number cannot be raised to a fractional power")
+        return W_FloatObject(result)
+
+    @unwrap_spec(w_third_arg=WrappedDefault(None))
+    def descr_rpow(self, space, w_lhs, w_third_arg):
+        w_lhs = self._to_float(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return w_lhs.descr_pow(space, self, w_third_arg)
+
     def descr_conjugate(self, space):
         return space.float(self)
 
@@ -343,25 +496,33 @@ Convert a string or number to a floating point number, if possible.''',
     __new__ = interp2app(W_FloatObject.descr__new__),
     __getformat__ = interp2app(W_FloatObject.descr___getformat__, as_classmethod=True),
     fromhex = interp2app(W_FloatObject.descr_fromhex, as_classmethod=True),
+    __coerce__ = interp2app(W_FloatObject.descr_coerce),
+
+    __add__ = interp2app(W_FloatObject.descr_add),
+    __radd__ = interp2app(W_FloatObject.descr_radd),
+    __sub__ = interp2app(W_FloatObject.descr_sub),
+    __rsub__ = interp2app(W_FloatObject.descr_rsub),
+    __mul__ = interp2app(W_FloatObject.descr_mul),
+    __rmul__ = interp2app(W_FloatObject.descr_rmul),
+    __div__ = interp2app(W_FloatObject.descr_div),
+    __rdiv__ = interp2app(W_FloatObject.descr_rdiv),
+    __truediv__ = interp2app(W_FloatObject.descr_div),
+    __rtruediv__ = interp2app(W_FloatObject.descr_rdiv),
+    __floordiv__ = interp2app(W_FloatObject.descr_floordiv),
+    __rfloordiv__ = interp2app(W_FloatObject.descr_rfloordiv),
+    __mod__ = interp2app(W_FloatObject.descr_mod),
+    __rmod__ = interp2app(W_FloatObject.descr_rmod),
+    __divmod__ = interp2app(W_FloatObject.descr_divmod),
+    __rdivmod__ = interp2app(W_FloatObject.descr_rdivmod),
+    __pow__ = interp2app(W_FloatObject.descr_pow),
+    __rpow__ = interp2app(W_FloatObject.descr_rpow),
+
     conjugate = interp2app(W_FloatObject.descr_conjugate),
     real = GetSetProperty(W_FloatObject.descr_get_real),
     imag = GetSetProperty(W_FloatObject.descr_get_imag),
     __int__ = interpindirect2app(W_AbstractFloatObject.int),
 )
 W_FloatObject.typedef.registermethods(globals())
-
-
-# bool-to-float delegation
-def delegate_Bool2Float(space, w_bool):
-    return W_FloatObject(float(w_bool.intval))
-
-# int-to-float delegation
-def delegate_Int2Float(space, w_intobj):
-    return W_FloatObject(float(w_intobj.intval))
-
-# long-to-float delegation
-def delegate_Long2Float(space, w_longobj):
-    return W_FloatObject(w_longobj.tofloat(space))
 
 
 # float__Float is supposed to do nothing, unless it has
@@ -613,67 +774,11 @@ def _hash_float(space, v):
     return x
 
 
-# coerce
-def coerce__Float_Float(space, w_float1, w_float2):
-    return space.newtuple([w_float1, w_float2])
-
-
-def add__Float_Float(space, w_float1, w_float2):
-    x = w_float1.floatval
-    y = w_float2.floatval
-    return W_FloatObject(x + y)
-
-def sub__Float_Float(space, w_float1, w_float2):
-    x = w_float1.floatval
-    y = w_float2.floatval
-    return W_FloatObject(x - y)
-
-def mul__Float_Float(space, w_float1, w_float2):
-    x = w_float1.floatval
-    y = w_float2.floatval
-    return W_FloatObject(x * y)
-
-def div__Float_Float(space, w_float1, w_float2):
-    x = w_float1.floatval
-    y = w_float2.floatval
-    if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))
-    return W_FloatObject(x / y)
-
-truediv__Float_Float = div__Float_Float
-
-def floordiv__Float_Float(space, w_float1, w_float2):
-    w_div, w_mod = _divmod_w(space, w_float1, w_float2)
-    return w_div
-
-def mod__Float_Float(space, w_float1, w_float2):
-    x = w_float1.floatval
-    y = w_float2.floatval
-    if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    try:
-        mod = math.fmod(x, y)
-    except ValueError:
-        mod = rfloat.NAN
-    else:
-        if mod:
-            # ensure the remainder has the same sign as the denominator
-            if (y < 0.0) != (mod < 0.0):
-                mod += y
-        else:
-            # the remainder is zero, and in the presence of signed zeroes
-            # fmod returns different results across platforms; ensure
-            # it has the same sign as the denominator; we'd like to do
-            # "mod = y * 0.0", but that may get optimized away
-            mod = copysign(0.0, y)
-
-    return W_FloatObject(mod)
-
 def _divmod_w(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
+        raise OperationError(space.w_ZeroDivisionError, space.wrap("float modulo"))
     try:
         mod = math.fmod(x, y)
     except ValueError:
@@ -708,27 +813,6 @@ def _divmod_w(space, w_float1, w_float2):
         floordiv = div * x / y  # zero w/ sign of vx/wx
 
     return [W_FloatObject(floordiv), W_FloatObject(mod)]
-
-def divmod__Float_Float(space, w_float1, w_float2):
-    return space.newtuple(_divmod_w(space, w_float1, w_float2))
-
-def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
-    # This raises FailedToImplement in cases like overflow where a
-    # (purely theoretical) big-precision float implementation would have
-    # a chance to give a result, and directly OperationError for errors
-    # that we want to force to be reported to the user.
-    if not space.is_w(thirdArg, space.w_None):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "pow() 3rd argument not allowed unless all arguments are integers"))
-    x = w_float1.floatval
-    y = w_float2.floatval
-
-    try:
-        result = _pow(space, x, y)
-    except PowDomainError:
-        raise oefmt(space.w_ValueError,
-                    "negative number cannot be raised to a fractional power")
-    return W_FloatObject(result)
 
 class PowDomainError(ValueError):
     """Signals a negative number raised to a fractional power"""
@@ -810,7 +894,7 @@ def _pow(space, x, y):
         # We delegate to our implementation of math.pow() the error detection.
         z = math.pow(x,y)
     except OverflowError:
-        raise FailedToImplementArgs(space.w_OverflowError,
+        raise OperationError(space.w_OverflowError,
                                     space.wrap("float power"))
     except ValueError:
         raise OperationError(space.w_ValueError,

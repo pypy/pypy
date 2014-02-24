@@ -133,21 +133,12 @@ class StdTypeModel:
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
 
-        self.typeorder[boolobject.W_BoolObject] += [
-            (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
-            ]
-        self.typeorder[intobject.W_IntObject] += [
-            (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
-            ]
         if config.objspace.std.withsmalllong:
             from pypy.objspace.std import smalllongobject
             self.typeorder[smalllongobject.W_SmallLongObject] += [
                 (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
                 (complexobject.W_ComplexObject, smalllongobject.delegate_SmallLong2Complex),
                 ]
-        self.typeorder[longobject.W_LongObject] += [
-            (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
-            ]
 
         if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
