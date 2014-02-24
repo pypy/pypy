@@ -2102,6 +2102,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[2] == 3.0
 
         a = array('123')
+        assert a.astype('S0').dtype == 'S3'
         assert a.astype('i8') == 123
         a = array('abcdefgh')
         exc = raises(ValueError, a.astype, 'i8')

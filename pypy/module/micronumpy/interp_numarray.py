@@ -572,6 +572,10 @@ class __extend__(W_NDimArray):
         if new_dtype.num == NPY.VOID:
             raise oefmt(space.w_NotImplementedError,
                 "%s.astype(%s) not implemented yet", cur_dtype.name, new_dtype.name)
+        if new_dtype.num == NPY.STRING and new_dtype.size == 0:
+            if cur_dtype.num == NPY.STRING:
+                new_dtype = interp_dtype.variable_dtype(space,
+                    'S' + str(cur_dtype.size))
         impl = self.implementation
         if isinstance(impl, scalar.Scalar):
             return W_NDimArray.new_scalar(space, new_dtype, impl.value)
