@@ -37,7 +37,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
 
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char",
+    _immutable_fields_ = ["itemtype?", "num", "kind", "name", "char",
                           "w_box_type", "byteorder", "size?", "float_type",
                           "fields?", "fieldnames?", "shape", "subdtype", "base"]
 
@@ -127,10 +127,9 @@ class W_Dtype(W_Root):
     def descr_str(self, space):
         if not self.num == NPY.VOID:
             if self.char == 'S':
-                s = '|S' + str(self.get_size())
+                return space.wrap('|S' + str(self.get_size()))
             else:
-                s = self.name
-            return space.wrap(s)
+                return self.descr_get_name(space)
         elif self.subdtype is not None:
             return space.str(space.newtuple([
                 self.subdtype.descr_get_str(space),
@@ -140,10 +139,9 @@ class W_Dtype(W_Root):
     def descr_repr(self, space):
         if not self.num == NPY.VOID:
             if self.char == 'S':
-                s = 'S' + str(self.get_size())
+                r = space.wrap('S' + str(self.get_size()))
             else:
-                s = self.name
-            r = space.wrap(s)
+                r = self.descr_get_name(space)
         elif self.subdtype is not None:
             r = space.newtuple([self.subdtype.descr_get_str(space),
                                 self.descr_get_shape(space)])
@@ -161,6 +159,11 @@ class W_Dtype(W_Root):
         if self.subdtype is None:
             return space.w_None
         return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
+
+    def descr_get_name(self, space):
+        if self.is_flexible_type():
+            return space.wrap(self.name + str(self.get_size() * 8))
+        return space.wrap(self.name)
 
     def descr_get_str(self, space):
         size = self.get_size()
@@ -225,8 +228,8 @@ class W_Dtype(W_Root):
             return space.w_None
         w_d = space.newdict()
         for name, (offset, subdtype) in self.fields.iteritems():
-            space.setitem(w_d, space.wrap(name), space.newtuple([subdtype,
-                                                                 space.wrap(offset)]))
+            space.setitem(w_d, space.wrap(name),
+                          space.newtuple([subdtype, space.wrap(offset)]))
         return w_d
 
     def descr_set_fields(self, space, w_fields):
@@ -245,10 +248,8 @@ class W_Dtype(W_Root):
                 self.fields[space.str_w(key)] = offset, dtype
 
                 size += dtype.get_size()
-
             self.itemtype = types.RecordType()
             self.size = size
-            self.name = "void" + str(8 * self.get_size())
 
     def descr_get_names(self, space):
         if len(self.fieldnames) == 0:
@@ -401,9 +402,7 @@ def dtype_from_list(space, w_lst, simple):
         fields[fldname] = (offset, subdtype)
         offset += subdtype.get_size()
         fieldnames.append(fldname)
-    itemtype = types.RecordType()
-    return W_Dtype(itemtype, NPY.VOID, NPY.VOIDLTR,
-                   "void" + str(8 * offset * itemtype.get_element_size()),
+    return W_Dtype(types.RecordType(), NPY.VOID, NPY.VOIDLTR, "void",
                    NPY.VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox),
                    fields=fields, fieldnames=fieldnames, size=offset)
 
@@ -513,7 +512,7 @@ W_Dtype.typedef = TypeDef("dtype",
 
     subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
     str = GetSetProperty(W_Dtype.descr_get_str),
-    name = interp_attrproperty("name", cls=W_Dtype),
+    name = GetSetProperty(W_Dtype.descr_get_name),
     base = GetSetProperty(W_Dtype.descr_get_base),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
     isnative = GetSetProperty(W_Dtype.descr_get_isnative),
@@ -544,25 +543,22 @@ def variable_dtype(space, name):
 
     if char == NPY.STRINGLTR:
         itemtype = types.StringType()
-        basename = 'string'
+        name = 'string'
         num = NPY.STRING
         w_box_type = space.gettypefor(interp_boxes.W_StringBox)
     elif char == NPY.VOIDLTR:
         itemtype = types.VoidType()
-        basename = 'void'
+        name = 'void'
         num = NPY.VOID
         w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
     elif char == NPY.UNICODELTR:
         itemtype = types.UnicodeType()
-        basename = 'unicode'
+        name = 'unicode'
         num = NPY.UNICODE
         w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox)
     else:
         assert False
-
-    return W_Dtype(itemtype, num, char,
-                   basename + str(8 * size * itemtype.get_element_size()),
-                   char, w_box_type, size=size)
+    return W_Dtype(itemtype, num, char, name, char, w_box_type, size=size)
 
 
 def new_string_dtype(space, size):
@@ -572,7 +568,7 @@ def new_string_dtype(space, size):
         size=size,
         num=NPY.STRING,
         kind=NPY.STRINGLTR,
-        name='string' + str(8 * size * itemtype.get_element_size()),
+        name='string',
         char=NPY.STRINGLTR,
         w_box_type = space.gettypefor(interp_boxes.W_StringBox),
     )
@@ -585,7 +581,7 @@ def new_unicode_dtype(space, size):
         size=size,
         num=NPY.UNICODE,
         kind=NPY.UNICODELTR,
-        name='unicode' + str(8 * size * itemtype.get_element_size()),
+        name='unicode',
         char=NPY.UNICODELTR,
         w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox),
     )
