@@ -17,10 +17,7 @@ from rpython.rlib.rfloat import (
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION, float_as_rbigint_ratio)
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import ParseStringError
-from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
-
-from pypy.objspace.std.intobject import W_IntObject
 
 
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
@@ -108,6 +105,53 @@ def _hex_digit(s, j, co_end, float_digits):
     else:
         i = co_end - 1 - j
     return _hex_from_char(s[i])
+
+
+def make_compare_func(opname):
+    op = getattr(operator, opname)
+
+    if opname == 'eq' or opname == 'ne':
+        def do_compare_bigint(f1, b2):
+            """f1 is a float.  b2 is a bigint."""
+            if not isfinite(f1) or math.floor(f1) != f1:
+                return opname == 'ne'
+            b1 = rbigint.fromfloat(f1)
+            res = b1.eq(b2)
+            if opname == 'ne':
+                res = not res
+            return res
+    else:
+        def do_compare_bigint(f1, b2):
+            """f1 is a float.  b2 is a bigint."""
+            if not isfinite(f1):
+                return op(f1, 0.0)
+            if opname == 'gt' or opname == 'le':
+                # 'float > long'   <==>  'ceil(float) > long'
+                # 'float <= long'  <==>  'ceil(float) <= long'
+                f1 = math.ceil(f1)
+            else:
+                # 'float < long'   <==>  'floor(float) < long'
+                # 'float >= long'  <==>  'floor(float) >= long'
+                f1 = math.floor(f1)
+            b1 = rbigint.fromfloat(f1)
+            return getattr(b1, opname)(b2)
+
+    def _compare(self, space, w_other):
+        if isinstance(w_other, W_FloatObject):
+            return space.newbool(op(self.floatval, w_other.floatval))
+        if space.isinstance_w(w_other, space.w_int):
+            f1 = self.floatval
+            i2 = w_other.intval
+            f2 = float(i2)
+            if LONG_BIT > 32 and int(f2) != i2:
+                res = do_compare_bigint(f1, rbigint.fromint(i2))
+            else:
+                res = op(f1, f2)
+            return space.newbool(res)
+        if space.isinstance_w(w_other, space.w_long):
+            return space.newbool(do_compare_bigint(self.floatval, w_other.num))
+        return space.w_NotImplemented
+    return _compare
 
 
 class W_FloatObject(W_AbstractFloatObject):
@@ -327,6 +371,13 @@ class W_FloatObject(W_AbstractFloatObject):
             return space.w_NotImplemented
         return space.newtuple([self, w_other])
 
+    descr_eq = make_compare_func('eq')
+    descr_ne = make_compare_func('ne')
+    descr_lt = make_compare_func('lt')
+    descr_le = make_compare_func('le')
+    descr_gt = make_compare_func('gt')
+    descr_ge = make_compare_func('ge')
+
     def descr_add(self, space, w_rhs):
         w_rhs = self._to_float(space, w_rhs)
         if w_rhs is None:
@@ -498,6 +549,13 @@ Convert a string or number to a floating point number, if possible.''',
     fromhex = interp2app(W_FloatObject.descr_fromhex, as_classmethod=True),
     __coerce__ = interp2app(W_FloatObject.descr_coerce),
 
+    __eq__ = interp2app(W_FloatObject.descr_eq),
+    __ne__ = interp2app(W_FloatObject.descr_ne),
+    __lt__ = interp2app(W_FloatObject.descr_lt),
+    __le__ = interp2app(W_FloatObject.descr_le),
+    __gt__ = interp2app(W_FloatObject.descr_gt),
+    __ge__ = interp2app(W_FloatObject.descr_ge),
+
     __add__ = interp2app(W_FloatObject.descr_add),
     __radd__ = interp2app(W_FloatObject.descr_radd),
     __sub__ = interp2app(W_FloatObject.descr_sub),
@@ -613,113 +671,6 @@ def str__Float(space, w_float):
 
 def format__Float_ANY(space, w_float, w_spec):
     return newformat.run_formatter(space, w_spec, "format_float", w_float)
-
-# ____________________________________________________________
-# A mess to handle all cases of float comparison without relying
-# on delegation, which can unfortunately loose precision when
-# casting an int or a long to a float.
-
-def list_compare_funcs(declarator):
-    for op in ['lt', 'le', 'eq', 'ne', 'gt', 'ge']:
-        func, name = declarator(op)
-        globals()[name] = func_with_new_name(func, name)
-
-def _reverse(opname):
-    if opname[0] == 'l': return 'g' + opname[1:]
-    elif opname[0] == 'g': return 'l' + opname[1:]
-    else: return opname
-
-
-def declare_compare_bigint(opname):
-    """Return a helper function that implements a float-bigint comparison."""
-    op = getattr(operator, opname)
-    #
-    if opname == 'eq' or opname == 'ne':
-        def do_compare_bigint(f1, b2):
-            """f1 is a float.  b2 is a bigint."""
-            if not isfinite(f1) or math.floor(f1) != f1:
-                return opname == 'ne'
-            b1 = rbigint.fromfloat(f1)
-            res = b1.eq(b2)
-            if opname == 'ne':
-                res = not res
-            return res
-    else:
-        def do_compare_bigint(f1, b2):
-            """f1 is a float.  b2 is a bigint."""
-            if not isfinite(f1):
-                return op(f1, 0.0)
-            if opname == 'gt' or opname == 'le':
-                # 'float > long'   <==>  'ceil(float) > long'
-                # 'float <= long'  <==>  'ceil(float) <= long'
-                f1 = math.ceil(f1)
-            else:
-                # 'float < long'   <==>  'floor(float) < long'
-                # 'float >= long'  <==>  'floor(float) >= long'
-                f1 = math.floor(f1)
-            b1 = rbigint.fromfloat(f1)
-            return getattr(b1, opname)(b2)
-    #
-    return do_compare_bigint, 'compare_bigint_' + opname
-list_compare_funcs(declare_compare_bigint)
-
-
-def declare_cmp_float_float(opname):
-    op = getattr(operator, opname)
-    def f(space, w_float1, w_float2):
-        f1 = w_float1.floatval
-        f2 = w_float2.floatval
-        return space.newbool(op(f1, f2))
-    return f, opname + "__Float_Float"
-list_compare_funcs(declare_cmp_float_float)
-
-def declare_cmp_float_int(opname):
-    op = getattr(operator, opname)
-    compare = globals()['compare_bigint_' + opname]
-    def f(space, w_float1, w_int2):
-        f1 = w_float1.floatval
-        i2 = w_int2.intval
-        f2 = float(i2)
-        if LONG_BIT > 32 and int(f2) != i2:
-            res = compare(f1, rbigint.fromint(i2))
-        else:
-            res = op(f1, f2)
-        return space.newbool(res)
-    return f, opname + "__Float_Int"
-list_compare_funcs(declare_cmp_float_int)
-
-def declare_cmp_float_long(opname):
-    compare = globals()['compare_bigint_' + opname]
-    def f(space, w_float1, w_long2):
-        f1 = w_float1.floatval
-        b2 = w_long2.num
-        return space.newbool(compare(f1, b2))
-    return f, opname + "__Float_Long"
-list_compare_funcs(declare_cmp_float_long)
-
-def declare_cmp_int_float(opname):
-    op = getattr(operator, opname)
-    revcompare = globals()['compare_bigint_' + _reverse(opname)]
-    def f(space, w_int1, w_float2):
-        f2 = w_float2.floatval
-        i1 = w_int1.intval
-        f1 = float(i1)
-        if LONG_BIT > 32 and int(f1) != i1:
-            res = revcompare(f2, rbigint.fromint(i1))
-        else:
-            res = op(f1, f2)
-        return space.newbool(res)
-    return f, opname + "__Int_Float"
-list_compare_funcs(declare_cmp_int_float)
-
-def declare_cmp_long_float(opname):
-    revcompare = globals()['compare_bigint_' + _reverse(opname)]
-    def f(space, w_long1, w_float2):
-        f2 = w_float2.floatval
-        b1 = w_long1.num
-        return space.newbool(revcompare(f2, b1))
-    return f, opname + "__Long_Float"
-list_compare_funcs(declare_cmp_long_float)
 
 
 # ____________________________________________________________
