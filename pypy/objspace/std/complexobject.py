@@ -280,8 +280,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         if space.isinstance_w(w_obj, space.w_int):
             return W_ComplexObject(space.int_w(w_obj), 0.0)
         if space.isinstance_w(w_obj, space.w_long):
-            dval = w_obj.tofloat(space)
-            return W_ComplexObject(dval, 0.0)
+            return W_ComplexObject(space.float_w(w_obj), 0.0)
         if space.isinstance_w(w_obj, space.w_float):
             return W_ComplexObject(space.float_w(w_obj), 0.0)
 
