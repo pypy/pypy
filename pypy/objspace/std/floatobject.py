@@ -48,14 +48,6 @@ def detect_floatformat():
 _double_format, _float_format = detect_floatformat()
 
 
-def _string_to_float(space, w_source, string):
-    try:
-        return rfloat.string_to_float(string)
-    except ParseStringError as e:
-        from pypy.objspace.std.intobject import wrap_parsestringerror
-        raise wrap_parsestringerror(space, e, w_source)
-
-
 _alpha = zip("abcdef", range(10, 16)) + zip("ABCDEF", range(10, 16))
 _hex_to_int = zip("0123456789", range(10)) + _alpha
 _hex_to_int_iterable = unrolling_iterable(_hex_to_int)
@@ -172,7 +164,13 @@ class W_FloatObject(W_Root):
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0.0))
     def descr__new__(space, w_floattype, w_x):
-        from pypy.objspace.std.floatobject import W_FloatObject
+        def _string_to_float(space, w_source, string):
+            try:
+                return rfloat.string_to_float(string)
+            except ParseStringError as e:
+                from pypy.objspace.std.intobject import wrap_parsestringerror
+                raise wrap_parsestringerror(space, e, w_source)
+
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
             w_obj = space.float(w_value)
