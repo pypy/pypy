@@ -18,6 +18,7 @@ from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.model import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG)
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import wrap_parsestringerror
 
 
 def delegate_other(func):
@@ -538,7 +539,6 @@ def _string_to_w_long(space, w_longtype, w_source, string, base=10):
     try:
         bigint = rbigint.fromstr2(string, base)
     except ParseStringError as e:
-        from pypy.objspace.std.intobject import wrap_parsestringerror
         raise wrap_parsestringerror(space, e, w_source)
     return newbigint(space, w_longtype, bigint)
 _string_to_w_long._dont_inline_ = True
