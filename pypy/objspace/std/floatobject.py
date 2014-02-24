@@ -3,7 +3,7 @@ import operator
 import sys
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault, interpindirect2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std import newformat
 from pypy.objspace.std.longobject import W_LongObject
@@ -358,11 +358,64 @@ class W_FloatObject(W_Object):
         if space.isinstance_w(w_obj, space.w_long):
             return W_FloatObject(w_obj.tofloat(space))
 
+    def descr_repr(self, space):
+        return space.wrap(float2string(self.floatval, 'r', 0))
+
+    def descr_str(self, space):
+        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
+
+    def descr_hash(self, space):
+        return space.wrap(_hash_float(space, self.floatval))
+
+    def descr_format(self, space, w_spec):
+        return newformat.run_formatter(space, w_spec, "format_float", self)
+
     def descr_coerce(self, space, w_other):
         w_other = self._to_float(space, w_other)
         if w_other is None:
             return space.w_NotImplemented
         return space.newtuple([self, w_other])
+
+    def descr_nonzero(self, space):
+        return space.newbool(self.floatval != 0.0)
+
+    def descr_float(self, space):
+        if space.is_w(space.type(self), space.w_float):
+            return self
+        a = self.floatval
+        return W_FloatObject(a)
+
+    def descr_long(self, space):
+        try:
+            return W_LongObject.fromfloat(space, self.floatval)
+        except OverflowError:
+            raise OperationError(
+                space.w_OverflowError,
+                space.wrap("cannot convert float infinity to integer"))
+        except ValueError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("cannot convert float NaN to integer"))
+
+    def descr_trunc(self, space):
+        whole = math.modf(self.floatval)[1]
+        try:
+            value = ovfcheck_float_to_int(whole)
+        except OverflowError:
+            return self.descr_long(space)
+        else:
+            return space.newint(value)
+
+    def descr_neg(self, space):
+        return W_FloatObject(-self.floatval)
+
+    def descr_pos(self, space):
+        return self.descr_float(space)
+
+    def descr_abs(self, space):
+        return W_FloatObject(abs(self.floatval))
+
+    def descr_getnewargs(self, space):
+        return space.newtuple([self.descr_float(space)])
 
     descr_eq = make_compare_func('eq')
     descr_ne = make_compare_func('ne')
@@ -540,7 +593,20 @@ Convert a string or number to a floating point number, if possible.''',
     __new__ = interp2app(W_FloatObject.descr__new__),
     __getformat__ = interp2app(W_FloatObject.descr___getformat__, as_classmethod=True),
     fromhex = interp2app(W_FloatObject.descr_fromhex, as_classmethod=True),
+    __repr__ = interp2app(W_FloatObject.descr_repr),
+    __str__ = interp2app(W_FloatObject.descr_str),
+    __hash__ = interp2app(W_FloatObject.descr_hash),
+    __format__ = interp2app(W_FloatObject.descr_format),
     __coerce__ = interp2app(W_FloatObject.descr_coerce),
+    __nonzero__ = interp2app(W_FloatObject.descr_nonzero),
+    __int__ = interp2app(W_FloatObject.int),
+    __float__ = interp2app(W_FloatObject.descr_float),
+    __long__ = interp2app(W_FloatObject.descr_long),
+    __trunc__ = interp2app(W_FloatObject.descr_trunc),
+    __neg__ = interp2app(W_FloatObject.descr_neg),
+    __pos__ = interp2app(W_FloatObject.descr_pos),
+    __abs__ = interp2app(W_FloatObject.descr_abs),
+    __getnewargs__ = interp2app(W_FloatObject.descr_getnewargs),
 
     __eq__ = interp2app(W_FloatObject.descr_eq),
     __ne__ = interp2app(W_FloatObject.descr_ne),
@@ -571,39 +637,9 @@ Convert a string or number to a floating point number, if possible.''',
     conjugate = interp2app(W_FloatObject.descr_conjugate),
     real = GetSetProperty(W_FloatObject.descr_get_real),
     imag = GetSetProperty(W_FloatObject.descr_get_imag),
-    __int__ = interpindirect2app(W_FloatObject.int),
 )
 W_FloatObject.typedef.registermethods(globals())
 
-
-# float__Float is supposed to do nothing, unless it has
-# a derived float object, where it should return
-# an exact one.
-def float__Float(space, w_float1):
-    if space.is_w(space.type(w_float1), space.w_float):
-        return w_float1
-    a = w_float1.floatval
-    return W_FloatObject(a)
-
-def long__Float(space, w_floatobj):
-    try:
-        return W_LongObject.fromfloat(space, w_floatobj.floatval)
-    except OverflowError:
-        raise OperationError(
-            space.w_OverflowError,
-            space.wrap("cannot convert float infinity to integer"))
-    except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("cannot convert float NaN to integer"))
-
-def trunc__Float(space, w_floatobj):
-    whole = math.modf(w_floatobj.floatval)[1]
-    try:
-        value = ovfcheck_float_to_int(whole)
-    except OverflowError:
-        return long__Float(space, w_floatobj)
-    else:
-        return space.newint(value)
 
 def _char_from_hex(number):
     return "0123456789abcdef"[number]
@@ -613,7 +649,7 @@ TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
 def float_hex__Float(space, w_float):
     value = w_float.floatval
     if not isfinite(value):
-        return str__Float(space, w_float)
+        return w_float.descr_str(space)
     if value == 0.0:
         if copysign(1., value) == -1.:
             return space.wrap("-0x0.0p+0")
@@ -656,20 +692,8 @@ def float2string(x, code, precision):
         s = "nan"
     return s
 
-def repr__Float(space, w_float):
-    return space.wrap(float2string(w_float.floatval, 'r', 0))
-
-def str__Float(space, w_float):
-    return space.wrap(float2string(w_float.floatval, 'g', DTSF_STR_PRECISION))
-
-def format__Float_ANY(space, w_float, w_spec):
-    return newformat.run_formatter(space, w_spec, "format_float", w_float)
-
 
 # ____________________________________________________________
-
-def hash__Float(space, w_value):
-    return space.wrap(_hash_float(space, w_value.floatval))
 
 def _hash_float(space, v):
     if isnan(v):
@@ -848,21 +872,6 @@ def _pow(space, x, y):
         z = -z
     return z
 
-
-def neg__Float(space, w_float1):
-    return W_FloatObject(-w_float1.floatval)
-
-def pos__Float(space, w_float):
-    return float__Float(space, w_float)
-
-def abs__Float(space, w_float):
-    return W_FloatObject(abs(w_float.floatval))
-
-def nonzero__Float(space, w_float):
-    return space.newbool(w_float.floatval != 0.0)
-
-def getnewargs__Float(space, w_float):
-    return space.newtuple([W_FloatObject(w_float.floatval)])
 
 def float_as_integer_ratio__Float(space, w_float):
     value = w_float.floatval
