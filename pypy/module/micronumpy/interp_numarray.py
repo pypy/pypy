@@ -1234,7 +1234,8 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtyp
 
 app_take = applevel(r"""
     def take(a, indices, axis, out, mode):
-        assert mode == 'raise'
+        if mode != 'raise':
+            raise NotImplementedError("mode != raise not implemented")
         if axis is None:
             from numpy import array
             indices = array(indices)

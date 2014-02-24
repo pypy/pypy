@@ -2822,6 +2822,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert ((a + a).take([3]) == [6]).all()
         a = arange(12).reshape(2, 6)
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "a.take([3, 2, 1], mode='clip')")
+            assert exc.value[0] == "mode != raise not implemented"
 
     def test_ptp(self):
         import numpypy as np
