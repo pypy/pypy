@@ -66,6 +66,9 @@ def _hex_digit(s, j, co_end, float_digits):
         i = co_end - 1 - j
     return _hex_from_char(s[i])
 
+def _char_from_hex(number):
+    return "0123456789abcdef"[number]
+
 
 def make_compare_func(opname):
     op = getattr(operator, opname)
@@ -179,7 +182,8 @@ class W_FloatObject(W_Root):
             value = space.float_w(w_obj)
         elif (space.isinstance_w(w_value, space.w_str) or
               space.isinstance_w(w_value, space.w_bytearray)):
-            value = _string_to_float(space, w_value, space.bufferstr_w(w_value))
+            value = _string_to_float(space, w_value,
+                                     space.bufferstr_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from unicodeobject import unicode_to_decimal_w
             value = _string_to_float(space, w_value,
@@ -291,7 +295,7 @@ class W_FloatObject(W_Root):
             elif exp >= sys.maxint // 2:
                 raise oefmt(space.w_OverflowError, "too large")
             else:
-                exp -=  4 * float_digits
+                exp -= 4 * float_digits
                 top_exp = exp + 4 * (total_digits - 1)
                 digit = _hex_digit(s, total_digits - 1, co_end, float_digits)
                 while digit:
@@ -350,11 +354,25 @@ class W_FloatObject(W_Root):
         if space.isinstance_w(w_obj, space.w_long):
             return W_FloatObject(w_obj.tofloat(space))
 
+    def _float2string(self, x, code, precision):
+        # we special-case explicitly inf and nan here
+        if isfinite(x):
+            s = formatd(x, code, precision, DTSF_ADD_DOT_0)
+        elif isinf(x):
+            if x > 0.0:
+                s = "inf"
+            else:
+                s = "-inf"
+        else:  # isnan(x):
+            s = "nan"
+        return s
+
     def descr_repr(self, space):
-        return space.wrap(float2string(self.floatval, 'r', 0))
+        return space.wrap(self._float2string(self.floatval, 'r', 0))
 
     def descr_str(self, space):
-        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
+        return space.wrap(self._float2string(self.floatval, 'g',
+                                             DTSF_STR_PRECISION))
 
     def descr_hash(self, space):
         return space.wrap(_hash_float(space, self.floatval))
@@ -544,8 +562,8 @@ class W_FloatObject(W_Root):
         try:
             result = _pow(space, x, y)
         except PowDomainError:
-            raise oefmt(space.w_ValueError,
-                        "negative number cannot be raised to a fractional power")
+            raise oefmt(space.w_ValueError, "negative number cannot be raised "
+                                            "to a fractional power")
         return W_FloatObject(result)
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))
@@ -587,6 +605,7 @@ class W_FloatObject(W_Root):
         return space.newtuple([space.int(w_num), space.int(w_den)])
 
     def descr_hex(self, space):
+        TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
         value = self.floatval
         if not isfinite(value):
             return self.descr_str(space)
@@ -677,27 +696,6 @@ Convert a string or number to a floating point number, if possible.''',
 )
 
 
-def _char_from_hex(number):
-    return "0123456789abcdef"[number]
-
-TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
-
-def float2string(x, code, precision):
-    # we special-case explicitly inf and nan here
-    if isfinite(x):
-        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
-    elif isinf(x):
-        if x > 0.0:
-            s = "inf"
-        else:
-            s = "-inf"
-    else:  # isnan(x):
-        s = "nan"
-    return s
-
-
-# ____________________________________________________________
-
 def _hash_float(space, v):
     if isnan(v):
         return 0
@@ -785,6 +783,7 @@ def _divmod_w(space, w_float1, w_float2):
 
     return [W_FloatObject(floordiv), W_FloatObject(mod)]
 
+
 class PowDomainError(ValueError):
     """Signals a negative number raised to a fractional power"""
 
@@ -862,7 +861,7 @@ def _pow(space, x, y):
 
     try:
         # We delegate to our implementation of math.pow() the error detection.
-        z = math.pow(x,y)
+        z = math.pow(x, y)
     except OverflowError:
         raise oefmt(space.w_OverflowError, "float power")
     except ValueError:
