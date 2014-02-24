@@ -175,8 +175,6 @@ ERR_MALFORMED = "complex() arg is a malformed string"
 
 
 class W_ComplexObject(W_Root):
-    """This is a reimplementation of the CPython "PyComplexObject"
-    """
     _immutable_fields_ = ['realval', 'imagval']
 
     def __init__(self, realval=0.0, imgval=0.0):
