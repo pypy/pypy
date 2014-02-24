@@ -125,9 +125,11 @@ class W_SliceObject(W_Root):
         # parameters
         if space.is_w(self, w_other):
             return space.w_True
+        if not isinstance(w_other, W_SliceObject):
+            return space.w_NotImplemented
         if space.eq_w(self.w_start, w_other.w_start) and \
-            space.eq_w(self.w_stop, w_other.w_stop) and \
-            space.eq_w(self.w_step, w_other.w_step):
+           space.eq_w(self.w_stop, w_other.w_stop) and \
+           space.eq_w(self.w_step, w_other.w_step):
             return space.w_True
         else:
             return space.w_False
