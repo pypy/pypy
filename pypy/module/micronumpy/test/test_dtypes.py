@@ -371,6 +371,7 @@ class AppTestDtypes(BaseAppTestDtypes):
                 raises(TypeError, hash, d)
 
     def test_pickle(self):
+        import numpy as np
         from numpypy import array, dtype
         from cPickle import loads, dumps
         a = array([1,2,3])
@@ -379,6 +380,9 @@ class AppTestDtypes(BaseAppTestDtypes):
         else:
             assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
+        assert np.dtype('bool').__reduce__() == (dtype, ('b1', 0, 1), (3, '|', None, None, None, -1, -1, 0))
+        assert np.dtype('|V16').__reduce__() == (dtype, ('V16', 0, 1), (3, '|', None, None, None, 16, 1, 0))
+        assert np.dtype(('<f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 1, 0))
 
     def test_newbyteorder(self):
         import numpypy as np
@@ -1040,6 +1044,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def test_create(self):
         from numpypy import dtype, void
 

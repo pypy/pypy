@@ -177,7 +177,8 @@ class W_Dtype(W_Root):
     def descr_get_subdtype(self, space):
         if self.subdtype is None:
             return space.w_None
-        return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
+        return space.newtuple([space.wrap(self.subdtype),
+                               self.descr_get_shape(space)])
 
     def get_name(self):
         return self.w_box_type.name
@@ -251,11 +252,11 @@ class W_Dtype(W_Root):
     def descr_get_fields(self, space):
         if not self.fields:
             return space.w_None
-        w_d = space.newdict()
+        w_fields = space.newdict()
         for name, (offset, subdtype) in self.fields.iteritems():
-            space.setitem(w_d, space.wrap(name),
+            space.setitem(w_fields, space.wrap(name),
                           space.newtuple([subdtype, space.wrap(offset)]))
-        return w_d
+        return w_fields
 
     def descr_get_names(self, space):
         if not self.fields:
@@ -326,35 +327,27 @@ class W_Dtype(W_Root):
     def descr_reduce(self, space):
         w_class = space.type(self)
 
-        kind = self.kind
-        elemsize = self.get_size()
-        builder_args = space.newtuple([space.wrap("%s%d" % (kind, elemsize)), space.wrap(0), space.wrap(1)])
+        size = self.get_size()
+        builder_args = space.newtuple([space.wrap("%s%d" % (self.kind, size)),
+                                       space.wrap(0), space.wrap(1)])
 
         version = space.wrap(3)
+        endian = self.byteorder
+        if endian == NPY.NATIVE:
+            endian = NPY.NATBYTE
+        subdescr = self.descr_get_subdtype(space)
         names = self.descr_get_names(space)
         values = self.descr_get_fields(space)
-        if self.fields:
-            endian = NPY.IGNORE
-            #TODO: Implement this when subarrays are implemented
-            subdescr = space.w_None
-            size = 0
-            for key in self.fields:
-                dtype = self.fields[key][1]
-                assert isinstance(dtype, W_Dtype)
-                size += dtype.get_size()
+        if self.is_flexible_type():
             w_size = space.wrap(size)
-            #TODO: Change this when alignment is implemented
-            alignment = space.wrap(1)
+            alignment = space.wrap(self.itemtype.alignment)
         else:
-            endian = self.byteorder
-            if endian == NPY.NATIVE:
-                endian = NPY.NATBYTE
-            subdescr = space.w_None
             w_size = space.wrap(-1)
             alignment = space.wrap(-1)
         flags = space.wrap(0)
 
-        data = space.newtuple([version, space.wrap(endian), subdescr, names, values, w_size, alignment, flags])
+        data = space.newtuple([version, space.wrap(endian), subdescr,
+                               names, values, w_size, alignment, flags])
         return space.newtuple([w_class, builder_args, data])
 
     def descr_setstate(self, space, w_data):
