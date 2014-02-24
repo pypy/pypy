@@ -278,12 +278,12 @@ class W_ComplexObject(W_AbstractComplexObject):
         if isinstance(w_obj, W_ComplexObject):
             return w_obj
         if space.isinstance_w(w_obj, space.w_int):
-            return W_ComplexObject(w_obj.intval, 0.0)
+            return W_ComplexObject(space.int_w(w_obj), 0.0)
         if space.isinstance_w(w_obj, space.w_long):
             dval = w_obj.tofloat(space)
             return W_ComplexObject(dval, 0.0)
         if space.isinstance_w(w_obj, space.w_float):
-            return W_ComplexObject(w_obj.floatval, 0.0)
+            return W_ComplexObject(space.float_w(w_obj), 0.0)
 
     @staticmethod
     @unwrap_spec(w_real=WrappedDefault(0.0))
