@@ -1194,5 +1194,5 @@ def mro_error(space, orderlists):
     cycle.append(candidate)
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
-    raise oefmt(space.w_TypeError,
-                "cycle among base classes: " + ' < '.join(names))
+    raise OperationError(space.w_TypeError, space.wrap(
+        "cycle among base classes: " + ' < '.join(names)))
