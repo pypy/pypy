@@ -183,9 +183,8 @@ def unpackcomplex(space, w_complex, strict_typing=True):
             return (space.float_w(w_z), 0.0)
         elif isinstance(w_z, W_ComplexObject):
             return (w_z.realval, w_z.imagval)
-        raise OperationError(space.w_TypeError,
-                             space.wrap("__complex__() must return"
-                                        " a complex number"))
+        raise oefmt(space.w_TypeError,
+                    "__complex__() must return a complex number")
 
     #
     # no '__complex__' method, so we assume it is a float,
@@ -272,7 +271,8 @@ class W_ComplexObject(W_AbstractComplexObject):
         return w_result
 
     def int(self, space):
-        raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
+        raise oefmt(space.w_TypeError,
+                    "can't convert complex to int; use int(abs(z))")
 
     def _to_complex(self, space, w_obj):
         if isinstance(w_obj, W_ComplexObject):
@@ -303,27 +303,28 @@ class W_ComplexObject(W_AbstractComplexObject):
                 space.isinstance_w(w_real, space.w_unicode):
             # a string argument
             if not noarg2:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("complex() can't take second arg"
-                                                " if first is a string"))
+                raise oefmt(space.w_TypeError, "complex() can't take second"
+                                               " arg if first is a string")
             try:
                 realstr, imagstr = _split_complex(space.str_w(w_real))
             except ValueError:
-                raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
+                raise oefmt(space.w_ValueError, ERR_MALFORMED)
             try:
                 realval = string_to_float(realstr)
                 imagval = string_to_float(imagstr)
             except ParseStringError:
-                raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
+                raise oefmt(space.w_ValueError, ERR_MALFORMED)
 
         else:
             # non-string arguments
-            realval, imagval = unpackcomplex(space, w_real, strict_typing=False)
+            realval, imagval = unpackcomplex(space, w_real,
+                                             strict_typing=False)
 
             # now take w_imag into account
             if not noarg2:
                 # complex(x, y) == x+y*j, even if 'y' is already a complex.
-                realval2, imagval2 = unpackcomplex(space, w_imag, strict_typing=False)
+                realval2, imagval2 = unpackcomplex(space, w_imag,
+                                                   strict_typing=False)
 
                 # try to preserve the signs of zeroes of realval and realval2
                 if imagval2 != 0.0:
@@ -389,14 +390,15 @@ class W_ComplexObject(W_AbstractComplexObject):
         return space.newtuple([self, w_other])
 
     def descr_format(self, space, w_format_spec):
-        return newformat.run_formatter(space, w_format_spec, "format_complex", self)
+        return newformat.run_formatter(space, w_format_spec, "format_complex",
+                                       self)
 
     def descr_nonzero(self, space):
         return space.newbool((self.realval != 0.0) or (self.imagval != 0.0))
 
     def descr_float(self, space):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("can't convert complex to float; use abs(z)"))
+        raise oefmt(space.w_TypeError,
+                    "can't convert complex to float; use abs(z)")
 
     def descr_neg(self, space):
         return W_ComplexObject(-self.realval, -self.imagval)
@@ -408,7 +410,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             return space.newfloat(math.hypot(self.realval, self.imagval))
         except OverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(str(e)))
+            raise oefmt(space.w_OverflowError, str(e))
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_ComplexObject):
@@ -434,8 +436,8 @@ class W_ComplexObject(W_AbstractComplexObject):
 
     def _fail_cmp(self, space, w_other):
         if isinstance(w_other, W_ComplexObject):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('cannot compare complex numbers using <, <=, >, >='))
+            raise oefmt(space.w_TypeError,
+                        "cannot compare complex numbers using <, <=, >, >=")
         return space.w_NotImplemented
 
     def descr_add(self, space, w_rhs):
@@ -485,7 +487,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             return self.div(w_rhs)
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
 
     def descr_rtruediv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -494,7 +496,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             return w_lhs.div(self)
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
 
     def descr_floordiv(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -504,7 +506,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             return self.divmod(space, w_rhs)[0]
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
 
     def descr_rfloordiv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -514,7 +516,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             return w_lhs.divmod(space, self)[0]
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
 
     def descr_mod(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -523,7 +525,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             return self.divmod(space, w_rhs)[1]
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
 
     def descr_rmod(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -532,7 +534,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             return w_lhs.divmod(space, self)[1]
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
 
     def descr_divmod(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -541,7 +543,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             div, mod = self.divmod(space, w_rhs)
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
         return space.newtuple([div, mod])
 
     def descr_rdivmod(self, space, w_lhs):
@@ -551,7 +553,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         try:
             div, mod = w_lhs.divmod(space, self)
         except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, str(e))
         return space.newtuple([div, mod])
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))
@@ -560,17 +562,19 @@ class W_ComplexObject(W_AbstractComplexObject):
         if w_exponent is None:
             return space.w_NotImplemented
         if not space.is_w(w_third_arg, space.w_None):
-            raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
+            raise oefmt(space.w_ValueError, 'complex modulo')
         try:
             r = w_exponent.realval
-            if w_exponent.imagval == 0.0 and -100.0 <= r <= 100.0 and r == int(r):
+            if (w_exponent.imagval == 0.0 and -100.0 <= r <= 100.0 and
+                r == int(r)):
                 w_p = self.pow_small_int(int(r))
             else:
                 w_p = self.pow(w_exponent)
         except ZeroDivisionError:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap("0.0 to a negative or complex power"))
+            raise oefmt(space.w_ZeroDivisionError,
+                        "0.0 to a negative or complex power")
         except OverflowError:
-            raise OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
+            raise oefmt(space.w_OverflowError, "complex exponentiation")
         return w_p
 
     def descr_conjugate(self, space):
@@ -585,8 +589,7 @@ def complexwprop(name):
     def fget(space, w_obj):
         from pypy.objspace.std.complexobject import W_ComplexObject
         if not isinstance(w_obj, W_ComplexObject):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("descriptor is for 'complex'"))
+            raise oefmt(space.w_TypeError, "descriptor is for 'complex'")
         return space.newfloat(getattr(w_obj, name))
     return GetSetProperty(fget)
 
