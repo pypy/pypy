@@ -17,6 +17,7 @@ from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION, float_as_rbigint_ratio)
 from rpython.rlib.rstring import ParseStringError
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
 
 
@@ -114,7 +115,7 @@ def make_compare_func(opname):
         if space.isinstance_w(w_other, space.w_long):
             return space.newbool(do_compare_bigint(self.floatval, w_other.num))
         return space.w_NotImplemented
-    return _compare
+    return func_with_new_name(_compare, 'descr_' + opname)
 
 
 class W_FloatObject(W_Root):
