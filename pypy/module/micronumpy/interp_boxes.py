@@ -473,10 +473,10 @@ class W_VoidBox(W_FlexibleBox):
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
-                item = self.dtype.fieldnames[indx]
+                item = self.dtype.names[indx]
             except IndexError:
                 if indx < 0:
-                    indx += len(self.dtype.fieldnames)
+                    indx += len(self.dtype.names)
                 raise OperationError(space.w_IndexError, space.wrap(
                     "invalid index (%d)" % indx))
         else:

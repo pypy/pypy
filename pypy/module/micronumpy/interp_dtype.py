@@ -39,32 +39,34 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 class W_Dtype(W_Root):
     _immutable_fields_ = [
         "num", "kind", "name", "char", "w_box_type", "float_type",
-        "itemtype?", "byteorder?", "fields?", "fieldnames?", "size?",
-        "shape?", "subdtype?", "base?"
+        "itemtype?", "byteorder?", "names?", "fields?", "size?",
+        "shape?", "subdtype?", "base?",
+        "alternate_constructors", "aliases",
     ]
 
-    def __init__(self, itemtype, num, kind, name, char, w_box_type, byteorder=NPY.NATIVE,
-                 size=1, alternate_constructors=[], aliases=[], float_type=None,
-                 fields={}, fieldnames=[], shape=[], subdtype=None):
+    def __init__(self, itemtype, num, kind, name, char, w_box_type,
+                 float_type=None, byteorder=NPY.NATIVE, names=[], fields={},
+                 size=1, shape=[], subdtype=None,
+                 alternate_constructors=[], aliases=[]):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
         self.name = name
         self.char = char
         self.w_box_type = w_box_type
-        self.byteorder = byteorder
-        self.size = size
-        self.alternate_constructors = alternate_constructors
-        self.aliases = aliases
         self.float_type = float_type
+        self.byteorder = byteorder
+        self.names = names
         self.fields = fields
-        self.fieldnames = fieldnames
+        self.size = size
         self.shape = shape
         self.subdtype = subdtype
         if not subdtype:
             self.base = self
         else:
             self.base = subdtype.base
+        self.alternate_constructors = alternate_constructors
+        self.aliases = aliases
 
     def __repr__(self):
         if self.fields is not None:
@@ -186,7 +188,7 @@ class W_Dtype(W_Root):
                                                   self.descr_get_str(space)])])
         else:
             descr = []
-            for name in self.fieldnames:
+            for name in self.names:
                 subdtype = self.fields[name][1]
                 subdescr = [space.wrap(name)]
                 if subdtype.is_record_type():
@@ -236,31 +238,31 @@ class W_Dtype(W_Root):
     def descr_get_names(self, space):
         if not self.fields:
             return space.w_None
-        return space.newtuple([space.wrap(name) for name in self.fieldnames])
+        return space.newtuple([space.wrap(name) for name in self.names])
 
     def descr_set_names(self, space, w_names):
         if not self.fields:
             raise oefmt(space.w_ValueError, "there are no fields defined")
         if not space.issequence_w(w_names) or \
-                space.len_w(w_names) != len(self.fieldnames):
+                space.len_w(w_names) != len(self.names):
             raise oefmt(space.w_ValueError,
                         "must replace all names at once "
                         "with a sequence of length %d",
-                        len(self.fieldnames))
-        fieldnames = []
+                        len(self.names))
+        names = []
         for w_name in space.fixedview(w_names):
             if not space.isinstance_w(w_name, space.w_str):
                 raise oefmt(space.w_ValueError,
                             "item #%d of names is of type %T and not string",
-                            len(fieldnames), w_name)
-            fieldnames.append(space.str_w(w_name))
+                            len(names), w_name)
+            names.append(space.str_w(w_name))
         fields = {}
-        for i in range(len(self.fieldnames)):
-            if fieldnames[i] in fields:
+        for i in range(len(self.names)):
+            if names[i] in fields:
                 raise oefmt(space.w_ValueError, "Duplicate field names given.")
-            fields[fieldnames[i]] = self.fields[self.fieldnames[i]]
+            fields[names[i]] = self.fields[self.names[i]]
         self.fields = fields
-        self.fieldnames = fieldnames
+        self.names = names
 
     def descr_del_names(self, space):
         raise OperationError(space.w_AttributeError, space.wrap(
@@ -278,7 +280,7 @@ class W_Dtype(W_Root):
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
-                item = self.fieldnames[indx]
+                item = self.names[indx]
             except IndexError:
                 raise OperationError(space.w_IndexError, space.wrap(
                     "Field index %d out of range." % indx))
@@ -348,11 +350,11 @@ class W_Dtype(W_Root):
             endian = NPY.NATIVE
 
         w_subarray = space.getitem(w_data, space.wrap(2))
-        w_fieldnames = space.getitem(w_data, space.wrap(3))
+        w_names = space.getitem(w_data, space.wrap(3))
         w_fields = space.getitem(w_data, space.wrap(4))
         size = space.int_w(space.getitem(w_data, space.wrap(5)))
 
-        if (w_fieldnames == space.w_None) != (w_fields == space.w_None):
+        if (w_names == space.w_None) != (w_fields == space.w_None):
             raise oefmt(space.w_ValueError, "inconsistent fields and names")
 
         self.byteorder = endian
@@ -374,10 +376,10 @@ class W_Dtype(W_Root):
             self.subdtype = subdtype
             self.base = subdtype.base
 
-        if w_fieldnames != space.w_None:
-            self.fieldnames = []
+        if w_names != space.w_None:
+            self.names = []
             self.fields = {}
-            for w_name in space.fixedview(w_fieldnames):
+            for w_name in space.fixedview(w_names):
                 name = space.str_w(w_name)
                 value = space.getitem(w_fields, w_name)
 
@@ -385,7 +387,7 @@ class W_Dtype(W_Root):
                 assert isinstance(dtype, W_Dtype)
                 offset = space.int_w(space.getitem(value, space.wrap(1)))
 
-                self.fieldnames.append(name)
+                self.names.append(name)
                 self.fields[name] = offset, dtype
             self.itemtype = types.RecordType()
 
@@ -403,7 +405,7 @@ class W_Dtype(W_Root):
                 endian = newendian
         itemtype = self.itemtype.__class__(endian in (NPY.NATIVE, NPY.NATBYTE))
         return W_Dtype(itemtype, self.num, self.kind, self.name, self.char,
-                       self.w_box_type, endian, size=self.size)
+                       self.w_box_type, byteorder=endian, size=self.size)
 
 
 @specialize.arg(2)
@@ -411,7 +413,7 @@ def dtype_from_list(space, w_lst, simple):
     lst_w = space.listview(w_lst)
     fields = {}
     offset = 0
-    fieldnames = []
+    names = []
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
         if simple:
@@ -434,10 +436,10 @@ def dtype_from_list(space, w_lst, simple):
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         offset += subdtype.get_size()
-        fieldnames.append(fldname)
+        names.append(fldname)
     return W_Dtype(types.RecordType(), NPY.VOID, NPY.VOIDLTR, "void",
                    NPY.VOIDLTR, space.gettypefor(interp_boxes.W_VoidBox),
-                   fields=fields, fieldnames=fieldnames, size=offset)
+                   names=names, fields=fields, size=offset)
 
 
 def dtype_from_dict(space, w_dict):

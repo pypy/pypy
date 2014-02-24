@@ -1843,7 +1843,7 @@ class VoidType(FlexibleType):
         assert isinstance(item, interp_boxes.W_VoidBox)
         dt = item.arr.dtype
         ret_unwrapped = []
-        for name in dt.fieldnames:
+        for name in dt.names:
             ofs, dtype = dt.fields[name]
             if isinstance(dtype.itemtype, VoidType):
                 read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
@@ -1886,7 +1886,7 @@ class RecordType(FlexibleType):
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.get_size(), dtype)
         for i in range(len(dtype.fields)):
-            ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
+            ofs, subdtype = dtype.fields[dtype.names[i]]
             itemtype = subdtype.itemtype
             try:
                 w_box = itemtype.coerce(space, subdtype, items_w[i])
@@ -1922,7 +1922,7 @@ class RecordType(FlexibleType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         items = []
         dtype = box.dtype
-        for name in dtype.fieldnames:
+        for name in dtype.names:
             ofs, subdtype = dtype.fields[name]
             itemtype = subdtype.itemtype
             subbox = itemtype.read(box.arr, box.ofs, ofs, subdtype)
@@ -1934,7 +1934,7 @@ class RecordType(FlexibleType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         pieces = ["("]
         first = True
-        for name in box.dtype.fieldnames:
+        for name in box.dtype.names:
             ofs, subdtype = box.dtype.fields[name]
             tp = subdtype.itemtype
             if first:
