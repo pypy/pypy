@@ -89,7 +89,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_real(self, space, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
-        if self.dtype.is_complex_type():
+        if self.dtype.is_complex():
             dtype = self.dtype.get_float_dtype(space)
             return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array, dtype=dtype)
@@ -103,13 +103,13 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_imag(self, space, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
-        if self.dtype.is_complex_type():
+        if self.dtype.is_complex():
             dtype = self.dtype.get_float_dtype(space)
             return SliceArray(self.start + dtype.elsize, strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
-        if not self.dtype.is_flexible_type():
+        if not self.dtype.is_flexible():
             impl.fill(space, self.dtype.box(0))
         return impl
 
@@ -204,7 +204,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         if space.isinstance_w(w_idx, space.w_str):
             idx = space.str_w(w_idx)
             dtype = self.dtype
-            if not dtype.is_record_type() or idx not in dtype.fields:
+            if not dtype.is_record() or idx not in dtype.fields:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "field named %s not found" % idx))
             return RecordChunk(idx)

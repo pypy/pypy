@@ -1961,7 +1961,7 @@ def _setup():
     # compute alignment
     for tp in globals().values():
         if isinstance(tp, type) and hasattr(tp, 'T'):
-            tp.alignment = clibffi.cast_type_to_ffitype(tp.T).c_alignment
+            tp.alignment = widen(clibffi.cast_type_to_ffitype(tp.T).c_alignment)
             if issubclass(tp, Float):
                 all_float_types.append((tp, 'float'))
             if issubclass(tp, Integer):

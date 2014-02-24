@@ -39,7 +39,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 class W_Dtype(W_Root):
     _immutable_fields_ = [
         "num", "kind", "char", "w_box_type", "float_type",
-        "itemtype?", "byteorder?", "names?", "fields?", "elsize?",
+        "itemtype?", "byteorder?", "names?", "fields?", "elsize?", "alignment?",
         "shape?", "subdtype?", "base?",
         "alternate_constructors", "aliases",
     ]
@@ -65,6 +65,7 @@ class W_Dtype(W_Root):
         if elsize is None:
             elsize = itemtype.get_element_size()
         self.elsize = elsize
+        self.alignment = itemtype.alignment
         self.shape = shape
         self.subdtype = subdtype
         if not subdtype:
@@ -87,39 +88,39 @@ class W_Dtype(W_Root):
     def box_complex(self, real, imag):
         return self.itemtype.box_complex(real, imag)
 
-    def build_and_convert(self, space, box):
-        return self.itemtype.build_and_convert(space, self, box)
-
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 
-    def is_int_type(self):
-        return (self.kind == NPY.SIGNEDLTR or self.kind == NPY.UNSIGNEDLTR or
-                self.kind == NPY.GENBOOLLTR)
+    def is_bool(self):
+        return self.kind == NPY.GENBOOLLTR
 
     def is_signed(self):
         return self.kind == NPY.SIGNEDLTR
 
-    def is_complex_type(self):
+    def is_unsigned(self):
+        return self.kind == NPY.UNSIGNEDLTR
+
+    def is_int(self):
+        return (self.kind == NPY.SIGNEDLTR or self.kind == NPY.UNSIGNEDLTR or
+                self.kind == NPY.GENBOOLLTR)
+
+    def is_float(self):
+        return self.kind == NPY.FLOATINGLTR
+
+    def is_complex(self):
         return self.kind == NPY.COMPLEXLTR
 
-    def is_float_type(self):
-        return self.kind == NPY.FLOATINGLTR or self.kind == NPY.COMPLEXLTR
-
-    def is_bool_type(self):
-        return self.kind == NPY.GENBOOLLTR
-
-    def is_record_type(self):
-        return bool(self.fields)
-
-    def is_str_type(self):
+    def is_str(self):
         return self.num == NPY.STRING
 
     def is_str_or_unicode(self):
         return self.num == NPY.STRING or self.num == NPY.UNICODE
 
-    def is_flexible_type(self):
+    def is_flexible(self):
         return self.is_str_or_unicode() or self.num == NPY.VOID
+
+    def is_record(self):
+        return bool(self.fields)
 
     def is_native(self):
         return self.byteorder in (NPY.NATIVE, NPY.NATBYTE)
@@ -132,53 +133,6 @@ class W_Dtype(W_Root):
             dtype = dtype.descr_newbyteorder(space)
         return dtype
 
-    def descr_str(self, space):
-        if self.fields:
-            return space.str(self.descr_get_descr(space))
-        elif self.subdtype is not None:
-            return space.str(space.newtuple([
-                self.subdtype.descr_get_str(space),
-                self.descr_get_shape(space)]))
-        else:
-            if self.is_flexible_type():
-                return self.descr_get_str(space)
-            else:
-                return self.descr_get_name(space)
-
-    def descr_repr(self, space):
-        if self.fields:
-            r = self.descr_get_descr(space)
-        elif self.subdtype is not None:
-            r = space.newtuple([self.subdtype.descr_get_str(space),
-                                self.descr_get_shape(space)])
-        else:
-            if self.is_flexible_type():
-                if self.byteorder != NPY.IGNORE:
-                    byteorder = NPY.NATBYTE if self.is_native() else NPY.OPPBYTE
-                else:
-                    byteorder = ''
-                size = self.elsize
-                if self.num == NPY.UNICODE:
-                    size >>= 2
-                r = space.wrap(byteorder + self.char + str(size))
-            else:
-                r = self.descr_get_name(space)
-        return space.wrap("dtype(%s)" % space.str_w(space.repr(r)))
-
-    def descr_get_alignment(self, space):
-        return space.wrap(self.itemtype.alignment)
-
-    def descr_get_isbuiltin(self, space):
-        if self.fields is None:
-            return space.wrap(1)
-        return space.wrap(0)
-
-    def descr_get_subdtype(self, space):
-        if self.subdtype is None:
-            return space.w_None
-        return space.newtuple([space.wrap(self.subdtype),
-                               self.descr_get_shape(space)])
-
     def get_name(self):
         return self.w_box_type.name
 
@@ -186,7 +140,7 @@ class W_Dtype(W_Root):
         name = self.get_name()
         if name[-1] == '_':
             name = name[:-1]
-        if self.is_flexible_type() and self.elsize != 0:
+        if self.is_flexible() and self.elsize != 0:
             return space.wrap(name + str(self.elsize * 8))
         return space.wrap(name)
 
@@ -201,7 +155,7 @@ class W_Dtype(W_Root):
         return space.wrap("%s%s%s" % (endian, basic, size))
 
     def descr_get_descr(self, space):
-        if not self.is_record_type():
+        if not self.is_record():
             return space.newlist([space.newtuple([space.wrap(""),
                                                   self.descr_get_str(space)])])
         else:
@@ -209,7 +163,7 @@ class W_Dtype(W_Root):
             for name in self.names:
                 subdtype = self.fields[name][1]
                 subdescr = [space.wrap(name)]
-                if subdtype.is_record_type():
+                if subdtype.is_record():
                     subdescr.append(subdtype.descr_get_descr(space))
                 elif subdtype.subdtype is not None:
                     subdescr.append(subdtype.subdtype.descr_get_str(space))
@@ -220,30 +174,28 @@ class W_Dtype(W_Root):
                 descr.append(space.newtuple(subdescr[:]))
             return space.newlist(descr)
 
-    def descr_get_base(self, space):
-        return space.wrap(self.base)
+    def descr_get_hasobject(self, space):
+        return space.w_False
+
+    def descr_get_isbuiltin(self, space):
+        if self.fields is None:
+            return space.wrap(1)
+        return space.wrap(0)
 
     def descr_get_isnative(self, space):
         return space.wrap(self.is_native())
 
+    def descr_get_base(self, space):
+        return space.wrap(self.base)
+
+    def descr_get_subdtype(self, space):
+        if self.subdtype is None:
+            return space.w_None
+        return space.newtuple([space.wrap(self.subdtype),
+                               self.descr_get_shape(space)])
+
     def descr_get_shape(self, space):
-        w_shape = [space.wrap(dim) for dim in self.shape]
-        return space.newtuple(w_shape)
-
-    def eq(self, space, w_other):
-        w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
-        if space.is_w(self, w_other):
-            return True
-        if isinstance(w_other, W_Dtype):
-            return space.eq_w(self.descr_reduce(space),
-                              w_other.descr_reduce(space))
-        return False
-
-    def descr_eq(self, space, w_other):
-        return space.wrap(self.eq(space, w_other))
-
-    def descr_ne(self, space, w_other):
-        return space.wrap(not self.eq(space, w_other))
+        return space.newtuple([space.wrap(dim) for dim in self.shape])
 
     def descr_get_fields(self, space):
         if not self.fields:
@@ -287,8 +239,56 @@ class W_Dtype(W_Root):
         raise OperationError(space.w_AttributeError, space.wrap(
             "Cannot delete dtype names attribute"))
 
-    def descr_get_hasobject(self, space):
-        return space.w_False
+    def eq(self, space, w_other):
+        w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
+        if space.is_w(self, w_other):
+            return True
+        if isinstance(w_other, W_Dtype):
+            return space.eq_w(self.descr_reduce(space),
+                              w_other.descr_reduce(space))
+        return False
+
+    def descr_eq(self, space, w_other):
+        return space.wrap(self.eq(space, w_other))
+
+    def descr_ne(self, space, w_other):
+        return space.wrap(not self.eq(space, w_other))
+
+    def descr_hash(self, space):
+        return space.hash(self.descr_reduce(space))
+
+    def descr_str(self, space):
+        if self.fields:
+            return space.str(self.descr_get_descr(space))
+        elif self.subdtype is not None:
+            return space.str(space.newtuple([
+                self.subdtype.descr_get_str(space),
+                self.descr_get_shape(space)]))
+        else:
+            if self.is_flexible():
+                return self.descr_get_str(space)
+            else:
+                return self.descr_get_name(space)
+
+    def descr_repr(self, space):
+        if self.fields:
+            r = self.descr_get_descr(space)
+        elif self.subdtype is not None:
+            r = space.newtuple([self.subdtype.descr_get_str(space),
+                                self.descr_get_shape(space)])
+        else:
+            if self.is_flexible():
+                if self.byteorder != NPY.IGNORE:
+                    byteorder = NPY.NATBYTE if self.is_native() else NPY.OPPBYTE
+                else:
+                    byteorder = ''
+                size = self.elsize
+                if self.num == NPY.UNICODE:
+                    size >>= 2
+                r = space.wrap(byteorder + self.char + str(size))
+            else:
+                r = self.descr_get_name(space)
+        return space.wrap("dtype(%s)" % space.str_w(space.repr(r)))
 
     def descr_getitem(self, space, w_item):
         if not self.fields:
@@ -317,9 +317,6 @@ class W_Dtype(W_Root):
             return space.wrap(0)
         return space.wrap(len(self.fields))
 
-    def descr_hash(self, space):
-        return space.hash(self.descr_reduce(space))
-
     def descr_reduce(self, space):
         w_class = space.type(self)
         builder_args = space.newtuple([
@@ -333,9 +330,9 @@ class W_Dtype(W_Root):
         subdescr = self.descr_get_subdtype(space)
         names = self.descr_get_names(space)
         values = self.descr_get_fields(space)
-        if self.is_flexible_type():
+        if self.is_flexible():
             w_size = space.wrap(self.elsize)
-            alignment = space.wrap(self.itemtype.alignment)
+            alignment = space.wrap(self.alignment)
         else:
             w_size = space.wrap(-1)
             alignment = space.wrap(-1)
@@ -363,6 +360,7 @@ class W_Dtype(W_Root):
         w_names = space.getitem(w_data, space.wrap(3))
         w_fields = space.getitem(w_data, space.wrap(4))
         size = space.int_w(space.getitem(w_data, space.wrap(5)))
+        alignment = space.int_w(space.getitem(w_data, space.wrap(6)))
 
         if (w_names == space.w_None) != (w_fields == space.w_None):
             raise oefmt(space.w_ValueError, "inconsistent fields and names")
@@ -401,8 +399,9 @@ class W_Dtype(W_Root):
                 self.fields[name] = offset, dtype
             self.itemtype = types.RecordType()
 
-        if self.is_flexible_type():
+        if self.is_flexible():
             self.elsize = size
+            self.alignment = alignment
 
     @unwrap_spec(new_order=str)
     def descr_newbyteorder(self, space, new_order=NPY.SWAP):
@@ -540,39 +539,38 @@ W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpy",
     __new__ = interp2app(descr__new__),
 
-    __str__= interp2app(W_Dtype.descr_str),
-    __repr__ = interp2app(W_Dtype.descr_repr),
-    __eq__ = interp2app(W_Dtype.descr_eq),
-    __ne__ = interp2app(W_Dtype.descr_ne),
-    __getitem__ = interp2app(W_Dtype.descr_getitem),
-    __len__ = interp2app(W_Dtype.descr_len),
-
-    __hash__ = interp2app(W_Dtype.descr_hash),
-    __reduce__ = interp2app(W_Dtype.descr_reduce),
-    __setstate__ = interp2app(W_Dtype.descr_setstate),
-    newbyteorder = interp2app(W_Dtype.descr_newbyteorder),
-
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
     char = interp_attrproperty("char", cls=W_Dtype),
     num = interp_attrproperty("num", cls=W_Dtype),
     byteorder = interp_attrproperty("byteorder", cls=W_Dtype),
     itemsize = interp_attrproperty("elsize", cls=W_Dtype),
-    alignment = GetSetProperty(W_Dtype.descr_get_alignment),
+    alignment = interp_attrproperty("alignment", cls=W_Dtype),
 
-    subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
-    descr = GetSetProperty(W_Dtype.descr_get_descr),
-    str = GetSetProperty(W_Dtype.descr_get_str),
     name = GetSetProperty(W_Dtype.descr_get_name),
-    base = GetSetProperty(W_Dtype.descr_get_base),
-    shape = GetSetProperty(W_Dtype.descr_get_shape),
+    str = GetSetProperty(W_Dtype.descr_get_str),
+    descr = GetSetProperty(W_Dtype.descr_get_descr),
+    hasobject = GetSetProperty(W_Dtype.descr_get_hasobject),
     isbuiltin = GetSetProperty(W_Dtype.descr_get_isbuiltin),
     isnative = GetSetProperty(W_Dtype.descr_get_isnative),
+    base = GetSetProperty(W_Dtype.descr_get_base),
+    subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
+    shape = GetSetProperty(W_Dtype.descr_get_shape),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names,
                            W_Dtype.descr_set_names,
                            W_Dtype.descr_del_names),
-    hasobject = GetSetProperty(W_Dtype.descr_get_hasobject),
+
+    __eq__ = interp2app(W_Dtype.descr_eq),
+    __ne__ = interp2app(W_Dtype.descr_ne),
+    __hash__ = interp2app(W_Dtype.descr_hash),
+    __str__= interp2app(W_Dtype.descr_str),
+    __repr__ = interp2app(W_Dtype.descr_repr),
+    __getitem__ = interp2app(W_Dtype.descr_getitem),
+    __len__ = interp2app(W_Dtype.descr_len),
+    __reduce__ = interp2app(W_Dtype.descr_reduce),
+    __setstate__ = interp2app(W_Dtype.descr_setstate),
+    newbyteorder = interp2app(W_Dtype.descr_newbyteorder),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
@@ -929,8 +927,8 @@ class DtypeCache(object):
                        space.wrap(dtype.num),
                        space.wrap(itembits),
                        space.wrap(dtype.itemtype.get_element_size())]
-            if dtype.is_int_type():
-                if dtype.kind == NPY.GENBOOLLTR:
+            if dtype.is_int():
+                if dtype.is_bool():
                     w_maxobj = space.wrap(1)
                     w_minobj = space.wrap(0)
                 elif dtype.is_signed():

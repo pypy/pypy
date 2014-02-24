@@ -1623,6 +1623,12 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_realimag_views(self):
         from numpypy import arange, array
+        a = array(1.5)
+        assert a.real == 1.5
+        assert a.imag == 0.0
+        a = array([1.5, 2.5])
+        assert (a.real == [1.5, 2.5]).all()
+        assert (a.imag == [0.0, 0.0]).all()
         a = arange(15)
         b = a.real
         b[5]=50

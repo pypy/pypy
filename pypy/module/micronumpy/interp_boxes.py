@@ -311,7 +311,7 @@ class W_GenericBox(W_Root):
                     "new type not compatible with array."))
         if dtype.is_str_or_unicode():
             return dtype.coerce(space, space.wrap(self.raw_str()))
-        elif dtype.is_record_type():
+        elif dtype.is_record():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "viewing scalar as record not implemented"))
         else:
