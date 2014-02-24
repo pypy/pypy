@@ -61,7 +61,7 @@ class TestW_FloatObject:
 
 class AppTestAppFloatTest:
     spaceconfig = dict(usemodules=['binascii', 'rctime'])
-    
+
     def setup_class(cls):
         cls.w_py26 = cls.space.wrap(sys.version_info >= (2, 6))
 
@@ -812,7 +812,7 @@ class AppTestFloatHex:
 
         def check(a, b):
             assert (a, math.copysign(1.0, a)) == (b, math.copysign(1.0, b))
-            
+
         check(mod(-1.0, 1.0), 0.0)
         check(mod(-1e-100, 1.0), 1.0)
         check(mod(-0.0, 1.0), 0.0)
