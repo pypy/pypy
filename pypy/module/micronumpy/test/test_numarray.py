@@ -773,6 +773,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[()] = 4
         assert a == 4
 
+    def test_build_scalar(self):
+        from numpy import dtype
+        try:
+            from numpy.core.multiarray import scalar
+        except ImportError:
+            from numpy import scalar
+        exc = raises(TypeError, scalar, int, 2)
+        assert exc.value[0] == 'argument 1 must be numpy.dtype, not type'
+        exc = raises(ValueError, scalar, dtype('void'), 'abc')
+        assert exc.value[0] == 'itemsize cannot be zero'
+        exc = raises(TypeError, scalar, dtype(float), 2.5)
+        assert exc.value[0] == 'initializing object must be a string'
+        exc = raises(ValueError, scalar, dtype(float), 'abc')
+        assert exc.value[0] == 'initialization string is too small'
+        a = scalar(dtype('<f8'), dtype('<f8').type(2.5).tostring())
+        assert a == 2.5
+
     def test_len(self):
         from numpypy import array
         a = array(range(5))
