@@ -199,6 +199,16 @@ class W_FloatObject(W_Object):
         return w_obj
 
     @staticmethod
+    @unwrap_spec(kind=str)
+    def descr___getformat__(space, w_cls, kind):
+        if kind == "float":
+            return space.wrap(_float_format)
+        elif kind == "double":
+            return space.wrap(_double_format)
+        raise OperationError(space.w_ValueError,
+                             space.wrap("only float and double are valid"))
+
+    @staticmethod
     @unwrap_spec(s=str)
     def descr_fromhex(space, w_cls, s):
         length = len(s)
@@ -572,16 +582,6 @@ class W_FloatObject(W_Object):
 
     def descr_get_imag(self, space):
         return space.wrap(0.0)
-
-    @staticmethod
-    @unwrap_spec(kind=str)
-    def descr___getformat__(space, w_cls, kind):
-        if kind == "float":
-            return space.wrap(_float_format)
-        elif kind == "double":
-            return space.wrap(_double_format)
-        raise OperationError(space.w_ValueError,
-                             space.wrap("only float and double are valid"))
 
 
 registerimplementation(W_FloatObject)
