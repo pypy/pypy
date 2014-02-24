@@ -232,21 +232,23 @@ class W_Dtype(W_Root):
                           space.newtuple([subdtype, space.wrap(offset)]))
         return w_d
 
-    def descr_set_fields(self, space, w_fields):
+    def descr_set_fields(self, space, w_fieldnames, w_fields):
         if w_fields == space.w_None:
             self.fields = None
         else:
+            self.fieldnames = []
             self.fields = {}
             size = 0
-            for key in space.listview(w_fields):
-                value = space.getitem(w_fields, key)
+            for w_name in space.fixedview(w_fieldnames):
+                name = space.str_w(w_name)
+                value = space.getitem(w_fields, w_name)
 
                 dtype = space.getitem(value, space.wrap(0))
                 assert isinstance(dtype, W_Dtype)
-
                 offset = space.int_w(space.getitem(value, space.wrap(1)))
-                self.fields[space.str_w(key)] = offset, dtype
 
+                self.fieldnames.append(name)
+                self.fields[name] = offset, dtype
                 size += dtype.get_size()
             self.itemtype = types.RecordType()
             self.size = size
@@ -257,20 +259,27 @@ class W_Dtype(W_Root):
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
 
     def descr_set_names(self, space, w_names):
+        if len(self.fieldnames) == 0:
+            raise oefmt(space.w_ValueError, "there are no fields defined")
+        if not space.issequence_w(w_names) or \
+                space.len_w(w_names) != len(self.fieldnames):
+            raise oefmt(space.w_ValueError,
+                        "must replace all names at once "
+                        "with a sequence of length %d",
+                        len(self.fieldnames))
         fieldnames = []
-        if w_names != space.w_None:
-            iter = space.iter(w_names)
-            while True:
-                try:
-                    name = space.str_w(space.next(iter))
-                except OperationError, e:
-                    if not e.match(space, space.w_StopIteration):
-                        raise
-                    break
-                if name in fieldnames:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "Duplicate field names given."))
-                fieldnames.append(name)
+        for w_name in space.fixedview(w_names):
+            if not space.isinstance_w(w_name, space.w_str):
+                raise oefmt(space.w_ValueError,
+                            "item #%d of names is of type %T and not string",
+                            len(fieldnames), w_name)
+            fieldnames.append(space.str_w(w_name))
+        fields = {}
+        for i in range(len(self.fieldnames)):
+            if fieldnames[i] in fields:
+                raise oefmt(space.w_ValueError, "Duplicate field names given.")
+            fields[fieldnames[i]] = self.fields[self.fieldnames[i]]
+        self.fields = fields
         self.fieldnames = fieldnames
 
     def descr_del_names(self, space):
@@ -353,11 +362,9 @@ class W_Dtype(W_Root):
             endian = NPY.NATIVE
         self.byteorder = endian
 
-        fieldnames = space.getitem(w_data, space.wrap(3))
-        self.descr_set_names(space, fieldnames)
-
-        fields = space.getitem(w_data, space.wrap(4))
-        self.descr_set_fields(space, fields)
+        w_fieldnames = space.getitem(w_data, space.wrap(3))
+        w_fields = space.getitem(w_data, space.wrap(4))
+        self.descr_set_fields(space, w_fieldnames, w_fields)
 
     @unwrap_spec(new_order=str)
     def descr_newbyteorder(self, space, new_order=NPY.SWAP):

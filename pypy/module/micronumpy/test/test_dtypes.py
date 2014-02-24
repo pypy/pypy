@@ -48,6 +48,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype('bool') is d
         assert dtype('|b1') is d
         assert repr(type(d)) == "<type 'numpy.dtype'>"
+        exc = raises(ValueError, "d.names = []")
+        assert exc.value[0] == "there are no fields defined"
+        exc = raises(ValueError, "d.names = None")
+        assert exc.value[0] == "there are no fields defined"
 
         assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'
@@ -1006,21 +1010,34 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from numpypy import dtype, void
 
         raises(ValueError, "dtype([('x', int), ('x', float)])")
-        d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.fields['x'] == (dtype('int32'), 0)
-        assert d.fields['value'] == (dtype(float), 12)
-        assert d['x'] == dtype('int32')
-        assert d.name == "void160"
+        d = dtype([("x", "<i4"), ("y", "<f4"), ("z", "<u2"), ("v", "<f8")])
+        assert d.fields['x'] == (dtype('<i4'), 0)
+        assert d.fields['v'] == (dtype('<f8'), 10)
+        assert d['x'] == dtype('<i4')
+        assert d.name == "void144"
         assert d.num == 20
-        assert d.itemsize == 20
+        assert d.itemsize == 18
         assert d.kind == 'V'
         assert d.base == d
         assert d.type is void
         assert d.char == 'V'
-        assert d.names == ("x", "y", "z", "value")
-        d.names = ('a', '', 'c', 'd')
-        assert d.names == ('a', '', 'c', 'd')
-        d.names = ('a', 'b', 'c', 'd')
+        exc = raises(ValueError, "d.names = None")
+        assert exc.value[0] == 'must replace all names at once with a sequence of length 4'
+        exc = raises(ValueError, "d.names = (a for a in 'xyzv')")
+        assert exc.value[0] == 'must replace all names at once with a sequence of length 4'
+        exc = raises(ValueError, "d.names = ('a', 'b', 'c', 4)")
+        assert exc.value[0] == 'item #3 of names is of type int and not string'
+        exc = raises(ValueError, "d.names = ('a', 'b', 'c', u'd')")
+        assert exc.value[0] == 'item #3 of names is of type unicode and not string'
+        assert d.names == ("x", "y", "z", "v")
+        d.names = ('x', '', 'v', 'z')
+        assert d.names == ('x', '', 'v', 'z')
+        assert d.fields['v'] == (dtype('<u2'), 8)
+        assert d.fields['z'] == (dtype('<f8'), 10)
+        assert [a[0] for a in d.descr] == ['x', '', 'v', 'z']
+        exc = raises(ValueError, "d.names = ('a', 'b', 'c')")
+        assert exc.value[0] == 'must replace all names at once with a sequence of length 4'
+        d.names = ['a', 'b', 'c', 'd']
         assert d.names == ('a', 'b', 'c', 'd')
         exc = raises(ValueError, "d.names = ('a', 'b', 'c', 'c')")
         assert exc.value[0] == "Duplicate field names given."
