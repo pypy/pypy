@@ -31,7 +31,6 @@ class StdTypeModel:
         self.config = config
         # All the Python types that we want to provide in this StdObjSpace
         class result:
-            from pypy.objspace.std.objecttype import object_typedef
             from pypy.objspace.std.typeobject   import type_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
@@ -65,6 +64,7 @@ class StdTypeModel:
 
         # not-multimethod based types
 
+        self.pythontypes.append(objectobject.W_ObjectObject.typedef)
         self.pythontypes.append(noneobject.W_NoneObject.typedef)
         self.pythontypes.append(tupleobject.W_TupleObject.typedef)
         self.pythontypes.append(listobject.W_ListObject.typedef)

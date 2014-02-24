@@ -29,8 +29,8 @@ class StdTypeDef(TypeDef):
 
 @jit.unroll_safe
 def issubtypedef(a, b):
-    from pypy.objspace.std.objecttype import object_typedef
-    if b is object_typedef:
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    if b is W_ObjectObject.typedef:
         return True
     if a is None:
         return False
@@ -56,7 +56,7 @@ class TypeCache(SpaceCache):
         "NOT_RPYTHON: initialization-time only."
         # build a W_TypeObject from this StdTypeDef
         from pypy.objspace.std.typeobject import W_TypeObject
-        from pypy.objspace.std.objecttype import object_typedef
+        from pypy.objspace.std.objectobject import W_ObjectObject
 
         space = cache.space
         w = space.wrap
@@ -75,10 +75,10 @@ class TypeCache(SpaceCache):
                 lazyloaders[name] = loader
 
         # compute the bases
-        if typedef is object_typedef:
+        if typedef is W_ObjectObject.typedef:
             bases_w = []
         else:
-            bases = typedef.bases or [object_typedef]
+            bases = typedef.bases or [W_ObjectObject.typedef]
             bases_w = [space.gettypeobject(base) for base in bases]
 
         # wrap everything
