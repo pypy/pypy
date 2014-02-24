@@ -1096,6 +1096,96 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert dt.subdtype == (dtype(float), (10,))
         assert dt.base == dtype(float)
 
+    def test_setstate(self):
+        import numpy as np
+        import sys
+        d = np.dtype('f8')
+        d.__setstate__((3, '|', (np.dtype('float64'), (2,)), None, None, 20, 1, 0))
+        assert d.str == ('<' if sys.byteorder == 'little' else '>') + 'f8'
+        assert d.fields is None
+        assert d.shape == ()
+        assert d.itemsize == 8
+        assert d.subdtype is None
+        assert repr(d) == "dtype('float64')"
+
+        d = np.dtype(('>' if sys.byteorder == 'little' else '<') + 'f8')
+        d.__setstate__((3, '|', (np.dtype('float64'), (2,)), None, None, 20, 1, 0))
+        assert d.str == '|f8'
+        assert d.fields is None
+        assert d.shape == (2,)
+        assert d.itemsize == 8
+        assert d.subdtype is not None
+        assert repr(d) == "dtype(('<f8', (2,)))"
+
+        d = np.dtype(('<f8', 2))
+        assert d.fields is None
+        assert d.shape == (2,)
+        assert d.itemsize == 16
+        assert d.subdtype is not None
+        assert repr(d) == "dtype(('<f8', (2,)))"
+
+        d = np.dtype(('<f8', 2))
+        d.__setstate__((3, '|', (np.dtype('float64'), (2,)), None, None, 20, 1, 0))
+        assert d.fields is None
+        assert d.shape == (2,)
+        assert d.itemsize == 20
+        assert d.subdtype is not None
+        assert repr(d) == "dtype(('<f8', (2,)))"
+
+        d = np.dtype(('<f8', 2))
+        d.__setstate__((3, '|', (np.dtype('float64'), 2), None, None, 20, 1, 0))
+        assert d.fields is None
+        assert d.shape == (2,)
+        assert d.itemsize == 20
+        assert d.subdtype is not None
+        assert repr(d) == "dtype(('<f8', (2,)))"
+
+        d = np.dtype(('<f8', 2))
+        exc = raises(ValueError, "d.__setstate__((3, '|', None, ('f0', 'f1'), None, 16, 1, 0))")
+        assert exc.value[0] == 'inconsistent fields and names'
+        assert d.fields is None
+        assert d.shape == (2,)
+        assert d.subdtype is not None
+        assert repr(d) == "dtype(('<f8', (2,)))"
+
+        d = np.dtype(('<f8', 2))
+        exc = raises(ValueError, "d.__setstate__((3, '|', None, None, {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))")
+        assert exc.value[0] == 'inconsistent fields and names'
+        assert d.fields is None
+        assert d.shape == (2,)
+        assert d.subdtype is not None
+        assert repr(d) == "dtype(('<f8', (2,)))"
+
+        d = np.dtype(('<f8', 2))
+        exc = raises(ValueError, "d.__setstate__((3, '|', (np.dtype('float64'), (2,), 3), ('f0', 'f1'), {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))")
+        assert exc.value[0] == 'incorrect subarray in __setstate__'
+        assert d.fields is None
+        assert d.shape == ()
+        assert d.subdtype is None
+        assert repr(d) == "dtype('V16')"
+
+        d = np.dtype(('<f8', 2))
+        d.__setstate__((3, '|', (np.dtype('float64'), (2,)), ('f0', 'f1'), {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))
+        assert d.fields is not None
+        assert d.shape == (2,)
+        assert d.subdtype is not None
+        assert repr(d) == "dtype([('f0', '<f8'), ('f1', '<f8')])"
+
+        d = np.dtype(('<f8', 2))
+        d.__setstate__((3, '|', None, ('f0', 'f1'), {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))
+        assert d.fields is not None
+        assert d.shape == ()
+        assert d.subdtype is None
+        assert repr(d) == "dtype([('f0', '<f8'), ('f1', '<f8')])"
+
+        d = np.dtype(('<f8', 2))
+        d.__setstate__((3, '|', None, ('f0', 'f1'), {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))
+        d.__setstate__((3, '|', (np.dtype('float64'), (2,)), None, None, 16, 1, 0))
+        assert d.fields is not None
+        assert d.shape == (2,)
+        assert d.subdtype is not None
+        assert repr(d) == "dtype([('f0', '<f8'), ('f1', '<f8')])"
+
     def test_pickle_record(self):
         from numpypy import array, dtype
         from cPickle import loads, dumps
