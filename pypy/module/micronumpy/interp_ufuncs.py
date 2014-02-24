@@ -386,8 +386,9 @@ class W_Ufunc2(W_Ufunc):
                     return space.w_NotImplemented
             else:
                 raise oefmt(space.w_TypeError,
-                    'unsupported operand dtypes %s and %s for "%s"',
-                    w_rdtype.name, w_ldtype.name, self.name)
+                            'unsupported operand dtypes %s and %s for "%s"',
+                            w_rdtype.get_name(), w_ldtype.get_name(),
+                            self.name)
 
         if self.are_common_types(w_ldtype, w_rdtype):
             if not w_lhs.is_scalar() and w_rhs.is_scalar():
@@ -612,7 +613,7 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
         except AttributeError:
             raise oefmt(space.w_NotImplementedError,
                         "%s not implemented for %s",
-                        ufunc_name, dtype.name)
+                        ufunc_name, dtype.get_name())
     if argcount == 1:
         def impl(res_dtype, value):
             res = get_op(res_dtype)(value)

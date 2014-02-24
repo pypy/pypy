@@ -60,6 +60,8 @@ class W_MyListObj(W_MyObject):
         pass
 
 class W_MyType(W_MyObject):
+    name = "foobar"
+
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
         self.dict_w = {'__str__': w_some_obj()}

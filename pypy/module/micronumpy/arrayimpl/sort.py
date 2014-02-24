@@ -177,7 +177,7 @@ def argsort_array(arr, space, w_axis):
     # XXX this should probably be changed
     raise oefmt(space.w_NotImplementedError,
                 "sorting of non-numeric types '%s' is not implemented",
-                arr.dtype.name)
+                arr.dtype.get_name())
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)
@@ -320,7 +320,7 @@ def sort_array(arr, space, w_axis, w_order):
     # XXX this should probably be changed
     raise oefmt(space.w_NotImplementedError,
                 "sorting of non-numeric types '%s' is not implemented",
-                arr.dtype.name)
+                arr.dtype.get_name())
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)

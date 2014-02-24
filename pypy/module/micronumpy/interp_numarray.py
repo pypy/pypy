@@ -573,7 +573,8 @@ class __extend__(W_NDimArray):
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         if new_dtype.num == NPY.VOID:
             raise oefmt(space.w_NotImplementedError,
-                "%s.astype(%s) not implemented yet", cur_dtype.name, new_dtype.name)
+                        "astype(%s) not implemented yet",
+                        new_dtype.get_name())
         if new_dtype.num == NPY.STRING and new_dtype.size == 0:
             if cur_dtype.num == NPY.STRING:
                 new_dtype = interp_dtype.variable_dtype(space,
@@ -1029,7 +1030,7 @@ class __extend__(W_NDimArray):
             except AttributeError:
                 raise oefmt(space.w_NotImplementedError,
                             '%s not implemented for %s',
-                            op_name, self.get_dtype().name)
+                            op_name, self.get_dtype().get_name())
             return space.wrap(res)
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 

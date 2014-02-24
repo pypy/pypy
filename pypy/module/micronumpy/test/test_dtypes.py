@@ -900,22 +900,22 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_intp(self):
         from numpypy import dtype
-        assert dtype('p') is dtype('intp')
-        assert dtype('P') is dtype('uintp')
-        #assert dtype('p') is dtype('int')
-        #assert dtype('P') is dtype('uint')
+        for s in ['p', 'int']:
+            assert dtype(s) is dtype('intp')
+        for s in ['P', 'uint']:
+            assert dtype(s) is dtype('uintp')
         assert dtype('p').num == 7
         assert dtype('P').num == 8
-        #assert dtype('p').char == 'l'
-        #assert dtype('P').char == 'L'
+        assert dtype('p').char == 'l'
+        assert dtype('P').char == 'L'
         assert dtype('p').kind == 'i'
         assert dtype('P').kind == 'u'
-        #if self.ptr_size == 4:
-        #    assert dtype('p').name == 'int32'
-        #    assert dtype('P').name == 'uint32'
-        #else:
-        #    assert dtype('p').name == 'int64'
-        #    assert dtype('P').name == 'uint64'
+        if self.ptr_size == 4:
+            assert dtype('p').name == 'int32'
+            assert dtype('P').name == 'uint32'
+        else:
+            assert dtype('p').name == 'int64'
+            assert dtype('P').name == 'uint64'
 
     def test_alignment(self):
         from numpypy import dtype
