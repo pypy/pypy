@@ -166,6 +166,9 @@ class AppTestDtypes(BaseAppTestDtypes):
         d = dtype('S5')
         assert repr(d) == "dtype('S5')"
         assert str(d) == "|S5"
+        d = dtype(('<f8', 2))
+        assert repr(d) == "dtype(('<f8', (2,)))"
+        assert str(d) == "('<f8', (2,))"
 
     def test_bool_array(self):
         from numpypy import array, False_, True_
@@ -855,6 +858,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype(('string', 7)).str == '|S7'
         assert dtype(('unicode', 7)).str == '<U7'
         assert dtype([('', 'f8')]).str == "|V8"
+        assert dtype(('f8', 2)).str == "|V16"
 
     def test_intp(self):
         from numpypy import dtype
@@ -927,6 +931,7 @@ class AppTestTypes(BaseAppTestDtypes):
         a = [('x', '<i8'), ('y', '<f8')]
         b = [('x', '<i4'), ('y', a)]
         assert np.dtype(b).descr == b
+        assert np.dtype(('<f8', 2)).descr == [('', '|V16')]
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_mro(self):

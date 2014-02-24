@@ -125,21 +125,28 @@ class W_Dtype(W_Root):
         return get_dtype_cache(space).dtypes_by_name[self.byteorder + self.float_type]
 
     def descr_str(self, space):
-        if not self.is_record_type():
+        if not self.num == NPY.VOID:
             if self.char == 'S':
                 s = '|S' + str(self.get_size())
             else:
                 s = self.name
             return space.wrap(s)
+        elif self.subdtype is not None:
+            return space.str(space.newtuple([
+                self.subdtype.descr_get_str(space),
+                self.descr_get_shape(space)]))
         return space.str(self.descr_get_descr(space))
 
     def descr_repr(self, space):
-        if not self.is_record_type():
+        if not self.num == NPY.VOID:
             if self.char == 'S':
                 s = 'S' + str(self.get_size())
             else:
                 s = self.name
             r = space.wrap(s)
+        elif self.subdtype is not None:
+            r = space.newtuple([self.subdtype.descr_get_str(space),
+                                self.descr_get_shape(space)])
         else:
             r = self.descr_get_descr(space)
         return space.wrap("dtype(%s)" % space.str_w(space.repr(r)))
