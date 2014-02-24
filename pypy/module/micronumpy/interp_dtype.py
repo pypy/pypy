@@ -289,7 +289,7 @@ class W_Dtype(W_Root):
         return space.w_False
 
     def descr_getitem(self, space, w_item):
-        if self.fields is None:
+        if not self.fields:
             raise OperationError(space.w_KeyError, space.wrap(
                 "There are no fields in dtype %s." % self.name))
         if space.isinstance_w(w_item, space.w_basestring):
@@ -311,7 +311,7 @@ class W_Dtype(W_Root):
                 "Field named '%s' not found." % item))
 
     def descr_len(self, space):
-        if self.fields is None:
+        if not self.fields:
             return space.wrap(0)
         return space.wrap(len(self.fields))
 

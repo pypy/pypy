@@ -118,14 +118,12 @@ class BaseType(object):
     def __init__(self, native=True):
         self.native = native
 
-    def _unimplemented_ufunc(self, *args):
-        raise NotImplementedError
+    def __repr__(self):
+        return self.__class__.__name__
 
     def malloc(self, size):
         return alloc_raw_storage(size, track_allocation=False, zero=True)
 
-    def __repr__(self):
-        return self.__class__.__name__
 
 class Primitive(object):
     _mixin_ = True

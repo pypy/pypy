@@ -65,13 +65,10 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype(None) is dtype(float)
 
-        e = dtype('int8')
-        exc = raises(KeyError, "e[2]")
-        assert exc.value.message == "There are no fields in dtype int8."
-        exc = raises(KeyError, "e['z']")
-        assert exc.value.message == "There are no fields in dtype int8."
-        exc = raises(KeyError, "e[None]")
-        assert exc.value.message == "There are no fields in dtype int8."
+        for d in [dtype('<c8'), dtype('>i4')]:
+            for key in ["d[2]", "d['z']", "d[None]"]:
+                exc = raises(KeyError, key)
+                assert exc.value[0] == "There are no fields in dtype %s." % str(d)
 
         exc = raises(TypeError, dtype, (1, 2))
         assert exc.value[0] == 'data type not understood'
