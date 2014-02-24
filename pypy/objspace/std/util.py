@@ -1,3 +1,7 @@
+from pypy.interpreter.error import oefmt
+from rpython.rlib.rstring import InvalidBaseError
+
+
 def negate(f):
     """Create a function which calls `f` and negates its result.  When the
     result is ``space.w_NotImplemented``, ``space.w_NotImplemented`` is
@@ -22,3 +26,11 @@ def get_positive_index(where, length):
         where = length
     assert where >= 0
     return where
+
+
+def wrap_parsestringerror(space, e, w_source):
+    if isinstance(e, InvalidBaseError):
+        raise oefmt(space.w_ValueError, e.msg)
+    else:
+        raise oefmt(space.w_ValueError, '%s: %s',
+                    e.msg, space.str_w(space.repr(w_source)))

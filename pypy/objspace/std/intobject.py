@@ -13,8 +13,7 @@ from rpython.rlib.objectmodel import instantiate, import_from_mixin, specialize
 from rpython.rlib.rarithmetic import (
     LONG_BIT, is_valid_int, ovfcheck, r_longlong, r_uint, string_to_int)
 from rpython.rlib.rbigint import rbigint
-from rpython.rlib.rstring import (
-    InvalidBaseError, ParseStringError, ParseStringOverflowError)
+from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
@@ -26,6 +25,7 @@ from pypy.objspace.std import newformat
 from pypy.objspace.std.model import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import wrap_parsestringerror
 
 
 SENTINEL = object()
@@ -603,15 +603,6 @@ def wrapint(space, x):
     # reused.  (we could use a prefetch hint if we had that)
     w_res.intval = x
     return w_res
-
-
-def wrap_parsestringerror(space, e, w_source):
-    if isinstance(e, InvalidBaseError):
-        w_msg = space.wrap(e.msg)
-    else:
-        w_msg = space.wrap('%s: %s' % (e.msg,
-                                       space.str_w(space.repr(w_source))))
-    return OperationError(space.w_ValueError, w_msg)
 
 
 def _recover_with_smalllong(space):

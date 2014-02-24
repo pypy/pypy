@@ -9,6 +9,7 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std import newformat
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import wrap_parsestringerror
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
 from rpython.rlib.rbigint import rbigint
@@ -168,7 +169,6 @@ class W_FloatObject(W_Root):
             try:
                 return rfloat.string_to_float(string)
             except ParseStringError as e:
-                from pypy.objspace.std.intobject import wrap_parsestringerror
                 raise wrap_parsestringerror(space, e, w_source)
 
         w_value = w_x     # 'x' is the keyword argument name in CPython
