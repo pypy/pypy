@@ -1744,23 +1744,6 @@ class StringType(FlexibleType):
     def bool(self, v):
         return bool(self.to_str(v))
 
-    def build_and_convert(self, space, mydtype, box):
-        if isinstance(box, interp_boxes.W_StringBox):
-            return box
-        assert isinstance(box, interp_boxes.W_GenericBox)
-        if box.get_dtype(space).is_str_or_unicode():
-            arg = box.get_dtype(space).itemtype.to_str(box)
-        else:
-            w_arg = box.descr_str(space)
-            arg = space.str_w(space.str(w_arg))
-        arr = VoidBoxStorage(mydtype.size, mydtype)
-        i = 0
-        for i in range(min(len(arg), mydtype.size)):
-            arr.storage[i] = arg[i]
-        for j in range(i + 1, mydtype.size):
-            arr.storage[j] = '\x00'
-        return interp_boxes.W_StringBox(arr, 0, arr.dtype)
-
     def fill(self, storage, width, box, start, stop, offset):
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box, width)
