@@ -475,10 +475,10 @@ class W_FloatObject(W_Root):
         w_lhs = self._to_float(space, w_lhs)
         if w_lhs is None:
             return space.w_NotImplemented
-        lhs = w_lhs.floatval
-        if lhs == 0.0:
+        selfval = self.floatval
+        if selfval == 0.0:
             raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
-        return W_FloatObject(lhs / self.floatval)
+        return W_FloatObject(w_lhs.floatval / selfval)
 
     def descr_floordiv(self, space, w_rhs):
         w_rhs = self._to_float(space, w_rhs)
