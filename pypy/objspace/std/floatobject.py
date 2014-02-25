@@ -366,7 +366,7 @@ class W_FloatObject(W_Root):
         if isinstance(w_obj, W_FloatObject):
             return w_obj
         if space.isinstance_w(w_obj, space.w_int):
-            return W_FloatObject(space.float_w(w_obj))
+            return W_FloatObject(space.int_w(w_obj))
         if space.isinstance_w(w_obj, space.w_long):
             return W_FloatObject(space.float_w(w_obj))
 
