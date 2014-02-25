@@ -860,6 +860,7 @@ class AppTestTypes(BaseAppTestDtypes):
         raises(TypeError, lambda: float64(3) & 1)
 
     def test_alternate_constructs(self):
+        import numpy as np
         from numpypy import dtype
         nnp = self.non_native_prefix
         byteorder = self.native_prefix
@@ -875,6 +876,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('<S5').newbyteorder('=').byteorder == '|'
         assert dtype('void').byteorder == '|'
         assert dtype((int, 2)).byteorder == '|'
+        assert dtype(np.generic).str == '|V0'
 
     def test_dtype_str(self):
         from numpypy import dtype

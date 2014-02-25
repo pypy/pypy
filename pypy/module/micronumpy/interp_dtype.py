@@ -827,10 +827,8 @@ class DtypeCache(object):
             NPY.STRING:   [space.w_str,
                            space.gettypefor(interp_boxes.W_CharacterBox)],
             NPY.UNICODE:  [space.w_unicode],
-            NPY.VOID:     [], #space.w_buffer,
-                              # XXX no buffer in space
-                              #space.gettypefor(interp_boxes.W_GenericBox),
-                              # XXX fix, leads to _coerce error
+            NPY.VOID:     [space.gettypefor(interp_boxes.W_GenericBox)],
+                           #space.w_buffer,  # XXX no buffer in space
         }
         float_dtypes = [self.w_float16dtype, self.w_float32dtype,
                         self.w_float64dtype, self.w_floatlongdtype]
