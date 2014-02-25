@@ -452,7 +452,7 @@ class AppTestDtypes(BaseAppTestDtypes):
                 assert np.dtype(o).str == '|O8'
             else:
                 exc = raises(NotImplementedError, "np.dtype(o)")
-                assert exc.value[0] == 'object dtype not implemented'
+                assert exc.value[0] == "cannot create dtype with type '%s'" % o.__name__
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
