@@ -94,12 +94,12 @@ def _PyArray_SIZE(space, w_array):
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_ITEMSIZE(space, w_array):
     assert isinstance(w_array, W_NDimArray)
-    return w_array.get_dtype().get_size()
+    return w_array.get_dtype().elsize
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def _PyArray_NBYTES(space, w_array):
     assert isinstance(w_array, W_NDimArray)
-    return w_array.get_size() * w_array.get_dtype().get_size()
+    return w_array.get_size() * w_array.get_dtype().elsize
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_TYPE(space, w_array):

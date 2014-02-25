@@ -70,7 +70,7 @@ class Scalar(base.BaseArrayImplementation):
         scalar = Scalar(dtype)
         if dtype.is_str_or_unicode():
             scalar.value = dtype.coerce(space, space.wrap(self.value.raw_str()))
-        elif dtype.is_record_type():
+        elif dtype.is_record():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "viewing scalar as record not implemented"))
         else:
@@ -78,7 +78,7 @@ class Scalar(base.BaseArrayImplementation):
         return scalar
 
     def get_real(self, space, orig_array):
-        if self.dtype.is_complex_type():
+        if self.dtype.is_complex():
             scalar = Scalar(self.dtype.get_float_dtype(space))
             scalar.value = self.value.convert_real_to(scalar.dtype)
             return scalar
@@ -91,7 +91,7 @@ class Scalar(base.BaseArrayImplementation):
                 "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
-        if self.dtype.is_complex_type():
+        if self.dtype.is_complex():
             dtype = self.dtype.get_float_dtype(space)
             self.value = self.dtype.itemtype.composite(
                                w_arr.get_scalar_value().convert_to(space, dtype),
@@ -100,7 +100,7 @@ class Scalar(base.BaseArrayImplementation):
             self.value = w_arr.get_scalar_value()
 
     def get_imag(self, space, orig_array):
-        if self.dtype.is_complex_type():
+        if self.dtype.is_complex():
             scalar = Scalar(self.dtype.get_float_dtype(space))
             scalar.value = self.value.convert_imag_to(scalar.dtype)
             return scalar
@@ -110,7 +110,7 @@ class Scalar(base.BaseArrayImplementation):
 
     def set_imag(self, space, orig_array, w_val):
         #Only called on complex dtype
-        assert self.dtype.is_complex_type()
+        assert self.dtype.is_complex()
         w_arr = convert_to_array(space, w_val)
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
@@ -127,7 +127,7 @@ class Scalar(base.BaseArrayImplementation):
             if space.len_w(w_idx) == 0:
                 return self.get_scalar_value()
         elif space.isinstance_w(w_idx, space.w_str):
-            if self.dtype.is_record_type():
+            if self.dtype.is_record():
                 w_val = self.value.descr_getitem(space, w_idx)
                 return convert_to_array(space, w_val)
         elif space.is_none(w_idx):
@@ -148,7 +148,7 @@ class Scalar(base.BaseArrayImplementation):
             if space.len_w(w_idx) == 0:
                 return self.set_scalar_value(self.dtype.coerce(space, w_val))
         elif space.isinstance_w(w_idx, space.w_str):
-            if self.dtype.is_record_type():
+            if self.dtype.is_record():
                 return self.value.descr_setitem(space, w_idx, w_val)
         raise OperationError(space.w_IndexError,
                              space.wrap("0-d arrays can't be indexed"))

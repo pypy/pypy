@@ -174,7 +174,7 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
     def __init__(self, array):
         self.array = array
         self.offset = 0
-        self.skip = array.dtype.get_size()
+        self.skip = array.dtype.elsize
         self.size = array.size
 
     def setitem(self, elem):

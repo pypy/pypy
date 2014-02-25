@@ -1,8 +1,8 @@
-from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
-                                           Function, adjust_bridges,
-                                           import_log, split_trace, Op,
-                                           parse_log_counts)
-from pypy.tool.jitlogparser.storage import LoopStorage
+from rpython.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
+                                              Function, adjust_bridges,
+                                              import_log, split_trace, Op,
+                                              parse_log_counts)
+from rpython.tool.jitlogparser.storage import LoopStorage
 import py, sys
 from rpython.jit.backend.detect_cpu import autodetect
 
