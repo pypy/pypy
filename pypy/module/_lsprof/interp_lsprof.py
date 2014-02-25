@@ -159,7 +159,7 @@ class ProfilerEntry(ProfilerSubEntry):
                 subentry = ProfilerSubEntry(entry.frame)
                 self.calls[entry] = subentry
                 return subentry
-            return None
+            raise
 
 class ProfilerContext(object):
     def __init__(self, profobj, entry):
@@ -181,8 +181,11 @@ class ProfilerContext(object):
         entry._stop(tt, it)
         if profobj.subcalls and self.previous:
             caller = jit.promote(self.previous.entry)
-            subentry = caller._get_or_make_subentry(entry, False)
-            if subentry is not None:
+            try:
+                subentry = caller._get_or_make_subentry(entry, False)
+            except KeyError:
+                pass
+            else:
                 subentry._stop(tt, it)
 
 
@@ -308,7 +311,7 @@ class W_Profiler(W_Root):
                 entry = ProfilerEntry(f_code)
                 self.data[f_code] = entry
                 return entry
-            return None
+            raise
 
     @jit.elidable
     def _get_or_make_builtin_entry(self, key, make=True):
@@ -319,7 +322,7 @@ class W_Profiler(W_Root):
                 entry = ProfilerEntry(self.space.wrap(key))
                 self.builtin_data[key] = entry
                 return entry
-            return None
+            raise
 
     def _enter_call(self, f_code):
         # we have a superb gc, no point in freelist :)
@@ -332,8 +335,11 @@ class W_Profiler(W_Root):
         if context is None:
             return
         self = jit.promote(self)
-        entry = self._get_or_make_entry(f_code, False)
-        if entry is not None:
+        try:
+            entry = self._get_or_make_entry(f_code, False)
+        except KeyError:
+            pass
+        else:
             context._stop(self, entry)
         self.current_context = context.previous
 
@@ -347,8 +353,11 @@ class W_Profiler(W_Root):
         if context is None:
             return
         self = jit.promote(self)
-        entry = self._get_or_make_builtin_entry(key, False)
-        if entry is not None:
+        try:
+            entry = self._get_or_make_builtin_entry(key, False)
+        except KeyError:
+            pass
+        else:
             context._stop(self, entry)
         self.current_context = context.previous
 
