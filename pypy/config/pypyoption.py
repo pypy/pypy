@@ -272,9 +272,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
 
-        ChoiceOption("multimethods", "the multimethod implementation to use",
-                     ["doubledispatch", "mrd"],
-                     default="mrd"),
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
                    default=False,

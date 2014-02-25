@@ -54,7 +54,6 @@
 .. _`pypy/objspace/std`:
 .. _`pypy/objspace/std/`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/
 .. _`pypy/objspace/std/listtype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/listtype.py
-.. _`pypy/objspace/std/multimethod.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/multimethod.py
 .. _`pypy/objspace/std/objspace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/objspace.py
 .. _`pypy/objspace/std/proxy_helpers.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/proxy_helpers.py
 .. _`pypy/objspace/std/proxyobject.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/proxyobject.py
