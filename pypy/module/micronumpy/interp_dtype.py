@@ -855,6 +855,7 @@ class DtypeCache(object):
         # higher numbers
         for dtype in reversed(self.builtin_dtypes):
             dtype.fields = None  # mark these as builtin
+            assert dtype.num not in self.dtypes_by_num
             self.dtypes_by_num[dtype.num] = dtype
             self.dtypes_by_name[dtype.get_name()] = dtype
             for can_name in [dtype.kind + str(dtype.elsize),

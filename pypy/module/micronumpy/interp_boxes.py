@@ -33,13 +33,13 @@ MIXIN_64 = (W_IntObject.typedef,) if LONG_BIT == 64 else ()
 long_double_size = 8
 
 
-def new_dtype_getter(name):
+def new_dtype_getter(num):
     @jit.elidable
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-        return get_dtype_cache(space).dtypes_by_name[name]
+        return get_dtype_cache(space).dtypes_by_num[num]
 
-    def new(space, w_subtype, w_value=None):
+    def descr__new__(space, w_subtype, w_value=None):
         from pypy.module.micronumpy.interp_numarray import array
         dtype = _get_dtype(space)
         if not space.is_none(w_value):
@@ -52,7 +52,7 @@ def new_dtype_getter(name):
     def descr_reduce(self, space):
         return self.reduce(space)
 
-    return func_with_new_name(new, name + "_box_new"), staticmethod(_get_dtype), func_with_new_name(descr_reduce, "descr_reduce")
+    return descr__new__, staticmethod(_get_dtype), descr_reduce
 
 
 class Box(object):
@@ -365,7 +365,7 @@ class W_GenericBox(W_Root):
         return self.w_flags
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.BOOL)
 
 class W_NumberBox(W_GenericBox):
     pass
@@ -381,34 +381,34 @@ class W_UnsignedIntegerBox(W_IntegerBox):
     pass
 
 class W_Int8Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("int8")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.BYTE)
 
 class W_UInt8Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("uint8")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.UBYTE)
 
 class W_Int16Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("int16")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.SHORT)
 
 class W_UInt16Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("uint16")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.USHORT)
 
 class W_Int32Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("i")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.INT)
 
 class W_UInt32Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("I")
-
-class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("q")
-
-class W_UInt64Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("Q")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.UINT)
 
 class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("l")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONG)
 
 class W_ULongBox(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("L")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.ULONG)
+
+class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGLONG)
+
+class W_UInt64Box(W_UnsignedIntegerBox, PrimitiveBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.ULONGLONG)
 
 class W_InexactBox(W_NumberBox):
     pass
@@ -417,13 +417,13 @@ class W_FloatingBox(W_InexactBox):
     pass
 
 class W_Float16Box(W_FloatingBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float16")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.HALF)
 
 class W_Float32Box(W_FloatingBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float32")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.FLOAT)
 
 class W_Float64Box(W_FloatingBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float64")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.DOUBLE)
 
     def descr_as_integer_ratio(self, space):
         return space.call_method(self.item(space), 'as_integer_ratio')
@@ -432,17 +432,17 @@ class W_ComplexFloatingBox(W_InexactBox):
     pass
 
 class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex64")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CFLOAT)
 
 class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex128")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CDOUBLE)
 
 if long_double_size in (8, 12, 16):
     class W_FloatLongBox(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGDOUBLELTR)
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGDOUBLE)
 
     class W_ComplexLongBox(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CLONGDOUBLELTR)
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CLONGDOUBLE)
 
 class W_FlexibleBox(W_GenericBox):
     _attrs_ = ['arr', 'ofs', 'dtype']
