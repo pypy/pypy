@@ -547,7 +547,7 @@ class W_FloatObject(W_Root):
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))
     def descr_pow(self, space, w_rhs, w_third_arg):
-        # This raises FailedToImplement in cases like overflow where a
+        # This returns space.w_NotImplemented in cases like overflow where a
         # (purely theoretical) big-precision float implementation would have
         # a chance to give a result, and directly OperationError for errors
         # that we want to force to be reported to the user.
