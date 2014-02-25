@@ -1697,16 +1697,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "data-type must not be 0-sized"
         assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(ValueError, a.view, 'S4')
-            raises(ValueError, a.view, [('a', 'i2'), ('b', 'i2')])
-        else:
-            assert a.view('S4') == 'abc1'
-            b = a.view([('a', 'i2'), ('b', 'i2')])
-            assert b.shape == (1,)
-            assert b[0][0] == 25185
-            assert b[0][1] == 12643
+        assert (a == ['a', 'b', 'c', '1']).all()
+        assert a.view('S4') == 'abc1'
+        b = a.view([('a', 'i2'), ('b', 'i2')])
+        assert b.shape == (1,)
+        assert b[0][0] == 25185
+        assert b[0][1] == 12643
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])[0]
         assert a.shape == ()
         assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'

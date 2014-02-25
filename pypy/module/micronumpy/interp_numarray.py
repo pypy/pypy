@@ -1448,9 +1448,10 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     # scalars and strings w/o __array__ method
     isstr = space.isinstance_w(w_object, space.w_str)
     if not issequence_w(space, w_object) or isstr:
-        if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
-            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
-        return W_NDimArray.new_scalar(space, dtype, w_object)
+        if dtype is None or dtype.char != NPY.CHARLTR:
+            if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
+                dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
+            return W_NDimArray.new_scalar(space, dtype, w_object)
 
     if space.is_none(w_order):
         order = 'C'
