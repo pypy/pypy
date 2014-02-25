@@ -587,10 +587,8 @@ def variable_dtype(space, name):
         except ValueError:
             raise oefmt(space.w_TypeError, "data type not understood")
     if char == NPY.CHARLTR:
-        char = NPY.STRINGLTR
-        size = 1
-
-    if char == NPY.STRINGLTR:
+        return new_string_dtype(space, 1, NPY.CHARLTR)
+    elif char == NPY.STRINGLTR:
         return new_string_dtype(space, size)
     elif char == NPY.UNICODELTR:
         return new_unicode_dtype(space, size)
@@ -599,13 +597,13 @@ def variable_dtype(space, name):
     assert False
 
 
-def new_string_dtype(space, size):
+def new_string_dtype(space, size, char=NPY.STRINGLTR):
     return W_Dtype(
         types.StringType(),
         elsize=size,
         num=NPY.STRING,
         kind=NPY.STRINGLTR,
-        char=NPY.STRINGLTR,
+        char=char,
         w_box_type=space.gettypefor(interp_boxes.W_StringBox),
     )
 
