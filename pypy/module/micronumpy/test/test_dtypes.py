@@ -428,6 +428,20 @@ class AppTestDtypes(BaseAppTestDtypes):
             s2 = np.array(123, dtype=dt2).byteswap().tostring()
             assert s1 == s2
 
+        d = np.dtype([('', '<i8')]).newbyteorder()
+        assert d.shape == ()
+        assert d.names == ('f0',)
+        #assert d.fields['f0'] == ('>i8', 0)
+        assert d.subdtype is None
+        #assert d.descr == [('f0', '>i8')]
+        #assert str(d) == "[('f0', '>i8')]"
+        d = np.dtype(('<i8', 2)).newbyteorder()
+        assert d.shape == (2,)
+        assert d.names is None
+        assert d.fields is None
+        assert d.descr == [('', '|V16')]
+        #assert str(d) == "('>i8', (2,))"
+
     def test_object(self):
         import numpy as np
         import sys

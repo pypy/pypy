@@ -409,7 +409,9 @@ class W_Dtype(W_Root):
                 endian = newendian
         itemtype = self.itemtype.__class__(endian in (NPY.NATIVE, NPY.NATBYTE))
         return W_Dtype(itemtype, self.num, self.kind, self.char,
-                       self.w_box_type, byteorder=endian, elsize=self.elsize)
+                       self.w_box_type, byteorder=endian, elsize=self.elsize,
+                       names=self.names, fields=self.fields,
+                       shape=self.shape, subdtype=self.subdtype)
 
 
 @specialize.arg(2)
