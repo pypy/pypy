@@ -8,12 +8,8 @@ from rpython.rlib import jit
 __all__ = ['StdTypeDef']
 
 
-class StdTypeDef(TypeDef):
+StdTypeDef = TypeDef
 
-    def __init__(self, __name, __base=None, **rawdict):
-        "NOT_RPYTHON: initialization-time only."
-        TypeDef.__init__(self, __name, __base, **rawdict)
-        self.any = type("W_Any"+__name.title(), (baseobjspace.W_Root,), {'typedef': self})
 
 @jit.unroll_safe
 def issubtypedef(a, b):
