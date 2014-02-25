@@ -304,9 +304,15 @@ class StdObjSpace(ObjSpace):
                 self, module=module, instance=instance,
                 strdict=strdict, kwargs=kwargs)
 
-    def newset(self):
-        from pypy.objspace.std.setobject import newset
-        return W_SetObject(self, None)
+    def newset(self, iterable_w=None):
+        if iterable_w is None:
+            return W_FrozensetObject(self, None)
+        return W_SetObject(self, self.newtuple(iterable_w))
+
+    def newfrozenset(self, iterable_w=None):
+        if iterable_w is None:
+            return W_FrozensetObject(self, None)
+        return W_FrozensetObject(self, self.newtuple(iterable_w))
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)

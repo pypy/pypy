@@ -55,8 +55,6 @@ class StdTypeModel:
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import proxyobject
 
-        import pypy.objspace.std.marshal_impl # install marshal multimethods
-
 
         self.pythontypes = []
         self.pythontypes.append(objectobject.W_ObjectObject.typedef)
@@ -344,10 +342,6 @@ class MM:
                                      general__args__=True)
     init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
     getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
-    # special visible multimethods
-    # NOTE: when adding more sometype_w() methods, you need to write a
-    # stub in default.py to raise a space.w_TypeError
-    marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
 
     # add all regular multimethods here
     for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
