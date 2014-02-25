@@ -1128,8 +1128,6 @@ def characterize(space, w_a, w_b):
 class W_BaseDictMultiIterObject(W_Root):
     _immutable_fields_ = ["iteratorimplementation"]
 
-    ignore_for_isinstance_cache = True
-
     def __init__(self, space, iteratorimplementation):
         self.space = space
         self.iteratorimplementation = iteratorimplementation
