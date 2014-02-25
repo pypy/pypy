@@ -240,13 +240,19 @@ class CallControl(object):
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
                 extraeffect = EffectInfo.EF_CANNOT_RAISE
-        else:
-            assert not loopinvariant, (
+        #
+        # check that the result is really as expected
+        if loopinvariant:
+            assert extraeffect == EffectInfo.EF_LOOPINVARIANT, (
                 "in operation %r: this calls a _jit_loop_invariant_ function,"
-                " but it can have random effects")
-            assert not elidable, (
+                " but this contradicts other sources (e.g. it can have random"
+                " effects)" % (op,))
+        if elidable:
+            assert extraeffect in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                                   EffectInfo.EF_ELIDABLE_CAN_RAISE), (
                 "in operation %r: this calls an _elidable_function_,"
-                " but it can have random effects")
+                " but this contradicts other sources (e.g. it can have random"
+                " effects)" % (op,))
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
