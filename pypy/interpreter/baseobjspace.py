@@ -1420,11 +1420,7 @@ class ObjSpace(object):
         return w_obj.ord(self)
 
     # This is all interface for gateway.py.
-    def gateway_int_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_float):
-            raise OperationError(self.w_TypeError,
-                            self.wrap("integer argument expected, got float"))
-        return self.int_w(self.int(w_obj))
+    gateway_int_w = int_w
 
     def gateway_float_w(self, w_obj):
         return self.float_w(self.float(w_obj))
