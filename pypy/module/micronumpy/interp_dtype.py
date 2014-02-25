@@ -38,8 +38,8 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
 class W_Dtype(W_Root):
     _immutable_fields_ = [
-        "num", "kind", "char", "w_box_type",
-        "itemtype?", "byteorder?", "names?", "fields?", "elsize?", "alignment?",
+        "itemtype?", "num", "kind", "char", "w_box_type",
+        "byteorder?", "names?", "fields?", "elsize?", "alignment?",
         "shape?", "subdtype?", "base?",
     ]
 
@@ -793,7 +793,7 @@ class DtypeCache(object):
             char=NPY.UINTPLTR,
             w_box_type=space.gettypefor(interp_boxes.W_ULongBox),
         )
-        self.aliases = {
+        aliases = {
             NPY.BOOL:        ['bool', 'bool8'],
             NPY.BYTE:        ['byte'],
             NPY.UBYTE:       ['ubyte'],
@@ -863,8 +863,8 @@ class DtypeCache(object):
                 self.dtypes_by_name[NPY.NATBYTE + can_name] = dtype
                 self.dtypes_by_name[NPY.NATIVE + can_name] = dtype
                 self.dtypes_by_name[NPY.IGNORE + can_name] = dtype
-            if dtype.num in self.aliases:
-                for alias in self.aliases[dtype.num]:
+            if dtype.num in aliases:
+                for alias in aliases[dtype.num]:
                     self.dtypes_by_name[alias] = dtype
 
         typeinfo_full = {
