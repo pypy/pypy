@@ -5,7 +5,6 @@ from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict
 from pypy.interpreter.astcompiler.misc import mangle
-from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
@@ -56,7 +55,7 @@ UNKNOWN = 0
 COMPARES_BY_IDENTITY = 1
 OVERRIDES_EQ_CMP_OR_HASH = 2
 
-class W_TypeObject(W_Object):
+class W_TypeObject(W_Root):
     lazyloaders = {} # can be overridden by specific instances
 
     # the version_tag changes if the dict or the inheritance hierarchy changes
