@@ -569,6 +569,13 @@ class W_ComplexObject(W_Root):
             raise oefmt(space.w_OverflowError, "complex exponentiation")
         return w_p
 
+    @unwrap_spec(w_third_arg=WrappedDefault(None))
+    def descr_rpow(self, space, w_lhs, w_third_arg):
+        w_lhs = self._to_complex(space, w_lhs)
+        if w_lhs is None:
+            return space.w_NotImplemented
+        return w_lhs.descr_pow(space, self, w_third_arg)
+
     def descr_conjugate(self, space):
         """(A+Bj).conjugate() -> A-Bj"""
         return space.newcomplex(self.realval, -self.imagval)
@@ -629,6 +636,7 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __divmod__ = interp2app(W_ComplexObject.descr_divmod),
     __rdivmod__ = interp2app(W_ComplexObject.descr_rdivmod),
     __pow__ = interp2app(W_ComplexObject.descr_pow),
+    __rpow__ = interp2app(W_ComplexObject.descr_rpow),
 
     conjugate = interp2app(W_ComplexObject.descr_conjugate),
 )
