@@ -92,7 +92,7 @@ class W_Root(object):
         i = 2 * HUGEVAL_BYTES
         addrstring = [' '] * i
         while True:
-            n = space.int_w(space.and_(w_id, w_0x0F))
+            n = space.int_w(space.and_(w_id, w_0x0F), allow_conversion=False)
             n += ord('0')
             if n > ord('9'):
                 n += (ord('a') - ord('9') - 1)
@@ -1238,7 +1238,7 @@ class ObjSpace(object):
             start, stop, step, length = w_index_or_slice.indices4(self,
                                                                   seqlength)
         else:
-            start = self.int_w(w_index_or_slice)
+            start = self.int_w(w_index_or_slice, allow_conversion=False)
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):

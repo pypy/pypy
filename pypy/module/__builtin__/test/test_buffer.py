@@ -170,6 +170,18 @@ class AppTestBuffer:
                 for step in indices[1:]:
                     assert b[start:stop:step] == s[start:stop:step]
 
+    def test_getitem_only_ints(self):
+        class MyInt(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __int__(self):
+            return self.x
+
+        buf = buffer('hello world')
+        raises(TypeError, "buf[MyInt(0)]")
+        raises(TypeError, "buf[MyInt(0):MyInt(5)]")
+        
 class AppTestMemoryView:
     def test_basic(self):
         v = memoryview("abc")
