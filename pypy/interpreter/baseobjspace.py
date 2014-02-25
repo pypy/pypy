@@ -1262,7 +1262,10 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError, "%s must be an integer, not %T",
                         objdescr, w_obj)
         try:
-            index = self.int_w(w_index)
+            # allow_conversion=False it's not really necessary because the
+            # return type of __index__ is already checked by space.index(),
+            # but there is no reason to allow conversions anyway
+            index = self.int_w(w_index, allow_conversion=False)
         except OperationError, err:
             if not err.match(self, self.w_OverflowError):
                 raise
