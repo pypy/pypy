@@ -38,14 +38,14 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
 class W_Dtype(W_Root):
     _immutable_fields_ = [
-        "num", "kind", "char", "w_box_type", "float_type",
+        "num", "kind", "char", "w_box_type",
         "itemtype?", "byteorder?", "names?", "fields?", "elsize?", "alignment?",
         "shape?", "subdtype?", "base?",
         "alternate_constructors", "aliases",
     ]
 
     def __init__(self, itemtype, num, kind, char, w_box_type,
-                 float_type=None, byteorder=None, names=[], fields={},
+                 byteorder=None, names=[], fields={},
                  elsize=None, shape=[], subdtype=None,
                  alternate_constructors=[], aliases=[]):
         self.itemtype = itemtype
@@ -53,7 +53,6 @@ class W_Dtype(W_Root):
         self.kind = kind
         self.char = char
         self.w_box_type = w_box_type
-        self.float_type = float_type
         if byteorder is None:
             if itemtype.get_element_size() == 1:
                 byteorder = NPY.IGNORE
@@ -126,9 +125,8 @@ class W_Dtype(W_Root):
         return self.byteorder in (NPY.NATIVE, NPY.NATBYTE)
 
     def get_float_dtype(self, space):
-        assert self.kind == NPY.COMPLEXLTR
-        assert self.float_type is not None
-        dtype = get_dtype_cache(space).dtypes_by_name[self.float_type]
+        assert isinstance(self.itemtype, types.ComplexFloating)
+        dtype = self.itemtype.ComponentBoxType._get_dtype(space)
         if self.byteorder == NPY.OPPBYTE:
             dtype = dtype.descr_newbyteorder(space)
         return dtype
@@ -414,8 +412,7 @@ class W_Dtype(W_Root):
                 endian = newendian
         itemtype = self.itemtype.__class__(endian in (NPY.NATIVE, NPY.NATBYTE))
         return W_Dtype(itemtype, self.num, self.kind, self.char,
-                       self.w_box_type, self.float_type, byteorder=endian,
-                       elsize=self.elsize)
+                       self.w_box_type, byteorder=endian, elsize=self.elsize)
 
 
 @specialize.arg(2)
@@ -764,7 +761,6 @@ class DtypeCache(object):
             char=NPY.CFLOATLTR,
             w_box_type=space.gettypefor(interp_boxes.W_Complex64Box),
             aliases=['csingle'],
-            float_type=NPY.FLOATLTR,
         )
         self.w_complex128dtype = W_Dtype(
             types.Complex128(),
@@ -775,7 +771,6 @@ class DtypeCache(object):
             alternate_constructors=[space.w_complex,
                                     space.gettypefor(interp_boxes.W_ComplexFloatingBox)],
             aliases=["complex", 'cfloat', 'cdouble'],
-            float_type=NPY.DOUBLELTR,
         )
         self.w_complexlongdtype = W_Dtype(
             types.ComplexLong(),
@@ -784,7 +779,6 @@ class DtypeCache(object):
             char=NPY.CLONGDOUBLELTR,
             w_box_type=space.gettypefor(interp_boxes.W_ComplexLongBox),
             aliases=["clongdouble", "clongfloat"],
-            float_type=NPY.LONGDOUBLELTR,
         )
         self.w_stringdtype = W_Dtype(
             types.StringType(),
