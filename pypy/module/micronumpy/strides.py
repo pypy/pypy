@@ -69,7 +69,7 @@ def is_single_elem(space, w_elem, is_rec_type):
     return True
 
 def find_shape_and_elems(space, w_iterable, dtype):
-    is_rec_type = dtype is not None and dtype.is_record_type()
+    is_rec_type = dtype is not None and dtype.is_record()
     if is_rec_type and is_single_elem(space, w_iterable, is_rec_type):
         return [], [w_iterable]
     if isinstance(w_iterable, W_NDimArray) and w_iterable.is_scalar():

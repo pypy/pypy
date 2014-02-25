@@ -10,7 +10,7 @@ from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
 
 
-class TestNumpyJIt(LLJitMixin):
+class TestNumpyJit(LLJitMixin):
     graph = None
     interp = None
 

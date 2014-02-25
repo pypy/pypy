@@ -826,10 +826,9 @@ y = a.m(33)
 
 
 class AppTestKeywordsToBuiltinSanity(object):
-
     def test_type(self):
         class X(object):
-            def __init__(self, **kw):
+            def __init__(myself, **kw):
                 pass
         clash = type.__call__.func_code.co_varnames[0]
 
@@ -844,7 +843,6 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         X(**{clash: 33})
         object.__new__(X, **{clash: 33})
-
 
     def test_dict_new(self):
         clash = dict.__new__.func_code.co_varnames[0]
@@ -865,4 +863,3 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})
-

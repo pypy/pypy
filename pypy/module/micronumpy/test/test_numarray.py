@@ -14,15 +14,9 @@ class MockDtype(object):
         def malloc(size):
             return None
 
-        @staticmethod
-        def get_element_size():
-            return 1
-
     def __init__(self):
         self.base = self
-
-    def get_size(self):
-        return 1
+        self.elsize = 1
 
 
 def create_slice(space, a, chunks):
@@ -778,6 +772,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b == 3
         a[()] = 4
         assert a == 4
+
+    def test_build_scalar(self):
+        from numpy import dtype
+        try:
+            from numpy.core.multiarray import scalar
+        except ImportError:
+            from numpy import scalar
+        exc = raises(TypeError, scalar, int, 2)
+        assert exc.value[0] == 'argument 1 must be numpy.dtype, not type'
+        exc = raises(ValueError, scalar, dtype('void'), 'abc')
+        assert exc.value[0] == 'itemsize cannot be zero'
+        exc = raises(TypeError, scalar, dtype(float), 2.5)
+        assert exc.value[0] == 'initializing object must be a string'
+        exc = raises(ValueError, scalar, dtype(float), 'abc')
+        assert exc.value[0] == 'initialization string is too small'
+        a = scalar(dtype('<f8'), dtype('<f8').type(2.5).tostring())
+        assert a == 2.5
 
     def test_len(self):
         from numpypy import array
@@ -1629,6 +1640,12 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_realimag_views(self):
         from numpypy import arange, array
+        a = array(1.5)
+        assert a.real == 1.5
+        assert a.imag == 0.0
+        a = array([1.5, 2.5])
+        assert (a.real == [1.5, 2.5]).all()
+        assert (a.imag == [0.0, 0.0]).all()
         a = arange(15)
         b = a.real
         b[5]=50
@@ -1680,16 +1697,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "data-type must not be 0-sized"
         assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(ValueError, a.view, 'S4')
-            raises(ValueError, a.view, [('a', 'i2'), ('b', 'i2')])
-        else:
-            assert a.view('S4') == 'abc1'
-            b = a.view([('a', 'i2'), ('b', 'i2')])
-            assert b.shape == (1,)
-            assert b[0][0] == 25185
-            assert b[0][1] == 12643
+        assert (a == ['a', 'b', 'c', '1']).all()
+        assert a.view('S4') == 'abc1'
+        b = a.view([('a', 'i2'), ('b', 'i2')])
+        assert b.shape == (1,)
+        assert b[0][0] == 25185
+        assert b[0][1] == 12643
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])[0]
         assert a.shape == ()
         assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'

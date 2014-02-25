@@ -709,5 +709,4 @@ def string_to_int(s, base=10):
             result = ovfcheck(result + digit)
         except OverflowError:
             raise ParseStringOverflowError(p)
-
-
+string_to_int._elidable_function_ = True
