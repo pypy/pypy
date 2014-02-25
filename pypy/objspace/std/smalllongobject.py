@@ -13,7 +13,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
-from pypy.objspace.std.model import COMMUTATIVE_OPS
+from pypy.objspace.std.util import COMMUTATIVE_OPS
 
 # XXX: breaks translation
 #LONGLONG_MIN = r_longlong(-1 << (LONGLONG_BIT - 1))

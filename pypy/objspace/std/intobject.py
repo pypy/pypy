@@ -9,7 +9,7 @@ import operator
 import sys
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import instantiate, import_from_mixin, specialize
+from rpython.rlib.objectmodel import instantiate
 from rpython.rlib.rarithmetic import (
     LONG_BIT, is_valid_int, ovfcheck, r_longlong, r_uint, string_to_int)
 from rpython.rlib.rbigint import rbigint
@@ -22,10 +22,9 @@ from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.objspace.std import newformat
-from pypy.objspace.std.model import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.util import wrap_parsestringerror
+from pypy.objspace.std.util import (
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
 
 
 SENTINEL = object()
@@ -689,7 +688,6 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                 buf = space.interp_w(Buffer, w_buffer)
                 value, w_longval = _string_to_int_or_long(space, w_value,
                                                           buf.as_str())
-                ok = True
     else:
         base = space.int_w(w_base)
 

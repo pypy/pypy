@@ -272,7 +272,7 @@ class W_ComplexObject(W_Root):
         if self.user_overridden_class:
             return None
         from rpython.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_COMPLEX as tag
+        from pypy.objspace.std.util import IDTAG_COMPLEX as tag
         real = space.float_w(space.getattr(self, space.wrap("real")))
         imag = space.float_w(space.getattr(self, space.wrap("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
