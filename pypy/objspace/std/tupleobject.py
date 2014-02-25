@@ -6,9 +6,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.util import negate
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
@@ -210,7 +210,7 @@ class W_AbstractTupleObject(W_Root):
         raise OperationError(space.w_ValueError,
                              space.wrap("tuple.index(x): x not in tuple"))
 
-W_AbstractTupleObject.typedef = StdTypeDef(
+W_AbstractTupleObject.typedef = TypeDef(
     "tuple",
     __doc__ = """tuple() -> an empty tuple
 tuple(sequence) -> tuple initialized from sequence's items

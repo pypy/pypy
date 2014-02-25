@@ -21,8 +21,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.util import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
 
@@ -718,7 +718,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         return w_obj
 
 
-W_IntObject.typedef = StdTypeDef("int",
+W_IntObject.typedef = TypeDef("int",
     __doc__ = """int(x=0) -> int or long
 int(x, base=10) -> int or long
 

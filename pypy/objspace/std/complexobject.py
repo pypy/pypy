@@ -3,9 +3,9 @@ import math
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.floatobject import _hash_float
-from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.rbigint import rbigint
@@ -593,7 +593,7 @@ def complexwprop(name):
         return space.newfloat(getattr(w_obj, name))
     return GetSetProperty(fget)
 
-W_ComplexObject.typedef = StdTypeDef("complex",
+W_ComplexObject.typedef = TypeDef("complex",
     __doc__ = """complex(real[, imag]) -> complex number
 
 Create a complex number from a real part and an optional imaginary part.

@@ -2,9 +2,7 @@ import inspect
 
 import py
 
-from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 

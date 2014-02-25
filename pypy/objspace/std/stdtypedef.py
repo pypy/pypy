@@ -1,10 +1,4 @@
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.baseobjspace import SpaceCache
-
-__all__ = ['StdTypeDef']
-
-
-StdTypeDef = TypeDef
 
 
 class TypeCache(SpaceCache):

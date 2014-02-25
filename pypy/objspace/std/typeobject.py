@@ -3,10 +3,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
-     descr_get_dict, dict_descr
+     descr_get_dict, dict_descr, Member, TypeDef
 from pypy.interpreter.astcompiler.misc import mangle
-from pypy.objspace.std.stdtypedef import Member
-from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
      promote_string, elidable, dont_look_inside, unroll_safe)
@@ -850,7 +848,7 @@ def type_issubtype(w_obj, space, w_sub):
 def type_isinstance(w_obj, space, w_inst):
     return space.newbool(space.type(w_inst).issubtype(w_obj))
 
-W_TypeObject.typedef = StdTypeDef("type",
+W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),

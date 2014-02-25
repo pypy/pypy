@@ -3,8 +3,7 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import GetSetProperty
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from rpython.rlib.objectmodel import specialize
 
 
@@ -170,7 +169,7 @@ def slicewprop(name):
         return getattr(w_obj, name)
     return GetSetProperty(fget)
 
-W_SliceObject.typedef = StdTypeDef("slice",
+W_SliceObject.typedef = TypeDef("slice",
     __doc__ = '''slice([start,] stop[, step])
 
 Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',

@@ -11,7 +11,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.util import negate
 
 
@@ -372,7 +372,7 @@ app = applevel('''
 dictrepr = app.interphook("dictrepr")
 
 
-W_DictMultiObject.typedef = StdTypeDef("dict",
+W_DictMultiObject.typedef = TypeDef("dict",
     __doc__ = '''dict() -> new empty dictionary.
 dict(mapping) -> new dictionary initialized from a mapping object\'s
     (key, value) pairs.
@@ -1216,7 +1216,7 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
             return space.newtuple([w_key, w_value])
         raise OperationError(space.w_StopIteration, space.w_None)
 
-W_DictMultiIterItemsObject.typedef = StdTypeDef(
+W_DictMultiIterItemsObject.typedef = TypeDef(
     "dict_iteritems",
     __iter__ = interp2app(W_DictMultiIterItemsObject.descr_iter),
     next = interp2app(W_DictMultiIterItemsObject.descr_next),
@@ -1224,7 +1224,7 @@ W_DictMultiIterItemsObject.typedef = StdTypeDef(
     __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
-W_DictMultiIterKeysObject.typedef = StdTypeDef(
+W_DictMultiIterKeysObject.typedef = TypeDef(
     "dict_iterkeys",
     __iter__ = interp2app(W_DictMultiIterKeysObject.descr_iter),
     next = interp2app(W_DictMultiIterKeysObject.descr_next),
@@ -1232,7 +1232,7 @@ W_DictMultiIterKeysObject.typedef = StdTypeDef(
     __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
-W_DictMultiIterValuesObject.typedef = StdTypeDef(
+W_DictMultiIterValuesObject.typedef = TypeDef(
     "dict_itervalues",
     __iter__ = interp2app(W_DictMultiIterValuesObject.descr_iter),
     next = interp2app(W_DictMultiIterValuesObject.descr_next),
@@ -1340,7 +1340,7 @@ class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterValuesObject(space, self.w_dict.itervalues())
 
-W_DictViewItemsObject.typedef = StdTypeDef(
+W_DictViewItemsObject.typedef = TypeDef(
     "dict_items",
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
@@ -1363,7 +1363,7 @@ W_DictViewItemsObject.typedef = StdTypeDef(
     __rxor__ = interp2app(W_DictViewItemsObject.descr_rxor),
     )
 
-W_DictViewKeysObject.typedef = StdTypeDef(
+W_DictViewKeysObject.typedef = TypeDef(
     "dict_keys",
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
@@ -1386,7 +1386,7 @@ W_DictViewKeysObject.typedef = StdTypeDef(
     __rxor__ = interp2app(W_DictViewKeysObject.descr_rxor),
     )
 
-W_DictViewValuesObject.typedef = StdTypeDef(
+W_DictViewValuesObject.typedef = TypeDef(
     "dict_values",
     __repr__ = interp2app(W_DictViewValuesObject.descr_repr),
     __len__ = interp2app(W_DictViewValuesObject.descr_len),

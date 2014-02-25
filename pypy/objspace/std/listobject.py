@@ -16,6 +16,7 @@ from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
     interp2app)
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.signature import Signature
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
@@ -23,7 +24,6 @@ from pypy.objspace.std.iterobject import (W_FastListIterObject,
     W_ReverseSeqIterObject)
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import get_positive_index, negate
@@ -1758,7 +1758,7 @@ class CustomKeyCompareSort(CustomCompareSort):
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
 
-W_ListObject.typedef = StdTypeDef("list",
+W_ListObject.typedef = TypeDef("list",
     __doc__ = """list() -> new list
 list(sequence) -> new list initialized from sequence's items""",
     __new__ = interp2app(W_ListObject.descr_new),
