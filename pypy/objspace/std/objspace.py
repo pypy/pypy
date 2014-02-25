@@ -3,8 +3,7 @@ from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.objspace.std import (stdtypedef, frame, model,
-                               transparent, callmethod)
+from pypy.objspace.std import stdtypedef, frame, transparent, callmethod
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
@@ -245,7 +244,7 @@ class StdObjSpace(ObjSpace):
         # _____ this code is here to support testing only _____
         if isinstance(w_obj, W_Root):
             return w_obj.unwrap(self)
-        raise model.UnwrapError("cannot unwrap: %r" % w_obj)
+        raise TypeError("cannot unwrap: %r" % w_obj)
 
     def newint(self, intval):
         return wrapint(self, intval)

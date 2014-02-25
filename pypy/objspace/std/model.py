@@ -34,7 +34,3 @@ class W_Object(W_Root):
         if w_cls is not None and w_cls is not self:
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
-
-
-class UnwrapError(Exception):
-    pass

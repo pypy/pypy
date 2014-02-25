@@ -439,10 +439,6 @@ class W_TypeObject(W_Object):
         storage = strategy.erase(w_self)
         return W_DictMultiObject(space, strategy, storage)
 
-    def unwrap(w_self, space):
-        from pypy.objspace.std.model import UnwrapError
-        raise UnwrapError(w_self)
-
     def is_heaptype(w_self):
         return w_self.flag_heaptype
 
