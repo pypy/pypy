@@ -420,16 +420,15 @@ class AppTestAppFloatTest:
         raises(OverflowError, math.trunc, float("inf"))
 
 
-    def test_multimethod_slice(self):
+    def test_call_special(self):
         assert 5 .__add__(3.14) is NotImplemented
         assert 3.25 .__add__(5) == 8.25
-        # xxx we are also a bit inconsistent about the following
-        #if hasattr(int, '__eq__'):  # for py.test -A: CPython is inconsistent
-        #    assert 5 .__eq__(3.14) is NotImplemented
-        #    assert 3.14 .__eq__(5) is False
-        #if hasattr(long, '__eq__'):  # for py.test -A: CPython is inconsistent
-        #    assert 5L .__eq__(3.14) is NotImplemented
-        #    assert 3.14 .__eq__(5L) is False
+
+        assert 5 .__eq__(3.14) is NotImplemented
+        assert 3.14 .__eq__(5) is False
+
+        assert 5L .__eq__(3.14) is NotImplemented
+        assert 3.14 .__eq__(5L) is False
 
     def test_from_string(self):
         raises(ValueError, float, "\0")
