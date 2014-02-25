@@ -7,9 +7,6 @@ WITH_BUILTINSHORTCUT = {'objspace.std.builtinshortcut': True}
 class AppTestUserObject(test_userobject.AppTestUserObject):
     spaceconfig = WITH_BUILTINSHORTCUT
 
-class AppTestWithMultiMethodVersion2(test_userobject.AppTestWithMultiMethodVersion2):
-    spaceconfig = WITH_BUILTINSHORTCUT
-
 class AppTestBug:
     spaceconfig = WITH_BUILTINSHORTCUT
 

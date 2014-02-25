@@ -52,8 +52,6 @@ class StdObjSpace(ObjSpace):
 
         self.UnicodeObjectCls = W_UnicodeObject
 
-        self._install_multimethods()
-
         # singletons
         self.w_None = W_NoneObject.w_None
         self.w_False = W_BoolObject.w_False
@@ -86,39 +84,6 @@ class StdObjSpace(ObjSpace):
 
     def get_builtin_types(self):
         return self.builtin_types
-
-    def _install_multimethods(self):
-        """Install all the MultiMethods into the space instance."""
-        for name, mm in model.MM.__dict__.items():
-            if not isinstance(mm, model.StdObjSpaceMultiMethod):
-                continue
-            if not hasattr(self, name):
-                # int_w, str_w...: these do not return a wrapped object
-                if name.endswith('_w'):
-                    func = mm.install_not_sliced(self.model.typeorder,
-                                                 baked_perform_call=True)
-                else:
-                    unsliced = mm.install_not_sliced(self.model.typeorder,
-                                                     baked_perform_call=False)
-                    exprargs, expr, miniglobals, fallback = unsliced
-                    func = stdtypedef.make_perform_trampoline('__mm_'+name,
-                                                              exprargs, expr,
-                                                              miniglobals, mm)
-
-                boundmethod = types.MethodType(func, self, self.__class__)
-                setattr(self, name, boundmethod)  # store into 'space' instance
-            elif self.config.objspace.std.builtinshortcut:
-                if name.startswith('inplace_'):
-                    fallback_name = name[len('inplace_'):]
-                    if fallback_name in ('or', 'and'):
-                        fallback_name += '_'
-                    fallback_mm = model.MM.__dict__[fallback_name]
-                else:
-                    fallback_mm = None
-                builtinshortcut.install(self, mm, fallback_mm)
-        if self.config.objspace.std.builtinshortcut:
-            builtinshortcut.install_is_true(self, model.MM.nonzero,
-                                            model.MM.len)
 
     def createexecutioncontext(self):
         # add space specific fields to execution context

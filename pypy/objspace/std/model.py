@@ -3,7 +3,6 @@ The full list of which Python types and which implementation we want
 to provide in this version of PyPy, along with conversion rules.
 """
 
-from pypy.objspace.std.multimethod import MultiMethodTable, FailedToImplement
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 import pypy.interpreter.pycode
 import pypy.interpreter.special
@@ -266,88 +265,3 @@ class W_Object(W_Root):
 
 class UnwrapError(Exception):
     pass
-
-
-class StdObjSpaceMultiMethod(MultiMethodTable):
-
-    def __init__(self, operatorsymbol, arity, specialnames=None, **extras):
-        """NOT_RPYTHON: cannot create new multimethods dynamically.
-        """
-        MultiMethodTable.__init__(self, arity, W_ANY,
-                                  argnames_before = ['space'])
-        self.operatorsymbol = operatorsymbol
-        if specialnames is None:
-            specialnames = [operatorsymbol]
-        assert isinstance(specialnames, list)
-        self.specialnames = specialnames  # e.g. ['__xxx__', '__rxxx__']
-        self.extras = extras
-        # transform  '+'  =>  'add'  etc.
-        for line in ObjSpace.MethodTable:
-            realname, symbolname = line[:2]
-            if symbolname == operatorsymbol:
-                self.name = realname
-                break
-        else:
-            self.name = operatorsymbol
-
-        if extras.get('general__args__', False):
-            self.argnames_after = ['__args__']
-        if extras.get('varargs_w', False):
-            self.argnames_after = ['args_w']
-        self.argnames_after += extras.get('extra_args', [])
-
-    def install_not_sliced(self, typeorder, baked_perform_call=True):
-        return self.install(prefix = '__mm_' + self.name,
-                list_of_typeorders = [typeorder]*self.arity,
-                baked_perform_call=baked_perform_call)
-
-    def merge_with(self, other):
-        # Make a new 'merged' multimethod including the union of the two
-        # tables.  In case of conflict, pick the entry from 'self'.
-        if self.arity != other.arity:
-            return self      # XXX that's the case of '**'
-        operatorsymbol = '%s_merge_%s' % (self.name, other.name)
-        assert self.extras == other.extras
-        mm = StdObjSpaceMultiMethod(operatorsymbol, self.arity, **self.extras)
-        #
-        def merge(node1, node2):
-            assert type(node1) is type(node2)
-            if isinstance(node1, dict):
-                d = node1.copy()
-                d.update(node2)
-                for key in node1:
-                    if key in node2:
-                        d[key] = merge(node1[key], node2[key])
-                return d
-            else:
-                assert isinstance(node1, list)
-                assert node1
-                return node1     # pick the entry from 'self'
-        #
-        mm.dispatch_tree = merge(self.dispatch_tree, other.dispatch_tree)
-        return mm
-
-NOT_MULTIMETHODS = set(
-    ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
-     'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
-     'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel',
-     'isinstance', 'issubtype', 'int', 'ord'])
-# XXX should we just remove those from the method table or we're happy
-#     with just not having multimethods?
-
-class MM:
-    """StdObjSpace multimethods"""
-
-    call    = StdObjSpaceMultiMethod('call', 1, ['__call__'],
-                                     general__args__=True)
-    init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
-    getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
-
-    # add all regular multimethods here
-    for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-        if _name not in locals() and _name not in NOT_MULTIMETHODS:
-            mm = StdObjSpaceMultiMethod(_symbol, _arity, _specialnames)
-            locals()[_name] = mm
-            del mm
-
-    pow.extras['defaults'] = (None,)

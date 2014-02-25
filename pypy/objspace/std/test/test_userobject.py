@@ -273,22 +273,6 @@ class AppTestUserObject:
             i += 1
 
 
-class AppTestWithMultiMethodVersion2(AppTestUserObject):
-    spaceconfig = {}
-
-    def setup_class(cls):
-        from pypy.objspace.std import multimethod
-
-        cls.prev_installer = multimethod.Installer
-        multimethod.Installer = multimethod.InstallerVersion2
-        if cls.runappdirect:
-            py.test.skip("Cannot run different installers when runappdirect")
-
-    def teardown_class(cls):
-        from pypy.objspace.std import multimethod
-        multimethod.Installer = cls.prev_installer
-
-
 class AppTestWithGetAttributeShortcut(AppTestUserObject):
     spaceconfig = {"objspace.std.getattributeshortcut": True}
 
