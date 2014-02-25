@@ -3,9 +3,8 @@
 of cyclic imports
 """
 
-from pypy.objspace.std.model import W_ANY, W_Object
-from pypy.interpreter import baseobjspace
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.baseobjspace import W_Root
 from rpython.tool.sourcetools import func_with_new_name
 
 def create_mm_names(classname, mm, is_local):
@@ -34,7 +33,7 @@ def install_args_w_trampoline(type_, mm, is_local, op_name):
         return space.call_args(w_transparent_list.w_controller, args)
     
     function = func_with_new_name(function, mm.name)
-    mm.register(function, type_, *([W_ANY] * (mm.arity - 1)))
+    mm.register(function, type_, *([W_Root] * (mm.arity - 1)))
 
 def install_mm_trampoline(type_, mm, is_local):
     classname = type_.__name__[2:]
@@ -50,7 +49,7 @@ def install_mm_trampoline(type_, mm, is_local):
         return space.call_function(w_transparent_list.w_controller, space.wrap\
             (op_name), *args_w)
     function = func_with_new_name(function, mm_name)
-    mm.register(function, type_, *([W_ANY] * (mm.arity - 1)))
+    mm.register(function, type_, *([W_Root] * (mm.arity - 1)))
 
 def is_special_doublearg(mm, type_):
     """ We specialcase when we've got two argument method for which

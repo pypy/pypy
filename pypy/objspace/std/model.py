@@ -17,8 +17,6 @@ COMMUTATIVE_OPS = ('add', 'mul', 'and', 'or', 'xor')
 
 # ____________________________________________________________
 
-W_ANY = W_Root
-
 class W_Object(W_Root):
     "Parent base class for wrapped objects provided by the StdObjSpace."
     # Note that not all wrapped objects in the interpreter inherit from
