@@ -45,7 +45,7 @@ class W_MyObject(W_Root):
     def unicode_w(self, space):
         return NonConstant(u"foobar")
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
 
     def uint_w(self, space):

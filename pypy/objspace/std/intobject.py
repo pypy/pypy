@@ -309,9 +309,13 @@ class W_IntObject(W_AbstractIntObject):
         """representation for debugging purposes"""
         return "%s(%d)" % (self.__class__.__name__, self.intval)
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return int(self.intval)
-    unwrap = int_w
+
+    def _int_w(self, space):
+        return int(self.intval)
+    
+    unwrap = _int_w
 
     def uint_w(self, space):
         intval = self.intval

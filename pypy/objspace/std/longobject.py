@@ -244,7 +244,7 @@ class W_LongObject(W_AbstractLongObject):
     def fromrarith_int(i):
         return W_LongObject(rbigint.fromrarith_int(i))
 
-    def int_w(self, space):
+    def _int_w(self, space):
         try:
             return self.num.toint()
         except OverflowError:

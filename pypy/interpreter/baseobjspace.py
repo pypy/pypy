@@ -201,7 +201,15 @@ class W_Root(object):
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "unicode")
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
+        # note that W_IntObject.int_w has a fast path and W_FloatObject.int_w
+        # raises
+        w_obj = self
+        if allow_conversion:
+            w_obj = space.int(self)
+        return w_obj._int_w(space)
+
+    def _int_w(self, space):
         self._typed_unwrap_error(space, "integer")
 
     def float_w(self, space):
@@ -220,8 +228,7 @@ class W_Root(object):
     def int(self, space):
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
-            raise oefmt(space.w_TypeError,
-                        "unsupported operand type for int(): '%T'", self)
+            self._typed_unwrap_error(space, "integer")
         w_result = space.get_and_call_function(w_impl, self)
 
         if (space.isinstance_w(w_result, space.w_int) or
@@ -1348,8 +1355,19 @@ class ObjSpace(object):
                     'argument must be a string without NUL characters'))
         return rstring.assert_str0(result)
 
-    def int_w(self, w_obj):
-        return w_obj.int_w(self)
+    def int_w(self, w_obj, allow_conversion=True):
+        """
+        Unwrap an app-level int object into an interpret-level int.
+        
+        If allow_conversion==True, w_obj might be of any type which implements
+        __int__, *except* floats which are explicitly rejected. This is the
+        same logic as CPython's PyArg_ParseTuple. If you want to also allow
+        floats, you can call space.int_w(space.int(w_obj)).
+
+        If allow_conversion=False, w_obj needs to be an app-level int or a
+        subclass.
+        """
+        return w_obj.int_w(self, allow_conversion)
 
     def int(self, w_obj):
         return w_obj.int(self)

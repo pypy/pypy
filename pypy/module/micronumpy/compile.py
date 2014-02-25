@@ -157,6 +157,7 @@ class FakeSpace(object):
         return w_obj.floatval
 
     def int_w(self, w_obj):
+        XXX # fix this
         if isinstance(w_obj, IntObject):
             return w_obj.intval
         elif isinstance(w_obj, FloatObject):

@@ -44,7 +44,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     def __repr__(self):
         return '<W_SmallLongObject(%d)>' % self.longlong
 
-    def int_w(self, space):
+    def _int_w(self, space):
         a = self.longlong
         b = intmask(a)
         if b == a:
