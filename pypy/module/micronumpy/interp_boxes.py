@@ -16,7 +16,7 @@ from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 from pypy.module.micronumpy import constants as NPY
 
 
@@ -34,7 +34,7 @@ long_double_size = 8
 
 
 def new_dtype_getter(num):
-    @jit.elidable
+    @specialize.memo()
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return get_dtype_cache(space).dtypes_by_num[num]
