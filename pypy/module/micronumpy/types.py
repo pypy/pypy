@@ -1594,7 +1594,7 @@ if interp_boxes.long_double_size == 8:
     class ComplexLong(ComplexFloating, BaseType):
         T = rffi.DOUBLE
         BoxType = interp_boxes.W_ComplexLongBox
-        ComponentBoxType = interp_boxes.W_Float64Box
+        ComponentBoxType = interp_boxes.W_FloatLongBox
 
 elif interp_boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):

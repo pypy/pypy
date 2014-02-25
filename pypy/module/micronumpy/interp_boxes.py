@@ -352,6 +352,12 @@ class W_GenericBox(W_Root):
         w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
         return space.call_args(w_meth, __args__)
 
+    def descr_get_real(self, space):
+        return self.get_dtype(space).itemtype.real(self)
+
+    def descr_get_imag(self, space):
+        return self.get_dtype(space).itemtype.imag(self)
+
     w_flags = None
     def descr_get_flags(self, space):
         if self.w_flags is None:
@@ -423,25 +429,13 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
         return space.call_method(self.item(space), 'as_integer_ratio')
 
 class W_ComplexFloatingBox(W_InexactBox):
-    def descr_get_real(self, space):
-        dtype = self._COMPONENTS_BOX._get_dtype(space)
-        box = self.convert_real_to(dtype)
-        assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box)
-
-    def descr_get_imag(self, space):
-        dtype = self._COMPONENTS_BOX._get_dtype(space)
-        box = self.convert_imag_to(dtype)
-        assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box)
+    pass
 
 class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex64")
-    _COMPONENTS_BOX = W_Float32Box
 
 class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex128")
-    _COMPONENTS_BOX = W_Float64Box
 
 if long_double_size in (8, 12, 16):
     class W_FloatLongBox(W_FloatingBox, PrimitiveBox):
@@ -449,7 +443,6 @@ if long_double_size in (8, 12, 16):
 
     class W_ComplexLongBox(ComplexBox, W_ComplexFloatingBox):
         descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CLONGDOUBLELTR)
-        _COMPONENTS_BOX = W_FloatLongBox
 
 class W_FlexibleBox(W_GenericBox):
     _attrs_ = ['arr', 'ofs', 'dtype']
@@ -635,6 +628,8 @@ W_GenericBox.typedef = TypeDef("generic",
     strides = GetSetProperty(W_GenericBox.descr_get_shape),
     ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
     T = GetSetProperty(W_GenericBox.descr_self),
+    real = GetSetProperty(W_GenericBox.descr_get_real),
+    imag = GetSetProperty(W_GenericBox.descr_get_imag),
     flags = GetSetProperty(W_GenericBox.descr_get_flags),
 )
 
@@ -768,16 +763,12 @@ W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex64Box.descr_reduce),
     __complex__ = interp2app(W_GenericBox.item),
-    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
 W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex128Box.descr_reduce),
-    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
 if long_double_size in (8, 12, 16):
@@ -792,8 +783,6 @@ if long_double_size in (8, 12, 16):
         __new__ = interp2app(W_ComplexLongBox.descr__new__.im_func),
         __reduce__ = interp2app(W_ComplexLongBox.descr_reduce),
         __complex__ = interp2app(W_GenericBox.item),
-        real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-        imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
     )
 
 W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
