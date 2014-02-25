@@ -376,14 +376,6 @@ def _llong_mul_ovf(a, b):
     raise OverflowError("integer multiplication")
 
 
-def delegate_SmallLong2Float(space, w_small):
-    return space.newfloat(float(w_small.longlong))
-
-
-def delegate_SmallLong2Complex(space, w_small):
-    return space.newcomplex(float(w_small.longlong), 0.0)
-
-
 def _int2small(space, w_int):
     # XXX: W_IntObject.descr_long should probably return W_SmallLongs
     return W_SmallLongObject.fromint(w_int.int_w(space))
