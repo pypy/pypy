@@ -24,6 +24,7 @@ class MockDtype(object):
     def get_size(self):
         return 1
 
+
 def create_slice(space, a, chunks):
     return Chunks(chunks).apply(space, W_NDimArray(a)).implementation
 
@@ -386,12 +387,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros(()).shape == ()
         assert zeros((), dtype='S') == ''
         assert zeros((), dtype='S').shape == ()
+        assert zeros((), dtype='S').dtype == '|S1'
 
     def test_empty_like(self):
         import numpy as np
         a = np.empty_like(np.zeros(()))
         assert a.shape == ()
         assert a.dtype == np.float_
+        a = np.empty_like(a, dtype='S')
+        assert a.dtype == '|S1'
         a = np.zeros((2, 3))
         assert a.shape == (2, 3)
         a[0,0] = 1
@@ -1676,11 +1680,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "data-type must not be 0-sized"
         assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
-        assert a.view('S4') == 'abc1'
         import sys
         if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.view, [('a', 'i2'), ('b', 'i2')])
+            raises(ValueError, a.view, 'S4')
+            raises(ValueError, a.view, [('a', 'i2'), ('b', 'i2')])
         else:
+            assert a.view('S4') == 'abc1'
             b = a.view([('a', 'i2'), ('b', 'i2')])
             assert b.shape == (1,)
             assert b[0][0] == 25185
@@ -2101,6 +2106,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[2] == 3.0
 
         a = array('123')
+        assert a.astype('S0').dtype == 'S3'
         assert a.astype('i8') == 123
         a = array('abcdefgh')
         exc = raises(ValueError, a.astype, 'i8')
@@ -2256,6 +2262,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[b] == a).all()
         a[b] = 1.
         assert (a == [[1., 1., 1.]]).all()
+
+    def test_ellipsis_indexing(self):
+        import numpy as np
+        a = np.array(1.5)
+        assert a[...] is a
+        a = np.array([1, 2, 3])
+        assert a[...] is a
 
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
@@ -2684,7 +2697,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert arange(3)[array(1)] == 1
 
     def test_fill(self):
-        from numpypy import array, empty
+        from numpypy import array, empty, dtype, zeros
         a = array([1, 2, 3])
         a.fill(10)
         assert (a == [10, 10, 10]).all()
@@ -2720,6 +2733,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
                 assert tuple(i) == (123,) + (0,) * 4
             else:
                 assert tuple(i) == (123,) * 5
+
+        a = zeros(3, dtype=dtype(complex).newbyteorder())
+        a.fill(1.5+2.5j)
+        for i in a:
+            assert i == 1.5+2.5j
 
     def test_array_indexing_bool(self):
         from numpypy import arange
@@ -2815,6 +2833,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert ((a + a).take([3]) == [6]).all()
         a = arange(12).reshape(2, 6)
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "a.take([3, 2, 1], mode='clip')")
+            assert exc.value[0] == "mode != raise not implemented"
 
     def test_ptp(self):
         import numpypy as np
@@ -3282,6 +3304,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
 
+    def test_count_nonzero(self):
+        import numpy as np
+        import sys
+        d = [('f0', 'i4'), ('f1', 'i4', 2)]
+        arr = np.array([0, 1])
+        if '__pypy__' not in sys.builtin_module_names:
+            arr = arr.astype(d)[:1]
+            assert np.count_nonzero(arr) == 0
+        else:
+            raises(NotImplementedError, "arr.astype(d)")
+
     def test_string_record(self):
         from numpypy import dtype, array
 
@@ -3368,6 +3401,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
         assert a == 'x'
+        a = array('abc', 'S2')
+        assert a.dtype.str == '|S2'
+        assert a == 'ab'
+        a = array('abc', 'S5')
+        assert a.dtype.str == '|S5'
+        assert a == 'abc'
 
     def test_newbyteorder(self):
         import numpy as np

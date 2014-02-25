@@ -16,7 +16,8 @@ from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.constants import *
+from rpython.rlib import jit
+from pypy.module.micronumpy import constants as NPY
 
 
 MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
@@ -33,6 +34,7 @@ long_double_size = 8
 
 
 def new_dtype_getter(name):
+    @jit.elidable
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return get_dtype_cache(space).dtypes_by_name[name]
@@ -443,10 +445,10 @@ class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
 
 if long_double_size in (8, 12, 16):
     class W_FloatLongBox(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_LONGDOUBLELTR)
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGDOUBLELTR)
 
     class W_ComplexLongBox(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_CLONGDOUBLELTR)
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CLONGDOUBLELTR)
         _COMPONENTS_BOX = W_FloatLongBox
 
 class W_FlexibleBox(W_GenericBox):
@@ -471,10 +473,10 @@ class W_VoidBox(W_FlexibleBox):
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
-                item = self.dtype.fieldnames[indx]
+                item = self.dtype.names[indx]
             except IndexError:
                 if indx < 0:
-                    indx += len(self.dtype.fieldnames)
+                    indx += len(self.dtype.names)
                 raise OperationError(space.w_IndexError, space.wrap(
                     "invalid index (%d)" % indx))
         else:

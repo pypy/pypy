@@ -10,9 +10,9 @@ from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.objectmodel import specialize
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy import interp_dtype, types
+from pypy.module.micronumpy import interp_dtype, types, constants as NPY
 from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
@@ -175,9 +175,9 @@ def argsort_array(arr, space, w_axis):
             return cache._lookup(tp)(arr, space, w_axis,
                                      itemtype.get_element_size())
     # XXX this should probably be changed
-    raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-numeric types " + \
-                  "'%s' is not implemented" % arr.dtype.get_name(), ))
+    raise oefmt(space.w_NotImplementedError,
+                "sorting of non-numeric types '%s' is not implemented",
+                arr.dtype.get_name())
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)
@@ -310,17 +310,17 @@ def make_sort_function(space, itemtype, comp_type, count=1):
 def sort_array(arr, space, w_axis, w_order):
     cache = space.fromcache(SortCache) # that populates SortClasses
     itemtype = arr.dtype.itemtype
-    if not arr.dtype.is_native():
-        raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-native btyeorder not supported yet"))
+    if arr.dtype.byteorder == NPY.OPPBYTE:
+        raise oefmt(space.w_NotImplementedError,
+                    "sorting of non-native byteorder not supported yet")
     for tp in all_types:
         if isinstance(itemtype, tp[0]):
             return cache._lookup(tp)(arr, space, w_axis,
                                      itemtype.get_element_size())
     # XXX this should probably be changed
-    raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-numeric types " + \
-                  "'%s' is not implemented" % arr.dtype.get_name(), ))
+    raise oefmt(space.w_NotImplementedError,
+                "sorting of non-numeric types '%s' is not implemented",
+                arr.dtype.get_name())
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)

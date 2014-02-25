@@ -1,4 +1,4 @@
-
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.annotator import model as annmodel
@@ -19,12 +19,21 @@ def alloc_raw_storage(size, track_allocation=True, zero=False):
 def raw_storage_getitem(TP, storage, index):
     "NOT_RPYTHON"
     _check_alignment(TP, index)
+    return raw_storage_getitem_unchecked(TP, storage, index)
+
+def raw_storage_getitem_unchecked(TP, storage, index):
+    "NOT_RPYTHON"
     return rffi.cast(rffi.CArrayPtr(TP), rffi.ptradd(storage, index))[0]
 
 def raw_storage_setitem(storage, index, item):
     "NOT_RPYTHON"
     TP = lltype.typeOf(item)
     _check_alignment(TP, index)
+    raw_storage_setitem_unchecked(storage, index, item)
+
+def raw_storage_setitem_unchecked(storage, index, item):
+    "NOT_RPYTHON"
+    TP = lltype.typeOf(item)
     rffi.cast(rffi.CArrayPtr(TP), rffi.ptradd(storage, index))[0] = item
 
 @specialize.arg(1)
@@ -68,10 +77,16 @@ def _check_alignment(TP, index):
 @specialize.ll()
 def raw_storage_getitem_unaligned(TP, storage, index):
     if misaligned_is_fine:
-        return raw_storage_getitem(TP, storage, index)
+        if we_are_translated():
+            return raw_storage_getitem(TP, storage, index)
+        else:
+            return raw_storage_getitem_unchecked(TP, storage, index)
     mask = _get_alignment_mask(TP)
     if (index & mask) == 0:
-        return raw_storage_getitem(TP, storage, index)
+        if we_are_translated():
+            return raw_storage_getitem(TP, storage, index)
+        else:
+            return raw_storage_getitem_unchecked(TP, storage, index)
     ptr = rffi.ptradd(storage, index)
     with lltype.scoped_alloc(rffi.CArray(TP), 1) as s_array:
         rffi.c_memcpy(rffi.cast(rffi.VOIDP, s_array),
@@ -82,12 +97,18 @@ def raw_storage_getitem_unaligned(TP, storage, index):
 @specialize.ll()
 def raw_storage_setitem_unaligned(storage, index, item):
     if misaligned_is_fine:
-        raw_storage_setitem(storage, index, item)
+        if we_are_translated():
+            raw_storage_setitem(storage, index, item)
+        else:
+            raw_storage_setitem_unchecked(storage, index, item)
         return
     TP = lltype.typeOf(item)
     mask = _get_alignment_mask(TP)
     if (index & mask) == 0:
-        raw_storage_setitem(storage, index, item)
+        if we_are_translated():
+            raw_storage_setitem(storage, index, item)
+        else:
+            raw_storage_setitem_unchecked(storage, index, item)
         return
     ptr = rffi.ptradd(storage, index)
     with lltype.scoped_alloc(rffi.CArray(TP), 1) as s_array:

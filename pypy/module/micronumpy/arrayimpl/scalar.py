@@ -1,7 +1,6 @@
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.interp_boxes import W_GenericBox
 from pypy.interpreter.error import OperationError
 
 class ScalarIterator(base.BaseArrayIterator):

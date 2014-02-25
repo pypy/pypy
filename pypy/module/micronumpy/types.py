@@ -9,8 +9,8 @@ from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
-from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
-                                  raw_storage_getitem)
+from rpython.rlib.rawstorage import (alloc_raw_storage,
+    raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -118,14 +118,12 @@ class BaseType(object):
     def __init__(self, native=True):
         self.native = native
 
-    def _unimplemented_ufunc(self, *args):
-        raise NotImplementedError
+    def __repr__(self):
+        return self.__class__.__name__
 
     def malloc(self, size):
         return alloc_raw_storage(size, track_allocation=False, zero=True)
 
-    def __repr__(self):
-        return self.__class__.__name__
 
 class Primitive(object):
     _mixin_ = True
@@ -174,7 +172,7 @@ class Primitive(object):
         raise NotImplementedError
 
     def _read(self, storage, i, offset):
-        res = raw_storage_getitem(self.T, storage, i + offset)
+        res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
         if not self.native:
             res = byteswap(res)
         return res
@@ -182,7 +180,7 @@ class Primitive(object):
     def _write(self, storage, i, offset, value):
         if not self.native:
             value = byteswap(value)
-        raw_storage_setitem(storage, i + offset, value)
+        raw_storage_setitem_unaligned(storage, i + offset, value)
 
     def read(self, arr, i, offset, dtype=None):
         return self.box(self._read(arr.storage, i, offset))
@@ -990,7 +988,7 @@ class Float16(BaseType, Float):
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
     def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        hbits = raw_storage_getitem_unaligned(self._STORAGE_T, storage, i + offset)
         if not self.native:
             hbits = byteswap(hbits)
         return float_unpack(r_ulonglong(hbits), 2)
@@ -1003,7 +1001,7 @@ class Float16(BaseType, Float):
         hbits = rffi.cast(self._STORAGE_T, hbits)
         if not self.native:
             hbits = byteswap(hbits)
-        raw_storage_setitem(storage, i + offset, hbits)
+        raw_storage_setitem_unaligned(storage, i + offset, hbits)
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
@@ -1053,13 +1051,6 @@ class ComplexFloating(object):
         real_str = str_format(real)
         op = '+' if imag >= 0 or rfloat.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
-
-    def fill(self, storage, width, box, start, stop, offset):
-        real, imag = self.unbox(box)
-        for i in xrange(start, stop, width):
-            raw_storage_setitem(storage, i+offset, real)
-            raw_storage_setitem(storage,
-                    i+offset+rffi.sizeof(self.T), imag)
 
     def runpack_str(self, space, s):
         comp = self.ComponentBoxType._get_dtype(space).itemtype
@@ -1127,8 +1118,8 @@ class ComplexFloating(object):
         return real, imag
 
     def _read(self, storage, i, offset):
-        real = raw_storage_getitem(self.T, storage, i + offset)
-        imag = raw_storage_getitem(self.T, storage, i + offset + rffi.sizeof(self.T))
+        real = raw_storage_getitem_unaligned(self.T, storage, i + offset)
+        imag = raw_storage_getitem_unaligned(self.T, storage, i + offset + rffi.sizeof(self.T))
         if not self.native:
             real = byteswap(real)
             imag = byteswap(imag)
@@ -1143,11 +1134,16 @@ class ComplexFloating(object):
         if not self.native:
             real = byteswap(real)
             imag = byteswap(imag)
-        raw_storage_setitem(storage, i + offset, real)
-        raw_storage_setitem(storage, i + offset + rffi.sizeof(self.T), imag)
+        raw_storage_setitem_unaligned(storage, i + offset, real)
+        raw_storage_setitem_unaligned(storage, i + offset + rffi.sizeof(self.T), imag)
 
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box))
+
+    def fill(self, storage, width, box, start, stop, offset):
+        value = self.unbox(box)
+        for i in xrange(start, stop, width):
+            self._write(storage, i, offset, value)
 
     @complex_binary_op
     def add(self, v1, v2):
@@ -1663,15 +1659,17 @@ class StringType(FlexibleType):
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
-        from pypy.module.micronumpy.interp_dtype import new_string_dtype
         if isinstance(w_item, interp_boxes.W_StringBox):
             return w_item
         if w_item is None:
             w_item = space.wrap('')
         arg = space.str_w(space.str(w_item))
-        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
-        for i in range(len(arg)):
+        arr = VoidBoxStorage(dtype.size, dtype)
+        j = min(len(arg), dtype.size)
+        for i in range(j):
             arr.storage[i] = arg[i]
+        for j in range(j, dtype.size):
+            arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
 
     def store(self, arr, i, offset, box):
@@ -1743,23 +1741,6 @@ class StringType(FlexibleType):
 
     def bool(self, v):
         return bool(self.to_str(v))
-
-    def build_and_convert(self, space, mydtype, box):
-        if isinstance(box, interp_boxes.W_StringBox):
-            return box
-        assert isinstance(box, interp_boxes.W_GenericBox)
-        if box.get_dtype(space).is_str_or_unicode():
-            arg = box.get_dtype(space).itemtype.to_str(box)
-        else:
-            w_arg = box.descr_str(space)
-            arg = space.str_w(space.str(w_arg))
-        arr = VoidBoxStorage(mydtype.size, mydtype)
-        i = 0
-        for i in range(min(len(arg), mydtype.size)):
-            arr.storage[i] = arg[i]
-        for j in range(i + 1, mydtype.size):
-            arr.storage[j] = '\x00'
-        return interp_boxes.W_StringBox(arr, 0, arr.dtype)
 
     def fill(self, storage, width, box, start, stop, offset):
         for i in xrange(start, stop, width):
@@ -1845,7 +1826,7 @@ class VoidType(FlexibleType):
         assert isinstance(item, interp_boxes.W_VoidBox)
         dt = item.arr.dtype
         ret_unwrapped = []
-        for name in dt.fieldnames:
+        for name in dt.names:
             ofs, dtype = dt.fields[name]
             if isinstance(dtype.itemtype, VoidType):
                 read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
@@ -1888,7 +1869,7 @@ class RecordType(FlexibleType):
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.get_size(), dtype)
         for i in range(len(dtype.fields)):
-            ofs, subdtype = dtype.fields[dtype.fieldnames[i]]
+            ofs, subdtype = dtype.fields[dtype.names[i]]
             itemtype = subdtype.itemtype
             try:
                 w_box = itemtype.coerce(space, subdtype, items_w[i])
@@ -1924,7 +1905,7 @@ class RecordType(FlexibleType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         items = []
         dtype = box.dtype
-        for name in dtype.fieldnames:
+        for name in dtype.names:
             ofs, subdtype = dtype.fields[name]
             itemtype = subdtype.itemtype
             subbox = itemtype.read(box.arr, box.ofs, ofs, subdtype)
@@ -1936,7 +1917,7 @@ class RecordType(FlexibleType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         pieces = ["("]
         first = True
-        for name in box.dtype.fieldnames:
+        for name in box.dtype.names:
             ofs, subdtype = box.dtype.fields[name]
             tp = subdtype.itemtype
             if first:

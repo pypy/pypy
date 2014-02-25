@@ -27,7 +27,7 @@ class MultiArrayModule(MixedModule):
 
 class UMathModule(MixedModule):
     appleveldefs = {}
-    interpleveldefs = {}
+    interpleveldefs = {'FLOATING_POINT_SUPPORT': 'space.wrap(1)'}
     # ufuncs
     for exposed, impl in [
         ("absolute", "absolute"),

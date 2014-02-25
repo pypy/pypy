@@ -23,7 +23,7 @@ from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 from pypy.module.micronumpy.conversion_utils import order_converter, multi_axis_converter
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.constants import *
+from pypy.module.micronumpy import constants as NPY
 
 def _find_shape(space, w_size, dtype):
     if space.is_none(w_size):
@@ -110,8 +110,8 @@ class __extend__(W_NDimArray):
         self.fill(space, self.get_dtype().coerce(space, w_value))
 
     def descr_tostring(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY_CORDER)
-        if order == NPY_FORTRANORDER:
+        order = order_converter(space, w_order, NPY.CORDER)
+        if order == NPY.FORTRANORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         return space.wrap(loop.tostring(space, self))
@@ -218,7 +218,9 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
+        if space.is_w(w_idx, space.w_Ellipsis):
+            return self
+        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool_type() \
                 and len(w_idx.get_shape()) > 0:
             return self.getitem_filter(space, w_idx)
         try:
@@ -320,8 +322,8 @@ class __extend__(W_NDimArray):
         return self.implementation.get_scalar_value()
 
     def descr_copy(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY_KEEPORDER)
-        if order == NPY_FORTRANORDER:
+        order = order_converter(space, w_order, NPY.KEEPORDER)
+        if order == NPY.FORTRANORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         copy = self.implementation.copy(space)
@@ -375,7 +377,7 @@ class __extend__(W_NDimArray):
         numpy.reshape : equivalent function
         """
         args_w, kw_w = __args__.unpack()
-        order = NPY_CORDER
+        order = NPY.CORDER
         if kw_w:
             if "order" in kw_w:
                 order = order_converter(space, kw_w["order"], order)
@@ -383,10 +385,10 @@ class __extend__(W_NDimArray):
             if kw_w:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "reshape() got unexpected keyword argument(s)"))
-        if order == NPY_KEEPORDER:
+        if order == NPY.KEEPORDER:
             raise OperationError(space.w_ValueError, space.wrap(
                 "order 'K' is not permitted for reshaping"))
-        if order != NPY_CORDER and order != NPY_ANYORDER:
+        if order != NPY.CORDER and order != NPY.ANYORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         if len(args_w) == 1:
@@ -561,7 +563,7 @@ class __extend__(W_NDimArray):
         # by converting nonnative byte order.
         if self.is_scalar():
             return space.wrap(0)
-        dtype = self.get_dtype().descr_newbyteorder(space, NPY_NATIVE)
+        dtype = self.get_dtype().descr_newbyteorder(space, NPY.NATIVE)
         contig = self.implementation.astype(space, dtype)
         return contig.argsort(space, w_axis)
 
@@ -569,9 +571,14 @@ class __extend__(W_NDimArray):
         cur_dtype = self.get_dtype()
         new_dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
-        if new_dtype.shape:
+        if new_dtype.num == NPY.VOID:
             raise oefmt(space.w_NotImplementedError,
-                "%s.astype(%s) not implemented yet", cur_dtype.name, new_dtype.name)
+                        "astype(%s) not implemented yet",
+                        new_dtype.get_name())
+        if new_dtype.num == NPY.STRING and new_dtype.size == 0:
+            if cur_dtype.num == NPY.STRING:
+                new_dtype = interp_dtype.variable_dtype(space,
+                    'S' + str(cur_dtype.size))
         impl = self.implementation
         if isinstance(impl, scalar.Scalar):
             return W_NDimArray.new_scalar(space, new_dtype, impl.value)
@@ -662,7 +669,7 @@ class __extend__(W_NDimArray):
             "getfield not implemented yet"))
 
     @unwrap_spec(new_order=str)
-    def descr_newbyteorder(self, space, new_order=NPY_SWAP):
+    def descr_newbyteorder(self, space, new_order=NPY.SWAP):
         return self.descr_view(space,
             self.get_dtype().descr_newbyteorder(space, new_order))
 
@@ -1023,7 +1030,7 @@ class __extend__(W_NDimArray):
             except AttributeError:
                 raise oefmt(space.w_NotImplementedError,
                             '%s not implemented for %s',
-                            op_name, self.get_dtype().name)
+                            op_name, self.get_dtype().get_name())
             return space.wrap(res)
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
@@ -1138,7 +1145,7 @@ class __extend__(W_NDimArray):
                  "__setstate__ called with len(args[1])==%d, not 5 or 4" % lens))
         shape = space.getitem(w_state, space.wrap(base_index))
         dtype = space.getitem(w_state, space.wrap(base_index+1))
-        isfortran = space.getitem(w_state, space.wrap(base_index+2))
+        #isfortran = space.getitem(w_state, space.wrap(base_index+2))
         storage = space.getitem(w_state, space.wrap(base_index+3))
         if not isinstance(dtype, interp_dtype.W_Dtype):
             raise OperationError(space.w_ValueError, space.wrap(
@@ -1192,8 +1199,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                                                   w_base=w_buffer,
                                                   writable=buf.is_writable())
 
-    order = order_converter(space, w_order, NPY_CORDER)
-    if order == NPY_CORDER:
+    order = order_converter(space, w_order, NPY.CORDER)
+    if order == NPY.CORDER:
         order = 'C'
     else:
         order = 'F'
@@ -1230,7 +1237,8 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtyp
 
 app_take = applevel(r"""
     def take(a, indices, axis, out, mode):
-        assert mode == 'raise'
+        if mode != 'raise':
+            raise NotImplementedError("mode != raise not implemented")
         if axis is None:
             from numpy import array
             indices = array(indices)
@@ -1440,7 +1448,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     # scalars and strings w/o __array__ method
     isstr = space.isinstance_w(w_object, space.w_str)
     if not issequence_w(space, w_object) or isstr:
-        if dtype is None or dtype.is_str_or_unicode():
+        if dtype is None or (dtype.is_str_or_unicode() and dtype.get_size() < 1):
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         return W_NDimArray.new_scalar(space, dtype, w_object)
 
@@ -1493,6 +1501,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 def zeros(space, w_shape, w_dtype=None, w_order=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    if dtype.is_str_or_unicode() and dtype.get_size() < 1:
+        dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     shape = _find_shape(space, w_shape, dtype)
     return W_NDimArray.from_shape(space, shape, dtype=dtype)
 
@@ -1504,6 +1514,8 @@ def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     else:
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        if dtype.is_str_or_unicode() and dtype.get_size() < 1:
+            dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     return W_NDimArray.from_shape(space, w_a.get_shape(), dtype=dtype,
                                   w_instance=w_a if subok else None)
 
