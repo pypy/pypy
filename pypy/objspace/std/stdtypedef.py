@@ -1,9 +1,7 @@
-from pypy.interpreter import baseobjspace
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
 from pypy.interpreter.typedef import descr_del_dict
 from pypy.interpreter.baseobjspace import SpaceCache
-from rpython.rlib import jit
 
 __all__ = ['StdTypeDef']
 
@@ -11,29 +9,10 @@ __all__ = ['StdTypeDef']
 StdTypeDef = TypeDef
 
 
-@jit.unroll_safe
-def issubtypedef(a, b):
-    from pypy.objspace.std.objectobject import W_ObjectObject
-    if b is W_ObjectObject.typedef:
-        return True
-    if a is None:
-        return False
-    if a is b:
-        return True
-    for a1 in a.bases:
-        if issubtypedef(a1, b):
-            return True
-    return False
-
 std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
                     doc="dictionary for instance variables (if defined)")
 std_dict_descr.name = '__dict__'
 
-# ____________________________________________________________
-#
-# All the code below fishes from the multimethod registration tables
-# the descriptors to put into the W_TypeObjects.
-#
 
 class TypeCache(SpaceCache):
     def build(cache, typedef):

@@ -5,7 +5,7 @@ from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict
 from pypy.interpreter.astcompiler.misc import mangle
-from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
+from pypy.objspace.std.stdtypedef import std_dict_descr, Member
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
@@ -906,6 +906,20 @@ def issublayout(w_layout1, w_layout2):
             return False
         w_layout1 = w_layout1.w_same_layout_as or w_layout1
     return True
+
+@unroll_safe
+def issubtypedef(a, b):
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    if b is W_ObjectObject.typedef:
+        return True
+    if a is None:
+        return False
+    if a is b:
+        return True
+    for a1 in a.bases:
+        if issubtypedef(a1, b):
+            return True
+    return False
 
 def find_best_base(space, bases_w):
     """The best base is one of the bases in the given list: the one
