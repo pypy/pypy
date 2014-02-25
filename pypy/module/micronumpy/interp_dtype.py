@@ -408,9 +408,12 @@ class W_Dtype(W_Root):
             elif newendian != NPY.IGNORE:
                 endian = newendian
         itemtype = self.itemtype.__class__(endian in (NPY.NATIVE, NPY.NATBYTE))
+        fields = self.fields
+        if fields is None:
+            fields = {}
         return W_Dtype(itemtype, self.num, self.kind, self.char,
                        self.w_box_type, byteorder=endian, elsize=self.elsize,
-                       names=self.names, fields=self.fields,
+                       names=self.names, fields=fields,
                        shape=self.shape, subdtype=self.subdtype)
 
 
