@@ -3,9 +3,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
-     descr_get_dict
+     descr_get_dict, dict_descr
 from pypy.interpreter.astcompiler.misc import mangle
-from pypy.objspace.std.stdtypedef import std_dict_descr, Member
+from pypy.objspace.std.stdtypedef import Member
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
@@ -1032,7 +1032,7 @@ def create_slot(w_self, slot_name):
 def create_dict_slot(w_self):
     if not w_self.hasdict:
         w_self.dict_w.setdefault('__dict__',
-                                 w_self.space.wrap(std_dict_descr))
+                                 w_self.space.wrap(dict_descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):

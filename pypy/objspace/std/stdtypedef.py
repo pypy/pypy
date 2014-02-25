@@ -1,17 +1,10 @@
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
-from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
-from pypy.interpreter.typedef import descr_del_dict
 from pypy.interpreter.baseobjspace import SpaceCache
 
 __all__ = ['StdTypeDef']
 
 
 StdTypeDef = TypeDef
-
-
-std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
-                    doc="dictionary for instance variables (if defined)")
-std_dict_descr.name = '__dict__'
 
 
 class TypeCache(SpaceCache):
