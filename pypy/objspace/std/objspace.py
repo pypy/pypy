@@ -306,7 +306,7 @@ class StdObjSpace(ObjSpace):
 
     def newset(self, iterable_w=None):
         if iterable_w is None:
-            return W_FrozensetObject(self, None)
+            return W_SetObject(self, None)
         return W_SetObject(self, self.newtuple(iterable_w))
 
     def newfrozenset(self, iterable_w=None):
