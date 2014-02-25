@@ -7,12 +7,6 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 import pypy.interpreter.pycode
 import pypy.interpreter.special
 
-_registered_implementations = set()
-def registerimplementation(implcls):
-    """Hint to objspace.std.model to register the implementation class."""
-    assert issubclass(implcls, W_Object)
-    _registered_implementations.add(implcls)
-
 option_to_typename = {
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
@@ -109,14 +103,6 @@ class StdTypeModel:
                         self.typeorder[implcls] = []
                     else:
                         self.imported_but_not_registered[implcls] = True
-
-        # check if we missed implementations
-        for implcls in _registered_implementations:
-            if hasattr(implcls, 'register'):
-                implcls.register(self.typeorder)
-            assert (implcls in self.typeorder or
-                    implcls in self.imported_but_not_registered), (
-                "please add %r in StdTypeModel.typeorder" % (implcls,))
 
 
         for type in self.typeorder:
