@@ -121,10 +121,11 @@ class W_Dtype(W_Root):
         return self.byteorder in (NPY.NATIVE, NPY.NATBYTE)
 
     def get_float_dtype(self, space):
-        assert isinstance(self.itemtype, types.ComplexFloating)
-        dtype = self.itemtype.ComponentBoxType._get_dtype(space)
+        assert self.is_complex()
+        dtype = get_dtype_cache(space).component_dtypes[self.num]
         if self.byteorder == NPY.OPPBYTE:
             dtype = dtype.descr_newbyteorder(space)
+        assert dtype.is_float()
         return dtype
 
     def get_name(self):
@@ -834,6 +835,11 @@ class DtypeCache(object):
                         self.w_float64dtype, self.w_floatlongdtype]
         complex_dtypes = [self.w_complex64dtype, self.w_complex128dtype,
                           self.w_complexlongdtype]
+        self.component_dtypes = {
+            NPY.CFLOAT:      self.w_float32dtype,
+            NPY.CDOUBLE:     self.w_float64dtype,
+            NPY.CLONGDOUBLE: self.w_floatlongdtype,
+        }
         self.builtin_dtypes = [
             self.w_booldtype,
             self.w_int8dtype, self.w_uint8dtype,

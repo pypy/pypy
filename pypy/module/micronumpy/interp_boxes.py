@@ -52,7 +52,7 @@ def new_dtype_getter(num):
     def descr_reduce(self, space):
         return self.reduce(space)
 
-    return (func_with_new_name(descr__new__, 'box_descr__new__%d' % num),
+    return (func_with_new_name(descr__new__, 'descr__new__%d' % num),
             staticmethod(_get_dtype),
             descr_reduce)
 
