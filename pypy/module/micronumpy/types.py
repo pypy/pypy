@@ -31,11 +31,10 @@ def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        raw = self.unbox(v)
         return self.box(
             func(
                 self,
-                self.for_computation(raw),
+                self.for_computation(self.unbox(v)),
             )
         )
     return dispatcher
@@ -145,7 +144,6 @@ class Primitive(object):
         array = rffi.cast(rffi.CArrayPtr(self.T), data)
         return self.box(array[0])
 
-    @specialize.argtype(1)
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
         return box.value
@@ -1111,11 +1109,16 @@ class ComplexFloating(object):
         array = rffi.cast(rffi.CArrayPtr(self.T), data)
         return self.box_complex(array[0], array[1])
 
+    def composite(self, v1, v2):
+        assert isinstance(v1, self.ComponentBoxType)
+        assert isinstance(v2, self.ComponentBoxType)
+        real = v1.value
+        imag = v2.value
+        return self.box_complex(real, imag)
+
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
-        # do this in two stages since real, imag are read only
-        real, imag = box.real, box.imag
-        return real, imag
+        return box.real, box.imag
 
     def _read(self, storage, i, offset):
         real = raw_storage_getitem_unaligned(self.T, storage, i + offset)
@@ -1166,14 +1169,6 @@ class ComplexFloating(object):
                     (rfloat.isnan(v1[0]) and rfloat.isnan(v1[1])):
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
-
-    @specialize.argtype(1)
-    def composite(self, v1, v2):
-        assert isinstance(v1, self.ComponentBoxType)
-        assert isinstance(v2, self.ComponentBoxType)
-        real = v1.value
-        imag = v2.value
-        return self.box_complex(real, imag)
 
     @complex_unary_op
     def pos(self, v):
