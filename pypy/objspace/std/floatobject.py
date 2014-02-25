@@ -21,6 +21,20 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
 
 
+def float2string(x, code, precision):
+    # we special-case explicitly inf and nan here
+    if isfinite(x):
+        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
+    elif isinf(x):
+        if x > 0.0:
+            s = "inf"
+        else:
+            s = "-inf"
+    else:  # isnan(x):
+        s = "nan"
+    return s
+
+
 def detect_floatformat():
     from rpython.rtyper.lltypesystem import rffi, lltype
     buf = lltype.malloc(rffi.CCHARP.TO, 8, flavor='raw')
@@ -356,25 +370,11 @@ class W_FloatObject(W_Root):
         if space.isinstance_w(w_obj, space.w_long):
             return W_FloatObject(space.float_w(w_obj))
 
-    def _float2string(self, x, code, precision):
-        # we special-case explicitly inf and nan here
-        if isfinite(x):
-            s = formatd(x, code, precision, DTSF_ADD_DOT_0)
-        elif isinf(x):
-            if x > 0.0:
-                s = "inf"
-            else:
-                s = "-inf"
-        else:  # isnan(x):
-            s = "nan"
-        return s
-
     def descr_repr(self, space):
-        return space.wrap(self._float2string(self.floatval, 'r', 0))
+        return space.wrap(float2string(self.floatval, 'r', 0))
 
     def descr_str(self, space):
-        return space.wrap(self._float2string(self.floatval, 'g',
-                                             DTSF_STR_PRECISION))
+        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
 
     def descr_hash(self, space):
         return space.wrap(_hash_float(space, self.floatval))
