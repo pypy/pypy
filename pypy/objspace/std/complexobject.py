@@ -127,10 +127,10 @@ def format_float(x, code, precision):
     else:
         return formatd(x, code, precision)
 
-def repr_format(self, x):
+def repr_format(x):
     return format_float(x, 'r', 0)
 
-def str_format(self, x):
+def str_format(x):
     return format_float(x, 'g', DTSF_STR_PRECISION)
 
 
