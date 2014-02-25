@@ -584,6 +584,16 @@ class W_IntObject(W_AbstractIntObject):
         _divmod, ovf2small=_divmod_ovf2small)
 
 
+def setup_prebuilt(space):
+    if space.config.objspace.std.withprebuiltint:
+        W_IntObject.PREBUILT = []
+        for i in range(space.config.objspace.std.prebuiltintfrom,
+                       space.config.objspace.std.prebuiltintto):
+            W_IntObject.PREBUILT.append(W_IntObject(i))
+    else:
+        W_IntObject.PREBUILT = None
+
+
 def wrapint(space, x):
     if not space.config.objspace.std.withprebuiltint:
         return W_IntObject(x)
