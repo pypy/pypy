@@ -116,12 +116,14 @@ def llexternal(name, args, result, _callable=None,
         # default case:
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
-        invoke_around_handlers = not sandboxsafe
+        # Also, _nowrapper functions cannot release the GIL, by default.
+        invoke_around_handlers = not sandboxsafe and not _nowrapper
 
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
             has_callback)               # because the callback can do it
+    assert not (elidable_function and random_effects_on_gcobjs)
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
