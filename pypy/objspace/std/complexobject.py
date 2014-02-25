@@ -115,6 +115,25 @@ def _split_complex(s):
     return realpart, imagpart
 
 
+def format_float(x, code, precision):
+    # like float2string, except that the ".0" is not necessary
+    if isinf(x):
+        if x > 0.0:
+            return "inf"
+        else:
+            return "-inf"
+    elif isnan(x):
+        return "nan"
+    else:
+        return formatd(x, code, precision)
+
+def repr_format(self, x):
+    return format_float(x, 'r', 0)
+
+def str_format(self, x):
+    return format_float(x, 'g', DTSF_STR_PRECISION)
+
+
 def unpackcomplex(space, w_complex, strict_typing=True):
     """
     convert w_complex into a complex and return the unwrapped (real, imag)
@@ -335,39 +354,21 @@ class W_ComplexObject(W_Root):
         return space.newtuple([space.newfloat(self.realval),
                                space.newfloat(self.imagval)])
 
-    def _format_float(self, x, code, precision):
-        # like float2string, except that the ".0" is not necessary
-        if isinf(x):
-            if x > 0.0:
-                return "inf"
-            else:
-                return "-inf"
-        elif isnan(x):
-            return "nan"
-        else:
-            return formatd(x, code, precision)
-
-    def _repr_format(self, x):
-        return self._format_float(x, 'r', 0)
-
-    def _str_format(self, x):
-        return self._format_float(x, 'g', DTSF_STR_PRECISION)
-
     def descr_repr(self, space):
         if self.realval == 0 and copysign(1., self.realval) == 1.:
-            return space.wrap(self._repr_format(self.imagval) + 'j')
+            return space.wrap(repr_format(self.imagval) + 'j')
         sign = (copysign(1., self.imagval) == 1. or
                 isnan(self.imagval)) and '+' or ''
-        return space.wrap('(' + self._repr_format(self.realval)
-                          + sign + self._repr_format(self.imagval) + 'j)')
+        return space.wrap('(' + repr_format(self.realval)
+                          + sign + repr_format(self.imagval) + 'j)')
 
     def descr_str(self, space):
         if self.realval == 0 and copysign(1., self.realval) == 1.:
-            return space.wrap(self._str_format(self.imagval) + 'j')
+            return space.wrap(str_format(self.imagval) + 'j')
         sign = (copysign(1., self.imagval) == 1. or
                 isnan(self.imagval)) and '+' or ''
-        return space.wrap('(' + self._str_format(self.realval)
-                          + sign + self._str_format(self.imagval) + 'j)')
+        return space.wrap('(' + str_format(self.realval)
+                          + sign + str_format(self.imagval) + 'j)')
 
     def descr_hash(self, space):
         hashreal = _hash_float(space, self.realval)
