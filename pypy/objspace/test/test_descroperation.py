@@ -721,8 +721,3 @@ class AppTest_Descroperation:
                 return CannotConvertToBool()
         x = X()
         raises(MyError, "'foo' in x")
-        
-            
-
-class AppTestWithBuiltinShortcut(AppTest_Descroperation):
-    spaceconfig = {'objspace.std.builtinshortcut': True}

@@ -4,7 +4,7 @@ from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
+from pypy.objspace.std import (stdtypedef, frame, model,
                                transparent, callmethod)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
@@ -485,7 +485,6 @@ class StdObjSpace(ObjSpace):
 
     def is_true(self, w_obj):
         # a shortcut for performance
-        # NOTE! this method is typically overridden by builtinshortcut.py.
         if type(w_obj) is W_BoolObject:
             return bool(w_obj.intval)
         return self._DescrOperation_is_true(w_obj)
