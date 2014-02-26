@@ -657,6 +657,9 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_setslice_array(self):
         from numpypy import array
+        a = array(5)
+        exc = raises(ValueError, "a[:] = 4")
+        assert exc.value[0] == "cannot slice a 0-d array"
         a = array(range(5))
         b = array(range(2))
         a[1:4:2] = b
@@ -1350,6 +1353,9 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_getslice(self):
         from numpypy import array
+        a = array(5)
+        exc = raises(ValueError, "a[:]")
+        assert exc.value[0] == "cannot slice a 0-d array"
         a = array(range(5))
         s = a[1:5]
         assert len(s) == 4

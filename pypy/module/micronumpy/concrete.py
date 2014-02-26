@@ -189,7 +189,9 @@ class BaseConcreteArray(object):
                     space.isinstance_w(w_item, space.w_list)):
                     raise ArrayArgumentException
             return self._lookup_by_index(space, view_w)
-        if shape_len > 1:
+        if shape_len == 0:
+            raise oefmt(space.w_IndexError, "0-d arrays can't be indexed")
+        elif shape_len > 1:
             raise IndexError
         idx = support.index_w(space, w_idx)
         return self._lookup_by_index(space, [space.wrap(idx)])
@@ -204,7 +206,7 @@ class BaseConcreteArray(object):
                     "field named %s not found" % idx))
             return RecordChunk(idx)
         if len(self.get_shape()) == 0:
-            raise oefmt(space.w_IndexError, "0-d arrays can't be indexed")
+            raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
         if (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
