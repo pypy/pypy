@@ -288,7 +288,7 @@ class BaseConcreteArray(object):
     def nonzero(self, space, index_type):
         s = loop.count_all_true_concrete(self)
         box = index_type.itemtype.box
-        nd = len(self.get_shape())
+        nd = len(self.get_shape()) or 1
         w_res = W_NDimArray.from_shape(space, [s, nd], index_type)
         loop.nonzero(w_res, self, box)
         w_res = w_res.implementation.swapaxes(space, w_res, 0, 1)
