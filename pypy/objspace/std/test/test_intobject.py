@@ -553,6 +553,15 @@ class AppTestInt:
         assert 3 .__coerce__(4) == (3, 4)
         assert 3 .__coerce__(4L) == NotImplemented
 
+    def test_fake_int_as_base(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+
+        base = MyInt(24)
+        assert int('10', base) == 24
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
