@@ -44,8 +44,13 @@ class BaseConcreteArray(object):
         self.dtype.itemtype.store(self, index, 0, value)
 
     def setslice(self, space, arr):
-        impl = arr.implementation
+        if len(arr.get_shape()) > 0 and len(self.get_shape()) == 0:
+            raise oefmt(space.w_ValueError,
+                "could not broadcast input array from shape "
+                "(%s) into shape ()",
+                ','.join([str(x) for x in arr.get_shape()]))
         shape = shape_agreement(space, self.get_shape(), arr)
+        impl = arr.implementation
         if impl.storage == self.storage:
             impl = impl.copy(space)
         loop.setslice(space, shape, self, impl)
