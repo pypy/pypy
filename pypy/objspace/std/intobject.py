@@ -42,7 +42,8 @@ class W_AbstractIntObject(W_Root):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        return space.int_w(self) == space.int_w(w_other)
+        return (space.int_w(self, allow_conversion=False) ==
+                space.int_w(w_other, allow_conversion=False))
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
