@@ -321,10 +321,11 @@ class W_Ufunc1(W_Ufunc):
                               w_obj.get_scalar_value().convert_to(space, calc_dtype))
             if out is None:
                 return w_val
+            w_val = res_dtype.coerce(space, w_val)
             if out.is_scalar():
                 out.set_scalar_value(w_val)
             else:
-                out.fill(space, res_dtype.coerce(space, w_val))
+                out.fill(space, w_val)
             return out
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
