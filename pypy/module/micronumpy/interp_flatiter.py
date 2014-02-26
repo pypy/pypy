@@ -1,10 +1,10 @@
-
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
+from pypy.module.micronumpy.arrayimpl.concrete import BaseConcreteArray
 from pypy.interpreter.error import OperationError
 
-class FakeArrayImplementation(BaseArrayImplementation):
+
+class FakeArrayImplementation(BaseConcreteArray):
     """ The sole purpose of this class is to W_FlatIterator can behave
     like a real array for descr_eq and friends
     """

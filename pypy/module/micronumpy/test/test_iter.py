@@ -1,5 +1,4 @@
 from pypy.module.micronumpy.iter import MultiDimViewIterator
-from pypy.module.micronumpy.arrayimpl.scalar import ScalarIterator
 
 
 class MockArray(object):
@@ -91,10 +90,4 @@ class TestIterDirect(object):
         i.next_skip_x(5)
         assert i.indexes == [0,1]
         assert i.offset == 3
-        assert i.done()
-
-    def test_scalar_iter(self):
-        i = ScalarIterator(MockArray)
-        i.next()
-        i.next_skip_x(3)
         assert i.done()

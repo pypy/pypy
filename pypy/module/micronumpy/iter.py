@@ -45,7 +45,6 @@ dimension, perhaps we could overflow times in one big step.
 from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.support import product
 from rpython.rlib import jit
 
@@ -169,7 +168,17 @@ class PureShapeIterator(object):
     def get_index(self, space, shapelen):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
-class ConcreteArrayIterator(base.BaseArrayIterator):
+class BaseArrayIterator(object):
+    def next(self):
+        raise NotImplementedError # purely abstract base class
+
+    def setitem(self, elem):
+        raise NotImplementedError
+
+    def set_scalar_object(self, value):
+        raise NotImplementedError # works only on scalars
+
+class ConcreteArrayIterator(BaseArrayIterator):
     _immutable_fields_ = ['array', 'skip', 'size']
     def __init__(self, array):
         self.array = array
@@ -275,7 +284,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
     def get_index(self, d):
         return self.indexes[d]
 
-class AxisIterator(base.BaseArrayIterator):
+class AxisIterator(BaseArrayIterator):
     def __init__(self, array, shape, dim, cumulative):
         self.shape = shape
         strides = array.get_strides()

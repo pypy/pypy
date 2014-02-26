@@ -4,8 +4,7 @@ import math
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
-from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+from pypy.module.micronumpy.arrayimpl.concrete import SliceArray, VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex

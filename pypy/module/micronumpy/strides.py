@@ -1,6 +1,7 @@
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, issequence_w
+from pypy.module.micronumpy import constants as NPY
 
 @jit.look_inside_iff(lambda chunks: jit.isconstant(len(chunks)))
 def enumerate_chunks(chunks):
@@ -69,6 +70,10 @@ def is_single_elem(space, w_elem, is_rec_type):
     return True
 
 def find_shape_and_elems(space, w_iterable, dtype):
+    isstr = space.isinstance_w(w_iterable, space.w_str)
+    if not issequence_w(space, w_iterable) or isstr:
+        if dtype is None or dtype.char != NPY.CHARLTR:
+            return [], [w_iterable]
     is_rec_type = dtype is not None and dtype.is_record()
     if is_rec_type and is_single_elem(space, w_iterable, is_rec_type):
         return [], [w_iterable]
