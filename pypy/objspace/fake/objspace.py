@@ -51,7 +51,7 @@ class W_MyObject(W_Root):
     def uint_w(self, space):
         return r_uint(NonConstant(42))
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 

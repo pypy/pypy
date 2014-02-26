@@ -203,7 +203,7 @@ class W_Root(object):
 
     def int_w(self, space, allow_conversion=True):
         # note that W_IntObject.int_w has a fast path and W_FloatObject.int_w
-        # raises
+        # raises w_TypeError
         w_obj = self
         if allow_conversion:
             w_obj = space.int(self)
@@ -218,7 +218,15 @@ class W_Root(object):
     def uint_w(self, space):
         self._typed_unwrap_error(space, "integer")
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
+        # note that W_IntObject and W_LongObject have fast paths,
+        # W_FloatObject.rbigint_w raises w_TypeError raises
+        w_obj = self
+        if allow_conversion:
+            w_obj = space.long(self)
+        return w_obj._bigint_w(space)
+
+    def _bigint_w(self, space):
         self._typed_unwrap_error(space, "integer")
 
     def _typed_unwrap_error(self, space, expected):
@@ -1378,8 +1386,12 @@ class ObjSpace(object):
     def uint_w(self, w_obj):
         return w_obj.uint_w(self)
 
-    def bigint_w(self, w_obj):
-        return w_obj.bigint_w(self)
+    def bigint_w(self, w_obj, allow_conversion=True):
+        """
+        Like int_w, for returns a rlib.rbigint object and call __long__ is
+        allow_conversion is True.
+        """
+        return w_obj.bigint_w(self, allow_conversion)
 
     def float_w(self, w_obj):
         return w_obj.float_w(self)
@@ -1425,23 +1437,14 @@ class ObjSpace(object):
     def gateway_float_w(self, w_obj):
         return self.float_w(self.float(w_obj))
 
-    def gateway_r_longlong_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_float):
-            raise OperationError(self.w_TypeError,
-                            self.wrap("integer argument expected, got float"))
-        return self.r_longlong_w(self.int(w_obj))
+    gateway_r_longlong_w = r_longlong_w
+    gateway_r_ulonglong_w = r_ulonglong_w
 
     def gateway_r_uint_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_float):
             raise OperationError(self.w_TypeError,
                             self.wrap("integer argument expected, got float"))
         return self.uint_w(self.int(w_obj))
-
-    def gateway_r_ulonglong_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_float):
-            raise OperationError(self.w_TypeError,
-                            self.wrap("integer argument expected, got float"))
-        return self.r_ulonglong_w(self.int(w_obj))
 
     def gateway_nonnegint_w(self, w_obj):
         # Like space.gateway_int_w(), but raises an app-level ValueError if

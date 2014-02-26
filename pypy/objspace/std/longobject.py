@@ -261,7 +261,10 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_OverflowError,
                         "long int too large to convert to unsigned int")
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
+        return self.num
+
+    def _bigint_w(self, space):
         return self.num
 
     def float_w(self, space):

@@ -325,7 +325,10 @@ class W_IntObject(W_AbstractIntObject):
                         "cannot convert negative integer to unsigned")
         return r_uint(intval)
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
+        return rbigint.fromint(self.intval)
+
+    def _bigint_w(self, space):
         return rbigint.fromint(self.intval)
 
     def float_w(self, space):
