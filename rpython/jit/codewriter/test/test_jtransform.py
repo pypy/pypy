@@ -1050,6 +1050,37 @@ def test_str_promote():
     assert op1.result == v2
     assert op0.opname == '-live-'
 
+def test_double_promote_str():
+    PSTR = lltype.Ptr(rstr.STR)
+    v1 = varoftype(PSTR)
+    v2 = varoftype(PSTR)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = SpaceOperation('hint',
+                         [v1, Constant({'promote_string': True}, lltype.Void)],
+                         v2)
+    op2 = SpaceOperation('hint',
+                         [v1, Constant({'promote_string': True,
+                                        'promote': True}, lltype.Void)],
+                         v2)
+    lst1 = tr.rewrite_operation(op1)
+    lst2 = tr.rewrite_operation(op2)
+    assert lst1 == lst2
+
+def test_double_promote_nonstr():
+    v1 = varoftype(lltype.Signed)
+    v2 = varoftype(lltype.Signed)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = SpaceOperation('hint',
+                         [v1, Constant({'promote': True}, lltype.Void)],
+                         v2)
+    op2 = SpaceOperation('hint',
+                         [v1, Constant({'promote_string': True,
+                                        'promote': True}, lltype.Void)],
+                         v2)
+    lst1 = tr.rewrite_operation(op1)
+    lst2 = tr.rewrite_operation(op2)
+    assert lst1 == lst2
+
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed
     PSTR = lltype.Ptr(rstr.UNICODE)

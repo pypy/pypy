@@ -88,3 +88,16 @@ class TestGenerator(BaseRtypingTest):
             return s
         res = self.interpret(g, [])
         assert res == 6
+
+    def test_send(self):
+        def f():
+            yield (yield 1) + 1
+        def g():
+            gen = f()
+            res = f.send(2)
+            assert res == 1
+            res = f.next()
+            assert res == 3
+
+        res = self.interpret(g, [])
+
