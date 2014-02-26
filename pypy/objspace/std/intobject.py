@@ -622,7 +622,6 @@ def _recover_with_smalllong(space):
             sys.maxint == 2147483647)
 
 
-@jit.elidable
 def _string_to_int_or_long(space, w_source, string, base=10):
     w_longval = None
     value = 0

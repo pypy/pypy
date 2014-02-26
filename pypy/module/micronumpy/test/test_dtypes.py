@@ -452,7 +452,7 @@ class AppTestDtypes(BaseAppTestDtypes):
                 assert np.dtype(o).str == '|O8'
             else:
                 exc = raises(NotImplementedError, "np.dtype(o)")
-                assert exc.value[0] == 'object dtype not implemented'
+                assert exc.value[0] == "cannot create dtype with type '%s'" % o.__name__
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -891,6 +891,11 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('void').byteorder == '|'
         assert dtype((int, 2)).byteorder == '|'
         assert dtype(np.generic).str == '|V0'
+        d = dtype(np.character)
+        assert d.num == 18
+        assert d.char == 'S'
+        assert d.kind == 'S'
+        assert d.str == '|S0'
 
     def test_dtype_str(self):
         from numpypy import dtype
@@ -1055,9 +1060,15 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
             assert isinstance(u, unicode)
 
     def test_character_dtype(self):
+        import numpy as np
         from numpypy import array, character
         x = array([["A", "B"], ["C", "D"]], character)
         assert (x == [["A", "B"], ["C", "D"]]).all()
+        d = np.dtype('c')
+        assert d.num == 18
+        assert d.char == 'c'
+        assert d.kind == 'S'
+        assert d.str == '|S1'
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])

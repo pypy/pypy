@@ -532,7 +532,8 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         if w_dtype is dtype.w_box_type:
             return dtype
     if space.isinstance_w(w_dtype, space.w_type):
-        raise oefmt(space.w_NotImplementedError, "object dtype not implemented")
+        raise oefmt(space.w_NotImplementedError,
+            "cannot create dtype with type '%N'", w_dtype)
     raise oefmt(space.w_TypeError, "data type not understood")
 
 W_Dtype.typedef = TypeDef("dtype",
@@ -587,10 +588,8 @@ def variable_dtype(space, name):
         except ValueError:
             raise oefmt(space.w_TypeError, "data type not understood")
     if char == NPY.CHARLTR:
-        char = NPY.STRINGLTR
-        size = 1
-
-    if char == NPY.STRINGLTR:
+        return new_string_dtype(space, 1, NPY.CHARLTR)
+    elif char == NPY.STRINGLTR:
         return new_string_dtype(space, size)
     elif char == NPY.UNICODELTR:
         return new_unicode_dtype(space, size)
@@ -599,13 +598,13 @@ def variable_dtype(space, name):
     assert False
 
 
-def new_string_dtype(space, size):
+def new_string_dtype(space, size, char=NPY.STRINGLTR):
     return W_Dtype(
         types.StringType(),
         elsize=size,
         num=NPY.STRING,
         kind=NPY.STRINGLTR,
-        char=NPY.STRINGLTR,
+        char=char,
         w_box_type=space.gettypefor(interp_boxes.W_StringBox),
     )
 
