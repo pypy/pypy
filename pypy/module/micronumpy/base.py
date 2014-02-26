@@ -27,14 +27,14 @@ class W_NDimArray(W_Root):
     __metaclass__ = extendabletype
 
     def __init__(self, implementation):
-        from pypy.module.micronumpy.arrayimpl.concrete import BaseConcreteArray
+        from pypy.module.micronumpy.concrete import BaseConcreteArray
         assert isinstance(implementation, BaseConcreteArray)
         assert isinstance(self, W_NDimArray)
         self.implementation = implementation
 
     @staticmethod
     def from_shape(space, shape, dtype, order='C', w_instance=None):
-        from pypy.module.micronumpy.arrayimpl import concrete
+        from pypy.module.micronumpy import concrete
 
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
@@ -46,7 +46,7 @@ class W_NDimArray(W_Root):
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False,
                                w_subtype=None, w_base=None, writable=True):
-        from pypy.module.micronumpy.arrayimpl import concrete
+        from pypy.module.micronumpy import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
         if w_base is not None:
@@ -77,7 +77,7 @@ class W_NDimArray(W_Root):
 
     @staticmethod
     def new_slice(space, offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
-        from pypy.module.micronumpy.arrayimpl import concrete
+        from pypy.module.micronumpy import concrete
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
                                    orig_arr, dtype)

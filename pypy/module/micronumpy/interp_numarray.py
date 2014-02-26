@@ -19,7 +19,7 @@ from pypy.module.micronumpy.interp_arrayops import repeat, choose, put
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.arrayimpl.concrete import BaseConcreteArray
+from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.conversion_utils import order_converter, multi_axis_converter
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
@@ -1077,7 +1077,7 @@ class __extend__(W_NDimArray):
     def descr_reduce(self, space):
         from rpython.rlib.rstring import StringBuilder
         from pypy.interpreter.mixedmodule import MixedModule
-        from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+        from pypy.module.micronumpy.concrete import SliceArray
 
         numpypy = space.getbuiltinmodule("_numpypy")
         assert isinstance(numpypy, MixedModule)
@@ -1142,7 +1142,7 @@ class __extend__(W_NDimArray):
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
-    from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
+    from pypy.module.micronumpy.concrete import ConcreteArray
     from pypy.module.micronumpy.support import calc_strides
     dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))

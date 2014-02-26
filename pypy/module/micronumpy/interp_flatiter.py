@@ -1,6 +1,6 @@
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.arrayimpl.concrete import BaseConcreteArray
+from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.interpreter.error import OperationError
 
 
