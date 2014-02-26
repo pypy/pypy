@@ -27,12 +27,16 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
     i = -1
     j = 0
     for i, chunk in enumerate_chunks(chunks):
+        try:
+            s_i = strides[i]
+        except IndexError:
+            continue
         if chunk.step != 0:
-            rstrides[j] = strides[i] * chunk.step
-            rbackstrides[j] = strides[i] * max(0, chunk.lgt - 1) * chunk.step
+            rstrides[j] = s_i * chunk.step
+            rbackstrides[j] = s_i * max(0, chunk.lgt - 1) * chunk.step
             rshape[j] = chunk.lgt
             j += 1
-        rstart += strides[i] * chunk.start
+        rstart += s_i * chunk.start
     # add a reminder
     s = i + 1
     assert s >= 0

@@ -205,10 +205,10 @@ class BaseConcreteArray(object):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "field named %s not found" % idx))
             return RecordChunk(idx)
-        if len(self.get_shape()) == 0:
-            raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
-        if (space.isinstance_w(w_idx, space.w_int) or
+        elif (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
+            if len(self.get_shape()) == 0:
+                raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
             return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
         elif isinstance(w_idx, W_NDimArray) and w_idx.is_scalar():
             w_idx = w_idx.get_scalar_value().item(space)
