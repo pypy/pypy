@@ -287,6 +287,48 @@ class ListTests:
         assert res == 5
         self.check_resops(call=0)
 
+    def test_list_mul_virtual(self):
+        class Foo:
+            def __init__(self, l):
+                self.l = l
+                l[0] = self
+
+        myjitdriver = JitDriver(greens = [], reds = ['y'])
+        def f(y):
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y)
+                Foo([None] * 5)
+                y -= 1
+            return 42
+
+        self.meta_interp(f, [5])
+        self.check_resops({'int_sub': 2,
+                           'int_gt': 2,
+                           'guard_true': 2,
+                           'jump': 1})
+
+    def test_list_mul_unsigned_virtual(self):
+        from rpython.rlib.rarithmetic import r_uint
+
+        class Foo:
+            def __init__(self, l):
+                self.l = l
+                l[0] = self
+
+        myjitdriver = JitDriver(greens = [], reds = ['y'])
+        def f(y):
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y)
+                Foo([None] * r_uint(5))
+                y -= 1
+            return 42
+
+        self.meta_interp(f, [5])
+        self.check_resops({'int_sub': 2,
+                           'int_gt': 2,
+                           'guard_true': 2,
+                           'jump': 1})
+
 
 class TestLLtype(ListTests, LLJitMixin):
     def test_listops_dont_invalidate_caches(self):
