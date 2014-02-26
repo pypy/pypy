@@ -2281,6 +2281,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[b] == a).all()
         a[b] = 1.
         assert (a == [[1., 1., 1.]]).all()
+        a[b] = np.array(2.)
+        assert (a == [[2., 2., 2.]]).all()
+        a[b] = np.array([3.])
+        assert (a == [[3., 3., 3.]]).all()
+        a[b] = np.array([[4.]])
+        assert (a == [[4., 4., 4.]]).all()
 
     def test_ellipsis_indexing(self):
         import numpy as np

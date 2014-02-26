@@ -380,14 +380,17 @@ setitem_filter_driver = jit.JitDriver(name = 'numpy_setitem_bool',
                                                 'index_dtype'],
                                       reds = 'auto')
 
-def setitem_filter(space, arr, index, value, size):
+def setitem_filter(space, arr, index, value):
     arr_iter = arr.create_iter()
     shapelen = len(arr.get_shape())
     if shapelen > 1 and len(index.get_shape()) < 2:
         index_iter = index.create_iter(arr.get_shape(), backward_broadcast=True)
     else:
         index_iter = index.create_iter()
-    value_iter = value.create_iter([size])
+    if value.get_size() == 1:
+        value_iter = value.create_iter(arr.get_shape())
+    else:
+        value_iter = value.create_iter()
     index_dtype = index.get_dtype()
     arr_dtype = arr.get_dtype()
     while not index_iter.done():

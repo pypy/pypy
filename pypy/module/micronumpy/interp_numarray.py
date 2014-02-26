@@ -144,7 +144,7 @@ class __extend__(W_NDimArray):
                 "cannot assign %d input values to "
                 "the %d output values where the mask is true" %
                 (val.get_size(), size)))
-        loop.setitem_filter(space, self, idx, val, size)
+        loop.setitem_filter(space, self, idx, val)
 
     def _prepare_array_index(self, space, w_index):
         if isinstance(w_index, W_NDimArray):
