@@ -3200,6 +3200,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(array(['abc'], 'S3')) == "['abc']"
         assert str(array('abc')) == 'abc'
         assert str(array(1.5)) == '1.5'
+        assert str(array(1.5).real) == '1.5'
 
 
 class AppTestRepr(BaseNumpyAppTest):
@@ -3218,6 +3219,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(array([1, 2, 3])) == 'array([1, 2, 3])'
         assert repr(array(['abc'], 'S3')) == "array(['abc'])"
         assert repr(array(1.5)) == "array(1.5)"
+        assert repr(array(1.5).real) == "array(1.5)"
 
     def teardown_class(cls):
         if option.runappdirect:

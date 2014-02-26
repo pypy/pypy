@@ -337,7 +337,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                                              r[0], r[1], shape)
         if not require_index:
             return iter.ConcreteArrayIterator(self)
-        if len(self.get_shape()) == 1:
+        if len(self.get_shape()) <= 1:
             return iter.OneDimViewIterator(self, self.start,
                                            self.get_strides(),
                                            self.get_shape())
@@ -440,7 +440,7 @@ class SliceArray(BaseConcreteArray):
                                             backward_broadcast)
             return iter.MultiDimViewIterator(self, self.start,
                                              r[0], r[1], shape)
-        if len(self.get_shape()) == 1:
+        if len(self.get_shape()) <= 1:
             return iter.OneDimViewIterator(self, self.start,
                                            self.get_strides(),
                                            self.get_shape())

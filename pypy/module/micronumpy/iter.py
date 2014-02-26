@@ -211,9 +211,15 @@ class OneDimViewIterator(ConcreteArrayIterator):
     def __init__(self, array, start, strides, shape):
         self.array = array
         self.offset = start
-        self.skip = strides[0]
         self.index = 0
-        self.size = shape[0]
+        assert len(strides) == len(shape)
+        if len(shape) == 0:
+            self.skip = array.dtype.elsize
+            self.size = 1
+        else:
+            assert len(shape) == 1
+            self.skip = strides[0]
+            self.size = shape[0]
 
     def next(self):
         self.offset += self.skip
