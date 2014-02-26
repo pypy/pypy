@@ -267,7 +267,10 @@ class W_LongObject(W_AbstractLongObject):
     def _bigint_w(self, space):
         return self.num
 
-    def float_w(self, space):
+    def float_w(self, space, allow_conversion=True):
+        return self.tofloat(space)
+
+    def _float_w(self, space):
         return self.tofloat(space)
 
     def int(self, space):

@@ -331,8 +331,11 @@ class W_IntObject(W_AbstractIntObject):
     def _bigint_w(self, space):
         return rbigint.fromint(self.intval)
 
-    def float_w(self, space):
+    def float_w(self, space, allow_conversion=True):
         return float(self.intval)
+
+    # note that we do NOT implement _float_w, because __float__ cannot return
+    # an int
 
     def int(self, space):
         if type(self) is W_IntObject:

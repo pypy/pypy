@@ -115,7 +115,7 @@ class FakeObjSpace(ObjSpace):
     def _freeze_(self):
         return True
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         is_root(w_obj)
         return NonConstant(42.5)
 

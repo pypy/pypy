@@ -69,7 +69,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     def _bigint_w(self, space):
         return self.asbigint()
 
-    def float_w(self, space):
+    def _float_w(self, space):
         return float(self.longlong)
 
     def int(self, space):

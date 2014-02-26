@@ -212,7 +212,13 @@ class W_Root(object):
     def _int_w(self, space):
         self._typed_unwrap_error(space, "integer")
 
-    def float_w(self, space):
+    def float_w(self, space, allow_conversion=True):
+        w_obj = self
+        if allow_conversion:
+            w_obj = space.float(self)
+        return w_obj._float_w(space)
+
+    def _float_w(self, space):
         self._typed_unwrap_error(space, "float")
 
     def uint_w(self, space):
@@ -1388,13 +1394,17 @@ class ObjSpace(object):
 
     def bigint_w(self, w_obj, allow_conversion=True):
         """
-        Like int_w, for returns a rlib.rbigint object and call __long__ is
+        Like int_w, but return a rlib.rbigint object and call __long__ if
         allow_conversion is True.
         """
         return w_obj.bigint_w(self, allow_conversion)
 
-    def float_w(self, w_obj):
-        return w_obj.float_w(self)
+    def float_w(self, w_obj, allow_conversion=True):
+        """
+        Like int_w, but return an interp-level float and call __float__ if
+        allow_conversion is True.
+        """
+        return w_obj.float_w(self, allow_conversion)
 
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.

@@ -120,7 +120,7 @@ class FakeSpace(object):
             return FakeInt(int(obj))
         assert 0
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FakeFloat)
         return w_obj.val
 
