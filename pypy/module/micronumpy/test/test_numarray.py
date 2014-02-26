@@ -1415,6 +1415,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.sum(out=d)
         assert b == d
         assert b is d
+        c = array(1.5+2.5j)
+        assert c.real == 1.5
+        assert c.imag == 2.5
+        a.sum(out=c.imag)
+        assert c.real == 1.5
+        assert c.imag == 5
 
         assert list(zeros((0, 2)).sum(axis=1)) == []
 

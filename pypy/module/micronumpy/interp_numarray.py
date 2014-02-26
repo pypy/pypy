@@ -306,7 +306,7 @@ class __extend__(W_NDimArray):
         return len(self.get_shape()) == 0
 
     def set_scalar_value(self, w_val):
-        return self.implementation.setitem(0, w_val)
+        return self.implementation.setitem(self.implementation.start, w_val)
 
     def fill(self, space, box):
         self.implementation.fill(space, box)
@@ -318,8 +318,8 @@ class __extend__(W_NDimArray):
         return self.implementation.get_size()
 
     def get_scalar_value(self):
-        assert len(self.get_shape()) == 0
-        return self.implementation.getitem(0)
+        assert self.get_size() == 1
+        return self.implementation.getitem(self.implementation.start)
 
     def descr_copy(self, space, w_order=None):
         order = order_converter(space, w_order, NPY.KEEPORDER)
@@ -490,19 +490,15 @@ class __extend__(W_NDimArray):
 
     def descr_item(self, space, w_arg=None):
         if space.is_none(w_arg):
-            if self.is_scalar():
-                return self.get_scalar_value().item(space)
             if self.get_size() == 1:
-                w_obj = self.getitem(space,
-                                     [0] * len(self.get_shape()))
+                w_obj = self.get_scalar_value()
                 assert isinstance(w_obj, interp_boxes.W_GenericBox)
                 return w_obj.item(space)
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("can only convert an array of size 1 to a Python scalar"))
+            raise oefmt(space.w_ValueError,
+                "can only convert an array of size 1 to a Python scalar")
         if space.isinstance_w(w_arg, space.w_int):
             if self.is_scalar():
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("index out of bounds"))
+                raise oefmt(space.w_IndexError, "index out of bounds")
             i = self.to_coords(space, w_arg)
             item = self.getitem(space, i)
             assert isinstance(item, interp_boxes.W_GenericBox)
@@ -1041,7 +1037,7 @@ class __extend__(W_NDimArray):
         if self.get_dtype().is_str_or_unicode():
             raise OperationError(space.w_TypeError, space.wrap(
                 "don't know how to convert scalar number to int"))
-        value = self.implementation.getitem(0)
+        value = self.get_scalar_value()
         return space.int(value)
 
     def descr_long(self, space):
@@ -1051,7 +1047,7 @@ class __extend__(W_NDimArray):
         if self.get_dtype().is_str_or_unicode():
             raise OperationError(space.w_TypeError, space.wrap(
                 "don't know how to convert scalar number to long"))
-        value = self.implementation.getitem(0)
+        value = self.get_scalar_value()
         return space.long(value)
 
     def descr_float(self, space):
@@ -1061,7 +1057,7 @@ class __extend__(W_NDimArray):
         if self.get_dtype().is_str_or_unicode():
             raise OperationError(space.w_TypeError, space.wrap(
                 "don't know how to convert scalar number to float"))
-        value = self.implementation.getitem(0)
+        value = self.get_scalar_value()
         return space.float(value)
 
     def descr_index(self, space):
@@ -1070,7 +1066,7 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "only integer arrays with one element "
                 "can be converted to an index"))
-        value = self.implementation.getitem(0)
+        value = self.get_scalar_value()
         assert isinstance(value, interp_boxes.W_GenericBox)
         return value.item(space)
 
