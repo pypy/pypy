@@ -82,6 +82,7 @@ def create_entry_point(space, w_dict):
 
     from rpython.rlib.entrypoint import entrypoint
     from rpython.rtyper.lltypesystem import rffi, lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
 
     w_pathsetter = space.appexec([], """():
     def f(path):
@@ -93,6 +94,7 @@ def create_entry_point(space, w_dict):
     @entrypoint('main', [rffi.CCHARP, rffi.INT], c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
+        llop.gc_stack_bottom(lltype.Void)
         verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home:
             home = rffi.charp2str(ll_home)
@@ -121,6 +123,7 @@ def create_entry_point(space, w_dict):
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
         rffi.aroundstate.after()
+        llop.gc_stack_bottom(lltype.Void)
         source = rffi.charp2str(ll_source)
         res = _pypy_execute_source(source)
         rffi.aroundstate.before()
