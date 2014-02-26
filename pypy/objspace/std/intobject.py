@@ -671,7 +671,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             # int_w is effectively what we want in this case,
             # we cannot construct a subclass of int instance with an
             # an overflowing long
-            value = space.int_w(w_obj)
+            value = space.int_w(w_obj, allow_conversion=False)
         elif space.isinstance_w(w_value, space.w_str):
             value, w_longval = _string_to_int_or_long(space, w_value,
                                                       space.str_w(w_value))
