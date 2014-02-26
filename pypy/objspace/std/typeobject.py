@@ -1,5 +1,5 @@
 from pypy.interpreter import gateway
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
@@ -1203,3 +1203,39 @@ def mro_error(space, orderlists):
     names = [cls.getname(space) for cls in cycle]
     raise OperationError(space.w_TypeError, space.wrap(
         "cycle among base classes: " + ' < '.join(names)))
+
+
+class TypeCache(SpaceCache):
+    def build(self, typedef):
+        "NOT_RPYTHON: initialization-time only."
+        from pypy.objspace.std.objectobject import W_ObjectObject
+
+        space = self.space
+        rawdict = typedef.rawdict
+        lazyloaders = {}
+
+        # compute the bases
+        if typedef is W_ObjectObject.typedef:
+            bases_w = []
+        else:
+            bases = typedef.bases or [W_ObjectObject.typedef]
+            bases_w = [space.gettypeobject(base) for base in bases]
+
+        # wrap everything
+        dict_w = {}
+        for descrname, descrvalue in rawdict.items():
+            dict_w[descrname] = space.wrap(descrvalue)
+
+        if typedef.applevel_subclasses_base is not None:
+            overridetypedef = typedef.applevel_subclasses_base.typedef
+        else:
+            overridetypedef = typedef
+        w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
+                              overridetypedef=overridetypedef)
+        if typedef is not overridetypedef:
+            w_type.w_doc = space.wrap(typedef.doc)
+        w_type.lazyloaders = lazyloaders
+        return w_type
+
+    def ready(self, w_type):
+        w_type.ready()

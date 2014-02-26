@@ -3,7 +3,7 @@ from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.objspace.std import stdtypedef, frame, transparent, callmethod
+from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
@@ -28,7 +28,7 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
-from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.typeobject import W_TypeObject, TypeCache
 from pypy.objspace.std.unicodeobject import W_UnicodeObject, wrapunicode
 
 
@@ -118,10 +118,10 @@ class StdObjSpace(ObjSpace):
         return self.gettypeobject(cls.typedef)
 
     def gettypeobject(self, typedef):
-        # stdtypedef.TypeCache maps each StdTypeDef instance to its
+        # typeobject.TypeCache maps a TypeDef instance to its
         # unique-for-this-space W_TypeObject instance
         assert typedef is not None
-        return self.fromcache(stdtypedef.TypeCache).getorbuild(typedef)
+        return self.fromcache(TypeCache).getorbuild(typedef)
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
