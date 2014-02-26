@@ -120,8 +120,10 @@ def create_entry_point(space, w_dict):
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
+        rffi.aroundstate.after()
         source = rffi.charp2str(ll_source)
         res = _pypy_execute_source(source)
+        rffi.aroundstate.before()
         return rffi.cast(rffi.INT, res)
 
     @entrypoint('main', [], c_name='pypy_init_threads')
