@@ -98,8 +98,8 @@ class ListTests:
         self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc=0)
 
     def test_vlist_alloc_and_set(self):
-        # the check_loops fails, because [non-null] * n is not supported yet
-        # (it is implemented as a residual call)
+        # the check_loops fails, because [non-null] * n is only supported
+        # if n < 15 (otherwise it is implemented as a residual call)
         jitdriver = JitDriver(greens = [], reds = ['n'])
         def f(n):
             l = [1] * 20
@@ -116,7 +116,7 @@ class ListTests:
 
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
-        py.test.skip("'[non-null] * n' gives a residual call so far")
+        py.test.skip("'[non-null] * n' for n >= 15 gives a residual call so far")
         self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
 
     def test_arraycopy_simpleoptimize(self):
@@ -298,6 +298,32 @@ class ListTests:
             while y > 0:
                 myjitdriver.jit_merge_point(y=y)
                 Foo([None] * 5)
+                y -= 1
+            return 42
+
+        self.meta_interp(f, [5])
+        self.check_resops({'int_sub': 2,
+                           'int_gt': 2,
+                           'guard_true': 2,
+                           'jump': 1})
+
+    def test_list_mul_virtual_nonzero(self):
+        class base:
+            pass
+        class Foo(base):
+            def __init__(self, l):
+                self.l = l
+                l[0] = self
+        class nil(base):
+            pass
+
+        nil = nil()
+
+        myjitdriver = JitDriver(greens = [], reds = ['y'])
+        def f(y):
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y)
+                Foo([nil] * 5)
                 y -= 1
             return 42
 
