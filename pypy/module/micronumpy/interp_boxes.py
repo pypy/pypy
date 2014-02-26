@@ -365,8 +365,7 @@ class W_NumberBox(W_GenericBox):
     pass
 
 class W_IntegerBox(W_NumberBox):
-    def int_w(self, space):
-        XXX # fix this
+    def _int_w(self, space):
         return space.int_w(self.descr_int(space))
 
 class W_SignedIntegerBox(W_IntegerBox):

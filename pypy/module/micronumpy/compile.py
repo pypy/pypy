@@ -156,8 +156,7 @@ class FakeSpace(object):
         assert isinstance(w_obj, FloatObject)
         return w_obj.floatval
 
-    def int_w(self, w_obj):
-        XXX # fix this
+    def int_w(self, w_obj, allow_conversion=True):
         if isinstance(w_obj, IntObject):
             return w_obj.intval
         elif isinstance(w_obj, FloatObject):
