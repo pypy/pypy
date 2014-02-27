@@ -1418,8 +1418,10 @@ def test_enum_in_struct():
     p = newp(BStructPtr, [12])
     assert p.a1 == 12
     e = py.test.raises(TypeError, newp, BStructPtr, [None])
-    assert ("an integer is required" in str(e.value) or
-        "unsupported operand type for int(): 'NoneType'" in str(e.value)) #PyPy
+    msg = str(e.value)
+    assert ("an integer is required" in msg or  # CPython
+            "unsupported operand type for int(): 'NoneType'" in msg or  # old PyPys
+            "expected integer, got NoneType object" in msg) # newer PyPys
     py.test.raises(TypeError, 'p.a1 = "def"')
     if sys.version_info < (3,):
         BEnum2 = new_enum_type(unicode("foo"), (unicode('abc'),), (5,), BInt)
