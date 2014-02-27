@@ -79,18 +79,48 @@ class PureShapeIterator(object):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
 
-class BaseArrayIterator(object):
+class ArrayIterator(object):
+    def __init__(self, array):
+        self.array = array
+        self.start = array.start
+        self.size = array.get_size()
+        self.ndim_m1 = len(array.shape) - 1
+        self.shape_m1 = [s - 1 for s in array.shape]
+        self.strides = array.strides[:]
+        self.backstrides = array.backstrides[:]
+        self.reset()
+
+    def reset(self):
+        self.index = 0
+        self.indices = [0] * (self.ndim_m1 + 1)
+        self.offset = self.start
+
+    @jit.unroll_safe
     def next(self):
-        raise NotImplementedError  # purely abstract base class
+        self.index += 1
+        for i in xrange(self.ndim_m1, -1, -1):
+            if self.indices[i] < self.shape_m1[i]:
+                self.indices[i] += 1
+                self.offset += self.strides[i]
+                break
+            else:
+                self.indices[i] = 0
+                self.offset -= self.backstrides[i]
+
+    def done(self):
+        return self.index >= self.size
+
+    def getitem(self):
+        return self.array.getitem(self.offset)
+
+    def getitem_bool(self):
+        return self.array.getitem_bool(self.offset)
 
     def setitem(self, elem):
-        raise NotImplementedError
-
-    def set_scalar_object(self, value):
-        raise NotImplementedError  # works only on scalars
+        self.array.setitem(self.offset, elem)
 
 
-class ConcreteArrayIterator(BaseArrayIterator):
+class ConcreteArrayIterator(ArrayIterator):
     _immutable_fields_ = ['array', 'skip', 'size']
 
     def __init__(self, array):
@@ -206,7 +236,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         return self.indexes[d]
 
 
-class AxisIterator(BaseArrayIterator):
+class AxisIterator(ArrayIterator):
     def __init__(self, array, shape, dim, cumulative):
         self.shape = shape
         strides = array.get_strides()
