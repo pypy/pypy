@@ -8,7 +8,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iter import PureShapeIterator
+from pypy.module.micronumpy.iterators import PureShapeIterator
 
 
 call2_driver = jit.JitDriver(name='numpy_call2',

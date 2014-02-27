@@ -1,5 +1,5 @@
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.iter import ArrayIterator
+from pypy.module.micronumpy.iterators import ArrayIterator
 
 
 class MockArray(object):

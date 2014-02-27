@@ -8,7 +8,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy import descriptor, types, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iter import AllButAxisIterator
+from pypy.module.micronumpy.iterators import AllButAxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
