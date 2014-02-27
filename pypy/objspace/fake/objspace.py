@@ -107,6 +107,10 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 
+BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
+                 'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
+                 'bytearray']
+
 class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
         self._seen_extras = []
@@ -331,9 +335,7 @@ class FakeObjSpace(ObjSpace):
     def setup(space):
         for name in (ObjSpace.ConstantTable +
                      ObjSpace.ExceptionTable +
-                     ['int', 'str', 'float', 'long', 'tuple', 'list',
-                      'dict', 'unicode', 'complex', 'slice', 'bool',
-                      'basestring', 'object', 'bytearray']):
+                     BUILTIN_TYPES):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #
@@ -364,8 +366,9 @@ class FakeObjSpace(ObjSpace):
 @specialize.memo()
 def see_typedef(space, typedef):
     assert isinstance(typedef, TypeDef)
-    for name, value in typedef.rawdict.items():
-        space.wrap(value)
+    if typedef.name not in BUILTIN_TYPES:
+        for name, value in typedef.rawdict.items():
+            space.wrap(value)
 
 class FakeCompiler(object):
     pass
