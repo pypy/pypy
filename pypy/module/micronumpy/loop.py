@@ -8,7 +8,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iterators import PureShapeIterator
+from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter
 
 
 call2_driver = jit.JitDriver(name='numpy_call2',
@@ -203,9 +203,9 @@ axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
 
 def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulative,
                    temp):
-    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumulative)
+    out_iter = AxisIter(out.implementation, arr.get_shape(), axis, cumulative)
     if cumulative:
-        temp_iter = temp.create_axis_iter(arr.get_shape(), axis, False)
+        temp_iter = AxisIter(temp.implementation, arr.get_shape(), axis, False)
     else:
         temp_iter = out_iter # hack
     arr_iter = arr.create_iter()
@@ -286,9 +286,9 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     right_skip = range(len(left_shape) - 1)
     result_skip = [len(result.get_shape()) - (len(right_shape) > 1)]
     assert result.get_dtype() == dtype
-    outi = result.create_dot_iter(broadcast_shape, result_skip)
-    lefti = left.create_dot_iter(broadcast_shape, left_skip)
-    righti = right.create_dot_iter(broadcast_shape, right_skip)
+    outi = result.implementation.create_dot_iter(broadcast_shape, result_skip)
+    lefti = left.implementation.create_dot_iter(broadcast_shape, left_skip)
+    righti = right.implementation.create_dot_iter(broadcast_shape, right_skip)
     while not outi.done():
         dot_driver.jit_merge_point(dtype=dtype)
         lval = lefti.getitem().convert_to(space, dtype)
@@ -476,7 +476,7 @@ def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     prefixlen = len(prefix_w)
     indexlen = len(indexes_w)
     dtype = arr.get_dtype()
-    iter = PureShapeIterator(iter_shape, indexes_w)
+    iter = PureShapeIter(iter_shape, indexes_w)
     indexlen = len(indexes_w)
     while not iter.done():
         getitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
@@ -505,7 +505,7 @@ def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr,
     indexlen = len(indexes_w)
     prefixlen = len(prefix_w)
     dtype = arr.get_dtype()
-    iter = PureShapeIterator(iter_shape, indexes_w)
+    iter = PureShapeIter(iter_shape, indexes_w)
     while not iter.done():
         setitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
                                            dtype=dtype, prefixlen=prefixlen)
@@ -630,7 +630,7 @@ def diagonal_simple(space, arr, out, offset, axis1, axis2, size):
 
 def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
     out_iter = out.create_iter()
-    iter = PureShapeIterator(shape, [])
+    iter = PureShapeIter(shape, [])
     shapelen_minus_1 = len(shape) - 1
     assert shapelen_minus_1 >= 0
     if axis1 < axis2:

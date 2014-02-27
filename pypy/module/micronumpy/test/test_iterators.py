@@ -1,5 +1,5 @@
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.iterators import ArrayIterator
+from pypy.module.micronumpy.iterators import ArrayIter
 
 
 class MockArray(object):
@@ -14,8 +14,8 @@ class TestIterDirect(object):
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
-        i = ArrayIterator(MockArray, support.product(shape), shape,
-                          strides, backstrides)
+        i = ArrayIter(MockArray, support.product(shape), shape,
+                      strides, backstrides)
         i.next()
         i.next()
         i.next()
@@ -33,8 +33,8 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        i = ArrayIterator(MockArray, support.product(shape), shape,
-                          strides, backstrides)
+        i = ArrayIter(MockArray, support.product(shape), shape,
+                      strides, backstrides)
         i.next()
         i.next()
         i.next()
@@ -54,8 +54,8 @@ class TestIterDirect(object):
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
-        i = ArrayIterator(MockArray, support.product(shape), shape,
-                          strides, backstrides)
+        i = ArrayIter(MockArray, support.product(shape), shape,
+                      strides, backstrides)
         i.next_skip_x(2)
         i.next_skip_x(2)
         i.next_skip_x(2)
@@ -78,8 +78,8 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        i = ArrayIterator(MockArray, support.product(shape), shape,
-                          strides, backstrides)
+        i = ArrayIter(MockArray, support.product(shape), shape,
+                      strides, backstrides)
         i.next_skip_x(2)
         i.next_skip_x(2)
         i.next_skip_x(2)

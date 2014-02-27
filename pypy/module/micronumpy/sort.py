@@ -8,7 +8,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy import descriptor, types, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iterators import AllButAxisIterator
+from pypy.module.micronumpy.iterators import AllButAxisIter
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
@@ -148,9 +148,9 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             if axis < 0 or axis >= len(shape):
                 raise OperationError(space.w_IndexError, space.wrap(
                                                     "Wrong axis %d" % axis))
-            arr_iter = AllButAxisIterator(arr, axis)
+            arr_iter = AllButAxisIter(arr, axis)
             index_impl = index_arr.implementation
-            index_iter = AllButAxisIterator(index_impl, axis)
+            index_iter = AllButAxisIter(index_impl, axis)
             stride_size = arr.strides[axis]
             index_stride_size = index_impl.strides[axis]
             axis_size = arr.shape[axis]
@@ -293,7 +293,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             if axis < 0 or axis >= len(shape):
                 raise OperationError(space.w_IndexError, space.wrap(
                                                     "Wrong axis %d" % axis))
-            arr_iter = AllButAxisIterator(arr, axis)
+            arr_iter = AllButAxisIter(arr, axis)
             stride_size = arr.strides[axis]
             axis_size = arr.shape[axis]
             while not arr_iter.done():

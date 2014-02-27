@@ -45,7 +45,7 @@ from pypy.module.micronumpy import support
 from pypy.module.micronumpy.base import W_NDimArray
 
 
-class PureShapeIterator(object):
+class PureShapeIter(object):
     def __init__(self, shape, idx_w):
         self.shape = shape
         self.shapelen = len(shape)
@@ -78,7 +78,7 @@ class PureShapeIterator(object):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
 
-class ArrayIterator(object):
+class ArrayIter(object):
     _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1',
                           'strides', 'backstrides']
 
@@ -141,7 +141,7 @@ class ArrayIterator(object):
         self.array.setitem(self.offset, elem)
 
 
-def AxisIterator(array, shape, axis, cumulative):
+def AxisIter(array, shape, axis, cumulative):
     strides = array.get_strides()
     backstrides = array.get_backstrides()
     if not cumulative:
@@ -152,14 +152,14 @@ def AxisIterator(array, shape, axis, cumulative):
         else:
             strides = strides[:axis] + [0] + strides[axis:]
             backstrides = backstrides[:axis] + [0] + backstrides[axis:]
-    return ArrayIterator(array, support.product(shape), shape, strides, backstrides)
+    return ArrayIter(array, support.product(shape), shape, strides, backstrides)
 
 
-def AllButAxisIterator(array, axis):
+def AllButAxisIter(array, axis):
     size = array.get_size()
     shape = array.get_shape()[:]
     backstrides = array.backstrides[:]
     if size:
         size /= shape[axis]
     shape[axis] = backstrides[axis] = 0
-    return ArrayIterator(array, size, shape, array.strides, backstrides)
+    return ArrayIter(array, size, shape, array.strides, backstrides)
