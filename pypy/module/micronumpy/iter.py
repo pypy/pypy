@@ -37,10 +37,9 @@ we can go faster.
 All the calculations happen in next()
 
 next_skip_x(steps) tries to do the iteration for a number of steps at once,
-but then we cannot gaurentee that we only overflow one single shape
+but then we cannot guarantee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
-
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy import support
 from rpython.rlib import jit
@@ -107,6 +106,11 @@ class ArrayIterator(object):
                 self.indices[i] = 0
                 self.offset -= self.backstrides[i]
 
+    def next_skip_x(self, step):
+        # XXX implement
+        for _ in range(step):
+            self.next()
+
     def done(self):
         return self.index >= self.size
 
@@ -120,70 +124,7 @@ class ArrayIterator(object):
         self.array.setitem(self.offset, elem)
 
 
-class ConcreteArrayIterator(ArrayIterator):
-    _immutable_fields_ = ['array', 'skip', 'size']
-
-    def __init__(self, array):
-        self.array = array
-        self.offset = 0
-        self.skip = array.dtype.elsize
-        self.size = array.size
-
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
-
-    def getitem(self):
-        return self.array.getitem(self.offset)
-
-    def getitem_bool(self):
-        return self.array.getitem_bool(self.offset)
-
-    def next(self):
-        self.offset += self.skip
-
-    def next_skip_x(self, x):
-        self.offset += self.skip * x
-
-    def done(self):
-        return self.offset >= self.size
-
-    def reset(self):
-        self.offset %= self.size
-
-
-class OneDimViewIterator(ConcreteArrayIterator):
-    def __init__(self, array, start, strides, shape):
-        self.array = array
-        self.offset = start
-        self.index = 0
-        assert len(strides) == len(shape)
-        if len(shape) == 0:
-            self.skip = array.dtype.elsize
-            self.size = 1
-        else:
-            assert len(shape) == 1
-            self.skip = strides[0]
-            self.size = shape[0]
-
-    def next(self):
-        self.offset += self.skip
-        self.index += 1
-
-    def next_skip_x(self, x):
-        self.offset += self.skip * x
-        self.index += x
-
-    def done(self):
-        return self.index >= self.size
-
-    def reset(self):
-        self.offset %= self.size
-
-    def get_index(self, d):
-        return self.index
-
-
-class MultiDimViewIterator(ConcreteArrayIterator):
+class MultiDimViewIterator(ArrayIterator):
     def __init__(self, array, start, strides, backstrides, shape):
         self.indexes = [0] * len(shape)
         self.array = array
@@ -232,9 +173,6 @@ class MultiDimViewIterator(ConcreteArrayIterator):
     def reset(self):
         self.offset %= self.size
 
-    def get_index(self, d):
-        return self.indexes[d]
-
 
 class AxisIterator(ArrayIterator):
     def __init__(self, array, shape, dim, cumulative):
@@ -257,12 +195,6 @@ class AxisIterator(ArrayIterator):
         self.offset = array.start
         self.dim = dim
         self.array = array
-
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
-
-    def getitem(self):
-        return self.array.getitem(self.offset)
 
     @jit.unroll_safe
     def next(self):

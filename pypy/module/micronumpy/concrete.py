@@ -274,6 +274,17 @@ class BaseConcreteArray(object):
                              backstrides)
         return loop.setslice(space, self.get_shape(), impl, self)
 
+    def create_iter(self, shape=None, backward_broadcast=False):
+        if shape is not None and \
+                support.product(shape) > support.product(self.get_shape()):
+            r = calculate_broadcast_strides(self.get_strides(),
+                                            self.get_backstrides(),
+                                            self.get_shape(), shape,
+                                            backward_broadcast)
+            return iter.MultiDimViewIterator(self, self.start,
+                                             r[0], r[1], shape)
+        return iter.ArrayIterator(self)
+
     def create_axis_iter(self, shape, dim, cum):
         return iter.AxisIterator(self, shape, dim, cum)
 
@@ -332,26 +343,6 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.storage = storage
-
-    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
-        if shape is not None and \
-                support.product(shape) > support.product(self.get_shape()):
-            r = calculate_broadcast_strides(self.get_strides(),
-                                            self.get_backstrides(),
-                                            self.get_shape(), shape,
-                                            backward_broadcast)
-            return iter.MultiDimViewIterator(self, self.start,
-                                             r[0], r[1], shape)
-        if not require_index:
-            return iter.ConcreteArrayIterator(self)
-        if len(self.get_shape()) <= 1:
-            return iter.OneDimViewIterator(self, self.start,
-                                           self.get_strides(),
-                                           self.get_shape())
-        return iter.MultiDimViewIterator(self, self.start,
-                                         self.get_strides(),
-                                         self.get_backstrides(),
-                                         self.get_shape())
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
@@ -437,24 +428,6 @@ class SliceArray(BaseConcreteArray):
 
     def fill(self, space, box):
         loop.fill(self, box.convert_to(space, self.dtype))
-
-    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
-        if shape is not None and \
-                support.product(shape) > support.product(self.get_shape()):
-            r = calculate_broadcast_strides(self.get_strides(),
-                                            self.get_backstrides(),
-                                            self.get_shape(), shape,
-                                            backward_broadcast)
-            return iter.MultiDimViewIterator(self, self.start,
-                                             r[0], r[1], shape)
-        if len(self.get_shape()) <= 1:
-            return iter.OneDimViewIterator(self, self.start,
-                                           self.get_strides(),
-                                           self.get_shape())
-        return iter.MultiDimViewIterator(self, self.start,
-                                         self.get_strides(),
-                                         self.get_backstrides(),
-                                         self.get_shape())
 
     def set_shape(self, space, orig_array, new_shape):
         if len(self.get_shape()) < 2 or self.size == 0:
