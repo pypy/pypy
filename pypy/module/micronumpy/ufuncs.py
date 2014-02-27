@@ -2,13 +2,12 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import boxes, descriptor, loop
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import LONG_BIT, maxint
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy.strides import shape_agreement
+from pypy.module.micronumpy import boxes, descriptor, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import constants as NPY
+from pypy.module.micronumpy.strides import shape_agreement
 
 
 def done_if_true(dtype, val):

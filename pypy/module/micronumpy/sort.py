@@ -1,18 +1,16 @@
-
 """ This is the implementation of various sorting routines in numpy. It's here
 because it only makes sense on a concrete array
 """
-
-from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.listsort import make_timsort_class
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
         free_raw_storage, alloc_raw_storage
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import widen
-from rpython.rlib.objectmodel import specialize
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.micronumpy.base import W_NDimArray
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy import descriptor, types, constants as NPY
+from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
@@ -125,7 +123,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             # note that it's fine ot pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
             if arr.get_size() > 0:
-                arr = arr.reshape(space, None, [arr.get_size()])
+                arr = arr.reshape(None, [arr.get_size()])
             axis = 0
         elif w_axis is None:
             axis = -1
@@ -276,7 +274,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         if w_axis is space.w_None:
             # note that it's fine to pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
-            arr = arr.reshape(space, None, [arr.get_size()])
+            arr = arr.reshape(None, [arr.get_size()])
             axis = 0
         elif w_axis is None:
             axis = -1

@@ -1,27 +1,25 @@
-from rpython.rtyper.lltypesystem import rffi
-from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
                                      WrappedDefault
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
-     ArrayArgumentException, wrap_impl
-from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops
-from pypy.module.micronumpy.strides import get_shape_from_iterable, to_coords, \
-    shape_agreement, shape_agreement_multiple
-from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.flatiter import W_FlatIterator
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.arrayops import repeat, choose, put
-from rpython.tool.sourcetools import func_with_new_name
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from rpython.rtyper.lltypesystem import rffi
+from rpython.tool.sourcetools import func_with_new_name
+from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops, loop, \
+    support, constants as NPY
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.arrayops import repeat, choose, put
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
+     ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import order_converter, shape_converter, \
     multi_axis_converter
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy import constants as NPY
+from pypy.module.micronumpy.flagsobj import W_FlagsObject
+from pypy.module.micronumpy.flatiter import W_FlatIterator
+from pypy.module.micronumpy.strides import get_shape_from_iterable, to_coords, \
+    shape_agreement, shape_agreement_multiple
 
 
 def _match_dot_shapes(space, left, right):
@@ -224,7 +222,10 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
+        if space.is_w(w_idx, space.w_Ellipsis):
+            self.implementation.setslice(space, convert_to_array(space, w_value))
+            return
+        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
                 and len(w_idx.get_shape()) > 0:
             self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
             return
@@ -340,14 +341,13 @@ class __extend__(W_NDimArray):
 
     def reshape(self, space, w_shape):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
-        new_impl = self.implementation.reshape(space, self, new_shape)
+        new_impl = self.implementation.reshape(self, new_shape)
         if new_impl is not None:
             return wrap_impl(space, space.type(self), self, new_impl)
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
-            arr.implementation = arr.implementation.reshape(space, self,
-                                                            new_shape)
+            arr.implementation = arr.implementation.reshape(self, new_shape)
             assert arr.implementation
         else:
             arr.implementation.shape = new_shape
@@ -381,6 +381,8 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         if len(args_w) == 1:
+            if space.is_none(args_w[0]):
+                return self.descr_view(space)
             w_shape = args_w[0]
         else:
             w_shape = space.newtuple(args_w)
@@ -1129,7 +1131,7 @@ class __extend__(W_NDimArray):
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.concrete import ConcreteArray
-    from pypy.module.micronumpy.support import calc_strides
+    from pypy.module.micronumpy.strides import calc_strides
     dtype = space.interp_w(descriptor.W_Dtype,
           space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)

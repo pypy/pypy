@@ -844,6 +844,23 @@ class AppTestNumArray(BaseNumpyAppTest):
                 b = a.reshape(s)
                 assert b.shape == s
                 assert (b == [1]).all()
+        a = array(1.5)
+        b = a.reshape(None)
+        assert b is not a
+        assert b == a
+        b[...] = 2.5
+        assert a == 2.5
+        a = array([]).reshape((0, 2))
+        assert a.shape == (0, 2)
+        assert a.strides == (16, 8)
+        a = array([])
+        a.shape = (4, 0, 3, 0, 0, 2)
+        assert a.strides == (48, 48, 16, 16, 16, 8)
+        a = array(1.5)
+        assert a.reshape(()).shape == ()
+        a = array(1.5)
+        a.shape = ()
+        assert a.strides == ()
         a = array(range(12))
         exc = raises(ValueError, "b = a.reshape(())")
         assert str(exc.value) == "total size of new array must be unchanged"
@@ -2303,12 +2320,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         import numpy as np
         a = np.array(1.5)
         assert a[...] is a
-        #a[...] = 2.5
-        #assert a == 2.5
+        a[...] = 2.5
+        assert a == 2.5
         a = np.array([1, 2, 3])
         assert a[...] is a
-        #a[...] = 4
-        #assert (a == [4, 4, 4]).all()
+        a[...] = 4
+        assert (a == [4, 4, 4]).all()
 
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):

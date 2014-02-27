@@ -122,11 +122,13 @@ def create_entry_point(space, w_dict):
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
-        rffi.aroundstate.after()
+        after = rffi.aroundstate.after
+        if after: after()
         llop.gc_stack_bottom(lltype.Void)
         source = rffi.charp2str(ll_source)
         res = _pypy_execute_source(source)
-        rffi.aroundstate.before()
+        before = rffi.aroundstate.before
+        if before: before()
         return rffi.cast(rffi.INT, res)
 
     @entrypoint('main', [], c_name='pypy_init_threads')
@@ -134,7 +136,8 @@ def create_entry_point(space, w_dict):
         if not space.config.objspace.usemodules.thread:
             return
         os_thread.setup_threads(space)
-        rffi.aroundstate.before()
+        before = rffi.aroundstate.before
+        if before: before()
 
     @entrypoint('main', [], c_name='pypy_thread_attach')
     def pypy_thread_attach():
@@ -145,7 +148,8 @@ def create_entry_point(space, w_dict):
         rthread.gc_thread_start()
         os_thread.bootstrapper.nbthreads += 1
         os_thread.bootstrapper.release()
-        rffi.aroundstate.before()
+        before = rffi.aroundstate.before
+        if before: before()
 
     w_globals = space.newdict()
     space.setitem(w_globals, space.wrap('__builtins__'),

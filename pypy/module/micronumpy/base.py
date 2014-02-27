@@ -1,7 +1,6 @@
-from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
 from rpython.tool.pairtype import extendabletype
-from pypy.module.micronumpy.support import calc_strides
 
 
 def wrap_impl(space, w_cls, w_instance, impl):
@@ -31,9 +30,10 @@ class W_NDimArray(W_Root):
     @staticmethod
     def from_shape(space, shape, dtype, order='C', w_instance=None):
         from pypy.module.micronumpy import concrete
+        from pypy.module.micronumpy.strides import calc_strides
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
-                                  backstrides)
+                                      backstrides)
         if w_instance:
             return wrap_impl(space, space.type(w_instance), w_instance, impl)
         return W_NDimArray(impl)
@@ -42,6 +42,7 @@ class W_NDimArray(W_Root):
     def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False,
                                w_subtype=None, w_base=None, writable=True):
         from pypy.module.micronumpy import concrete
+        from pypy.module.micronumpy.strides import calc_strides
         strides, backstrides = calc_strides(shape, dtype, order)
         if w_base is not None:
             if owning:

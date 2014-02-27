@@ -1,23 +1,22 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.floattype import float_typedef
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.complextype import complex_typedef
+from pypy.objspace.std.floattype import float_typedef
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from rpython.rlib.rarithmetic import LONG_BIT
-from rpython.rtyper.lltypesystem import rffi
-from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy.concrete import VoidBoxStorage
-from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import constants as NPY
+from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.concrete import VoidBoxStorage
+from pypy.module.micronumpy.flagsobj import W_FlagsObject
 
 
 MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
