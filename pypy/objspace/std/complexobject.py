@@ -141,7 +141,6 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     __complex__ to actually be a complex (and not e.g. a float).
     See test___complex___returning_non_complex.
     """
-    from pypy.objspace.std.complexobject import W_ComplexObject
     if type(w_complex) is W_ComplexObject:
         return (w_complex.realval, w_complex.imagval)
     #
@@ -297,8 +296,6 @@ class W_ComplexObject(W_Root):
     @staticmethod
     @unwrap_spec(w_real=WrappedDefault(0.0))
     def descr__new__(space, w_complextype, w_real, w_imag=None):
-        from pypy.objspace.std.complexobject import W_ComplexObject
-
         # if w_real is already a complex number and there is no second
         # argument, return it.  Note that we cannot return w_real if
         # it is an instance of a *subclass* of complex, or if w_complextype
@@ -588,7 +585,6 @@ w_one = W_ComplexObject(1, 0)
 
 def complexwprop(name):
     def fget(space, w_obj):
-        from pypy.objspace.std.complexobject import W_ComplexObject
         if not isinstance(w_obj, W_ComplexObject):
             raise oefmt(space.w_TypeError, "descriptor is for 'complex'")
         return space.newfloat(getattr(w_obj, name))
