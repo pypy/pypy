@@ -10,9 +10,9 @@ from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
+from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
@@ -36,11 +36,11 @@ long_double_size = 8
 def new_dtype_getter(num):
     @specialize.memo()
     def _get_dtype(space):
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
         return get_dtype_cache(space).dtypes_by_num[num]
 
     def descr__new__(space, w_subtype, w_value=None):
-        from pypy.module.micronumpy.interp_numarray import array
+        from pypy.module.micronumpy.ctors import array
         dtype = _get_dtype(space)
         if not space.is_none(w_value):
             w_arr = array(space, w_value, dtype, copy=False)
@@ -188,22 +188,22 @@ class W_GenericBox(W_Root):
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
-            from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+            from pypy.module.micronumpy import ufuncs
+            return getattr(ufuncs.get(space), ufunc_name).call(space,
                                                             [self, w_other, w_out])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
-            from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+            from pypy.module.micronumpy import ufuncs
+            return getattr(ufuncs.get(space), ufunc_name).call(space,
                                                             [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space, w_out=None):
-            from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+            from pypy.module.micronumpy import ufuncs
+            return getattr(ufuncs.get(space), ufunc_name).call(space,
                                                                     [self, w_out])
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
@@ -259,17 +259,17 @@ class W_GenericBox(W_Root):
         return space.newtuple([w_quotient, w_remainder])
 
     def descr_any(self, space):
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
         value = space.is_true(self)
         return get_dtype_cache(space).w_booldtype.box(value)
 
     def descr_all(self, space):
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
         value = space.is_true(self)
         return get_dtype_cache(space).w_booldtype.box(value)
 
     def descr_zero(self, space):
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
         return get_dtype_cache(space).w_longdtype.box(0)
 
     def descr_ravel(self, space):
@@ -285,13 +285,13 @@ class W_GenericBox(W_Root):
         return self.get_dtype(space).itemtype.round(self, decimals)
 
     def descr_astype(self, space, w_dtype):
-        from pypy.module.micronumpy.interp_dtype import W_Dtype
+        from pypy.module.micronumpy.descriptor import W_Dtype
         dtype = space.interp_w(W_Dtype,
             space.call_function(space.gettypefor(W_Dtype), w_dtype))
         return self.convert_to(space, dtype)
 
     def descr_view(self, space, w_dtype):
-        from pypy.module.micronumpy.interp_dtype import W_Dtype
+        from pypy.module.micronumpy.descriptor import W_Dtype
         try:
             subclass = space.is_true(space.issubtype(
                 w_dtype, space.gettypefor(W_NDimArray)))
@@ -520,7 +520,7 @@ class W_CharacterBox(W_FlexibleBox):
 
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
-        from pypy.module.micronumpy.interp_dtype import new_string_dtype
+        from pypy.module.micronumpy.descriptor import new_string_dtype
         arg = space.str_w(space.str(w_arg))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
@@ -531,7 +531,7 @@ class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
         raise OperationError(space.w_NotImplementedError, space.wrap("Unicode is not supported yet"))
 
-        from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
+        from pypy.module.micronumpy.descriptor import new_unicode_dtype
 
         arg = space.unicode_w(space.unicode_from_object(w_arg))
         # XXX size computations, we need tests anyway

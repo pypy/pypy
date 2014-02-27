@@ -1,10 +1,10 @@
-
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
-from pypy.interpreter.error import OperationError
+from pypy.module.micronumpy.concrete import BaseConcreteArray
+from pypy.interpreter.error import OperationError, oefmt
 
-class FakeArrayImplementation(BaseArrayImplementation):
+
+class FakeArrayImplementation(BaseConcreteArray):
     """ The sole purpose of this class is to W_FlatIterator can behave
     like a real array for descr_eq and friends
     """
@@ -22,6 +22,7 @@ class FakeArrayImplementation(BaseArrayImplementation):
     def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         assert isinstance(self.base(), W_NDimArray)
         return self.base().create_iter()
+
 
 class W_FlatIterator(W_NDimArray):
     def __init__(self, arr):
@@ -54,9 +55,8 @@ class W_FlatIterator(W_NDimArray):
 
     def descr_getitem(self, space, w_idx):
         if not (space.isinstance_w(w_idx, space.w_int) or
-            space.isinstance_w(w_idx, space.w_slice)):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap('unsupported iterator index'))
+                space.isinstance_w(w_idx, space.w_slice)):
+            raise oefmt(space.w_IndexError, 'unsupported iterator index')
         self.reset()
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
@@ -70,9 +70,8 @@ class W_FlatIterator(W_NDimArray):
 
     def descr_setitem(self, space, w_idx, w_value):
         if not (space.isinstance_w(w_idx, space.w_int) or
-            space.isinstance_w(w_idx, space.w_slice)):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap('unsupported iterator index'))
+                space.isinstance_w(w_idx, space.w_slice)):
+            raise oefmt(space.w_IndexError, 'unsupported iterator index')
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
         arr = convert_to_array(space, w_value)
@@ -84,4 +83,4 @@ class W_FlatIterator(W_NDimArray):
     def descr_base(self, space):
         return space.wrap(self.base)
 
-# typedef is in interp_numarray, so we see the additional arguments
+# typedef is in interp_ndarray, so we see the additional arguments

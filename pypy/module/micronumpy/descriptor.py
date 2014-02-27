@@ -4,12 +4,13 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
-from pypy.module.micronumpy import types, interp_boxes, base
+from pypy.module.micronumpy import types, boxes, base
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 from rpython.rlib import jit
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.conversion_utils import byteorder_converter
+from pypy.module.micronumpy.converters import byteorder_converter
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
 
@@ -25,7 +26,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     """ agree on dtype from a list of arrays. if out is allocated,
     use it's dtype, otherwise allocate a new one with agreed dtype
     """
-    from pypy.module.micronumpy.interp_ufuncs import find_binop_result_dtype
+    from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
 
     if not space.is_none(out):
         return out
@@ -372,7 +373,7 @@ class W_Dtype(W_Root):
                             "incorrect subarray in __setstate__")
             subdtype, w_shape = space.fixedview(w_subarray)
             assert isinstance(subdtype, W_Dtype)
-            if not base.issequence_w(space, w_shape):
+            if not support.issequence_w(space, w_shape):
                 self.shape = [space.int_w(w_shape)]
             else:
                 self.shape = [space.int_w(w_s) for w_s in space.fixedview(w_shape)]
@@ -432,7 +433,7 @@ def dtype_from_list(space, w_lst, simple):
             w_shape = space.newtuple([])
             if space.len_w(w_elem) == 3:
                 w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
-                if not base.issequence_w(space, w_shape):
+                if not support.issequence_w(space, w_shape):
                     w_shape = space.newtuple([w_shape])
             else:
                 w_fldname, w_flddesc = space.fixedview(w_elem, 2)
@@ -447,7 +448,7 @@ def dtype_from_list(space, w_lst, simple):
         offset += subdtype.elsize
         names.append(fldname)
     return W_Dtype(types.RecordType(), NPY.VOID, NPY.VOIDLTR, NPY.VOIDLTR,
-                   space.gettypefor(interp_boxes.W_VoidBox),
+                   space.gettypefor(boxes.W_VoidBox),
                    names=names, fields=fields, elsize=offset)
 
 
@@ -489,7 +490,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return subdtype
         size *= subdtype.elsize
         return W_Dtype(types.VoidType(), NPY.VOID, NPY.VOIDLTR, NPY.VOIDLTR,
-                       space.gettypefor(interp_boxes.W_VoidBox),
+                       space.gettypefor(boxes.W_VoidBox),
                        shape=shape, subdtype=subdtype, elsize=size)
 
     if space.is_none(w_dtype):
@@ -605,7 +606,7 @@ def new_string_dtype(space, size, char=NPY.STRINGLTR):
         num=NPY.STRING,
         kind=NPY.STRINGLTR,
         char=char,
-        w_box_type=space.gettypefor(interp_boxes.W_StringBox),
+        w_box_type=space.gettypefor(boxes.W_StringBox),
     )
 
 
@@ -617,7 +618,7 @@ def new_unicode_dtype(space, size):
         num=NPY.UNICODE,
         kind=NPY.UNICODELTR,
         char=NPY.UNICODELTR,
-        w_box_type=space.gettypefor(interp_boxes.W_UnicodeBox),
+        w_box_type=space.gettypefor(boxes.W_UnicodeBox),
     )
 
 
@@ -628,7 +629,7 @@ def new_void_dtype(space, size):
         num=NPY.VOID,
         kind=NPY.VOIDLTR,
         char=NPY.VOIDLTR,
-        w_box_type=space.gettypefor(interp_boxes.W_VoidBox),
+        w_box_type=space.gettypefor(boxes.W_VoidBox),
     )
 
 
@@ -639,119 +640,119 @@ class DtypeCache(object):
             num=NPY.BOOL,
             kind=NPY.GENBOOLLTR,
             char=NPY.BOOLLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_BoolBox),
+            w_box_type=space.gettypefor(boxes.W_BoolBox),
         )
         self.w_int8dtype = W_Dtype(
             types.Int8(),
             num=NPY.BYTE,
             kind=NPY.SIGNEDLTR,
             char=NPY.BYTELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Int8Box),
+            w_box_type=space.gettypefor(boxes.W_Int8Box),
         )
         self.w_uint8dtype = W_Dtype(
             types.UInt8(),
             num=NPY.UBYTE,
             kind=NPY.UNSIGNEDLTR,
             char=NPY.UBYTELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_UInt8Box),
+            w_box_type=space.gettypefor(boxes.W_UInt8Box),
         )
         self.w_int16dtype = W_Dtype(
             types.Int16(),
             num=NPY.SHORT,
             kind=NPY.SIGNEDLTR,
             char=NPY.SHORTLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Int16Box),
+            w_box_type=space.gettypefor(boxes.W_Int16Box),
         )
         self.w_uint16dtype = W_Dtype(
             types.UInt16(),
             num=NPY.USHORT,
             kind=NPY.UNSIGNEDLTR,
             char=NPY.USHORTLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_UInt16Box),
+            w_box_type=space.gettypefor(boxes.W_UInt16Box),
         )
         self.w_int32dtype = W_Dtype(
             types.Int32(),
             num=NPY.INT,
             kind=NPY.SIGNEDLTR,
             char=NPY.INTLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Int32Box),
+            w_box_type=space.gettypefor(boxes.W_Int32Box),
         )
         self.w_uint32dtype = W_Dtype(
             types.UInt32(),
             num=NPY.UINT,
             kind=NPY.UNSIGNEDLTR,
             char=NPY.UINTLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_UInt32Box),
+            w_box_type=space.gettypefor(boxes.W_UInt32Box),
         )
         self.w_longdtype = W_Dtype(
             types.Long(),
             num=NPY.LONG,
             kind=NPY.SIGNEDLTR,
             char=NPY.LONGLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_LongBox),
+            w_box_type=space.gettypefor(boxes.W_LongBox),
         )
         self.w_ulongdtype = W_Dtype(
             types.ULong(),
             num=NPY.ULONG,
             kind=NPY.UNSIGNEDLTR,
             char=NPY.ULONGLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_ULongBox),
+            w_box_type=space.gettypefor(boxes.W_ULongBox),
         )
         self.w_int64dtype = W_Dtype(
             types.Int64(),
             num=NPY.LONGLONG,
             kind=NPY.SIGNEDLTR,
             char=NPY.LONGLONGLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Int64Box),
+            w_box_type=space.gettypefor(boxes.W_Int64Box),
         )
         self.w_uint64dtype = W_Dtype(
             types.UInt64(),
             num=NPY.ULONGLONG,
             kind=NPY.UNSIGNEDLTR,
             char=NPY.ULONGLONGLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_UInt64Box),
+            w_box_type=space.gettypefor(boxes.W_UInt64Box),
         )
         self.w_float32dtype = W_Dtype(
             types.Float32(),
             num=NPY.FLOAT,
             kind=NPY.FLOATINGLTR,
             char=NPY.FLOATLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Float32Box),
+            w_box_type=space.gettypefor(boxes.W_Float32Box),
         )
         self.w_float64dtype = W_Dtype(
             types.Float64(),
             num=NPY.DOUBLE,
             kind=NPY.FLOATINGLTR,
             char=NPY.DOUBLELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Float64Box),
+            w_box_type=space.gettypefor(boxes.W_Float64Box),
         )
         self.w_floatlongdtype = W_Dtype(
             types.FloatLong(),
             num=NPY.LONGDOUBLE,
             kind=NPY.FLOATINGLTR,
             char=NPY.LONGDOUBLELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_FloatLongBox),
+            w_box_type=space.gettypefor(boxes.W_FloatLongBox),
         )
         self.w_complex64dtype = W_Dtype(
             types.Complex64(),
             num=NPY.CFLOAT,
             kind=NPY.COMPLEXLTR,
             char=NPY.CFLOATLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Complex64Box),
+            w_box_type=space.gettypefor(boxes.W_Complex64Box),
         )
         self.w_complex128dtype = W_Dtype(
             types.Complex128(),
             num=NPY.CDOUBLE,
             kind=NPY.COMPLEXLTR,
             char=NPY.CDOUBLELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Complex128Box),
+            w_box_type=space.gettypefor(boxes.W_Complex128Box),
         )
         self.w_complexlongdtype = W_Dtype(
             types.ComplexLong(),
             num=NPY.CLONGDOUBLE,
             kind=NPY.COMPLEXLTR,
             char=NPY.CLONGDOUBLELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_ComplexLongBox),
+            w_box_type=space.gettypefor(boxes.W_ComplexLongBox),
         )
         self.w_stringdtype = W_Dtype(
             types.StringType(),
@@ -759,7 +760,7 @@ class DtypeCache(object):
             num=NPY.STRING,
             kind=NPY.STRINGLTR,
             char=NPY.STRINGLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_StringBox),
+            w_box_type=space.gettypefor(boxes.W_StringBox),
         )
         self.w_unicodedtype = W_Dtype(
             types.UnicodeType(),
@@ -767,7 +768,7 @@ class DtypeCache(object):
             num=NPY.UNICODE,
             kind=NPY.UNICODELTR,
             char=NPY.UNICODELTR,
-            w_box_type=space.gettypefor(interp_boxes.W_UnicodeBox),
+            w_box_type=space.gettypefor(boxes.W_UnicodeBox),
         )
         self.w_voiddtype = W_Dtype(
             types.VoidType(),
@@ -775,28 +776,28 @@ class DtypeCache(object):
             num=NPY.VOID,
             kind=NPY.VOIDLTR,
             char=NPY.VOIDLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_VoidBox),
+            w_box_type=space.gettypefor(boxes.W_VoidBox),
         )
         self.w_float16dtype = W_Dtype(
             types.Float16(),
             num=NPY.HALF,
             kind=NPY.FLOATINGLTR,
             char=NPY.HALFLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_Float16Box),
+            w_box_type=space.gettypefor(boxes.W_Float16Box),
         )
         self.w_intpdtype = W_Dtype(
             types.Long(),
             num=NPY.LONG,
             kind=NPY.SIGNEDLTR,
             char=NPY.INTPLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_LongBox),
+            w_box_type=space.gettypefor(boxes.W_LongBox),
         )
         self.w_uintpdtype = W_Dtype(
             types.ULong(),
             num=NPY.ULONG,
             kind=NPY.UNSIGNEDLTR,
             char=NPY.UINTPLTR,
-            w_box_type=space.gettypefor(interp_boxes.W_ULongBox),
+            w_box_type=space.gettypefor(boxes.W_ULongBox),
         )
         aliases = {
             NPY.BOOL:        ['bool', 'bool8'],
@@ -820,19 +821,19 @@ class DtypeCache(object):
         self.alternate_constructors = {
             NPY.BOOL:     [space.w_bool],
             NPY.LONG:     [space.w_int,
-                           space.gettypefor(interp_boxes.W_IntegerBox),
-                           space.gettypefor(interp_boxes.W_SignedIntegerBox)],
-            NPY.ULONG:    [space.gettypefor(interp_boxes.W_UnsignedIntegerBox)],
+                           space.gettypefor(boxes.W_IntegerBox),
+                           space.gettypefor(boxes.W_SignedIntegerBox)],
+            NPY.ULONG:    [space.gettypefor(boxes.W_UnsignedIntegerBox)],
             NPY.LONGLONG: [space.w_long],
             NPY.DOUBLE:   [space.w_float,
-                           space.gettypefor(interp_boxes.W_NumberBox),
-                           space.gettypefor(interp_boxes.W_FloatingBox)],
+                           space.gettypefor(boxes.W_NumberBox),
+                           space.gettypefor(boxes.W_FloatingBox)],
             NPY.CDOUBLE:  [space.w_complex,
-                           space.gettypefor(interp_boxes.W_ComplexFloatingBox)],
+                           space.gettypefor(boxes.W_ComplexFloatingBox)],
             NPY.STRING:   [space.w_str,
-                           space.gettypefor(interp_boxes.W_CharacterBox)],
+                           space.gettypefor(boxes.W_CharacterBox)],
             NPY.UNICODE:  [space.w_unicode],
-            NPY.VOID:     [space.gettypefor(interp_boxes.W_GenericBox)],
+            NPY.VOID:     [space.gettypefor(boxes.W_GenericBox)],
                            #space.w_buffer,  # XXX no buffer in space
         }
         float_dtypes = [self.w_float16dtype, self.w_float32dtype,
@@ -908,16 +909,16 @@ class DtypeCache(object):
         }
 
         typeinfo_partial = {
-            'Generic': interp_boxes.W_GenericBox,
-            'Character': interp_boxes.W_CharacterBox,
-            'Flexible': interp_boxes.W_FlexibleBox,
-            'Inexact': interp_boxes.W_InexactBox,
-            'Integer': interp_boxes.W_IntegerBox,
-            'SignedInteger': interp_boxes.W_SignedIntegerBox,
-            'UnsignedInteger': interp_boxes.W_UnsignedIntegerBox,
-            'ComplexFloating': interp_boxes.W_ComplexFloatingBox,
-            'Number': interp_boxes.W_NumberBox,
-            'Floating': interp_boxes.W_FloatingBox
+            'Generic': boxes.W_GenericBox,
+            'Character': boxes.W_CharacterBox,
+            'Flexible': boxes.W_FlexibleBox,
+            'Inexact': boxes.W_InexactBox,
+            'Integer': boxes.W_IntegerBox,
+            'SignedInteger': boxes.W_SignedIntegerBox,
+            'UnsignedInteger': boxes.W_UnsignedIntegerBox,
+            'ComplexFloating': boxes.W_ComplexFloatingBox,
+            'Number': boxes.W_NumberBox,
+            'Floating': boxes.W_FloatingBox
         }
         w_typeinfo = space.newdict()
         for k, v in typeinfo_partial.iteritems():

@@ -1,4 +1,3 @@
-
 """ This file is the main run loop as well as evaluation loops for various
 operations. This is the place to look for all the computations that iterate
 over all the array elements.
@@ -10,7 +9,7 @@ from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
-from pypy.module.micronumpy.support import index_w
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
 call2_driver = jit.JitDriver(name='numpy_call2',
@@ -380,14 +379,17 @@ setitem_filter_driver = jit.JitDriver(name = 'numpy_setitem_bool',
                                                 'index_dtype'],
                                       reds = 'auto')
 
-def setitem_filter(space, arr, index, value, size):
+def setitem_filter(space, arr, index, value):
     arr_iter = arr.create_iter()
     shapelen = len(arr.get_shape())
     if shapelen > 1 and len(index.get_shape()) < 2:
         index_iter = index.create_iter(arr.get_shape(), backward_broadcast=True)
     else:
         index_iter = index.create_iter()
-    value_iter = value.create_iter([size])
+    if value.get_size() == 1:
+        value_iter = value.create_iter(arr.get_shape())
+    else:
+        value_iter = value.create_iter()
     index_dtype = index.get_dtype()
     arr_dtype = arr.get_dtype()
     while not index_iter.done():
@@ -554,7 +556,7 @@ def choose(space, arr, choices, shape, dtype, out, mode):
     while not arr_iter.done():
         choose_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
                                       mode=mode)
-        index = index_w(space, arr_iter.getitem())
+        index = support.index_w(space, arr_iter.getitem())
         if index < 0 or index >= len(iterators):
             if mode == NPY.RAISE:
                 raise OperationError(space.w_ValueError, space.wrap(
@@ -657,4 +659,3 @@ def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
         out_iter.setitem(arr.getitem_index(space, indexes))
         iter.next()
         out_iter.next()
-

@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import specialize
 
+
 class AppBridgeCache(object):
     w__mean = None
     w__var = None
@@ -20,12 +21,14 @@ class AppBridgeCache(object):
             setattr(self, 'w_' + name, w_method)
         return space.call_args(w_method, args)
 
+
 def set_string_function(space, w_f, w_repr):
     cache = get_appbridge_cache(space)
     if space.is_true(w_repr):
         cache.w_array_repr = w_f
     else:
         cache.w_array_str = w_f
+
 
 def get_appbridge_cache(space):
     return space.fromcache(AppBridgeCache)

@@ -5,7 +5,7 @@ good assembler
 import py
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.warmspot import reset_jit, get_stats
-from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
 
@@ -48,11 +48,11 @@ class TestNumpyJit(LLJitMixin):
             w_res = interp.results[-1]
             if isinstance(w_res, W_NDimArray):
                 w_res = w_res.create_iter().getitem()
-            if isinstance(w_res, interp_boxes.W_Float64Box):
+            if isinstance(w_res, boxes.W_Float64Box):
                 return w_res.value
-            if isinstance(w_res, interp_boxes.W_Int64Box):
+            if isinstance(w_res, boxes.W_Int64Box):
                 return float(w_res.value)
-            elif isinstance(w_res, interp_boxes.W_BoolBox):
+            elif isinstance(w_res, boxes.W_BoolBox):
                 return float(w_res.value)
             raise TypeError(w_res)
 

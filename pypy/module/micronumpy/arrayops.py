@@ -1,11 +1,11 @@
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
-from pypy.module.micronumpy.iter import Chunk, Chunks
-from pypy.module.micronumpy.strides import shape_agreement,\
-     shape_agreement_multiple
+from pypy.module.micronumpy import loop, descriptor, ufuncs
+from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
+    shape_agreement_multiple
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.conversion_utils import clipmode_converter
+from pypy.module.micronumpy.converters import clipmode_converter
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -84,7 +84,7 @@ def where(space, w_arr, w_x=None, w_y=None):
         if arr.get_dtype().itemtype.bool(arr.get_scalar_value()):
             return x
         return y
-    dtype = interp_ufuncs.find_binop_result_dtype(space, x.get_dtype(),
+    dtype = ufuncs.find_binop_result_dtype(space, x.get_dtype(),
                                                   y.get_dtype())
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
@@ -147,7 +147,7 @@ def concatenate(space, w_args, w_axis=None):
         elif dtype.is_record() or a_dt.is_record():
             raise OperationError(space.w_TypeError,
                         space.wrap("invalid type promotion"))
-        dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
+        dtype = ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
     res = W_NDimArray.from_shape(space, shape, dtype, 'C')
@@ -202,15 +202,13 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
         raise OperationError(space.w_TypeError, space.wrap(
             "return arrays must be of ArrayType"))
     shape = shape_agreement_multiple(space, choices + [w_out])
-    out = interp_dtype.dtype_agreement(space, choices, shape, w_out)
+    out = descriptor.dtype_agreement(space, choices, shape, w_out)
     dtype = out.get_dtype()
     mode = clipmode_converter(space, w_mode)
     loop.choose(space, arr, choices, shape, dtype, out, mode)
     return out
 
 def put(space, w_arr, w_indices, w_values, w_mode):
-    from pypy.module.micronumpy.support import index_w
-
     arr = convert_to_array(space, w_arr)
     mode = clipmode_converter(space, w_mode)
 
@@ -235,7 +233,7 @@ def put(space, w_arr, w_indices, w_values, w_mode):
 
     v_idx = 0
     for idx in indices:
-        index = index_w(space, idx)
+        index = support.index_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
             if mode == NPY.RAISE:
