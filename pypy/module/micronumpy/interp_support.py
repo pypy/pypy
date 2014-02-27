@@ -3,7 +3,6 @@ from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import descriptor, loop
 from rpython.rlib.rstring import strip_spaces
-from rpython.rlib.rarithmetic import maxint
 from pypy.module.micronumpy.base import W_NDimArray
 
 FLOAT_SIZE = rffi.sizeof(lltype.Float)
@@ -85,16 +84,3 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
         return _fromstring_bin(space, s, count, length, dtype)
     else:
         return _fromstring_text(space, s, count, sep, length, dtype)
-
-def unwrap_axis_arg(space, shapelen, w_axis):
-    if space.is_none(w_axis):
-        axis = maxint
-    else:
-        axis = space.int_w(w_axis)
-        if axis < -shapelen or axis >= shapelen:
-            raise oefmt(space.w_ValueError,
-                        "axis entry %d is out of bounds [%d, %d)",
-                        axis, -shapelen, shapelen)
-        if axis < 0:
-            axis += shapelen
-    return axis

@@ -4,9 +4,8 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import boxes, descriptor, loop
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, maxint
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import constants as NPY
@@ -175,7 +174,14 @@ class W_Ufunc(W_Root):
         if obj.is_scalar():
             return obj.get_scalar_value()
         shapelen = len(obj_shape)
-        axis = unwrap_axis_arg(space, shapelen, w_axis)
+        if space.is_none(w_axis):
+            axis = maxint
+        else:
+            axis = space.int_w(w_axis)
+            if axis < -shapelen or axis >= shapelen:
+                raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
+            if axis < 0:
+                axis += shapelen
         assert axis >= 0
         dtype = descriptor.decode_w_dtype(space, dtype)
         if dtype is None:
@@ -192,8 +198,9 @@ class W_Ufunc(W_Root):
             for i in range(shapelen):
                 if space.is_none(w_axis) or i == axis:
                     if obj_shape[i] == 0:
-                        raise oefmt(space.w_ValueError, "zero-size array to "
-                                    "%s.reduce without identity", self.name)
+                        raise oefmt(space.w_ValueError,
+                            "zero-size array to reduction operation %s "
+                            "which has no identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumulative:
