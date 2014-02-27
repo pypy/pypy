@@ -315,7 +315,7 @@ class W_IntObject(W_AbstractIntObject):
 
     def _int_w(self, space):
         return int(self.intval)
-    
+
     unwrap = _int_w
 
     def uint_w(self, space):

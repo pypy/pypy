@@ -458,7 +458,7 @@ class TestGateway:
 
     def test_interp2app_unwrap_spec_typechecks(self):
         from rpython.rlib.rarithmetic import r_longlong
-        
+
         space = self.space
         w = space.wrap
         def g3_id(space, x):

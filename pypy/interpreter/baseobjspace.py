@@ -1375,7 +1375,7 @@ class ObjSpace(object):
     def int_w(self, w_obj, allow_conversion=True):
         """
         Unwrap an app-level int object into an interpret-level int.
-        
+
         If allow_conversion==True, w_obj might be of any type which implements
         __int__, *except* floats which are explicitly rejected. This is the
         same logic as CPython's PyArg_ParseTuple. If you want to also allow
