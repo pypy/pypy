@@ -85,3 +85,6 @@ operands are positive to kill some guards
 
 .. branch: remove-intlong-smm
 kills int/long/smalllong/bool multimethods
+
+.. branch: numpy-refactor
+Cleanup micronumpy module
