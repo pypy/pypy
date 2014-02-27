@@ -1296,16 +1296,16 @@ class ObjSpace(object):
         else:
             return index
 
-    def r_longlong_w(self, w_obj):
-        bigint = self.bigint_w(w_obj)
+    def r_longlong_w(self, w_obj, allow_conversion=True):
+        bigint = self.bigint_w(w_obj, allow_conversion)
         try:
             return bigint.tolonglong()
         except OverflowError:
             raise OperationError(self.w_OverflowError,
                                  self.wrap('integer too large'))
 
-    def r_ulonglong_w(self, w_obj):
-        bigint = self.bigint_w(w_obj)
+    def r_ulonglong_w(self, w_obj, allow_conversion=True):
+        bigint = self.bigint_w(w_obj, allow_conversion)
         try:
             return bigint.toulonglong()
         except OverflowError:
@@ -1443,10 +1443,7 @@ class ObjSpace(object):
 
     # This is all interface for gateway.py.
     gateway_int_w = int_w
-
-    def gateway_float_w(self, w_obj):
-        return self.float_w(self.float(w_obj))
-
+    gateway_float_w = float_w
     gateway_r_longlong_w = r_longlong_w
     gateway_r_ulonglong_w = r_ulonglong_w
 
@@ -1477,7 +1474,7 @@ class ObjSpace(object):
     def c_uint_w(self, w_obj):
         # Like space.gateway_uint_w(), but raises an app-level OverflowError if
         # the integer does not fit in 32 bits.  Here for gateway.py.
-        value = self.gateway_r_uint_w(w_obj)
+        value = self.uint_w(w_obj)
         if value > UINT_MAX_32_BITS:
             raise OperationError(self.w_OverflowError,
                               self.wrap("expected an unsigned 32-bit integer"))
@@ -1487,7 +1484,7 @@ class ObjSpace(object):
         # Like space.gateway_int_w(), but raises an app-level ValueError if
         # the integer is negative or does not fit in 32 bits.  Here
         # for gateway.py.
-        value = self.gateway_int_w(w_obj)
+        value = self.int_w(w_obj)
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
@@ -1496,22 +1493,22 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
-    def truncatedint_w(self, w_obj):
+    def truncatedint_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
         try:
-            return self.int_w(w_obj)
+            return self.int_w(w_obj, allow_conversion)
         except OperationError, e:
             if not e.match(self, self.w_OverflowError):
                 raise
             from rpython.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
 
-    def truncatedlonglong_w(self, w_obj):
+    def truncatedlonglong_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_r_longlong_w(), but return the integer truncated
         # instead of raising OverflowError.
         try:
-            return self.r_longlong_w(w_obj)
+            return self.r_longlong_w(w_obj, allow_conversion)
         except OperationError, e:
             if not e.match(self, self.w_OverflowError):
                 raise
