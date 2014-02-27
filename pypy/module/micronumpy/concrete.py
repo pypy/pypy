@@ -283,9 +283,9 @@ class BaseConcreteArray(object):
                                             self.get_backstrides(),
                                             self.get_shape(), shape,
                                             backward_broadcast)
-            return iter.MultiDimViewIterator(self, self.start,
-                                             r[0], r[1], shape)
-        return iter.ArrayIterator(self)
+            return iter.ArrayIterator(self, shape, r[0], r[1])
+        return iter.ArrayIterator(self, self.shape, self.strides,
+                                                    self.backstrides)
 
     def create_axis_iter(self, shape, dim, cum):
         return iter.AxisIterator(self, shape, dim, cum)
@@ -293,7 +293,7 @@ class BaseConcreteArray(object):
     def create_dot_iter(self, shape, skip):
         r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),
                                   shape, skip)
-        return iter.MultiDimViewIterator(self, self.start, r[0], r[1], shape)
+        return iter.ArrayIterator(self, shape, r[0], r[1])
 
     def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]

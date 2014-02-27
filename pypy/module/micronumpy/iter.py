@@ -79,14 +79,17 @@ class PureShapeIterator(object):
 
 
 class ArrayIterator(object):
-    def __init__(self, array):
+    _immutable_fields_ = ['array', 'start', 'size', 'ndim_m1', 'shape_m1',
+                          'strides', 'backstrides']
+
+    def __init__(self, array, shape, strides, backstrides):
         self.array = array
         self.start = array.start
-        self.size = array.get_size()
-        self.ndim_m1 = len(array.shape) - 1
-        self.shape_m1 = [s - 1 for s in array.shape]
-        self.strides = array.strides[:]
-        self.backstrides = array.backstrides[:]
+        self.size = support.product(shape)
+        self.ndim_m1 = len(shape) - 1
+        self.shape_m1 = [s - 1 for s in shape]
+        self.strides = strides
+        self.backstrides = backstrides
         self.reset()
 
     def reset(self):
@@ -106,10 +109,24 @@ class ArrayIterator(object):
                 self.indices[i] = 0
                 self.offset -= self.backstrides[i]
 
+    @jit.unroll_safe
     def next_skip_x(self, step):
-        # XXX implement
-        for _ in range(step):
-            self.next()
+        assert step >= 0
+        if step == 0:
+            return
+        self.index += step
+        for i in range(self.ndim_m1, -1, -1):
+            if self.indices[i] < (self.shape_m1[i] + 1) - step:
+                self.indices[i] += step
+                self.offset += self.strides[i] * step
+                break
+            else:
+                remaining_step = (self.indices[i] + step) // (self.shape_m1[i] + 1)
+                this_i_step = step - remaining_step * (self.shape_m1[i] + 1)
+                self.indices[i] = self.indices[i] + this_i_step
+                self.offset += self.strides[i] * this_i_step
+                step = remaining_step
+                assert step > 0
 
     def done(self):
         return self.index >= self.size
@@ -122,56 +139,6 @@ class ArrayIterator(object):
 
     def setitem(self, elem):
         self.array.setitem(self.offset, elem)
-
-
-class MultiDimViewIterator(ArrayIterator):
-    def __init__(self, array, start, strides, backstrides, shape):
-        self.indexes = [0] * len(shape)
-        self.array = array
-        self.shape = shape
-        self.offset = start
-        self.shapelen = len(shape)
-        self._done = self.shapelen == 0 or support.product(shape) == 0
-        self.strides = strides
-        self.backstrides = backstrides
-        self.size = array.size
-
-    @jit.unroll_safe
-    def next(self):
-        offset = self.offset
-        for i in range(self.shapelen - 1, -1, -1):
-            if self.indexes[i] < self.shape[i] - 1:
-                self.indexes[i] += 1
-                offset += self.strides[i]
-                break
-            else:
-                self.indexes[i] = 0
-                offset -= self.backstrides[i]
-        else:
-            self._done = True
-        self.offset = offset
-
-    @jit.unroll_safe
-    def next_skip_x(self, step):
-        for i in range(len(self.shape) - 1, -1, -1):
-            if self.indexes[i] < self.shape[i] - step:
-                self.indexes[i] += step
-                self.offset += self.strides[i] * step
-                break
-            else:
-                remaining_step = (self.indexes[i] + step) // self.shape[i]
-                this_i_step = step - remaining_step * self.shape[i]
-                self.offset += self.strides[i] * this_i_step
-                self.indexes[i] = self.indexes[i] + this_i_step
-                step = remaining_step
-        else:
-            self._done = True
-
-    def done(self):
-        return self._done
-
-    def reset(self):
-        self.offset %= self.size
 
 
 class AxisIterator(ArrayIterator):
