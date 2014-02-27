@@ -6,8 +6,12 @@ from pypy.interpreter.error import OperationError
 
 class W_FlagsObject(W_Root):
     def __init__(self, arr):
-        self.arr = arr
         self.flags = 0
+
+    def descr__new__(space, w_subtype):
+        self = space.allocate_instance(W_FlagsObject, w_subtype)
+        W_FlagsObject.__init__(self, None)
+        return self
 
     def descr_get_contiguous(self, space):
         return space.w_True
@@ -60,6 +64,8 @@ class W_FlagsObject(W_Root):
 
 W_FlagsObject.typedef = TypeDef("flagsobj",
     __module__ = "numpy",
+    __new__ = interp2app(W_FlagsObject.descr__new__.im_func),
+
     __getitem__ = interp2app(W_FlagsObject.descr_getitem),
     __setitem__ = interp2app(W_FlagsObject.descr_setitem),
     __eq__ = interp2app(W_FlagsObject.descr_eq),
