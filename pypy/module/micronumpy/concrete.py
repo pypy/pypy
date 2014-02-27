@@ -61,7 +61,7 @@ class BaseConcreteArray(object):
     def get_storage_size(self):
         return self.size
 
-    def reshape(self, space, orig_array, new_shape):
+    def reshape(self, orig_array, new_shape):
         # Since we got to here, prod(new_shape) == self.size
         new_strides = None
         if self.size > 0:

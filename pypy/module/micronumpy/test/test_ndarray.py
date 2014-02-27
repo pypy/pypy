@@ -844,6 +844,12 @@ class AppTestNumArray(BaseNumpyAppTest):
                 b = a.reshape(s)
                 assert b.shape == s
                 assert (b == [1]).all()
+        a = array(1.5)
+        b = a.reshape(None)
+        assert b is not a
+        assert b == a
+        b[...] = 2.5
+        assert a == 2.5
         a = array(range(12))
         exc = raises(ValueError, "b = a.reshape(())")
         assert str(exc.value) == "total size of new array must be unchanged"

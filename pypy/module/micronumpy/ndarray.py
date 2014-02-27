@@ -343,14 +343,13 @@ class __extend__(W_NDimArray):
 
     def reshape(self, space, w_shape):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
-        new_impl = self.implementation.reshape(space, self, new_shape)
+        new_impl = self.implementation.reshape(self, new_shape)
         if new_impl is not None:
             return wrap_impl(space, space.type(self), self, new_impl)
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
-            arr.implementation = arr.implementation.reshape(space, self,
-                                                            new_shape)
+            arr.implementation = arr.implementation.reshape(self, new_shape)
             assert arr.implementation
         else:
             arr.implementation.shape = new_shape
@@ -384,6 +383,8 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
         if len(args_w) == 1:
+            if space.is_none(args_w[0]):
+                return self.descr_view(space)
             w_shape = args_w[0]
         else:
             w_shape = space.newtuple(args_w)
