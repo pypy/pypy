@@ -80,7 +80,7 @@ def create_entry_point(space, w_dict):
     # register the minimal equivalent of running a small piece of code. This
     # should be used as sparsely as possible, just to register callbacks
 
-    from rpython.rlib.entrypoint import entrypoint
+    from rpython.rlib.entrypoint import entrypoint, RPython_StartupCode
     from rpython.rtyper.lltypesystem import rffi, lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -94,7 +94,6 @@ def create_entry_point(space, w_dict):
     @entrypoint('main', [rffi.CCHARP, rffi.INT], c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
-        llop.gc_stack_bottom(lltype.Void)
         verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home:
             home = rffi.charp2str(ll_home)
@@ -124,7 +123,6 @@ def create_entry_point(space, w_dict):
     def pypy_execute_source(ll_source):
         after = rffi.aroundstate.after
         if after: after()
-        llop.gc_stack_bottom(lltype.Void)
         source = rffi.charp2str(ll_source)
         res = _pypy_execute_source(source)
         before = rffi.aroundstate.before

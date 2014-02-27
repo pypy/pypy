@@ -8,15 +8,11 @@
 extern "C" {
 #endif
 
-/* You should call this first once. */
-#define pypy_init(need_threads) do { pypy_asm_stack_bottom();	\
-rpython_startup_code();\
- if (need_threads) pypy_init_threads(); } while (0)
+// call this first
+char* rpython_startup_code(void);
 
-// deprecated interface
-void rpython_startup_code(void);
+// pypy_init_threads has to be called in case you want to use threads
 void pypy_init_threads(void);
-
 
 /* Initialize the home directory of PyPy.  It is necessary to call this.
 
