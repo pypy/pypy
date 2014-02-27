@@ -257,10 +257,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
-        BoolOption("builtinshortcut",
-                   "a shortcut for operations between built-in types. XXX: "
-                   "deprecated, not really a shortcut any more.",
-                   default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
                    default=False,

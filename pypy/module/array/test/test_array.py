@@ -1033,9 +1033,3 @@ class AppTestArray(BaseArrayTests):
         b = a * 13
         assert len(b) == 13
         assert str(b[12]) == "-0.0"
-
-
-class AppTestArrayBuiltinShortcut(AppTestArray):
-    spaceconfig = AppTestArray.spaceconfig.copy()
-    spaceconfig['objspace.std.builtinshortcut'] = True
-

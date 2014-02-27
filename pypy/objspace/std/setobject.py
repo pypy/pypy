@@ -180,7 +180,6 @@ class W_BaseSetObject(W_Root):
         if not space.isinstance_w(w_other, space.w_set):
             return space.w_False
 
-        # tested in test_builtinshortcut.py
         # XXX do not make new setobject here
         w_other_as_set = self._newobj(space, w_other)
         return space.wrap(self.equals(w_other_as_set))
