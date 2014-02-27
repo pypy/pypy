@@ -499,6 +499,16 @@ class Transformer(object):
 
     def rewrite_op_hint(self, op):
         hints = op.args[1].value
+
+        # hack: if there are both 'promote' and 'promote_string', kill
+        # one of them based on the type of the value
+        if hints.get('promote_string') and hints.get('promote'):
+            hints = hints.copy()
+            if op.args[0].concretetype == lltype.Ptr(rstr.STR):
+                del hints['promote']
+            else:
+                del hints['promote_string']
+
         if hints.get('promote') and op.args[0].concretetype is not lltype.Void:
             assert op.args[0].concretetype != lltype.Ptr(rstr.STR)
             kind = getkind(op.args[0].concretetype)
