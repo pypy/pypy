@@ -331,7 +331,7 @@ nonzero_driver = jit.JitDriver(name = 'numpy_nonzero',
 
 def nonzero(res, arr, box):
     res_iter = res.create_iter()
-    arr_iter = arr.create_iter(require_index=True)
+    arr_iter = arr.create_iter()
     shapelen = len(arr.shape)
     dtype = arr.dtype
     dims = range(shapelen)
@@ -339,7 +339,7 @@ def nonzero(res, arr, box):
         nonzero_driver.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
         if arr_iter.getitem_bool():
             for d in dims:
-                res_iter.setitem(box(arr_iter.get_index(d)))
+                res_iter.setitem(box(arr_iter.indices[d]))
                 res_iter.next()
         arr_iter.next()
     return res
@@ -435,8 +435,6 @@ def flatiter_setitem(space, arr, val, start, step, length):
         arr_iter.next_skip_x(step)
         length -= 1
         val_iter.next()
-        # WTF numpy?
-        val_iter.reset()
 
 fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
                                   greens = ['itemsize', 'dtype'],

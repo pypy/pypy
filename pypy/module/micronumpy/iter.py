@@ -37,7 +37,7 @@ we can go faster.
 All the calculations happen in next()
 
 next_skip_x(steps) tries to do the iteration for a number of steps at once,
-but then we cannot gaurentee that we only overflow one single shape
+but then we cannot guarantee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
 from rpython.rlib import jit
@@ -78,28 +78,41 @@ class PureShapeIterator(object):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
 
-class BaseArrayIterator(object):
-    def next(self):
-        raise NotImplementedError  # purely abstract base class
-
-    def setitem(self, elem):
-        raise NotImplementedError
-
-    def set_scalar_object(self, value):
-        raise NotImplementedError  # works only on scalars
-
-
-class ConcreteArrayIterator(BaseArrayIterator):
-    _immutable_fields_ = ['array', 'skip', 'size']
-
+class ArrayIterator(object):
     def __init__(self, array):
         self.array = array
-        self.offset = 0
-        self.skip = array.dtype.elsize
-        self.size = array.size
+        self.start = array.start
+        self.size = array.get_size()
+        self.ndim_m1 = len(array.shape) - 1
+        self.shape_m1 = [s - 1 for s in array.shape]
+        self.strides = array.strides[:]
+        self.backstrides = array.backstrides[:]
+        self.reset()
 
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
+    def reset(self):
+        self.index = 0
+        self.indices = [0] * (self.ndim_m1 + 1)
+        self.offset = self.start
+
+    @jit.unroll_safe
+    def next(self):
+        self.index += 1
+        for i in xrange(self.ndim_m1, -1, -1):
+            if self.indices[i] < self.shape_m1[i]:
+                self.indices[i] += 1
+                self.offset += self.strides[i]
+                break
+            else:
+                self.indices[i] = 0
+                self.offset -= self.backstrides[i]
+
+    def next_skip_x(self, step):
+        # XXX implement
+        for _ in range(step):
+            self.next()
+
+    def done(self):
+        return self.index >= self.size
 
     def getitem(self):
         return self.array.getitem(self.offset)
@@ -107,52 +120,11 @@ class ConcreteArrayIterator(BaseArrayIterator):
     def getitem_bool(self):
         return self.array.getitem_bool(self.offset)
 
-    def next(self):
-        self.offset += self.skip
-
-    def next_skip_x(self, x):
-        self.offset += self.skip * x
-
-    def done(self):
-        return self.offset >= self.size
-
-    def reset(self):
-        self.offset %= self.size
+    def setitem(self, elem):
+        self.array.setitem(self.offset, elem)
 
 
-class OneDimViewIterator(ConcreteArrayIterator):
-    def __init__(self, array, start, strides, shape):
-        self.array = array
-        self.offset = start
-        self.index = 0
-        assert len(strides) == len(shape)
-        if len(shape) == 0:
-            self.skip = array.dtype.elsize
-            self.size = 1
-        else:
-            assert len(shape) == 1
-            self.skip = strides[0]
-            self.size = shape[0]
-
-    def next(self):
-        self.offset += self.skip
-        self.index += 1
-
-    def next_skip_x(self, x):
-        self.offset += self.skip * x
-        self.index += x
-
-    def done(self):
-        return self.index >= self.size
-
-    def reset(self):
-        self.offset %= self.size
-
-    def get_index(self, d):
-        return self.index
-
-
-class MultiDimViewIterator(ConcreteArrayIterator):
+class MultiDimViewIterator(ArrayIterator):
     def __init__(self, array, start, strides, backstrides, shape):
         self.indexes = [0] * len(shape)
         self.array = array
@@ -201,11 +173,8 @@ class MultiDimViewIterator(ConcreteArrayIterator):
     def reset(self):
         self.offset %= self.size
 
-    def get_index(self, d):
-        return self.indexes[d]
 
-
-class AxisIterator(BaseArrayIterator):
+class AxisIterator(ArrayIterator):
     def __init__(self, array, shape, dim, cumulative):
         self.shape = shape
         strides = array.get_strides()
@@ -226,12 +195,6 @@ class AxisIterator(BaseArrayIterator):
         self.offset = array.start
         self.dim = dim
         self.array = array
-
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
-
-    def getitem(self):
-        return self.array.getitem(self.offset)
 
     @jit.unroll_safe
     def next(self):
