@@ -181,7 +181,8 @@ class AppTestBuffer:
         buf = buffer('hello world')
         raises(TypeError, "buf[MyInt(0)]")
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
-        
+
+
 class AppTestMemoryView:
     def test_basic(self):
         v = memoryview("abc")
