@@ -17,6 +17,7 @@ from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
+
 def make_argsort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
     step = rffi.sizeof(TP)
@@ -167,6 +168,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
 
     return argsort
 
+
 def argsort_array(arr, space, w_axis):
     cache = space.fromcache(ArgSortCache) # that populates ArgSortClasses
     itemtype = arr.dtype.itemtype
@@ -179,10 +181,6 @@ def argsort_array(arr, space, w_axis):
                 "sorting of non-numeric types '%s' is not implemented",
                 arr.dtype.get_name())
 
-all_types = (types.all_float_types + types.all_complex_types +
-             types.all_int_types)
-all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__]
-all_types = unrolling_iterable(all_types)
 
 def make_sort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
@@ -307,8 +305,9 @@ def make_sort_function(space, itemtype, comp_type, count=1):
 
     return sort
 
+
 def sort_array(arr, space, w_axis, w_order):
-    cache = space.fromcache(SortCache) # that populates SortClasses
+    cache = space.fromcache(SortCache)  # that populates SortClasses
     itemtype = arr.dtype.itemtype
     if arr.dtype.byteorder == NPY.OPPBYTE:
         raise oefmt(space.w_NotImplementedError,
@@ -327,6 +326,7 @@ all_types = (types.all_float_types + types.all_complex_types +
 all_types = [i for i in all_types if not issubclass(i[0], types.Float16)]
 all_types = unrolling_iterable(all_types)
 
+
 class ArgSortCache(object):
     built = False
 
@@ -341,7 +341,7 @@ class ArgSortCache(object):
             else:
                 cache[cls] = make_argsort_function(space, cls, it)
         self.cache = cache
-        self._lookup = specialize.memo()(lambda tp : cache[tp[0]])
+        self._lookup = specialize.memo()(lambda tp: cache[tp[0]])
 
 
 class SortCache(object):
@@ -358,4 +358,4 @@ class SortCache(object):
             else:
                 cache[cls] = make_sort_function(space, cls, it)
         self.cache = cache
-        self._lookup = specialize.memo()(lambda tp : cache[tp[0]])
+        self._lookup = specialize.memo()(lambda tp: cache[tp[0]])

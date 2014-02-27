@@ -1,4 +1,3 @@
-
 """ This is a mini-tutorial on iterators, strides, and
 memory layout. It assumes you are familiar with the terms, see
 http://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html
@@ -42,100 +41,10 @@ but then we cannot gaurentee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
 
-from pypy.module.micronumpy.strides import enumerate_chunks,\
-     calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.arrayimpl import base
-from pypy.module.micronumpy.support import product
+from pypy.module.micronumpy import support
 from rpython.rlib import jit
 
-# structures to describe slicing
-
-class BaseChunk(object):
-    pass
-
-class RecordChunk(BaseChunk):
-    def __init__(self, name):
-        self.name = name
-
-    def apply(self, space, orig_arr):
-        arr = orig_arr.implementation
-        ofs, subdtype = arr.dtype.fields[self.name]
-        # ofs only changes start
-        # create a view of the original array by extending
-        # the shape, strides, backstrides of the array
-        from pypy.module.micronumpy.support import calc_strides
-        strides, backstrides = calc_strides(subdtype.shape,
-                                            subdtype.subdtype, arr.order)
-        final_shape = arr.shape + subdtype.shape
-        final_strides = arr.get_strides() + strides
-        final_backstrides = arr.get_backstrides() + backstrides
-        final_dtype = subdtype
-        if subdtype.subdtype:
-            final_dtype = subdtype.subdtype
-        return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,
-                                     final_backstrides,
-                                     final_shape, arr, orig_arr, final_dtype)
-
-class Chunks(BaseChunk):
-    def __init__(self, l):
-        self.l = l
-
-    @jit.unroll_safe
-    def extend_shape(self, old_shape):
-        shape = []
-        i = -1
-        for i, c in enumerate_chunks(self.l):
-            if c.step != 0:
-                shape.append(c.lgt)
-        s = i + 1
-        assert s >= 0
-        return shape[:] + old_shape[s:]
-
-    def apply(self, space, orig_arr):
-        arr = orig_arr.implementation
-        shape = self.extend_shape(arr.shape)
-        r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
-                                    arr.get_backstrides(), self.l)
-        _, start, strides, backstrides = r
-        return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
-                                     shape[:], arr, orig_arr)
-
-
-class Chunk(BaseChunk):
-    axis_step = 1
-
-    def __init__(self, start, stop, step, lgt):
-        self.start = start
-        self.stop = stop
-        self.step = step
-        self.lgt = lgt
-
-    def __repr__(self):
-        return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
-                                          self.lgt)
-
-class NewAxisChunk(Chunk):
-    start = 0
-    stop = 1
-    step = 1
-    lgt = 1
-    axis_step = 0
-
-    def __init__(self):
-        pass
-
-class BaseTransform(object):
-    pass
-
-class ViewTransform(BaseTransform):
-    def __init__(self, chunks):
-        # 4-tuple specifying slicing
-        self.chunks = chunks
-
-class BroadcastTransform(BaseTransform):
-    def __init__(self, res_shape):
-        self.res_shape = res_shape
 
 class PureShapeIterator(object):
     def __init__(self, shape, idx_w):
@@ -169,8 +78,21 @@ class PureShapeIterator(object):
     def get_index(self, space, shapelen):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
-class ConcreteArrayIterator(base.BaseArrayIterator):
+
+class BaseArrayIterator(object):
+    def next(self):
+        raise NotImplementedError  # purely abstract base class
+
+    def setitem(self, elem):
+        raise NotImplementedError
+
+    def set_scalar_object(self, value):
+        raise NotImplementedError  # works only on scalars
+
+
+class ConcreteArrayIterator(BaseArrayIterator):
     _immutable_fields_ = ['array', 'skip', 'size']
+
     def __init__(self, array):
         self.array = array
         self.offset = 0
@@ -198,13 +120,20 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
     def reset(self):
         self.offset %= self.size
 
+
 class OneDimViewIterator(ConcreteArrayIterator):
     def __init__(self, array, start, strides, shape):
         self.array = array
         self.offset = start
-        self.skip = strides[0]
         self.index = 0
-        self.size = shape[0]
+        assert len(strides) == len(shape)
+        if len(shape) == 0:
+            self.skip = array.dtype.elsize
+            self.size = 1
+        else:
+            assert len(shape) == 1
+            self.skip = strides[0]
+            self.size = shape[0]
 
     def next(self):
         self.offset += self.skip
@@ -223,6 +152,7 @@ class OneDimViewIterator(ConcreteArrayIterator):
     def get_index(self, d):
         return self.index
 
+
 class MultiDimViewIterator(ConcreteArrayIterator):
     def __init__(self, array, start, strides, backstrides, shape):
         self.indexes = [0] * len(shape)
@@ -230,7 +160,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         self.shape = shape
         self.offset = start
         self.shapelen = len(shape)
-        self._done = self.shapelen == 0 or product(shape) == 0
+        self._done = self.shapelen == 0 or support.product(shape) == 0
         self.strides = strides
         self.backstrides = backstrides
         self.size = array.size
@@ -261,7 +191,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
                 remaining_step = (self.indexes[i] + step) // self.shape[i]
                 this_i_step = step - remaining_step * self.shape[i]
                 self.offset += self.strides[i] * this_i_step
-                self.indexes[i] = self.indexes[i] +  this_i_step
+                self.indexes[i] = self.indexes[i] + this_i_step
                 step = remaining_step
         else:
             self._done = True
@@ -275,7 +205,8 @@ class MultiDimViewIterator(ConcreteArrayIterator):
     def get_index(self, d):
         return self.indexes[d]
 
-class AxisIterator(base.BaseArrayIterator):
+
+class AxisIterator(BaseArrayIterator):
     def __init__(self, array, shape, dim, cumulative):
         self.shape = shape
         strides = array.get_strides()

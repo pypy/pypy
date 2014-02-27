@@ -1,4 +1,3 @@
-
 """ This is a set of tools for standalone compiling of numpy expressions.
 It should not be imported by the module itself
 """
@@ -95,7 +94,10 @@ class FakeSpace(object):
         return StringObject(NonConstant('foo'))
 
     def isinstance_w(self, w_obj, w_tp):
-        return w_obj.tp == w_tp
+        try:
+            return w_obj.tp == w_tp
+        except AttributeError:
+            return False
 
     def decode_index4(self, w_idx, size):
         if isinstance(w_idx, IntObject):
@@ -215,7 +217,8 @@ class FakeSpace(object):
 
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
-        return w_type.lookup(name)
+        if not self.is_none(w_type):
+            return w_type.lookup(name)
 
     def gettypefor(self, w_obj):
         return W_TypeObject(w_obj.typedef.name)

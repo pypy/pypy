@@ -10,7 +10,7 @@ from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule

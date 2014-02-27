@@ -4,15 +4,15 @@ import math
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
-from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage,
     raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of, LONG_BIT
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
+    most_neg_value_of, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian

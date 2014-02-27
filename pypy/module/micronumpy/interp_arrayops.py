@@ -1,11 +1,11 @@
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
-from pypy.module.micronumpy.iter import Chunk, Chunks
-from pypy.module.micronumpy.strides import shape_agreement,\
-     shape_agreement_multiple
+from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
+    shape_agreement_multiple
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.micronumpy.conversion_utils import clipmode_converter
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -209,8 +209,6 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
     return out
 
 def put(space, w_arr, w_indices, w_values, w_mode):
-    from pypy.module.micronumpy.support import index_w
-
     arr = convert_to_array(space, w_arr)
     mode = clipmode_converter(space, w_mode)
 
@@ -235,7 +233,7 @@ def put(space, w_arr, w_indices, w_values, w_mode):
 
     v_idx = 0
     for idx in indices:
-        index = index_w(space, idx)
+        index = support.index_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
             if mode == NPY.RAISE:

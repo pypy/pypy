@@ -3,7 +3,7 @@ import sys
 
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.iter import Chunk, Chunks
+from pypy.module.micronumpy.strides import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
@@ -657,6 +657,9 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_setslice_array(self):
         from numpypy import array
+        a = array(5)
+        exc = raises(ValueError, "a[:] = 4")
+        assert exc.value[0] == "cannot slice a 0-d array"
         a = array(range(5))
         b = array(range(2))
         a[1:4:2] = b
@@ -713,9 +716,14 @@ class AppTestNumArray(BaseNumpyAppTest):
             for y in range(2):
                 expected[x, y] = math.cos(a[x]) * math.cos(b[y])
         assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
-        a = array(1)[newaxis]
+        o = array(1)
+        a = o[newaxis]
         assert a == array([1])
         assert a.shape == (1,)
+        o[newaxis, newaxis] = 2
+        assert o == 2
+        a[:] = 3
+        assert o == 3
 
     def test_newaxis_slice(self):
         from numpypy import array, newaxis
@@ -1350,6 +1358,9 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_getslice(self):
         from numpypy import array
+        a = array(5)
+        exc = raises(ValueError, "a[:]")
+        assert exc.value[0] == "cannot slice a 0-d array"
         a = array(range(5))
         s = a[1:5]
         assert len(s) == 4
@@ -1415,6 +1426,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.sum(out=d)
         assert b == d
         assert b is d
+        c = array(1.5+2.5j)
+        assert c.real == 1.5
+        assert c.imag == 2.5
+        a.sum(out=c.imag)
+        assert c.real == 1.5
+        assert c.imag == 5
 
         assert list(zeros((0, 2)).sum(axis=1)) == []
 
@@ -2275,6 +2292,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[b] == a).all()
         a[b] = 1.
         assert (a == [[1., 1., 1.]]).all()
+        a[b] = np.array(2.)
+        assert (a == [[2., 2., 2.]]).all()
+        a[b] = np.array([3.])
+        assert (a == [[3., 3., 3.]]).all()
+        a[b] = np.array([[4.]])
+        assert (a == [[4., 4., 4.]]).all()
 
     def test_ellipsis_indexing(self):
         import numpy as np
@@ -2683,6 +2706,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_array_interface(self):
         from numpypy import array
+        a = array(2.5)
+        i = a.__array_interface__
+        assert isinstance(i['data'][0], int)
+        assert i['shape'] == ()
+        assert i['strides'] is None
         a = array([1, 2, 3])
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
@@ -3194,6 +3222,8 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(array([1, 2, 3])) == '[1 2 3]'
         assert str(array(['abc'], 'S3')) == "['abc']"
         assert str(array('abc')) == 'abc'
+        assert str(array(1.5)) == '1.5'
+        assert str(array(1.5).real) == '1.5'
 
 
 class AppTestRepr(BaseNumpyAppTest):
@@ -3211,6 +3241,8 @@ class AppTestRepr(BaseNumpyAppTest):
         from numpypy import array
         assert repr(array([1, 2, 3])) == 'array([1, 2, 3])'
         assert repr(array(['abc'], 'S3')) == "array(['abc'])"
+        assert repr(array(1.5)) == "array(1.5)"
+        assert repr(array(1.5).real) == "array(1.5)"
 
     def teardown_class(cls):
         if option.runappdirect:
