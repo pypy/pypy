@@ -77,7 +77,7 @@ class TestNDArrayObject(BaseApiTest):
 
     def test_FromAny_scalar(self, space, api):
         a0 = scalar(space)
-        assert a0.implementation.get_scalar_value().value == 10.
+        assert a0.get_scalar_value().value == 10.
 
         a = api._PyArray_FromAny(a0, NULL, 0, 0, 0, NULL)
         assert api._PyArray_NDIM(a) == 0

@@ -9,8 +9,7 @@ from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
 from pypy.module.cpyext.api import PyObject
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, array
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache, W_Dtype
-from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
-from pypy.module.micronumpy.arrayimpl.scalar import Scalar
+from pypy.module.micronumpy.concrete import ConcreteArray
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 
 NPY_C_CONTIGUOUS   = 0x0001
@@ -167,7 +166,7 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
         #     void *data = PyArray_DATA(arr);
         impl = w_array.implementation
         w_array = W_NDimArray.from_shape(space, [1], impl.dtype)
-        w_array.implementation.setitem(0, impl.value)
+        w_array.implementation.setitem(0, impl.getitem(impl.start + 0))
         w_array.implementation.shape = []
     return w_array
 
@@ -214,12 +213,8 @@ def simple_new_from_data(space, nd, dims, typenum, data,
         order='C', owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     storage = rffi.cast(RAW_STORAGE_PTR, data)
-    if nd == 0:
-        w_val = dtype.itemtype.box_raw_data(storage)
-        return W_NDimArray(Scalar(dtype, w_val))
-    else:
-        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
-                order=order, owning=owning, w_subtype=w_subtype)
+    return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
+            order=order, owning=owning, w_subtype=w_subtype)
 
 
 @cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t], PyObject)

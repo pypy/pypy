@@ -31,7 +31,6 @@ class W_NDimArray(W_Root):
     @staticmethod
     def from_shape(space, shape, dtype, order='C', w_instance=None):
         from pypy.module.micronumpy import concrete
-
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                   backstrides)
@@ -43,7 +42,6 @@ class W_NDimArray(W_Root):
     def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False,
                                w_subtype=None, w_base=None, writable=True):
         from pypy.module.micronumpy import concrete
-        assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
         if w_base is not None:
             if owning:
@@ -56,7 +54,6 @@ class W_NDimArray(W_Root):
                 impl = concrete.ConcreteNonWritableArrayWithBase(shape, dtype, order,
                                                                  strides, backstrides,
                                                                  storage, w_base)
-
         elif owning:
             # Will free storage when GCd
             impl = concrete.ConcreteArray(shape, dtype, order, strides,
