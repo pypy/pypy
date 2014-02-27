@@ -40,10 +40,9 @@ next_skip_x(steps) tries to do the iteration for a number of steps at once,
 but then we cannot gaurentee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
-
-from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy import support
 from rpython.rlib import jit
+from pypy.module.micronumpy import support
+from pypy.module.micronumpy.base import W_NDimArray
 
 
 class PureShapeIterator(object):

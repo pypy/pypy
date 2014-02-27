@@ -1,31 +1,30 @@
 import functools
 import math
-
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.micronumpy import boxes
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
-from rpython.rlib import rfloat, clibffi, rcomplex
-from rpython.rlib.rawstorage import (alloc_raw_storage,
-    raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
+from rpython.rlib import clibffi, jit, rfloat, rcomplex
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
     most_neg_value_of, LONG_BIT
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rstruct.runpack import runpack
-from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
+from rpython.rlib.rawstorage import (alloc_raw_storage,
+    raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, unpack_float,
                                        pack_float80, unpack_float80)
+from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
+from rpython.rlib.rstruct.runpack import runpack
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib import jit
-from rpython.rlib.rstring import StringBuilder
+from pypy.module.micronumpy import boxes
+from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage
+from pypy.module.micronumpy.strides import calc_strides
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
 log10 = math.log(10)
+
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -1792,8 +1791,8 @@ class VoidType(FlexibleType):
         from pypy.module.micronumpy.base import W_NDimArray
         if dtype is None:
             dtype = arr.dtype
-        strides, backstrides = support.calc_strides(dtype.shape,
-                                                    dtype.subdtype, arr.order)
+        strides, backstrides = calc_strides(dtype.shape, dtype.subdtype,
+                                            arr.order)
         implementation = SliceArray(i + offset, strides, backstrides,
                                     dtype.shape, arr, W_NDimArray(arr),
                                     dtype.subdtype)

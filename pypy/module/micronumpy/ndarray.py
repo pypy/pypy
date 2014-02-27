@@ -1,27 +1,25 @@
-from rpython.rtyper.lltypesystem import rffi
-from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
                                      WrappedDefault
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
-     ArrayArgumentException, wrap_impl
-from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops
-from pypy.module.micronumpy.strides import get_shape_from_iterable, to_coords, \
-    shape_agreement, shape_agreement_multiple
-from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.flatiter import W_FlatIterator
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.arrayops import repeat, choose, put
-from rpython.tool.sourcetools import func_with_new_name
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from rpython.rtyper.lltypesystem import rffi
+from rpython.tool.sourcetools import func_with_new_name
+from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops, loop, \
+    support, constants as NPY
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.arrayops import repeat, choose, put
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
+     ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import order_converter, shape_converter, \
     multi_axis_converter
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy import constants as NPY
+from pypy.module.micronumpy.flagsobj import W_FlagsObject
+from pypy.module.micronumpy.flatiter import W_FlatIterator
+from pypy.module.micronumpy.strides import get_shape_from_iterable, to_coords, \
+    shape_agreement, shape_agreement_multiple
 
 
 def _match_dot_shapes(space, left, right):
@@ -1132,7 +1130,7 @@ class __extend__(W_NDimArray):
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.concrete import ConcreteArray
-    from pypy.module.micronumpy.support import calc_strides
+    from pypy.module.micronumpy.strides import calc_strides
     dtype = space.interp_w(descriptor.W_Dtype,
           space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)

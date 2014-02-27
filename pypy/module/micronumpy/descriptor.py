@@ -4,14 +4,12 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
-from pypy.module.micronumpy import types, boxes, base
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
-from rpython.rlib import jit
+from pypy.module.micronumpy import types, boxes, base, support, constants as NPY
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.converters import byteorder_converter
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy import constants as NPY
 
 
 def decode_w_dtype(space, w_dtype):

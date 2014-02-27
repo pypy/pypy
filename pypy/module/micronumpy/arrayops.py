@@ -1,12 +1,12 @@
-from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import loop, descriptor, ufuncs
-from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
-    shape_agreement_multiple
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.micronumpy import loop, descriptor, ufuncs, support, \
+    constants as NPY
+from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy import constants as NPY
+from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
+    shape_agreement_multiple
+
 
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])

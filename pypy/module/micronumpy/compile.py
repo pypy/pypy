@@ -1,20 +1,17 @@
 """ This is a set of tools for standalone compiling of numpy expressions.
 It should not be imported by the module itself
 """
-
 import re
-
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy import boxes
-from pypy.module.micronumpy.descriptor import get_dtype_cache
-from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.ctors import array
-from pypy.module.micronumpy.arrayops import where
-from pypy.module.micronumpy import ufuncs
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
+from pypy.module.micronumpy import boxes, ufuncs
+from pypy.module.micronumpy.arrayops import where
+from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.ctors import array
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 
 class BogusBytecode(Exception):

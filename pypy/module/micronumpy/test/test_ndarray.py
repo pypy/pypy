@@ -850,6 +850,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b == a
         b[...] = 2.5
         assert a == 2.5
+        a = array([]).reshape((0, 2))
+        assert a.shape == (0, 2)
+        assert a.strides == (16, 8)
+        a = array([])
+        a.shape = (4, 0, 3, 0, 0, 2)
+        assert a.strides == (48, 48, 16, 16, 16, 8)
+        a = array(1.5)
+        assert a.reshape(()).shape == ()
+        a = array(1.5)
+        a.shape = ()
+        assert a.strides == ()
         a = array(range(12))
         exc = raises(ValueError, "b = a.reshape(())")
         assert str(exc.value) == "total size of new array must be unchanged"

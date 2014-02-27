@@ -1,16 +1,16 @@
-from pypy.module.micronumpy import support, loop, iter
-from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
-     ArrayArgumentException
-from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
-    RecordChunk, calc_new_strides, shape_agreement, calculate_broadcast_strides,
-    calculate_dot_strides)
-from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.module.micronumpy import support, loop, iter
+from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
+    ArrayArgumentException
+from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
+    RecordChunk, calc_strides, calc_new_strides, shape_agreement,
+    calculate_broadcast_strides, calculate_dot_strides)
 
 
 class BaseConcreteArray(object):
@@ -64,7 +64,9 @@ class BaseConcreteArray(object):
     def reshape(self, orig_array, new_shape):
         # Since we got to here, prod(new_shape) == self.size
         new_strides = None
-        if self.size > 0:
+        if self.size == 0:
+            new_strides, _ = calc_strides(new_shape, self.dtype, self.order)
+        else:
             if len(self.get_shape()) == 0:
                 new_strides = [self.dtype.elsize] * len(new_shape)
             else:
@@ -81,7 +83,7 @@ class BaseConcreteArray(object):
                               new_shape, self, orig_array)
 
     def get_view(self, space, orig_array, dtype, new_shape):
-        strides, backstrides = support.calc_strides(new_shape, dtype,
+        strides, backstrides = calc_strides(new_shape, dtype,
                                                     self.order)
         return SliceArray(self.start, strides, backstrides, new_shape,
                           self, orig_array, dtype=dtype)
@@ -268,7 +270,7 @@ class BaseConcreteArray(object):
                           backstrides, shape, self, orig_array)
 
     def copy(self, space):
-        strides, backstrides = support.calc_strides(self.get_shape(), self.dtype,
+        strides, backstrides = calc_strides(self.get_shape(), self.dtype,
                                                     self.order)
         impl = ConcreteArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
@@ -312,7 +314,7 @@ class BaseConcreteArray(object):
         return ArrayBuffer(self)
 
     def astype(self, space, dtype):
-        strides, backstrides = support.calc_strides(self.get_shape(), dtype,
+        strides, backstrides = calc_strides(self.get_shape(), dtype,
                                                     self.order)
         impl = ConcreteArray(self.get_shape(), dtype, self.order,
                              strides, backstrides)
@@ -358,7 +360,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                                  box, 0, self.size, 0)
 
     def set_shape(self, space, orig_array, new_shape):
-        strides, backstrides = support.calc_strides(new_shape, self.dtype,
+        strides, backstrides = calc_strides(new_shape, self.dtype,
                                                     self.order)
         return SliceArray(0, strides, backstrides, new_shape, self,
                           orig_array)

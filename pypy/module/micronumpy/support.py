@@ -1,5 +1,5 @@
-from rpython.rlib import jit
 from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib import jit
 
 
 def issequence_w(space, w_obj):
@@ -25,22 +25,3 @@ def product(s):
     for x in s:
         i *= x
     return i
-
-
-@jit.unroll_safe
-def calc_strides(shape, dtype, order):
-    strides = []
-    backstrides = []
-    s = 1
-    shape_rev = shape[:]
-    if order == 'C':
-        shape_rev.reverse()
-    for sh in shape_rev:
-        slimit = max(sh, 1)
-        strides.append(s * dtype.elsize)
-        backstrides.append(s * (slimit - 1) * dtype.elsize)
-        s *= slimit
-    if order == 'C':
-        strides.reverse()
-        backstrides.reverse()
-    return strides, backstrides

@@ -1,18 +1,16 @@
-
 """ This is the implementation of various sorting routines in numpy. It's here
 because it only makes sense on a concrete array
 """
-
-from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.listsort import make_timsort_class
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
         free_raw_storage, alloc_raw_storage
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import widen
-from rpython.rlib.objectmodel import specialize
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.micronumpy.base import W_NDimArray
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy import descriptor, types, constants as NPY
+from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)

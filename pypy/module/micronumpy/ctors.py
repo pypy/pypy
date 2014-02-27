@@ -1,16 +1,14 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module.micronumpy import descriptor, loop
 from rpython.rlib.rstring import strip_spaces
-from pypy.module.micronumpy import ufuncs
+from rpython.rtyper.lltypesystem import lltype, rffi
+from pypy.module.micronumpy import descriptor, loop, ufuncs
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.converters import shape_converter
 from pypy.module.micronumpy.strides import find_shape_and_elems
 
 
 def build_scalar(space, w_dtype, w_state):
-    from rpython.rtyper.lltypesystem import rffi, lltype
     if not isinstance(w_dtype, descriptor.W_Dtype):
         raise oefmt(space.w_TypeError,
                     "argument 1 must be numpy.dtype, not %T", w_dtype)

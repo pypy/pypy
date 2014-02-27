@@ -1,8 +1,7 @@
-from rpython.rlib import jit
 from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib import jit
+from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy import constants as NPY
 
 
 # structures to describe slicing
@@ -21,7 +20,6 @@ class RecordChunk(BaseChunk):
         # ofs only changes start
         # create a view of the original array by extending
         # the shape, strides, backstrides of the array
-        from pypy.module.micronumpy.support import calc_strides
         strides, backstrides = calc_strides(subdtype.shape,
                                             subdtype.subdtype, arr.order)
         final_shape = arr.shape + subdtype.shape
@@ -343,6 +341,25 @@ def get_shape_from_iterable(space, old_size, w_iterable):
         raise OperationError(space.w_ValueError,
                 space.wrap("total size of new array must be unchanged"))
     return new_shape
+
+
+@jit.unroll_safe
+def calc_strides(shape, dtype, order):
+    strides = []
+    backstrides = []
+    s = 1
+    shape_rev = shape[:]
+    if order == 'C':
+        shape_rev.reverse()
+    for sh in shape_rev:
+        slimit = max(sh, 1)
+        strides.append(s * dtype.elsize)
+        backstrides.append(s * (slimit - 1) * dtype.elsize)
+        s *= slimit
+    if order == 'C':
+        strides.reverse()
+        backstrides.reverse()
+    return strides, backstrides
 
 
 # Recalculating strides. Find the steps that the iteration does for each
