@@ -79,13 +79,12 @@ class PureShapeIterator(object):
 
 
 class ArrayIterator(object):
-    _immutable_fields_ = ['array', 'start', 'size', 'ndim_m1', 'shape_m1',
+    _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1',
                           'strides', 'backstrides']
 
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
         self.array = array
-        self.start = array.start
         self.size = size
         self.ndim_m1 = len(shape) - 1
         self.shape_m1 = [s - 1 for s in shape]
@@ -96,7 +95,7 @@ class ArrayIterator(object):
     def reset(self):
         self.index = 0
         self.indices = [0] * (self.ndim_m1 + 1)
-        self.offset = self.start
+        self.offset = self.array.start
 
     @jit.unroll_safe
     def next(self):
