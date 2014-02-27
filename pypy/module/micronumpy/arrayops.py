@@ -8,6 +8,7 @@ from pypy.module.micronumpy.converters import clipmode_converter
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
+
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
 
@@ -91,6 +92,7 @@ def where(space, w_arr, w_x=None, w_y=None):
     out = W_NDimArray.from_shape(space, shape, dtype)
     return loop.where(space, out, shape, arr, x, y, dtype)
 
+
 def dot(space, w_obj1, w_obj2, w_out=None):
     w_arr = convert_to_array(space, w_obj1)
     if w_arr.is_scalar():
@@ -162,6 +164,7 @@ def concatenate(space, w_args, w_axis=None):
         axis_start += arr.get_shape()[axis]
     return res
 
+
 @unwrap_spec(repeats=int)
 def repeat(space, w_arr, repeats, w_axis):
     arr = convert_to_array(space, w_arr)
@@ -186,8 +189,10 @@ def repeat(space, w_arr, repeats, w_axis):
             Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
     return w_res
 
+
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
+
 
 def choose(space, w_arr, w_choices, w_out, w_mode):
     arr = convert_to_array(space, w_arr)
@@ -207,6 +212,7 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
     mode = clipmode_converter(space, w_mode)
     loop.choose(space, arr, choices, shape, dtype, out, mode)
     return out
+
 
 def put(space, w_arr, w_indices, w_values, w_mode):
     arr = convert_to_array(space, w_arr)
@@ -255,6 +261,7 @@ def put(space, w_arr, w_indices, w_values, w_mode):
             v_idx += 1
 
         arr.setitem(space, [index], dtype.coerce(space, value))
+
 
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()

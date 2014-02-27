@@ -46,6 +46,7 @@ def _match_dot_shapes(space, left, right):
                                         "objects are not aligned"))
     return out_shape, right_critical_dim
 
+
 class __extend__(W_NDimArray):
     @jit.unroll_safe
     def descr_get_shape(self, space):
@@ -1124,6 +1125,7 @@ class __extend__(W_NDimArray):
         return w_obj
         pass
 
+
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
@@ -1173,6 +1175,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     space.call_function(space.getattr(w_ret,
                         space.wrap('__array_finalize__')), w_subtype)
     return w_ret
+
 
 @unwrap_spec(addr=int)
 def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtype=None):

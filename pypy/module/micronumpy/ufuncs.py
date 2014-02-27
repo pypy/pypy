@@ -10,8 +10,10 @@ from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import constants as NPY
 
+
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
+
 
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
@@ -545,6 +547,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         dtypenum += 2
         return descriptor.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
+
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
@@ -570,6 +573,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype
     return dt
+
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
     bool_dtype = descriptor.get_dtype_cache(space).w_booldtype
@@ -612,9 +616,9 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
                 'unable to create dtype from objects, "%T" instance not '
                 'supported', w_obj)
 
+
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                        bool_result):
-    dtype_cache = descriptor.get_dtype_cache(space)
     def get_op(dtype):
         try:
             return getattr(dtype.itemtype, op_name)
@@ -622,6 +626,7 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
             raise oefmt(space.w_NotImplementedError,
                         "%s not implemented for %s",
                         ufunc_name, dtype.get_name())
+    dtype_cache = descriptor.get_dtype_cache(space)
     if argcount == 1:
         def impl(res_dtype, value):
             res = get_op(res_dtype)(value)
@@ -763,6 +768,6 @@ class UfuncState(object):
             ufunc = W_Ufunc2(func, ufunc_name, **extra_kwargs)
         setattr(self, ufunc_name, ufunc)
 
+
 def get(space):
     return space.fromcache(UfuncState)
-
