@@ -84,3 +84,15 @@ def multi_axis_converter(space, w_axis, ndim):
                 "duplicate value in 'axis'"))
         out[axis] = True
     return out
+
+
+def shape_converter(space, w_size, dtype):
+    if space.is_none(w_size):
+        return []
+    if space.isinstance_w(w_size, space.w_int):
+        return [space.int_w(w_size)]
+    shape = []
+    for w_item in space.fixedview(w_size):
+        shape.append(space.int_w(w_item))
+    shape += dtype.shape
+    return shape[:]

@@ -40,7 +40,7 @@ def new_dtype_getter(num):
         return get_dtype_cache(space).dtypes_by_num[num]
 
     def descr__new__(space, w_subtype, w_value=None):
-        from pypy.module.micronumpy.ndarray import array
+        from pypy.module.micronumpy.ctors import array
         dtype = _get_dtype(space)
         if not space.is_none(w_value):
             w_arr = array(space, w_value, dtype, copy=False)
