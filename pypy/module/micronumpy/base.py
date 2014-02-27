@@ -86,7 +86,7 @@ class W_NDimArray(W_Root):
 
 
 def convert_to_array(space, w_obj):
-    from pypy.module.micronumpy.interp_numarray import array
+    from pypy.module.micronumpy.ndarray import array
     if isinstance(w_obj, W_NDimArray):
         return w_obj
     return array(space, w_obj)

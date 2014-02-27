@@ -83,4 +83,4 @@ class W_FlatIterator(W_NDimArray):
     def descr_base(self, space):
         return space.wrap(self.base)
 
-# typedef is in interp_numarray, so we see the additional arguments
+# typedef is in interp_ndarray, so we see the additional arguments

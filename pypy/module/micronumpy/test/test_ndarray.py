@@ -4,7 +4,7 @@ import sys
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.strides import Chunk, Chunks
-from pypy.module.micronumpy.interp_numarray import W_NDimArray
+from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
@@ -197,7 +197,7 @@ class TestNumArrayDirect(object):
     def test_from_shape_and_storage(self):
         from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
         from rpython.rtyper.lltypesystem import rffi
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
         storage = alloc_raw_storage(4, track_allocation=False, zero=True)
         for i in range(4):
             raw_storage_setitem(storage, i, rffi.cast(rffi.UCHAR, i))

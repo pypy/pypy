@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module.micronumpy import interp_dtype, loop
+from pypy.module.micronumpy import descriptor, loop
 from rpython.rlib.rstring import strip_spaces
 from rpython.rlib.rarithmetic import maxint
 from pypy.module.micronumpy.base import W_NDimArray
@@ -77,8 +77,8 @@ def _fromstring_bin(space, s, count, length, dtype):
 
 @unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))
 def fromstring(space, s, w_dtype=None, count=-1, sep=''):
-    dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    dtype = space.interp_w(descriptor.W_Dtype,
+        space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype)
     )
     length = len(s)
     if sep == '':

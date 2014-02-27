@@ -1,7 +1,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
+from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 
 class TestUfuncCoercion(object):

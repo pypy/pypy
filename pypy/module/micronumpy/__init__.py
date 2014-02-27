@@ -4,24 +4,24 @@ from pypy.interpreter.mixedmodule import MixedModule
 class MultiArrayModule(MixedModule):
     appleveldefs = {'arange': 'app_numpy.arange'}
     interpleveldefs = {
-        'ndarray': 'interp_numarray.W_NDimArray',
-        'dtype': 'interp_dtype.W_Dtype',
+        'ndarray': 'ndarray.W_NDimArray',
+        'dtype': 'descriptor.W_Dtype',
 
-        'array': 'interp_numarray.array',
-        'zeros': 'interp_numarray.zeros',
-        'empty': 'interp_numarray.zeros',
-        'empty_like': 'interp_numarray.empty_like',
-        '_reconstruct' : 'interp_numarray._reconstruct',
-        'scalar' : 'interp_numarray.build_scalar',
-        'dot': 'interp_arrayops.dot',
+        'array': 'ndarray.array',
+        'zeros': 'ndarray.zeros',
+        'empty': 'ndarray.zeros',
+        'empty_like': 'ndarray.empty_like',
+        '_reconstruct' : 'ndarray._reconstruct',
+        'scalar' : 'ndarray.build_scalar',
+        'dot': 'arrayops.dot',
         'fromstring': 'interp_support.fromstring',
-        'flatiter': 'interp_flatiter.W_FlatIterator',
-        'concatenate': 'interp_arrayops.concatenate',
-        'where': 'interp_arrayops.where',
-        'count_nonzero': 'interp_arrayops.count_nonzero',
+        'flatiter': 'flatiter.W_FlatIterator',
+        'concatenate': 'arrayops.concatenate',
+        'where': 'arrayops.where',
+        'count_nonzero': 'arrayops.count_nonzero',
 
         'set_string_function': 'appbridge.set_string_function',
-        'typeinfo': 'interp_dtype.get_dtype_cache(space).w_typeinfo',
+        'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
     }
 
 
@@ -107,7 +107,7 @@ class UMathModule(MixedModule):
         ('real', 'real'),
         ('imag', 'imag'),
     ]:
-        interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
+        interpleveldefs[exposed] = "ufuncs.get(space).%s" % impl
 
 
 class Module(MixedModule):
