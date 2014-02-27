@@ -16,7 +16,6 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, make_weakref_descr)
 from pypy.module._file.interp_file import W_File
-from pypy.objspace.std.floatobject import W_FloatObject
 
 
 @unwrap_spec(typecode=str)
@@ -626,7 +625,7 @@ def make_array(mytype):
             try:
                 item = unwrap(w_item)
             except OperationError, e:
-                if isinstance(w_item, W_FloatObject):
+                if space.isinstance_w(w_item, space.w_float):
                     # Odd special case from cpython
                     raise
                 if mytype.method != '' and e.match(space, space.w_TypeError):
