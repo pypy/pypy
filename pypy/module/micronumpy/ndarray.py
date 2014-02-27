@@ -223,7 +223,10 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
-        if isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
+        if space.is_w(w_idx, space.w_Ellipsis):
+            self.implementation.setslice(space, convert_to_array(space, w_value))
+            return
+        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
                 and len(w_idx.get_shape()) > 0:
             self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
             return
