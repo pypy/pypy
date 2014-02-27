@@ -593,8 +593,16 @@ class BuiltinCode(Code):
                     self.__class__ = BuiltinCodePassThroughArguments1
                     self.func__args__ = func
                 elif unwrap_spec == [self_type, ObjSpace, Arguments]:
-                    self.__class__ = BuiltinCodePassThroughArgumentsMethod
-                    self.func__args__ = func
+                    self.__class__ = BuiltinCodePassThroughArguments1
+                    miniglobals = {'func': func, 'self_type': self_type}
+                    d = {}
+                    source = """if 1:
+                        def _call(space, w_obj, args):
+                            self = space.descr_self_interp_w(self_type, w_obj)
+                            return func(self, space, args)
+                        \n"""
+                    exec compile2(source) in miniglobals, d
+                    self.func__args__ = d['_call']
             else:
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
@@ -690,27 +698,6 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
         space = func.space
         try:
             w_result = self.func__args__(space, w_obj, args)
-        except DescrMismatch:
-            return args.firstarg().descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args.prepend(w_obj))
-        except Exception, e:
-            self.handle_exception(space, e)
-            w_result = None
-        if w_result is None:
-            w_result = space.w_None
-        return w_result
-
-
-class BuiltinCodePassThroughArgumentsMethod(BuiltinCodePassThroughArguments1):
-    # almost the same as BuiltinCodePassThroughArguments1 but passes w_obj
-    # first for the case when self.func__args__ is a method
-
-    def funcrun_obj(self, func, w_obj, args):
-        space = func.space
-        try:
-            w_result = self.func__args__(w_obj, space, args)
         except DescrMismatch:
             return args.firstarg().descr_call_mismatch(space,
                                                   self.descrmismatch_op,
