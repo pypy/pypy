@@ -1,4 +1,3 @@
-
 """ This file is the main run loop as well as evaluation loops for various
 operations. This is the place to look for all the computations that iterate
 over all the array elements.
@@ -660,4 +659,3 @@ def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
         out_iter.setitem(arr.getitem_index(space, indexes))
         iter.next()
         out_iter.next()
-

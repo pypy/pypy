@@ -1,8 +1,7 @@
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
-from pypy.module.micronumpy.iter import Chunk, Chunks
-from pypy.module.micronumpy.strides import shape_agreement,\
-     shape_agreement_multiple
+from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
+    shape_agreement_multiple
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.micronumpy.conversion_utils import clipmode_converter

@@ -11,7 +11,8 @@ from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage,
     raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of, LONG_BIT
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
+    most_neg_value_of, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian

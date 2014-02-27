@@ -14,6 +14,7 @@ def wrap_impl(space, w_cls, w_instance, impl):
         space.call_method(w_ret, '__array_finalize__', w_instance)
     return w_ret
 
+
 class ArrayArgumentException(Exception):
     pass
 
@@ -46,7 +47,7 @@ class W_NDimArray(W_Root):
         strides, backstrides = calc_strides(shape, dtype, order)
         if w_base is not None:
             if owning:
-                raise OperationError(space.w_ValueError, 
+                raise OperationError(space.w_ValueError,
                         space.wrap("Cannot have owning=True when specifying a buffer"))
             if writable:
                 impl = concrete.ConcreteArrayWithBase(shape, dtype, order, strides,

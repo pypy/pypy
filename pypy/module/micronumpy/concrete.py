@@ -1,9 +1,9 @@
 from pypy.module.micronumpy import support, loop, iter
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
      ArrayArgumentException
-from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
-     calculate_broadcast_strides, calculate_dot_strides
-from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
+from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
+    RecordChunk, calc_new_strides, shape_agreement, calculate_broadcast_strides,
+    calculate_dot_strides)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib import jit

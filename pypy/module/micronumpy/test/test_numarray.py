@@ -3,7 +3,7 @@ import sys
 
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.iter import Chunk, Chunks
+from pypy.module.micronumpy.strides import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
