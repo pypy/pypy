@@ -384,13 +384,14 @@ class AppTestStruct(object):
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
 
-    def test_numpy_dtypes(self):
-        if self.runappdirect:
-            from numpy.core.multiarray import typeinfo
-        else:
-            from _numpypy.multiarray import typeinfo
-        float64 = typeinfo['DOUBLE'][4]
-        obj = float64(42.3)
+    def test___float__(self):
+        class MyFloat(object):
+            def __init__(self, x):
+                self.x = x
+            def __float__(self):
+                return self.x
+
+        obj = MyFloat(42.3)
         data = self.struct.pack('d', obj)
         obj2, = self.struct.unpack('d', data)
         assert type(obj2) is float
