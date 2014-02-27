@@ -14,12 +14,15 @@ The resulting shared library has very few functions that are however enough
 to make a full API working, provided you'll follow a few principles. The API
 is:
 
-.. function:: void pypy_init(int need_threads);
+.. function:: char* rpython_startup_code(void);
 
    This is a function that you have to call (once) before calling anything.
    It initializes the RPython/PyPy GC and does a bunch of necessary startup
-   code. This function cannot fail. Pass 1 in case you need thread support, 0
-   otherwise.
+   code. This function cannot fail and always returns NULL.
+
+.. function:: void pypy_init_threads(void);
+
+   Initialize threads. Only need to be called if there are any threads involved
 
 .. function:: long pypy_setup_home(char* home, int verbose);
 
@@ -46,7 +49,7 @@ is:
    In case your application uses threads that are initialized outside of PyPy,
    you need to call this function to tell the PyPy GC to track this thread.
    Note that this function is not thread-safe itself, so you need to guard it
-   with a mutex. Do not call it from the main thread.
+   with a mutex.
 
 Simple example
 --------------
