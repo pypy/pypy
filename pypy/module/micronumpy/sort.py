@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy import interp_dtype, types, constants as NPY
+from pypy.module.micronumpy import descriptor, types, constants as NPY
 from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
@@ -71,7 +71,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
     class ArgArrayRepWithStorage(Repr):
         def __init__(self, index_stride_size, stride_size, size):
             start = 0
-            dtype = interp_dtype.get_dtype_cache(space).w_longdtype
+            dtype = descriptor.get_dtype_cache(space).w_longdtype
             indexes = dtype.itemtype.malloc(size * dtype.elsize)
             values = alloc_raw_storage(size * stride_size,
                                             track_allocation=False)
@@ -132,7 +132,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
         else:
             axis = space.int_w(w_axis)
         # create array of indexes
-        dtype = interp_dtype.get_dtype_cache(space).w_longdtype
+        dtype = descriptor.get_dtype_cache(space).w_longdtype
         index_arr = W_NDimArray.from_shape(space, arr.get_shape(), dtype)
         storage = index_arr.implementation.get_storage()
         if len(arr.get_shape()) == 1:

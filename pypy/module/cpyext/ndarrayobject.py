@@ -7,8 +7,9 @@ from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
 from pypy.module.cpyext.api import PyObject
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, array
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache, W_Dtype
+from pypy.module.micronumpy.ndarray import W_NDimArray
+from pypy.module.micronumpy.ctors import array
+from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 

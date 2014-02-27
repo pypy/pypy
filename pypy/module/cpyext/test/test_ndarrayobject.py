@@ -2,8 +2,8 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-from pypy.module.micronumpy.interp_numarray import W_NDimArray
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.ndarray import W_NDimArray
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype

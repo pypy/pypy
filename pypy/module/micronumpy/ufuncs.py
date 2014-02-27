@@ -2,11 +2,10 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
+from pypy.module.micronumpy import boxes, descriptor, loop
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, maxint
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import constants as NPY
@@ -149,7 +148,7 @@ class W_Ufunc(W_Root):
         array([[ 1,  5],
                [ 9, 13]])
         """
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+        from pypy.module.micronumpy.ndarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
         if space.is_none(w_out):
@@ -175,12 +174,19 @@ class W_Ufunc(W_Root):
         if obj.is_scalar():
             return obj.get_scalar_value()
         shapelen = len(obj_shape)
-        axis = unwrap_axis_arg(space, shapelen, w_axis)
+        if space.is_none(w_axis):
+            axis = maxint
+        else:
+            axis = space.int_w(w_axis)
+            if axis < -shapelen or axis >= shapelen:
+                raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
+            if axis < 0:
+                axis += shapelen
         assert axis >= 0
-        dtype = interp_dtype.decode_w_dtype(space, dtype)
+        dtype = descriptor.decode_w_dtype(space, dtype)
         if dtype is None:
             if self.comparison_func:
-                dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+                dtype = descriptor.get_dtype_cache(space).w_booldtype
             else:
                 dtype = find_unaryop_result_dtype(
                     space, obj.get_dtype(),
@@ -192,8 +198,9 @@ class W_Ufunc(W_Root):
             for i in range(shapelen):
                 if space.is_none(w_axis) or i == axis:
                     if obj_shape[i] == 0:
-                        raise oefmt(space.w_ValueError, "zero-size array to "
-                                    "%s.reduce without identity", self.name)
+                        raise oefmt(space.w_ValueError,
+                            "zero-size array to reduction operation %s "
+                            "which has no identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumulative:
@@ -308,14 +315,14 @@ class W_Ufunc1(W_Ufunc):
             #    raise oefmt(space.w_TypeError,
             #        "Cannot cast ufunc %s output from dtype('%s') to dtype('%s') with casting rule 'same_kind'", self.name, w_obj.get_dtype().name, res_dtype.name)
         elif self.bool_result:
-            res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+            res_dtype = descriptor.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
             if self.complex_to_float and calc_dtype.is_complex():
                 if calc_dtype.num == NPY.CFLOAT:
-                    res_dtype = interp_dtype.get_dtype_cache(space).w_float32dtype
+                    res_dtype = descriptor.get_dtype_cache(space).w_float32dtype
                 else:
-                    res_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
+                    res_dtype = descriptor.get_dtype_cache(space).w_float64dtype
         if w_obj.is_scalar():
             w_val = self.func(calc_dtype,
                               w_obj.get_scalar_value().convert_to(space, calc_dtype))
@@ -418,7 +425,7 @@ class W_Ufunc2(W_Ufunc):
             out = w_out
             calc_dtype = out.get_dtype()
         if self.comparison_func:
-            res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+            res_dtype = descriptor.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
         if w_lhs.is_scalar() and w_rhs.is_scalar():
@@ -465,7 +472,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         dt1, dt2 = dt2, dt1
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == NPY.GENBOOLLTR):
-        return interp_dtype.get_dtype_cache(space).w_int8dtype
+        return descriptor.get_dtype_cache(space).w_int8dtype
 
     # Everything numeric promotes to complex
     if dt2.is_complex() or dt1.is_complex():
@@ -473,16 +480,16 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             dt1, dt2 = dt2, dt1
         if dt2.num == NPY.CFLOAT:
             if dt1.num == NPY.DOUBLE:
-                return interp_dtype.get_dtype_cache(space).w_complex128dtype
+                return descriptor.get_dtype_cache(space).w_complex128dtype
             elif dt1.num == NPY.LONGDOUBLE:
-                return interp_dtype.get_dtype_cache(space).w_complexlongdtype
-            return interp_dtype.get_dtype_cache(space).w_complex64dtype
+                return descriptor.get_dtype_cache(space).w_complexlongdtype
+            return descriptor.get_dtype_cache(space).w_complex64dtype
         elif dt2.num == NPY.CDOUBLE:
             if dt1.num == NPY.LONGDOUBLE:
-                return interp_dtype.get_dtype_cache(space).w_complexlongdtype
-            return interp_dtype.get_dtype_cache(space).w_complex128dtype
+                return descriptor.get_dtype_cache(space).w_complexlongdtype
+            return descriptor.get_dtype_cache(space).w_complex128dtype
         elif dt2.num == NPY.CLONGDOUBLE:
-            return interp_dtype.get_dtype_cache(space).w_complexlongdtype
+            return descriptor.get_dtype_cache(space).w_complexlongdtype
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
 
@@ -497,11 +504,11 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == NPY.FLOATINGLTR or dt1.kind == NPY.GENBOOLLTR:
         if dt2.num == NPY.HALF and dt1.itemtype.get_element_size() == 2:
-            return interp_dtype.get_dtype_cache(space).w_float32dtype
+            return descriptor.get_dtype_cache(space).w_float32dtype
         if dt2.num == NPY.HALF and dt1.itemtype.get_element_size() >= 4:
-            return interp_dtype.get_dtype_cache(space).w_float64dtype
+            return descriptor.get_dtype_cache(space).w_float64dtype
         if dt2.num == NPY.FLOAT and dt1.itemtype.get_element_size() >= 4:
-            return interp_dtype.get_dtype_cache(space).w_float64dtype
+            return descriptor.get_dtype_cache(space).w_float64dtype
         return dt2
 
     # for now this means mixing signed and unsigned
@@ -527,7 +534,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     else:
         # increase to the next signed type
         dtypenum = dt2.num + 1
-    newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
+    newdtype = descriptor.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
             newdtype.kind == NPY.FLOATINGLTR):
@@ -536,7 +543,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         # we only promoted to long on 32-bit or to longlong on 64-bit
         # this is really for dealing with the Long and Ulong dtypes
         dtypenum += 2
-        return interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
+        return descriptor.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
@@ -544,34 +551,34 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     if promote_to_largest:
         if dt.kind == NPY.GENBOOLLTR or dt.kind == NPY.SIGNEDLTR:
             if dt.elsize * 8 < LONG_BIT:
-                return interp_dtype.get_dtype_cache(space).w_longdtype
+                return descriptor.get_dtype_cache(space).w_longdtype
         elif dt.kind == NPY.UNSIGNEDLTR:
             if dt.elsize * 8 < LONG_BIT:
-                return interp_dtype.get_dtype_cache(space).w_ulongdtype
+                return descriptor.get_dtype_cache(space).w_ulongdtype
         else:
             assert dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR
         return dt
     if promote_bools and (dt.kind == NPY.GENBOOLLTR):
-        return interp_dtype.get_dtype_cache(space).w_int8dtype
+        return descriptor.get_dtype_cache(space).w_int8dtype
     if promote_to_float:
         if dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR:
             return dt
         if dt.num >= NPY.INT:
-            return interp_dtype.get_dtype_cache(space).w_float64dtype
-        for bytes, dtype in interp_dtype.get_dtype_cache(space).float_dtypes_by_num_bytes:
+            return descriptor.get_dtype_cache(space).w_float64dtype
+        for bytes, dtype in descriptor.get_dtype_cache(space).float_dtypes_by_num_bytes:
             if (dtype.kind == NPY.FLOATINGLTR and
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype
     return dt
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
-    bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
-    long_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-    int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
-    uint64_dtype = interp_dtype.get_dtype_cache(space).w_uint64dtype
-    complex_dtype = interp_dtype.get_dtype_cache(space).w_complex128dtype
-    float_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
-    if isinstance(w_obj, interp_boxes.W_GenericBox):
+    bool_dtype = descriptor.get_dtype_cache(space).w_booldtype
+    long_dtype = descriptor.get_dtype_cache(space).w_longdtype
+    int64_dtype = descriptor.get_dtype_cache(space).w_int64dtype
+    uint64_dtype = descriptor.get_dtype_cache(space).w_uint64dtype
+    complex_dtype = descriptor.get_dtype_cache(space).w_complex128dtype
+    float_dtype = descriptor.get_dtype_cache(space).w_float64dtype
+    if isinstance(w_obj, boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         return find_binop_result_dtype(space, dtype, current_guess)
 
@@ -594,11 +601,11 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         return complex_dtype
     elif space.isinstance_w(w_obj, space.w_str):
         if current_guess is None:
-            return interp_dtype.variable_dtype(space,
+            return descriptor.variable_dtype(space,
                                                'S%d' % space.len_w(w_obj))
         elif current_guess.num == NPY.STRING:
             if current_guess.elsize < space.len_w(w_obj):
-                return interp_dtype.variable_dtype(space,
+                return descriptor.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
     raise oefmt(space.w_NotImplementedError,
@@ -607,7 +614,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                        bool_result):
-    dtype_cache = interp_dtype.get_dtype_cache(space)
+    dtype_cache = descriptor.get_dtype_cache(space)
     def get_op(dtype):
         try:
             return getattr(dtype.itemtype, op_name)
@@ -743,7 +750,7 @@ class UfuncState(object):
         identity = extra_kwargs.get("identity")
         if identity is not None:
             identity = \
-                 interp_dtype.get_dtype_cache(space).w_longdtype.box(identity)
+                 descriptor.get_dtype_cache(space).w_longdtype.box(identity)
         extra_kwargs["identity"] = identity
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
