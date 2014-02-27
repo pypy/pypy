@@ -2303,8 +2303,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         import numpy as np
         a = np.array(1.5)
         assert a[...] is a
+        #a[...] = 2.5
+        #assert a == 2.5
         a = np.array([1, 2, 3])
         assert a[...] is a
+        #a[...] = 4
+        #assert (a == [4, 4, 4]).all()
 
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):

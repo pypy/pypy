@@ -1,7 +1,7 @@
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.concrete import BaseConcreteArray
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 
 class FakeArrayImplementation(BaseConcreteArray):
@@ -22,6 +22,7 @@ class FakeArrayImplementation(BaseConcreteArray):
     def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         assert isinstance(self.base(), W_NDimArray)
         return self.base().create_iter()
+
 
 class W_FlatIterator(W_NDimArray):
     def __init__(self, arr):
@@ -54,9 +55,8 @@ class W_FlatIterator(W_NDimArray):
 
     def descr_getitem(self, space, w_idx):
         if not (space.isinstance_w(w_idx, space.w_int) or
-            space.isinstance_w(w_idx, space.w_slice)):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap('unsupported iterator index'))
+                space.isinstance_w(w_idx, space.w_slice)):
+            raise oefmt(space.w_IndexError, 'unsupported iterator index')
         self.reset()
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
@@ -70,9 +70,8 @@ class W_FlatIterator(W_NDimArray):
 
     def descr_setitem(self, space, w_idx, w_value):
         if not (space.isinstance_w(w_idx, space.w_int) or
-            space.isinstance_w(w_idx, space.w_slice)):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap('unsupported iterator index'))
+                space.isinstance_w(w_idx, space.w_slice)):
+            raise oefmt(space.w_IndexError, 'unsupported iterator index')
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
         arr = convert_to_array(space, w_value)

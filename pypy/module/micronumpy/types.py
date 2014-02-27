@@ -110,8 +110,6 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    SortRepr = None # placeholders for sorting classes, overloaded in sort.py
-    Sort = None
     _immutable_fields_ = ['native']
 
     def __init__(self, native=True):
@@ -122,7 +120,6 @@ class BaseType(object):
 
     def malloc(self, size):
         return alloc_raw_storage(size, track_allocation=False, zero=True)
-
 
 class Primitive(object):
     _mixin_ = True
