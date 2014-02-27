@@ -210,7 +210,7 @@ class W_Ufunc(W_Root):
                 if out:
                     dtype = out.get_dtype()
                 temp = W_NDimArray.from_shape(space, temp_shape, dtype,
-                                                w_instance=obj)
+                                              w_instance=obj)
             elif keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:
@@ -236,25 +236,28 @@ class W_Ufunc(W_Root):
                                 )
                 dtype = out.get_dtype()
             else:
-                out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
+                out = W_NDimArray.from_shape(space, shape, dtype,
+                                             w_instance=obj)
             if obj.get_size() == 0:
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            return loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis, out,
-                                       self.identity, cumulative, temp)
+            return loop.do_axis_reduce(space, shape, self.func, obj, dtype,
+                                       axis, out, self.identity, cumulative,
+                                       temp)
         if cumulative:
             if out:
                 if out.get_shape() != [obj.get_size()]:
                     raise OperationError(space.w_ValueError, space.wrap(
                         "out of incompatible size"))
             else:
-                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, w_instance=obj)
+                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype,
+                                             w_instance=obj)
             loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
-                                            self.identity)
+                                           self.identity)
             return out
         if out:
-            if len(out.get_shape())>0:
+            if len(out.get_shape()) > 0:
                 raise oefmt(space.w_ValueError,
                             "output parameter for reduction operation %s has "
                             "too many dimensions", self.name)
@@ -266,7 +269,8 @@ class W_Ufunc(W_Root):
             return out
         if keepdims:
             shape = [1] * len(obj_shape)
-            out = W_NDimArray.from_shape(space, [1] * len(obj_shape), dtype, w_instance=obj)
+            out = W_NDimArray.from_shape(space, [1] * len(obj_shape), dtype,
+                                         w_instance=obj)
             out.implementation.setitem(0, res)
             return out
         return res
@@ -277,6 +281,7 @@ class W_Ufunc(W_Root):
     def _outer(self, space, __args__):
         raise OperationError(space.w_ValueError, space.wrap(
             "outer product only supported for binary functions"))
+
 
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]

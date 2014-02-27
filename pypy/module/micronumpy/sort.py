@@ -1,6 +1,3 @@
-""" This is the implementation of various sorting routines in numpy. It's here
-because it only makes sense on a concrete array
-"""
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import specialize
@@ -14,6 +11,11 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import AllButAxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
+
+all_types = (types.all_float_types + types.all_complex_types +
+             types.all_int_types)
+all_types = [i for i in all_types if not issubclass(i[0], types.Float16)]
+all_types = unrolling_iterable(all_types)
 
 
 def make_argsort_function(space, itemtype, comp_type, count=1):
@@ -316,11 +318,6 @@ def sort_array(arr, space, w_axis, w_order):
     raise oefmt(space.w_NotImplementedError,
                 "sorting of non-numeric types '%s' is not implemented",
                 arr.dtype.get_name())
-
-all_types = (types.all_float_types + types.all_complex_types +
-             types.all_int_types)
-all_types = [i for i in all_types if not issubclass(i[0], types.Float16)]
-all_types = unrolling_iterable(all_types)
 
 
 class ArgSortCache(object):
