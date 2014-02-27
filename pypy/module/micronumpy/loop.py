@@ -10,7 +10,7 @@ from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
-from pypy.module.micronumpy.support import index_w
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
 call2_driver = jit.JitDriver(name='numpy_call2',
@@ -557,7 +557,7 @@ def choose(space, arr, choices, shape, dtype, out, mode):
     while not arr_iter.done():
         choose_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
                                       mode=mode)
-        index = index_w(space, arr_iter.getitem())
+        index = support.index_w(space, arr_iter.getitem())
         if index < 0 or index >= len(iterators):
             if mode == NPY.RAISE:
                 raise OperationError(space.w_ValueError, space.wrap(

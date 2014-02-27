@@ -4,11 +4,6 @@ from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
 
 
-def issequence_w(space, w_obj):
-    return (space.isinstance_w(w_obj, space.w_tuple) or
-            space.isinstance_w(w_obj, space.w_list) or
-            isinstance(w_obj, W_NDimArray))
-
 def wrap_impl(space, w_cls, w_instance, impl):
     if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
         w_ret = W_NDimArray(impl)

@@ -1,6 +1,12 @@
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 
+def issequence_w(space, w_obj):
+    from pypy.module.micronumpy.base import W_NDimArray
+    return (space.isinstance_w(w_obj, space.w_tuple) or
+            space.isinstance_w(w_obj, space.w_list) or
+            isinstance(w_obj, W_NDimArray))
+
 def index_w(space, w_obj):
     try:
         return space.int_w(space.index(w_obj))

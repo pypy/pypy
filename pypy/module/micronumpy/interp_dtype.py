@@ -10,6 +10,7 @@ from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 from rpython.rlib import jit
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.conversion_utils import byteorder_converter
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
 
@@ -372,7 +373,7 @@ class W_Dtype(W_Root):
                             "incorrect subarray in __setstate__")
             subdtype, w_shape = space.fixedview(w_subarray)
             assert isinstance(subdtype, W_Dtype)
-            if not base.issequence_w(space, w_shape):
+            if not support.issequence_w(space, w_shape):
                 self.shape = [space.int_w(w_shape)]
             else:
                 self.shape = [space.int_w(w_s) for w_s in space.fixedview(w_shape)]
@@ -432,7 +433,7 @@ def dtype_from_list(space, w_lst, simple):
             w_shape = space.newtuple([])
             if space.len_w(w_elem) == 3:
                 w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
-                if not base.issequence_w(space, w_shape):
+                if not support.issequence_w(space, w_shape):
                     w_shape = space.newtuple([w_shape])
             else:
                 w_fldname, w_flddesc = space.fixedview(w_elem, 2)
