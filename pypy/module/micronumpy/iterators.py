@@ -115,7 +115,7 @@ class ArrayIter(object):
         if step == 0:
             return
         self.index += step
-        for i in range(self.ndim_m1, -1, -1):
+        for i in xrange(self.ndim_m1, -1, -1):
             if self.indices[i] < (self.shape_m1[i] + 1) - step:
                 self.indices[i] += step
                 self.offset += self.strides[i] * step
