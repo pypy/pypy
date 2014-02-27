@@ -11,7 +11,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy import descriptor, types, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iter import AxisIterator
+from pypy.module.micronumpy.iter import AllButAxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
@@ -146,21 +146,20 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             if axis < 0 or axis >= len(shape):
                 raise OperationError(space.w_IndexError, space.wrap(
                                                     "Wrong axis %d" % axis))
-            iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
-            iter = AxisIterator(arr, iterable_shape, axis, False)
+            arr_iter = AllButAxisIterator(arr, axis)
             index_impl = index_arr.implementation
-            index_iter = AxisIterator(index_impl, iterable_shape, axis, False)
+            index_iter = AllButAxisIterator(index_impl, axis)
             stride_size = arr.strides[axis]
             index_stride_size = index_impl.strides[axis]
             axis_size = arr.shape[axis]
-            while not iter.done():
+            while not arr_iter.done():
                 for i in range(axis_size):
                     raw_storage_setitem(storage, i * index_stride_size +
                                         index_iter.offset, i)
                 r = Repr(index_stride_size, stride_size, axis_size,
-                         arr.get_storage(), storage, index_iter.offset, iter.offset)
+                         arr.get_storage(), storage, index_iter.offset, arr_iter.offset)
                 ArgSort(r).sort()
-                iter.next()
+                arr_iter.next()
                 index_iter.next()
         return index_arr
 
@@ -292,14 +291,13 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             if axis < 0 or axis >= len(shape):
                 raise OperationError(space.w_IndexError, space.wrap(
                                                     "Wrong axis %d" % axis))
-            iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
-            iter = AxisIterator(arr, iterable_shape, axis, False)
+            arr_iter = AllButAxisIterator(arr, axis)
             stride_size = arr.strides[axis]
             axis_size = arr.shape[axis]
-            while not iter.done():
-                r = Repr(stride_size, axis_size, arr.get_storage(), iter.offset)
+            while not arr_iter.done():
+                r = Repr(stride_size, axis_size, arr.get_storage(), arr_iter.offset)
                 ArgSort(r).sort()
-                iter.next()
+                arr_iter.next()
 
     return sort
 

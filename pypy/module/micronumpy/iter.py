@@ -82,10 +82,11 @@ class ArrayIterator(object):
     _immutable_fields_ = ['array', 'start', 'size', 'ndim_m1', 'shape_m1',
                           'strides', 'backstrides']
 
-    def __init__(self, array, shape, strides, backstrides):
+    def __init__(self, array, size, shape, strides, backstrides):
+        assert len(shape) == len(strides) == len(backstrides)
         self.array = array
         self.start = array.start
-        self.size = support.product(shape)
+        self.size = size
         self.ndim_m1 = len(shape) - 1
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
@@ -141,44 +142,25 @@ class ArrayIterator(object):
         self.array.setitem(self.offset, elem)
 
 
-class AxisIterator(ArrayIterator):
-    def __init__(self, array, shape, dim, cumulative):
-        self.shape = shape
-        strides = array.get_strides()
-        backstrides = array.get_backstrides()
-        if cumulative:
-            self.strides = strides
-            self.backstrides = backstrides
-        elif len(shape) == len(strides):
+def AxisIterator(array, shape, axis, cumulative):
+    strides = array.get_strides()
+    backstrides = array.get_backstrides()
+    if not cumulative:
+        if len(shape) == len(strides):
             # keepdims = True
-            self.strides = strides[:dim] + [0] + strides[dim + 1:]
-            self.backstrides = backstrides[:dim] + [0] + backstrides[dim + 1:]
+            strides = strides[:axis] + [0] + strides[axis + 1:]
+            backstrides = backstrides[:axis] + [0] + backstrides[axis + 1:]
         else:
-            self.strides = strides[:dim] + [0] + strides[dim:]
-            self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
-        self.first_line = True
-        self.indices = [0] * len(shape)
-        self._done = array.get_size() == 0
-        self.offset = array.start
-        self.dim = dim
-        self.array = array
+            strides = strides[:axis] + [0] + strides[axis:]
+            backstrides = backstrides[:axis] + [0] + backstrides[axis:]
+    return ArrayIterator(array, support.product(shape), shape, strides, backstrides)
 
-    @jit.unroll_safe
-    def next(self):
-        for i in range(len(self.shape) - 1, -1, -1):
-            if self.indices[i] < self.shape[i] - 1:
-                if i == self.dim:
-                    self.first_line = False
-                self.indices[i] += 1
-                self.offset += self.strides[i]
-                break
-            else:
-                if i == self.dim:
-                    self.first_line = True
-                self.indices[i] = 0
-                self.offset -= self.backstrides[i]
-        else:
-            self._done = True
 
-    def done(self):
-        return self._done
+def AllButAxisIterator(array, axis):
+    size = array.get_size()
+    shape = array.get_shape()[:]
+    backstrides = array.backstrides[:]
+    if size:
+        size /= shape[axis]
+    shape[axis] = backstrides[axis] = 0
+    return ArrayIterator(array, size, shape, array.strides, backstrides)

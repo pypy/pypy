@@ -237,6 +237,10 @@ class W_Ufunc(W_Root):
                 dtype = out.get_dtype()
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
+            if obj.get_size() == 0:
+                if self.identity is not None:
+                    out.fill(space, self.identity.convert_to(space, dtype))
+                return out
             return loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis, out,
                                        self.identity, cumulative, temp)
         if cumulative:
