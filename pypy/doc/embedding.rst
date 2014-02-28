@@ -1,4 +1,7 @@
 
+Embedding PyPy
+--------------
+
 PyPy has a very minimal and a very strange embedding interface, based on
 the usage of `cffi`_ and the philosophy that Python is a better language in C.
 It was developed in collaboration with Roberto De Ioris from the `uwsgi`_
