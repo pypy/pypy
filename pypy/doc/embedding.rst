@@ -72,7 +72,7 @@ library in ``/opt/pypy/bin/libpypy-c.so``.  (It doesn't need to be
 installed; you can also replace this path with your local checkout.)
 We write a little C program:
 
-.. code-block: c
+.. code-block:: c
 
     #include "include/PyPy.h"
     #include <stdio.h>
@@ -108,7 +108,7 @@ is a fully fledged example, please consult cffi documentation for details.
 It's a bit longish, but it captures a gist what can be done with the PyPy
 embedding interface:
 
-.. code-block: c
+.. code-block:: c
 
     #include "include/PyPy.h"
     #include <stdio.h>
