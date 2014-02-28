@@ -30,7 +30,8 @@ is:
    it you would not be able to find the standard library (and run pretty much
    nothing). Arguments:
 
-   * ``home``: null terminated path
+   * ``home``: null terminated path to an executable inside the pypy directory
+     (can be a .so name, can be made up)
 
    * ``verbose``: if non-zero, would print error messages to stderr
 
