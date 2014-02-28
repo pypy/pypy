@@ -131,13 +131,13 @@ def as_long_long(space, w_ob):
     if space.is_w(space.type(w_ob), space.w_int):   # shortcut
         return space.int_w(w_ob)
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     try:
         return bigint.tolonglong()
     except OverflowError:
@@ -148,13 +148,13 @@ def as_long(space, w_ob):
     if space.is_w(space.type(w_ob), space.w_int):   # shortcut
         return space.int_w(w_ob)
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     try:
         return bigint.toint()
     except OverflowError:
@@ -171,13 +171,13 @@ def as_unsigned_long_long(space, w_ob, strict):
             raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
         return r_ulonglong(value)
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     if strict:
         try:
             return bigint.toulonglong()
@@ -196,13 +196,13 @@ def as_unsigned_long(space, w_ob, strict):
             raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
         return r_uint(value)
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     if strict:
         try:
             return bigint.touint()

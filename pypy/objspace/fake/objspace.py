@@ -45,13 +45,13 @@ class W_MyObject(W_Root):
     def unicode_w(self, space):
         return NonConstant(u"foobar")
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
 
     def uint_w(self, space):
         return r_uint(NonConstant(42))
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
@@ -117,7 +117,7 @@ class FakeObjSpace(ObjSpace):
     def _freeze_(self):
         return True
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         is_root(w_obj)
         return NonConstant(42.5)
 

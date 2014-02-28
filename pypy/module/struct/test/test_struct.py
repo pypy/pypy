@@ -7,7 +7,7 @@ from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
 class AppTestStruct(object):
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = dict(usemodules=['struct', 'micronumpy'])
 
     def setup_class(cls):
         """
@@ -19,7 +19,7 @@ class AppTestStruct(object):
             return struct
         """)
         cls.w_native_is_bigendian = cls.space.wrap(native_is_bigendian)
-
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_error(self):
         """
@@ -383,6 +383,19 @@ class AppTestStruct(object):
         b = buffer(self.struct.pack("ii", 62, 12))
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
+
+    def test___float__(self):
+        class MyFloat(object):
+            def __init__(self, x):
+                self.x = x
+            def __float__(self):
+                return self.x
+
+        obj = MyFloat(42.3)
+        data = self.struct.pack('d', obj)
+        obj2, = self.struct.unpack('d', data)
+        assert type(obj2) is float
+        assert obj2 == 42.3
 
 
 class AppTestStructBuffer(object):
