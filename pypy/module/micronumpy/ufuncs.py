@@ -164,13 +164,13 @@ class W_Ufunc(W_Root):
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
                cumulative=False):
         if self.argcount != 2:
-            raise OperationError(space.w_ValueError, space.wrap("reduce only "
-                "supported for binary functions"))
+            raise oefmt(space.w_ValueError,
+                        "reduce only supported for binary functions")
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if obj.get_dtype().is_flexible():
-            raise OperationError(space.w_TypeError,
-                      space.wrap('cannot perform reduce with flexible type'))
+            raise oefmt(space.w_TypeError,
+                        "cannot perform reduce with flexible type")
         obj_shape = obj.get_shape()
         if obj.is_scalar():
             return obj.get_scalar_value()
