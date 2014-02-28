@@ -7,13 +7,13 @@ the usage of `cffi`_ and the philosophy that Python is a better language in C.
 It was developed in collaboration with Roberto De Ioris from the `uwsgi`_
 project. The `PyPy uwsgi plugin`_ is a good example of usage of such interface.
 
-The first thing that you need, that we plan to change in the future, is to
-compile PyPy yourself with an option ``--shared``. Consult the
+The first thing that you need is to compile PyPy yourself with an option
+``--shared``. We plan to make ``--shared`` the default in the future.  Consult the
 `how to compile PyPy`_ doc for details. That should result in ``libpypy.so``
 or ``pypy.dll`` file or something similar, depending on your platform. Consult
 your platform specification for details.
 
-The resulting shared library has very few functions that are however enough
+The resulting shared library exports very few functions that are however enough
 to make a full API working, provided you'll follow a few principles. The API
 is:
 
@@ -29,24 +29,25 @@ is:
 
 .. function:: long pypy_setup_home(char* home, int verbose);
 
-   This is another function that you have to call at some point, without
-   it you would not be able to find the standard library (and run pretty much
-   nothing). Arguments:
+   This function searches the PyPy standard library starting from the given
+   "PyPy home directory".  It is not strictly necessary to execute it before
+   running Python code, but without it you will not be able to import any
+   non-builtin module from the standard library.  The arguments are:
 
-   * ``home``: null terminated path to an executable inside the pypy directory
+   * ``home``: NULL terminated path to an executable inside the pypy directory
      (can be a .so name, can be made up)
 
-   * ``verbose``: if non-zero, would print error messages to stderr
+   * ``verbose``: if non-zero, it will print error messages to stderr
 
    Function returns 0 on success or -1 on failure, can be called multiple times
    until the library is found.
 
 .. function:: int pypy_execute_source(char* source);
 
-   Execute the source code given in the ``source`` argument. Will print
-   the error message to stderr upon failure and return -1, otherwise returns 0.
-   You should really do your own error handling in the source. It'll acquire
-   the GIL.
+   Execute the Python source code given in the ``source`` argument. In case of
+   exceptions, it will print the Python traceback to stderr and return 1,
+   otherwise return 0.  You should really do your own error handling in the
+   source. It'll acquire the GIL.
 
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 
