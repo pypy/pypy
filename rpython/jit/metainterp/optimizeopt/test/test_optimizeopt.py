@@ -6128,12 +6128,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i5 = int_add(i1, i3)
         i4 = strgetitem(p1, i5)
         escape(i4)
-        jump(p1, i1, i2, i3, i4)
+        jump(p1, i1, i2, i3, i5)
         """
         expected = """
-        [p1, i1, i2, i3, i4]
+        [p1, i1, i2, i3, i5]
+        i4 = strgetitem(p1, i5)
         escape(i4)
-        jump(p1, i1, i2, i3, i4)
+        jump(p1, i1, i2, i3, i5)
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
 
@@ -6194,6 +6195,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0, i0]
+        i1 = strgetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
@@ -6209,6 +6211,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0, i0]
+        i1 = unicodegetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
@@ -7180,12 +7183,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        expected = """
-        [p9, i1, i843]
-        call(i843, descr=nonwritedescr)
-        jump(p9, i1, i843)
-        """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, ops)
 
     def test_loopinvariant_unicodelen(self):
         ops = """
@@ -7208,12 +7206,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        expected = """
-        [p9, i1, i843]
-        call(i843, descr=nonwritedescr)
-        jump(p9, i1, i843)
-        """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, ops)
 
     def test_loopinvariant_arraylen(self):
         ops = """
@@ -7339,12 +7332,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        expected = """
-        [p9, i1, i843]
-        call(i843, descr=nonwritedescr)
-        jump(p9, i1, i843)
-        """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, ops)
 
     def test_loopinvariant_constant_getarrayitem_pure(self):
         ops = """
