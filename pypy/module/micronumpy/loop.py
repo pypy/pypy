@@ -280,23 +280,30 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     '''
     left_shape = left.get_shape()
     right_shape = right.get_shape()
+    left_impl = left.implementation
+    right_impl = right.implementation
     assert left_shape[-1] == right_shape[right_critical_dim]
     assert result.get_dtype() == dtype
     outi = result.create_iter()
-    lefti = AllButAxisIter(left.implementation, len(left_shape) - 1)
-    righti = AllButAxisIter(right.implementation, right_critical_dim)
+    lefti = AllButAxisIter(left_impl, len(left_shape) - 1)
+    righti = AllButAxisIter(right_impl, right_critical_dim)
+    n = left_impl.shape[-1]
+    s1 = left_impl.strides[-1]
+    s2 = right_impl.strides[right_critical_dim]
     while not lefti.done():
         while not righti.done():
             oval = outi.getitem()
             i1 = lefti.offset
             i2 = righti.offset
-            for _ in xrange(left.implementation.shape[-1]):
+            i = 0
+            while i < n:
+                i += 1
                 dot_driver.jit_merge_point(dtype=dtype)
-                lval = left.implementation.getitem(i1).convert_to(space, dtype)
-                rval = right.implementation.getitem(i2).convert_to(space, dtype)
+                lval = left_impl.getitem(i1).convert_to(space, dtype)
+                rval = right_impl.getitem(i2).convert_to(space, dtype)
                 oval = dtype.itemtype.add(oval, dtype.itemtype.mul(lval, rval))
-                i1 += left.implementation.strides[-1]
-                i2 += right.implementation.strides[right_critical_dim]
+                i1 += s1
+                i2 += s2
             outi.setitem(oval)
             outi.next()
             righti.next()
