@@ -82,7 +82,7 @@ library is in ``/opt/pypy/libpypy-c.so``. We write a little C program
 If we save it as ``x.c`` now, compile it and run it with::
 
   fijal@hermann:/opt/pypy$ gcc -o x x.c -lpypy-c -L.
-  fijal@hermann:~/src/pypy$ LD_LIBRARY_PATH=. ./x
+  fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
   hello from pypy
 
 Worked!
@@ -92,8 +92,56 @@ More advanced example
 
 Typically we need something more to do than simply execute source. The following
 is a fully fledged example, please consult cffi documentation for details.
+It's a bit longish, but it captures a gist what can be done with the PyPy
+embedding interface::
 
-xxx
+        #include "include/PyPy.h"
+        #include <stdio.h>
+
+        char source[] = "from cffi import FFI\n\
+        ffi = FFI()\n\
+        @ffi.callback('int(int)')\n\
+        def func(a):\n\
+            print 'Got from C %d' % a\n\
+            return a * 2\n\
+        ffi.cdef('int callback(int (*func)(int));')\n\
+        c_func = ffi.cast('int(*)(int(*)(int))', c_argument)\n\
+        c_func(func)\n\
+        print 'finished the Python part'\n\
+        ";
+
+        int callback(int (*func)(int))
+        {
+            printf("Calling to Python, result: %d\n", func(3));
+        }
+
+        int main()
+        {
+            int res;
+            void *lib, *func;
+
+            rpython_startup_code();
+            res = pypy_setup_home("/opt/pypy/pypy/libpypy-c.so", 1);
+            if (res) {
+                printf("Error setting pypy home!\n");
+                return 1;
+            }
+            res = pypy_execute_source_ptr(source, (void*)callback);
+            if (res) {
+                printf("Error calling pypy_execute_source_ptr!\n");
+            }
+            return res;
+        }
+
+you can compile and run it with::
+
+   fijal@hermann:/opt/pypy$ gcc -g -o x x.c -lpypy-c -L.
+   fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
+   Got from C 3
+   Calling to Python, result: 6
+   finished the Python part
+
+
 
 Threading
 ---------
