@@ -3,23 +3,23 @@ Embedding PyPy
 --------------
 
 PyPy has a very minimal and a very strange embedding interface, based on
-the usage of `cffi`_ and the philosophy that Python is a better language in C.
-It was developed in collaboration with Roberto De Ioris from the `uwsgi`_
-project. The `PyPy uwsgi plugin`_ is a good example of usage of such interface.
+the usage of `cffi`_ and the philosophy that Python is a better language than
+C. It was developed in collaboration with Roberto De Ioris from the `uwsgi`_
+project. The `PyPy uwsgi plugin`_ is a good example of using the embedding API.
 
-The first thing that you need is to compile PyPy yourself with an option
-``--shared``. We plan to make ``--shared`` the default in the future.  Consult the
-`how to compile PyPy`_ doc for details. That should result in ``libpypy.so``
+The first thing that you need is to compile PyPy yourself with the option
+``--shared``. We plan to make ``--shared`` the default in the future. Consult
+the `how to compile PyPy`_ doc for details. This will result in ``libpypy.so``
 or ``pypy.dll`` file or something similar, depending on your platform. Consult
 your platform specification for details.
 
-The resulting shared library exports very few functions that are however enough
-to make a full API working, provided you'll follow a few principles. The API
-is:
+The resulting shared library exports very few functions, however they are
+enough to accomplish everything you need, provided you follow a few principles.
+The API is:
 
 .. function:: void rpython_startup_code(void);
 
-   This is a function that you have to call (once) before calling anything.
+   This is a function that you have to call (once) before calling anything else.
    It initializes the RPython/PyPy GC and does a bunch of necessary startup
    code. This function cannot fail.
 
@@ -70,31 +70,33 @@ all the logic in Python and expose it via `cffi`_ callbacks. Let's assume
 we're on linux and pypy is installed in ``/opt/pypy`` with the
 library in ``/opt/pypy/bin/libpypy-c.so``.  (It doesn't need to be
 installed; you can also replace this path with your local checkout.)
-We write a little C program::
+We write a little C program:
 
-  #include "include/PyPy.h"
-  #include <stdio.h>
+.. code-block: c
 
-  const char source[] = "print 'hello from pypy'";
+    #include "include/PyPy.h"
+    #include <stdio.h>
 
-  int main()
-  {
-    int res;
+    const char source[] = "print 'hello from pypy'";
 
-    rpython_startup_code();
-    // pypy_setup_home() is not needed in this trivial example
-    res = pypy_execute_source((char*)source);
-    if (res) {
-      printf("Error calling pypy_execute_source!\n");
+    int main()
+    {
+      int res;
+
+      rpython_startup_code();
+      // pypy_setup_home() is not needed in this trivial example
+      res = pypy_execute_source((char*)source);
+      if (res) {
+        printf("Error calling pypy_execute_source!\n");
+      }
+      return res;
     }
-    return res;
-  }
 
 If we save it as ``x.c`` now, compile it and run it with::
 
-  fijal@hermann:/opt/pypy$ gcc -o x x.c -lpypy-c -L.
-  fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
-  hello from pypy
+    fijal@hermann:/opt/pypy$ gcc -o x x.c -lpypy-c -L.
+    fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
+    hello from pypy
 
 Worked!
 
@@ -104,45 +106,47 @@ More advanced example
 Typically we need something more to do than simply execute source. The following
 is a fully fledged example, please consult cffi documentation for details.
 It's a bit longish, but it captures a gist what can be done with the PyPy
-embedding interface::
+embedding interface:
 
-        #include "include/PyPy.h"
-        #include <stdio.h>
+.. code-block: c
 
-        char source[] = "from cffi import FFI\n\
-        ffi = FFI()\n\
-        @ffi.callback('int(int)')\n\
-        def func(a):\n\
-            print 'Got from C %d' % a\n\
-            return a * 2\n\
-        ffi.cdef('int callback(int (*func)(int));')\n\
-        c_func = ffi.cast('int(*)(int(*)(int))', c_argument)\n\
-        c_func(func)\n\
-        print 'finished the Python part'\n\
-        ";
+    #include "include/PyPy.h"
+    #include <stdio.h>
 
-        int callback(int (*func)(int))
-        {
-            printf("Calling to Python, result: %d\n", func(3));
+    char source[] = "from cffi import FFI\n\
+    ffi = FFI()\n\
+    @ffi.callback('int(int)')\n\
+    def func(a):\n\
+        print 'Got from C %d' % a\n\
+        return a * 2\n\
+    ffi.cdef('int callback(int (*func)(int));')\n\
+    c_func = ffi.cast('int(*)(int(*)(int))', c_argument)\n\
+    c_func(func)\n\
+    print 'finished the Python part'\n\
+    ";
+
+    int callback(int (*func)(int))
+    {
+        printf("Calling to Python, result: %d\n", func(3));
+    }
+
+    int main()
+    {
+        int res;
+        void *lib, *func;
+
+        rpython_startup_code();
+        res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
+        if (res) {
+            printf("Error setting pypy home!\n");
+            return 1;
         }
-
-        int main()
-        {
-            int res;
-            void *lib, *func;
-
-            rpython_startup_code();
-            res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
-            if (res) {
-                printf("Error setting pypy home!\n");
-                return 1;
-            }
-            res = pypy_execute_source_ptr(source, (void*)callback);
-            if (res) {
-                printf("Error calling pypy_execute_source_ptr!\n");
-            }
-            return res;
+        res = pypy_execute_source_ptr(source, (void*)callback);
+        if (res) {
+            printf("Error calling pypy_execute_source_ptr!\n");
         }
+        return res;
+    }
 
 you can compile and run it with::
 
