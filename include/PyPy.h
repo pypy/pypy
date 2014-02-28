@@ -46,6 +46,12 @@ void pypy_thread_attach(void);
  */
 int pypy_execute_source(char *source);
 
+/* a similar function, but inside Python code it'll register
+   a magic argument c_argument as int, which will be passed as void* from C.
+   Useful for passing pointers to arbitrary structs that contain callbacks
+   to register */
+int pypy_execute_source_ptr(char *source, void* ptr);
+
 
 #ifdef __cplusplus
 }
