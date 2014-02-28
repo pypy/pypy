@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 // call this first
-char* rpython_startup_code(void);
+void rpython_startup_code(void);
 
 // pypy_init_threads has to be called in case you want to use threads
 void pypy_init_threads(void);

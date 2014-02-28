@@ -17,11 +17,11 @@ The resulting shared library has very few functions that are however enough
 to make a full API working, provided you'll follow a few principles. The API
 is:
 
-.. function:: char* rpython_startup_code(void);
+.. function:: void rpython_startup_code(void);
 
    This is a function that you have to call (once) before calling anything.
    It initializes the RPython/PyPy GC and does a bunch of necessary startup
-   code. This function cannot fail and always returns NULL.
+   code. This function cannot fail.
 
 .. function:: void pypy_init_threads(void);
 
@@ -164,3 +164,4 @@ from the main thread) and call ``pypy_init_threads`` from the main thread.
 .. _`cffi`: http://cffi.readthedocs.org/
 .. _`uwsgi`: http://uwsgi-docs.readthedocs.org/en/latest/
 .. _`PyPy uwsgi plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
+.. _`how to compile PyPy`: getting-started.html

@@ -83,4 +83,4 @@ RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void,
 
 @entrypoint('main', [], c_name='rpython_startup_code')
 def rpython_startup_code():
-    return RPython_StartupCode()
+    RPython_StartupCode()
