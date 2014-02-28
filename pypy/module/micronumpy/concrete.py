@@ -5,15 +5,18 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.micronumpy import support, loop, iter
+from pypy.module.micronumpy import support, loop
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException
+from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides, calculate_dot_strides)
+    calculate_broadcast_strides)
 
 
 class BaseConcreteArray(object):
+    _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
+                          'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
 
@@ -283,17 +286,9 @@ class BaseConcreteArray(object):
                                             self.get_backstrides(),
                                             self.get_shape(), shape,
                                             backward_broadcast)
-            return iter.MultiDimViewIterator(self, self.start,
-                                             r[0], r[1], shape)
-        return iter.ArrayIterator(self)
-
-    def create_axis_iter(self, shape, dim, cum):
-        return iter.AxisIterator(self, shape, dim, cum)
-
-    def create_dot_iter(self, shape, skip):
-        r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),
-                                  shape, skip)
-        return iter.MultiDimViewIterator(self, self.start, r[0], r[1], shape)
+            return ArrayIter(self, support.product(shape), shape, r[0], r[1])
+        return ArrayIter(self, self.get_size(), self.shape,
+                         self.strides, self.backstrides)
 
     def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
@@ -357,6 +352,8 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                           orig_array)
 
     def set_dtype(self, space, dtype):
+        # size/shape/strides shouldn't change
+        assert dtype.elsize == self.dtype.elsize
         self.dtype = dtype
 
     def argsort(self, space, w_axis):

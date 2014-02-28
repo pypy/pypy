@@ -286,12 +286,6 @@ class __extend__(W_NDimArray):
         return self.implementation.create_iter(
             shape=shape, backward_broadcast=backward_broadcast)
 
-    def create_axis_iter(self, shape, dim, cum):
-        return self.implementation.create_axis_iter(shape, dim, cum)
-
-    def create_dot_iter(self, shape, skip):
-        return self.implementation.create_dot_iter(shape, skip)
-
     def is_scalar(self):
         return len(self.get_shape()) == 0
 

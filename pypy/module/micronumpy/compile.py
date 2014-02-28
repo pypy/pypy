@@ -9,7 +9,7 @@ from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
 from pypy.module.micronumpy import boxes, ufuncs
 from pypy.module.micronumpy.arrayops import where
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 
