@@ -118,17 +118,17 @@ class ArrayIter(object):
         if step == 0:
             return
         self.index += step
-        for i in xrange(len(self.shape_m1) - 1, -1, -1):
+        for i in xrange(self.ndim_m1, -1, -1):
             if self.indices[i] < (self.shape_m1[i] + 1) - step:
                 self.indices[i] += step
                 self.offset += self.strides[i] * step
                 break
             else:
-                remaining_step = (self.indices[i] + step) // (self.shape_m1[i] + 1)
-                this_i_step = step - remaining_step * (self.shape_m1[i] + 1)
-                self.indices[i] = self.indices[i] + this_i_step
-                self.offset += self.strides[i] * this_i_step
-                step = remaining_step
+                rem_step = (self.indices[i] + step) // (self.shape_m1[i] + 1)
+                cur_step = step - rem_step * (self.shape_m1[i] + 1)
+                self.indices[i] += cur_step
+                self.offset += self.strides[i] * cur_step
+                step = rem_step
                 assert step > 0
 
     def done(self):

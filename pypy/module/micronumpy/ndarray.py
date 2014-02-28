@@ -127,11 +127,11 @@ class __extend__(W_NDimArray):
                 "index out of range for array"))
         size = loop.count_all_true(idx)
         if size > val.get_size() and val.get_size() != 1:
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise oefmt(space.w_ValueError,
                 "NumPy boolean array indexing assignment "
                 "cannot assign %d input values to "
-                "the %d output values where the mask is true" %
-                (val.get_size(), size)))
+                "the %d output values where the mask is true",
+                val.get_size(), size)
         loop.setitem_filter(space, self, idx, val)
 
     def _prepare_array_index(self, space, w_index):
@@ -994,14 +994,14 @@ class __extend__(W_NDimArray):
     def _reduce_argmax_argmin_impl(op_name):
         def impl(self, space, w_axis=None, w_out=None):
             if not space.is_none(w_axis):
-                raise OperationError(space.w_NotImplementedError, space.wrap(
-                    "axis unsupported for %s" % op_name))
+                raise oefmt(space.w_NotImplementedError,
+                    "axis unsupported for %s", op_name)
             if not space.is_none(w_out):
-                raise OperationError(space.w_NotImplementedError, space.wrap(
-                    "out unsupported for %s" % op_name))
+                raise oefmt(space.w_NotImplementedError,
+                    "out unsupported for %s", op_name)
             if self.get_size() == 0:
-                raise OperationError(space.w_ValueError,
-                    space.wrap("Can't call %s on zero-size arrays" % op_name))
+                raise oefmt(space.w_ValueError,
+                    "Can't call %s on zero-size arrays", op_name)
             op = getattr(loop, op_name)
             try:
                 res = op(self)
@@ -1096,15 +1096,16 @@ class __extend__(W_NDimArray):
         elif lens == 4:
             base_index = 0
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                 "__setstate__ called with len(args[1])==%d, not 5 or 4" % lens))
+            raise oefmt(space.w_ValueError,
+                "__setstate__ called with len(args[1])==%d, not 5 or 4", lens)
         shape = space.getitem(w_state, space.wrap(base_index))
         dtype = space.getitem(w_state, space.wrap(base_index+1))
         #isfortran = space.getitem(w_state, space.wrap(base_index+2))
         storage = space.getitem(w_state, space.wrap(base_index+3))
         if not isinstance(dtype, descriptor.W_Dtype):
-            raise OperationError(space.w_ValueError, space.wrap(
-                 "__setstate__(self, (shape, dtype, .. called with improper dtype '%r'" % dtype))
+            raise oefmt(space.w_ValueError,
+                "__setstate__(self, (shape, dtype, .. called with "
+                "improper dtype '%R'", dtype)
         self.implementation = W_NDimArray.from_shape_and_storage(space,
                 [space.int_w(i) for i in space.listview(shape)],
                 rffi.str2charp(space.str_w(storage), track_allocation=False),

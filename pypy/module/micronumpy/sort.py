@@ -146,8 +146,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             if axis < 0:
                 axis = len(shape) + axis
             if axis < 0 or axis >= len(shape):
-                raise OperationError(space.w_IndexError, space.wrap(
-                                                    "Wrong axis %d" % axis))
+                raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
             arr_iter = AllButAxisIter(arr, axis)
             index_impl = index_arr.implementation
             index_iter = AllButAxisIter(index_impl, axis)
@@ -291,8 +290,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             if axis < 0:
                 axis = len(shape) + axis
             if axis < 0 or axis >= len(shape):
-                raise OperationError(space.w_IndexError, space.wrap(
-                                                    "Wrong axis %d" % axis))
+                raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
             arr_iter = AllButAxisIter(arr, axis)
             stride_size = arr.strides[axis]
             axis_size = arr.shape[axis]

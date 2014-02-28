@@ -191,8 +191,7 @@ class BaseConcreteArray(object):
                         count -= 1
                 if count == shape_len:
                     raise IndexError # but it's still not a single item
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("invalid index"))
+                raise oefmt(space.w_IndexError, "invalid index")
             # check for arrays
             for w_item in view_w:
                 if (isinstance(w_item, W_NDimArray) or
@@ -212,8 +211,7 @@ class BaseConcreteArray(object):
             idx = space.str_w(w_idx)
             dtype = self.dtype
             if not dtype.is_record() or idx not in dtype.fields:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "field named %s not found" % idx))
+                raise oefmt(space.w_ValueError, "field named %s not found", idx)
             return RecordChunk(idx)
         elif (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
@@ -455,8 +453,8 @@ class SliceArray(BaseConcreteArray):
                                        self.get_strides(),
                                        self.order)
         if new_strides is None:
-            raise OperationError(space.w_AttributeError, space.wrap(
-                          "incompatible shape for a non-contiguous array"))
+            raise oefmt(space.w_AttributeError,
+                "incompatible shape for a non-contiguous array")
         new_backstrides = [0] * len(new_shape)
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]

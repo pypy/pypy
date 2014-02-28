@@ -310,16 +310,15 @@ class W_Ufunc1(W_Ufunc):
         if (self.int_only and not dtype.is_int() or
                 not self.allow_bool and dtype.is_bool() or
                 not self.allow_complex and dtype.is_complex()):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "ufunc %s not supported for the input type" % self.name))
+            raise oefmt(space.w_TypeError,
+                "ufunc %s not supported for the input type", self.name)
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
                                   promote_bools=self.promote_bools)
         if out is not None:
             if not isinstance(out, W_NDimArray):
-                raise OperationError(space.w_TypeError, space.wrap(
-                                                'output must be an array'))
+                raise oefmt(space.w_TypeError, 'output must be an array')
             res_dtype = out.get_dtype()
             #if not w_obj.get_dtype().can_cast_to(res_dtype):
             #    raise oefmt(space.w_TypeError,
@@ -424,13 +423,12 @@ class W_Ufunc2(W_Ufunc):
                                          w_rdtype.is_bool()) or
                 not self.allow_complex and (w_ldtype.is_complex() or
                                             w_rdtype.is_complex())):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "ufunc '%s' not supported for the input types" % self.name))
+            raise oefmt(space.w_TypeError,
+                "ufunc '%s' not supported for the input types", self.name)
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                    'output must be an array'))
+            raise oefmt(space.w_TypeError, 'output must be an array')
         else:
             out = w_out
             calc_dtype = out.get_dtype()
@@ -578,7 +576,8 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
             return descriptor.get_dtype_cache(space).w_float64dtype
         for bytes, dtype in descriptor.get_dtype_cache(space).float_dtypes_by_num_bytes:
             if (dtype.kind == NPY.FLOATINGLTR and
-                dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
+                    dtype.itemtype.get_element_size() >
+                    dt.itemtype.get_element_size()):
                 return dtype
     return dt
 
@@ -763,7 +762,7 @@ class UfuncState(object):
         identity = extra_kwargs.get("identity")
         if identity is not None:
             identity = \
-                 descriptor.get_dtype_cache(space).w_longdtype.box(identity)
+                descriptor.get_dtype_cache(space).w_longdtype.box(identity)
         extra_kwargs["identity"] = identity
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,

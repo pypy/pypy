@@ -18,7 +18,6 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 
-
 MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (W_IntObject.typedef,) if LONG_BIT == 64 else ()
 
@@ -474,16 +473,13 @@ class W_VoidBox(W_FlexibleBox):
             except IndexError:
                 if indx < 0:
                     indx += len(self.dtype.names)
-                raise OperationError(space.w_IndexError, space.wrap(
-                    "invalid index (%d)" % indx))
+                raise oefmt(space.w_IndexError, "invalid index (%d)", indx)
         else:
-            raise OperationError(space.w_IndexError, space.wrap(
-                "invalid index"))
+            raise oefmt(space.w_IndexError, "invalid index")
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise OperationError(space.w_IndexError, space.wrap(
-                "invalid index"))
+            raise oefmt(space.w_IndexError, "invalid index")
 
         from pypy.module.micronumpy.types import VoidType
         if isinstance(dtype.itemtype, VoidType):
@@ -499,13 +495,11 @@ class W_VoidBox(W_FlexibleBox):
         if space.isinstance_w(w_item, space.w_basestring):
             item = space.str_w(w_item)
         else:
-            raise OperationError(space.w_IndexError, space.wrap(
-                "invalid index"))
+            raise oefmt(space.w_IndexError, "invalid index")
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("field named %s not found" % item))
+            raise oefmt(space.w_ValueError, "field named %s not found", item)
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
@@ -531,10 +525,8 @@ class W_StringBox(W_CharacterBox):
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
-        raise OperationError(space.w_NotImplementedError, space.wrap("Unicode is not supported yet"))
-
+        raise oefmt(space.w_NotImplementedError, "Unicode is not supported yet")
         from pypy.module.micronumpy.descriptor import new_unicode_dtype
-
         arg = space.unicode_w(space.unicode_from_object(w_arg))
         # XXX size computations, we need tests anyway
         arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
@@ -542,6 +534,7 @@ class W_UnicodeBox(W_CharacterBox):
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
+
 
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpy",

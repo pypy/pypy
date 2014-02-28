@@ -295,16 +295,16 @@ class W_Dtype(W_Root):
             try:
                 item = self.names[indx]
             except IndexError:
-                raise OperationError(space.w_IndexError, space.wrap(
-                    "Field index %d out of range." % indx))
+                raise oefmt(space.w_IndexError,
+                    "Field index %d out of range.", indx)
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Field key must be an integer, string, or unicode."))
+            raise oefmt(space.w_ValueError,
+                "Field key must be an integer, string, or unicode.")
         try:
             return self.fields[item][1]
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(
-                "Field named '%s' not found." % item))
+            raise oefmt(space.w_KeyError,
+                "Field named '%s' not found.", item)
 
     def descr_len(self, space):
         if not self.fields:
@@ -534,6 +534,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         raise oefmt(space.w_NotImplementedError,
             "cannot create dtype with type '%N'", w_dtype)
     raise oefmt(space.w_TypeError, "data type not understood")
+
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpy",

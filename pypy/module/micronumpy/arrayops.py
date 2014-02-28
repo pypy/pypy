@@ -8,7 +8,6 @@ from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
     shape_agreement_multiple
 
 
-
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
 
@@ -199,8 +198,7 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
     choices = [convert_to_array(space, w_item) for w_item
                in space.listview(w_choices)]
     if not choices:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("choices list cannot be empty"))
+        raise oefmt(space.w_ValueError, "choices list cannot be empty")
     if space.is_none(w_out):
         w_out = None
     elif not isinstance(w_out, W_NDimArray):
@@ -219,11 +217,9 @@ def put(space, w_arr, w_indices, w_values, w_mode):
     mode = clipmode_converter(space, w_mode)
 
     if not w_indices:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("indice list cannot be empty"))
+        raise oefmt(space.w_ValueError, "indices list cannot be empty")
     if not w_values:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("value list cannot be empty"))
+        raise oefmt(space.w_ValueError, "value list cannot be empty")
 
     dtype = arr.get_dtype()
 
@@ -243,8 +239,9 @@ def put(space, w_arr, w_indices, w_values, w_mode):
 
         if index < 0 or index >= arr.get_size():
             if mode == NPY.RAISE:
-                raise OperationError(space.w_IndexError, space.wrap(
-                    "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
+                raise oefmt(space.w_IndexError,
+                    "index %d is out of bounds for axis 0 with size %d",
+                    index, arr.get_size())
             elif mode == NPY.WRAP:
                 index = index % arr.get_size()
             elif mode == NPY.CLIP:
