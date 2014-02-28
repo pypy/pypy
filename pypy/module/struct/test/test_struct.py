@@ -7,7 +7,7 @@ from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
 class AppTestStruct(object):
-    spaceconfig = dict(usemodules=['struct', 'micronumpy'])
+    spaceconfig = dict(usemodules=['struct'])
 
     def setup_class(cls):
         """
@@ -19,7 +19,6 @@ class AppTestStruct(object):
             return struct
         """)
         cls.w_native_is_bigendian = cls.space.wrap(native_is_bigendian)
-        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_error(self):
         """
