@@ -11,7 +11,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides, calculate_dot_strides)
+    calculate_broadcast_strides)
 
 
 class BaseConcreteArray(object):
@@ -287,11 +287,6 @@ class BaseConcreteArray(object):
             return ArrayIter(self, support.product(shape), shape, r[0], r[1])
         return ArrayIter(self, self.get_size(), self.shape,
                          self.strides, self.backstrides)
-
-    def create_dot_iter(self, shape, skip):
-        r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),
-                                  shape, skip)
-        return ArrayIter(self, support.product(shape), shape, r[0], r[1])
 
     def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
