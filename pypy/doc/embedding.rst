@@ -45,6 +45,11 @@ is:
    You should really do your own error handling in the source. It'll acquire
    the GIL.
 
+.. function:: int pypy_execute_source_ptr(char* source, void* ptr);
+
+   Just like the above, except it registers a magic argument in the source
+   scope as ``c_argument``, where ``void*`` is encoded as Python int.
+
 .. function:: void pypy_thread_attach(void);
 
    In case your application uses threads that are initialized outside of PyPy,
@@ -141,12 +146,17 @@ you can compile and run it with::
    Calling to Python, result: 6
    finished the Python part
 
-
+As you can see, we successfully managed to call Python from C and C from
+Python. Now having one callback might not be enough, so what typically happens
+is that we would pass a struct full of callbacks to ``pypy_execute_source_ptr``
+and fill the structure from Python side for the future use.
 
 Threading
 ---------
 
-XXXX I don't understand what's going on, discuss with unbit
+In case you want to use pthreads, what you need to do is to call
+``pypy_thread_attach`` from each of the threads that you created (but not
+from the main thread) and call ``pypy_init_threads`` from the main thread.
 
 .. _`cffi`: http://cffi.readthedocs.org/
 .. _`uwsgi`: http://uwsgi-docs.readthedocs.org/en/latest/
