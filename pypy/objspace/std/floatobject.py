@@ -34,7 +34,16 @@ class W_FloatObject(W_AbstractFloatObject):
     def unwrap(self, space):
         return self.floatval
 
-    def float_w(self, space):
+    def int_w(self, space, allow_conversion=True):
+        self._typed_unwrap_error(space, "integer")
+
+    def bigint_w(self, space, allow_conversion=True):
+        self._typed_unwrap_error(space, "integer")
+
+    def float_w(self, space, allow_conversion=True):
+        return self.floatval
+
+    def _float_w(self, space):
         return self.floatval
 
     def int(self, space):

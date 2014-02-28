@@ -105,7 +105,6 @@ class NumberTestCase(unittest.TestCase):
             self.assertEqual(ArgType, type(parm))
 
 
-    @xfail
     def test_floats(self):
         # c_float and c_double can be created from
         # Python int, long and float

@@ -92,7 +92,7 @@ class W_Root(object):
         i = 2 * HUGEVAL_BYTES
         addrstring = [' '] * i
         while True:
-            n = space.int_w(space.and_(w_id, w_0x0F))
+            n = space.int_w(space.and_(w_id, w_0x0F), allow_conversion=False)
             n += ord('0')
             if n > ord('9'):
                 n += (ord('a') - ord('9') - 1)
@@ -201,16 +201,38 @@ class W_Root(object):
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "unicode")
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
+        # note that W_IntObject.int_w has a fast path and W_FloatObject.int_w
+        # raises w_TypeError
+        w_obj = self
+        if allow_conversion:
+            w_obj = space.int(self)
+        return w_obj._int_w(space)
+
+    def _int_w(self, space):
         self._typed_unwrap_error(space, "integer")
 
-    def float_w(self, space):
+    def float_w(self, space, allow_conversion=True):
+        w_obj = self
+        if allow_conversion:
+            w_obj = space.float(self)
+        return w_obj._float_w(space)
+
+    def _float_w(self, space):
         self._typed_unwrap_error(space, "float")
 
     def uint_w(self, space):
         self._typed_unwrap_error(space, "integer")
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
+        # note that W_IntObject and W_LongObject have fast paths,
+        # W_FloatObject.rbigint_w raises w_TypeError raises
+        w_obj = self
+        if allow_conversion:
+            w_obj = space.long(self)
+        return w_obj._bigint_w(space)
+
+    def _bigint_w(self, space):
         self._typed_unwrap_error(space, "integer")
 
     def _typed_unwrap_error(self, space, expected):
@@ -220,8 +242,7 @@ class W_Root(object):
     def int(self, space):
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
-            raise oefmt(space.w_TypeError,
-                        "unsupported operand type for int(): '%T'", self)
+            self._typed_unwrap_error(space, "integer")
         w_result = space.get_and_call_function(w_impl, self)
 
         if (space.isinstance_w(w_result, space.w_int) or
@@ -1210,7 +1231,7 @@ class ObjSpace(object):
             assert isinstance(w_index_or_slice, W_SliceObject)
             start, stop, step = w_index_or_slice.indices3(self, seqlength)
         else:
-            start = self.int_w(w_index_or_slice)
+            start = self.int_w(w_index_or_slice, allow_conversion=False)
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
@@ -1231,7 +1252,7 @@ class ObjSpace(object):
             start, stop, step, length = w_index_or_slice.indices4(self,
                                                                   seqlength)
         else:
-            start = self.int_w(w_index_or_slice)
+            start = self.int_w(w_index_or_slice, allow_conversion=False)
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
@@ -1255,7 +1276,10 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError, "%s must be an integer, not %T",
                         objdescr, w_obj)
         try:
-            index = self.int_w(w_index)
+            # allow_conversion=False it's not really necessary because the
+            # return type of __index__ is already checked by space.index(),
+            # but there is no reason to allow conversions anyway
+            index = self.int_w(w_index, allow_conversion=False)
         except OperationError, err:
             if not err.match(self, self.w_OverflowError):
                 raise
@@ -1272,16 +1296,16 @@ class ObjSpace(object):
         else:
             return index
 
-    def r_longlong_w(self, w_obj):
-        bigint = self.bigint_w(w_obj)
+    def r_longlong_w(self, w_obj, allow_conversion=True):
+        bigint = self.bigint_w(w_obj, allow_conversion)
         try:
             return bigint.tolonglong()
         except OverflowError:
             raise OperationError(self.w_OverflowError,
                                  self.wrap('integer too large'))
 
-    def r_ulonglong_w(self, w_obj):
-        bigint = self.bigint_w(w_obj)
+    def r_ulonglong_w(self, w_obj, allow_conversion=True):
+        bigint = self.bigint_w(w_obj, allow_conversion)
         try:
             return bigint.toulonglong()
         except OverflowError:
@@ -1348,8 +1372,19 @@ class ObjSpace(object):
                     'argument must be a string without NUL characters'))
         return rstring.assert_str0(result)
 
-    def int_w(self, w_obj):
-        return w_obj.int_w(self)
+    def int_w(self, w_obj, allow_conversion=True):
+        """
+        Unwrap an app-level int object into an interpret-level int.
+
+        If allow_conversion==True, w_obj might be of any type which implements
+        __int__, *except* floats which are explicitly rejected. This is the
+        same logic as CPython's PyArg_ParseTuple. If you want to also allow
+        floats, you can call space.int_w(space.int(w_obj)).
+
+        If allow_conversion=False, w_obj needs to be an app-level int or a
+        subclass.
+        """
+        return w_obj.int_w(self, allow_conversion)
 
     def int(self, w_obj):
         return w_obj.int(self)
@@ -1357,11 +1392,19 @@ class ObjSpace(object):
     def uint_w(self, w_obj):
         return w_obj.uint_w(self)
 
-    def bigint_w(self, w_obj):
-        return w_obj.bigint_w(self)
+    def bigint_w(self, w_obj, allow_conversion=True):
+        """
+        Like int_w, but return a rlib.rbigint object and call __long__ if
+        allow_conversion is True.
+        """
+        return w_obj.bigint_w(self, allow_conversion)
 
-    def float_w(self, w_obj):
-        return w_obj.float_w(self)
+    def float_w(self, w_obj, allow_conversion=True):
+        """
+        Like int_w, but return an interp-level float and call __float__ if
+        allow_conversion is True.
+        """
+        return w_obj.float_w(self, allow_conversion)
 
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
@@ -1399,32 +1442,16 @@ class ObjSpace(object):
         return w_obj.ord(self)
 
     # This is all interface for gateway.py.
-    def gateway_int_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_float):
-            raise OperationError(self.w_TypeError,
-                            self.wrap("integer argument expected, got float"))
-        return self.int_w(self.int(w_obj))
-
-    def gateway_float_w(self, w_obj):
-        return self.float_w(self.float(w_obj))
-
-    def gateway_r_longlong_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_float):
-            raise OperationError(self.w_TypeError,
-                            self.wrap("integer argument expected, got float"))
-        return self.r_longlong_w(self.int(w_obj))
+    gateway_int_w = int_w
+    gateway_float_w = float_w
+    gateway_r_longlong_w = r_longlong_w
+    gateway_r_ulonglong_w = r_ulonglong_w
 
     def gateway_r_uint_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_float):
             raise OperationError(self.w_TypeError,
                             self.wrap("integer argument expected, got float"))
         return self.uint_w(self.int(w_obj))
-
-    def gateway_r_ulonglong_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_float):
-            raise OperationError(self.w_TypeError,
-                            self.wrap("integer argument expected, got float"))
-        return self.r_ulonglong_w(self.int(w_obj))
 
     def gateway_nonnegint_w(self, w_obj):
         # Like space.gateway_int_w(), but raises an app-level ValueError if
@@ -1447,7 +1474,7 @@ class ObjSpace(object):
     def c_uint_w(self, w_obj):
         # Like space.gateway_uint_w(), but raises an app-level OverflowError if
         # the integer does not fit in 32 bits.  Here for gateway.py.
-        value = self.gateway_r_uint_w(w_obj)
+        value = self.uint_w(w_obj)
         if value > UINT_MAX_32_BITS:
             raise OperationError(self.w_OverflowError,
                               self.wrap("expected an unsigned 32-bit integer"))
@@ -1457,7 +1484,7 @@ class ObjSpace(object):
         # Like space.gateway_int_w(), but raises an app-level ValueError if
         # the integer is negative or does not fit in 32 bits.  Here
         # for gateway.py.
-        value = self.gateway_int_w(w_obj)
+        value = self.int_w(w_obj)
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
@@ -1466,22 +1493,22 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
-    def truncatedint_w(self, w_obj):
+    def truncatedint_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
         try:
-            return self.int_w(w_obj)
+            return self.int_w(w_obj, allow_conversion)
         except OperationError, e:
             if not e.match(self, self.w_OverflowError):
                 raise
             from rpython.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
 
-    def truncatedlonglong_w(self, w_obj):
+    def truncatedlonglong_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_r_longlong_w(), but return the integer truncated
         # instead of raising OverflowError.
         try:
-            return self.r_longlong_w(w_obj)
+            return self.r_longlong_w(w_obj, allow_conversion)
         except OperationError, e:
             if not e.match(self, self.w_OverflowError):
                 raise

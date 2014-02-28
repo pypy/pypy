@@ -842,6 +842,26 @@ class AppTestW_ListObject(object):
         except TypeError:
             pass
 
+    def test_mul___index__(self):
+        class MyInt(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __int__(self):
+            return self.x
+
+        class MyIndex(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __index__(self):
+            return self.x
+
+        assert [0] * MyIndex(3) == [0, 0, 0]
+        raises(TypeError, "[0]*MyInt(3)")
+        raises(TypeError, "[0]*MyIndex(MyInt(3))")
+
+
     def test_index(self):
         c = range(10)
         assert c.index(0) == 0

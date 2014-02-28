@@ -42,7 +42,8 @@ class W_AbstractIntObject(W_Root):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        return space.int_w(self) == space.int_w(w_other)
+        return (space.int_w(self, allow_conversion=False) ==
+                space.int_w(w_other, allow_conversion=False))
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -309,9 +310,13 @@ class W_IntObject(W_AbstractIntObject):
         """representation for debugging purposes"""
         return "%s(%d)" % (self.__class__.__name__, self.intval)
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return int(self.intval)
-    unwrap = int_w
+
+    def _int_w(self, space):
+        return int(self.intval)
+
+    unwrap = _int_w
 
     def uint_w(self, space):
         intval = self.intval
@@ -320,11 +325,17 @@ class W_IntObject(W_AbstractIntObject):
                         "cannot convert negative integer to unsigned")
         return r_uint(intval)
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         return rbigint.fromint(self.intval)
 
-    def float_w(self, space):
+    def _bigint_w(self, space):
+        return rbigint.fromint(self.intval)
+
+    def float_w(self, space, allow_conversion=True):
         return float(self.intval)
+
+    # note that we do NOT implement _float_w, because __float__ cannot return
+    # an int
 
     def int(self, space):
         if type(self) is W_IntObject:
@@ -665,7 +676,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             # int_w is effectively what we want in this case,
             # we cannot construct a subclass of int instance with an
             # an overflowing long
-            value = space.int_w(w_obj)
+            value = space.int_w(w_obj, allow_conversion=False)
         elif space.isinstance_w(w_value, space.w_str):
             value, w_longval = _string_to_int_or_long(space, w_value,
                                                       space.str_w(w_value))
