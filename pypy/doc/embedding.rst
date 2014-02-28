@@ -38,13 +38,13 @@ is:
 
    * ``verbose``: if non-zero, would print error messages to stderr
 
-   Function returns 0 on success or 1 on failure, can be called multiple times
+   Function returns 0 on success or -1 on failure, can be called multiple times
    until the library is found.
 
 .. function:: int pypy_execute_source(char* source);
 
    Execute the source code given in the ``source`` argument. Will print
-   the error message to stderr upon failure and return 1, otherwise returns 0.
+   the error message to stderr upon failure and return -1, otherwise returns 0.
    You should really do your own error handling in the source. It'll acquire
    the GIL.
 

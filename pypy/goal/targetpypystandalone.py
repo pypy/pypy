@@ -117,7 +117,7 @@ def create_entry_point(space, w_dict):
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
-            return 1
+            return -1
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
@@ -175,7 +175,7 @@ def create_entry_point(space, w_dict):
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
-            return 1
+            return -1
         return 0
 
     return entry_point, {'pypy_execute_source': pypy_execute_source,
