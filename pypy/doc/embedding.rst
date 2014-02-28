@@ -67,9 +67,10 @@ Simple example
 Note that this API is a lot more minimal than say CPython C API, so at first
 it's obvious to think that you can't do much. However, the trick is to do
 all the logic in Python and expose it via `cffi`_ callbacks. Let's assume
-we're on linux and pypy is put in ``/opt/pypy`` (a source checkout) and
-library is in ``/opt/pypy/libpypy-c.so``. We write a little C program
-(for simplicity assuming that all operations will be performed::
+we're on linux and pypy is installed in ``/opt/pypy`` with the
+library in ``/opt/pypy/bin/libpypy-c.so``.  (It doesn't need to be
+installed; you can also replace this path with your local checkout.)
+We write a little C program::
 
   #include "include/PyPy.h"
   #include <stdio.h>
@@ -81,6 +82,7 @@ library is in ``/opt/pypy/libpypy-c.so``. We write a little C program
     int res;
 
     rpython_startup_code();
+    // pypy_setup_home() is not needed in this trivial example
     res = pypy_execute_source((char*)source);
     if (res) {
       printf("Error calling pypy_execute_source!\n");
@@ -130,7 +132,7 @@ embedding interface::
             void *lib, *func;
 
             rpython_startup_code();
-            res = pypy_setup_home("/opt/pypy/pypy/libpypy-c.so", 1);
+            res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
             if (res) {
                 printf("Error setting pypy home!\n");
                 return 1;
