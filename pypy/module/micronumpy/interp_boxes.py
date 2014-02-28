@@ -173,6 +173,7 @@ class W_GenericBox(W_Root):
         return space.long(box.item(space))
 
     def descr_float(self, space):
+        import pdb;pdb.set_trace()
         box = self.convert_to(space, W_Float64Box._get_dtype(space))
         return space.float(box.item(space))
 
