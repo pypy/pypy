@@ -3,7 +3,7 @@ import sys, os
 import types
 import subprocess
 import py
-from lib_pypy import disassembler
+from rpython.tool import disassembler
 from rpython.tool.udir import udir
 from rpython.tool import logparser
 from rpython.jit.tool.jitoutput import parse_prof
@@ -129,7 +129,7 @@ class TestLog(object):
 class TestOpMatcher_(object):
 
     def match(self, src1, src2, **kwds):
-        from pypy.tool.jitlogparser.parser import SimpleParser
+        from rpython.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
         matcher = OpMatcher(loop.operations)
         try:

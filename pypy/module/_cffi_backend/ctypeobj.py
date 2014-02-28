@@ -14,6 +14,8 @@ class W_CType(W_Root):
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
+    # XXX this could be improved with an elidable method get_size()
+    # that raises in case it's still -1...
 
     cast_anything = False
     is_primitive_integer = False

@@ -168,7 +168,7 @@ class W_Ufunc(W_Root):
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
-        if obj.get_dtype().is_flexible_type():
+        if obj.get_dtype().is_flexible():
             raise OperationError(space.w_TypeError,
                       space.wrap('cannot perform reduce with flexible type'))
         obj_shape = obj.get_shape()
@@ -287,12 +287,12 @@ class W_Ufunc1(W_Ufunc):
                 out = None
         w_obj = convert_to_array(space, w_obj)
         dtype = w_obj.get_dtype()
-        if dtype.is_flexible_type():
+        if dtype.is_flexible():
             raise OperationError(space.w_TypeError,
                       space.wrap('Not implemented for this type'))
-        if (self.int_only and not dtype.is_int_type() or
-                not self.allow_bool and dtype.is_bool_type() or
-                not self.allow_complex and dtype.is_complex_type()):
+        if (self.int_only and not dtype.is_int() or
+                not self.allow_bool and dtype.is_bool() or
+                not self.allow_complex and dtype.is_complex()):
             raise OperationError(space.w_TypeError, space.wrap(
                 "ufunc %s not supported for the input type" % self.name))
         calc_dtype = find_unaryop_result_dtype(space,
@@ -311,7 +311,7 @@ class W_Ufunc1(W_Ufunc):
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
-            if self.complex_to_float and calc_dtype.is_complex_type():
+            if self.complex_to_float and calc_dtype.is_complex():
                 if calc_dtype.num == NPY.CFLOAT:
                     res_dtype = interp_dtype.get_dtype_cache(space).w_float32dtype
                 else:
@@ -351,11 +351,11 @@ class W_Ufunc2(W_Ufunc):
             self.done_func = None
 
     def are_common_types(self, dtype1, dtype2):
-        if dtype1.is_complex_type() and dtype2.is_complex_type():
-            return True
-        elif not (dtype1.is_complex_type() or dtype2.is_complex_type()) and \
-                (dtype1.is_int_type() and dtype2.is_int_type() or dtype1.is_float_type() and dtype2.is_float_type()) and \
-                not (dtype1.is_bool_type() or dtype2.is_bool_type()):
+        if dtype1.is_bool() or dtype2.is_bool():
+            return False
+        if (dtype1.is_int() and dtype2.is_int() or
+                dtype1.is_float() and dtype2.is_float() or
+                dtype1.is_complex() and dtype2.is_complex()):
             return True
         return False
 
@@ -370,13 +370,13 @@ class W_Ufunc2(W_Ufunc):
         w_rhs = convert_to_array(space, w_rhs)
         w_ldtype = w_lhs.get_dtype()
         w_rdtype = w_rhs.get_dtype()
-        if w_ldtype.is_str_type() and w_rdtype.is_str_type() and \
+        if w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.comparison_func:
             pass
-        elif (w_ldtype.is_str_type() or w_rdtype.is_str_type()) and \
+        elif (w_ldtype.is_str() or w_rdtype.is_str()) and \
                 self.comparison_func and w_out is None:
             return space.wrap(False)
-        elif w_ldtype.is_flexible_type() or w_rdtype.is_flexible_type():
+        elif w_ldtype.is_flexible() or w_rdtype.is_flexible():
             if self.comparison_func:
                 if self.name == 'equal' or self.name == 'not_equal':
                     res = w_ldtype.eq(space, w_rdtype)
@@ -386,8 +386,9 @@ class W_Ufunc2(W_Ufunc):
                     return space.w_NotImplemented
             else:
                 raise oefmt(space.w_TypeError,
-                    'unsupported operand dtypes %s and %s for "%s"',
-                    w_rdtype.name, w_ldtype.name, self.name)
+                            'unsupported operand dtypes %s and %s for "%s"',
+                            w_rdtype.get_name(), w_ldtype.get_name(),
+                            self.name)
 
         if self.are_common_types(w_ldtype, w_rdtype):
             if not w_lhs.is_scalar() and w_rhs.is_scalar():
@@ -398,13 +399,13 @@ class W_Ufunc2(W_Ufunc):
             w_ldtype, w_rdtype,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools)
-        if (self.int_only and (not w_ldtype.is_int_type() or
-                               not w_rdtype.is_int_type() or
-                               not calc_dtype.is_int_type()) or
-                not self.allow_bool and (w_ldtype.is_bool_type() or
-                                         w_rdtype.is_bool_type()) or
-                not self.allow_complex and (w_ldtype.is_complex_type() or
-                                            w_rdtype.is_complex_type())):
+        if (self.int_only and (not w_ldtype.is_int() or
+                               not w_rdtype.is_int() or
+                               not calc_dtype.is_int()) or
+                not self.allow_bool and (w_ldtype.is_bool() or
+                                         w_rdtype.is_bool()) or
+                not self.allow_complex and (w_ldtype.is_complex() or
+                                            w_rdtype.is_complex())):
             raise OperationError(space.w_TypeError, space.wrap(
                 "ufunc '%s' not supported for the input types" % self.name))
         if space.is_none(w_out):
@@ -466,7 +467,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return interp_dtype.get_dtype_cache(space).w_int8dtype
 
     # Everything numeric promotes to complex
-    if dt2.is_complex_type() or dt1.is_complex_type():
+    if dt2.is_complex() or dt1.is_complex():
         if dt2.num == NPY.HALF:
             dt1, dt2 = dt2, dt1
         if dt2.num == NPY.CFLOAT:
@@ -487,7 +488,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
-    if dt1.kind == dt2.kind and not dt2.is_flexible_type():
+    if dt1.kind == dt2.kind and not dt2.is_flexible():
         if dt2.num == NPY.HALF:
             return dt1
         return dt2
@@ -512,13 +513,13 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     elif dt2.num == NPY.ULONGLONG or (LONG_BIT == 64 and dt2.num == NPY.ULONG):
         # UInt64 + signed = Float64
         dtypenum = NPY.DOUBLE
-    elif dt2.is_flexible_type():
+    elif dt2.is_flexible():
         # For those operations that get here (concatenate, stack),
         # flexible types take precedence over numeric type
-        if dt2.is_record_type():
+        if dt2.is_record():
             return dt2
         if dt1.is_str_or_unicode():
-            if dt2.get_size() >= dt1.get_size():
+            if dt2.elsize >= dt1.elsize:
                 return dt2
             return dt1
         return dt2
@@ -541,10 +542,10 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
     if promote_to_largest:
         if dt.kind == NPY.GENBOOLLTR or dt.kind == NPY.SIGNEDLTR:
-            if dt.get_size() * 8 < LONG_BIT:
+            if dt.elsize * 8 < LONG_BIT:
                 return interp_dtype.get_dtype_cache(space).w_longdtype
         elif dt.kind == NPY.UNSIGNEDLTR:
-            if dt.get_size() * 8 < LONG_BIT:
+            if dt.elsize * 8 < LONG_BIT:
                 return interp_dtype.get_dtype_cache(space).w_ulongdtype
         else:
             assert dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR
@@ -595,7 +596,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             return interp_dtype.variable_dtype(space,
                                                'S%d' % space.len_w(w_obj))
         elif current_guess.num == NPY.STRING:
-            if current_guess.get_size() < space.len_w(w_obj):
+            if current_guess.elsize < space.len_w(w_obj):
                 return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
@@ -612,7 +613,7 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
         except AttributeError:
             raise oefmt(space.w_NotImplementedError,
                         "%s not implemented for %s",
-                        ufunc_name, dtype.name)
+                        ufunc_name, dtype.get_name())
     if argcount == 1:
         def impl(res_dtype, value):
             res = get_op(res_dtype)(value)

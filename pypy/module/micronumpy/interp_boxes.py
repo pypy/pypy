@@ -16,7 +16,7 @@ from pypy.module.micronumpy.interp_flagsobj import W_FlagsObject
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 from pypy.module.micronumpy import constants as NPY
 
 
@@ -33,13 +33,13 @@ MIXIN_64 = (W_IntObject.typedef,) if LONG_BIT == 64 else ()
 long_double_size = 8
 
 
-def new_dtype_getter(name):
-    @jit.elidable
+def new_dtype_getter(num):
+    @specialize.memo()
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-        return get_dtype_cache(space).dtypes_by_name[name]
+        return get_dtype_cache(space).dtypes_by_num[num]
 
-    def new(space, w_subtype, w_value=None):
+    def descr__new__(space, w_subtype, w_value=None):
         from pypy.module.micronumpy.interp_numarray import array
         dtype = _get_dtype(space)
         if not space.is_none(w_value):
@@ -52,7 +52,9 @@ def new_dtype_getter(name):
     def descr_reduce(self, space):
         return self.reduce(space)
 
-    return func_with_new_name(new, name + "_box_new"), staticmethod(_get_dtype), func_with_new_name(descr_reduce, "descr_reduce")
+    return (func_with_new_name(descr__new__, 'descr__new__%d' % num),
+            staticmethod(_get_dtype),
+            descr_reduce)
 
 
 class Box(object):
@@ -303,15 +305,15 @@ class W_GenericBox(W_Root):
         else:
             dtype = space.interp_w(W_Dtype,
                 space.call_function(space.gettypefor(W_Dtype), w_dtype))
-            if dtype.get_size() == 0:
+            if dtype.elsize == 0:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "data-type must not be 0-sized"))
-            if dtype.get_size() != self.get_dtype(space).get_size():
+            if dtype.elsize != self.get_dtype(space).elsize:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array."))
         if dtype.is_str_or_unicode():
             return dtype.coerce(space, space.wrap(self.raw_str()))
-        elif dtype.is_record_type():
+        elif dtype.is_record():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "viewing scalar as record not implemented"))
         else:
@@ -327,7 +329,7 @@ class W_GenericBox(W_Root):
         return space.wrap(1)
 
     def descr_get_itemsize(self, space):
-        return self.get_dtype(space).descr_get_itemsize(space)
+        return space.wrap(self.get_dtype(space).elsize)
 
     def descr_get_shape(self, space):
         return space.newtuple([])
@@ -352,6 +354,12 @@ class W_GenericBox(W_Root):
         w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
         return space.call_args(w_meth, __args__)
 
+    def descr_get_real(self, space):
+        return self.get_dtype(space).itemtype.real(self)
+
+    def descr_get_imag(self, space):
+        return self.get_dtype(space).itemtype.imag(self)
+
     w_flags = None
     def descr_get_flags(self, space):
         if self.w_flags is None:
@@ -359,7 +367,7 @@ class W_GenericBox(W_Root):
         return self.w_flags
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.BOOL)
 
 class W_NumberBox(W_GenericBox):
     pass
@@ -375,34 +383,34 @@ class W_UnsignedIntegerBox(W_IntegerBox):
     pass
 
 class W_Int8Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("int8")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.BYTE)
 
 class W_UInt8Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("uint8")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.UBYTE)
 
 class W_Int16Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("int16")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.SHORT)
 
 class W_UInt16Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("uint16")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.USHORT)
 
 class W_Int32Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("i")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.INT)
 
 class W_UInt32Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("I")
-
-class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("q")
-
-class W_UInt64Box(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("Q")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.UINT)
 
 class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("l")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONG)
 
 class W_ULongBox(W_UnsignedIntegerBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("L")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.ULONG)
+
+class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGLONG)
+
+class W_UInt64Box(W_UnsignedIntegerBox, PrimitiveBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.ULONGLONG)
 
 class W_InexactBox(W_NumberBox):
     pass
@@ -411,45 +419,32 @@ class W_FloatingBox(W_InexactBox):
     pass
 
 class W_Float16Box(W_FloatingBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float16")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.HALF)
 
 class W_Float32Box(W_FloatingBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float32")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.FLOAT)
 
 class W_Float64Box(W_FloatingBox, PrimitiveBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float64")
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.DOUBLE)
 
     def descr_as_integer_ratio(self, space):
         return space.call_method(self.item(space), 'as_integer_ratio')
 
 class W_ComplexFloatingBox(W_InexactBox):
-    def descr_get_real(self, space):
-        dtype = self._COMPONENTS_BOX._get_dtype(space)
-        box = self.convert_real_to(dtype)
-        assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box)
-
-    def descr_get_imag(self, space):
-        dtype = self._COMPONENTS_BOX._get_dtype(space)
-        box = self.convert_imag_to(dtype)
-        assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box)
+    pass
 
 class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex64")
-    _COMPONENTS_BOX = W_Float32Box
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CFLOAT)
 
 class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
-    descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex128")
-    _COMPONENTS_BOX = W_Float64Box
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CDOUBLE)
 
 if long_double_size in (8, 12, 16):
     class W_FloatLongBox(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGDOUBLELTR)
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.LONGDOUBLE)
 
     class W_ComplexLongBox(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CLONGDOUBLELTR)
-        _COMPONENTS_BOX = W_FloatLongBox
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.CLONGDOUBLE)
 
 class W_FlexibleBox(W_GenericBox):
     _attrs_ = ['arr', 'ofs', 'dtype']
@@ -635,6 +630,8 @@ W_GenericBox.typedef = TypeDef("generic",
     strides = GetSetProperty(W_GenericBox.descr_get_shape),
     ndim = GetSetProperty(W_GenericBox.descr_get_ndim),
     T = GetSetProperty(W_GenericBox.descr_self),
+    real = GetSetProperty(W_GenericBox.descr_get_real),
+    imag = GetSetProperty(W_GenericBox.descr_get_imag),
     flags = GetSetProperty(W_GenericBox.descr_get_flags),
 )
 
@@ -768,16 +765,12 @@ W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex64Box.descr_reduce),
     __complex__ = interp2app(W_GenericBox.item),
-    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
 W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
     __module__ = "numpy",
     __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex128Box.descr_reduce),
-    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
 if long_double_size in (8, 12, 16):
@@ -792,8 +785,6 @@ if long_double_size in (8, 12, 16):
         __new__ = interp2app(W_ComplexLongBox.descr__new__.im_func),
         __reduce__ = interp2app(W_ComplexLongBox.descr_reduce),
         __complex__ = interp2app(W_GenericBox.item),
-        real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-        imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
     )
 
 W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,

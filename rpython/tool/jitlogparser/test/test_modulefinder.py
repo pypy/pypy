@@ -1,5 +1,5 @@
 import py
-from pypy.tool.jitlogparser.module_finder import gather_all_code_objs
+from rpython.tool.jitlogparser.module_finder import gather_all_code_objs
 import re, sys
 
 def setup_module(mod):

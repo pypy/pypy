@@ -58,6 +58,7 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'
+        assert dtype('void').name == 'void'
         assert dtype(int).fields is None
         assert dtype(int).names is None
         assert dtype(int).hasobject is False
@@ -65,13 +66,10 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype(None) is dtype(float)
 
-        e = dtype('int8')
-        exc = raises(KeyError, "e[2]")
-        assert exc.value.message == "There are no fields in dtype int8."
-        exc = raises(KeyError, "e['z']")
-        assert exc.value.message == "There are no fields in dtype int8."
-        exc = raises(KeyError, "e[None]")
-        assert exc.value.message == "There are no fields in dtype int8."
+        for d in [dtype('<c8'), dtype('>i4')]:
+            for key in ["d[2]", "d['z']", "d[None]"]:
+                exc = raises(KeyError, key)
+                assert exc.value[0] == "There are no fields in dtype %s." % str(d)
 
         exc = raises(TypeError, dtype, (1, 2))
         assert exc.value[0] == 'data type not understood'
@@ -374,6 +372,7 @@ class AppTestDtypes(BaseAppTestDtypes):
                 raises(TypeError, hash, d)
 
     def test_pickle(self):
+        import numpy as np
         from numpypy import array, dtype
         from cPickle import loads, dumps
         a = array([1,2,3])
@@ -382,6 +381,9 @@ class AppTestDtypes(BaseAppTestDtypes):
         else:
             assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
+        assert np.dtype('bool').__reduce__() == (dtype, ('b1', 0, 1), (3, '|', None, None, None, -1, -1, 0))
+        assert np.dtype('|V16').__reduce__() == (dtype, ('V16', 0, 1), (3, '|', None, None, None, 16, 1, 0))
+        assert np.dtype(('<f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 1, 0))
 
     def test_newbyteorder(self):
         import numpypy as np
@@ -426,6 +428,20 @@ class AppTestDtypes(BaseAppTestDtypes):
             s2 = np.array(123, dtype=dt2).byteswap().tostring()
             assert s1 == s2
 
+        d = np.dtype([('', '<i8')]).newbyteorder()
+        assert d.shape == ()
+        assert d.names == ('f0',)
+        #assert d.fields['f0'] == ('>i8', 0)
+        assert d.subdtype is None
+        #assert d.descr == [('f0', '>i8')]
+        #assert str(d) == "[('f0', '>i8')]"
+        d = np.dtype(('<i8', 2)).newbyteorder()
+        assert d.shape == (2,)
+        assert d.names is None
+        assert d.fields is None
+        assert d.descr == [('', '|V16')]
+        #assert str(d) == "('>i8', (2,))"
+
     def test_object(self):
         import numpy as np
         import sys
@@ -436,7 +452,7 @@ class AppTestDtypes(BaseAppTestDtypes):
                 assert np.dtype(o).str == '|O8'
             else:
                 exc = raises(NotImplementedError, "np.dtype(o)")
-                assert exc.value[0] == 'object dtype not implemented'
+                assert exc.value[0] == "cannot create dtype with type '%s'" % o.__name__
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -858,6 +874,7 @@ class AppTestTypes(BaseAppTestDtypes):
         raises(TypeError, lambda: float64(3) & 1)
 
     def test_alternate_constructs(self):
+        import numpy as np
         from numpypy import dtype
         nnp = self.non_native_prefix
         byteorder = self.native_prefix
@@ -873,6 +890,12 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('<S5').newbyteorder('=').byteorder == '|'
         assert dtype('void').byteorder == '|'
         assert dtype((int, 2)).byteorder == '|'
+        assert dtype(np.generic).str == '|V0'
+        d = dtype(np.character)
+        assert d.num == 18
+        assert d.char == 'S'
+        assert d.kind == 'S'
+        assert d.str == '|S0'
 
     def test_dtype_str(self):
         from numpypy import dtype
@@ -903,22 +926,22 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_intp(self):
         from numpypy import dtype
-        assert dtype('p') is dtype('intp')
-        assert dtype('P') is dtype('uintp')
-        #assert dtype('p') is dtype('int')
-        #assert dtype('P') is dtype('uint')
+        for s in ['p', 'int']:
+            assert dtype(s) is dtype('intp')
+        for s in ['P', 'uint']:
+            assert dtype(s) is dtype('uintp')
         assert dtype('p').num == 7
         assert dtype('P').num == 8
-        #assert dtype('p').char == 'l'
-        #assert dtype('P').char == 'L'
+        assert dtype('p').char == 'l'
+        assert dtype('P').char == 'L'
         assert dtype('p').kind == 'i'
         assert dtype('P').kind == 'u'
-        #if self.ptr_size == 4:
-        #    assert dtype('p').name == 'int32'
-        #    assert dtype('P').name == 'uint32'
-        #else:
-        #    assert dtype('p').name == 'int64'
-        #    assert dtype('P').name == 'uint64'
+        if self.ptr_size == 4:
+            assert dtype('p').name == 'int32'
+            assert dtype('P').name == 'uint32'
+        else:
+            assert dtype('p').name == 'int64'
+            assert dtype('P').name == 'uint64'
 
     def test_alignment(self):
         from numpypy import dtype
@@ -1037,12 +1060,19 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
             assert isinstance(u, unicode)
 
     def test_character_dtype(self):
+        import numpy as np
         from numpypy import array, character
         x = array([["A", "B"], ["C", "D"]], character)
         assert (x == [["A", "B"], ["C", "D"]]).all()
+        d = np.dtype('c')
+        assert d.num == 18
+        assert d.char == 'c'
+        assert d.kind == 'S'
+        assert d.str == '|S1'
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def test_create(self):
         from numpypy import dtype, void
 

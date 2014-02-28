@@ -31,11 +31,10 @@ def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        raw = self.unbox(v)
         return self.box(
             func(
                 self,
-                self.for_computation(raw),
+                self.for_computation(self.unbox(v)),
             )
         )
     return dispatcher
@@ -118,14 +117,12 @@ class BaseType(object):
     def __init__(self, native=True):
         self.native = native
 
-    def _unimplemented_ufunc(self, *args):
-        raise NotImplementedError
+    def __repr__(self):
+        return self.__class__.__name__
 
     def malloc(self, size):
         return alloc_raw_storage(size, track_allocation=False, zero=True)
 
-    def __repr__(self):
-        return self.__class__.__name__
 
 class Primitive(object):
     _mixin_ = True
@@ -147,7 +144,6 @@ class Primitive(object):
         array = rffi.cast(rffi.CArrayPtr(self.T), data)
         return self.box(array[0])
 
-    @specialize.argtype(1)
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
         return box.value
@@ -1113,11 +1109,16 @@ class ComplexFloating(object):
         array = rffi.cast(rffi.CArrayPtr(self.T), data)
         return self.box_complex(array[0], array[1])
 
+    def composite(self, v1, v2):
+        assert isinstance(v1, self.ComponentBoxType)
+        assert isinstance(v2, self.ComponentBoxType)
+        real = v1.value
+        imag = v2.value
+        return self.box_complex(real, imag)
+
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
-        # do this in two stages since real, imag are read only
-        real, imag = box.real, box.imag
-        return real, imag
+        return box.real, box.imag
 
     def _read(self, storage, i, offset):
         real = raw_storage_getitem_unaligned(self.T, storage, i + offset)
@@ -1168,14 +1169,6 @@ class ComplexFloating(object):
                     (rfloat.isnan(v1[0]) and rfloat.isnan(v1[1])):
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
-
-    @specialize.argtype(1)
-    def composite(self, v1, v2):
-        assert isinstance(v1, self.ComponentBoxType)
-        assert isinstance(v2, self.ComponentBoxType)
-        real = v1.value
-        imag = v2.value
-        return self.box_complex(real, imag)
 
     @complex_unary_op
     def pos(self, v):
@@ -1596,7 +1589,7 @@ if interp_boxes.long_double_size == 8:
     class ComplexLong(ComplexFloating, BaseType):
         T = rffi.DOUBLE
         BoxType = interp_boxes.W_ComplexLongBox
-        ComponentBoxType = interp_boxes.W_Float64Box
+        ComponentBoxType = interp_boxes.W_FloatLongBox
 
 elif interp_boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):
@@ -1630,7 +1623,7 @@ class FlexibleType(BaseType):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_FlexibleBox)
         i = item.ofs
-        end = i + item.dtype.get_size()
+        end = i + item.dtype.elsize
         while i < end:
             assert isinstance(item.arr.storage[i], str)
             if item.arr.storage[i] == '\x00':
@@ -1666,17 +1659,17 @@ class StringType(FlexibleType):
         if w_item is None:
             w_item = space.wrap('')
         arg = space.str_w(space.str(w_item))
-        arr = VoidBoxStorage(dtype.size, dtype)
-        j = min(len(arg), dtype.size)
+        arr = VoidBoxStorage(dtype.elsize, dtype)
+        j = min(len(arg), dtype.elsize)
         for i in range(j):
             arr.storage[i] = arg[i]
-        for j in range(j, dtype.size):
+        for j in range(j, dtype.elsize):
             arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        size = min(arr.dtype.size - offset, box.arr.size - box.ofs)
+        size = min(arr.dtype.elsize - offset, box.arr.size - box.ofs)
         return self._store(arr.storage, i, offset, box, size)
 
     @jit.unroll_safe
@@ -1786,7 +1779,7 @@ class VoidType(FlexibleType):
                 ofs += size
 
     def coerce(self, space, dtype, w_items):
-        arr = VoidBoxStorage(dtype.get_size(), dtype)
+        arr = VoidBoxStorage(dtype.elsize, dtype)
         self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
@@ -1795,7 +1788,7 @@ class VoidType(FlexibleType):
         assert i == 0
         assert isinstance(box, interp_boxes.W_VoidBox)
         assert box.dtype is box.arr.dtype
-        for k in range(box.arr.dtype.get_size()):
+        for k in range(box.arr.dtype.elsize):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
 
     def readarray(self, arr, i, offset, dtype=None):
@@ -1869,7 +1862,7 @@ class RecordType(FlexibleType):
                 items_w = [w_item]
         else:
             items_w = [None] * len(dtype.fields)
-        arr = VoidBoxStorage(dtype.get_size(), dtype)
+        arr = VoidBoxStorage(dtype.elsize, dtype)
         for i in range(len(dtype.fields)):
             ofs, subdtype = dtype.fields[dtype.names[i]]
             itemtype = subdtype.itemtype
@@ -1886,7 +1879,7 @@ class RecordType(FlexibleType):
 
     def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
-        self._store(arr.storage, i, ofs, box, box.dtype.get_size())
+        self._store(arr.storage, i, ofs, box, box.dtype.elsize)
 
     @jit.unroll_safe
     def _store(self, storage, i, ofs, box, size):
@@ -1895,7 +1888,7 @@ class RecordType(FlexibleType):
 
     def fill(self, storage, width, box, start, stop, offset):
         assert isinstance(box, interp_boxes.W_VoidBox)
-        assert width == box.dtype.get_size()
+        assert width == box.dtype.elsize
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box, width)
 
@@ -1934,8 +1927,8 @@ class RecordType(FlexibleType):
     def eq(self, v1, v2):
         assert isinstance(v1, interp_boxes.W_VoidBox)
         assert isinstance(v2, interp_boxes.W_VoidBox)
-        s1 = v1.dtype.get_size()
-        s2 = v2.dtype.get_size()
+        s1 = v1.dtype.elsize
+        s2 = v2.dtype.elsize
         assert s1 == s2
         for i in range(s1):
             if v1.arr.storage[v1.ofs + i] != v2.arr.storage[v2.ofs + i]:
@@ -1963,7 +1956,7 @@ def _setup():
     # compute alignment
     for tp in globals().values():
         if isinstance(tp, type) and hasattr(tp, 'T'):
-            tp.alignment = clibffi.cast_type_to_ffitype(tp.T).c_alignment
+            tp.alignment = widen(clibffi.cast_type_to_ffitype(tp.T).c_alignment)
             if issubclass(tp, Float):
                 all_float_types.append((tp, 'float'))
             if issubclass(tp, Integer):

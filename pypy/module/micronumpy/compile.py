@@ -218,7 +218,7 @@ class FakeSpace(object):
         return w_type.lookup(name)
 
     def gettypefor(self, w_obj):
-        return None
+        return W_TypeObject(w_obj.typedef.name)
 
     def call_function(self, tp, w_dtype):
         return w_dtype

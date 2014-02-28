@@ -246,7 +246,14 @@ class _Condition(_Verbose):
             else:
                 # PyPy patch: use _py3k_acquire()
                 if timeout > 0:
-                    gotit = waiter._py3k_acquire(True, timeout)
+                    try:
+                        gotit = waiter._py3k_acquire(True, timeout)
+                    except OverflowError:
+                        # bah, in Python 3, acquire(True, timeout) raises
+                        # OverflowError if the timeout is too huge.  For
+                        # forward-compatibility reasons we do the same.
+                        waiter.acquire()
+                        gotit = True
                 else:
                     gotit = waiter.acquire(False)
                 if not gotit:

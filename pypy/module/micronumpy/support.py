@@ -28,8 +28,8 @@ def calc_strides(shape, dtype, order):
         shape_rev.reverse()
     for sh in shape_rev:
         slimit = max(sh, 1)
-        strides.append(s * dtype.get_size())
-        backstrides.append(s * (slimit - 1) * dtype.get_size())
+        strides.append(s * dtype.elsize)
+        backstrides.append(s * (slimit - 1) * dtype.elsize)
         s *= slimit
     if order == 'C':
         strides.reverse()

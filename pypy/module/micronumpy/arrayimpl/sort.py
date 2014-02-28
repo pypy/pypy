@@ -71,10 +71,10 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
         def __init__(self, index_stride_size, stride_size, size):
             start = 0
             dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-            indexes = dtype.itemtype.malloc(size*dtype.get_size())
+            indexes = dtype.itemtype.malloc(size * dtype.elsize)
             values = alloc_raw_storage(size * stride_size,
                                             track_allocation=False)
-            Repr.__init__(self, dtype.get_size(), stride_size,
+            Repr.__init__(self, dtype.elsize, stride_size,
                           size, values, indexes, start, start)
 
         def __del__(self):
@@ -177,7 +177,7 @@ def argsort_array(arr, space, w_axis):
     # XXX this should probably be changed
     raise oefmt(space.w_NotImplementedError,
                 "sorting of non-numeric types '%s' is not implemented",
-                arr.dtype.name)
+                arr.dtype.get_name())
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)
@@ -320,7 +320,7 @@ def sort_array(arr, space, w_axis, w_order):
     # XXX this should probably be changed
     raise oefmt(space.w_NotImplementedError,
                 "sorting of non-numeric types '%s' is not implemented",
-                arr.dtype.name)
+                arr.dtype.get_name())
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)
