@@ -69,6 +69,7 @@ class Box(object):
         ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
         return ret
 
+
 class PrimitiveBox(Box):
     _mixin_ = True
     _immutable_fields_ = ['value']
@@ -92,6 +93,7 @@ class PrimitiveBox(Box):
 
         lltype.free(value, flavor="raw")
         return ret
+
 
 class ComplexBox(Box):
     _mixin_ = True
@@ -360,6 +362,7 @@ class W_GenericBox(W_Root):
         return self.get_dtype(space).itemtype.imag(self)
 
     w_flags = None
+
     def descr_get_flags(self, space):
         if self.w_flags is None:
             self.w_flags = W_FlagsObject(self)

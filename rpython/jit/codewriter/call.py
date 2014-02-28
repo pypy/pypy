@@ -247,14 +247,14 @@ class CallControl(object):
                 from rpython.jit.codewriter.policy import log; log.WARNING(
                 "in operation %r: this calls a _jit_loop_invariant_ function,"
                 " but this contradicts other sources (e.g. it can have random"
-                " effects)" % (op,))
+                " effects): EF=%s" % (op, extraeffect))
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
                 from rpython.jit.codewriter.policy import log; log.WARNING(
                 "in operation %r: this calls an _elidable_function_,"
                 " but this contradicts other sources (e.g. it can have random"
-                " effects)" % (op,))
+                " effects): EF=%s" % (op, extraeffect))
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen), self.cpu,

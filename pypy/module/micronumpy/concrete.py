@@ -5,15 +5,18 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.micronumpy import support, loop, iter
+from pypy.module.micronumpy import support, loop
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException
+from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides, calculate_dot_strides)
+    calculate_broadcast_strides)
 
 
 class BaseConcreteArray(object):
+    _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
+                          'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
 
@@ -276,13 +279,16 @@ class BaseConcreteArray(object):
                              backstrides)
         return loop.setslice(space, self.get_shape(), impl, self)
 
-    def create_axis_iter(self, shape, dim, cum):
-        return iter.AxisIterator(self, shape, dim, cum)
-
-    def create_dot_iter(self, shape, skip):
-        r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),
-                                  shape, skip)
-        return iter.MultiDimViewIterator(self, self.start, r[0], r[1], shape)
+    def create_iter(self, shape=None, backward_broadcast=False):
+        if shape is not None and \
+                support.product(shape) > support.product(self.get_shape()):
+            r = calculate_broadcast_strides(self.get_strides(),
+                                            self.get_backstrides(),
+                                            self.get_shape(), shape,
+                                            backward_broadcast)
+            return ArrayIter(self, support.product(shape), shape, r[0], r[1])
+        return ArrayIter(self, self.get_size(), self.shape,
+                         self.strides, self.backstrides)
 
     def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
@@ -335,26 +341,6 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
 
-    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
-        if shape is not None and \
-                support.product(shape) > support.product(self.get_shape()):
-            r = calculate_broadcast_strides(self.get_strides(),
-                                            self.get_backstrides(),
-                                            self.get_shape(), shape,
-                                            backward_broadcast)
-            return iter.MultiDimViewIterator(self, self.start,
-                                             r[0], r[1], shape)
-        if not require_index:
-            return iter.ConcreteArrayIterator(self)
-        if len(self.get_shape()) <= 1:
-            return iter.OneDimViewIterator(self, self.start,
-                                           self.get_strides(),
-                                           self.get_shape())
-        return iter.MultiDimViewIterator(self, self.start,
-                                         self.get_strides(),
-                                         self.get_backstrides(),
-                                         self.get_shape())
-
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
                                  box, 0, self.size, 0)
@@ -366,6 +352,8 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                           orig_array)
 
     def set_dtype(self, space, dtype):
+        # size/shape/strides shouldn't change
+        assert dtype.elsize == self.dtype.elsize
         self.dtype = dtype
 
     def argsort(self, space, w_axis):
@@ -439,24 +427,6 @@ class SliceArray(BaseConcreteArray):
 
     def fill(self, space, box):
         loop.fill(self, box.convert_to(space, self.dtype))
-
-    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
-        if shape is not None and \
-                support.product(shape) > support.product(self.get_shape()):
-            r = calculate_broadcast_strides(self.get_strides(),
-                                            self.get_backstrides(),
-                                            self.get_shape(), shape,
-                                            backward_broadcast)
-            return iter.MultiDimViewIterator(self, self.start,
-                                             r[0], r[1], shape)
-        if len(self.get_shape()) <= 1:
-            return iter.OneDimViewIterator(self, self.start,
-                                           self.get_strides(),
-                                           self.get_shape())
-        return iter.MultiDimViewIterator(self, self.start,
-                                         self.get_strides(),
-                                         self.get_backstrides(),
-                                         self.get_shape())
 
     def set_shape(self, space, orig_array, new_shape):
         if len(self.get_shape()) < 2 or self.size == 0:

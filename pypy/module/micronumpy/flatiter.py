@@ -19,7 +19,7 @@ class FakeArrayImplementation(BaseConcreteArray):
     def get_shape(self):
         return self.shape
 
-    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
+    def create_iter(self, shape=None, backward_broadcast=False):
         assert isinstance(self.base(), W_NDimArray)
         return self.base().create_iter()
 
@@ -33,7 +33,6 @@ class W_FlatIterator(W_NDimArray):
 
     def reset(self):
         self.iter = self.base.create_iter()
-        self.index = 0
 
     def descr_len(self, space):
         return space.wrap(self.base.get_size())
@@ -43,14 +42,13 @@ class W_FlatIterator(W_NDimArray):
             raise OperationError(space.w_StopIteration, space.w_None)
         w_res = self.iter.getitem()
         self.iter.next()
-        self.index += 1
         return w_res
 
     def descr_index(self, space):
-        return space.wrap(self.index)
+        return space.wrap(self.iter.index)
 
     def descr_coords(self, space):
-        coords = self.base.to_coords(space, space.wrap(self.index))
+        coords = self.base.to_coords(space, space.wrap(self.iter.index))
         return space.newtuple([space.wrap(c) for c in coords])
 
     def descr_getitem(self, space, w_idx):
