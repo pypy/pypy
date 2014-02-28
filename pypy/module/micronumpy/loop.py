@@ -8,7 +8,8 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter
+from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter, \
+    AllButAxisIter
 
 
 call2_driver = jit.JitDriver(name='numpy_call2',
@@ -259,7 +260,6 @@ def _new_argmin_argmax(op_name):
 argmin = _new_argmin_argmax('min')
 argmax = _new_argmin_argmax('max')
 
-# note that shapelen == 2 always
 dot_driver = jit.JitDriver(name = 'numpy_dot',
                            greens = ['dtype'],
                            reds = 'auto')
@@ -280,25 +280,30 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     '''
     left_shape = left.get_shape()
     right_shape = right.get_shape()
-    broadcast_shape = left_shape[:-1] + right_shape
-    left_skip = [len(left_shape) - 1 + i for i in range(len(right_shape))
-                                         if i != right_critical_dim]
-    right_skip = range(len(left_shape) - 1)
-    result_skip = [len(result.get_shape()) - (len(right_shape) > 1)]
+    assert left_shape[-1] == right_shape[right_critical_dim]
     assert result.get_dtype() == dtype
-    outi = result.implementation.create_dot_iter(broadcast_shape, result_skip)
-    lefti = left.implementation.create_dot_iter(broadcast_shape, left_skip)
-    righti = right.implementation.create_dot_iter(broadcast_shape, right_skip)
-    while not outi.done():
-        dot_driver.jit_merge_point(dtype=dtype)
-        lval = lefti.getitem().convert_to(space, dtype)
-        rval = righti.getitem().convert_to(space, dtype)
-        outval = outi.getitem()
-        v = dtype.itemtype.mul(lval, rval)
-        v = dtype.itemtype.add(v, outval)
-        outi.setitem(v)
-        outi.next()
-        righti.next()
+    outi = result.create_iter()
+    lefti = AllButAxisIter(left.implementation, len(left_shape) - 1)
+    righti = AllButAxisIter(right.implementation, right_critical_dim)
+    n = left.implementation.shape[-1]
+    s1 = left.implementation.strides[-1]
+    s2 = right.implementation.strides[right_critical_dim]
+    while not lefti.done():
+        while not righti.done():
+            oval = outi.getitem()
+            i1 = lefti.offset
+            i2 = righti.offset
+            for _ in xrange(n):
+                dot_driver.jit_merge_point(dtype=dtype)
+                lval = left.implementation.getitem(i1).convert_to(space, dtype)
+                rval = right.implementation.getitem(i2).convert_to(space, dtype)
+                oval = dtype.itemtype.add(oval, dtype.itemtype.mul(lval, rval))
+                i1 += s1
+                i2 += s2
+            outi.setitem(oval)
+            outi.next()
+            righti.next()
+        righti.reset()
         lefti.next()
     return result
 
