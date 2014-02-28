@@ -15,6 +15,8 @@ from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
 
 
 class BaseConcreteArray(object):
+    _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
+                          'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
 
@@ -350,6 +352,8 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                           orig_array)
 
     def set_dtype(self, space, dtype):
+        # size/shape/strides shouldn't change
+        assert dtype.elsize == self.dtype.elsize
         self.dtype = dtype
 
     def argsort(self, space, w_axis):

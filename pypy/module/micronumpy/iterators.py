@@ -79,29 +79,31 @@ class PureShapeIter(object):
 
 
 class ArrayIter(object):
-    _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1',
-                          'strides', 'backstrides']
+    _immutable_fields_ = ['array', 'size', 'indices', 'shape[*]',
+                          'strides[*]', 'backstrides[*]']
 
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
         self.array = array
         self.size = size
-        self.ndim_m1 = len(shape) - 1
-        self.shape_m1 = [s - 1 for s in shape]
+        self.indices = [0] * len(shape)
+        self.shape = shape
         self.strides = strides
         self.backstrides = backstrides
         self.reset()
 
+    @jit.unroll_safe
     def reset(self):
         self.index = 0
-        self.indices = [0] * (self.ndim_m1 + 1)
+        for i in xrange(len(self.shape)):
+            self.indices[i] = 0
         self.offset = self.array.start
 
     @jit.unroll_safe
     def next(self):
         self.index += 1
-        for i in xrange(self.ndim_m1, -1, -1):
-            if self.indices[i] < self.shape_m1[i]:
+        for i in xrange(len(self.shape) - 1, -1, -1):
+            if self.indices[i] < self.shape[i] - 1:
                 self.indices[i] += 1
                 self.offset += self.strides[i]
                 break
@@ -115,14 +117,14 @@ class ArrayIter(object):
         if step == 0:
             return
         self.index += step
-        for i in xrange(self.ndim_m1, -1, -1):
-            if self.indices[i] < (self.shape_m1[i] + 1) - step:
+        for i in xrange(len(self.shape) - 1, -1, -1):
+            if self.indices[i] < self.shape[i] - step:
                 self.indices[i] += step
                 self.offset += self.strides[i] * step
                 break
             else:
-                remaining_step = (self.indices[i] + step) // (self.shape_m1[i] + 1)
-                this_i_step = step - remaining_step * (self.shape_m1[i] + 1)
+                remaining_step = (self.indices[i] + step) // self.shape[i]
+                this_i_step = step - remaining_step * self.shape[i]
                 self.indices[i] = self.indices[i] + this_i_step
                 self.offset += self.strides[i] * this_i_step
                 step = remaining_step

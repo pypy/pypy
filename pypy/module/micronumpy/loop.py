@@ -285,21 +285,18 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     outi = result.create_iter()
     lefti = AllButAxisIter(left.implementation, len(left_shape) - 1)
     righti = AllButAxisIter(right.implementation, right_critical_dim)
-    n = left.implementation.shape[-1]
-    s1 = left.implementation.strides[-1]
-    s2 = right.implementation.strides[right_critical_dim]
     while not lefti.done():
         while not righti.done():
             oval = outi.getitem()
             i1 = lefti.offset
             i2 = righti.offset
-            for _ in xrange(n):
+            for _ in xrange(left.implementation.shape[-1]):
                 dot_driver.jit_merge_point(dtype=dtype)
                 lval = left.implementation.getitem(i1).convert_to(space, dtype)
                 rval = right.implementation.getitem(i2).convert_to(space, dtype)
                 oval = dtype.itemtype.add(oval, dtype.itemtype.mul(lval, rval))
-                i1 += s1
-                i2 += s2
+                i1 += left.implementation.strides[-1]
+                i2 += right.implementation.strides[right_critical_dim]
             outi.setitem(oval)
             outi.next()
             righti.next()

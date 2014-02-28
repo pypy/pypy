@@ -59,6 +59,7 @@ class TestNumpyJit(LLJitMixin):
         if self.graph is None:
             interp, graph = self.meta_interp(f, [0],
                                              listops=True,
+                                             listcomp=True,
                                              backendopt=True,
                                              graph_and_interp_only=True)
             self.__class__.interp = interp
