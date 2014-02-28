@@ -251,22 +251,14 @@ class TestFunction(object):
             py.test.skip("probably no symbol 'stdout' in the lib")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
-            int puts(const char *);
-            void *stdout, *stderr;
+            void *stdout;
         """)
-        ffi.C = ffi.dlopen(None)
-        pout = ffi.C.stdout
-        perr = ffi.C.stderr
-        assert repr(pout).startswith("<cdata 'void *' 0x")
-        assert repr(perr).startswith("<cdata 'void *' 0x")
-        with FdWriteCapture(2) as fd:     # capturing stderr
-            ffi.C.stdout = perr
-            try:
-                ffi.C.puts(b"hello!") # goes to stdout, which is equal to stderr now
-            finally:
-                ffi.C.stdout = pout
-        res = fd.getvalue()
-        assert res == b"hello!\n"
+        C = ffi.dlopen(None)
+        pout = C.stdout
+        C.stdout = ffi.NULL
+        assert C.stdout == ffi.NULL
+        C.stdout = pout
+        assert C.stdout == pout
 
     def test_strchr(self):
         ffi = FFI(backend=self.Backend())

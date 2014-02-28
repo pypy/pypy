@@ -214,10 +214,7 @@ class VCPythonEngine(object):
         extraarg = ''
         if isinstance(tp, model.PrimitiveType):
             if tp.is_integer_type() and tp.name != '_Bool':
-                if tp.is_signed_type():
-                    converter = '_cffi_to_c_SIGNED'
-                else:
-                    converter = '_cffi_to_c_UNSIGNED'
+                converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
             else:
                 converter = '_cffi_to_c_%s' % (tp.name.replace(' ', '_'),)
@@ -270,10 +267,7 @@ class VCPythonEngine(object):
     def _convert_expr_from_c(self, tp, var, context):
         if isinstance(tp, model.PrimitiveType):
             if tp.is_integer_type():
-                if tp.is_signed_type():
-                    return '_cffi_from_c_SIGNED(%s, %s)' % (var, tp.name)
-                else:
-                    return '_cffi_from_c_UNSIGNED(%s, %s)' % (var, tp.name)
+                return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif tp.name != 'long double':
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
             else:
@@ -801,25 +795,23 @@ typedef unsigned char _Bool;
 #define _cffi_to_c_double PyFloat_AsDouble
 #define _cffi_to_c_float PyFloat_AsDouble
 
-#define _cffi_from_c_SIGNED(x, type)                                     \
-    (sizeof(type) <= sizeof(long) ? PyInt_FromLong(x) :                  \
-                                    PyLong_FromLongLong(x))
-#define _cffi_from_c_UNSIGNED(x, type)                                   \
-    (sizeof(type) < sizeof(long) ? PyInt_FromLong(x) :                   \
-     sizeof(type) == sizeof(long) ? PyLong_FromUnsignedLong(x) :         \
-                                    PyLong_FromUnsignedLongLong(x))
+#define _cffi_from_c_int(x, type)                                        \
+    (((type)-1) > 0 ?   /* unsigned */                                   \
+        (sizeof(type) < sizeof(long) ? PyInt_FromLong(x) :               \
+         sizeof(type) == sizeof(long) ? PyLong_FromUnsignedLong(x) :     \
+                                        PyLong_FromUnsignedLongLong(x))  \
+      : (sizeof(type) <= sizeof(long) ? PyInt_FromLong(x) :              \
+                                        PyLong_FromLongLong(x)))
 
-#define _cffi_to_c_SIGNED(o, type)                                       \
-    (sizeof(type) == 1 ? _cffi_to_c_i8(o) :                              \
-     sizeof(type) == 2 ? _cffi_to_c_i16(o) :                             \
-     sizeof(type) == 4 ? _cffi_to_c_i32(o) :                             \
-     sizeof(type) == 8 ? _cffi_to_c_i64(o) :                             \
-     (Py_FatalError("unsupported size for type " #type), 0))
-#define _cffi_to_c_UNSIGNED(o, type)                                     \
-    (sizeof(type) == 1 ? _cffi_to_c_u8(o) :                              \
-     sizeof(type) == 2 ? _cffi_to_c_u16(o) :                             \
-     sizeof(type) == 4 ? _cffi_to_c_u32(o) :                             \
-     sizeof(type) == 8 ? _cffi_to_c_u64(o) :                             \
+#define _cffi_to_c_int(o, type)                                          \
+    (sizeof(type) == 1 ? (((type)-1) > 0 ? _cffi_to_c_u8(o)              \
+                                         : _cffi_to_c_i8(o)) :           \
+     sizeof(type) == 2 ? (((type)-1) > 0 ? _cffi_to_c_u16(o)             \
+                                         : _cffi_to_c_i16(o)) :          \
+     sizeof(type) == 4 ? (((type)-1) > 0 ? _cffi_to_c_u32(o)             \
+                                         : _cffi_to_c_i32(o)) :          \
+     sizeof(type) == 8 ? (((type)-1) > 0 ? _cffi_to_c_u64(o)             \
+                                         : _cffi_to_c_i64(o)) :          \
      (Py_FatalError("unsupported size for type " #type), 0))
 
 #define _cffi_to_c_i8                                                    \
