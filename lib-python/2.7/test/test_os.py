@@ -10,8 +10,13 @@ import sys
 import signal
 import subprocess
 import time
+try:
+    import resource
+except ImportError:
+    resource = None
 
 from test import test_support
+from test.script_helper import assert_python_ok
 import mmap
 import uuid
 
@@ -563,8 +568,35 @@ class URandomTests (unittest.TestCase):
         data2 = self.get_urandom_subprocess(16)
         self.assertNotEqual(data1, data2)
 
+    @unittest.skipUnless(resource, "test requires the resource module")
+    def test_urandom_failure(self):
+        # Check urandom() failing when it is not able to open /dev/random.
+        # We spawn a new process to make the test more robust (if getrlimit()
+        # failed to restore the file descriptor limit after this, the whole
+        # test suite would crash; this actually happened on the OS X Tiger
+        # buildbot).
+        code = """if 1:
+            import errno
+            import os
+            import resource
+
+            soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+            resource.setrlimit(resource.RLIMIT_NOFILE, (1, hard_limit))
+            try:
+                os.urandom(16)
+            except OSError as e:
+                assert e.errno == errno.EMFILE, e.errno
+            else:
+                raise AssertionError("OSError not raised")
+            """
+        assert_python_ok('-c', code)
+
+
+class ExecvpeTests(unittest.TestCase):
+
     def test_execvpe_with_bad_arglist(self):
         self.assertRaises(ValueError, os.execvpe, 'notepad', [], None)
+
 
 class Win32ErrorTests(unittest.TestCase):
     def test_rename(self):
@@ -852,6 +884,7 @@ def test_main():
         MakedirTests,
         DevNullTests,
         URandomTests,
+        ExecvpeTests,
         Win32ErrorTests,
         TestInvalidFD,
         PosixUidGidTests,

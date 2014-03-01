@@ -13,7 +13,6 @@
 import _sre, sys
 import sre_parse
 from sre_constants import *
-from _sre import MAXREPEAT
 
 assert _sre.MAGIC == MAGIC, "SRE module mismatch"
 
@@ -344,7 +343,7 @@ def _optimize_unicode(charset, fixup):
     else:
         code = 'I'
     # Convert block indices to byte array of 256 bytes
-    mapping = array.array('b', mapping).tostring()
+    mapping = array.array('B', mapping).tostring()
     # Convert byte array to word array
     mapping = array.array(code, mapping)
     assert mapping.itemsize == _sre.CODESIZE
@@ -355,8 +354,6 @@ def _optimize_unicode(charset, fixup):
 def _simple(av):
     # check if av is a "simple" operator
     lo, hi = av[2].getwidth()
-    if lo == 0 and hi == MAXREPEAT:
-        raise error, "nothing to repeat"
     return lo == hi == 1 and av[2][0][0] != SUBPATTERN
 
 def _compile_info(code, pattern, flags):

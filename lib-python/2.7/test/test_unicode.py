@@ -1658,6 +1658,18 @@ class UnicodeTest(
         self.assertEqual(unicode_encodedecimal(u"123\u20ac\u0660", "replace"),
                          b'123?0')
 
+    def test_encode_decimal_with_surrogates(self):
+        from _testcapi import unicode_encodedecimal
+        tests = [(u'\U0001f49d', '&#128157;'),
+                 (u'\ud83d', '&#55357;'),
+                 (u'\udc9d', '&#56477;'),
+                ]
+        if u'\ud83d\udc9d' != u'\U0001f49d':
+            tests += [(u'\ud83d\udc9d', '&#55357;&#56477;')]
+        for s, exp in tests:
+            self.assertEqual(
+                    unicode_encodedecimal(u"123" + s, "xmlcharrefreplace"),
+                    '123' + exp)
 
 def test_main():
     test_support.run_unittest(__name__)
