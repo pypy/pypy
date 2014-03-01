@@ -4392,6 +4392,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
 
+    def test_bound_force_ge_zero(self):
+        ops = """
+        [p0]
+        i0 = arraylen_gc(p0)
+        i1 = int_force_ge_zero(i0)
+        escape(i1)
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        i0 = arraylen_gc(p0)
+        escape(i0)
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
+        escape(i0)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_addsub_const(self):
         ops = """
         [i0]

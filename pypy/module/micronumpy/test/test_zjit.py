@@ -532,7 +532,6 @@ class TestNumpyJit(LLJitMixin):
                            'guard_true': 9,
                            'guard_value': 4,
                            'int_add': 6,
-                           'int_force_ge_zero': 1,
                            'int_ge': 3,
                            'int_lt': 4,
                            'jump': 3,
