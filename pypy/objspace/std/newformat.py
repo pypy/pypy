@@ -1,12 +1,12 @@
 """The unicode/str format() method"""
 
+import sys
 import string
 
-from pypy.interpreter.error import OperationError
-from rpython.rlib import rstring, runicode, rlocale, rarithmetic, rfloat, jit
+from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib import rstring, runicode, rlocale, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
-from rpython.tool import sourcetools
 
 
 @specialize.argtype(1)
@@ -19,14 +19,12 @@ def _parse_int(space, s, start, end):
     result = 0
     i = start
     while i < end:
-        c = ord(s[i])
-        if ord("0") <= c <= ord("9"):
-            try:
-                result = rarithmetic.ovfcheck(result * 10)
-            except OverflowError:
-                msg = "too many decimal digits in format string"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
-            result += c - ord("0")
+        digit = ord(s[i]) - ord('0')
+        if 0 <= digit <= 9:
+            if result > (sys.maxsize - digit) / 10:
+                raise oefmt(space.w_ValueError,
+                            "too many decimal digits in format string")
+            result = result * 10 + digit
         else:
             break
         i += 1
@@ -384,8 +382,8 @@ def format_method(space, w_string, args, is_unicode):
 class NumberSpec(object):
     pass
 
-class BaseFormatter(object):
 
+class BaseFormatter(object):
     def format_int_or_long(self, w_num, kind):
         raise NotImplementedError
 
