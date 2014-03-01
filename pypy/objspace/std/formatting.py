@@ -1,7 +1,8 @@
 """
 String formatting routines.
 """
-from pypy.interpreter.error import OperationError
+import sys
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
@@ -217,7 +218,7 @@ def make_formatter_subclass(do_unicode):
 
             self.peel_flags()
 
-            self.width = self.peel_num()
+            self.width = self.peel_num('width', sys.maxsize)
             if self.width < 0:
                 # this can happen:  '%*s' % (-5, "hi")
                 self.f_ljust = True
@@ -225,7 +226,7 @@ def make_formatter_subclass(do_unicode):
 
             if self.peekchr() == '.':
                 self.forward()
-                self.prec = self.peel_num()
+                self.prec = self.peel_num('prec', sys.maxint)
                 if self.prec < 0:
                     self.prec = 0    # this can happen:  '%.*f' % (-5, 3)
             else:
@@ -263,7 +264,7 @@ def make_formatter_subclass(do_unicode):
 
         # Same as getmappingkey
         @jit.unroll_safe
-        def peel_num(self):
+        def peel_num(self, name, maxval):
             space = self.space
             c = self.peekchr()
             if c == '*':
@@ -272,14 +273,12 @@ def make_formatter_subclass(do_unicode):
                 return space.int_w(maybe_int(space, w_value))
             result = 0
             while True:
-                n = ord(c) - ord('0')
-                if not (0 <= n < 10):
+                digit = ord(c) - ord('0')
+                if not (0 <= digit <= 9):
                     break
-                try:
-                    result = ovfcheck(ovfcheck(result * 10) + n)
-                except OverflowError:
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap("precision too large"))
+                if result > (maxval - digit) / 10:
+                    raise oefmt(space.w_ValueError, "%s too big", name)
+                result = result * 10 + digit
                 self.forward()
                 c = self.peekchr()
             return result

@@ -204,6 +204,17 @@ class AppTestStringObject:
 
         assert "%x" % IntFails() == '0'
 
+    def test_formatting_huge_precision(self):
+        import sys
+        format_string = "%.{}f".format(sys.maxint + 1)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert exc.value[0] == 'prec too big'
+
+    def test_formatting_huge_width(self):
+        import sys
+        format_string = "%{}f".format(sys.maxsize + 1)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert exc.value[0] == 'width too big'
 
 class AppTestWidthPrec:
     def test_width(self):
@@ -324,3 +335,15 @@ class AppTestUnicodeObject:
     def test_invalid_char(self):
         f = 4
         raises(ValueError, 'u"%\u1234" % (f,)')
+
+    def test_formatting_huge_precision(self):
+        import sys
+        format_string = u"%.{}f".format(sys.maxint + 1)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert exc.value[0] == 'prec too big'
+
+    def test_formatting_huge_width(self):
+        import sys
+        format_string = u"%{}f".format(sys.maxsize + 1)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert exc.value[0] == 'width too big'
