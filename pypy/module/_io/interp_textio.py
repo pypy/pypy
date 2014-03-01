@@ -1,7 +1,7 @@
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
@@ -331,7 +331,7 @@ class PositionSnapshot:
 def check_decoded(space, w_decoded):
     if not space.isinstance_w(w_decoded, space.w_unicode):
         msg = "decoder should return a string result, not '%T'"
-        raise operationerrfmt(space.w_TypeError, msg, w_decoded)
+        raise oefmt(space.w_TypeError, msg, w_decoded)
 
 
 class W_TextIOWrapper(W_TextIOBase):
@@ -557,7 +557,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if not space.isinstance_w(w_input, space.w_str):
             msg = "decoder getstate() should have returned a bytes " \
                   "object not '%T'"
-            raise operationerrfmt(space.w_TypeError, msg, w_input)
+            raise oefmt(space.w_TypeError, msg, w_input)
 
         eof = space.len_w(w_input) == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
@@ -719,7 +719,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         if not space.isinstance_w(w_text, space.w_unicode):
             msg = "unicode argument expected, got '%T'"
-            raise operationerrfmt(space.w_TypeError, msg, w_text)
+            raise oefmt(space.w_TypeError, msg, w_text)
 
         text = space.unicode_w(w_text)
         textlen = len(text)
@@ -868,7 +868,7 @@ class W_TextIOWrapper(W_TextIOBase):
             if not space.isinstance_w(w_chunk, space.w_str):
                 msg = "underlying read() should have returned " \
                       "a bytes object, not '%T'"
-                raise operationerrfmt(space.w_TypeError, msg, w_chunk)
+                raise oefmt(space.w_TypeError, msg, w_chunk)
 
             self.snapshot = PositionSnapshot(cookie.dec_flags,
                                              space.str_w(w_chunk))
