@@ -5,29 +5,76 @@ def test_get_index():
     jc = JitCounter(size=128)    # 7 bits
     for i in range(10):
         hash = 400000001 * i
-        index = jc.get_index(hash)
+        index = jc._get_index(hash)
         assert index == (hash >> (32 - 7))
 
-def test_fetch_next_index():
-    jc = JitCounter(size=4)
-    lst = [jc.fetch_next_index() for i in range(10)]
-    assert lst == [0, 1, 2, 3, 0, 1, 2, 3, 0, 1]
+def test_get_subhash():
+    assert JitCounter._get_subhash(0x518ebd) == 0x8ebd
+
+def test_fetch_next_hash():
+    jc = JitCounter(size=2048)
+    # check the distribution of "fetch_next_hash() & ~7".
+    blocks = [[jc.fetch_next_hash() & ~7 for i in range(65536)]
+              for j in range(2)]
+    for block in blocks:
+        assert 0 <= jc._get_index(block[0]) < 2048
+        assert 0 <= jc._get_index(block[-1]) < 2048
+        assert 0 <= jc._get_index(block[2531]) < 2048
+        assert 0 <= jc._get_index(block[45981]) < 2048
+        # should be correctly distributed: ideally 2047 or 2048 different
+        # values
+        assert len(set([jc._get_index(x) for x in block])) >= 2040
+    # check that the subkeys are distinct for same-block entries
+    subkeys = {}
+    for block in blocks:
+        for x in block:
+            idx = jc._get_index(x)
+            subkeys.setdefault(idx, []).append(jc._get_subhash(x))
+    collisions = 0
+    for idx, sks in subkeys.items():
+        collisions += len(sks) - len(set(sks))
+    assert collisions < 5
+
+def index2hash(jc, index, subhash=0):
+    assert 0 <= subhash < 65536
+    return (index << jc.shift) | subhash
 
 def test_tick():
     jc = JitCounter()
     incr = jc.compute_threshold(4)
     for i in range(5):
-        r = jc.tick(104, incr)
+        r = jc.tick(index2hash(jc, 104), incr)
         assert r is (i == 3)
     for i in range(5):
-        r = jc.tick(108, incr)
-        s = jc.tick(109, incr)
+        r = jc.tick(index2hash(jc, 108), incr)
+        s = jc.tick(index2hash(jc, 109), incr)
         assert r is (i == 3)
         assert s is (i == 3)
-    jc.reset(108)
+    jc.reset(index2hash(jc, 108))
     for i in range(5):
-        r = jc.tick(108, incr)
+        r = jc.tick(index2hash(jc, 108), incr)
         assert r is (i == 3)
+
+def test_collisions():
+    jc = JitCounter(size=4)     # 2 bits
+    incr = jc.compute_threshold(4)
+    for i in range(5):
+        for sk in range(100, 105):
+            r = jc.tick(index2hash(jc, 3, subhash=sk), incr)
+            assert r is (i == 3)
+
+    jc = JitCounter()
+    incr = jc.compute_threshold(4)
+    misses = 0
+    for i in range(5):
+        for sk in range(100, 106):
+            r = jc.tick(index2hash(jc, 3, subhash=sk), incr)
+            if r:
+                assert i == 3
+            elif i == 3:
+                misses += 1
+    assert misses < 5
+
 
 def test_install_new_chain():
     class Dead:
