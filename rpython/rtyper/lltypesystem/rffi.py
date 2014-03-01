@@ -184,10 +184,6 @@ def llexternal(name, args, result, _callable=None,
 
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
-        # XXX the next line is a workaround for the annotation bug
-        # shown in rpython.test.test_llann:test_pbctype.  Remove it
-        # when the test is fixed...
-        assert isinstance(lltype.Signed, lltype.Number)
         real_args = ()
         to_free = ()
         for i, TARGET in unrolling_arg_tps:
