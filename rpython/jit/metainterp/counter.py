@@ -100,13 +100,8 @@ class JitCounter:
             return n
     _swap._always_inline_ = True
 
-    def tick(self, hash, increment):
-        p_entry = self.timetable[self._get_index(hash)]
-        subhash = self._get_subhash(hash)
-        #
-        if p_entry.subhashes[0] == subhash:
-            n = 0
-        elif p_entry.subhashes[1] == subhash:
+    def _tick_slowpath(self, p_entry, subhash):
+        if p_entry.subhashes[1] == subhash:
             n = self._swap(p_entry, 0)
         elif p_entry.subhashes[2] == subhash:
             n = self._swap(p_entry, 1)
@@ -120,6 +115,16 @@ class JitCounter:
                 n -= 1
             p_entry.subhashes[n] = rffi.cast(rffi.USHORT, subhash)
             p_entry.times[n] = r_singlefloat(0.0)
+        return n
+
+    def tick(self, hash, increment):
+        p_entry = self.timetable[self._get_index(hash)]
+        subhash = self._get_subhash(hash)
+        #
+        if p_entry.subhashes[0] == subhash:
+            n = 0
+        else:
+            n = self._tick_slowpath(p_entry, subhash)
         #
         counter = float(p_entry.times[n]) + increment
         if counter < 1.0:
@@ -129,6 +134,7 @@ class JitCounter:
             # when the bound is reached, we immediately reset the value to 0.0
             self.reset(hash)
             return True
+    tick._always_inline_ = True
 
     def reset(self, hash):
         p_entry = self.timetable[self._get_index(hash)]

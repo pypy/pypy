@@ -41,6 +41,7 @@ def index2hash(jc, index, subhash=0):
 
 def test_tick():
     jc = JitCounter()
+    jc._tick_slowpath = "not callable in this test!"
     incr = jc.compute_threshold(4)
     for i in range(5):
         r = jc.tick(index2hash(jc, 104), incr)
