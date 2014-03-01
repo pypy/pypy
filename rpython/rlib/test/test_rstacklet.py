@@ -74,8 +74,8 @@ class Runner:
             h = self.sthread.new(switchbackonce_callback,
                                  rffi.cast(llmemory.Address, 321))
             # 'h' ignored
-            if (i % 5000) == 2500:
-                rgc.collect()
+            if (i % 2000) == 1000:
+                rgc.collect()  # This should run in < 1.5GB virtual memory
 
     def any_alive(self):
         for task in self.tasks:

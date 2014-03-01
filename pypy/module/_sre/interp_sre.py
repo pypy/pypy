@@ -415,7 +415,13 @@ class W_SRE_Match(W_Root):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-            w_groupnum = space.getitem(self.srepat.w_groupindex, w_arg)
+            try:
+                w_groupnum = space.getitem(self.srepat.w_groupindex, w_arg)
+            except OperationError, e:
+                if not e.match(space, space.w_KeyError):
+                    raise
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("no such group"))
             groupnum = space.int_w(w_groupnum)
         if groupnum == 0:
             return self.ctx.match_start, self.ctx.match_end

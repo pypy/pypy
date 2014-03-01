@@ -6,9 +6,9 @@ simplify_graph() applies all simplifications defined in this file.
 """
 import py
 
-from rpython.flowspace import operation
-from rpython.flowspace.model import (SpaceOperation, Variable, Constant,
+from rpython.flowspace.model import (Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
+from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
@@ -92,13 +92,6 @@ def transform_ovfcheck(graph):
     """
     covf = Constant(rarithmetic.ovfcheck)
 
-    def check_syntax(opname):
-        oper = getattr(operation.op, opname + "_ovf")
-        exlis = oper.canraise
-        if OverflowError not in exlis:
-            raise Exception("ovfcheck in %s: Operation %s has no"
-                            " overflow variant" % (graph.name, opname))
-
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
@@ -120,11 +113,14 @@ def transform_ovfcheck(graph):
                     join_blocks(graph)         # merge the two blocks together
                     transform_ovfcheck(graph)  # ...and try again
                     return
-                op1 = block.operations[i-1]
-                check_syntax(op1.opname)
-                op1.opname += '_ovf'
+                op1 = block.operations[i - 1]
+                if not isinstance(op1, OverflowingOperation):
+                    raise Exception("ovfcheck in %s: Operation %s has no "
+                                    "overflow variant" % (graph.name, op1.opname))
+                op1_ovf = op1.ovfchecked()
+                block.operations[i - 1] = op1_ovf
                 del block.operations[i]
-                block.renamevariables({op.result: op1.result})
+                block.renamevariables({op.result: op1_ovf.result})
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions
@@ -208,7 +204,10 @@ def transform_xxxitem(graph):
                     elif exit.exitcase is KeyError:
                         postfx.append('key')
                 if postfx:
-                    last_op.opname = last_op.opname + '_' + '_'.join(postfx)
+                    Op = getattr(op, '_'.join(['getitem'] + postfx))
+                    newop = Op(*last_op.args)
+                    newop.result = last_op.result
+                    block.operations[-1] = newop
 
 
 def remove_dead_exceptions(graph):
@@ -265,8 +264,7 @@ def join_blocks(graph):
             def rename(v):
                 return renaming.get(v, v)
             def rename_op(op):
-                args = [rename(a) for a in op.args]
-                op = SpaceOperation(op.opname, args, rename(op.result), op.offset)
+                op = op.replace(renaming)
                 # special case...
                 if op.opname == 'indirect_call':
                     if isinstance(op.args[0], Constant):
@@ -816,10 +814,10 @@ class ListComprehensionDetector(object):
 
     def run(self, vlist, vmeth, appendblock):
         # first check that the 'append' method object doesn't escape
-        for op in appendblock.operations:
-            if op.opname == 'simple_call' and op.args[0] is vmeth:
+        for hlop in appendblock.operations:
+            if hlop.opname == 'simple_call' and hlop.args[0] is vmeth:
                 pass
-            elif vmeth in op.args:
+            elif vmeth in hlop.args:
                 raise DetectorFailed      # used in another operation
         for link in appendblock.exits:
             if vmeth in link.args:
@@ -924,20 +922,19 @@ class ListComprehensionDetector(object):
         link = iterblock.exits[0]
         vlist = self.contains_vlist(link.args)
         assert vlist
-        for op in iterblock.operations:
-            res = self.variable_families.find_rep(op.result)
+        for hlop in iterblock.operations:
+            res = self.variable_families.find_rep(hlop.result)
             if res is viterfamily:
                 break
         else:
             raise AssertionError("lost 'iter' operation")
-        vlist2 = Variable(vlist)
         chint = Constant({'maxlength': True})
-        iterblock.operations += [
-            SpaceOperation('hint', [vlist, op.args[0], chint], vlist2)]
+        hint = op.hint(vlist, hlop.args[0], chint)
+        iterblock.operations.append(hint)
         link.args = list(link.args)
         for i in range(len(link.args)):
             if link.args[i] is vlist:
-                link.args[i] = vlist2
+                link.args[i] = hint.result
 
         # - wherever the list exits the loop body, add a 'hint({fence})'
         for block in loopbody:
@@ -956,8 +953,9 @@ class ListComprehensionDetector(object):
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)
                     newblock.inputargs[index] = vlist3
-                    newblock.operations.append(
-                        SpaceOperation('hint', [vlist3, chints], vlist2))
+                    hint = op.hint(vlist3, chints)
+                    hint.result = vlist2
+                    newblock.operations.append(hint)
         # done!
 
 

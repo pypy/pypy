@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
@@ -867,6 +867,9 @@ class TestCompiler:
 
 class AppTestCompiler:
 
+    def setup_class(cls):
+        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
+
     def test_docstring_not_loaded(self):
         import StringIO, dis, sys
         ns = {}
@@ -911,7 +914,17 @@ class AppTestCompiler:
         l = [a for a in Foo()]
         assert hint_called[0]
         assert l == list(range(5))
-        
+
+    def test_unicode_in_source(self):
+        import sys
+        d = {}
+        exec '# -*- coding: utf-8 -*-\n\nu = u"\xf0\x9f\x92\x8b"' in d
+        if sys.maxunicode > 65535 and self.maxunicode > 65535:
+            expected_length = 1
+        else:
+            expected_length = 2
+        assert len(d['u']) == expected_length
+
 
 class TestOptimizations:
     def count_instructions(self, source):

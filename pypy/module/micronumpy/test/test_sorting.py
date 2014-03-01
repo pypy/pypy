@@ -45,6 +45,9 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_argsort_axis(self):
         from numpypy import array
+        a = array([])
+        for axis in [None, -1, 0]:
+            assert a.argsort(axis=axis).shape == (0,)
         a = array([[4, 2], [1, 3]])
         assert (a.argsort(axis=None) == [2, 1, 3, 0]).all()
         assert (a.argsort(axis=-1) == [[1, 0], [0, 1]]).all()
@@ -304,23 +307,38 @@ class AppTestSorting(BaseNumpyAppTest):
         assert (r == array([('a', 1), ('c', 3), ('b', 255), ('d', 258)],
                                  dtype=mydtype)).all()
 
-# tests from numpy/tests/test_regression.py
+# tests from numpy/core/tests/test_regression.py
     def test_sort_bigendian(self):
-        skip('not implemented yet')
-        from numpypy import array, dtype
-        a = array(range(11),dtype='float64')
+        from numpy import array, dtype
+        a = array(range(11), dtype='float64')
         c = a.astype(dtype('<f8'))
         c.sort()
         assert max(abs(a-c)) < 1e-32
 
+    def test_string_argsort_with_zeros(self):
+        import numpy as np
+        import sys
+        x = np.fromstring("\x00\x02\x00\x01", dtype="|S2")
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "x.argsort(kind='m')")
+            assert 'non-numeric types' in exc.value.message
+            exc = raises(NotImplementedError, "x.argsort(kind='q')")
+            assert 'non-numeric types' in exc.value.message
+        else:
+            assert (x.argsort(kind='m') == np.array([1, 0])).all()
+            assert (x.argsort(kind='q') == np.array([1, 0])).all()
+
     def test_string_sort_with_zeros(self):
-        skip('not implemented yet')
-        from numpypy import fromstring
-        """Check sort for strings containing zeros."""
-        x = fromstring("\x00\x02\x00\x01", dtype="S2")
-        y = fromstring("\x00\x01\x00\x02", dtype="S2")
-        x.sort(kind='q')
-        assert (x == y).all()
+        import numpy as np
+        import sys
+        x = np.fromstring("\x00\x02\x00\x01", dtype="S2")
+        y = np.fromstring("\x00\x01\x00\x02", dtype="S2")
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "x.sort(kind='q')")
+            assert 'non-numeric types' in exc.value.message
+        else:
+            x.sort(kind='q')
+            assert (x == y).all()
 
     def test_string_mergesort(self):
         import numpypy as np

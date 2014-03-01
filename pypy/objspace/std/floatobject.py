@@ -1,5 +1,6 @@
 import operator
-from pypy.interpreter.error import OperationError, operationerrfmt
+
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std import model, newformat
 from pypy.objspace.std.floattype import float_typedef, W_AbstractFloatObject
 from pypy.objspace.std.multimethod import FailedToImplementArgs
@@ -27,13 +28,22 @@ class W_FloatObject(W_AbstractFloatObject):
 
     typedef = float_typedef
 
-    def __init__(w_self, floatval):
-        w_self.floatval = floatval
+    def __init__(self, floatval):
+        self.floatval = floatval
 
-    def unwrap(w_self, space):
-        return w_self.floatval
+    def unwrap(self, space):
+        return self.floatval
 
-    def float_w(self, space):
+    def int_w(self, space, allow_conversion=True):
+        self._typed_unwrap_error(space, "integer")
+
+    def bigint_w(self, space, allow_conversion=True):
+        self._typed_unwrap_error(space, "integer")
+
+    def float_w(self, space, allow_conversion=True):
+        return self.floatval
+
+    def _float_w(self, space):
         return self.floatval
 
     def int(self, space):
@@ -54,7 +64,7 @@ registerimplementation(W_FloatObject)
 
 # bool-to-float delegation
 def delegate_Bool2Float(space, w_bool):
-    return W_FloatObject(float(w_bool.boolval))
+    return W_FloatObject(float(w_bool.intval))
 
 # int-to-float delegation
 def delegate_Int2Float(space, w_intobj):
@@ -427,9 +437,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     try:
         result = _pow(space, x, y)
     except PowDomainError:
-        raise operationerrfmt(space.w_ValueError,
-                              "negative number cannot be raised to a "
-                              "fractional power")
+        raise oefmt(space.w_ValueError,
+                    "negative number cannot be raised to a fractional power")
     return W_FloatObject(result)
 
 class PowDomainError(ValueError):
@@ -562,20 +571,3 @@ def float_is_integer__Float(space, w_float):
 
 from pypy.objspace.std import floattype
 register_all(vars(), floattype)
-
-# pow delegation for negative 2nd arg
-def pow_neg__Long_Long_None(space, w_int1, w_int2, thirdarg):
-    w_float1 = delegate_Long2Float(space, w_int1)
-    w_float2 = delegate_Long2Float(space, w_int2)
-    return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
-
-model.MM.pow.register(pow_neg__Long_Long_None, W_LongObject, W_LongObject,
-                      W_NoneObject, order=1)
-
-def pow_neg__Int_Int_None(space, w_int1, w_int2, thirdarg):
-    w_float1 = delegate_Int2Float(space, w_int1)
-    w_float2 = delegate_Int2Float(space, w_int2)
-    return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
-
-model.MM.pow.register(pow_neg__Int_Int_None, W_IntObject, W_IntObject,
-                      W_NoneObject, order=2)

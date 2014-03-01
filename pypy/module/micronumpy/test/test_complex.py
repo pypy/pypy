@@ -61,6 +61,7 @@ def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg=''):
             '%r and %r are not sufficiently close, %g > %g' %\
             (a, b, absolute_error, max(abs_err, rel_err*abs(a))))
 
+
 def parse_testfile(fname):
     """Parse a file with test values
 
@@ -84,6 +85,7 @@ def parse_testfile(fname):
                    float(exp_real), float(exp_imag),
                    flags
                   )
+
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
@@ -334,47 +336,32 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from numpypy import square
         assert square(complex(3, 4)) == complex(3,4) * complex(3, 4)
 
+    def test_power_simple(self):
+        import numpy as np
+        a = np.array([1+2j, 2+3j, 3+4j])
+        assert ((a ** 0) == 1).all()
+        assert ((a ** 1) == a).all()
+        assert ((a ** 2) == (a * a)).all()
+
     def test_power_complex(self):
-        inf = float('inf')
-        ninf = -float('inf')
-        nan = float('nan')
-        cmpl = complex
-        from math import copysign
-        from numpypy import power, array
-        # note: in some settings (namely a x86-32 build without the JIT),
-        # gcc optimizes the code in rlib.rcomplex.c_pow() to not truncate
-        # the 10-byte values down to 8-byte values.  It ends up with more
-        # imprecision than usual (hence 2e-13 instead of 2e-15).
-        for c,rel_err in (('complex128', 2e-13), ('complex64', 4e-7)):
-            a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
-                       cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
-                       cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
-                       cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
-                       cmpl(inf, -0.), cmpl(ninf, 0.), cmpl(ninf, 5.),
-                       cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
-                       cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
-                       cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
-                     ], dtype=c)
-            for p in (3, -1, 10000, 2.3, -10000, 10+3j):
-                b = power(a, p)
-                for i in range(len(a)):
-                    try:
-                        r = self.c_pow((float(a[i].real), float(a[i].imag)),
-                                (float(p.real), float(p.imag)))
-                    except ZeroDivisionError:
-                        r = (nan, nan)
-                    except OverflowError:
-                        r = (inf, -copysign(inf, a[i].imag))
-                    except ValueError:
-                        r = (nan, nan)
-                    msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
-                            (c,a[i], p, b[i], r)
-                    t1 = float(r[0])
-                    t2 = float(b[i].real)
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(r[1])
-                    t2 = float(b[i].imag)
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+        import numpy as np
+        # test from numpy/core/tests/test_umath_complex.py
+        x = np.array([1, 1j,         2,  2.5+.37j, np.inf, np.nan])
+        y = np.array([1, 1j, -0.5+1.5j, -0.5+1.5j,      2,      3])
+        lx = list(range(len(x)))
+        # Compute the values for complex type in python
+        p_r = [complex(x[i]) ** complex(y[i]) for i in lx]
+        # Substitute a result allowed by C99 standard
+        p_r[4] = complex(np.inf, np.nan)
+        # Do the same with numpy complex scalars
+        n_r_s = [x[i] ** y[i] for i in lx]
+        n_r_a = x ** y
+        for i in lx:
+            msg = 'Loop %d' % i
+            self.rAlmostEqual(float(n_r_s[i].real), float(p_r[i].real), msg=msg)
+            self.rAlmostEqual(float(n_r_s[i].imag), float(p_r[i].imag), msg=msg)
+            self.rAlmostEqual(float(n_r_a[i].real), float(p_r[i].real), msg=msg)
+            self.rAlmostEqual(float(n_r_a[i].imag), float(p_r[i].imag), msg=msg)
 
     def test_conjugate(self):
         from numpypy import conj, conjugate, dtype
@@ -427,7 +414,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 except OverflowError:
                     res = cmpl(inf, nan)
                 except ValueError:
-                    res = cmpl(ninf, 0)
+                    res = cmpl(ninf, math.atan2(a[i].imag, a[i].real) / log_2)
                 msg = 'result of log2(%r(%r)) got %r expected %r\n ' % \
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
@@ -492,6 +479,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == max(a[i], b[i])
 
     def test_basic(self):
+        import sys
         from numpypy import (dtype, add, array, dtype,
             subtract as sub, multiply, divide, negative, absolute as abs,
             floor_divide, real, imag, sign)
@@ -522,9 +510,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert str(exc.value) == \
             "could not broadcast input array from shape (2) into shape ()"
         a = array('abc')
-        assert str(a.real) == str(a)
-        # numpy imag for flexible types returns self
-        assert str(a.imag) == str(a)
+        assert str(a.real) == 'abc'
+        assert str(a.imag) == ''
         for t in 'complex64', 'complex128', 'clongdouble':
             complex_ = dtype(t).type
             O = complex(0, 0)
@@ -593,10 +580,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
             # numpy actually raises an AttributeError,
             # but numpypy raises a TypeError
-            exc = raises((TypeError, AttributeError), 'c2.real = 10.')
-            assert str(exc.value) == "readonly attribute"
-            exc = raises((TypeError, AttributeError), 'c2.imag = 10.')
-            assert str(exc.value) == "readonly attribute"
+            if '__pypy__' in sys.builtin_module_names:
+                exct, excm = TypeError, 'readonly attribute'
+            else:
+                exct, excm = AttributeError, 'is not writable'
+            exc = raises(exct, 'c2.real = 10.')
+            assert excm in exc.value[0]
+            exc = raises(exct, 'c2.imag = 10.')
+            assert excm in exc.value[0]
             assert(real(c2) == 3.0)
             assert(imag(c2) == 4.0)
 

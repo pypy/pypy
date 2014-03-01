@@ -1,140 +1,96 @@
-======================
-What's new in PyPy 2.1
-======================
+=======================
+What's new in PyPy 2.2+
+=======================
 
-.. this is a revision shortly after release-2.1-beta
-.. startrev: 4eb52818e7c0
+.. this is a revision shortly after release-2.2.x
+.. startrev: 4cd1bc8b3111
 
-.. branch: sanitise_bytecode_dispatch
-Make PyPy's bytecode dispatcher easy to read, and less reliant on RPython
-magic. There is no functional change, though the removal of dead code leads
-to many fewer tests to execute.
+.. branch: release-2.2.x
 
-.. branch: fastjson
-Fast json decoder written in RPython, about 3-4x faster than the pure Python
-decoder which comes with the stdlib
+.. branch: numpy-newbyteorder
+Clean up numpy types, add newbyteorder functionality
 
-.. branch: improve-str2charp
-Improve the performance of I/O writing up to 15% by using memcpy instead of
-copying char-by-char in str2charp and get_nonmovingbuffer
+.. branch: windows-packaging
+Package tk/tcl runtime with win32
 
-.. branch: flowoperators
-Simplify rpython/flowspace/ code by using more metaprogramming.  Create
-SpaceOperator class to gather static information about flow graph operations.
+.. branch: armhf-singlefloat
+JIT support for singlefloats on ARM using the hardfloat ABI
 
-.. branch: package-tk
-Adapt package.py script to compile CFFI tk extension. Add a --without-tk switch
-to optionally skip it.
+.. branch: voidtype_strformat
+Better support for record numpy arrays
 
-.. branch: distutils-cppldflags
-Copy CPython's implementation of customize_compiler, dont call split on
-environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and LDFLAGS on Unices.
-
-.. branch: precise-instantiate
-When an RPython class is instantiated via an indirect call (that is, which
-class is being instantiated isn't known precisely) allow the optimizer to have
-more precise information about which functions can be called. Needed for Topaz.
-
-.. branch: ssl_moving_write_buffer
-
-.. branch: pythoninspect-fix
-Make PyPy respect PYTHONINSPECT variable set via os.putenv in the same process
-to start interactive prompt when the script execution finishes. This adds
-new __pypy__.os.real_getenv call that bypasses Python cache and looksup env
-in the underlying OS. Translatorshell now works on PyPy.
-
-.. branch: add-statvfs
-Added os.statvfs and os.fstatvfs
-
-.. branch: statvfs_tests
-Added some addition tests for statvfs.
-
-.. branch: ndarray-subtype
-Allow subclassing ndarray, i.e. matrix
-
-.. branch: ndarray-sort
-Implement ndarray in-place sorting (for numeric types, no non-native byte order)
-
-.. branch: pypy-pyarray
-Implement much of numpy's c api in cpyext, allows (slow) access to ndarray
-from c
-
-.. branch: kill-ootype
-
-.. branch: fast-slowpath
-Added an abstraction for functions with a fast and slow path in the JIT. This
-speeds up list.append() and list.pop().
-
-.. branch: curses_fixes
-
-.. branch: foldable-getarrayitem-indexerror
-Constant-fold reading out of constant tuples in PyPy.
-
-.. branch: mro-reorder-numpypy-str
-No longer delegate numpy string_ methods to space.StringObject, in numpy
-this works by kind of by accident. Support for merging the refactor-str-types
-branch
-
-.. branch: kill-typesystem
-Remove the "type system" abstraction, now that there is only ever one kind of
-type system used.
-
-.. branch: kill-gen-store-back-in
-Kills gen_store_back_in_virtualizable - should improve non-inlined calls by
-a bit
-
-.. branch: dotviewer-linewidth
-.. branch: reflex-support
-.. branch: numpypy-inplace-op
-.. branch: rewritten-loop-logging
-.. branch: no-release-gil
-.. branch: safe-win-mmap
-.. branch: boolean-indexing-cleanup
-.. branch: cpyext-best_base
-.. branch: cpyext-int
-.. branch: fileops2
-
-.. branch: nobold-backtrace
-Work on improving UnionError messages and stack trace displays.
-
-.. branch: improve-errors-again
-More improvements and refactorings of error messages.
-
-.. branch: improve-errors-again2
-Unbreak tests in rlib.
+.. branch: osx-eci-frameworks-makefile
+OSX: Ensure frameworks end up in Makefile when specified in External compilation info
 
 .. branch: less-stringly-ops
 Use subclasses of SpaceOperation instead of SpaceOperator objects.
-Random cleanups in flowspace.
+Random cleanups in flowspace and annotator.
 
-.. branch: file-support-in-rpython
-make open() and friends rpython
+.. branch: ndarray-buffer
+adds support for the buffer= argument to the ndarray ctor
 
-.. branch: incremental-gc
-Added the new incminimark GC which performs GC in incremental steps
+.. branch: better_ftime_detect2
+On OpenBSD do not pull in libcompat.a as it is about to be removed.
+And more generally, if you have gettimeofday(2) you will not need ftime(3).
 
-.. branch: fast_cffi_list_init
-fastpath for cffi.new("long[]")
+.. branch: timeb_h
+Remove dependency upon <sys/timeb.h> on OpenBSD. This will be disappearing
+along with libcompat.a.
 
-.. branch: remove-eval-frame
-remove a pointless abstraction
+.. branch: OlivierBlanvillain/fix-3-broken-links-on-pypy-published-pap-1386250839215
+Fix 3 broken links on PyPy published papers in docs.
 
-.. branch: jit-settrace
-Allow the jit to continue running when sys.settrace() is active, necessary to
-make coverage.py fast
+.. branch: jit-ordereddict
 
-.. branch: remove-numpypy
-Remove lib_pypy/numpypy in favor of external numpy fork
+.. branch: refactor-str-types
+Remove multimethods on str/unicode/bytearray and make the implementations share code.
 
-.. branch: jit-counter
-Tweak the jit counters: decay them at minor collection (actually
-only every 32 minor collection is enough). Should avoid the "memory
-leaks" observed in long-running processes, actually created by the
-jit compiling more and more rarely executed paths.
+.. branch: remove-del-from-generatoriterator
+Speed up generators that don't yield inside try or wait blocks by skipping
+unnecessary cleanup.
 
-.. branch: fix-trace-jit
-Fixed the usage of sys.settrace() with the JIT. Also made it so using
-sys.settrace() doesn't cause the GIL to be released on every single iteration.
+.. branch: annotator
+Remove FlowObjSpace.
+Improve cohesion between rpython.flowspace and rpython.annotator.
 
-.. branch: rordereddict
-Implement OrderedDict in RPython
+.. branch: detect-immutable-fields
+mapdicts keep track of whether or not an attribute is every assigned to
+multiple times. If it's only assigned once then an elidable lookup is used when
+possible.
+
+.. branch: precompiled-headers
+Create a Makefile using precompiled headers for MSVC platforms.
+The downside is a messy nmake-compatible Makefile. Since gcc shows minimal
+speedup, it was not implemented.
+
+.. branch: camelot
+With a properly configured 256-color terminal (TERM=...-256color), the
+Mandelbrot set shown during translation now uses a range of 50 colours.
+Essential!
+
+.. branch: NonConstant
+Simplify implementation of NonConstant.
+
+.. branch: array-propagate-len
+Kill some guards and operations in JIT traces by adding integer bounds
+propagation for getfield_(raw|gc) and getarrayitem_(raw|gc).
+
+.. branch: optimize-int-and
+Optimize away INT_AND with constant mask of 1s that fully cover the bitrange
+of other operand.
+
+.. branch: bounds-int-add-or
+Propagate appropriate bounds through INT_(OR|XOR|AND) operations if the
+operands are positive to kill some guards
+
+.. branch: remove-intlong-smm
+kills int/long/smalllong/bool multimethods
+
+.. branch: numpy-refactor
+Cleanup micronumpy module
+
+.. branch: int_w-refactor
+In a lot of places CPython allows objects with __int__ and __float__ instead of actual ints and floats, while until now pypy disallowed them. We fix it by making space.{int_w,float_w,etc.} accepting those objects by default, and disallowing conversions only when explicitly needed.
+
+.. branch: test-58c3d8552833
+Fix for getarrayitem_gc_pure optimization

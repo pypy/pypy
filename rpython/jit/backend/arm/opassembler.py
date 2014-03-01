@@ -1102,17 +1102,16 @@ class ResOpAssembler(BaseAssembler):
         arg, res = arglocs
         assert arg.is_vfp_reg()
         assert res.is_core_reg()
-        self.mc.VCVT_float_to_int(r.vfp_ip.value, arg.value)
-        self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
+        self.mc.VCVT_float_to_int(r.svfp_ip.value, arg.value)
+        self.mc.VMOV_sc(res.value, r.svfp_ip.value)
         return fcond
 
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
         assert arg.is_core_reg()
-        self.mc.MOV_ri(r.ip.value, 0)
-        self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
-        self.mc.VCVT_int_to_float(res.value, res.value)
+        self.mc.VMOV_cs(r.svfp_ip.value, arg.value)
+        self.mc.VCVT_int_to_float(res.value, r.svfp_ip.value)
         return fcond
 
     emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
@@ -1147,15 +1146,14 @@ class ResOpAssembler(BaseAssembler):
         arg, res = arglocs
         assert arg.is_vfp_reg()
         assert res.is_core_reg()
-        self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
-        self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
+        self.mc.VCVT_f64_f32(r.svfp_ip.value, arg.value)
+        self.mc.VMOV_sc(res.value, r.svfp_ip.value)
         return fcond
 
     def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
         assert arg.is_core_reg()
-        self.mc.MOV_ri(r.ip.value, 0)
-        self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
-        self.mc.VCVT_f32_f64(res.value, res.value)
+        self.mc.VMOV_cs(r.svfp_ip.value, arg.value)
+        self.mc.VCVT_f32_f64(res.value, r.svfp_ip.value)
         return fcond

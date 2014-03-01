@@ -338,7 +338,7 @@ class MiscReadTest(CommonReadTest):
         # constructor in case of an error. For the test we rely on
         # the fact that opening an empty file raises a ReadError.
         empty = os.path.join(TEMPDIR, "empty")
-        open(empty, "wb").write("")
+        open(empty, "wb").close()
 
         try:
             tar = object.__new__(tarfile.TarFile)
@@ -349,7 +349,7 @@ class MiscReadTest(CommonReadTest):
             else:
                 self.fail("ReadError not raised")
         finally:
-            os.remove(empty)
+            test_support.unlink(empty)
 
     def test_parallel_iteration(self):
         # Issue #16601: Restarting iteration over tarfile continued
@@ -1333,7 +1333,7 @@ class AppendTest(unittest.TestCase):
     def setUp(self):
         self.tarname = tmpname
         if os.path.exists(self.tarname):
-            os.remove(self.tarname)
+            test_support.unlink(self.tarname)
 
     def _add_testfile(self, fileobj=None):
         tar = tarfile.open(self.tarname, "a", fileobj=fileobj)

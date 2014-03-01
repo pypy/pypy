@@ -186,6 +186,16 @@ class AppTestStringObject:
     def test_broken_unicode(self):
         raises(UnicodeDecodeError, 'Názov: %s'.__mod__, u'Jerry')
 
+    def test___int__(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+        #
+        x = MyInt(65)
+        assert '%c' % x == 'A'
+
     def test_format_retry_with_long_if_int_fails(self):
         class IntFails(object):
             def __int__(self):
@@ -194,6 +204,11 @@ class AppTestStringObject:
                 return 0L
 
         assert "%x" % IntFails() == '0'
+
+
+class Foo(object):
+    def __cmp__(self, other):
+        return MyInt(0)
 
 
 class AppTestWidthPrec:

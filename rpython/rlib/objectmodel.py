@@ -282,7 +282,7 @@ def we_are_translated():
     return False
 
 @register_flow_sc(we_are_translated)
-def sc_we_are_translated(space):
+def sc_we_are_translated(ctx):
     return Constant(True)
 
 
@@ -338,9 +338,10 @@ class Entry(ExtRegistryEntry):
     _about_ = newlist_hint
 
     def compute_result_annotation(self, s_sizehint):
-        from rpython.annotator.model import SomeInteger
+        from rpython.annotator.model import SomeInteger, AnnotatorError
 
-        assert isinstance(s_sizehint, SomeInteger)
+        if not isinstance(s_sizehint, SomeInteger):
+            raise AnnotatorError("newlist_hint() argument must be an int")
         s_l = self.bookkeeper.newlist()
         s_l.listdef.listitem.resize()
         return s_l
@@ -365,8 +366,13 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_l, s_sizehint):
         from rpython.annotator import model as annmodel
-        assert isinstance(s_l, annmodel.SomeList)
-        assert isinstance(s_sizehint, annmodel.SomeInteger)
+        if annmodel.s_None.contains(s_l):
+            return   # first argument is only None so far, but we
+                     # expect a generalization later
+        if not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        if not isinstance(s_sizehint, annmodel.SomeInteger):
+            raise annmodel.AnnotatorError("Second argument must be an integer")
         s_l.listdef.listitem.resize()
 
     def specialize_call(self, hop):
@@ -706,7 +712,7 @@ class r_dict(object):
 class r_ordereddict(r_dict):
     def _newdict(self):
         from collections import OrderedDict
-        
+
         return OrderedDict()
 
 class _r_dictkey(object):
@@ -750,6 +756,8 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
     argument.
     """
     flatten = {}
+    caller = sys._getframe(1)
+    caller_name = caller.f_globals.get('__name__')
     for base in inspect.getmro(M):
         if base is object:
             continue
@@ -764,13 +772,17 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
             elif isinstance(value, staticmethod):
                 func = value.__get__(42)
                 func = func_with_new_name(func, func.__name__)
+                if caller_name:
+                    # staticmethods lack a unique im_class so further
+                    # distinguish them from themselves
+                    func.__module__ = caller_name
                 value = staticmethod(func)
             elif isinstance(value, classmethod):
                 raise AssertionError("classmethods not supported "
                                      "in 'import_from_mixin'")
             flatten[key] = value
     #
-    target = sys._getframe(1).f_locals
+    target = caller.f_locals
     for key, value in flatten.items():
         if key in target:
             raise Exception("import_from_mixin: would overwrite the value "

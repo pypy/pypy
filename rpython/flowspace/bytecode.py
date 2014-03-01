@@ -34,8 +34,8 @@ class HostCode(object):
     opnames = host_bytecode_spec.method_names
 
     def __init__(self, argcount, nlocals, stacksize, flags,
-                     code, consts, names, varnames, filename,
-                     name, firstlineno, lnotab, freevars):
+                 code, consts, names, varnames, filename,
+                 name, firstlineno, lnotab, freevars):
         """Initialize a new code object"""
         assert nlocals >= 0
         self.co_argcount = argcount
@@ -58,18 +58,18 @@ class HostCode(object):
         """Initialize the code object from a real (CPython) one.
         """
         return cls(code.co_argcount,
-                      code.co_nlocals,
-                      code.co_stacksize,
-                      code.co_flags,
-                      code.co_code,
-                      list(code.co_consts),
-                      list(code.co_names),
-                      list(code.co_varnames),
-                      code.co_filename,
-                      code.co_name,
-                      code.co_firstlineno,
-                      code.co_lnotab,
-                      list(code.co_freevars))
+                   code.co_nlocals,
+                   code.co_stacksize,
+                   code.co_flags,
+                   code.co_code,
+                   list(code.co_consts),
+                   list(code.co_names),
+                   list(code.co_varnames),
+                   code.co_filename,
+                   code.co_name,
+                   code.co_firstlineno,
+                   code.co_lnotab,
+                   list(code.co_freevars))
 
     @property
     def formalargcount(self):

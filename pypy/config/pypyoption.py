@@ -34,14 +34,14 @@ working_modules.update([
     "zlib", "bz2", "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
     "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
-    "_multibytecodec", "micronumpy", "_ffi", "_continuation", "_cffi_backend",
+    "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
     "_csv", "cppyy", "_pypyjson"
 ])
 
 translation_modules = default_modules.copy()
 translation_modules.update([
     "fcntl", "rctime", "select", "signal", "_rawffi", "zlib", "struct", "_md5",
-    "cStringIO", "array", "_ffi", "binascii",
+    "cStringIO", "array", "binascii",
     # the following are needed for pyrepl (and hence for the
     # interactive prompt/pdb)
     "termios", "_minimal_curses",
@@ -95,7 +95,6 @@ module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
     "_rawffi"   : ["rpython.rlib.clibffi"],
-    "_ffi"      : ["rpython.rlib.clibffi"],
 
     "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
@@ -250,14 +249,16 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         IntOption("methodcachesizeexp",
                   " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
-        BoolOption("optimized_int_add",
-                   "special case the addition of two integers in BINARY_ADD",
+        BoolOption("intshortcut",
+                   "special case addition and subtraction of two integers in BINARY_ADD/"
+                   "/BINARY_SUBTRACT and their inplace counterparts",
                    default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
         BoolOption("builtinshortcut",
-                   "a shortcut for operations between built-in types",
+                   "a shortcut for operations between built-in types. XXX: "
+                   "deprecated, not really a shortcut any more.",
                    default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
@@ -296,7 +297,7 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
-        config.objspace.std.suggest(builtinshortcut=True)
+        config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)

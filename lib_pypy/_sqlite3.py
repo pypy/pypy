@@ -268,10 +268,18 @@ def _has_load_extension():
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
 
-_lib = _ffi.verify("""
-#include <sqlite3.h>
-""", libraries=['sqlite3']
-)
+if sys.platform.startswith('freebsd'):
+    _lib = _ffi.verify("""
+    #include <sqlite3.h>
+    """, libraries=['sqlite3'],
+         include_dirs=['/usr/local/include'],
+         library_dirs=['/usr/local/lib']
+    )
+else:
+    _lib = _ffi.verify("""
+    #include <sqlite3.h>
+    """, libraries=['sqlite3']
+    )
 
 exported_sqlite_symbols = [
     'SQLITE_ALTER_TABLE',
@@ -321,6 +329,14 @@ PARSE_DECLTYPES = 2
 
 # SQLite version information
 sqlite_version = str(_ffi.string(_lib.sqlite3_libversion()).decode('ascii'))
+
+_STMT_TYPE_UPDATE = 0
+_STMT_TYPE_DELETE = 1
+_STMT_TYPE_INSERT = 2
+_STMT_TYPE_REPLACE = 3
+_STMT_TYPE_OTHER = 4
+_STMT_TYPE_SELECT = 5
+_STMT_TYPE_INVALID = 6
 
 
 class Error(StandardError):
@@ -993,13 +1009,18 @@ class Cursor(object):
             self.__statement = self.__connection._statement_cache.get(sql)
 
             if self.__connection._isolation_level is not None:
-                if self.__statement._type in ("UPDATE", "DELETE", "INSERT", "REPLACE"):
+                if self.__statement._type in (
+                    _STMT_TYPE_UPDATE,
+                    _STMT_TYPE_DELETE,
+                    _STMT_TYPE_INSERT,
+                    _STMT_TYPE_REPLACE
+                ):
                     if not self.__connection._in_transaction:
                         self.__connection._begin()
-                elif self.__statement._type == "OTHER":
+                elif self.__statement._type == _STMT_TYPE_OTHER:
                     if self.__connection._in_transaction:
                         self.__connection.commit()
-                elif self.__statement._type == "SELECT":
+                elif self.__statement._type == _STMT_TYPE_SELECT:
                     if multiple:
                         raise ProgrammingError("You cannot execute SELECT "
                                                "statements in executemany().")
@@ -1022,12 +1043,17 @@ class Cursor(object):
                     self.__statement._reset()
                     raise self.__connection._get_exception(ret)
 
-                if self.__statement._type in ("UPDATE", "DELETE", "INSERT", "REPLACE"):
+                if self.__statement._type in (
+                    _STMT_TYPE_UPDATE,
+                    _STMT_TYPE_DELETE,
+                    _STMT_TYPE_INSERT,
+                    _STMT_TYPE_REPLACE
+                ):
                     if self.__rowcount == -1:
                         self.__rowcount = 0
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
 
-                if not multiple and self.__statement._type == "INSERT":
+                if not multiple and self.__statement._type == _STMT_TYPE_INSERT:
                     self.__lastrowid = _lib.sqlite3_last_insert_rowid(self.__connection._db)
                 else:
                     self.__lastrowid = None
@@ -1177,11 +1203,19 @@ class Statement(object):
 
         first_word = sql.lstrip().split(" ")[0].upper()
         if first_word == "":
-            self._type = "INVALID"
-        elif first_word in ("SELECT", "INSERT", "UPDATE", "DELETE", "REPLACE"):
-            self._type = first_word
+            self._type = _STMT_TYPE_INVALID
+        elif first_word == "SELECT":
+            self._type = _STMT_TYPE_SELECT
+        elif first_word == "INSERT":
+            self._type = _STMT_TYPE_INSERT
+        elif first_word == "UPDATE":
+            self._type = _STMT_TYPE_UPDATE
+        elif first_word == "DELETE":
+            self._type = _STMT_TYPE_DELETE
+        elif first_word == "REPLACE":
+            self._type = _STMT_TYPE_REPLACE
         else:
-            self._type = "OTHER"
+            self._type = _STMT_TYPE_OTHER
 
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
@@ -1194,7 +1228,7 @@ class Statement(object):
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
-            self._type = "SELECT"
+            self._type = _STMT_TYPE_SELECT
             c_sql = _ffi.new("char[]", b"select 42")
             ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
@@ -1313,7 +1347,12 @@ class Statement(object):
             raise ValueError("parameters are of unsupported type")
 
     def _get_description(self):
-        if self._type in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
+        if self._type in (
+            _STMT_TYPE_INSERT,
+            _STMT_TYPE_UPDATE,
+            _STMT_TYPE_DELETE,
+            _STMT_TYPE_REPLACE
+        ):
             return None
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):

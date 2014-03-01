@@ -45,13 +45,13 @@ class W_MyObject(W_Root):
     def unicode_w(self, space):
         return NonConstant(u"foobar")
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
 
     def uint_w(self, space):
         return r_uint(NonConstant(42))
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
@@ -60,6 +60,8 @@ class W_MyListObj(W_MyObject):
         pass
 
 class W_MyType(W_MyObject):
+    name = "foobar"
+
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
         self.dict_w = {'__str__': w_some_obj()}
@@ -115,7 +117,7 @@ class FakeObjSpace(ObjSpace):
     def _freeze_(self):
         return True
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         is_root(w_obj)
         return NonConstant(42.5)
 
@@ -289,6 +291,9 @@ class FakeObjSpace(ObjSpace):
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = None
         return ec
+
+    def unicode_from_object(self, w_obj):
+        return w_some_obj()
 
     # ----------
 

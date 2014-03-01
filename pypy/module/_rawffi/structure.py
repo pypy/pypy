@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
@@ -16,7 +16,7 @@ from pypy.module._rawffi.interp_rawffi import LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
-from rpython.rlib import clibffi
+from rpython.rlib import clibffi, rgc
 from rpython.rlib.rarithmetic import intmask, signedtype, widen
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
 
@@ -34,8 +34,8 @@ def unpack_fields(space, w_fields):
         try:
             name = space.str_w(l_w[0])
         except OperationError:
-            raise operationerrfmt(space.w_TypeError,
-                "structure field name must be string not %T", l_w[0])
+            raise oefmt(space.w_TypeError,
+                        "structure field name must be string not %T", l_w[0])
         tp = unpack_shape_with_length(space, l_w[1])
 
         if len_l == 3:
@@ -144,8 +144,8 @@ class W_Structure(W_DataShape):
             for i in range(len(fields)):
                 name, tp, bitsize = fields[i]
                 if name in name_to_index:
-                    raise operationerrfmt(space.w_ValueError,
-                        "duplicate field name %s", name)
+                    raise oefmt(space.w_ValueError,
+                                "duplicate field name %s", name)
                 name_to_index[name] = i
             size, alignment, pos, bitsizes = size_alignment_pos(
                 fields, is_union, pack)
@@ -170,8 +170,8 @@ class W_Structure(W_DataShape):
         try:
             return self.name_to_index[attr]
         except KeyError:
-            raise operationerrfmt(space.w_AttributeError,
-                "C Structure has no attribute %s", attr)
+            raise oefmt(space.w_AttributeError,
+                        "C Structure has no attribute %s", attr)
 
     @unwrap_spec(autofree=bool)
     def descr_call(self, space, autofree=False):
@@ -226,6 +226,7 @@ class W_Structure(W_DataShape):
                                                            fieldtypes)
         return self.ffi_struct.ffistruct
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.ffi_struct:
             lltype.free(self.ffi_struct, flavor='raw')
@@ -380,6 +381,7 @@ class W_StructureInstanceAutoFree(W_StructureInstance):
     def __init__(self, space, shape):
         W_StructureInstance.__init__(self, space, shape, 0)
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.ll_buffer:
             self._free()

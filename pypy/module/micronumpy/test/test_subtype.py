@@ -1,8 +1,9 @@
-import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestSupport(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_NoNew = cls.space.appexec([], '''():
@@ -32,6 +33,11 @@ class AppTestSupport(BaseNumpyAppTest):
                 self = ndarray.__new__(subtype, shape, dtype)
                 self.id = 'subtype'
                 return self
+        a = C((), int)
+        assert type(a) is C
+        assert a.shape == ()
+        assert a.dtype is dtype(int)
+        assert a.id == 'subtype'
         a = C([2, 2], int)
         assert isinstance(a, C)
         assert isinstance(a, ndarray)
@@ -50,6 +56,14 @@ class AppTestSupport(BaseNumpyAppTest):
         b[0]=100
         assert a[0,0] == 100
 
+        assert type(a) is not ndarray
+        assert a[0,0] == 100
+        assert a.base is not None
+        b = a.__array__()
+        assert type(b) is ndarray
+        assert b[0,0] == 100
+        assert b.base is a
+
     def test_subtype_view(self):
         from numpypy import ndarray, array
         class matrix(ndarray):
@@ -61,7 +75,17 @@ class AppTestSupport(BaseNumpyAppTest):
         b = matrix(a)
         assert isinstance(b, matrix)
         assert (b == a).all()
+        a = array(5)[()]
+        for s in [matrix, ndarray]:
+            b = a.view(s)
+            assert b == a
+            assert type(b) is type(a)
 
+    def test_subtype_like_matrix(self):
+        import numpy as np
+        arr = np.array([1,2,3])
+        ret = np.ndarray.__new__(np.ndarray, arr.shape, arr.dtype, buffer=arr)
+        assert (arr == ret).all()
 
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
@@ -246,3 +270,116 @@ class AppTestSupport(BaseNumpyAppTest):
         c = array(a, float)
         assert c.dtype is dtype(float)
 
+    def test__getitem_modifies_shape(self):
+        import numpypy as N
+        # numpy's matrix class caused an infinite loop
+        class matrix(N.ndarray):
+            getcnt = 0
+            def __new__(subtype, data, dtype=None, copy=True):
+                arr = N.array(data, dtype=dtype, copy=copy)
+                shape = arr.shape
+
+                ret = N.ndarray.__new__(subtype, shape, arr.dtype,
+                                        buffer=arr,
+                                        order=True)
+                return ret
+
+            def __getitem__(self, index):
+                matrix.getcnt += 1
+                if matrix.getcnt > 10:
+                    # XXX strides.find_shape_and_elems is sensitive
+                    # to shape modification
+                    xxx
+                out = N.ndarray.__getitem__(self, index)
+
+                if not isinstance(out, N.ndarray):
+                    return out
+                    # Determine when we should have a column array
+                old_shape = out.shape
+                if out.ndim < 2:
+                    sh = out.shape[0]
+                    try:
+                        n = len(index)
+                    except:
+                        n = 0
+                    if n > 1:
+                        out.shape = (sh, 1)
+                    else:
+                        out.shape = (1, sh)
+                print 'out, shape was',old_shape,'now',out.shape
+                return out
+        a = matrix([[1., 2.]])
+        b = N.array([a])
+
+    def test_setstate_no_version(self):
+        # Some subclasses of ndarray, like MaskedArray, do not use
+        # version in __setstare__
+        from numpy import ndarray, array
+        from pickle import loads, dumps
+        import sys, new
+        class D(ndarray):
+            ''' A subtype with a constructor that accepts a list of
+                data values, where ndarray accepts a shape
+            '''
+            def __new__(subtype, data, dtype=None, copy=True):
+                arr = array(data, dtype=dtype, copy=copy)
+                shape = arr.shape
+                ret = ndarray.__new__(subtype, shape, arr.dtype,
+                                        buffer=arr,
+                                        order=True)
+                return ret
+            def __setstate__(self, state):
+                (version, shp, typ, isf, raw) = state
+                ndarray.__setstate__(self, (shp, typ, isf, raw))
+
+        D.__module__ = 'mod'
+        mod = new.module('mod')
+        mod.D = D
+        sys.modules['mod'] = mod
+        a = D([1., 2.])
+        s = dumps(a)
+        #Taken from numpy version 1.8
+        s_from_numpy = '''ignore this line
+            _reconstruct
+            p0
+            (cmod
+            D
+            p1
+            (I0
+            tp2
+            S'b'
+            p3
+            tp4
+            Rp5
+            (I1
+            (I2
+            tp6
+            cnumpy
+            dtype
+            p7
+            (S'f8'
+            p8
+            I0
+            I1
+            tp9
+            Rp10
+            (I3
+            S'<'
+            p11
+            NNNI-1
+            I-1
+            I0
+            tp12
+            bI00
+            S'\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\x00@'
+            p13
+            tp14
+            b.'''.replace('            ','')
+        for ss,sn in zip(s.split('\n')[1:],s_from_numpy.split('\n')[1:]):
+            if len(ss)>10:
+                # ignore binary data, it will be checked later
+                continue
+            assert ss == sn
+        b = loads(s)
+        assert (a == b).all()
+        assert isinstance(b, D)

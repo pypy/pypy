@@ -178,8 +178,13 @@ if WIN32:
                     int i;
                     for(i=1; i < 65000; i++) {
                         _dosmaperr(i);
-                        if (errno == EINVAL)
-                            continue;
+                        if (errno == EINVAL) {
+                            /* CPython issue #12802 */
+                            if (i == ERROR_DIRECTORY)
+                                errno = ENOTDIR;
+                            else
+                                continue;
+                        }
                         printf("%d\t%d\n", i, errno);
                     }
                     return 0;
@@ -201,7 +206,7 @@ if WIN32:
                 132: 13, 145: 41, 158: 13, 161: 2, 164: 11, 167: 13, 183: 17,
                 188: 8, 189: 8, 190: 8, 191: 8, 192: 8, 193: 8, 194: 8,
                 195: 8, 196: 8, 197: 8, 198: 8, 199: 8, 200: 8, 201: 8,
-                202: 8, 206: 2, 215: 11, 1816: 12,
+                202: 8, 206: 2, 215: 11, 267: 20, 1816: 12,
                 }
         else:
             output = os.popen(str(exename))
@@ -216,7 +221,7 @@ if WIN32:
     def llimpl_FormatError(code):
         "Return a message corresponding to the given Windows error code."
         buf = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
-
+        buf[0] = lltype.nullptr(rffi.CCHARP.TO)
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
                                    FORMAT_MESSAGE_FROM_SYSTEM,
@@ -225,17 +230,20 @@ if WIN32:
                                    DEFAULT_LANGUAGE,
                                    rffi.cast(rffi.CCHARP, buf),
                                    0, None)
+            buflen = intmask(msglen)
 
-            if msglen <= 2:   # includes the case msglen < 0
-                return fake_FormatError(code)
+            # remove trailing cr/lf and dots
+            s_buf = buf[0]
+            while buflen > 0 and (s_buf[buflen - 1] <= ' ' or
+                                  s_buf[buflen - 1] == '.'):
+                buflen -= 1
 
-            # FormatMessage always appends \r\n.
-            buflen = intmask(msglen - 2)
-            assert buflen > 0
-
-            result = rffi.charpsize2str(buf[0], buflen)
-            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
+            if buflen <= 0:
+                result = fake_FormatError(code)
+            else:
+                result = rffi.charpsize2str(s_buf, buflen)
         finally:
+            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
             lltype.free(buf, flavor='raw')
 
         return result

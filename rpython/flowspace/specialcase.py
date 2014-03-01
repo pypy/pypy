@@ -7,7 +7,7 @@ def register_flow_sc(func):
     """Decorator triggering special-case handling of ``func``.
 
     When the flow graph builder sees ``func``, it calls the decorated function
-    with ``decorated_func(space, *args_w)``, where ``args_w`` is a sequence of
+    with ``decorated_func(ctx, *args_w)``, where ``args_w`` is a sequence of
     flow objects (Constants or Variables).
     """
     def decorate(sc_func):
@@ -15,11 +15,10 @@ def register_flow_sc(func):
     return decorate
 
 @register_flow_sc(__import__)
-def sc_import(space, *args_w):
-    assert len(args_w) > 0 and len(args_w) <= 5, 'import needs 1 to 5 arguments'
+def sc_import(ctx, *args_w):
     assert all(isinstance(arg, Constant) for arg in args_w)
     args = [arg.value for arg in args_w]
-    return space.import_name(*args)
+    return ctx.import_name(*args)
 
 @register_flow_sc(locals)
 def sc_locals(_, *args):
@@ -32,23 +31,34 @@ def sc_locals(_, *args):
         "own project.")
 
 @register_flow_sc(isinstance)
-def sc_isinstance(space, w_instance, w_type):
+def sc_isinstance(ctx, w_instance, w_type):
     if w_instance.foldable() and w_type.foldable():
         return const(isinstance(w_instance.value, w_type.value))
-    return space.frame.do_operation('simple_call', const(isinstance),
-            w_instance, w_type)
+    return ctx.appcall(isinstance, w_instance, w_type)
+
+@register_flow_sc(getattr)
+def sc_getattr(ctx, w_obj, w_index, w_default=None):
+    if w_default is not None:
+        return ctx.appcall(getattr, w_obj, w_index, w_default)
+    else:
+        from rpython.flowspace.operation import op
+        return op.getattr(w_obj, w_index).eval(ctx)
 
 @register_flow_sc(open)
-def sc_open(space, *args_w):
+def sc_open(ctx, *args_w):
     from rpython.rlib.rfile import create_file
-
-    return space.frame.do_operation("simple_call", const(create_file), *args_w)
+    return ctx.appcall(create_file, *args_w)
 
 @register_flow_sc(os.tmpfile)
-def sc_os_tmpfile(space):
+def sc_os_tmpfile(ctx):
     from rpython.rlib.rfile import create_temp_rfile
+    return ctx.appcall(create_temp_rfile)
 
-    return space.frame.do_operation("simple_call", const(create_temp_rfile))
+@register_flow_sc(os.remove)
+def sc_os_remove(ctx, *args_w):
+    # on top of PyPy only: 'os.remove != os.unlink'
+    # (on CPython they are '==', but not identical either)
+    return ctx.appcall(os.unlink, *args_w)
 
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs

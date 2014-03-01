@@ -275,7 +275,12 @@ class ConstFloat(Const):
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
-            return self.value == other.value
+            # careful in this comparison: if self.value and other.value
+            # are both NaN, stored as regular floats (i.e. on 64-bit),
+            # then just using "==" would say False: two NaNs are always
+            # different from each other.
+            return (longlong.extract_bits(self.value) ==
+                    longlong.extract_bits(other.value))
         return False
 
     def nonnull(self):

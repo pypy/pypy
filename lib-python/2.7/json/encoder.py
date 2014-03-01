@@ -4,6 +4,21 @@ import re
 
 from __pypy__.builders import StringBuilder, UnicodeBuilder
 
+class StringOrUnicodeBuilder(object):
+    def __init__(self):
+        self._builder = StringBuilder()
+    def append(self, string):
+        try:
+            self._builder.append(string)
+        except UnicodeEncodeError:
+            ub = UnicodeBuilder()
+            ub.append(self._builder.build())
+            self._builder = ub
+            ub.append(string)
+    def build(self):
+        return self._builder.build()
+
+
 ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
 HAS_UTF8 = re.compile(r'[\x80-\xff]')
@@ -198,7 +213,7 @@ class JSONEncoder(object):
         if self.ensure_ascii:
             builder = StringBuilder()
         else:
-            builder = UnicodeBuilder()
+            builder = StringOrUnicodeBuilder()
         self.__encode(o, markers, builder, 0)
         return builder.build()
 

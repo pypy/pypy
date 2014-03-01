@@ -75,7 +75,7 @@ class TemporaryFileTests(unittest.TestCase):
         self.assertFalse(os.path.exists(name),
                     "file already exists for temporary file")
         # make sure we can create the file
-        open(name, "w")
+        open(name, "w").close()
         self.files.append(name)
 
     def test_tempnam(self):
@@ -129,9 +129,13 @@ class TemporaryFileTests(unittest.TestCase):
                         fp = os.tmpfile()
                     except OSError, second:
                         self.assertEqual(first.args, second.args)
+                        return
                     else:
-                        self.fail("expected os.tmpfile() to raise OSError")
-                    return
+                        if test_support.check_impl_detail(pypy=False):
+                            self.fail("expected os.tmpfile() to raise OSError")
+                        # on PyPy, os.tmpfile() uses the tempfile module
+                        # anyway, so works even if we cannot write in root.
+                        fp.close()
                 else:
                     # open() worked, therefore, tmpfile() should work.  Close our
                     # dummy file and proceed with the test as normal.

@@ -1,6 +1,6 @@
 
 import _rawffi
-import _ffi
+from _rawffi import alt as _ffi
 import sys
 
 try: from __pypy__ import builtinify

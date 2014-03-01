@@ -7,7 +7,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
@@ -312,7 +312,7 @@ class WarmEnterState(object):
             #
             assert 0, "should have raised"
 
-        def bound_reached(index, cell, *args):
+        def bound_reached(hash, cell, *args):
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
@@ -322,7 +322,7 @@ class WarmEnterState(object):
             greenargs = args[:num_green_args]
             if cell is None:
                 cell = JitCell(*greenargs)
-                jitcounter.install_new_cell(index, cell)
+                jitcounter.install_new_cell(hash, cell)
             cell.flags |= JC_TRACING
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
@@ -339,16 +339,16 @@ class WarmEnterState(object):
             # These few lines inline some logic that is also on the
             # JitCell class, to avoid computing the hash several times.
             greenargs = args[:num_green_args]
-            index = JitCell.get_index(*greenargs)
-            cell = jitcounter.lookup_chain(index)
+            hash = JitCell.get_uhash(*greenargs)
+            cell = jitcounter.lookup_chain(hash)
             while cell is not None:
                 if isinstance(cell, JitCell) and cell.comparekey(*greenargs):
                     break    # found
                 cell = cell.next
             else:
                 # not found. increment the counter
-                if jitcounter.tick(index, increment_threshold):
-                    bound_reached(index, None, *args)
+                if jitcounter.tick(hash, increment_threshold):
+                    bound_reached(hash, None, *args)
                 return
 
             # Here, we have found 'cell'.
@@ -359,15 +359,15 @@ class WarmEnterState(object):
                     # this function. don't trace a second time.
                     return
                 # attached by compile_tmp_callback().  count normally
-                if jitcounter.tick(index, increment_threshold):
-                    bound_reached(index, cell, *args)
+                if jitcounter.tick(hash, increment_threshold):
+                    bound_reached(hash, cell, *args)
                 return
             # machine code was already compiled for these greenargs
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
                 # it was an aborted compilation, or maybe a weakref that
                 # has been freed
-                jitcounter.cleanup_chain(index)
+                jitcounter.cleanup_chain(hash)
                 return
             if not confirm_enter_jit(*args):
                 return
@@ -422,7 +422,6 @@ class WarmEnterState(object):
         green_args_name_spec = unrolling_iterable([('g%d' % i, TYPE)
                      for i, TYPE in enumerate(jitdriver_sd._green_args_spec)])
         unwrap_greenkey = self.make_unwrap_greenkey()
-        random_initial_value = hash(self)
         #
         class JitCell(BaseJitCell):
             def __init__(self, *greenargs):
@@ -441,20 +440,20 @@ class WarmEnterState(object):
                 return True
 
             @staticmethod
-            def get_index(*greenargs):
-                x = random_initial_value
+            def get_uhash(*greenargs):
+                x = r_uint(-1888132534)
                 i = 0
                 for _, TYPE in green_args_name_spec:
                     item = greenargs[i]
-                    y = hash_whatever(TYPE, item)
-                    x = intmask((x ^ y) * 1405695061)  # prime number, 2**30~31
+                    y = r_uint(hash_whatever(TYPE, item))
+                    x = (x ^ y) * r_uint(1405695061)  # prime number, 2**30~31
                     i = i + 1
-                return jitcounter.get_index(x)
+                return x
 
             @staticmethod
             def get_jitcell(*greenargs):
-                index = JitCell.get_index(*greenargs)
-                cell = jitcounter.lookup_chain(index)
+                hash = JitCell.get_uhash(*greenargs)
+                cell = jitcounter.lookup_chain(hash)
                 while cell is not None:
                     if (isinstance(cell, JitCell) and
                             cell.comparekey(*greenargs)):
@@ -470,15 +469,15 @@ class WarmEnterState(object):
             @staticmethod
             def ensure_jit_cell_at_key(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
-                index = JitCell.get_index(*greenargs)
-                cell = jitcounter.lookup_chain(index)
+                hash = JitCell.get_uhash(*greenargs)
+                cell = jitcounter.lookup_chain(hash)
                 while cell is not None:
                     if (isinstance(cell, JitCell) and
                             cell.comparekey(*greenargs)):
                         return cell
                     cell = cell.next
                 newcell = JitCell(*greenargs)
-                jitcounter.install_new_cell(index, newcell)
+                jitcounter.install_new_cell(hash, newcell)
                 return newcell
         #
         self.JitCell = JitCell

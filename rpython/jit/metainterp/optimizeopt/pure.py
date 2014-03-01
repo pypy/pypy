@@ -85,10 +85,6 @@ class OptPure(Optimization):
     def flush(self):
         assert self.postponed_op is None
 
-    def new(self):
-        assert self.postponed_op is None
-        return OptPure()
-
     def setup(self):
         self.optimizer.optpure = self
 
@@ -114,11 +110,6 @@ class OptPure(Optimization):
 
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.emitted_pure_operations:
-            if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \
-               op.getopnum() == rop.STRGETITEM or \
-               op.getopnum() == rop.UNICODEGETITEM:
-                if not self.getvalue(op.getarg(1)).is_constant():
-                    continue
             sb.add_potential(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',

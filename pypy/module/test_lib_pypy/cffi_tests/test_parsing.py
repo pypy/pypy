@@ -12,9 +12,9 @@ class FakeBackend(object):
 
     def load_library(self, name, flags):
         if sys.platform == 'win32':
-            assert "msvcr" in name
+            assert name is None or "msvcr" in name
         else:
-            assert "libc" in name or "libm" in name
+            assert name is None or "libc" in name or "libm" in name
         return FakeLibrary()
 
     def new_function_type(self, args, result, has_varargs):
@@ -33,7 +33,8 @@ class FakeBackend(object):
     def new_struct_type(self, name):
         return FakeStruct(name)
 
-    def complete_struct_or_union(self, s, fields, tp=None):
+    def complete_struct_or_union(self, s, fields, tp=None,
+                                 totalsize=-1, totalalignment=-1, sflags=0):
         assert isinstance(s, FakeStruct)
         s.fields = fields
     

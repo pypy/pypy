@@ -4,7 +4,7 @@ import re
 from rpython.tool.logparser import extract_category
 from rpython.jit.backend.tool.viewcode import ObjdumpNotFound
 
-from pypy.tool.jitlogparser.parser import (import_log, parse_log_counts,
+from rpython.tool.jitlogparser.parser import (import_log, parse_log_counts,
         mangle_descr)
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
@@ -73,9 +73,9 @@ class TestLogParser(BaseTestPyPyC):
                 bridge = bridges.get(mangle_descr(op.descr))
                 if bridge is not None:
                     mod_bridges.append(bridge)
-        assert len(mod_bridges) in (1, 2)
+        assert len(mod_bridges) in (1, 2, 3)
 
         # check that counts are reasonable (precise # may change in the future)
-        assert N - 2000 < sum(l.count for l in fn_with_bridges_loops) < N
+        assert N - 2000 < sum(l.count for l in fn_with_bridges_loops) < N + 1000
 
 

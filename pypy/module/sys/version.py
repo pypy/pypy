@@ -11,7 +11,7 @@ CPYTHON_VERSION            = (2, 7, 4, "final", 42)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (2, 2, 0, "alpha", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (2, 3, 0, "alpha", 0)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)

@@ -842,6 +842,26 @@ class AppTestW_ListObject(object):
         except TypeError:
             pass
 
+    def test_mul___index__(self):
+        class MyInt(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __int__(self):
+            return self.x
+
+        class MyIndex(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __index__(self):
+            return self.x
+
+        assert [0] * MyIndex(3) == [0, 0, 0]
+        raises(TypeError, "[0]*MyInt(3)")
+        raises(TypeError, "[0]*MyIndex(MyInt(3))")
+
+
     def test_index(self):
         c = range(10)
         assert c.index(0) == 0
@@ -1313,6 +1333,57 @@ class AppTestW_ListObject(object):
             pass
         non_list = NonList()
         assert [] != non_list
+
+    def test_extend_from_empty_list_with_subclasses(self):
+        # some of these tests used to fail by ignoring the
+        # custom __iter__() --- but only if the list has so
+        # far the empty strategy, as opposed to .extend()ing
+        # a non-empty list.
+        class T(tuple):
+            def __iter__(self):
+                yield "ok"
+        assert list(T([5, 6])) == ["ok"]
+        #
+        class L(list):
+            def __iter__(self):
+                yield "ok"
+        assert list(L([5, 6])) == ["ok"]
+        assert list(L([5.2, 6.3])) == ["ok"]
+        #
+        class S(str):
+            def __iter__(self):
+                yield "ok"
+        assert list(S("don't see me")) == ["ok"]
+        #
+        class U(unicode):
+            def __iter__(self):
+                yield "ok"
+        assert list(U(u"don't see me")) == ["ok"]
+
+    def test_extend_from_nonempty_list_with_subclasses(self):
+        l = ["hi!"]
+        class T(tuple):
+            def __iter__(self):
+                yield "okT"
+        l.extend(T([5, 6]))
+        #
+        class L(list):
+            def __iter__(self):
+                yield "okL"
+        l.extend(L([5, 6]))
+        l.extend(L([5.2, 6.3]))
+        #
+        class S(str):
+            def __iter__(self):
+                yield "okS"
+        l.extend(S("don't see me"))
+        #
+        class U(unicode):
+            def __iter__(self):
+                yield "okU"
+        l.extend(U(u"don't see me"))
+        #
+        assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
 
 
 class AppTestForRangeLists(AppTestW_ListObject):

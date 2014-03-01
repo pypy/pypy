@@ -1,10 +1,11 @@
 import py
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, raw_memcopy
-from rpython.annotator.model import lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
@@ -52,7 +53,7 @@ def _isllptr(p):
 class _IsLLPtrEntry(ExtRegistryEntry):
     _about_ = _isllptr
     def compute_result_annotation(self, s_p):
-        result = isinstance(s_p, annmodel.SomePtr)
+        result = isinstance(s_p, SomePtr)
         return self.bookkeeper.immutablevalue(result)
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -115,12 +116,14 @@ def llexternal(name, args, result, _callable=None,
         # default case:
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
-        invoke_around_handlers = not sandboxsafe
+        # Also, _nowrapper functions cannot release the GIL, by default.
+        invoke_around_handlers = not sandboxsafe and not _nowrapper
 
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
             has_callback)               # because the callback can do it
+    assert not (elidable_function and random_effects_on_gcobjs)
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
@@ -181,10 +184,6 @@ def llexternal(name, args, result, _callable=None,
 
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
-        # XXX the next line is a workaround for the annotation bug
-        # shown in rpython.test.test_llann:test_pbctype.  Remove it
-        # when the test is fixed...
-        assert isinstance(lltype.Signed, lltype.Number)
         real_args = ()
         to_free = ()
         for i, TARGET in unrolling_arg_tps:
@@ -996,7 +995,7 @@ class MakeEntry(ExtRegistryEntry):
         TP = s_type.const
         if not isinstance(TP, lltype.Struct):
             raise TypeError("make called with %s instead of Struct as first argument" % TP)
-        return annmodel.SomePtr(lltype.Ptr(TP))
+        return SomePtr(lltype.Ptr(TP))
 
     def specialize_call(self, hop, **fields):
         assert hop.args_s[0].is_constant()

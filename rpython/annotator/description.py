@@ -148,6 +148,8 @@ class Desc(object):
 
     def mergecallfamilies(self, *others):
         """Merge the call families of the given Descs into one."""
+        if not others:
+            return False
         call_families = self.bookkeeper.pbc_maximal_call_families
         changed, rep, callfamily = call_families.find(self.rowkey())
         for desc in others:
@@ -622,7 +624,7 @@ class ClassDesc(Desc):
                 except ValueError:
                     pass
                 else:
-                    from rpython.annotator.model import SomePtr
+                    from rpython.rtyper.llannotation import SomePtr
                     assert not isinstance(s_arg, SomePtr)
         else:
             # call the constructor
@@ -879,11 +881,12 @@ class MethodDesc(Desc):
                                              self.name,
                                              flags)
 
+    @staticmethod
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
-        shape = rawshape(args, nextra=1)     # account for the extra 'self'
+        cnt, keys, star = rawshape(args)
+        shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
-    consider_call_site = staticmethod(consider_call_site)
 
     def rowkey(self):
         # we are computing call families and call tables that always contain
@@ -1039,11 +1042,12 @@ class MethodOfFrozenDesc(Desc):
         args = args.prepend(s_self)
         return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
+    @staticmethod
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
-        shape = rawshape(args, nextra=1)    # account for the extra 'self'
+        cnt, keys, star = rawshape(args)
+        shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
-    consider_call_site = staticmethod(consider_call_site)
 
     def rowkey(self):
         return self.funcdesc

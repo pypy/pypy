@@ -323,6 +323,16 @@ class AppTestFfi:
         assert res == u'xx'
         a.free()
 
+    def test_rawstring2charp(self):
+        import _rawffi
+        A = _rawffi.Array('c')
+        a = A(10, 'x'*10)
+        _rawffi.rawstring2charp(a.buffer, "foobar")
+        assert ''.join([a[i] for i in range(10)]) == "foobarxxxx"
+        _rawffi.rawstring2charp(a.buffer, buffer("baz"))
+        assert ''.join([a[i] for i in range(10)]) == "bazbarxxxx"
+        a.free()
+
     def test_raw_callable(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
@@ -1129,24 +1139,32 @@ class AppTestAutoFree:
         gc.collect()
         gc.collect()
         S = _rawffi.Structure([('x', 'i')])
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
         s = S(autofree=True)
         s.x = 3
         s = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def test_array_autofree(self):
         import gc, _rawffi
         gc.collect()
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
 
         A = _rawffi.Array('c')
         a = A(6, 'xxyxx\x00', autofree=True)
         assert _rawffi.charp2string(a.buffer) == 'xxyxx'
         a = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def teardown_class(cls):
         Tracker.DO_TRACING = False

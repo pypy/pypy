@@ -19,7 +19,7 @@ OPCODE_BRANCH             = 7
 #OPCODE_CALL              = 8
 OPCODE_CATEGORY           = 9
 OPCODE_CHARSET            = 10
-#OPCODE_BIGCHARSET        = 11
+OPCODE_BIGCHARSET         = 11
 OPCODE_GROUPREF           = 12
 OPCODE_GROUPREF_EXISTS    = 13
 OPCODE_GROUPREF_IGNORE    = 14
@@ -40,6 +40,9 @@ OPCODE_REPEAT             = 28
 OPCODE_REPEAT_ONE         = 29
 #OPCODE_SUBPATTERN        = 30
 OPCODE_MIN_REPEAT_ONE     = 31
+
+# not used by Python itself
+OPCODE_UNICODE_GENERAL_CATEGORY = 70
 
 # ____________________________________________________________
 

@@ -1,19 +1,19 @@
 """This is not the JIT :-)
 
-This is transformed to become a JIT by code elsewhere: pypy/jit/*
+This is transformed to become a JIT by code elsewhere: rpython/jit/*
 """
 
-from rpython.tool.pairtype import extendabletype
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from rpython.rlib import jit
 from rpython.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.pycode import PyCode, CO_GENERATOR
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.pycode import CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame, Yield
 from opcode import opmap
+
 
 PyFrame._virtualizable_ = ['last_instr', 'pycode',
                            'valuestackdepth', 'locals_stack_w[*]',
@@ -117,8 +117,9 @@ def set_param(space, __args__):
     # XXXXXXXXX
     args_w, kwds_w = __args__.unpack()
     if len(args_w) > 1:
-        msg = "set_param() takes at most 1 non-keyword argument, %d given"
-        raise operationerrfmt(space.w_TypeError, msg, len(args_w))
+        raise oefmt(space.w_TypeError,
+                    "set_param() takes at most 1 non-keyword argument, %d "
+                    "given", len(args_w))
     if len(args_w) == 1:
         text = space.str_w(args_w[0])
         try:
@@ -136,8 +137,7 @@ def set_param(space, __args__):
                     jit.set_param(None, name, intval)
                     break
             else:
-                raise operationerrfmt(space.w_TypeError,
-                                      "no JIT parameter '%s'", key)
+                raise oefmt(space.w_TypeError, "no JIT parameter '%s'", key)
 
 @dont_look_inside
 def residual_call(space, w_callable, __args__):

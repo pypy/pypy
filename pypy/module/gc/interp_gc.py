@@ -3,16 +3,17 @@ from pypy.interpreter.error import OperationError
 from rpython.rlib import rgc
 from rpython.rlib.streamio import open_file_as_stream
 
-def collect(space):
-    "Run a full collection."
+@unwrap_spec(generation=int)
+def collect(space, generation=0):
+    "Run a full collection.  The optional argument is ignored."
     # First clear the method cache.  See test_gc for an example of why.
     if space.config.objspace.std.withmethodcache:
         from pypy.objspace.std.typeobject import MethodCache
         cache = space.fromcache(MethodCache)
         cache.clear()
         if space.config.objspace.std.withmapdict:
-            from pypy.objspace.std.mapdict import IndexCache
-            cache = space.fromcache(IndexCache)
+            from pypy.objspace.std.mapdict import MapAttrCache
+            cache = space.fromcache(MapAttrCache)
             cache.clear()
     rgc.collect()
     return space.wrap(0)

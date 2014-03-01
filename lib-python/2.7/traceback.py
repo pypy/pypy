@@ -107,7 +107,7 @@ def extract_tb(tb, limit = None):
     return list
 
 
-def print_exception(etype, value, tb, limit=None, file=None):
+def print_exception(etype, value, tb, limit=None, file=None, _encoding=None):
     """Print exception up to 'limit' stack trace entries from 'tb' to 'file'.
 
     This differs from print_tb() in the following ways: (1) if
@@ -123,7 +123,7 @@ def print_exception(etype, value, tb, limit=None, file=None):
     if tb:
         _print(file, 'Traceback (most recent call last):')
         print_tb(tb, limit, file)
-    lines = format_exception_only(etype, value)
+    lines = format_exception_only(etype, value, _encoding)
     for line in lines:
         _print(file, line, '')
 
@@ -144,7 +144,7 @@ def format_exception(etype, value, tb, limit = None):
     list = list + format_exception_only(etype, value)
     return list
 
-def format_exception_only(etype, value):
+def format_exception_only(etype, value, _encoding=None):
     """Format the exception part of a traceback.
 
     The arguments are the exception type and value such as given by
@@ -170,12 +170,12 @@ def format_exception_only(etype, value):
     if (isinstance(etype, BaseException) or
         isinstance(etype, types.InstanceType) or
         etype is None or type(etype) is str):
-        return [_format_final_exc_line(etype, value)]
+        return [_format_final_exc_line(etype, value, _encoding)]
 
     stype = etype.__name__
 
     if not issubclass(etype, SyntaxError):
-        return [_format_final_exc_line(stype, value)]
+        return [_format_final_exc_line(stype, value, _encoding)]
 
     # It was a syntax error; show exactly where the problem was found.
     lines = []
@@ -196,26 +196,26 @@ def format_exception_only(etype, value):
                 lines.append('   %s^\n' % ''.join(caretspace))
         value = msg
 
-    lines.append(_format_final_exc_line(stype, value))
+    lines.append(_format_final_exc_line(stype, value, _encoding))
     return lines
 
-def _format_final_exc_line(etype, value):
+def _format_final_exc_line(etype, value, _encoding=None):
     """Return a list of a single line -- normal case for format_exception_only"""
-    valuestr = _some_str(value)
+    valuestr = _some_str(value, _encoding)
     if value is None or not valuestr:
         line = "%s\n" % etype
     else:
         line = "%s: %s\n" % (etype, valuestr)
     return line
 
-def _some_str(value):
+def _some_str(value, _encoding=None):
     try:
         return str(value)
     except Exception:
         pass
     try:
         value = unicode(value)
-        return value.encode("ascii", "backslashreplace")
+        return value.encode(_encoding or "ascii", "backslashreplace")
     except Exception:
         pass
     return '<unprintable %s object>' % type(value).__name__

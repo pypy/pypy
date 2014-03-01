@@ -20,9 +20,6 @@ class OptRewrite(Optimization):
         self.loop_invariant_results = {}
         self.loop_invariant_producer = {}
 
-    def new(self):
-        return OptRewrite()
-
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_potential(op)
@@ -89,8 +86,21 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v1.is_null() or v2.is_null():
             self.make_constant_int(op.result, 0)
-        else:
-            self.emit_operation(op)
+            return
+        elif v2.is_constant():
+            val = v2.box.getint()
+            if val == -1 or v1.intbound.lower >= 0 \
+                and v1.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v1)
+                return
+        elif v1.is_constant():
+            val = v1.box.getint()
+            if val == -1 or v2.intbound.lower >= 0 \
+                and v2.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v2)
+                return
+
+        self.emit_operation(op)
 
     def optimize_INT_OR(self, op):
         v1 = self.getvalue(op.getarg(0))

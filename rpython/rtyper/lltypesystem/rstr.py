@@ -9,6 +9,7 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import ll_str, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
     typeOf, staticAdtMethod, GcForwardReference)
@@ -402,6 +403,46 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @jit.elidable
+    def ll_strip_default(s, left, right):
+        s_len = len(s.chars)
+        if s_len == 0:
+            return s.empty()
+        lpos = 0
+        rpos = s_len - 1
+        if left:
+            while lpos < rpos and s.chars[lpos].isspace():
+                lpos += 1
+        if right:
+            while lpos < rpos + 1 and s.chars[rpos].isspace():
+                rpos -= 1
+        if rpos < lpos:
+            return s.empty()
+        r_len = rpos - lpos + 1
+        result = s.malloc(r_len)
+        s.copy_contents(s, result, lpos, 0, r_len)
+        return result
+
+    @jit.elidable
+    def ll_strip_multiple(s, s2, left, right):
+        s_len = len(s.chars)
+        if s_len == 0:
+            return s.empty()
+        lpos = 0
+        rpos = s_len - 1
+        if left:
+            while lpos < rpos and LLHelpers.ll_contains(s2, s.chars[lpos]):
+                lpos += 1
+        if right:
+            while lpos < rpos + 1 and LLHelpers.ll_contains(s2, s.chars[rpos]):
+                rpos -= 1
+        if rpos < lpos:
+            return s.empty()
+        r_len = rpos - lpos + 1
+        result = s.malloc(r_len)
+        s.copy_contents(s, result, lpos, 0, r_len)
+        return result
+
+    @jit.elidable
     def ll_upper(s):
         s_chars = s.chars
         s_len = len(s_chars)
@@ -583,8 +624,8 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return count
 
-    @classmethod
-    def ll_find(cls, s1, s2, start, end):
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
+    def ll_find(s1, s2, start, end):
         if start < 0:
             start = 0
         if end > len(s1.chars):
@@ -594,12 +635,12 @@ class LLHelpers(AbstractLLHelpers):
 
         m = len(s2.chars)
         if m == 1:
-            return cls.ll_find_char(s1, s2.chars[0], start, end)
+            return LLHelpers.ll_find_char(s1, s2.chars[0], start, end)
 
-        return cls.ll_search(s1, s2, start, end, FAST_FIND)
+        return LLHelpers.ll_search(s1, s2, start, end, FAST_FIND)
 
-    @classmethod
-    def ll_rfind(cls, s1, s2, start, end):
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
+    def ll_rfind(s1, s2, start, end):
         if start < 0:
             start = 0
         if end > len(s1.chars):
@@ -609,9 +650,9 @@ class LLHelpers(AbstractLLHelpers):
 
         m = len(s2.chars)
         if m == 1:
-            return cls.ll_rfind_char(s1, s2.chars[0], start, end)
+            return LLHelpers.ll_rfind_char(s1, s2.chars[0], start, end)
 
-        return cls.ll_search(s1, s2, start, end, FAST_RFIND)
+        return LLHelpers.ll_search(s1, s2, start, end, FAST_RFIND)
 
     @classmethod
     def ll_count(cls, s1, s2, start, end):
@@ -840,6 +881,37 @@ class LLHelpers(AbstractLLHelpers):
         item.copy_contents(s, item, i, 0, j - i)
         return res
 
+    def ll_split(LIST, s, c, max):
+        count = 1
+        if max == -1:
+            max = len(s.chars)
+        pos = 0
+        last = len(s.chars)
+        markerlen = len(c.chars)
+        pos = s.find(c, 0, last)
+        while pos >= 0 and count <= max:
+            pos = s.find(c, pos + markerlen, last)
+            count += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        pos = 0
+        count = 0
+        pos = s.find(c, 0, last)
+        prev_pos = 0
+        if pos < 0:
+            items[0] = s
+            return res
+        while pos >= 0 and count < max:
+            item = items[count] = s.malloc(pos - prev_pos)
+            item.copy_contents(s, item, prev_pos, 0, pos -
+                               prev_pos)
+            count += 1
+            prev_pos = pos + markerlen
+            pos = s.find(c, pos + markerlen, last)
+        item = items[count] = s.malloc(last - prev_pos)
+        item.copy_contents(s, item, prev_pos, 0, last - prev_pos)
+        return res
+
     def ll_rsplit_chr(LIST, s, c, max):
         chars = s.chars
         strlen = len(chars)
@@ -873,6 +945,37 @@ class LLHelpers(AbstractLLHelpers):
                     break
         item = items[resindex] = s.malloc(i - j)
         item.copy_contents(s, item, j, 0, i - j)
+        return res
+
+    def ll_rsplit(LIST, s, c, max):
+        count = 1
+        if max == -1:
+            max = len(s.chars)
+        pos = len(s.chars)
+        markerlen = len(c.chars)
+        pos = s.rfind(c, 0, pos)
+        while pos >= 0 and count <= max:
+            pos = s.rfind(c, 0, pos - markerlen)
+            count += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        pos = 0
+        pos = len(s.chars)
+        prev_pos = pos
+        pos = s.rfind(c, 0, pos)
+        if pos < 0:
+            items[0] = s
+            return res
+        count -= 1
+        while pos >= 0 and count > 0:
+            item = items[count] = s.malloc(prev_pos - pos - markerlen)
+            item.copy_contents(s, item, pos + markerlen, 0,
+                               prev_pos - pos - markerlen)
+            count -= 1
+            prev_pos = pos
+            pos = s.rfind(c, 0, pos)
+        item = items[count] = s.malloc(prev_pos)
+        item.copy_contents(s, item, 0, 0, prev_pos)
         return res
 
     @jit.elidable
@@ -1053,7 +1156,9 @@ STR.become(GcStruct('rpy_string', ('hash',  Signed),
                               'copy_contents' : staticAdtMethod(copy_string_contents),
                               'copy_contents_from_str' : staticAdtMethod(copy_string_contents),
                               'gethash': LLHelpers.ll_strhash,
-                              'length': LLHelpers.ll_length}))
+                              'length': LLHelpers.ll_length,
+                              'find': LLHelpers.ll_find,
+                              'rfind': LLHelpers.ll_rfind}))
 UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
                         ('chars', Array(UniChar, hints={'immutable': True})),
                         adtmeths={'malloc' : staticAdtMethod(mallocunicode),

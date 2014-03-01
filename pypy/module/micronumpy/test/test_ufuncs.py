@@ -1,7 +1,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
+from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 
 class TestUfuncCoercion(object):
@@ -10,6 +10,10 @@ class TestUfuncCoercion(object):
         int8_dtype = get_dtype_cache(space).w_int8dtype
         int32_dtype = get_dtype_cache(space).w_int32dtype
         float64_dtype = get_dtype_cache(space).w_float64dtype
+        c64_dtype = get_dtype_cache(space).w_complex64dtype
+        c128_dtype = get_dtype_cache(space).w_complex128dtype
+        cld_dtype = get_dtype_cache(space).w_complexlongdtype
+        fld_dtype = get_dtype_cache(space).w_floatlongdtype
 
         # Basic pairing
         assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
@@ -17,6 +21,9 @@ class TestUfuncCoercion(object):
         assert find_binop_result_dtype(space, float64_dtype, bool_dtype) is float64_dtype
         assert find_binop_result_dtype(space, int32_dtype, int8_dtype) is int32_dtype
         assert find_binop_result_dtype(space, int32_dtype, bool_dtype) is int32_dtype
+        assert find_binop_result_dtype(space, c64_dtype, float64_dtype) is c128_dtype
+        assert find_binop_result_dtype(space, c64_dtype, fld_dtype) is cld_dtype
+        assert find_binop_result_dtype(space, c128_dtype, fld_dtype) is cld_dtype
 
         # With promote bool (happens on div), the result is that the op should
         # promote bools to int8
@@ -76,12 +83,17 @@ class TestUfuncCoercion(object):
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_constants(self):
+        import numpy as np
+        assert np.FLOATING_POINT_SUPPORT == 1
+
     def test_ufunc_instance(self):
         from numpypy import add, ufunc
 
         assert isinstance(add, ufunc)
         assert repr(add) == "<ufunc 'add'>"
-        assert repr(ufunc) == "<type 'numpypy.ufunc'>" or repr(ufunc) == "<type 'numpy.ufunc'>"
+        assert repr(ufunc) == "<type 'numpy.ufunc'>"
+        assert add.__name__ == 'add'
 
     def test_ufunc_attrs(self):
         from numpypy import add, multiply, sin
@@ -390,23 +402,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a == ref).all()
 
     def test_signbit(self):
-        from numpypy import signbit, add
-
+        from numpy import signbit, add, copysign, nan
+        assert signbit(add.identity) == False
         assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
-            [False, False, False, False, False]).all()
+                [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
-            [False,  True,  True,  True,  True]).all()
-
-        a = add.identity
-        assert signbit(a) == False
-
-        skip('sign of nan is non-determinant')
-        assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
-            [False, True, True]).all()
+                [False,  True,  True,  True,  True]).all()
+        assert (signbit([copysign(nan, 1), copysign(nan, -1)]) ==
+                [False, True]).all()
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal
-
+        from numpy import array, reciprocal
         inf = float('inf')
         nan = float('nan')
         reference = [-0.2, inf, -inf, 2.0, nan]
@@ -757,17 +763,32 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert add.reduce(1) == 1
 
         assert list(maximum.reduce(zeros((2, 0)), axis=0)) == []
-        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=None)
-        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=1)
+        exc = raises(ValueError, maximum.reduce, zeros((2, 0)), axis=None)
+        assert exc.value[0] == ('zero-size array to reduction operation '
+                                'maximum which has no identity')
+        exc = raises(ValueError, maximum.reduce, zeros((2, 0)), axis=1)
+        assert exc.value[0] == ('zero-size array to reduction operation '
+                                'maximum which has no identity')
+
+        a = zeros((2, 2)) + 1
+        assert (add.reduce(a, axis=1) == [2, 2]).all()
+        exc = raises(ValueError, add.reduce, a, axis=2)
+        assert exc.value[0] == "'axis' entry is out of bounds"
 
     def test_reduce_1d(self):
-        from numpypy import add, maximum, less
+        from numpypy import array, add, maximum, less, float16, complex64
 
         assert less.reduce([5, 4, 3, 2, 1])
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
+
+        assert add.reduce(array([True, False] * 200)) == 200
+        assert add.reduce(array([True, False] * 200, dtype='int8')) == 200
+        assert add.reduce(array([True, False] * 200), dtype='int8') == -56
+        assert type(add.reduce(array([True, False] * 200, dtype='float16'))) is float16
+        assert type(add.reduce(array([True, False] * 200, dtype='complex64'))) is complex64
 
     def test_reduceND(self):
         from numpypy import add, arange
@@ -1029,24 +1050,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
 
-    def test_ones_like(self):
-        from numpypy import array, ones_like
-
-        assert ones_like(False) == array(True)
-        assert ones_like(2) == array(1)
-        assert ones_like(2.) == array(1.)
-        assert ones_like(complex(2)) == array(complex(1))
-
-    def test_zeros_like(self):
-        from numpypy import array, zeros_like
-
-        assert zeros_like(True) == array(False)
-        assert zeros_like(2) == array(0)
-        assert zeros_like(2.) == array(0.)
-        assert zeros_like(complex(2)) == array(complex(0))
-
     def test_accumulate(self):
-        from numpypy import add, multiply, arange
+        from numpypy import add, subtract, multiply, divide, arange, dtype
         assert (add.accumulate([2, 3, 5]) == [2, 5, 10]).all()
         assert (multiply.accumulate([2, 3, 5]) == [2, 6, 30]).all()
         a = arange(4).reshape(2,2)
@@ -1062,6 +1067,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         print b
         assert (b == [[0, 0, 1], [1, 3, 5]]).all()
         assert b.dtype == int
+        assert add.accumulate([True]*200)[-1] == 200
+        assert add.accumulate([True]*200).dtype == dtype('int')
+        assert subtract.accumulate([True]*200).dtype == dtype('bool')
+        assert divide.accumulate([True]*200).dtype == dtype('int8')
 
     def test_noncommutative_reduce_accumulate(self):
         import numpypy as np
@@ -1073,3 +1082,20 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 np.array([0, -1, -3, -6, -10])).all()
         assert (np.divide.accumulate(todivide) ==
                 np.array([2., 4., 16.])).all()
+
+    def test_outer(self):
+        import numpy as np
+        from numpypy import absolute
+        exc = raises(ValueError, np.absolute.outer, [-1, -2])
+        assert exc.value[0] == 'outer product only supported for binary functions'
+
+    def test_promotion(self):
+        import numpy as np
+        assert np.add(np.float16(0), np.int16(0)).dtype == np.float32
+        assert np.add(np.float16(0), np.int32(0)).dtype == np.float64
+        assert np.add(np.float16(0), np.int64(0)).dtype == np.float64
+        assert np.add(np.float16(0), np.float32(0)).dtype == np.float32
+        assert np.add(np.float16(0), np.float64(0)).dtype == np.float64
+        assert np.add(np.float16(0), np.longdouble(0)).dtype == np.longdouble
+        assert np.add(np.float16(0), np.complex64(0)).dtype == np.complex64
+        assert np.add(np.float16(0), np.complex128(0)).dtype == np.complex128

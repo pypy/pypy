@@ -64,13 +64,13 @@ def test_missing_function_import_error():
 def test_simple_case():
     ffi = FFI()
     ffi.cdef("double sin(double x);")
-    lib = ffi.verify('#include <math.h>')
+    lib = ffi.verify('#include <math.h>', libraries=["m"])
     assert lib.sin(1.23) == math.sin(1.23)
 
 def test_rounding_1():
     ffi = FFI()
     ffi.cdef("float sin(double x);")
-    lib = ffi.verify('#include <math.h>')
+    lib = ffi.verify('#include <math.h>', libraries=["m"])
     res = lib.sin(1.23)
     assert res != math.sin(1.23)     # not exact, because of double->float
     assert abs(res - math.sin(1.23)) < 1E-5
@@ -78,7 +78,7 @@ def test_rounding_1():
 def test_rounding_2():
     ffi = FFI()
     ffi.cdef("double sin(float x);")
-    lib = ffi.verify('#include <math.h>')
+    lib = ffi.verify('#include <math.h>', libraries=["m"])
     res = lib.sin(1.23)
     assert res != math.sin(1.23)     # not exact, because of double->float
     assert abs(res - math.sin(1.23)) < 1E-5
@@ -104,7 +104,7 @@ def test_strlen_array_of_char():
 def test_longdouble():
     ffi = FFI()
     ffi.cdef("long double sinl(long double x);")
-    lib = ffi.verify('#include <math.h>')
+    lib = ffi.verify('#include <math.h>', libraries=["m"])
     for input in [1.23,
                   ffi.cast("double", 1.23),
                   ffi.cast("long double", 1.23)]:
@@ -149,28 +149,27 @@ def test_longdouble_precision():
 
 
 all_primitive_types = model.PrimitiveType.ALL_PRIMITIVE_TYPES
-all_signed_integer_types = sorted(tp for tp in all_primitive_types
-                                     if all_primitive_types[tp] == 'i')
-all_unsigned_integer_types = sorted(tp for tp in all_primitive_types
-                                       if all_primitive_types[tp] == 'u')
+all_integer_types = sorted(tp for tp in all_primitive_types
+                           if all_primitive_types[tp] == 'i')
 all_float_types = sorted(tp for tp in all_primitive_types
                             if all_primitive_types[tp] == 'f')
+
+def all_signed_integer_types(ffi):
+    return [x for x in all_integer_types if int(ffi.cast(x, -1)) < 0]
+
+def all_unsigned_integer_types(ffi):
+    return [x for x in all_integer_types if int(ffi.cast(x, -1)) > 0]
+
 
 def test_primitive_category():
     for typename in all_primitive_types:
         tp = model.PrimitiveType(typename)
         C = tp.is_char_type()
-        U = tp.is_unsigned_type()
-        S = tp.is_signed_type()
         F = tp.is_float_type()
         I = tp.is_integer_type()
         assert C == (typename in ('char', 'wchar_t'))
-        assert U == (typename.startswith('unsigned ') or
-                     typename == '_Bool' or typename == 'size_t' or
-                     typename == 'uintptr_t' or typename.startswith('uint'))
         assert F == (typename in ('float', 'double', 'long double'))
-        assert S + U + F + C == 1      # one and only one of them is true
-        assert I == (S or U)
+        assert I + F + C == 1      # one and only one of them is true
 
 def test_all_integer_and_float_types():
     typenames = []
@@ -208,7 +207,7 @@ def test_all_integer_and_float_types():
 
 def test_var_signed_integer_types():
     ffi = FFI()
-    lst = all_signed_integer_types
+    lst = all_signed_integer_types(ffi)
     csource = "\n".join(["%s somevar_%s;" % (tp, tp.replace(' ', '_'))
                          for tp in lst])
     ffi.cdef(csource)
@@ -227,7 +226,7 @@ def test_var_signed_integer_types():
 
 def test_var_unsigned_integer_types():
     ffi = FFI()
-    lst = all_unsigned_integer_types
+    lst = all_unsigned_integer_types(ffi)
     csource = "\n".join(["%s somevar_%s;" % (tp, tp.replace(' ', '_'))
                          for tp in lst])
     ffi.cdef(csource)
@@ -248,7 +247,7 @@ def test_var_unsigned_integer_types():
 
 def test_fn_signed_integer_types():
     ffi = FFI()
-    lst = all_signed_integer_types
+    lst = all_signed_integer_types(ffi)
     cdefsrc = "\n".join(["%s somefn_%s(%s);" % (tp, tp.replace(' ', '_'), tp)
                          for tp in lst])
     ffi.cdef(cdefsrc)
@@ -268,7 +267,7 @@ def test_fn_signed_integer_types():
 
 def test_fn_unsigned_integer_types():
     ffi = FFI()
-    lst = all_unsigned_integer_types
+    lst = all_unsigned_integer_types(ffi)
     cdefsrc = "\n".join(["%s somefn_%s(%s);" % (tp, tp.replace(' ', '_'), tp)
                          for tp in lst])
     ffi.cdef(cdefsrc)
@@ -465,11 +464,12 @@ def test_struct_signedness_ignored():
 def test_struct_float_vs_int():
     if sys.platform == 'win32':
         py.test.skip("XXX fixme: only gives warnings")
-    for typename in all_signed_integer_types:
+    ffi = FFI()
+    for typename in all_signed_integer_types(ffi):
         for real in all_float_types:
             _check_field_match(typename, real, expect_mismatch=True)
     for typename in all_float_types:
-        for real in all_signed_integer_types:
+        for real in all_signed_integer_types(ffi):
             _check_field_match(typename, real, expect_mismatch=True)
 
 def test_struct_array_field():
@@ -712,7 +712,7 @@ def test_define_int():
              "#define BAZ ...\n")
     lib = ffi.verify("#define FOO 42\n"
                      "#define BAR (-44)\n"
-                     "#define BAZ 0xffffffffffffffffLL\n")
+                     "#define BAZ 0xffffffffffffffffULL\n")
     assert lib.FOO == 42
     assert lib.BAR == -44
     assert lib.BAZ == 0xffffffffffffffff
@@ -1134,6 +1134,9 @@ def test_callback_calling_convention():
     xxx
 
 def test_opaque_integer_as_function_result():
+    import platform
+    if platform.machine().startswith('sparc'):
+        py.test.skip('Breaks horribly on sparc (SIGILL + corrupted stack)')
     # XXX bad abuse of "struct { ...; }".  It only works a bit by chance
     # anyway.  XXX think about something better :-(
     ffi = FFI()
@@ -1596,6 +1599,21 @@ def test_enum_size():
 ##        assert ffi.sizeof("enum foo_e") == expected_size
 ##        assert int(ffi.cast("enum foo_e", -1)) == expected_minus1
 
+def test_enum_bug118():
+    maxulong = 256 ** FFI().sizeof("unsigned long") - 1
+    for c1, c2, c2c in [(0xffffffff, -1, ''),
+                        (maxulong, -1, ''),
+                        (-1, 0xffffffff, 'U'),
+                        (-1, maxulong, 'UL')]:
+        if c2c and sys.platform == 'win32':
+            continue     # enums may always be signed with MSVC
+        ffi = FFI()
+        ffi.cdef("enum foo_e { AA=%s };" % c1)
+        e = py.test.raises(VerificationError, ffi.verify,
+                           "enum foo_e { AA=%s%s };" % (c2, c2c))
+        assert str(e.value) == ('enum foo_e: AA has the real value %d, not %d'
+                                % (c2, c1))
+
 def test_string_to_voidp_arg():
     ffi = FFI()
     ffi.cdef("int myfunc(void *);")
@@ -1623,7 +1641,11 @@ def test_callback_indirection():
         #include <malloc.h>
         #define alloca _alloca
         #else
-        #include <alloca.h>
+        # ifdef __FreeBSD__
+        #  include <stdlib.h>
+        # else
+        #  include <alloca.h>
+        # endif
         #endif
         static int (*python_callback)(int how_many, int *values);
         static int c_callback(int how_many, ...) {
@@ -1753,3 +1775,108 @@ def test_bug_const_char_ptr_array_2():
     ffi.cdef("""const int a[];""")
     lib = ffi.verify("""const int a[5];""")
     assert repr(ffi.typeof(lib.a)) == "<ctype 'int *'>"
+
+def _test_various_calls(force_libffi):
+    cdef_source = """
+    int xvalue;
+    long long ivalue, rvalue;
+    float fvalue;
+    double dvalue;
+    long double Dvalue;
+    signed char tf_bb(signed char x, signed char c);
+    unsigned char tf_bB(signed char x, unsigned char c);
+    short tf_bh(signed char x, short c);
+    unsigned short tf_bH(signed char x, unsigned short c);
+    int tf_bi(signed char x, int c);
+    unsigned int tf_bI(signed char x, unsigned int c);
+    long tf_bl(signed char x, long c);
+    unsigned long tf_bL(signed char x, unsigned long c);
+    long long tf_bq(signed char x, long long c);
+    float tf_bf(signed char x, float c);
+    double tf_bd(signed char x, double c);
+    long double tf_bD(signed char x, long double c);
+    """
+    if force_libffi:
+        cdef_source = (cdef_source
+            .replace('tf_', '(*const tf_')
+            .replace('(signed char x', ')(signed char x'))
+    ffi = FFI()
+    ffi.cdef(cdef_source)
+    lib = ffi.verify("""
+    int xvalue;
+    long long ivalue, rvalue;
+    float fvalue;
+    double dvalue;
+    long double Dvalue;
+
+    #define S(letter)  xvalue = x; letter##value = c; return rvalue;
+
+    signed char tf_bb(signed char x, signed char c) { S(i) }
+    unsigned char tf_bB(signed char x, unsigned char c) { S(i) }
+    short tf_bh(signed char x, short c) { S(i) }
+    unsigned short tf_bH(signed char x, unsigned short c) { S(i) }
+    int tf_bi(signed char x, int c) { S(i) }
+    unsigned int tf_bI(signed char x, unsigned int c) { S(i) }
+    long tf_bl(signed char x, long c) { S(i) }
+    unsigned long tf_bL(signed char x, unsigned long c) { S(i) }
+    long long tf_bq(signed char x, long long c) { S(i) }
+    float tf_bf(signed char x, float c) { S(f) }
+    double tf_bd(signed char x, double c) { S(d) }
+    long double tf_bD(signed char x, long double c) { S(D) }
+    """)
+    lib.rvalue = 0x7182838485868788
+    for kind, cname in [('b', 'signed char'),
+                        ('B', 'unsigned char'),
+                        ('h', 'short'),
+                        ('H', 'unsigned short'),
+                        ('i', 'int'),
+                        ('I', 'unsigned int'),
+                        ('l', 'long'),
+                        ('L', 'unsigned long'),
+                        ('q', 'long long'),
+                        ('f', 'float'),
+                        ('d', 'double'),
+                        ('D', 'long double')]:
+        sign = +1 if 'unsigned' in cname else -1
+        lib.xvalue = 0
+        lib.ivalue = 0
+        lib.fvalue = 0
+        lib.dvalue = 0
+        lib.Dvalue = 0
+        fun = getattr(lib, 'tf_b' + kind)
+        res = fun(-42, sign * 99)
+        if kind == 'D':
+            res = float(res)
+        assert res == int(ffi.cast(cname, 0x7182838485868788))
+        assert lib.xvalue == -42
+        if kind in 'fdD':
+            assert float(getattr(lib, kind + 'value')) == -99.0
+        else:
+            assert lib.ivalue == sign * 99
+
+def test_various_calls_direct():
+    _test_various_calls(force_libffi=False)
+
+def test_various_calls_libffi():
+    _test_various_calls(force_libffi=True)
+
+def test_ptr_to_opaque():
+    ffi = FFI()
+    ffi.cdef("typedef ... foo_t; int f1(foo_t*); foo_t *f2(int);")
+    lib = ffi.verify("""
+        #include <stdlib.h>
+        typedef struct { int x; } foo_t;
+        int f1(foo_t* p) {
+            int x = p->x;
+            free(p);
+            return x;
+        }
+        foo_t *f2(int x) {
+            foo_t *p = malloc(sizeof(foo_t));
+            p->x = x;
+            return p;
+        }
+    """)
+    p = lib.f2(42)
+    x = lib.f1(p)
+    assert x == 42

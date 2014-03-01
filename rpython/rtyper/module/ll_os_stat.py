@@ -7,6 +7,7 @@ import os
 import sys
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper import extregistry
@@ -87,7 +88,7 @@ class SomeStatResult(annmodel.SomeObject):
         assert s_attr.is_constant(), "non-constant attr name in getattr()"
         attrname = s_attr.const
         TYPE = STAT_FIELD_TYPES[attrname]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
     def _get_rmarshall_support_(self):     # for rlib.rmarshal
         # reduce and recreate stat_result objects from 10-tuples
@@ -98,7 +99,7 @@ class SomeStatResult(annmodel.SomeObject):
 
         def stat_result_recreate(tup):
             return make_stat_result(tup + extra_zeroes)
-        s_reduced = annmodel.SomeTuple([annmodel.lltype_to_annotation(TYPE)
+        s_reduced = annmodel.SomeTuple([lltype_to_annotation(TYPE)
                                        for name, TYPE in PORTABLE_STAT_FIELDS])
         extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS))
         return s_reduced, stat_result_reduce, stat_result_recreate
@@ -120,7 +121,7 @@ class SomeStatvfsResult(annmodel.SomeObject):
     def getattr(self, s_attr):
         assert s_attr.is_constant()
         TYPE = STATVFS_FIELD_TYPES[s_attr.const]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
 
 class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
@@ -129,14 +130,14 @@ class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
         index = s_int.const
         assert 0 <= index < N_INDEXABLE_FIELDS, "os.stat()[index] out of range"
         name, TYPE = STAT_FIELDS[index]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
 
 class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
     def getitem((s_stat, s_int)):
         assert s_int.is_constant()
         name, TYPE = STATVFS_FIELDS[s_int.const]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
 
 s_StatResult = SomeStatResult()
@@ -466,16 +467,14 @@ def make_win32_stat_impl(name, traits):
     def attribute_data_to_stat(info):
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime, ctime_ns = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
-        mtime, mtime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
-        atime, atime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
+        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
+        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
+        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
 
         result = (st_mode,
                   0, 0, 0, 0, 0,
                   st_size,
-                  float(atime) + atime_ns * 1e-9,
-                  float(mtime) + mtime_ns * 1e-9,
-                  float(ctime) + ctime_ns * 1e-9)
+                  atime, mtime, ctime)
 
         return make_stat_result(result)
 
@@ -483,9 +482,9 @@ def make_win32_stat_impl(name, traits):
         # similar to the one above
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime, ctime_ns = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
-        mtime, mtime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
-        atime, atime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
+        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
+        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
+        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
 
         # specific to fstat()
         st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
@@ -494,9 +493,7 @@ def make_win32_stat_impl(name, traits):
         result = (st_mode,
                   st_ino, 0, st_nlink, 0, 0,
                   st_size,
-                  atime + atime_ns * 1e-9,
-                  mtime + mtime_ns * 1e-9,
-                  ctime + ctime_ns * 1e-9)
+                  atime, mtime, ctime)
 
         return make_stat_result(result)
 
@@ -579,12 +576,10 @@ def make_longlong(high, low):
 # Seconds between 1.1.1601 and 1.1.1970
 secs_between_epochs = rffi.r_longlong(11644473600)
 
-def FILE_TIME_to_time_t_nsec(filetime):
+def FILE_TIME_to_time_t_float(filetime):
     ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
     # FILETIME is in units of 100 nsec
-    nsec = (ft % 10000000) * 100
-    time = (ft / 10000000) - secs_between_epochs
-    return intmask(time), intmask(nsec)
+    return float(ft) * (1.0 / 10000000.0) - secs_between_epochs
 
 def time_t_to_FILE_TIME(time, filetime):
     ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)

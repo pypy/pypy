@@ -405,43 +405,32 @@ def arena_protect(arena_addr, size, inaccessible):
 import os, sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extfunc import register_external
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rtyper.tool.rffi_platform import memory_alignment
 
-if sys.platform.startswith('linux'):
-    # This only works with linux's madvise(), which is really not a memory
-    # usage hint but a real command.  It guarantees that after MADV_DONTNEED
-    # the pages are cleared again.
+MEMORY_ALIGNMENT = memory_alignment()
 
-    # Note that the trick of the general 'posix' section below, i.e.
-    # reading /dev/zero, does not seem to have the correct effect of
-    # lazily-allocating pages on all Linux systems.
+if os.name == 'posix':
+    # The general Posix solution to clear a large range of memory that
+    # was obtained with mmap() is to call mmap() again with MAP_FIXED.
 
-    from rpython.rtyper.tool import rffi_platform
-    from rpython.translator.tool.cbuild import ExternalCompilationInfo
-    _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
-    MADV_DONTNEED = rffi_platform.getconstantinteger('MADV_DONTNEED',
-                                                     '#include <sys/mman.h>')
-    linux_madvise = rffi.llexternal('madvise',
-                                    [llmemory.Address, rffi.SIZE_T, rffi.INT],
-                                    rffi.INT,
-                                    sandboxsafe=True, _nowrapper=True,
-                                    compilation_info=_eci)
-    linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT,
-                                        sandboxsafe=True, _nowrapper=True,
-                                        compilation_info=_eci)
+    legacy_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT,
+                                         sandboxsafe=True, _nowrapper=True)
 
-    class LinuxPageSize:
+    class PosixPageSize:
         def __init__(self):
             self.pagesize = 0
         def _cleanup_(self):
             self.pagesize = 0
-    linuxpagesize = LinuxPageSize()
+    posixpagesize = PosixPageSize()
 
     def clear_large_memory_chunk(baseaddr, size):
-        pagesize = linuxpagesize.pagesize
+        from rpython.rlib import rmmap
+
+        pagesize = posixpagesize.pagesize
         if pagesize == 0:
-            pagesize = rffi.cast(lltype.Signed, linux_getpagesize())
-            linuxpagesize.pagesize = pagesize
+            pagesize = rffi.cast(lltype.Signed, legacy_getpagesize())
+            posixpagesize.pagesize = pagesize
+
         if size > 2 * pagesize:
             lowbits = rffi.cast(lltype.Signed, baseaddr) & (pagesize - 1)
             if lowbits:     # clear the initial misaligned part, if any
@@ -450,54 +439,11 @@ if sys.platform.startswith('linux'):
                 baseaddr += partpage
                 size -= partpage
             length = size & -pagesize
-            madv_length = rffi.cast(rffi.SIZE_T, length)
-            madv_flags = rffi.cast(rffi.INT, MADV_DONTNEED)
-            err = linux_madvise(baseaddr, madv_length, madv_flags)
-            if rffi.cast(lltype.Signed, err) == 0:
-                baseaddr += length     # madvise() worked
+            if rmmap.clear_large_memory_chunk_aligned(baseaddr, length):
+                baseaddr += length     # clearing worked
                 size -= length
+
         if size > 0:    # clear the final misaligned part, if any
-            llmemory.raw_memclear(baseaddr, size)
-
-elif os.name == 'posix':
-    READ_MAX = (sys.maxint//4) + 1    # upper bound on reads to avoid surprises
-    raw_os_open = rffi.llexternal('open',
-                                  [rffi.CCHARP, rffi.INT, rffi.MODE_T],
-                                  rffi.INT,
-                                  sandboxsafe=True, _nowrapper=True)
-    raw_os_read = rffi.llexternal('read',
-                                  [rffi.INT, llmemory.Address, rffi.SIZE_T],
-                                  rffi.SIZE_T,
-                                  sandboxsafe=True, _nowrapper=True)
-    raw_os_close = rffi.llexternal('close',
-                                   [rffi.INT],
-                                   rffi.INT,
-                                   sandboxsafe=True, _nowrapper=True)
-    _dev_zero = rffi.str2charp('/dev/zero')   # prebuilt
-    lltype.render_immortal(_dev_zero)
-
-    def clear_large_memory_chunk(baseaddr, size):
-        # on some Unixy platforms, reading from /dev/zero is the fastest way
-        # to clear arenas, because the kernel knows that it doesn't
-        # need to even allocate the pages before they are used.
-
-        # NB.: careful, don't do anything that could malloc here!
-        # this code is called during GC initialization.
-        fd = raw_os_open(_dev_zero,
-                         rffi.cast(rffi.INT, os.O_RDONLY),
-                         rffi.cast(rffi.MODE_T, 0644))
-        if rffi.cast(lltype.Signed, fd) != -1:
-            while size > 0:
-                size1 = rffi.cast(rffi.SIZE_T, min(READ_MAX, size))
-                count = raw_os_read(fd, baseaddr, size1)
-                count = rffi.cast(lltype.Signed, count)
-                if count <= 0:
-                    break
-                size -= count
-                baseaddr += count
-            raw_os_close(fd)
-
-        if size > 0:     # reading from /dev/zero failed, fallback
             llmemory.raw_memclear(baseaddr, size)
 
 else:
@@ -597,11 +543,8 @@ register_external(arena_shrink_obj, [llmemory.Address, int], None,
                   llfakeimpl=arena_shrink_obj,
                   sandboxsafe=True)
 
-llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
-                                                [lltype.Signed, lltype.Signed],
-                                                 lltype.Signed,
-                                                 sandboxsafe=True,
-                                                 _nowrapper=True)
+def llimpl_round_up_for_allocation(size, minsize):
+    return (max(size, minsize) + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1)
 register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,

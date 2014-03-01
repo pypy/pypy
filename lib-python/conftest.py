@@ -110,7 +110,7 @@ testmap = [
     RegrTest('test_asynchat.py', usemodules='select fcntl'),
     RegrTest('test_asyncore.py', usemodules='select fcntl'),
     RegrTest('test_atexit.py', core=True),
-    RegrTest('test_audioop.py', skip="unsupported extension module"),
+    RegrTest('test_audioop.py'),
     RegrTest('test_augassign.py', core=True),
     RegrTest('test_base64.py', usemodules='struct'),
     RegrTest('test_bastion.py'),
