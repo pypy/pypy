@@ -26,8 +26,8 @@ class WidgetTest(unittest.TestCase):
     def test_identify(self):
         self.widget.update_idletasks()
         self.assertEqual(self.widget.identify(
-            int(self.widget.winfo_width() / 2),
-            int(self.widget.winfo_height() / 2)
+            self.widget.winfo_width() // 2,
+            self.widget.winfo_height() // 2
             ), "label")
         self.assertEqual(self.widget.identify(-1, -1), "")
 
@@ -104,7 +104,7 @@ class CheckbuttonTest(unittest.TestCase):
 
         cbtn['command'] = ''
         res = cbtn.invoke()
-        self.assertEqual(res, '')
+        self.assertEqual(str(res), '')
         self.assertFalse(len(success) > 1)
         self.assertEqual(cbtn['offvalue'],
             cbtn.tk.globalgetvar(cbtn['variable']))
@@ -452,7 +452,7 @@ class RadiobuttonTest(unittest.TestCase):
 
         cbtn2['command'] = ''
         res = cbtn2.invoke()
-        self.assertEqual(res, '')
+        self.assertEqual(str(res), '')
         self.assertFalse(len(success) > 1)
         self.assertEqual(cbtn2['value'], myvar.get())
         self.assertEqual(myvar.get(),

@@ -668,6 +668,9 @@ class GeneralModuleTests(unittest.TestCase):
         socket.getaddrinfo(None, 0, socket.AF_UNSPEC, socket.SOCK_STREAM, 0,
                            socket.AI_PASSIVE)
 
+        # Issue 17269
+        if hasattr(socket, 'AI_NUMERICSERV'):
+            socket.getaddrinfo("localhost", None, 0, 0, 0, socket.AI_NUMERICSERV)
 
     def check_sendall_interrupted(self, with_timeout):
         # socketpair() is not stricly required, but it makes things easier.
@@ -688,11 +691,12 @@ class GeneralModuleTests(unittest.TestCase):
                 c.settimeout(1.5)
             with self.assertRaises(ZeroDivisionError):
                 signal.alarm(1)
-                c.sendall(b"x" * (1024**2))
+                c.sendall(b"x" * test_support.SOCK_MAX_SIZE)
             if with_timeout:
                 signal.signal(signal.SIGALRM, ok_handler)
                 signal.alarm(1)
-                self.assertRaises(socket.timeout, c.sendall, b"x" * (1024**2))
+                self.assertRaises(socket.timeout, c.sendall,
+                                  b"x" * test_support.SOCK_MAX_SIZE)
         finally:
             signal.signal(signal.SIGALRM, old_alarm)
             c.close()

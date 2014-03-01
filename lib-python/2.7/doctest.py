@@ -424,7 +424,7 @@ class Example:
         zero-based, with respect to the beginning of the DocTest.
 
       - indent: The example's indentation in the DocTest string.
-        I.e., the number of space characters that preceed the
+        I.e., the number of space characters that precede the
         example's first prompt.
 
       - options: A dictionary mapping from option flags to True or
@@ -564,7 +564,7 @@ class DocTestParser:
         # Want consists of any non-blank lines that do not start with PS1.
         (?P<want> (?:(?![ ]*$)    # Not a blank line
                      (?![ ]*>>>)  # Not a line starting with PS1
-                     .*$\n?       # But any other line
+                     .+$\n?       # But any other line
                   )*)
         ''', re.MULTILINE | re.VERBOSE)
 
@@ -895,7 +895,7 @@ class DocTestFinder:
         if '__name__' not in globs:
             globs['__name__'] = '__main__'  # provide a default module name
 
-        # Recursively expore `obj`, extracting DocTests.
+        # Recursively explore `obj`, extracting DocTests.
         tests = []
         self._find(tests, obj, name, module, source_lines, globs, {})
         # Sort the tests by alpha order of names, for consistency in

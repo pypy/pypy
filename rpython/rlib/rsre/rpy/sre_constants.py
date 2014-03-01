@@ -9,7 +9,7 @@
 # See the sre.py file for information on usage and redistribution.
 #
 
-"""Internal support module for sre (copied from CPython 2.7.5)"""
+"""Internal support module for sre (copied from CPython)"""
 
 # update when constants are added or removed
 

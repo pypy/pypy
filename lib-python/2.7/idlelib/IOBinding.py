@@ -71,7 +71,7 @@ else:
 
 encoding = encoding.lower()
 
-coding_re = re.compile("coding[:=]\s*([-\w_.]+)")
+coding_re = re.compile(r'^[ \t\f]*#.*coding[:=][ \t]*([-\w.]+)')
 
 class EncodingMessage(SimpleDialog):
     "Inform user that an encoding declaration is needed."
@@ -125,11 +125,12 @@ def coding_spec(str):
     Raise LookupError if the encoding is declared but unknown.
     """
     # Only consider the first two lines
-    str = str.split("\n")[:2]
-    str = "\n".join(str)
-
-    match = coding_re.search(str)
-    if not match:
+    lst = str.split("\n", 2)[:2]
+    for line in lst:
+        match = coding_re.match(line)
+        if match is not None:
+            break
+    else:
         return None
     name = match.group(1)
     # Check whether the encoding is known
@@ -248,10 +249,9 @@ class IOBinding:
         try:
             # open the file in binary mode so that we can handle
             #   end-of-line convention ourselves.
-            f = open(filename,'rb')
-            chars = f.read()
-            f.close()
-        except IOError, msg:
+            with open(filename, 'rb') as f:
+                chars = f.read()
+        except IOError as msg:
             tkMessageBox.showerror("I/O Error", str(msg), master=self.text)
             return False
 
@@ -294,7 +294,7 @@ class IOBinding:
         # Next look for coding specification
         try:
             enc = coding_spec(chars)
-        except LookupError, name:
+        except LookupError as name:
             tkMessageBox.showerror(
                 title="Error loading the file",
                 message="The encoding '%s' is not known to this Python "\
@@ -383,12 +383,10 @@ class IOBinding:
         if self.eol_convention != "\n":
             chars = chars.replace("\n", self.eol_convention)
         try:
-            f = open(filename, "wb")
-            f.write(chars)
-            f.flush()
-            f.close()
+            with open(filename, "wb") as f:
+                f.write(chars)
             return True
-        except IOError, msg:
+        except IOError as msg:
             tkMessageBox.showerror("I/O Error", str(msg),
                                    master=self.text)
             return False
@@ -408,7 +406,7 @@ class IOBinding:
         try:
             enc = coding_spec(chars)
             failed = None
-        except LookupError, msg:
+        except LookupError as msg:
             failed = msg
             enc = None
         if enc:

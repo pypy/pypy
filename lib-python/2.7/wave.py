@@ -80,7 +80,7 @@ class Error(Exception):
 
 WAVE_FORMAT_PCM = 0x0001
 
-_array_fmts = None, 'b', 'h', None, 'l'
+_array_fmts = None, 'b', 'h', None, 'i'
 
 # Determine endian-ness
 import struct
@@ -238,6 +238,7 @@ class Wave_read:
             import array
             chunk = self._data_chunk
             data = array.array(_array_fmts[self._sampwidth])
+            assert data.itemsize == self._sampwidth
             nitems = nframes * self._nchannels
             if nitems * self._sampwidth > chunk.chunksize - chunk.size_read:
                 nitems = (chunk.chunksize - chunk.size_read) / self._sampwidth
@@ -421,6 +422,7 @@ class Wave_write:
         if self._sampwidth > 1 and big_endian:
             import array
             data = array.array(_array_fmts[self._sampwidth], data)
+            assert data.itemsize == self._sampwidth
             data.byteswap()
             data.tofile(self._file)
             self._datawritten = self._datawritten + len(data) * self._sampwidth
@@ -436,11 +438,13 @@ class Wave_write:
 
     def close(self):
         if self._file:
-            self._ensure_header_written(0)
-            if self._datalength != self._datawritten:
-                self._patchheader()
-            self._file.flush()
-            self._file = None
+            try:
+                self._ensure_header_written(0)
+                if self._datalength != self._datawritten:
+                    self._patchheader()
+                self._file.flush()
+            finally:
+                self._file = None
         if self._i_opened_the_file:
             self._i_opened_the_file.close()
             self._i_opened_the_file = None

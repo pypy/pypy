@@ -870,7 +870,7 @@ class StreamHandler(Handler):
                 try:
                     if (isinstance(msg, unicode) and
                         getattr(stream, 'encoding', None)):
-                        ufs = fs.decode(stream.encoding)
+                        ufs = u'%s\n'
                         try:
                             stream.write(ufs % msg)
                         except UnicodeEncodeError:
@@ -906,6 +906,7 @@ class FileHandler(StreamHandler):
         self.baseFilename = os.path.abspath(filename)
         self.mode = mode
         self.encoding = encoding
+        self.delay = delay
         if delay:
             #We don't open the stream, but we still need to call the
             #Handler constructor to set level, formatter, lock etc.

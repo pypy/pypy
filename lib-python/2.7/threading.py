@@ -527,9 +527,11 @@ class _BoundedSemaphore(_Semaphore):
         raise a ValueError.
 
         """
-        if self._Semaphore__value >= self._initial_value:
-            raise ValueError("Semaphore released too many times")
-        return _Semaphore.release(self)
+        with self._Semaphore__cond:
+            if self._Semaphore__value >= self._initial_value:
+                raise ValueError("Semaphore released too many times")
+            self._Semaphore__value += 1
+            self._Semaphore__cond.notify()
 
 
 def Event(*args, **kwargs):
@@ -1216,7 +1218,7 @@ def _after_fork():
     new_active = {}
     current = current_thread()
     with _active_limbo_lock:
-        for thread in _active.itervalues():
+        for thread in _enumerate():
             # Any lock/condition variable may be currently locked or in an
             # invalid state, so we reinitialize them.
             if hasattr(thread, '_reset_internal_locks'):

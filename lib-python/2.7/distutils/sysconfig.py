@@ -1,4 +1,3 @@
-
 # The content of this file is redirected from
 # sysconfig_cpython or sysconfig_pypy.
 # All underscore names are imported too, because
@@ -11,5 +10,3 @@ if '__pypy__' in sys.builtin_module_names:
 else:
     from distutils import sysconfig_cpython as _sysconfig_module
 globals().update(_sysconfig_module.__dict__)
-
-_USE_CLANG = None

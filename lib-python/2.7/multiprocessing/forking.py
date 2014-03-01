@@ -364,7 +364,7 @@ else:
 
     def main():
         '''
-        Run code specifed by data received over pipe
+        Run code specified by data received over pipe
         '''
         assert is_forking(sys.argv)
 

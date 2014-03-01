@@ -2,7 +2,7 @@ import sys
 from rpython.rlib.rsre import rsre_char
 from rpython.rlib.rarithmetic import intmask
 
-VERSION = "2.7.5"
+VERSION = "2.7.6"
 MAGIC = 20031017
 MAXREPEAT = rsre_char.MAXREPEAT
 CODESIZE = rsre_char.CODESIZE
