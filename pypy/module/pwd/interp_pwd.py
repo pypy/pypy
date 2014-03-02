@@ -3,32 +3,38 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, most_pos_value_of
 
 
-eci = ExternalCompilationInfo(
-    includes=['pwd.h']
-)
+eci = ExternalCompilationInfo(includes=['pwd.h'])
 
 class CConfig:
     _compilation_info_ = eci
 
     uid_t = rffi_platform.SimpleType("uid_t")
+    gid_t = rffi_platform.SimpleType("gid_t")
+
+config = rffi_platform.configure(CConfig)
+
+uid_t = config['uid_t']
+gid_t = config['gid_t']
+
+class CConfig:
+    _compilation_info_ = eci
 
     passwd = rffi_platform.Struct(
         'struct passwd',
         [('pw_name', rffi.CCHARP),
          ('pw_passwd', rffi.CCHARP),
-         ('pw_uid', rffi.INT),
-         ('pw_gid', rffi.INT),
+         ('pw_uid', uid_t),
+         ('pw_gid', gid_t),
          ('pw_gecos', rffi.CCHARP),
          ('pw_dir', rffi.CCHARP),
-         ('pw_shell', rffi.CCHARP),
-         ])
+         ('pw_shell', rffi.CCHARP)])
 
 config = rffi_platform.configure(CConfig)
+
 passwd_p = lltype.Ptr(config['passwd'])
-uid_t = config['uid_t']
 
 def external(name, args, result, **kwargs):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwargs)
@@ -63,10 +69,13 @@ def getpwuid(space, w_uid):
     """
     try:
         uid = space.int_w(w_uid)
+        if uid < -1 or uid > most_pos_value_of(uid_t):
+            raise OperationError(space.w_OverflowError, None)
     except OperationError, e:
         if e.match(space, space.w_OverflowError):
             raise oefmt(space.w_KeyError, "getpwuid(): uid not found")
         raise
+    uid = rffi.cast(uid_t, uid)
     pw = c_getpwuid(uid)
     if not pw:
         raise oefmt(space.w_KeyError, "getpwuid(): uid not found: %d", uid)

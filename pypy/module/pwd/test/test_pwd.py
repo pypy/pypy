@@ -8,7 +8,7 @@ class AppTestPwd:
     spaceconfig = dict(usemodules=['pwd'])
 
     def test_getpwuid(self):
-        import pwd, sys
+        import pwd, sys, re
         raises(KeyError, pwd.getpwuid, -1)
         pw = pwd.getpwuid(0)
         assert pw.pw_name == 'root'
@@ -22,13 +22,19 @@ class AppTestPwd:
         assert pw.pw_shell.startswith('/')
         assert type(pw.pw_uid) is int
         assert type(pw.pw_gid) is int
-        # should be out of uid_t range
         raises(TypeError, pwd.getpwuid)
         raises(TypeError, pwd.getpwuid, 3.14)
         raises(KeyError, pwd.getpwuid, sys.maxint)
-        raises(KeyError, pwd.getpwuid, -1)
-        raises(KeyError, pwd.getpwuid, 2**128)
-        raises(KeyError, pwd.getpwuid, -2**128)
+        # -1 is allowed, cast to uid_t
+        exc = raises(KeyError, pwd.getpwuid, -1)
+        m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value[0])
+        assert m
+        maxval = int(m.group(1))
+        assert maxval >= 2**32 - 1
+        # should be out of uid_t range
+        for v in [-2, maxval+1, 2**128, -2**128]:
+            exc = raises(KeyError, pwd.getpwuid, v)
+            assert exc.value[0] == 'getpwuid(): uid not found'
 
     def test_getpwnam(self):
         import pwd
