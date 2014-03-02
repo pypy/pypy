@@ -3,7 +3,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from rpython.rlib.rarithmetic import intmask, most_pos_value_of
+from rpython.rlib.rarithmetic import intmask, most_pos_value_of, widen
 
 
 eci = ExternalCompilationInfo(includes=['pwd.h'])
@@ -78,7 +78,7 @@ def getpwuid(space, w_uid):
     uid = rffi.cast(uid_t, uid)
     pw = c_getpwuid(uid)
     if not pw:
-        raise oefmt(space.w_KeyError, "getpwuid(): uid not found: %d", uid)
+        raise oefmt(space.w_KeyError, "getpwuid(): uid not found: %d", widen(uid))
     return make_struct_passwd(space, pw)
 
 
