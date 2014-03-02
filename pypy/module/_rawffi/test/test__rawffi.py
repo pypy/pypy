@@ -534,6 +534,15 @@ class AppTestFfi:
         assert (y.a, y.b, y.c) == (0, -7, 0)
         y.free()
 
+    def test_structure_single_longbit_bitfield(self):
+        import _rawffi
+        for s in [('I', 32), ('Q', 64)]:
+            Y = _rawffi.Structure([('a',) + s])
+            y = Y()
+            y.a = 10
+            assert y.a == 10
+            y.free()
+
     def test_invalid_bitfields(self):
         import _rawffi
         raises(TypeError, _rawffi.Structure, [('A', 'c', 1)])
