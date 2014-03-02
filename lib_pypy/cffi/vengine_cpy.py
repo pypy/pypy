@@ -897,11 +897,13 @@ static void _cffi_init(void)
     if (c_api_object == NULL)
         return;
     if (!PyCapsule_CheckExact(c_api_object)) {
+        Py_DECREF(c_api_object);
         PyErr_SetNone(PyExc_ImportError);
         return;
     }
     memcpy(_cffi_exports, PyCapsule_GetPointer(c_api_object, "cffi"),
            _CFFI_NUM_EXPORTS * sizeof(void *));
+    Py_DECREF(c_api_object);
 }
 
 #define _cffi_type(num) ((CTypeDescrObject *)PyList_GET_ITEM(_cffi_types, num))
