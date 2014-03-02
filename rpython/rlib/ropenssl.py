@@ -137,7 +137,7 @@ class CConfig:
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
         [('type', rffi.INT),
-         ('d', ASN1_STRING)])
+         ('d', rffi.VOIDP)])
     EVP_MD_st = rffi_platform.Struct(
         'EVP_MD',
         [('md_size', rffi.INT),
