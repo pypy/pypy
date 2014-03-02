@@ -1126,9 +1126,11 @@ def hexescape(builder, s, pos, digits,
               encoding, errorhandler, message, errors):
     chr = 0
     if pos + digits > len(s):
-        message = "end of string in escape sequence"
-        res, pos = errorhandler(errors, "unicodeescape",
-                                message, s, pos-2, len(s))
+        endinpos = pos
+        while endinpos < len(s) and s[endinpos] in hexdigits:
+            endinpos += 1
+        res, pos = errorhandler(errors, encoding,
+                                message, s, pos-2, endinpos)
         builder.append(res)
     else:
         try:
@@ -1138,7 +1140,7 @@ def hexescape(builder, s, pos, digits,
             while s[endinpos] in hexdigits:
                 endinpos += 1
             res, pos = errorhandler(errors, encoding,
-                                    message, s, pos-2, endinpos+1)
+                                    message, s, pos-2, endinpos)
             builder.append(res)
         else:
             # when we get here, chr is a 32-bit unicode character
@@ -1443,12 +1445,8 @@ def str_decode_raw_unicode_escape(s, size, errors, final=False,
             pos += 1
             continue
 
-        if s[pos] == 'u':
-            digits = 4
-            message = "truncated \\uXXXX escape"
-        else:
-            digits = 8
-            message = "truncated \\UXXXXXXXX escape"
+        digits = 4 if s[pos] == 'u' else 8
+        message = "truncated \\uXXXX"
         pos += 1
         pos = hexescape(result, s, pos, digits,
                         "rawunicodeescape", errorhandler, message, errors)
