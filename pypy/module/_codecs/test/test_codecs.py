@@ -118,6 +118,16 @@ class AppTestCodecs:
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
                 u"\U0010FFFFbc", 3)
 
+    def test_escape_decode_errors(self):
+        from _codecs import escape_decode as decode
+        raises(ValueError, decode, br"\x")
+        raises(ValueError, decode, br"[\x]")
+        assert decode(br"[\x]\x", "ignore") == (b"[]", 6)
+        assert decode(br"[\x]\x", "replace") == (b"[?]?", 6)
+        raises(ValueError, decode, br"\x0")
+        raises(ValueError, decode, br"[\x0]")
+        assert decode(br"[\x0]\x0", "ignore") == (b"[]", 8)
+        assert decode(br"[\x0]\x0", "replace") == (b"[?]?", 8)
 
     def test_unicode_escape(self):
         from _codecs import unicode_escape_encode, unicode_escape_decode

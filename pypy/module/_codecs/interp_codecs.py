@@ -695,5 +695,5 @@ def escape_encode(space, data, errors='strict'):
 @unwrap_spec(data=str, errors='str_or_None')
 def escape_decode(space, data, errors='strict'):
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
-    result = PyString_DecodeEscape(space, data, None)
+    result = PyString_DecodeEscape(space, data, errors, None)
     return space.newtuple([space.wrap(result), space.wrap(len(data))])
