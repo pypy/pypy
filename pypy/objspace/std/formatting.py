@@ -218,7 +218,7 @@ def make_formatter_subclass(do_unicode):
 
             self.peel_flags()
 
-            self.width = self.peel_num('width', sys.maxsize)
+            self.width = self.peel_num('width', sys.maxint)
             if self.width < 0:
                 # this can happen:  '%*s' % (-5, "hi")
                 self.f_ljust = True

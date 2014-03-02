@@ -21,7 +21,7 @@ def _parse_int(space, s, start, end):
     while i < end:
         digit = ord(s[i]) - ord('0')
         if 0 <= digit <= 9:
-            if result > (sys.maxsize - digit) / 10:
+            if result > (sys.maxint - digit) / 10:
                 raise oefmt(space.w_ValueError,
                             "too many decimal digits in format string")
             result = result * 10 + digit
