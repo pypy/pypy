@@ -7,6 +7,7 @@ from rpython.rlib import jit
 from rpython.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rarithmetic import INT_MAX
 from rpython.tool.sourcetools import func_with_new_name
 
 
@@ -225,7 +226,7 @@ def make_formatter_subclass(do_unicode):
 
             if self.peekchr() == '.':
                 self.forward()
-                self.prec = self.peel_num('prec', 2**31 - 1)
+                self.prec = self.peel_num('prec', INT_MAX)
                 if self.prec < 0:
                     self.prec = 0    # this can happen:  '%.*f' % (-5, 3)
             else:
