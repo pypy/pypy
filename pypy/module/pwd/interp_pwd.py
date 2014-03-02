@@ -69,7 +69,7 @@ def getpwuid(space, w_uid):
     """
     try:
         uid = space.int_w(w_uid)
-        if uid < -1 or uid > most_pos_value_of(uid_t):
+        if uid < -1 or uid > widen(most_pos_value_of(uid_t)):
             raise OperationError(space.w_OverflowError, None)
     except OperationError, e:
         if e.match(space, space.w_OverflowError):

@@ -180,7 +180,7 @@ class Compress(ZLibObject):
             raise zlib_error(self.space, e.msg)
         return self.space.wrap(result)
 
-    @unwrap_spec(mode=int)
+    @unwrap_spec(mode="c_int")
     def flush(self, mode=rzlib.Z_FINISH):
         """
         flush( [mode] ) -- Return a string containing any remaining compressed
@@ -315,7 +315,7 @@ class Decompress(ZLibObject):
         data as possible.
         """
         if mode == rzlib.Z_NO_FLUSH:
-            return space.wrap("")
+            return self.space.wrap("")
 
         data = self.unconsumed_tail
         try:

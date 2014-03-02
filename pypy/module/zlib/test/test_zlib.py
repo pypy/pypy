@@ -126,6 +126,7 @@ class AppTestZlib(object):
         """
         compressor = self.zlib.compressobj()
         bytes = compressor.compress(self.expanded)
+        raises(OverflowError, compressor.flush, 2**31)
         bytes += compressor.flush()
         assert bytes == self.compressed
 
@@ -136,6 +137,7 @@ class AppTestZlib(object):
         """
         decompressor = self.zlib.decompressobj()
         bytes = decompressor.decompress(self.compressed)
+        raises(OverflowError, decompressor.flush, 2**31)
         bytes += decompressor.flush()
         assert bytes == self.expanded
 
