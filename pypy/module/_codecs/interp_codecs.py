@@ -525,33 +525,22 @@ class Charmap_Decode:
                     raise
                 return errorchar
 
-        # Charmap may return a unicode string
-        try:
-            x = space.unicode_w(w_ch)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            return x
-
-        # Charmap may return a number
-        try:
+        if space.isinstance_w(w_ch, space.w_unicode):
+            # Charmap may return a unicode string
+            return space.unicode_w(w_ch)
+        elif space.isinstance_w(w_ch, space.w_int):
+            # Charmap may return a number
             x = space.int_w(w_ch)
-        except OperationError:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            if 0 <= x < 65536: # Even on wide unicode builds...
-                return unichr(x)
-            else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "character mapping must be in range(65536)"))
-
-        # Charmap may return None
-        if space.is_w(w_ch, space.w_None):
+            if not 0 <= x <= 0x10FFFF:
+                raise oefmt(space.w_TypeError,
+                    "character mapping must be in range(0x110000)")
+            return unichr(x)
+        elif space.is_w(w_ch, space.w_None):
+            # Charmap may return None
             return errorchar
 
-        raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
+        raise oefmt(space.w_TypeError,
+            "character mapping must return integer, None or unicode")
 
 class Charmap_Encode:
     def __init__(self, space, w_mapping):

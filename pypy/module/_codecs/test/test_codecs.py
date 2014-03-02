@@ -108,13 +108,23 @@ class AppTestCodecs:
         map = tuple([unichr(i) for i in range(256)])
         assert charmap_decode('xxx\xff', 'strict', map) == (u'xxx\xff', 4)
 
-        raises(TypeError, charmap_decode, '\xff', "replace",  {0xff: 0x10001})
+        exc = raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 'a'})
+        assert exc.value[0] == "character mapping must return integer, None or unicode"
+        raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 0x110000})
+        assert (charmap_decode("\x00\x01\x02", "strict",
+                               {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
+                u"\U0010FFFFbc", 3)
+        assert (charmap_decode("\x00\x01\x02", "strict",
+                               {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
+                u"\U0010FFFFbc", 3)
+
 
     def test_unicode_escape(self):
         from _codecs import unicode_escape_encode, unicode_escape_decode
         assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
         assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
         assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
+
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=('array',))
