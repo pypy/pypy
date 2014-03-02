@@ -591,6 +591,30 @@ class AppTestPartialEvaluation:
     def test_utf7_surrogate(self):
         assert '+3ADYAA-'.decode('utf-7') == u'\udc00\ud800'
 
+    def test_utf7_errors(self):
+        import codecs
+        tests = [
+            ('a\xffb', u'a\ufffdb'),
+            ('a+IK', u'a\ufffd'),
+            ('a+IK-b', u'a\ufffdb'),
+            ('a+IK,b', u'a\ufffdb'),
+            ('a+IKx', u'a\u20ac\ufffd'),
+            ('a+IKx-b', u'a\u20ac\ufffdb'),
+            ('a+IKwgr', u'a\u20ac\ufffd'),
+            ('a+IKwgr-b', u'a\u20ac\ufffdb'),
+            ('a+IKwgr,', u'a\u20ac\ufffd'),
+            ('a+IKwgr,-b', u'a\u20ac\ufffd-b'),
+            ('a+IKwgrB', u'a\u20ac\u20ac\ufffd'),
+            ('a+IKwgrB-b', u'a\u20ac\u20ac\ufffdb'),
+            ('a+/,+IKw-b', u'a\ufffd\u20acb'),
+            ('a+//,+IKw-b', u'a\ufffd\u20acb'),
+            ('a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            ('a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+        ]
+        for raw, expected in tests:
+            raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)
+            assert raw.decode('utf-7', 'replace') == expected
+
     def test_utf_16_encode_decode(self):
         import codecs, sys
         x = u'123abc'
@@ -605,7 +629,7 @@ class AppTestPartialEvaluation:
             assert codecs.getdecoder('utf-16')(
                     '\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
 
-    def test_unicode_escape(self):        
+    def test_unicode_escape(self):
         assert u'\\'.encode('unicode-escape') == '\\\\'
         assert '\\\\'.decode('unicode-escape') == u'\\'
         assert u'\ud801'.encode('unicode-escape') == '\\ud801'

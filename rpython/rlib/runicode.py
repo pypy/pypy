@@ -812,6 +812,7 @@ def str_decode_utf_7(s, size, errors, final=False,
                     outCh = base64buffer >> (base64bits - 16)
                     base64bits -= 16
                     base64buffer &= (1 << base64bits) - 1 # clear high bits
+                    assert outCh <= 0xffff
                     if surrogate:
                         # expecting a second surrogate
                         if outCh >= 0xDC00 and outCh <= 0xDFFFF:
@@ -877,6 +878,8 @@ def str_decode_utf_7(s, size, errors, final=False,
             else: # begin base64-encoded section
                 inShift = 1
                 shiftOutStartPos = pos - 1
+                base64bits = 0
+                base64buffer = 0
 
         elif _utf7_DECODE_DIRECT(oc): # character decodes at itself
             result.append(unichr(oc))
