@@ -572,7 +572,10 @@ class AppTestPartialEvaluation:
         assert 'xxx'.encode('charmap') == 'xxx'
 
         import codecs
-        raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
+        assert exc.value[0] == 'character mapping must be in range(256)'
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: u'a'})
+        assert exc.value[0] == 'character mapping must return integer, None or str'
         raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
 
     def test_charmap_encode_replace(self):

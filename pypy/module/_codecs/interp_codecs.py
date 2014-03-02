@@ -558,33 +558,22 @@ class Charmap_Encode:
                 raise
             return errorchar
 
-        # Charmap may return a string
-        try:
-            x = space.realstr_w(w_ch)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            return x
-
-        # Charmap may return a number
-        try:
+        if space.isinstance_w(w_ch, space.w_str):
+            # Charmap may return a string
+            return space.str_w(w_ch)
+        elif space.isinstance_w(w_ch, space.w_int):
+            # Charmap may return a number
             x = space.int_w(w_ch)
-        except OperationError:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            if 0 <= x < 256:
-                return chr(x)
-            else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "character mapping must be in range(256)"))
-
-        # Charmap may return None
-        if space.is_w(w_ch, space.w_None):
+            if not 0 <= x < 256:
+                raise oefmt(space.w_TypeError,
+                    "character mapping must be in range(256)")
+            return chr(x)
+        elif space.is_w(w_ch, space.w_None):
+            # Charmap may return None
             return errorchar
 
-        raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
+        raise oefmt(space.w_TypeError,
+            "character mapping must return integer, None or str")
 
 
 @unwrap_spec(string=str, errors='str_or_None')
