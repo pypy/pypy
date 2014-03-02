@@ -512,38 +512,6 @@ class AppTestFfi:
         assert (y.a, y.b, y.c) == (-1, -7, 0)
         y.free()
 
-    def test_structure_bitfields_longlong(self):
-        import _rawffi
-        Z = _rawffi.Structure([('a', 'Q', 1),
-                               ('b', 'Q', 62),
-                               ('c', 'Q', 1)])
-        z = Z()
-        z.a, z.b, z.c = 7, 0x1000000000000001, 7
-        assert (z.a, z.b, z.c) == (1, 0x1000000000000001, 1)
-        z.free()
-
-    def test_structure_ulonglong_bitfields(self):
-        import _rawffi
-        X = _rawffi.Structure([('A', 'Q', 1),
-                               ('B', 'Q', 62),
-                               ('C', 'Q', 1)])
-        x = X()
-        x.A, x.B, x.C = 7, 0x1000000000000001, 7
-        assert x.A == 1
-        assert x.B == 0x1000000000000001
-        assert x.C == 1
-        x.free()
-
-    def test_structure_longlong_bitfields(self):
-        import _rawffi
-        Y = _rawffi.Structure([('a', 'q', 1),
-                               ('b', 'q', 61),
-                               ('c', 'q', 1)])
-        y = Y()
-        y.a, y.b, y.c = 0, -7, 0
-        assert (y.a, y.b, y.c) == (0, -7, 0)
-        y.free()
-
     def test_structure_ulonglong_bitfields(self):
         import _rawffi
         X = _rawffi.Structure([('A', 'Q', 1),
@@ -742,7 +710,6 @@ class AppTestFfi:
         finally:
             sys.stderr = orig
 
-
     def test_setattr_struct(self):
         import _rawffi
         X = _rawffi.Structure([('value1', 'i'), ('value2', 'i')])
@@ -772,7 +739,6 @@ class AppTestFfi:
             s.value = 4
             assert s.value == 4
             s.free()
-
 
     def test_array_addressof(self):
         import _rawffi
