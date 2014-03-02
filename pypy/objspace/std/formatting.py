@@ -218,7 +218,7 @@ def make_formatter_subclass(do_unicode):
 
             self.peel_flags()
 
-            self.width = self.peel_num('width', sys.maxint)
+            self.width = self.peel_num('width', self.space.int_w, sys.maxint)
             if self.width < 0:
                 # this can happen:  '%*s' % (-5, "hi")
                 self.f_ljust = True
@@ -226,7 +226,7 @@ def make_formatter_subclass(do_unicode):
 
             if self.peekchr() == '.':
                 self.forward()
-                self.prec = self.peel_num('prec', INT_MAX)
+                self.prec = self.peel_num('prec', self.space.c_int_w, INT_MAX)
                 if self.prec < 0:
                     self.prec = 0    # this can happen:  '%.*f' % (-5, 3)
             else:
@@ -264,13 +264,13 @@ def make_formatter_subclass(do_unicode):
 
         # Same as getmappingkey
         @jit.unroll_safe
-        def peel_num(self, name, maxval):
+        def peel_num(self, name, conv_w, maxval):
             space = self.space
             c = self.peekchr()
             if c == '*':
                 self.forward()
                 w_value = self.nextinputvalue()
-                return space.int_w(maybe_int(space, w_value))
+                return conv_w(w_value)
             result = 0
             while True:
                 digit = ord(c) - ord('0')
