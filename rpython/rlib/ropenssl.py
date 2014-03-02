@@ -136,8 +136,7 @@ class CConfig:
          ('d2i', lltype.Ptr(X509V3_EXT_D2I))])
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
-        [('type', rffi.INT),
-         ('d', rffi.VOIDP)])
+        [('type', rffi.INT)])
     EVP_MD_st = rffi_platform.Struct(
         'EVP_MD',
         [('md_size', rffi.INT),

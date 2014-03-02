@@ -597,7 +597,8 @@ def _get_peer_alt_names(space, certificate):
                         v = space.wrap("URI")
                     else:
                         assert False
-                    as_ = rffi.cast(ASN1_STRING, name[0].c_d)
+                    as_ = libssl_pypy_GENERAL_NAME_dirn(name)
+                    as_ = rffi.cast(ASN1_STRING, as_)
                     buf = libssl_ASN1_STRING_data(as_)
                     length = libssl_ASN1_STRING_length(as_)
                     w_t = space.newtuple([v,
