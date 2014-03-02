@@ -161,7 +161,6 @@ def make_formatter_subclass(do_unicode):
         const = str
 
     class StringFormatter(BaseStringFormatter):
-
         def __init__(self, space, fmt, values_w, w_valuedict):
             BaseStringFormatter.__init__(self, space, values_w, w_valuedict)
             self.fmt = fmt    # either a string or a unicode
@@ -218,7 +217,7 @@ def make_formatter_subclass(do_unicode):
 
             self.peel_flags()
 
-            self.width = self.peel_num('width', self.space.int_w, sys.maxint)
+            self.width = self.peel_num('width', sys.maxint)
             if self.width < 0:
                 # this can happen:  '%*s' % (-5, "hi")
                 self.f_ljust = True
@@ -226,7 +225,7 @@ def make_formatter_subclass(do_unicode):
 
             if self.peekchr() == '.':
                 self.forward()
-                self.prec = self.peel_num('prec', self.space.c_int_w, INT_MAX)
+                self.prec = self.peel_num('prec', INT_MAX)
                 if self.prec < 0:
                     self.prec = 0    # this can happen:  '%.*f' % (-5, 3)
             else:
@@ -264,13 +263,18 @@ def make_formatter_subclass(do_unicode):
 
         # Same as getmappingkey
         @jit.unroll_safe
-        def peel_num(self, name, conv_w, maxval):
+        def peel_num(self, name, maxval):
             space = self.space
             c = self.peekchr()
             if c == '*':
                 self.forward()
                 w_value = self.nextinputvalue()
-                return conv_w(w_value)
+                if name == 'width':
+                    return space.int_w(w_value)
+                elif name == 'prec':
+                    return space.c_int_w(w_value)
+                else:
+                    assert False
             result = 0
             while True:
                 digit = ord(c) - ord('0')
