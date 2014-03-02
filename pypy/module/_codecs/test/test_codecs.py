@@ -589,6 +589,16 @@ class AppTestPartialEvaluation:
         else:
             assert res == u"\x00\x00\x01\x00\x00" # UCS2 build
 
+        def handler1(exc):
+            if not isinstance(exc, UnicodeEncodeError) \
+               and not isinstance(exc, UnicodeDecodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            l = [u"<%d>" % ord(exc.object[pos]) for pos in xrange(exc.start, exc.end)]
+            return (u"[%s]" % u"".join(l), exc.end)
+        codecs.register_error("test.handler1", handler1)
+        assert "\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
+            u"\u3042[<92><117><51>]xxx"
+
     def test_encode_error_bad_handler(self):
         import codecs
         codecs.register_error("test.bad_handler", lambda e: (repl, 1))
