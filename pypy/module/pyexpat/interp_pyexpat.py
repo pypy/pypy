@@ -336,7 +336,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     try:
         parser.UnknownEncodingHandler(space, name, info)
     except OperationError, e:
-        if parser._exc_info:
+        if not parser._exc_info:
             parser._exc_info = e
         XML_StopParser(parser.itself, XML_FALSE)
         result = 0
@@ -583,6 +583,10 @@ getting the advantage of providing document type information to the parser.
             space.call_method(
                 space.wrap(self.all_chars), "decode",
                 space.wrap(name), space.wrap("replace")))
+
+        if len(translationmap) != 256:
+            raise oefmt(space.w_ValueError,
+                        "multi-byte encodings are not supported")
 
         for i in range(256):
             c = translationmap[i]
