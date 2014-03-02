@@ -1,4 +1,3 @@
-
 """
 Tests for the zlib module.
 """
@@ -12,7 +11,7 @@ try:
     from pypy.module.zlib import interp_zlib
 except ImportError:
     import py; py.test.skip("no zlib C library on this machine")
- 
+
 def test_unsigned_to_signed_32bit():
     assert interp_zlib.unsigned_to_signed_32bit(123) == 123
     assert interp_zlib.unsigned_to_signed_32bit(2**31) == -2**31
@@ -51,7 +50,6 @@ class AppTestZlib(object):
         assert self.zlib.crc32('') == 0
         assert self.zlib.crc32('\0') == -771559539
         assert self.zlib.crc32('hello, world.') == -936931198
-
 
     def test_crc32_start_value(self):
         """
@@ -94,7 +92,6 @@ class AppTestZlib(object):
         assert self.zlib.adler32('hello, world.') == 571147447
         assert self.zlib.adler32('x' * 23) == -2122904887
 
-
     def test_adler32_start_value(self):
         """
         When called with a string and an integer, zlib.adler32 should compute
@@ -114,7 +111,6 @@ class AppTestZlib(object):
         assert self.zlib.adler32('foo', -1) == 45547858
         assert self.zlib.adler32('foo', 99999999999999999999999) == -114818734
 
-
     def test_invalidLevel(self):
         """
         zlib.compressobj should raise ValueError when an out of bounds level is
@@ -122,7 +118,6 @@ class AppTestZlib(object):
         """
         raises(ValueError, self.zlib.compressobj, -2)
         raises(ValueError, self.zlib.compressobj, 10)
-
 
     def test_compression(self):
         """
@@ -134,7 +129,6 @@ class AppTestZlib(object):
         bytes += compressor.flush()
         assert bytes == self.compressed
 
-
     def test_decompression(self):
         """
         zlib.decompressobj should return an object which can be used to
@@ -145,14 +139,12 @@ class AppTestZlib(object):
         bytes += decompressor.flush()
         assert bytes == self.expanded
 
-
     def test_compress(self):
         """
         Test the zlib.compress() function.
         """
         bytes = self.zlib.compress(self.expanded)
         assert bytes == self.compressed
-
 
     def test_decompress(self):
         """
@@ -161,14 +153,12 @@ class AppTestZlib(object):
         bytes = self.zlib.decompress(self.compressed)
         assert bytes == self.expanded
 
-
     def test_decompress_invalid_input(self):
         """
         Try to feed garbage to zlib.decompress().
         """
         raises(self.zlib.error, self.zlib.decompress, self.compressed[:-2])
         raises(self.zlib.error, self.zlib.decompress, 'foobar')
-
 
     def test_unused_data(self):
         """
@@ -178,6 +168,8 @@ class AppTestZlib(object):
         d = self.zlib.decompressobj()
         s = d.decompress(self.compressed + 'extrastuff')
         assert s == self.expanded
+        assert d.unused_data == 'extrastuff'
+        assert d.flush() == ''
         assert d.unused_data == 'extrastuff'
         # try again with several decompression steps
         d = self.zlib.decompressobj()
@@ -192,7 +184,6 @@ class AppTestZlib(object):
         assert d.unused_data == ('spam' * 100) + ('egg' * 50)
         assert s4 == ''
 
-
     def test_max_length(self):
         """
         Test the max_length argument of the decompress() method
@@ -205,7 +196,6 @@ class AppTestZlib(object):
             assert s1 == self.expanded[i:i+10]
             data = d.unconsumed_tail
         assert not data
-
 
     def test_buffer(self):
         """
@@ -229,3 +219,17 @@ class AppTestZlib(object):
 
         bytes = self.zlib.decompress(buffer(self.compressed))
         assert bytes == self.expanded
+
+    def test_flush_with_freed_input(self):
+        # Issue #16411: decompressor accesses input to last decompress() call
+        # in flush(), even if this object has been freed in the meanwhile.
+        input1 = 'abcdefghijklmnopqrstuvwxyz'
+        input2 = 'QWERTYUIOPASDFGHJKLZXCVBNM'
+        data = self.zlib.compress(input1)
+        dco = self.zlib.decompressobj()
+        dco.decompress(data, 1)
+        del data
+        data = self.zlib.compress(input2)
+        assert dco.flush() == input1[1:]
+        assert dco.unused_data == ''
+        assert dco.unconsumed_tail == ''

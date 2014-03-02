@@ -157,7 +157,6 @@ class Compress(ZLibObject):
             rzlib.deflateEnd(self.stream)
             self.stream = rzlib.null_stream
 
-
     @unwrap_spec(data='bufferstr')
     def compress(self, data):
         """
@@ -180,7 +179,6 @@ class Compress(ZLibObject):
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
         return self.space.wrap(result)
-
 
     @unwrap_spec(mode=int)
     def flush(self, mode=rzlib.Z_FINISH):
@@ -270,6 +268,15 @@ class Decompress(ZLibObject):
             rzlib.inflateEnd(self.stream)
             self.stream = rzlib.null_stream
 
+    def _save_unconsumed_input(self, data, finished, unused_len):
+        unused_start = len(data) - unused_len
+        assert unused_start >= 0
+        tail = data[unused_start:]
+        if finished:
+            self.unconsumed_tail = ''
+            self.unused_data += tail
+        else:
+            self.unconsumed_tail = tail
 
     @unwrap_spec(data='bufferstr', max_length=int)
     def decompress(self, data, max_length=0):
@@ -290,41 +297,39 @@ class Decompress(ZLibObject):
         try:
             self.lock()
             try:
-                result = rzlib.decompress(self.stream, data,
-                                          max_length = max_length)
+                result = rzlib.decompress(self.stream, data, max_length=max_length)
             finally:
                 self.unlock()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
 
         string, finished, unused_len = result
-        unused_start = len(data) - unused_len
-        assert unused_start >= 0
-        tail = data[unused_start:]
-        if finished:
-            self.unconsumed_tail = ''
-            self.unused_data += tail
-        else:
-            self.unconsumed_tail = tail
+        self._save_unconsumed_input(data, finished, unused_len)
         return self.space.wrap(string)
 
-
-    @unwrap_spec(length=int)
-    def flush(self, length=sys.maxint):
+    @unwrap_spec(mode="c_int")
+    def flush(self, mode=rzlib.Z_FINISH):
         """
         flush( [length] ) -- This is kept for backward compatibility,
         because each call to decompress() immediately returns as much
         data as possible.
         """
-        if length <= 0:
-            raise OperationError(self.space.w_ValueError, self.space.wrap(
-                "length must be greater than zero"))
-        # We could call rzlib.decompress(self.stream, '', rzlib.Z_FINISH)
-        # which would complain if the input stream so far is not complete;
-        # however CPython's zlib module does not behave like that.
-        # I could not figure out a case in which flush() in CPython
-        # doesn't simply return an empty string without complaining.
-        return self.space.wrap("")
+        if mode == rzlib.Z_NO_FLUSH:
+            return space.wrap("")
+
+        data = self.unconsumed_tail
+        try:
+            self.lock()
+            try:
+                result = rzlib.decompress(self.stream, data, mode)
+            finally:
+                self.unlock()
+        except rzlib.RZlibError, e:
+            raise zlib_error(self.space, e.msg)
+
+        string, finished, unused_len = result
+        self._save_unconsumed_input(data, finished, unused_len)
+        return self.space.wrap(string)
 
 
 @unwrap_spec(wbits=int)
