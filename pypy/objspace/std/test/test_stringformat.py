@@ -205,8 +205,7 @@ class AppTestStringObject:
         assert "%x" % IntFails() == '0'
 
     def test_formatting_huge_precision(self):
-        import sys
-        format_string = "%.{}f".format(sys.maxint + 1)
+        format_string = "%.{}f".format(2**31)
         exc = raises(ValueError, "format_string % 2.34")
         assert exc.value[0] == 'prec too big'
 
@@ -337,8 +336,7 @@ class AppTestUnicodeObject:
         raises(ValueError, 'u"%\u1234" % (f,)')
 
     def test_formatting_huge_precision(self):
-        import sys
-        format_string = u"%.{}f".format(sys.maxint + 1)
+        format_string = u"%.{}f".format(2**31)
         exc = raises(ValueError, "format_string % 2.34")
         assert exc.value[0] == 'prec too big'
 
