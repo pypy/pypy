@@ -5,22 +5,10 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 
-import sys
-
-
-if sys.maxint == 2147483647:
-    def check_uid_range(space, num):
-        pass
-else:
-    def check_uid_range(space, num):
-        if num < -(1<<31) or num >= (1<<32):
-            msg = "getpwuid(): uid not found"
-            raise OperationError(space.w_KeyError, space.wrap(msg))
-
 
 eci = ExternalCompilationInfo(
     includes=['pwd.h']
-    )
+)
 
 class CConfig:
     _compilation_info_ = eci
@@ -77,14 +65,13 @@ def getpwuid(space, w_uid):
         uid = space.int_w(w_uid)
     except OperationError, e:
         if e.match(space, space.w_OverflowError):
-            msg = "getpwuid(): uid not found"
-            raise OperationError(space.w_KeyError, space.wrap(msg))
+            raise oefmt(space.w_KeyError, "getpwuid(): uid not found")
         raise
-    check_uid_range(space, uid)
     pw = c_getpwuid(uid)
     if not pw:
         raise oefmt(space.w_KeyError, "getpwuid(): uid not found: %d", uid)
     return make_struct_passwd(space, pw)
+
 
 @unwrap_spec(name=str)
 def getpwnam(space, name):
@@ -98,6 +85,7 @@ def getpwnam(space, name):
     if not pw:
         raise oefmt(space.w_KeyError, "getpwnam(): name not found: %s", name)
     return make_struct_passwd(space, pw)
+
 
 def getpwall(space):
     users_w = []
