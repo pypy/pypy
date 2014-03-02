@@ -1,7 +1,7 @@
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, wrap_oserror, oefmt
 from rpython.rlib import rpoll
 import errno
 
@@ -20,12 +20,8 @@ class Poll(W_Root):
     def __init__(self):
         self.fddict = {}
 
-    @unwrap_spec(events=int)
+    @unwrap_spec(events="c_short")
     def register(self, space, w_fd, events=defaultevents):
-        if not -32767 - 1 <= events <= 32767:
-            m = ("signed short integer is " +
-                 "greater than maximum" if events > 0 else "less than minimum")
-            raise OperationError(space.w_OverflowError, space.wrap(m))
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
@@ -53,15 +49,11 @@ class Poll(W_Root):
             # we want to be compatible with cpython and also accept things
             # that can be casted to integer (I think)
             try:
-                # compute the integer
-                timeout = space.int_w(space.int(w_timeout))
-            except (OverflowError, ValueError):
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("math range error"))
-
-        if not -2147483647 - 1 <= timeout <= 2147483647:
-            msg = "Python int too large to convert to C int"
-            raise OperationError(space.w_OverflowError, space.wrap(msg))
+                w_timeout = space.int(w_timeout)
+            except OperationError:
+                raise oefmt(space.w_TypeError,
+                    "timeout must be an integer or None")
+            timeout = space.c_int_w(w_timeout)
 
         try:
             retval = rpoll.poll(self.fddict, timeout)

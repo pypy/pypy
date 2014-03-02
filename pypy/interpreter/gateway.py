@@ -147,6 +147,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_c_short(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_truncatedint_w(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -260,6 +263,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_c_nonnegint(self, typ):
         self.run_args.append("space.c_nonnegint_w(%s)" % (self.scopenext(),))
+
+    def visit_c_short(self, typ):
+        self.run_args.append("space.c_short_w(%s)" % (self.scopenext(),))
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
@@ -396,6 +402,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_c_nonnegint(self, typ):
         self.unwrap.append("space.c_nonnegint_w(%s)" % (self.nextarg(),))
+
+    def visit_c_short(self, typ):
+        self.unwrap.append("space.c_short_w(%s)" % (self.nextarg(),))
 
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))

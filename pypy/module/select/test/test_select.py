@@ -213,7 +213,7 @@ class _AppTestSelect:
             readend.close()
             writeend.close()
 
-    def test_poll_int_overflow(self):
+    def test_poll_int_arguments(self):
         import select
 
         pollster = select.poll()
@@ -222,12 +222,16 @@ class _AppTestSelect:
         raises(OverflowError, pollster.poll, 1L << 64)
 
         pollster = select.poll()
-        raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
-        raises(OverflowError, pollster.register, 0, -32768 - 1)
+        exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
+        assert exc.value[0] == 'signed short integer is greater than maximum'
+        exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
+        assert exc.value[0] == 'signed short integer is less than minimum'
         raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
         raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
+        exc = raises(TypeError, pollster.poll, '123')
+        assert exc.value[0] == 'timeout must be an integer or None'
 
 
 class AppTestSelectWithPipes(_AppTestSelect):
