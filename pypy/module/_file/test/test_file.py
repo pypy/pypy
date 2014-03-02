@@ -60,7 +60,6 @@ class AppTestFile(object):
         finally:
             f.close()
 
-
     def test_fdopen(self):
         import os
         f = self.file(self.temppath, "w")

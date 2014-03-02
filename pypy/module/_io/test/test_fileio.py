@@ -1,6 +1,7 @@
 from rpython.tool.udir import udir
 import os
 
+
 class AppTestFileIO:
     spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
 
@@ -17,7 +18,7 @@ class AppTestFileIO:
         import _io
         f = _io.FileIO(self.tmpfile, 'a')
         assert f.name.endswith('tmpfile')
-        assert f.mode == 'wb'
+        assert f.mode == 'ab'
         assert f.closefd is True
         f.close()
 
@@ -191,6 +192,22 @@ class AppTestFileIO:
         raises(MyException, MyFileIO, fd)
         os.close(fd)  # should not raise OSError(EBADF)
 
+    def test_mode_strings(self):
+        import _io
+        import os
+        try:
+            for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
+                          ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
+                          ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
+                          ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
+                # read modes are last so that TESTFN will exist first
+                with _io.FileIO(self.tmpfile, modes[0]) as f:
+                    assert f.mode == modes[1]
+        finally:
+            if os.path.exists(self.tmpfile):
+                os.unlink(self.tmpfile)
+
+
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
@@ -208,6 +225,7 @@ def test_flush_at_exit():
     """)
     space.finish()
     assert tmpfile.read() == '42'
+
 
 def test_flush_at_exit_IOError_and_ValueError():
     from pypy import conftest
