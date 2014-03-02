@@ -49,6 +49,7 @@ class Poll(W_Root):
             # we want to be compatible with cpython and also accept things
             # that can be casted to integer (I think)
             try:
+                # compute the integer
                 w_timeout = space.int(w_timeout)
             except OperationError:
                 raise oefmt(space.w_TypeError,
