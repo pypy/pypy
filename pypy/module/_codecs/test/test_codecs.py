@@ -134,11 +134,15 @@ class AppTestPartialEvaluation:
                 u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff\U00010000",
             ]
 
         buffer = ''
         result = u""
-        for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff".encode(encoding), check_partial):
+        for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff\U00010000".encode(encoding), check_partial):
             buffer += c
             res = _codecs.utf_8_decode(buffer,'strict',False)
             if res[1] >0 :
@@ -160,10 +164,14 @@ class AppTestPartialEvaluation:
                     u"\x00\xff\u0100",
                     u"\x00\xff\u0100",
                     u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff\U00010000",
                 ]
         buffer = ''
         result = u""
-        for (c, partialresult) in zip(u"\x00\xff\u0100\uffff".encode(encoding), check_partial):
+        for (c, partialresult) in zip(u"\x00\xff\u0100\uffff\U00010000".encode(encoding), check_partial):
             buffer += c
             res = _codecs.utf_16_decode(buffer,'strict',False)
             if res[1] >0 :

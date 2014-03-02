@@ -453,10 +453,11 @@ def str_decode_utf_16_helper(s, size, errors, final=True,
             continue
         # UTF-16 code pair:
         if len(s) - pos < 2:
+            pos -= 2
             if not final:
                 break
             errmsg = "unexpected end of data"
-            r, pos = errorhandler(errors, 'utf16', errmsg, s, pos - 2, len(s))
+            r, pos = errorhandler(errors, 'utf16', errmsg, s, pos, len(s))
             result.append(r)
             if len(s) - pos < 2:
                 break
