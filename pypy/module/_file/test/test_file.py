@@ -252,7 +252,7 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert os.strerror(errno.EBADF) in g.getvalue()
         # the following is a "nice to have" feature that CPython doesn't have
         if '__pypy__' in sys.builtin_module_names:
-            assert self.temppath in g.getvalue()
+            assert repr(self.temppath) in g.getvalue()
 
 
 class AppTestNonblocking(object):

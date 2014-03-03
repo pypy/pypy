@@ -201,12 +201,12 @@ class BaseROTests:
 
     def test_repr(self):
         assert repr(self.file).startswith(
-            "<open file '%s', mode '%s' at 0x" % (
-                self.expected_filename, self.expected_mode))
+            "<open file %r, mode '%s' at 0x" %
+            (self.expected_filename, self.expected_mode))
         self.file.close()
         assert repr(self.file).startswith(
-            "<closed file '%s', mode '%s' at 0x" % (
-                self.expected_filename, self.expected_mode))
+            "<closed file %r, mode '%s' at 0x" %
+            (self.expected_filename, self.expected_mode))
 
 # ____________________________________________________________
 #
