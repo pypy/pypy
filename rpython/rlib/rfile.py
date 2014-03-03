@@ -116,11 +116,11 @@ class RFile(object):
             rffi.free_nonmovingbuffer(value, ll_value)
 
     def close(self):
-        """ Closes the described file.
+        """Closes the described file.
 
-Attention! Unlike Python semantics, `close' does not return `None' upon
-success but `0', to be able to return an exit code for popen'ed files """
-
+        Attention! Unlike Python semantics, `close' does not return `None' upon
+        success but `0', to be able to return an exit code for popen'ed files
+        """
         ll_f = self.ll_file
         res = 0
         if ll_f:

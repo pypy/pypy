@@ -186,7 +186,7 @@ class TestDirect:
             f.close()
 
 
-class TestPopen:
+class TestPopen(object):
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("not for win32")
@@ -207,3 +207,24 @@ class TestPopen:
         r = f.close()
         assert s == "%s\n" % printval
         assert r == retval
+
+class TestPopenR(BaseRtypingTest):
+    def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("not for win32")
+
+    def test_popen(self):
+        def f():
+            f = rfile.create_popen_file("python -c 'print 42'", "r")
+            s = f.read()
+            f.close()
+        self.interpret(f, [])
+
+    def test_pclose(self):
+        retval = 32
+        cmd = "python -c 'import sys; print 45; sys.exit(%s)'" % retval
+        def f():
+            f = rfile.create_popen_file(cmd, "r")
+            s = f.read()
+            return f.close()
+        r = self.interpret(f, [])
