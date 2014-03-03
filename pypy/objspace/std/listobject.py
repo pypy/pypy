@@ -999,7 +999,19 @@ class SizeListStrategy(EmptyListStrategy):
         self.sizehint = hint
 
 
-class RangeListStrategy(ListStrategy):
+class BaseRangeListStrategy(ListStrategy):
+    pass
+
+
+class SimpleRangeListStrategy(BaseRangeListStrategy):
+    """SimpleRangeListStrategy is used when a list is created using the range
+       method providing only positive length. The storage is a positive integer
+       less than 2**31 - 1 storing length."""
+
+    _applevel_repr = "simple_range"
+
+
+class RangeListStrategy(BaseRangeListStrategy):
     """RangeListStrategy is used when a list is created using the range method.
     The storage is a tuple containing only three integers start, step and
     length and elements are calculated based on these values.  On any operation
