@@ -35,6 +35,12 @@ class FdWriteCapture(object):
     def getvalue(self):
         return self._value
 
+lib_m = 'm'
+if sys.platform == 'win32':
+    #there is a small chance this fails on Mingw via environ $CC
+    import distutils.ccompiler
+    if distutils.ccompiler.get_default_compiler() == 'msvc':
+        lib_m = 'msvcrt'
 
 class TestFunction(object):
     Backend = CTypesBackend
@@ -44,18 +50,16 @@ class TestFunction(object):
         ffi.cdef("""
             double sin(double x);
         """)
-        m = ffi.dlopen("m")
+        m = ffi.dlopen(lib_m)
         x = m.sin(1.23)
         assert x == math.sin(1.23)
 
     def test_sinf(self):
-        if sys.platform == 'win32':
-            py.test.skip("no 'sinf'")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             float sinf(float x);
         """)
-        m = ffi.dlopen("m")
+        m = ffi.dlopen(lib_m)
         x = m.sinf(1.23)
         assert type(x) is float
         assert x != math.sin(1.23)    # rounding effects
@@ -67,14 +71,14 @@ class TestFunction(object):
         ffi.cdef("""
             void sin(double x);
         """)
-        m = ffi.dlopen("m")
+        m = ffi.dlopen(lib_m)
         x = m.sin(1.23)
         assert x is None
 
     def test_dlopen_filename(self):
-        path = ctypes.util.find_library("m")
+        path = ctypes.util.find_library(lib_m)
         if not path:
-            py.test.skip("libm not found")
+            py.test.skip("%s not found" % lib_m)
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             double cos(double x);
@@ -92,7 +96,7 @@ class TestFunction(object):
         ffi.cdef("""
             double cos(double x);
         """)
-        m = ffi.dlopen("m", ffi.RTLD_LAZY | ffi.RTLD_LOCAL)
+        m = ffi.dlopen(lib_m, ffi.RTLD_LAZY | ffi.RTLD_LOCAL)
         x = m.cos(1.23)
         assert x == math.cos(1.23)
 
@@ -293,7 +297,7 @@ class TestFunction(object):
             typedef double func_t(double);
             func_t sin;
         """)
-        m = ffi.dlopen("m")
+        m = ffi.dlopen(lib_m)
         x = m.sin(1.23)
         assert x == math.sin(1.23)
 
@@ -356,7 +360,7 @@ class TestFunction(object):
         ffi.cdef("""
             int nonexistent();
         """)
-        m = ffi.dlopen("m")
+        m = ffi.dlopen(lib_m)
         assert not hasattr(m, 'nonexistent')
 
     def test_wraps_from_stdlib(self):
@@ -370,7 +374,7 @@ class TestFunction(object):
             def wrapper(*args):
                 return f(*args) + 100
             return wrapper
-        m = ffi.dlopen("m")
+        m = ffi.dlopen(lib_m)
         sin100 = my_decorator(m.sin)
         x = sin100(1.23)
         assert x == math.sin(1.23) + 100

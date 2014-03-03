@@ -37,7 +37,7 @@ class FakeBackend(object):
                                  totalsize=-1, totalalignment=-1, sflags=0):
         assert isinstance(s, FakeStruct)
         s.fields = fields
-    
+
     def new_array_type(self, ptrtype, length):
         return FakeType('<array %s x %s>' % (ptrtype, length))
 
@@ -61,7 +61,7 @@ class FakeStruct(object):
         return ', '.join([str(y) + str(x) for x, y, z in self.fields])
 
 class FakeLibrary(object):
-    
+
     def load_function(self, BType, name):
         return FakeFunction(BType, name)
 
@@ -71,11 +71,17 @@ class FakeFunction(object):
         self.BType = str(BType)
         self.name = name
 
+lib_m = "m"
+if sys.platform == 'win32':
+    #there is a small chance this fails on Mingw via environ $CC
+    import distutils.ccompiler
+    if distutils.ccompiler.get_default_compiler() == 'msvc':
+        lib_m = 'msvcrt'
 
 def test_simple():
     ffi = FFI(backend=FakeBackend())
     ffi.cdef("double sin(double x);")
-    m = ffi.dlopen("m")
+    m = ffi.dlopen(lib_m)
     func = m.sin    # should be a callable on real backends
     assert func.name == 'sin'
     assert func.BType == '<func (<double>), <double>, False>'
@@ -149,7 +155,7 @@ def test_remove_comments():
         x, double/*several*//*comment*/y) /*on the same line*/
         ;
     """)
-    m = ffi.dlopen("m")
+    m = ffi.dlopen(lib_m)
     func = m.sin
     assert func.name == 'sin'
     assert func.BType == '<func (<double>, <double>), <double>, False>'

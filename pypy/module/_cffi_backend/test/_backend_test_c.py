@@ -359,6 +359,9 @@ def test_load_standard_library():
     assert x.load_function(BVoidP, 'strcpy')
     py.test.raises(KeyError, x.load_function,
                    BVoidP, 'xxx_this_function_does_not_exist')
+    # the next one is from 'libm', not 'libc', but we assume
+    # that it is already loaded too, so it should work
+    assert x.load_function(BVoidP, 'sqrt')
 
 def test_hash_differences():
     BChar = new_primitive_type("char")

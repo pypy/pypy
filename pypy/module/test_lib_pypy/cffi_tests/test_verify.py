@@ -5,7 +5,12 @@ from cffi import FFI, VerificationError, VerificationMissing, model
 from pypy.module.test_lib_pypy.cffi_tests.support import *
 
 
+lib_m = ['m']
 if sys.platform == 'win32':
+    #there is a small chance this fails on Mingw via environ $CC
+    import distutils.ccompiler
+    if distutils.ccompiler.get_default_compiler() == 'msvc':
+        lib_m = ['msvcrt']
     pass      # no obvious -Werror equivalent on MSVC
 else:
     if (sys.platform == 'darwin' and
@@ -64,13 +69,13 @@ def test_missing_function_import_error():
 def test_simple_case():
     ffi = FFI()
     ffi.cdef("double sin(double x);")
-    lib = ffi.verify('#include <math.h>', libraries=["m"])
+    lib = ffi.verify('#include <math.h>', libraries=lib_m)
     assert lib.sin(1.23) == math.sin(1.23)
 
 def test_rounding_1():
     ffi = FFI()
     ffi.cdef("float sin(double x);")
-    lib = ffi.verify('#include <math.h>', libraries=["m"])
+    lib = ffi.verify('#include <math.h>', libraries=lib_m)
     res = lib.sin(1.23)
     assert res != math.sin(1.23)     # not exact, because of double->float
     assert abs(res - math.sin(1.23)) < 1E-5
@@ -78,7 +83,7 @@ def test_rounding_1():
 def test_rounding_2():
     ffi = FFI()
     ffi.cdef("double sin(float x);")
-    lib = ffi.verify('#include <math.h>', libraries=["m"])
+    lib = ffi.verify('#include <math.h>', libraries=lib_m)
     res = lib.sin(1.23)
     assert res != math.sin(1.23)     # not exact, because of double->float
     assert abs(res - math.sin(1.23)) < 1E-5
@@ -104,7 +109,7 @@ def test_strlen_array_of_char():
 def test_longdouble():
     ffi = FFI()
     ffi.cdef("long double sinl(long double x);")
-    lib = ffi.verify('#include <math.h>', libraries=["m"])
+    lib = ffi.verify('#include <math.h>', libraries=lib_m)
     for input in [1.23,
                   ffi.cast("double", 1.23),
                   ffi.cast("long double", 1.23)]:

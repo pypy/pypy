@@ -91,7 +91,7 @@ class BaseTestWithUnroll(BaseTest):
         return loop
 
     def raises(self, e, fn, *args):
-        py.test.raises(e, fn, *args)
+        return py.test.raises(e, fn, *args).value
 
 class OptimizeOptTest(BaseTestWithUnroll):
 
@@ -2824,8 +2824,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(p2, ConstPtr(myptr)) []
         jump(p2)
         """
-        self.raises(InvalidLoop, self.optimize_loop,
-                       ops, "crash!")
+        exc = self.raises(InvalidLoop, self.optimize_loop,
+                          ops, "crash!")
+        if exc:
+            assert "node" in exc.msg
 
     def test_merge_guard_class_guard_value(self):
         ops = """
