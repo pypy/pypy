@@ -43,6 +43,9 @@ def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
         storage = strategy.erase(None)
+    elif start == 0 and step == 1 and length <= 2 ** 31 - 1:
+        strategy = space.fromcache(SimpleRangeListStrategy)
+        storage = strategy.erase(length)
     else:
         strategy = space.fromcache(RangeListStrategy)
         storage = strategy.erase((start, step, length))
@@ -1084,6 +1087,7 @@ class BaseRangeListStrategy(ListStrategy):
         w_list.extend(w_any)
 
     def reverse(self, w_list):
+        # XXX this could be specialized for SimpleRange to promote to Range
         self.switch_to_integer_strategy(w_list)
         w_list.reverse()
 
@@ -1129,9 +1133,9 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
         i = 0
         while i < length:
             if wrap_items:
-                r[n] = self.wrap(i)
+                r[i] = self.wrap(i)
             else:
-                r[n] = i
+                r[i] = i
             i += 1
 
         return r
