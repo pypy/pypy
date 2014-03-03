@@ -33,13 +33,11 @@ class AppTestZlib(object):
         cls.w_expanded = cls.space.wrap(expanded)
         cls.w_compressed = cls.space.wrap(zlib.compress(expanded))
 
-
     def test_error(self):
         """
         zlib.error should be an exception class.
         """
         assert issubclass(self.zlib.error, Exception)
-
 
     def test_crc32(self):
         """
@@ -162,13 +160,46 @@ class AppTestZlib(object):
         raises(self.zlib.error, self.zlib.decompress, self.compressed[:-2])
         raises(self.zlib.error, self.zlib.decompress, 'foobar')
 
+    def test_bad_arguments(self):
+        import zlib
+        raises(ValueError, zlib.decompressobj().flush, 0)
+        raises(ValueError, zlib.decompressobj().flush, -1)
+        raises(TypeError, zlib.decompressobj().flush, None)
+        raises(OverflowError, zlib.decompressobj().flush, 2**31)
+        raises(ValueError, zlib.decompressobj().decompress, 'abc', -1)
+        raises(TypeError, zlib.decompressobj().decompress, 'abc', None)
+        raises(OverflowError, zlib.decompressobj().decompress, 'abc', 2**31)
+        raises(TypeError, self.zlib.decompress, self.compressed, None)
+        raises(OverflowError, self.zlib.decompress, self.compressed, 2**31)
+
+    def test_empty_flush(self):
+        import zlib
+        co = zlib.compressobj(zlib.Z_BEST_COMPRESSION)
+        assert co.flush()  # Returns a zlib header
+        dco = zlib.decompressobj()
+        assert dco.flush() == ""
+
+    def test_decompress_incomplete_stream(self):
+        import zlib
+        # This is 'foo', deflated
+        x = 'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'
+        # For the record
+        assert zlib.decompress(x) == 'foo'
+        raises(zlib.error, zlib.decompress, x[:-5])
+        # Omitting the stream end works with decompressor objects
+        # (see issue #8672).
+        dco = zlib.decompressobj()
+        y = dco.decompress(x[:-5])
+        y += dco.flush()
+        assert y == 'foo'
+
     def test_unused_data(self):
         """
         Try to feed too much data to zlib.decompress().
         It should show up in the unused_data attribute.
         """
         d = self.zlib.decompressobj()
-        s = d.decompress(self.compressed + 'extrastuff')
+        s = d.decompress(self.compressed + 'extrastuff', 0)
         assert s == self.expanded
         assert d.unused_data == 'extrastuff'
         assert d.flush() == ''
@@ -232,6 +263,6 @@ class AppTestZlib(object):
         dco.decompress(data, 1)
         del data
         data = self.zlib.compress(input2)
-        assert dco.flush() == input1[1:]
+        assert dco.flush(1) == input1[1:]
         assert dco.unused_data == ''
         assert dco.unconsumed_tail == ''
