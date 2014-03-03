@@ -3,6 +3,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
+from rpython.rlib.rarithmetic import widen
 
 
 eci = ExternalCompilationInfo(includes=['pwd.h'])
@@ -69,7 +70,7 @@ def getpwuid(space, w_uid):
     msg = "getpwuid(): uid not found"
     try:
         val = space.int_w(w_uid)
-        uid = rffi.cast(uid_t, val)
+        uid = widen(rffi.cast(uid_t, val))
         if val == -1:
             pass
         elif val < 0 or uid != val:
