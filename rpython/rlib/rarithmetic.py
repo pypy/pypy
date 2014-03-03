@@ -149,8 +149,7 @@ def _should_widen_type(tp):
         return False
     r_class = rffi.platform.numbertype_to_rclass[tp]
     assert issubclass(r_class, base_int)
-    return r_class.BITS < LONG_BIT or (
-        r_class.BITS == LONG_BIT and r_class.SIGNED)
+    return r_class.BITS < LONG_BIT
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
 # the replacement for sys.maxint

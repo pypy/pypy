@@ -5,7 +5,6 @@ to app-level with apropriate interface
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
@@ -17,6 +16,7 @@ from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi, rgc
 from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 def unpack_fields(space, w_fields):
@@ -303,7 +303,7 @@ def cast_pos(self, i, ll_t):
             if numbits:
                 lowbit = LOW_BIT(bitsize)
                 bitmask = BIT_MASK(numbits, ll_t)
-                value = widen(rffi.cast(ll_t, value))
+                value = widen(value)
                 value >>= lowbit
                 value &= bitmask
                 if ll_t is lltype.Bool or signedtype(ll_t._type):
