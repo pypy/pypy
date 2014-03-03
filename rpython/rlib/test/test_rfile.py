@@ -196,3 +196,14 @@ class TestPopen:
         s = f.read()
         f.close()
         assert s == '42\n'
+
+    def test_pclose(self):
+        retval = 32
+        printval = 42
+        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+            printval, retval)
+        f = rfile.create_popen_file(cmd, "r")
+        s = f.read()
+        r = f.close()
+        assert s == "%s\n" % printval
+        assert r == retval

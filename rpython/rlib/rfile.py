@@ -116,7 +116,13 @@ class RFile(object):
             rffi.free_nonmovingbuffer(value, ll_value)
 
     def close(self):
+        """ Closes the described file.
+
+Attention! Unlike Python semantics, `close' does not return `None' upon
+success but `0', to be able to return an exit code for popen'ed files """
+
         ll_f = self.ll_file
+        res = 0
         if ll_f:
             # double close is allowed
             self.ll_file = lltype.nullptr(FILE)
@@ -124,6 +130,7 @@ class RFile(object):
             if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
+        return os.WEXITSTATUS(res)
 
     _do_close = staticmethod(c_close)    # overridden in RPopenFile
 
