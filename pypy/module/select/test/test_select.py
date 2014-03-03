@@ -215,6 +215,8 @@ class _AppTestSelect:
 
     def test_poll_arguments(self):
         import select
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
         pollster = select.poll()
         pollster.register(1)
         exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
