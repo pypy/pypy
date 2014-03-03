@@ -75,12 +75,6 @@ def get_long_pattern(x):
 # to handle the win64 special case:
 is_emulated_long = _long_typecode != 'l'
 
-SHRT_MIN = -2**(_get_bitsize('h') - 1)
-SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
-INT_MIN = -2**(_get_bitsize('i') - 1)
-INT_MAX = 2**(_get_bitsize('i') - 1) - 1
-UINT_MAX = 2**_get_bitsize('i') - 1
-
 LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1
 LONG_TEST = 2**(LONG_BIT-1)
@@ -297,7 +291,6 @@ def highest_bit(n):
 
 class base_int(long):
     """ fake unsigned integer implementation """
-
 
     def _widen(self, other, value):
         """
@@ -544,8 +537,11 @@ else:
 # needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
 r_uint32 = build_int('r_uint32', False, 32)
 
-# needed for ll_time.time_sleep_llimpl
-maxint32 = int((1 << 31) -1)
+SHRT_MIN = -2**(_get_bitsize('h') - 1)
+SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
+INT_MIN = -2**(_get_bitsize('i') - 1)
+INT_MAX = 2**(_get_bitsize('i') - 1) - 1
+UINT_MAX = r_uint(2**_get_bitsize('i') - 1)
 
 # the 'float' C type
 
