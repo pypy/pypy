@@ -539,8 +539,8 @@ r_uint32 = build_int('r_uint32', False, 32)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
 SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
-INT_MIN = -2**(_get_bitsize('i') - 1)
-INT_MAX = 2**(_get_bitsize('i') - 1) - 1
+INT_MIN = int(-2**(_get_bitsize('i') - 1))
+INT_MAX = int(2**(_get_bitsize('i') - 1) - 1)
 UINT_MAX = r_uint(2**_get_bitsize('i') - 1)
 
 # the 'float' C type
