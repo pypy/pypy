@@ -94,3 +94,6 @@ In a lot of places CPython allows objects with __int__ and __float__ instead of 
 
 .. branch: test-58c3d8552833
 Fix for getarrayitem_gc_pure optimization
+
+.. branch: stdlib-2.7.5
+.. branch: vendor/stdlib
