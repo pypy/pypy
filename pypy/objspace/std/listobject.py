@@ -1000,26 +1000,6 @@ class SizeListStrategy(EmptyListStrategy):
 
 
 class BaseRangeListStrategy(ListStrategy):
-    pass
-
-
-class SimpleRangeListStrategy(BaseRangeListStrategy):
-    """SimpleRangeListStrategy is used when a list is created using the range
-       method providing only positive length. The storage is a positive integer
-       less than 2**31 - 1 storing length."""
-
-    _applevel_repr = "simple_range"
-
-
-class RangeListStrategy(BaseRangeListStrategy):
-    """RangeListStrategy is used when a list is created using the range method.
-    The storage is a tuple containing only three integers start, step and
-    length and elements are calculated based on these values.  On any operation
-    destroying the range (inserting, appending non-ints) the strategy is
-    switched to IntegerListStrategy."""
-
-    _applevel_repr = "range"
-
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
@@ -1034,12 +1014,8 @@ class RangeListStrategy(BaseRangeListStrategy):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
-    erase, unerase = rerased.new_erasing_pair("range")
-    erase = staticmethod(erase)
-    unerase = staticmethod(unerase)
-
     def clone(self, w_list):
-        storage = w_list.lstorage  # lstorage is tuple, no need to clone
+        storage = w_list.lstorage  # lstorage is tuple/int, no need to clone
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
                                                          self)
         return w_clone
@@ -1051,6 +1027,65 @@ class RangeListStrategy(BaseRangeListStrategy):
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
         w_other.lstorage = w_list.lstorage
+
+    def getitem(self, w_list, i):
+        return self.wrap(self._getitem_unwrapped(w_list, i))
+
+    def getitems_int(self, w_list):
+        return self._getitems_range(w_list, False)
+
+    def getitems_copy(self, w_list):
+        return self._getitems_range(w_list, True)
+
+    def getstorage_copy(self, w_list):
+        # tuple/int is immutable
+        return w_list.lstorage
+
+
+class SimpleRangeListStrategy(BaseRangeListStrategy):
+    """SimpleRangeListStrategy is used when a list is created using the range
+       method providing only positive length. The storage is a positive integer
+       less than 2**31 - 1 storing length."""
+
+    _applevel_repr = "simple_range"
+
+    erase, unerase = rerased.new_erasing_pair("simple_range")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def find(self, w_list, w_obj, startindex, stopindex):
+        if type(w_obj) is W_IntObject:
+            obj = self.unwrap(w_obj)
+            length = self.unerase(w_list.lstorage)
+            if 0 <= obj < length and startindex <= obj < stopindex:
+                return obj
+            else:
+                raise ValueError
+        return ListStrategy.find(self, w_list, w_obj, startindex, stopindex)
+
+    def length(self, w_list):
+        return self.unerase(w_list.lstorage)
+
+    def _getitem_unwrapped(self, w_list, i):
+        length = self.unerase(w_list.lstorage)
+        if 0 <= i < length:
+            return i
+        else:
+            raise IndexError
+
+
+class RangeListStrategy(BaseRangeListStrategy):
+    """RangeListStrategy is used when a list is created using the range method.
+    The storage is a tuple containing only three integers start, step and
+    length and elements are calculated based on these values.  On any operation
+    destroying the range (inserting, appending non-ints) the strategy is
+    switched to IntegerListStrategy."""
+
+    _applevel_repr = "range"
+
+    erase, unerase = rerased.new_erasing_pair("range")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def find(self, w_list, w_obj, startindex, stopindex):
         if type(w_obj) is W_IntObject:
@@ -1083,19 +1118,6 @@ class RangeListStrategy(BaseRangeListStrategy):
         elif i >= length:
             raise IndexError
         return start + i * step
-
-    def getitems_int(self, w_list):
-        return self._getitems_range(w_list, False)
-
-    def getitem(self, w_list, i):
-        return self.wrap(self._getitem_unwrapped(w_list, i))
-
-    def getitems_copy(self, w_list):
-        return self._getitems_range(w_list, True)
-
-    def getstorage_copy(self, w_list):
-        # tuple is unmutable
-        return w_list.lstorage
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
