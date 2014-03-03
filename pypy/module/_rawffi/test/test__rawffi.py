@@ -541,6 +541,9 @@ class AppTestFfi:
             y = Y()
             y.a = 10
             assert y.a == 10
+            val = (1 << (s[1] - 1)) | 1
+            y.a = val
+            assert y.a == val
             y.free()
 
     def test_invalid_bitfields(self):
