@@ -268,7 +268,7 @@ def NUM_BITS(x):
     return x >> 16
 
 def BIT_MASK(x, ll_t):
-    return (((1 << (x - 1)) - 1) << 1) + 1
+    return (((widen(rffi.cast(ll_t, 1)) << (x - 1)) - 1) << 1) + 1
 BIT_MASK._annspecialcase_ = 'specialize:arg(1)'
 
 def push_field(self, num, value):

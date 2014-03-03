@@ -490,7 +490,7 @@ class AppTestFfi:
         assert x.C == 1
         x.free()
 
-    def test_structure_bitfields(self):
+    def test_structure_bitfields_varied(self):
         import _rawffi
         X = _rawffi.Structure([('A', 'I', 1),
                                ('B', 'I', 2),
@@ -504,37 +504,47 @@ class AppTestFfi:
         assert x.C == -1
         x.free()
 
+    def test_structure_bitfields_int(self):
+        import _rawffi
         Y = _rawffi.Structure([('a', 'i', 1),
                                ('b', 'i', 30),
                                ('c', 'i', 1)])
         y = Y()
-        y.a, y.b, y.c = -1, -7, 0
-        assert (y.a, y.b, y.c) == (-1, -7, 0)
+        y.a, y.b, y.c = -1, -7, 1
+        assert (y.a, y.b, y.c) == (-1, -7, -1)
         y.free()
 
-    def test_structure_ulonglong_bitfields(self):
+    def test_structure_bitfields_uint(self):
         import _rawffi
-        X = _rawffi.Structure([('A', 'Q', 1),
-                               ('B', 'Q', 62),
-                               ('C', 'Q', 1)])
-        x = X()
-        x.A, x.B, x.C = 7, 0x1000000000000001, 7
-        assert x.A == 1
-        assert x.B == 0x1000000000000001
-        assert x.C == 1
-        x.free()
+        Y = _rawffi.Structure([('a', 'I', 1),
+                               ('b', 'I', 30),
+                               ('c', 'I', 1)])
+        y = Y()
+        y.a, y.b, y.c = 7, (1 << 29) | 1, 7
+        assert (y.a, y.b, y.c) == (1, (1 << 29) | 1, 1)
+        y.free()
 
-    def test_structure_longlong_bitfields(self):
+    def test_structure_bitfields_longlong(self):
         import _rawffi
         Y = _rawffi.Structure([('a', 'q', 1),
-                               ('b', 'q', 61),
+                               ('b', 'q', 62),
                                ('c', 'q', 1)])
         y = Y()
-        y.a, y.b, y.c = 0, -7, 0
-        assert (y.a, y.b, y.c) == (0, -7, 0)
+        y.a, y.b, y.c = -1, -7, 1
+        assert (y.a, y.b, y.c) == (-1, -7, -1)
         y.free()
 
-    def test_structure_single_longbit_bitfield(self):
+    def test_structure_bitfields_ulonglong(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'Q', 1),
+                               ('b', 'Q', 62),
+                               ('c', 'Q', 1)])
+        y = Y()
+        y.a, y.b, y.c = 7, (1 << 61) | 1, 7
+        assert (y.a, y.b, y.c) == (1, (1 << 61) | 1, 1)
+        y.free()
+
+    def test_structure_bitfields_single(self):
         import _rawffi
         for s in [('I', 32), ('Q', 64)]:
             Y = _rawffi.Structure([('a',) + s])
