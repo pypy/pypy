@@ -15,7 +15,7 @@ from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi, rgc
-from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint
+from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint, r_longlong
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -309,7 +309,8 @@ def cast_pos(self, i, ll_t):
                 if ll_t is lltype.Bool or signedtype(ll_t._type):
                     sign = (value >> (numbits - 1)) & 1
                     if sign:
-                        value = value - (1 << numbits)
+                        one = r_longlong(1) if ll_t is lltype.SignedLongLong else 1
+                        value = value - (one << numbits)
                 value = rffi.cast(ll_t, value)
             break
     return value
