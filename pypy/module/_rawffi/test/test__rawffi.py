@@ -544,7 +544,19 @@ class AppTestFfi:
         assert (y.a, y.b, y.c) == (1, (1 << 61) | 1, 1)
         y.free()
 
-    def test_structure_bitfields_single(self):
+    def test_structure_bitfields_single_signed(self):
+        import _rawffi
+        for s in [('i', 32), ('q', 64)]:
+            Y = _rawffi.Structure([('a',) + s])
+            y = Y()
+            y.a = 10
+            assert y.a == 10
+            val = (1 << (s[1] - 1)) | 1
+            y.a = val
+            assert y.a == val - (1 << s[1])
+            y.free()
+
+    def test_structure_bitfields_single_unsigned(self):
         import _rawffi
         for s in [('I', 32), ('Q', 64)]:
             Y = _rawffi.Structure([('a',) + s])

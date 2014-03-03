@@ -15,7 +15,8 @@ from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi, rgc
-from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint, r_longlong
+from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint, \
+    r_longlong, r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -268,7 +269,14 @@ def NUM_BITS(x):
     return x >> 16
 
 def BIT_MASK(x, ll_t):
-    return (((widen(rffi.cast(ll_t, 1)) << (x - 1)) - 1) << 1) + 1
+    if ll_t is lltype.SignedLongLong:
+        one = r_longlong(1)
+    elif ll_t is lltype.UnsignedLongLong:
+        one = r_ulonglong(1)
+    else:
+        one = 1
+    # to avoid left shift by x == sizeof(ll_t)
+    return (((one << (x - 1)) - 1) << 1) + 1
 BIT_MASK._annspecialcase_ = 'specialize:arg(1)'
 
 def push_field(self, num, value):
