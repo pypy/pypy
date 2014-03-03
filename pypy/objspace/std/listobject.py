@@ -1616,7 +1616,7 @@ class IntegerListStrategy(ListStrategy):
     _base_extend_from_list = _extend_from_list
 
     def _extend_from_list(self, w_list, w_other):
-        if w_other.strategy is self.space.fromcache(RangeListStrategy):
+        if isinstance(w_other.strategy, BaseRangeListStrategy):
             l = self.unerase(w_list.lstorage)
             other = w_other.getitems_int()
             assert other is not None
