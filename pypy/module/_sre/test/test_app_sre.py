@@ -32,6 +32,10 @@ class AppTestSrePy:
 
 
 class AppTestSrePattern:
+    def setup_class(cls):
+        # This imports support_test_sre as the global "s"
+        init_app_test(cls, cls.space)
+
     def test_copy(self):
         # copy support is disabled by default in _sre.c
         import re
@@ -47,6 +51,16 @@ class AppTestSrePattern:
         assert re.I | re.M == p.flags
         assert 2 == p.groups
         assert {"g": 2} == p.groupindex
+
+    def test_repeat_minmax_overflow(self):
+        import re
+        string = "x" * 100000
+        assert re.match(r".{%d}" % (self.s.MAXREPEAT - 1), string) is None
+        assert re.match(r".{,%d}" % (self.s.MAXREPEAT - 1), string).span() == (0, 100000)
+        assert re.match(r".{%d,}?" % (self.s.MAXREPEAT - 1), string) is None
+        raises(OverflowError, re.compile, r".{%d}" % self.s.MAXREPEAT)
+        raises(OverflowError, re.compile, r".{,%d}" % self.s.MAXREPEAT)
+        raises(OverflowError, re.compile, r".{%d,}?" % self.s.MAXREPEAT)
 
     def test_match_none(self):
         import re
