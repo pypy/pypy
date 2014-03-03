@@ -213,15 +213,10 @@ class _AppTestSelect:
             readend.close()
             writeend.close()
 
-    def test_poll_int_arguments(self):
+    def test_poll_arguments(self):
         import select
-
         pollster = select.poll()
         pollster.register(1)
-
-        raises(OverflowError, pollster.poll, 1L << 64)
-
-        pollster = select.poll()
         exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
         assert exc.value[0] == 'signed short integer is greater than maximum'
         exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
