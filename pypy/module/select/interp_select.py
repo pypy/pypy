@@ -19,6 +19,7 @@ unregistering file descriptors, and then polling them for I/O events."""
 class Poll(W_Root):
     def __init__(self):
         self.fddict = {}
+        self.running = False
 
     @unwrap_spec(events="c_short")
     def register(self, space, w_fd, events=defaultevents):
@@ -41,7 +42,7 @@ class Poll(W_Root):
             raise OperationError(space.w_KeyError,
                                  space.wrap(fd)) # XXX should this maybe be w_fd?
 
-    @unwrap_spec(w_timeout = WrappedDefault(None))
+    @unwrap_spec(w_timeout=WrappedDefault(None))
     def poll(self, space, w_timeout):
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
@@ -56,6 +57,9 @@ class Poll(W_Root):
                     "timeout must be an integer or None")
             timeout = space.c_int_w(w_timeout)
 
+        if self.running:
+            raise oefmt(space.w_RuntimeError, "concurrent poll() invocation")
+        self.running = True
         try:
             retval = rpoll.poll(self.fddict, timeout)
         except rpoll.PollError, e:
@@ -64,6 +68,8 @@ class Poll(W_Root):
             raise OperationError(w_errortype,
                                  space.newtuple([space.wrap(e.errno),
                                                  space.wrap(message)]))
+        finally:
+            self.running = False
 
         retval_w = []
         for fd, revents in retval:

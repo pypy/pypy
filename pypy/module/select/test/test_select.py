@@ -1,5 +1,4 @@
 import sys
-
 import py
 
 from pypy.interpreter.error import OperationError
@@ -234,7 +233,7 @@ class _AppTestSelect:
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
     spaceconfig = {
-        "usemodules": ["select", "rctime"]
+        "usemodules": ["select", "rctime", "thread"]
     }
 
     def setup_class(cls):
@@ -257,6 +256,37 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 return os.close(self.fd)
         s1, s2 = os.pipe()
         return FileAsSocket(s1), FileAsSocket(s2)
+
+    def test_poll_threaded(self):
+        import os, select, threading, time
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
+        r, w = os.pipe()
+        rfds = [os.dup(r) for _ in range(10)]
+        try:
+            pollster = select.poll()
+            for fd in rfds:
+                pollster.register(fd, select.POLLIN)
+
+            t = threading.Thread(target=pollster.poll)
+            t.start()
+            try:
+                time.sleep(0.5); print '',  # print to release GIL untranslated
+                # trigger ufds array reallocation
+                for fd in rfds:
+                    pollster.unregister(fd)
+                pollster.register(w, select.POLLOUT)
+                exc = raises(RuntimeError, pollster.poll)
+                assert exc.value[0] == 'concurrent poll() invocation'
+            finally:
+                # and make the call to poll() from the thread return
+                os.write(w, b'spam')
+                t.join()
+        finally:
+            os.close(r)
+            os.close(w)
+            for fd in rfds:
+                os.close(fd)
 
 
 class AppTestSelectWithSockets(_AppTestSelect):
