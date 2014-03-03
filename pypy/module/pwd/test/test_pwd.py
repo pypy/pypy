@@ -28,9 +28,13 @@ class AppTestPwd:
         # -1 is allowed, cast to uid_t
         exc = raises(KeyError, pwd.getpwuid, -1)
         m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value[0])
-        assert m
+        assert m, exc.value[0]
         maxval = int(m.group(1))
         assert maxval >= 2**32 - 1
+        # shouldn't overflow
+        exc = raises(KeyError, pwd.getpwuid, maxval)
+        m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value[0])
+        assert m, exc.value[0]
         # should be out of uid_t range
         for v in [-2, maxval+1, 2**128, -2**128]:
             exc = raises(KeyError, pwd.getpwuid, v)

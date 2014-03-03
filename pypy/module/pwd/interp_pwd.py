@@ -3,7 +3,6 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from rpython.rlib.rarithmetic import intmask, most_pos_value_of, widen
 
 
 eci = ExternalCompilationInfo(includes=['pwd.h'])
@@ -51,8 +50,8 @@ def make_struct_passwd(space, pw):
     w_tuple = space.newtuple([
         space.wrap(rffi.charp2str(pw.c_pw_name)),
         space.wrap(rffi.charp2str(pw.c_pw_passwd)),
-        space.wrap(intmask(pw.c_pw_uid)),
-        space.wrap(intmask(pw.c_pw_gid)),
+        space.wrap(pw.c_pw_uid),
+        space.wrap(pw.c_pw_gid),
         space.wrap(rffi.charp2str(pw.c_pw_gecos)),
         space.wrap(rffi.charp2str(pw.c_pw_dir)),
         space.wrap(rffi.charp2str(pw.c_pw_shell)),
@@ -67,18 +66,22 @@ def getpwuid(space, w_uid):
     Return the password database entry for the given numeric user ID.
     See pwd.__doc__ for more on password database entries.
     """
+    msg = "getpwuid(): uid not found"
     try:
-        uid = space.int_w(w_uid)
-        if uid < -1 or uid > widen(most_pos_value_of(uid_t)):
+        val = space.int_w(w_uid)
+        uid = rffi.cast(uid_t, val)
+        if val == -1:
+            pass
+        elif val < 0 or uid != val:
             raise OperationError(space.w_OverflowError, None)
     except OperationError, e:
         if e.match(space, space.w_OverflowError):
-            raise oefmt(space.w_KeyError, "getpwuid(): uid not found")
+            raise oefmt(space.w_KeyError, msg)
         raise
-    uid = rffi.cast(uid_t, uid)
     pw = c_getpwuid(uid)
     if not pw:
-        raise oefmt(space.w_KeyError, "getpwuid(): uid not found: %d", widen(uid))
+        raise OperationError(space.w_KeyError, space.wrap(
+            "%s: %d" % (msg, uid)))
     return make_struct_passwd(space, pw)
 
 
