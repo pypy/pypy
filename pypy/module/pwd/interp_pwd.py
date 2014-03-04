@@ -3,7 +3,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, widen
 
 
 eci = ExternalCompilationInfo(includes=['pwd.h'])
@@ -103,7 +103,7 @@ def getpwuid(space, w_uid):
     pw = c_getpwuid(uid)
     if not pw:
         raise OperationError(space.w_KeyError, space.wrap(
-            "%s: %d" % (msg, uid)))
+            "%s: %d" % (msg, widen(uid))))
     return make_struct_passwd(space, pw)
 
 @unwrap_spec(name=str)
