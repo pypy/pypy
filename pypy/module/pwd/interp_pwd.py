@@ -102,7 +102,8 @@ def getpwuid(space, w_uid):
         raise
     pw = c_getpwuid(uid)
     if not pw:
-        raise oefmt(space.w_KeyError, "%s: %d", msg, uid)
+        raise OperationError(space.w_KeyError, space.wrap(
+            "%s: %d" % (msg, uid)))
     return make_struct_passwd(space, pw)
 
 @unwrap_spec(name=str)
