@@ -1,4 +1,3 @@
-import sys
 from rpython.rlib.rsre import rsre_char
 from rpython.rlib.rarithmetic import intmask
 

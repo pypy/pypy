@@ -5,7 +5,7 @@ import sys
 from rpython.rlib.rlocale import tolower, isalnum
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import int_between, intmask
+from rpython.rlib.rarithmetic import int_between
 
 # Note: the unicode parts of this module require you to call
 # rsre_char.set_unicode_db() first, to select one of the modules
@@ -27,9 +27,9 @@ def set_unicode_db(newunicodedb):
 MAGIC = 20031017
 
 if sys.maxint > 2**32:
-    MAXREPEAT = intmask(2**32 - 1)
+    MAXREPEAT = int(2**32 - 1)
 else:
-    MAXREPEAT = intmask(2**31 - 1)
+    MAXREPEAT = int(2**31 - 1)
 
 # In _sre.c this is bytesize of the code word type of the C implementation.
 # There it's 2 for normal Python builds and more for wide unicode builds (large 
