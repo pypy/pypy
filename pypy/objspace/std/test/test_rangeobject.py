@@ -72,6 +72,7 @@ class AppTestRangeListObject(object):
         r.sort(key=lambda x: -x)
         assert r == range(9, -1, -1)
     def test_pop(self):
+        # RangeListStrategy
         r = range(1, 10)
         res = r.pop()
         assert res == 9
@@ -93,6 +94,19 @@ class AppTestRangeListObject(object):
         assert res == 5
         assert not self.not_forced(r)
         assert r == [2, 3, 6, 7]
+
+        # SimpleRangeListStrategy
+        r = range(10)
+        res = r.pop()
+        assert res == 9
+        assert self.not_forced(r)
+        res = r.pop()
+        assert res == 8
+        assert self.not_forced(r)
+        res = r.pop(0)
+        assert res == 0
+        assert not self.not_forced(r)
+        assert r == [1, 2, 3, 4, 5, 6, 7]
 
     def test_reduce(self):
         it = iter(range(10))
