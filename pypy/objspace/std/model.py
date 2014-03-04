@@ -20,7 +20,6 @@ option_to_typename = {
 }
 
 IDTAG_INT     = 1
-#IDTAG_LONG    = 3
 IDTAG_FLOAT   = 5
 IDTAG_COMPLEX = 7
 
@@ -87,7 +86,7 @@ class StdTypeModel:
             # XXX: Bool/Int/Long are pythontypes but still included here
             # for delegation to Float/Complex
             boolobject.W_BoolObject: [],
-            #intobject.W_IntObject: [],
+            intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],

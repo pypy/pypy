@@ -1,5 +1,5 @@
-"""
-Implementation of 'small' longs, stored as a r_longlong.
+"""Implementation of the int type based on r_longlong.
+
 Useful for 32-bit applications manipulating values a bit larger than
 fits in an 'int'.
 """
@@ -11,7 +11,7 @@ from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
-from pypy.objspace.std.intobject import W_AbstractIntObject
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
 from pypy.objspace.std.model import COMMUTATIVE_OPS
 
@@ -70,16 +70,13 @@ class W_SmallLongObject(W_AbstractLongObject):
         return float(self.longlong)
 
     def int(self, space):
-        # XXX: this shouldn't need an ovfcheck?
-        a = self.longlong
-        b = intmask(a)
-        return space.newint(b) if b == a else self
-
-    def descr_long(self, space):
-        if space.is_w(space.type(self), space.w_long):
+        if type(self) is W_SmallLongObject:
             return self
-        return W_SmallLongObject(self.longlong)
-    descr_index = descr_trunc = descr_pos = descr_long
+        if not space.is_overloaded(self, space.w_int, '__int__'):
+            return W_LongObject(self.num)
+        return W_Root.int(self, space)
+
+    descr_index = descr_trunc = descr_pos = int
 
     def descr_float(self, space):
         return space.newfloat(float(self.longlong))
@@ -98,7 +95,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     def descr_abs(self, space):
         return self if self.longlong >= 0 else self.descr_neg(space)
 
-    def descr_nonzero(self, space):
+    def descr_bool(self, space):
         return space.newbool(bool(self.longlong))
 
     def descr_invert(self, space):
@@ -110,7 +107,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         if isinstance(w_exponent, W_AbstractLongObject):
             self = _small2long(space, self)
             return self.descr_pow(space, w_exponent, w_modulus)
-        elif not isinstance(w_exponent, W_AbstractIntObject):
+        elif not isinstance(w_exponent, W_IntObject):
             return space.w_NotImplemented
 
         x = self.longlong
@@ -125,7 +122,7 @@ class W_SmallLongObject(W_AbstractLongObject):
             except OverflowError:
                 self = _small2long(space, self)
                 return self.descr_pow(space, w_exponent, w_modulus)
-        elif isinstance(w_modulus, W_AbstractIntObject):
+        elif isinstance(w_modulus, W_IntObject):
             w_modulus = _int2small(space, w_modulus)
         elif not isinstance(w_modulus, W_AbstractLongObject):
             return space.w_NotImplemented
@@ -147,7 +144,7 @@ class W_SmallLongObject(W_AbstractLongObject):
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_rpow(self, space, w_base, w_modulus=None):
-        if isinstance(w_base, W_AbstractIntObject):
+        if isinstance(w_base, W_IntObject):
             # Defer to w_base<W_SmallLongObject>.descr_pow
             w_base = _int2small(space, w_base)
         elif not isinstance(w_base, W_AbstractLongObject):
@@ -159,7 +156,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         bigint_op = getattr(rbigint, opname)
         @func_renamer('descr_' + opname)
         def descr_cmp(self, space, w_other):
-            if isinstance(w_other, W_AbstractIntObject):
+            if isinstance(w_other, W_IntObject):
                 result = op(self.longlong, w_other.int_w(space))
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
@@ -184,7 +181,7 @@ class W_SmallLongObject(W_AbstractLongObject):
 
         @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
-            if isinstance(w_other, W_AbstractIntObject):
+            if isinstance(w_other, W_IntObject):
                 w_other = _int2small(space, w_other)
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
@@ -211,7 +208,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         long_rop = getattr(W_LongObject, descr_rname)
         @func_renamer(descr_rname)
         def descr_rbinop(self, space, w_other):
-            if isinstance(w_other, W_AbstractIntObject):
+            if isinstance(w_other, W_IntObject):
                 w_other = _int2small(space, w_other)
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
@@ -386,7 +383,7 @@ def delegate_SmallLong2Complex(space, w_small):
 
 
 def _int2small(space, w_int):
-    # XXX: W_IntObject.descr_long should probably return W_SmallLongs
+    # XXX: W_IntObject.as_w_long should probably return W_SmallLongs
     return W_SmallLongObject.fromint(w_int.int_w(space))
 
 

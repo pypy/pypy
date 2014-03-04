@@ -1,4 +1,5 @@
-"""The builtin int implementation
+"""The builtin int type (W_AbstractInt) and the base impl (W_IntObject)
+based on rpython ints.
 
 In order to have the same behavior running on CPython, and after RPython
 translation this module uses rarithmetic.ovfcheck to explicitly check
@@ -11,8 +12,10 @@ import sys
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import instantiate, import_from_mixin, specialize
 from rpython.rlib.rarithmetic import (
-    LONG_BIT, is_valid_int, ovfcheck, r_longlong, r_uint, string_to_int)
-from rpython.rlib.rbigint import rbigint
+    LONG_BIT, intmask, is_valid_int, ovfcheck, r_longlong, r_uint,
+    string_to_int)
+from rpython.rlib.rbigint import (
+    InvalidEndiannessError, InvalidSignednessError, rbigint)
 from rpython.rlib.rstring import (
     InvalidBaseError, ParseStringError, ParseStringOverflowError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
@@ -21,7 +24,8 @@ from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.gateway import (
+    WrappedDefault, applevel, interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std import newformat
 from pypy.objspace.std.model import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
@@ -29,6 +33,9 @@ from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
 SENTINEL = object()
+
+HASH_BITS = 61 if sys.maxsize > 2 ** 31 - 1 else 31
+HASH_MODULUS = 2 ** HASH_BITS - 1
 
 
 class W_AbstractIntObject(W_Root):
@@ -42,7 +49,7 @@ class W_AbstractIntObject(W_Root):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        return space.int_w(self) == space.int_w(w_other)
+        return space.bigint_w(self).eq(space.bigint_w(w_other))
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -51,8 +58,139 @@ class W_AbstractIntObject(W_Root):
         b = b.lshift(3).or_(rbigint.fromint(IDTAG_INT))
         return space.newlong_from_rbigint(b)
 
+    @staticmethod
+    @unwrap_spec(byteorder=str, signed=bool)
+    def descr_from_bytes(space, w_inttype, w_obj, byteorder, signed=False):
+        """int.from_bytes(bytes, byteorder, *, signed=False) -> int
+
+        Return the integer represented by the given array of bytes.
+
+        The bytes argument must either support the buffer protocol or be
+        an iterable object producing bytes.  Bytes and bytearray are
+        examples of built-in objects that support the buffer protocol.
+
+        The byteorder argument determines the byte order used to
+        represent the integer.  If byteorder is 'big', the most
+        significant byte is at the beginning of the byte array.  If
+        byteorder is 'little', the most significant byte is at the end
+        of the byte array.  To request the native byte order of the host
+        system, use `sys.byteorder' as the byte order value.
+
+        The signed keyword-only argument indicates whether two's
+        complement is used to represent the integer.
+        """
+        from pypy.objspace.std.bytesobject import makebytesdata_w
+        bytes = ''.join(makebytesdata_w(space, w_obj))
+        try:
+            bigint = rbigint.frombytes(bytes, byteorder=byteorder,
+                                       signed=signed)
+        except InvalidEndiannessError:
+            raise oefmt(space.w_ValueError,
+                        "byteorder must be either 'little' or 'big'")
+        try:
+            as_int = bigint.toint()
+        except OverflowError:
+            from pypy.objspace.std.longobject import newbigint
+            return newbigint(space, w_inttype, bigint)
+        else:
+            if space.is_w(w_inttype, space.w_int):
+                # common case
+                return wrapint(space, as_int)
+            w_obj = space.allocate_instance(W_IntObject, w_inttype)
+            W_IntObject.__init__(w_obj, as_int)
+            return w_obj
+
+    @unwrap_spec(nbytes=int, byteorder=str, signed=bool)
+    def descr_to_bytes(self, space, nbytes, byteorder, signed=False):
+        """to_bytes(...)
+        int.to_bytes(length, byteorder, *, signed=False) -> bytes
+
+        Return an array of bytes representing an integer.
+
+        The integer is represented using length bytes.  An OverflowError
+        is raised if the integer is not representable with the given
+        number of bytes.
+
+        The byteorder argument determines the byte order used to
+        represent the integer.  If byteorder is 'big', the most
+        significant byte is at the beginning of the byte array.  If
+        byteorder is 'little', the most significant byte is at the end
+        of the byte array.  To request the native byte order of the host
+        system, use `sys.byteorder' as the byte order value.
+
+        The signed keyword-only argument determines whether two's
+        complement is used to represent the integer.  If signed is False
+        and a negative integer is given, an OverflowError is raised.
+        """
+        bigint = space.bigint_w(self)
+        try:
+            byte_string = bigint.tobytes(nbytes, byteorder=byteorder,
+                                         signed=signed)
+        except InvalidEndiannessError:
+            raise oefmt(space.w_ValueError,
+                        "byteorder must be either 'little' or 'big'")
+        except InvalidSignednessError:
+            raise oefmt(space.w_OverflowError,
+                        "can't convert negative int to unsigned")
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "int too big to convert")
+        return space.wrapbytes(byte_string)
+
+    def descr_round(self, space, w_ndigits=None):
+        """Rounding an Integral returns itself.
+        Rounding with an ndigits argument also returns an integer.
+        """
+        # To round an integer m to the nearest 10**n (n positive), we
+        # make use of the divmod_near operation, defined by:
+        #
+        # divmod_near(a, b) = (q, r)
+        #
+        # where q is the nearest integer to the quotient a / b (the
+        # nearest even integer in the case of a tie) and r == a - q * b.
+        # Hence q * b = a - r is the nearest multiple of b to a,
+        # preferring even multiples in the case of a tie.
+        #
+        # So the nearest multiple of 10**n to m is:
+        #
+        # m - divmod_near(m, 10**n)[1]
+
+        # XXX: since divmod_near is pure python we can probably remove
+        # the longs used here. or this could at least likely be more
+        # efficient for W_IntObject
+        from pypy.objspace.std.longobject import newlong
+
+        if w_ndigits is None:
+            return self.int(space)
+
+        ndigits = space.bigint_w(space.index(w_ndigits))
+        # if ndigits >= 0 then no rounding is necessary; return self
+        # unchanged
+        if ndigits.ge(rbigint.fromint(0)):
+            return self.int(space)
+
+        # result = self - divmod_near(self, 10 ** -ndigits)[1]
+        right = rbigint.fromint(10).pow(ndigits.neg())
+        w_tuple = divmod_near(space, self, newlong(space, right))
+        _, w_r = space.fixedview(w_tuple, 2)
+        return space.sub(self, w_r)
+
+    def _int(self, space):
+        return self.int(space)
+
+    descr_get_numerator = func_with_new_name(_int, 'descr_get_numerator')
+    descr_get_real = func_with_new_name(_int, 'descr_get_real')
+
+    def descr_get_denominator(self, space):
+        return wrapint(space, 1)
+
+    def descr_get_imag(self, space):
+        return wrapint(space, 0)
+
     def int(self, space):
         """x.__int__() <==> int(x)"""
+        raise NotImplementedError
+
+    def asbigint(self):
         raise NotImplementedError
 
     def descr_format(self, space, w_format_spec):
@@ -76,7 +214,6 @@ class W_AbstractIntObject(W_Root):
     descr_repr = _abstract_unaryop('repr')
     descr_str = _abstract_unaryop('str')
 
-    descr_coerce = _abstract_unaryop('coerce')
     descr_conjugate = _abstract_unaryop(
         'conjugate', "Returns self, the complex conjugate of any int.")
     descr_bit_length = _abstract_unaryop('bit_length', """\
@@ -88,11 +225,8 @@ class W_AbstractIntObject(W_Root):
         >>> (37).bit_length()
         6""")
     descr_hash = _abstract_unaryop('hash')
-    descr_oct = _abstract_unaryop('oct')
-    descr_hex = _abstract_unaryop('hex')
     descr_getnewargs = _abstract_unaryop('getnewargs', None)
 
-    descr_long = _abstract_unaryop('long')
     descr_index = _abstract_unaryop(
         'index', "x[y:z] <==> x[y.__index__():z.__index__()]")
     descr_trunc = _abstract_unaryop('trunc',
@@ -102,7 +236,7 @@ class W_AbstractIntObject(W_Root):
     descr_pos = _abstract_unaryop('pos', "x.__pos__() <==> +x")
     descr_neg = _abstract_unaryop('neg', "x.__neg__() <==> -x")
     descr_abs = _abstract_unaryop('abs')
-    descr_nonzero = _abstract_unaryop('nonzero', "x.__nonzero__() <==> x != 0")
+    descr_bool = _abstract_unaryop('bool', "x.__bool__() <==> x != 0")
     descr_invert = _abstract_unaryop('invert', "x.__invert__() <==> ~x")
 
     def _abstract_cmpop(opname):
@@ -156,7 +290,8 @@ def _floordiv(space, x, y):
     try:
         z = ovfcheck(x // y)
     except ZeroDivisionError:
-        raise oefmt(space.w_ZeroDivisionError, "integer division by zero")
+        raise oefmt(space.w_ZeroDivisionError,
+                    "integer division or modulo by zero")
     return wrapint(space, z)
 _div = func_with_new_name(_floordiv, '_div')
 
@@ -309,6 +444,22 @@ class W_IntObject(W_AbstractIntObject):
         """representation for debugging purposes"""
         return "%s(%d)" % (self.__class__.__name__, self.intval)
 
+    def is_w(self, space, w_other):
+        from pypy.objspace.std.boolobject import W_BoolObject
+        if (not isinstance(w_other, W_AbstractIntObject) or
+            isinstance(w_other, W_BoolObject)):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        x = self.intval
+        try:
+            y = space.int_w(w_other)
+        except OperationError as e:
+            if e.match(space, space.w_OverflowError):
+                return False
+            raise
+        return x == y
+
     def int_w(self, space):
         return int(self.intval)
     unwrap = int_w
@@ -321,7 +472,7 @@ class W_IntObject(W_AbstractIntObject):
         return r_uint(intval)
 
     def bigint_w(self, space):
-        return rbigint.fromint(self.intval)
+        return self.asbigint()
 
     def float_w(self, space):
         return float(self.intval)
@@ -333,6 +484,9 @@ class W_IntObject(W_AbstractIntObject):
             return space.newint(self.intval)
         return W_Root.int(self, space)
 
+    def asbigint(self):
+        return rbigint.fromint(self.intval)
+
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0))
     def descr_new(space, w_inttype, w_x, w_base=None):
@@ -340,11 +494,21 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
+        a = self.intval
+        sign = 1
+        if a < 0:
+            sign = -1
+            a = -a
+
+        x = r_uint(a)
+        # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
+        # prime
+        x = (x & HASH_MODULUS) + (x >> HASH_BITS)
+        if x >= HASH_MODULUS:
+            x -= HASH_MODULUS
+
+        x = intmask(intmask(x) * sign)
+        return wrapint(space, -2 if x == -1 else x)
 
     def _int(self, space):
         return self.int(space)
@@ -354,26 +518,12 @@ class W_IntObject(W_AbstractIntObject):
     descr_trunc = func_with_new_name(_int, 'descr_trunc')
     descr_conjugate = func_with_new_name(_int, 'descr_conjugate')
 
-    descr_get_numerator = func_with_new_name(_int, 'descr_get_numerator')
-    descr_get_real = func_with_new_name(_int, 'descr_get_real')
-
-    def descr_get_denominator(self, space):
-        return wrapint(space, 1)
-
-    def descr_get_imag(self, space):
-        return wrapint(space, 0)
-
-    def descr_coerce(self, space, w_other):
-        if not isinstance(w_other, W_AbstractIntObject):
-            return space.w_NotImplemented
-        return space.newtuple([self, w_other])
-
-    def descr_long(self, space):
+    def as_w_long(self, space):
         # XXX: should try smalllong
         from pypy.objspace.std.longobject import W_LongObject
         return W_LongObject.fromint(space, self.intval)
 
-    def descr_nonzero(self, space):
+    def descr_bool(self, space):
         return space.newbool(self.intval != 0)
 
     def descr_invert(self, space):
@@ -388,7 +538,7 @@ class W_IntObject(W_AbstractIntObject):
                 from pypy.objspace.std.smalllongobject import W_SmallLongObject
                 x = r_longlong(a)
                 return W_SmallLongObject(-x)
-            return self.descr_long(space).descr_neg(space)
+            return self.as_w_long(space).descr_neg(space)
         return wrapint(space, b)
 
     def descr_abs(self, space):
@@ -399,12 +549,6 @@ class W_IntObject(W_AbstractIntObject):
         a = self.intval
         x = float(a)
         return space.newfloat(x)
-
-    def descr_oct(self, space):
-        return space.wrap(oct(self.intval))
-
-    def descr_hex(self, space):
-        return space.wrap(hex(self.intval))
 
     def descr_getnewargs(self, space):
         return space.newtuple([wrapint(space, self.intval)])
@@ -431,7 +575,12 @@ class W_IntObject(W_AbstractIntObject):
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_modulus=None):
-        if not isinstance(w_exponent, W_IntObject):
+        if isinstance(w_exponent, W_IntObject):
+            y = w_exponent.intval
+        elif isinstance(w_exponent, W_AbstractIntObject):
+            self = self.as_w_long(space)
+            return self.descr_pow(space, w_exponent, w_modulus)
+        else:
             return space.w_NotImplemented
 
         x = self.intval
@@ -458,19 +607,26 @@ class W_IntObject(W_AbstractIntObject):
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_rpow(self, space, w_base, w_modulus=None):
-        if not isinstance(w_base, W_IntObject):
-            return space.w_NotImplemented
-        return w_base.descr_pow(space, self, w_modulus)
+        if isinstance(w_base, W_IntObject):
+            return w_base.descr_pow(space, self, w_modulus)
+        elif isinstance(w_base, W_AbstractIntObject):
+            self = self.as_w_long(space)
+            return self.descr_rpow(space, self, w_modulus)
+        return space.w_NotImplemented
 
     def _make_descr_cmp(opname):
         op = getattr(operator, opname)
-        @func_renamer('descr_' + opname)
+        descr_name = 'descr_' + opname
+        @func_renamer(descr_name)
         def descr_cmp(self, space, w_other):
-            if not isinstance(w_other, W_IntObject):
-                return space.w_NotImplemented
-            i = self.intval
-            j = w_other.intval
-            return space.newbool(op(i, j))
+            if isinstance(w_other, W_IntObject):
+                i = self.intval
+                j = w_other.intval
+                return space.newbool(op(i, j))
+            elif isinstance(w_other, W_AbstractIntObject):
+                self = self.as_w_long(space)
+                return getattr(self, descr_name)(space, w_other)
+            return space.w_NotImplemented
         return descr_cmp
 
     descr_lt = _make_descr_cmp('lt')
@@ -483,25 +639,27 @@ class W_IntObject(W_AbstractIntObject):
     def _make_generic_descr_binop(opname, ovf=True):
         op = getattr(operator,
                      opname + '_' if opname in ('and', 'or') else opname)
-        descr_rname = 'descr_r' + opname
+        descr_name, descr_rname = 'descr_' + opname, 'descr_r' + opname
         if ovf:
             ovf2long = _make_ovf2long(opname)
 
-        @func_renamer('descr_' + opname)
+        @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
-            if not isinstance(w_other, W_IntObject):
-                return space.w_NotImplemented
-
-            x = self.intval
-            y = w_other.intval
-            if ovf:
-                try:
-                    z = ovfcheck(op(x, y))
-                except OverflowError:
-                    return ovf2long(space, x, y)
-            else:
-                z = op(x, y)
-            return wrapint(space, z)
+            if isinstance(w_other, W_IntObject):
+                x = self.intval
+                y = w_other.intval
+                if ovf:
+                    try:
+                        z = ovfcheck(op(x, y))
+                    except OverflowError:
+                        return ovf2long(space, x, y)
+                else:
+                    z = op(x, y)
+                return wrapint(space, z)
+            elif isinstance(w_other, W_AbstractIntObject):
+                self = self.as_w_long(space)
+                return getattr(self, descr_name)(space, w_other)
+            return space.w_NotImplemented
 
         if opname in COMMUTATIVE_OPS:
             @func_renamer(descr_rname)
@@ -511,19 +669,21 @@ class W_IntObject(W_AbstractIntObject):
 
         @func_renamer(descr_rname)
         def descr_rbinop(self, space, w_other):
-            if not isinstance(w_other, W_IntObject):
-                return space.w_NotImplemented
-
-            x = self.intval
-            y = w_other.intval
-            if ovf:
-                try:
-                    z = ovfcheck(op(y, x))
-                except OverflowError:
-                    return ovf2long(space, y, x)
-            else:
-                z = op(y, x)
-            return wrapint(space, z)
+            if isinstance(w_other, W_IntObject):
+                x = self.intval
+                y = w_other.intval
+                if ovf:
+                    try:
+                        z = ovfcheck(op(y, x))
+                    except OverflowError:
+                        return ovf2long(space, y, x)
+                else:
+                    z = op(y, x)
+                return wrapint(space, z)
+            elif isinstance(w_other, W_AbstractIntObject):
+                self = self.as_w_long(space)
+                return getattr(self, descr_rname)(space, w_other)
+            return space.w_NotImplemented
 
         return descr_binop, descr_rbinop
 
@@ -537,38 +697,43 @@ class W_IntObject(W_AbstractIntObject):
 
     def _make_descr_binop(func, ovf=True, ovf2small=None):
         opname = func.__name__[1:]
+        descr_name, descr_rname = 'descr_' + opname, 'descr_r' + opname
         if ovf:
             ovf2long = _make_ovf2long(opname, ovf2small)
 
-        @func_renamer('descr_' + opname)
+        @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
-            if not isinstance(w_other, W_IntObject):
-                return space.w_NotImplemented
-
-            x = self.intval
-            y = w_other.intval
-            if ovf:
-                try:
+            if isinstance(w_other, W_IntObject):
+                x = self.intval
+                y = w_other.intval
+                if ovf:
+                    try:
+                        return func(space, x, y)
+                    except OverflowError:
+                        return ovf2long(space, x, y)
+                else:
                     return func(space, x, y)
-                except OverflowError:
-                    return ovf2long(space, x, y)
-            else:
-                return func(space, x, y)
+            elif isinstance(w_other, W_AbstractIntObject):
+                self = self.as_w_long(space)
+                return getattr(self, descr_name)(space, w_other)
+            return space.w_NotImplemented
 
-        @func_renamer('descr_r' + opname)
+        @func_renamer(descr_rname)
         def descr_rbinop(self, space, w_other):
-            if not isinstance(w_other, W_IntObject):
-                return space.w_NotImplemented
-
-            x = self.intval
-            y = w_other.intval
-            if ovf:
-                try:
+            if isinstance(w_other, W_IntObject):
+                x = self.intval
+                y = w_other.intval
+                if ovf:
+                    try:
+                        return func(space, y, x)
+                    except OverflowError:
+                        return ovf2long(space, y, x)
+                else:
                     return func(space, y, x)
-                except OverflowError:
-                    return ovf2long(space, y, x)
-            else:
-                return func(space, y, x)
+            elif isinstance(w_other, W_AbstractIntObject):
+                self = self.as_w_long(space)
+                return getattr(self, descr_rname)(space, w_other)
+            return space.w_NotImplemented
 
         return descr_binop, descr_rbinop
 
@@ -609,9 +774,28 @@ def wrap_parsestringerror(space, e, w_source):
     if isinstance(e, InvalidBaseError):
         w_msg = space.wrap(e.msg)
     else:
-        w_msg = space.wrap('%s: %s' % (e.msg,
-                                       space.str_w(space.repr(w_source))))
+        w_msg = space.wrap(u'%s: %s' % (unicode(e.msg),
+                                        space.unicode_w(space.repr(w_source))))
     return OperationError(space.w_ValueError, w_msg)
+
+
+divmod_near = applevel('''
+       def divmod_near(a, b):
+           """Return a pair (q, r) such that a = b * q + r, and abs(r)
+           <= abs(b)/2, with equality possible only if q is even.  In
+           other words, q == a / b, rounded to the nearest integer using
+           round-half-to-even."""
+           q, r = divmod(a, b)
+           # round up if either r / b > 0.5, or r / b == 0.5 and q is
+           # odd.  The expression r / b > 0.5 is equivalent to 2 * r > b
+           # if b is positive, 2 * r < b if b negative.
+           greater_than_half = 2*r > b if b > 0 else 2*r < b
+           exactly_half = 2*r == b
+           if greater_than_half or exactly_half and q % 2 == 1:
+               q += 1
+               r -= b
+           return q, r
+''', filename=__file__).interphook('divmod_near')
 
 
 def _recover_with_smalllong(space):
@@ -623,57 +807,71 @@ def _recover_with_smalllong(space):
 
 
 @jit.elidable
-def _string_to_int_or_long(space, w_source, string, base=10):
-    w_longval = None
-    value = 0
+def _string_to_int_or_long(space, w_inttype, w_source, string, base=10):
     try:
         value = string_to_int(string, base)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     except ParseStringOverflowError as e:
-        w_longval = _retry_to_w_long(space, e.parser, w_source)
-    return value, w_longval
+        return _retry_to_w_long(space, e.parser, w_inttype, w_source)
+
+    if space.is_w(w_inttype, space.w_int):
+        w_result = wrapint(space, value)
+    else:
+        w_result = space.allocate_instance(W_IntObject, w_inttype)
+        W_IntObject.__init__(w_result, value)
+    return w_result
 
 
-def _retry_to_w_long(space, parser, w_source):
+def _retry_to_w_long(space, parser, w_inttype, w_source):
+    from pypy.objspace.std.longobject import newbigint
     parser.rewind()
     try:
         bigint = rbigint._from_numberstring_parser(parser)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
-    return space.newlong_from_rbigint(bigint)
+    return newbigint(space, w_inttype, bigint)
 
 
 def _new_int(space, w_inttype, w_x, w_base=None):
+    from pypy.objspace.std.longobject import W_LongObject, newbigint
+    if space.config.objspace.std.withsmalllong:
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+    else:
+        W_SmallLongObject = None
+
     w_longval = None
     w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
     if w_base is None:
         # check for easy cases
         if type(w_value) is W_IntObject:
-            value = w_value.intval
-        elif (space.lookup(w_value, '__int__') is not None or
-              space.lookup(w_value, '__trunc__') is not None):
-            # otherwise, use the __int__() or the __trunc__() methods
-            w_obj = w_value
-            if space.lookup(w_obj, '__int__') is None:
-                w_obj = space.trunc(w_obj)
-            w_obj = space.int(w_obj)
-            # 'int(x)' should return what x.__int__() returned, which should
-            # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):
-                return w_obj
-            # int_w is effectively what we want in this case,
-            # we cannot construct a subclass of int instance with an
-            # an overflowing long
-            value = space.int_w(w_obj)
-        elif space.isinstance_w(w_value, space.w_str):
-            value, w_longval = _string_to_int_or_long(space, w_value,
-                                                      space.str_w(w_value))
+                return w_value
+            value = w_value.intval
+            w_obj = space.allocate_instance(W_IntObject, w_inttype)
+            W_IntObject.__init__(w_obj, value)
+            return w_obj
+        elif type(w_value) is W_LongObject:
+            if space.is_w(w_inttype, space.w_int):
+                return w_value
+            return newbigint(space, w_inttype, w_value.num)
+        elif W_SmallLongObject and type(w_value) is W_SmallLongObject:
+            if space.is_w(w_inttype, space.w_int):
+                return w_value
+            return newbigint(space, w_inttype, space.bigint_w(w_value))
+        elif space.lookup(w_value, '__int__') is not None:
+            return _from_intlike(space, w_inttype, w_value)
+        elif space.lookup(w_value, '__trunc__') is not None:
+            return _from_intlike(space, w_inttype, space.trunc(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            string = unicode_to_decimal_w(space, w_value)
-            value, w_longval = _string_to_int_or_long(space, w_value, string)
+            return _string_to_int_or_long(space, w_inttype, w_value,
+                                          unicode_to_decimal_w(space, w_value))
+        elif (space.isinstance_w(w_value, space.w_bytearray) or
+              space.isinstance_w(w_value, space.w_bytes)):
+            return _string_to_int_or_long(space, w_inttype, w_value,
+                                          space.bufferstr_w(w_value))
         else:
             # If object supports the buffer interface
             try:
@@ -686,186 +884,130 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                             "not '%T'", w_value)
             else:
                 buf = space.interp_w(Buffer, w_buffer)
-                value, w_longval = _string_to_int_or_long(space, w_value,
-                                                          buf.as_str())
-                ok = True
+                return _string_to_int_or_long(space, w_inttype, w_value,
+                                              buf.as_str())
     else:
-        base = space.int_w(w_base)
+        try:
+            base = space.int_w(w_base)
+        except OperationError, e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+            base = 37 # this raises the right error in string_to_bigint()
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
-                s = space.str_w(w_value)
+                s = space.bufferstr_w(w_value)
             except OperationError as e:
                 raise oefmt(space.w_TypeError,
                             "int() can't convert non-string with explicit "
                             "base")
 
-        value, w_longval = _string_to_int_or_long(space, w_value, s, base)
+        return _string_to_int_or_long(space, w_inttype, w_value, s, base)
 
-    if w_longval is not None:
-        if not space.is_w(w_inttype, space.w_int):
-            raise oefmt(space.w_OverflowError,
-                        "long int too large to convert to int")
-        return w_longval
-    elif space.is_w(w_inttype, space.w_int):
-        # common case
-        return wrapint(space, value)
-    else:
-        w_obj = space.allocate_instance(W_IntObject, w_inttype)
-        W_IntObject.__init__(w_obj, value)
+
+def _from_intlike(space, w_inttype, w_intlike):
+    w_obj = space.int(w_intlike)
+    if space.is_w(w_inttype, space.w_int):
         return w_obj
+    from pypy.objspace.std.longobject import newbigint
+    return newbigint(space, w_inttype, space.bigint_w(w_obj))
 
 
-W_IntObject.typedef = StdTypeDef("int",
-    __doc__ = """int(x=0) -> int or long
-int(x, base=10) -> int or long
+W_AbstractIntObject.typedef = StdTypeDef("int",
+    __doc__ = """int(x=0) -> integer
+int(x, base=10) -> integer
 
 Convert a number or string to an integer, or return 0 if no arguments
-are given.  If x is floating point, the conversion truncates towards zero.
-If x is outside the integer range, the function returns a long instead.
+are given.  If x is a number, return x.__int__().  For floating point
+numbers, this truncates towards zero.
 
-If x is not a number or if base is given, then x must be a string or
-Unicode object representing an integer literal in the given base.  The
-literal can be preceded by '+' or '-' and be surrounded by whitespace.
-The base defaults to 10.  Valid bases are 0 and 2-36.  Base 0 means to
-interpret the base from the string as an integer literal.
+If x is not a number or if base is given, then x must be a string,
+bytes, or bytearray instance representing an integer literal in the
+given base.  The literal can be preceded by '+' or '-' and be surrounded
+by whitespace.  The base defaults to 10.  Valid bases are 0 and 2-36.
+Base 0 means to interpret the base from the string as an integer literal.
 >>> int('0b100', base=0)
 4""",
     __new__ = interp2app(W_IntObject.descr_new),
 
     numerator = typedef.GetSetProperty(
-        W_IntObject.descr_get_numerator,
+        W_AbstractIntObject.descr_get_numerator,
         doc="the numerator of a rational number in lowest terms"),
     denominator = typedef.GetSetProperty(
-        W_IntObject.descr_get_denominator,
+        W_AbstractIntObject.descr_get_denominator,
         doc="the denominator of a rational number in lowest terms"),
     real = typedef.GetSetProperty(
-        W_IntObject.descr_get_real,
+        W_AbstractIntObject.descr_get_real,
         doc="the real part of a complex number"),
     imag = typedef.GetSetProperty(
-        W_IntObject.descr_get_imag,
+        W_AbstractIntObject.descr_get_imag,
         doc="the imaginary part of a complex number"),
 
-    __repr__ = interp2app(W_IntObject.descr_repr,
-                          doc=W_AbstractIntObject.descr_repr.__doc__),
-    __str__ = interp2app(W_IntObject.descr_str,
-                         doc=W_AbstractIntObject.descr_str.__doc__),
+    from_bytes = interp2app(W_AbstractIntObject.descr_from_bytes,
+                            as_classmethod=True),
+    to_bytes = interpindirect2app(W_AbstractIntObject.descr_to_bytes),
 
-    conjugate = interp2app(W_IntObject.descr_conjugate,
-                           doc=W_AbstractIntObject.descr_conjugate.__doc__),
-    bit_length = interp2app(W_IntObject.descr_bit_length,
-                            doc=W_AbstractIntObject.descr_bit_length.__doc__),
-    __format__ = interp2app(W_IntObject.descr_format,
-                            doc=W_AbstractIntObject.descr_format.__doc__),
-    __hash__ = interp2app(W_IntObject.descr_hash,
-                          doc=W_AbstractIntObject.descr_hash.__doc__),
-    __coerce__ = interp2app(W_IntObject.descr_coerce,
-                            doc=W_AbstractIntObject.descr_coerce.__doc__),
-    __oct__ = interp2app(W_IntObject.descr_oct,
-                         doc=W_AbstractIntObject.descr_oct.__doc__),
-    __hex__ = interp2app(W_IntObject.descr_hex,
-                         doc=W_AbstractIntObject.descr_hex.__doc__),
-    __getnewargs__ = interp2app(
-        W_IntObject.descr_getnewargs,
-        doc=W_AbstractIntObject.descr_getnewargs.__doc__),
+    __repr__ = interpindirect2app(W_AbstractIntObject.descr_repr),
+    __str__ = interpindirect2app(W_AbstractIntObject.descr_str),
 
-    __int__ = interp2app(W_IntObject.int,
-                         doc=W_AbstractIntObject.int.__doc__),
-    __long__ = interp2app(W_IntObject.descr_long,
-                          doc=W_AbstractIntObject.descr_long.__doc__),
-    __index__ = interp2app(W_IntObject.descr_index,
-                           doc=W_AbstractIntObject.descr_index.__doc__),
-    __trunc__ = interp2app(W_IntObject.descr_trunc,
-                           doc=W_AbstractIntObject.descr_trunc.__doc__),
-    __float__ = interp2app(W_IntObject.descr_float,
-                           doc=W_AbstractIntObject.descr_float.__doc__),
+    conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
+    bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),
+    __format__ = interpindirect2app(W_AbstractIntObject.descr_format),
+    __hash__ = interpindirect2app(W_AbstractIntObject.descr_hash),
+    __getnewargs__ = interpindirect2app(W_AbstractIntObject.descr_getnewargs),
 
-    __pos__ = interp2app(W_IntObject.descr_pos,
-                         doc=W_AbstractIntObject.descr_pos.__doc__),
-    __neg__ = interp2app(W_IntObject.descr_neg,
-                         doc=W_AbstractIntObject.descr_neg.__doc__),
-    __abs__ = interp2app(W_IntObject.descr_abs,
-                         doc=W_AbstractIntObject.descr_abs.__doc__),
-    __nonzero__ = interp2app(W_IntObject.descr_nonzero,
-                             doc=W_AbstractIntObject.descr_nonzero.__doc__),
-    __invert__ = interp2app(W_IntObject.descr_invert,
-                            doc=W_AbstractIntObject.descr_invert.__doc__),
+    __int__ = interpindirect2app(W_AbstractIntObject.int),
+    __index__ = interpindirect2app(W_AbstractIntObject.descr_index),
+    __trunc__ = interpindirect2app(W_AbstractIntObject.descr_trunc),
+    __float__ = interpindirect2app(W_AbstractIntObject.descr_float),
+    __round__ = interpindirect2app(W_AbstractIntObject.descr_round),
 
-    __lt__ = interp2app(W_IntObject.descr_lt,
-                        doc=W_AbstractIntObject.descr_lt.__doc__),
-    __le__ = interp2app(W_IntObject.descr_le,
-                        doc=W_AbstractIntObject.descr_le.__doc__),
-    __eq__ = interp2app(W_IntObject.descr_eq,
-                        doc=W_AbstractIntObject.descr_eq.__doc__),
-    __ne__ = interp2app(W_IntObject.descr_ne,
-                        doc=W_AbstractIntObject.descr_ne.__doc__),
-    __gt__ = interp2app(W_IntObject.descr_gt,
-                        doc=W_AbstractIntObject.descr_gt.__doc__),
-    __ge__ = interp2app(W_IntObject.descr_ge,
-                        doc=W_AbstractIntObject.descr_ge.__doc__),
+    __pos__ = interpindirect2app(W_AbstractIntObject.descr_pos),
+    __neg__ = interpindirect2app(W_AbstractIntObject.descr_neg),
+    __abs__ = interpindirect2app(W_AbstractIntObject.descr_abs),
+    __bool__ = interpindirect2app(W_AbstractIntObject.descr_bool),
+    __invert__ = interpindirect2app(W_AbstractIntObject.descr_invert),
 
-    __add__ = interp2app(W_IntObject.descr_add,
-                         doc=W_AbstractIntObject.descr_add.__doc__),
-    __radd__ = interp2app(W_IntObject.descr_radd,
-                          doc=W_AbstractIntObject.descr_radd.__doc__),
-    __sub__ = interp2app(W_IntObject.descr_sub,
-                         doc=W_AbstractIntObject.descr_sub.__doc__),
-    __rsub__ = interp2app(W_IntObject.descr_rsub,
-                          doc=W_AbstractIntObject.descr_rsub.__doc__),
-    __mul__ = interp2app(W_IntObject.descr_mul,
-                         doc=W_AbstractIntObject.descr_mul.__doc__),
-    __rmul__ = interp2app(W_IntObject.descr_rmul,
-                          doc=W_AbstractIntObject.descr_rmul.__doc__),
+    __lt__ = interpindirect2app(W_AbstractIntObject.descr_lt),
+    __le__ = interpindirect2app(W_AbstractIntObject.descr_le),
+    __eq__ = interpindirect2app(W_AbstractIntObject.descr_eq),
+    __ne__ = interpindirect2app(W_AbstractIntObject.descr_ne),
+    __gt__ = interpindirect2app(W_AbstractIntObject.descr_gt),
+    __ge__ = interpindirect2app(W_AbstractIntObject.descr_ge),
 
-    __and__ = interp2app(W_IntObject.descr_and,
-                         doc=W_AbstractIntObject.descr_and.__doc__),
-    __rand__ = interp2app(W_IntObject.descr_rand,
-                          doc=W_AbstractIntObject.descr_rand.__doc__),
-    __or__ = interp2app(W_IntObject.descr_or,
-                        doc=W_AbstractIntObject.descr_or.__doc__),
-    __ror__ = interp2app(W_IntObject.descr_ror,
-                         doc=W_AbstractIntObject.descr_ror.__doc__),
-    __xor__ = interp2app(W_IntObject.descr_xor,
-                         doc=W_AbstractIntObject.descr_xor.__doc__),
-    __rxor__ = interp2app(W_IntObject.descr_rxor,
-                          doc=W_AbstractIntObject.descr_rxor.__doc__),
+    __add__ = interpindirect2app(W_AbstractIntObject.descr_add),
+    __radd__ = interpindirect2app(W_AbstractIntObject.descr_radd),
+    __sub__ = interpindirect2app(W_AbstractIntObject.descr_sub),
+    __rsub__ = interpindirect2app(W_AbstractIntObject.descr_rsub),
+    __mul__ = interpindirect2app(W_AbstractIntObject.descr_mul),
+    __rmul__ = interpindirect2app(W_AbstractIntObject.descr_rmul),
 
-    __lshift__ = interp2app(W_IntObject.descr_lshift,
-                            doc=W_AbstractIntObject.descr_lshift.__doc__),
-    __rlshift__ = interp2app(W_IntObject.descr_rlshift,
-                             doc=W_AbstractIntObject.descr_rlshift.__doc__),
-    __rshift__ = interp2app(W_IntObject.descr_rshift,
-                            doc=W_AbstractIntObject.descr_rshift.__doc__),
-    __rrshift__ = interp2app(W_IntObject.descr_rrshift,
-                             doc=W_AbstractIntObject.descr_rrshift.__doc__),
+    __and__ = interpindirect2app(W_AbstractIntObject.descr_and),
+    __rand__ = interpindirect2app(W_AbstractIntObject.descr_rand),
+    __or__ = interpindirect2app(W_AbstractIntObject.descr_or),
+    __ror__ = interpindirect2app(W_AbstractIntObject.descr_ror),
+    __xor__ = interpindirect2app(W_AbstractIntObject.descr_xor),
+    __rxor__ = interpindirect2app(W_AbstractIntObject.descr_rxor),
 
-    __floordiv__ = interp2app(W_IntObject.descr_floordiv,
-                              doc=W_AbstractIntObject.descr_floordiv.__doc__),
-    __rfloordiv__ = interp2app(
-        W_IntObject.descr_rfloordiv,
-        doc=W_AbstractIntObject.descr_rfloordiv.__doc__),
-    __div__ = interp2app(W_IntObject.descr_div,
-                         doc=W_AbstractIntObject.descr_div.__doc__),
-    __rdiv__ = interp2app(W_IntObject.descr_rdiv,
-                          doc=W_AbstractIntObject.descr_rdiv.__doc__),
-    __truediv__ = interp2app(W_IntObject.descr_truediv,
-                             doc=W_AbstractIntObject.descr_truediv.__doc__),
-    __rtruediv__ = interp2app(W_IntObject.descr_rtruediv,
-                              doc=W_AbstractIntObject.descr_rtruediv.__doc__),
-    __mod__ = interp2app(W_IntObject.descr_mod,
-                         doc=W_AbstractIntObject.descr_mod.__doc__),
-    __rmod__ = interp2app(W_IntObject.descr_rmod,
-                          doc=W_AbstractIntObject.descr_rmod.__doc__),
-    __divmod__ = interp2app(W_IntObject.descr_divmod,
-                            doc=W_AbstractIntObject.descr_divmod.__doc__),
-    __rdivmod__ = interp2app(W_IntObject.descr_rdivmod,
-                             doc=W_AbstractIntObject.descr_rdivmod.__doc__),
+    __lshift__ = interpindirect2app(W_AbstractIntObject.descr_lshift),
+    __rlshift__ = interpindirect2app(W_AbstractIntObject.descr_rlshift),
+    __rshift__ = interpindirect2app(W_AbstractIntObject.descr_rshift),
+    __rrshift__ = interpindirect2app(W_AbstractIntObject.descr_rrshift),
 
-    __pow__ = interp2app(W_IntObject.descr_pow,
-                         doc=W_AbstractIntObject.descr_pow.__doc__),
-    __rpow__ = interp2app(W_IntObject.descr_rpow,
-                          doc=W_AbstractIntObject.descr_rpow.__doc__),
+    __floordiv__ = interpindirect2app(W_AbstractIntObject.descr_floordiv),
+    __rfloordiv__ = interpindirect2app(W_AbstractIntObject.descr_rfloordiv),
+    __div__ = interpindirect2app(W_AbstractIntObject.descr_div),
+    __rdiv__ = interpindirect2app(W_AbstractIntObject.descr_rdiv),
+    __truediv__ = interpindirect2app(W_AbstractIntObject.descr_truediv),
+    __rtruediv__ = interpindirect2app(W_AbstractIntObject.descr_rtruediv),
+    __mod__ = interpindirect2app(W_AbstractIntObject.descr_mod),
+    __rmod__ = interpindirect2app(W_AbstractIntObject.descr_rmod),
+    __divmod__ = interpindirect2app(W_AbstractIntObject.descr_divmod),
+    __rdivmod__ = interpindirect2app(W_AbstractIntObject.descr_rdivmod),
+
+    __pow__ = interpindirect2app(W_AbstractIntObject.descr_pow),
+    __rpow__ = interpindirect2app(W_AbstractIntObject.descr_rpow),
 )

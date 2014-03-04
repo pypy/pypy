@@ -1,7 +1,7 @@
 """Information about the current system."""
 from pypy.objspace.std.complexobject import HASH_IMAG
 from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
-from pypy.objspace.std.longobject import HASH_MODULUS
+from pypy.objspace.std.intobject import HASH_MODULUS
 from pypy.interpreter import gateway
 from rpython.rlib import rbigint, rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi

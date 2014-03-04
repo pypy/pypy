@@ -48,7 +48,7 @@ class W_BoolObject(W_IntObject):
         return space.wrap('True' if self.intval else 'False')
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
-    def descr_nonzero(self, space):
+    def descr_bool(self, space):
         return self
 
     def _make_bitwise_binop(opname):
@@ -91,8 +91,8 @@ The class bool is a subclass of the class int, and cannot be subclassed.""",
                           doc=W_AbstractIntObject.descr_repr.__doc__),
     __str__ = interp2app(W_BoolObject.descr_str,
                          doc=W_AbstractIntObject.descr_str.__doc__),
-    __nonzero__ = interp2app(W_BoolObject.descr_nonzero,
-                             doc=W_AbstractIntObject.descr_nonzero.__doc__),
+    __bool__ = interp2app(W_BoolObject.descr_bool,
+                             doc=W_AbstractIntObject.descr_bool.__doc__),
 
     __and__ = interp2app(W_BoolObject.descr_and,
                          doc=W_AbstractIntObject.descr_and.__doc__),

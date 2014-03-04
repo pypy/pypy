@@ -1,5 +1,4 @@
 # encoding: utf-8
-import py
 import sys
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.multimethod import FailedToImplement
@@ -7,9 +6,6 @@ from rpython.rlib.rarithmetic import r_uint, is_valid_int
 from rpython.rlib.rbigint import rbigint
 
 class TestW_IntObject:
-
-    def setup_class(cls):
-        py.test.skip("W_IntObject was replaced w/ W_LongObject in py3k")
 
     def _longshiftresult(self, x):
         """ calculate an overflowing shift """
@@ -80,7 +76,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_add(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x + y))
 
     def test_sub(self):
@@ -96,7 +92,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_sub(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(sys.maxint - -1))
 
     def test_mul(self):
@@ -112,7 +108,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_mul(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x * y))
 
     def test_div(self):
@@ -128,7 +124,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_div(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x / y))
 
     def test_mod(self):
@@ -155,7 +151,7 @@ class TestW_IntObject:
         f2 = iobj.W_IntObject(y)
         v = f1.descr_divmod(space, f2)
         w_q, w_r = space.fixedview(v, 2)
-        assert space.isinstance_w(w_q, space.w_long)
+        assert space.isinstance_w(w_q, space.w_int)
         expected = divmod(x, y)
         assert space.bigint_w(w_q).eq(rbigint.fromlong(expected[0]))
         # no overflow possible
@@ -187,7 +183,7 @@ class TestW_IntObject:
         assert v.intval == x ** y
         f1, f2 = [iobj.W_IntObject(i) for i in (10, 20)]
         v = f1.descr_pow(space, f2, space.w_None)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(pow(10, 20)))
 
     def test_neg(self):
@@ -199,7 +195,7 @@ class TestW_IntObject:
         x = -sys.maxint-1
         f1 = iobj.W_IntObject(x)
         v = f1.descr_neg(space)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(-x))
 
     def test_pos(self):
@@ -225,7 +221,7 @@ class TestW_IntObject:
         x = -sys.maxint-1
         f1 = iobj.W_IntObject(x)
         v = f1.descr_abs(space)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(abs(x)))
 
     def test_invert(self):
@@ -246,7 +242,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_lshift(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x << y))
 
     def test_rshift(self):
@@ -524,10 +520,6 @@ class AppTestInt:
             else:
                 assert False, value
 
-    def test_coerce(self):
-        assert 3 .__coerce__(4) == (3, 4)
-        assert 3 .__coerce__(4L) == NotImplemented
-
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
@@ -535,7 +527,7 @@ class AppTestIntShortcut(AppTestInt):
     def test_inplace(self):
         # ensure other inplace ops still work
         l = []
-        l += xrange(5)
+        l += range(5)
         assert l == list(range(5))
         a = 8.5
         a -= .5

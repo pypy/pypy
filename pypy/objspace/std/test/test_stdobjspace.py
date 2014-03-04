@@ -38,13 +38,13 @@ class TestW_StdObjSpace:
 
     def test_fastpath_isinstance(self):
         from pypy.objspace.std.bytesobject import W_BytesObject
-        from pypy.objspace.std.longobject import W_LongObject
+        from pypy.objspace.std.intobject import W_AbstractIntObject
         from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
         from pypy.objspace.std.iterobject import W_SeqIterObject
 
         space = self.space
         assert space._get_interplevel_cls(space.w_str) is W_BytesObject
-        assert space._get_interplevel_cls(space.w_int) is W_LongObject
+        assert space._get_interplevel_cls(space.w_int) is W_AbstractIntObject
         class X(W_BytesObject):
             def __init__(self):
                 pass
