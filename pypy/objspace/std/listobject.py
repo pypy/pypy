@@ -1019,7 +1019,7 @@ class BaseRangeListStrategy(ListStrategy):
         raise NotImplementedError
 
     def clone(self, w_list):
-        storage = w_list.lstorage  # lstorage is tuple/int, no need to clone
+        storage = w_list.lstorage  # lstorage is tuple, no need to clone
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
                                                          self)
         return w_clone
