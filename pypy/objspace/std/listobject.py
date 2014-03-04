@@ -1126,7 +1126,8 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
         return 1
 
     def _getitem_unwrapped(self, w_list, i):
-        length = self.unerase(w_list.lstorage)
+        length = self.unerase(w_list.lstorage)[0]
+        assert length > 0
         if 0 <= i < length:
             return i
         else:
