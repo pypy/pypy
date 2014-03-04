@@ -1154,10 +1154,13 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
             func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def pop_end(self, w_list):
-        length_m1 = self.unerase(w_list.lstorage)[0] - 1
-        w_result = self.wrap(length_m1)
-        assert length_m1 > 0
-        w_list.lstorage = self.erase((length_m1,))
+        new_length = self.unerase(w_list.lstorage)[0] - 1
+        w_result = self.wrap(new_length)
+        if new_length > 0:
+            w_list.lstorage = self.erase((new_length,))
+        else:
+            strategy = w_list.strategy = self.space.fromcache(EmptyListStrategy)
+            w_list.lstorage = strategy.erase(None)
         return w_result
 
     def pop(self, w_list, index):
