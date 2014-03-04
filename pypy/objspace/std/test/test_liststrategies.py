@@ -469,6 +469,10 @@ class TestW_ListStrategies(TestW_ListObject):
 
         assert self.space.eq_w(l.getitem(5), self.space.wrap(5))
 
+        l = make_range_list(self.space, 0, 1, 1)
+        assert self.space.eq_w(l.pop_end(), self.space.wrap(0))
+        assert isinstance(l.strategy, EmptyListStrategy)
+
     def test_keep_range(self):
         # simple list
         l = make_range_list(self.space, 1,1,5)
