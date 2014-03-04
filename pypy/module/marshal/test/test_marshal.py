@@ -190,9 +190,16 @@ class AppTestMarshal:
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = {"objspace.std.withsmalllong": True}
 
+    def setup_class(cls):
+        from pypy.interpreter import gateway
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+        def w__small(space, w_obj):
+            return W_SmallLongObject.fromint(space.int_w(w_obj))
+        cls.w__small = cls.space.wrap(gateway.interp2app(w__small))
+
     def test_smalllong(self):
         import __pypy__
-        x = -123456789012345
+        x = self._small(-123456789012345)
         assert 'SmallLong' in __pypy__.internal_repr(x)
         y = self.marshal_check(x)
         assert y == x
