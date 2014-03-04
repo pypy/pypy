@@ -47,24 +47,31 @@ def test_direct():
 class AppTestSmallLong(test_longobject.AppTestLong):
     spaceconfig = {"objspace.std.withsmalllong": True}
 
+    def setup_class(cls):
+        from pypy.interpreter import gateway
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+        def w__long(space, w_obj):
+            return W_SmallLongObject.fromint(space.int_w(w_obj))
+        cls.w__long = cls.space.wrap(gateway.interp2app(w__long))
+
     def test_sl_simple(self):
         import __pypy__
-        s = __pypy__.internal_repr(5)
+        s = __pypy__.internal_repr(self._long(5))
         assert 'SmallLong' in s
 
     def test_sl_hash(self):
         import __pypy__
-        x = 5
+        x = self._long(5)
         assert 'SmallLong' in __pypy__.internal_repr(x)
         assert hash(5) == hash(x)
-        biglong = 5
+        biglong = self._long(5)
         biglong ^= 2**100      # hack based on the fact that xor__Long_Long
         biglong ^= 2**100      # does not call newlong()
         assert biglong == 5
         assert 'SmallLong' not in __pypy__.internal_repr(biglong)
         assert hash(5) == hash(biglong)
         #
-        x = 0x123456789ABCDEF
+        x = self._long(0x123456789ABCDEF)
         assert 'SmallLong' in __pypy__.internal_repr(x)
         biglong = x
         biglong ^= 2**100
@@ -74,7 +81,7 @@ class AppTestSmallLong(test_longobject.AppTestLong):
         assert hash(biglong) == hash(x)
 
     def test_sl_int(self):
-        x = 0x123456789ABCDEF
+        x = self._long(0x123456789ABCDEF)
         two = 2
         assert int(x) == x
         assert type(int(x)) == type(0x1234567 ** two)
@@ -84,21 +91,21 @@ class AppTestSmallLong(test_longobject.AppTestLong):
 
     def test_sl_long(self):
         import __pypy__
-        x = int(0)
+        x = self._long(0)
         assert 'SmallLong' in __pypy__.internal_repr(x)
 
     def test_sl_add(self):
         import __pypy__
-        x = 0x123456789ABCDEF
+        x = self._long(0x123456789ABCDEF)
         assert x + x == 0x2468ACF13579BDE
         assert 'SmallLong' in __pypy__.internal_repr(x + x)
-        x = -0x123456789ABCDEF
+        x = self._long(-0x123456789ABCDEF)
         assert x + x == -0x2468ACF13579BDE
         assert 'SmallLong' in __pypy__.internal_repr(x + x)
-        x = 0x723456789ABCDEF0
+        x = self._long(0x723456789ABCDEF0)
         assert x + x == 0xE468ACF13579BDE0
         assert 'SmallLong' not in __pypy__.internal_repr(x + x)
-        x = -0x723456789ABCDEF0
+        x = self._long(-0x723456789ABCDEF0)
         assert x + x == -0xE468ACF13579BDE0
         assert 'SmallLong' not in __pypy__.internal_repr(x + x)
 
@@ -113,8 +120,7 @@ class AppTestSmallLong(test_longobject.AppTestLong):
             assert 'SmallLong' in __pypy__.internal_repr(x - y)
 
     def test_sl_lshift(self):
-        # XXX: was [1, 1L]
-        for x in [1, 1]:
+        for x in [1, self._long(1)]:
             x = 1
             assert x << 1 == 2
             assert x << 30 == 1073741824
