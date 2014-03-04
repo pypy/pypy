@@ -119,7 +119,9 @@ class RFile(object):
         """Closes the described file.
 
         Attention! Unlike Python semantics, `close' does not return `None' upon
-        success but `0', to be able to return an exit code for popen'ed files
+        success but `0', to be able to return an exit code for popen'ed files.
+
+        The actual return value may be determined with os.WEXITSTATUS.
         """
         ll_f = self.ll_file
         res = 0
@@ -130,7 +132,7 @@ class RFile(object):
             if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
-        return os.WEXITSTATUS(res)
+        return res
 
     _do_close = staticmethod(c_close)    # overridden in RPopenFile
 

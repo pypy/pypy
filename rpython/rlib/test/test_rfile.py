@@ -206,7 +206,7 @@ class TestPopen(object):
         s = f.read()
         r = f.close()
         assert s == "%s\n" % printval
-        assert r == retval
+        assert os.WEXITSTATUS(r) == retval
 
 class TestPopenR(BaseRtypingTest):
     def setup_class(cls):
@@ -234,4 +234,4 @@ class TestPopenR(BaseRtypingTest):
             assert s == "%s\n" % printval
             return f.close()
         r = self.interpret(f, [])
-        assert r == retval
+        assert os.WEXITSTATUS(r) == retval
