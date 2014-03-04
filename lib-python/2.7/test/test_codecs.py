@@ -2,11 +2,7 @@ from test import test_support
 import unittest
 import codecs
 import locale
-import sys, StringIO
-try:
-    import _testcapi
-except ImportError:
-    _testcapi = None
+import sys, StringIO, _testcapi
 
 def coding_checker(self, coder):
     def check(input, expect):
@@ -1529,7 +1525,7 @@ class BasicUnicodeTest(unittest.TestCase):
                     decodedresult += reader.read()
                 self.assertEqual(decodedresult, s, "%r != %r (encoding=%r)" % (decodedresult, s, encoding))
 
-            if encoding not in broken_incremental_coders and _testcapi:
+            if encoding not in broken_incremental_coders:
                 # check incremental decoder/encoder (fetched via the Python
                 # and C API) and iterencode()/iterdecode()
                 try:
