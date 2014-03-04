@@ -1636,10 +1636,7 @@ class UnicodeTest(
         self.assertEqual("{}".format(u), '__unicode__ overridden')
 
     def test_encode_decimal(self):
-        try:
-            from _testcapi import unicode_encodedecimal
-        except ImportError:
-            raise unittest.SkipTest('Requires _testcapi')
+        from _testcapi import unicode_encodedecimal
         self.assertEqual(unicode_encodedecimal(u'123'),
                          b'123')
         self.assertEqual(unicode_encodedecimal(u'\u0663.\u0661\u0664'),

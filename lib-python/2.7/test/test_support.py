@@ -19,11 +19,8 @@ import UserDict
 import re
 import time
 import struct
+import _testcapi
 import sysconfig
-try:
-    import _testcapi
-except ImportError:
-    _testcapi = None
 try:
     import thread
 except ImportError:
@@ -975,7 +972,7 @@ def check_sizeof(test, o, size):
     # add GC header size
     if ((type(o) == type) and (o.__flags__ & _TPFLAGS_HEAPTYPE) or\
         ((type(o) != type) and (type(o).__flags__ & _TPFLAGS_HAVE_GC))):
-        size += 1 if _testcapi is None else _testcapi.SIZEOF_PYGC_HEAD
+        size += _testcapi.SIZEOF_PYGC_HEAD
     msg = 'wrong size for %s: got %d, expected %d' \
             % (type(o), result, size)
     test.assertEqual(result, size, msg)
