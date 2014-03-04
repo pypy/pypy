@@ -45,7 +45,7 @@ def make_range_list(space, start, step, length):
         storage = strategy.erase(None)
     elif start == 0 and step == 1 and length <= 2 ** 31 - 1:
         strategy = space.fromcache(SimpleRangeListStrategy)
-        storage = strategy.erase(length)
+        storage = strategy.erase((length,))
     else:
         strategy = space.fromcache(RangeListStrategy)
         storage = strategy.erase((start, step, length))
@@ -1041,7 +1041,7 @@ class BaseRangeListStrategy(ListStrategy):
         return self._getitems_range(w_list, True)
 
     def getstorage_copy(self, w_list):
-        # tuple/int is immutable
+        # tuple is immutable
         return w_list.lstorage
 
     @jit.dont_look_inside
@@ -1094,8 +1094,8 @@ class BaseRangeListStrategy(ListStrategy):
 
 class SimpleRangeListStrategy(BaseRangeListStrategy):
     """SimpleRangeListStrategy is used when a list is created using the range
-       method providing only positive length. The storage is a positive integer
-       less than 2**31 - 1 storing length."""
+       method providing only positive length. The storage is a one element tuple
+       with positive integer less than 2**31 - 1 storing length."""
 
     _applevel_repr = "simple_range"
 
@@ -1106,7 +1106,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
     def find(self, w_list, w_obj, startindex, stopindex):
         if type(w_obj) is W_IntObject:
             obj = self.unwrap(w_obj)
-            length = self.unerase(w_list.lstorage)
+            length = self.unerase(w_list.lstorage)[0]
             if 0 <= obj < length and startindex <= obj < stopindex:
                 return obj
             else:
@@ -1114,7 +1114,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
         return ListStrategy.find(self, w_list, w_obj, startindex, stopindex)
 
     def length(self, w_list):
-        return self.unerase(w_list.lstorage)
+        return self.unerase(w_list.lstorage)[0]
 
     def _getitem_unwrapped(self, w_list, i):
         length = self.unerase(w_list.lstorage)
@@ -1125,7 +1125,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
-        length = self.unerase(w_list.lstorage)
+        length = self.unerase(w_list.lstorage)[0]
         if wrap_items:
             r = [None] * length
         else:
@@ -1144,9 +1144,9 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
             func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def pop_end(self, w_list):
-        length_m1 = self.unerase(w_list.lstorage) - 1
+        length_m1 = self.unerase(w_list.lstorage)[0] - 1
         w_result = self.wrap(length_m1)
-        w_list.lstorage = self.erase(length_m1)
+        w_list.lstorage = self.erase((length_m1,))
         return w_result
 
     def pop(self, w_list, index):

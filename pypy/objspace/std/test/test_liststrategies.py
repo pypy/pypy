@@ -418,7 +418,6 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, SimpleRangeListStrategy)
         v = l.pop(0)
         assert self.space.eq_w(v, self.space.wrap(0))
-        # XXX promote to RangeListStrategy
         assert isinstance(l.strategy, IntegerListStrategy)
 
         l = make_range_list(self.space, 0, 1, 10)
