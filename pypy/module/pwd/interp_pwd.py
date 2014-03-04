@@ -3,7 +3,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from rpython.rlib.rarithmetic import widen
+from rpython.rlib.rarithmetic import r_uint
 
 
 eci = ExternalCompilationInfo(includes=['pwd.h'])
@@ -45,6 +45,32 @@ c_setpwent = external("setpwent", [], lltype.Void)
 c_getpwent = external("getpwent", [], passwd_p)
 c_endpwent = external("endpwent", [], lltype.Void)
 
+
+def uid_converter(space, w_uid):
+    try:
+        val = space.int_w(w_uid)
+        if val == -1:
+            return rffi.cast(uid_t, -1)
+        elif val < 0:
+            raise oefmt(space.w_OverflowError, "user id is less than minimum")
+        else:
+            val = r_uint(val)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+        try:
+            val = space.uint_w(w_uid)
+        except OperationError, e:
+            if e.match(space, space.w_ValueError):
+                raise oefmt(space.w_OverflowError, "user id is less than minimum")
+            elif e.match(space, space.w_OverflowError):
+                raise oefmt(space.w_OverflowError, "user id is greater than maximum")
+            raise
+    uid = rffi.cast(uid_t, val)
+    if val != uid:
+        raise oefmt(space.w_OverflowError, "user id is greater than maximum")
+    return uid
+
 def make_struct_passwd(space, pw):
     w_passwd_struct = space.getattr(space.getbuiltinmodule('pwd'),
                                     space.wrap('struct_passwd'))
@@ -69,22 +95,15 @@ def getpwuid(space, w_uid):
     """
     msg = "getpwuid(): uid not found"
     try:
-        val = space.int_w(w_uid)
-        uid = widen(rffi.cast(uid_t, val))
-        if val == -1:
-            pass
-        elif val < 0 or uid != val:
-            raise OperationError(space.w_OverflowError, None)
+        uid = uid_converter(space, w_uid)
     except OperationError, e:
         if e.match(space, space.w_OverflowError):
             raise oefmt(space.w_KeyError, msg)
         raise
     pw = c_getpwuid(uid)
     if not pw:
-        raise OperationError(space.w_KeyError, space.wrap(
-            "%s: %d" % (msg, uid)))
+        raise oefmt(space.w_KeyError, "%s: %d", msg, uid)
     return make_struct_passwd(space, pw)
-
 
 @unwrap_spec(name=str)
 def getpwnam(space, name):
@@ -98,7 +117,6 @@ def getpwnam(space, name):
     if not pw:
         raise oefmt(space.w_KeyError, "getpwnam(): name not found: %s", name)
     return make_struct_passwd(space, pw)
-
 
 def getpwall(space):
     users_w = []
