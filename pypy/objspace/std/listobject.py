@@ -43,8 +43,9 @@ def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
         storage = strategy.erase(None)
-    elif start == 0 and step == 1 and length <= 2 ** 31 - 1:
+    elif start == 0 and step == 1:
         strategy = space.fromcache(SimpleRangeListStrategy)
+        assert length > 0
         storage = strategy.erase((length,))
     else:
         strategy = space.fromcache(RangeListStrategy)
@@ -1146,11 +1147,11 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
     def pop_end(self, w_list):
         length_m1 = self.unerase(w_list.lstorage)[0] - 1
         w_result = self.wrap(length_m1)
+        assert length_m1 > 0
         w_list.lstorage = self.erase((length_m1,))
         return w_result
 
     def pop(self, w_list, index):
-        # XXX could be promoted to RangeListStrategy
         self.switch_to_integer_strategy(w_list)
         return w_list.pop(index)
 
