@@ -533,10 +533,10 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
-        s.send(buffer(''))
-        s.sendall(buffer(''))
-        s.send(u'')
-        s.sendall(u'')
+        assert s.send(buffer('')) == 0
+        assert s.sendall(buffer('')) is None
+        assert s.send(u'') == 0
+        assert s.sendall(u'') is None
         raises(UnicodeEncodeError, s.send, u'\xe9')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
@@ -579,7 +579,7 @@ class AppTestSocketTCP:
         cls.space = space
 
     HOST = 'localhost'
-        
+
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
         self.w_serv = space.appexec([w_socket, w_HOST],
@@ -625,8 +625,8 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == '!'
         # test that sendall() works
-        cli.sendall('?')
-        assert count == 1
+        count = cli.sendall('?')
+        assert count is None
         buf = t.recv(1)
         assert buf == '?'
         # test send() timeout
@@ -636,7 +636,7 @@ class AppTestSocketTCP:
                 count += cli.send('foobar' * 70)
         except timeout:
             pass
-        t.recv(count)    
+        t.recv(count)
         # test sendall() timeout
         try:
             while 1:
