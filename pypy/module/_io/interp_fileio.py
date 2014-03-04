@@ -390,10 +390,13 @@ class W_FileIO(W_RawIOBase):
             try:
                 chunk = os.read(self.fd, newsize - total)
             except OSError, e:
+                if e.errno == errno.EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
+                if total > 0:
+                    # return what we've got so far
+                    break
                 if e.errno == errno.EAGAIN:
-                    if total > 0:
-                        # return what we've got so far
-                        break
                     return space.w_None
                 raise wrap_oserror(space, e,
                                    exception_name='w_IOError')

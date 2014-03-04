@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
     interp_attrproperty_w)
 from pypy.module._codecs import interp_codecs
-from pypy.module._io.interp_iobase import W_IOBase, convert_size
+from pypy.module._io.interp_iobase import W_IOBase, convert_size, trap_eintr
 from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import UnicodeBuilder
@@ -614,9 +614,14 @@ class W_TextIOWrapper(W_TextIOBase):
             if remaining <= 0: # Done
                 break
 
-            if not self._read_chunk(space):
-                # EOF
-                break
+            try:
+                if not self._read_chunk(space):
+                    # EOF
+                    break
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue
+                raise
 
         return space.wrap(builder.build())
 
@@ -635,9 +640,14 @@ class W_TextIOWrapper(W_TextIOBase):
             # First, get some data if necessary
             has_data = True
             while not self.decoded_chars:
-                if not self._read_chunk(space):
-                    has_data = False
-                    break
+                try:
+                    if not self._read_chunk(space):
+                        has_data = False
+                        break
+                except OperationError, e:
+                    if trap_eintr(space, e):
+                        continue
+                    raise
             if not has_data:
                 # end of file
                 self._set_decoded_chars(None)
@@ -772,7 +782,15 @@ class W_TextIOWrapper(W_TextIOBase):
         self.pending_bytes = None
         self.pending_bytes_count = 0
 
-        space.call_method(self.w_buffer, "write", space.wrap(pending_bytes))
+        while True:
+            try:
+                space.call_method(self.w_buffer, "write", space.wrap(pending_bytes))
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue
+                raise
+            else:
+                break
 
     def detach_w(self, space):
         self._check_init(space)
