@@ -289,8 +289,9 @@ def push_field(self, num, value):
             if numbits:
                 lowbit = LOW_BIT(bitsize)
                 bitmask = BIT_MASK(numbits, TP)
-                value = widen(value)
-                current = widen(read_ptr(ptr, 0, TP))
+                masktype = lltype.typeOf(bitmask)
+                value = rffi.cast(masktype, value)
+                current = rffi.cast(masktype, read_ptr(ptr, 0, TP))
                 current &= ~(bitmask << lowbit)
                 current |= (value & bitmask) << lowbit
                 value = rffi.cast(TP, current)
@@ -309,7 +310,8 @@ def cast_pos(self, i, ll_t):
             if numbits:
                 lowbit = LOW_BIT(bitsize)
                 bitmask = BIT_MASK(numbits, ll_t)
-                value = widen(value)
+                masktype = lltype.typeOf(bitmask)
+                value = rffi.cast(masktype, value)
                 value >>= lowbit
                 value &= bitmask
                 if ll_t is lltype.Bool or signedtype(ll_t._type):
