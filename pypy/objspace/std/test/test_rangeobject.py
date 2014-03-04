@@ -102,6 +102,7 @@ class AppTestRangeListObject(object):
         assert self.not_forced(r)
         res = r.pop()
         assert res == 8
+        assert repr(r) == repr(range(8))
         assert self.not_forced(r)
         res = r.pop(0)
         assert res == 0
