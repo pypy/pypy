@@ -43,12 +43,11 @@ class TestW_LongObject:
 
 class AppTestLong:
 
-    def setup_class(cls):
-        from pypy.interpreter import gateway
-        from pypy.objspace.std.longobject import W_LongObject
-        def w__long(space, w_obj):
-            return W_LongObject.fromint(space, space.int_w(w_obj))
-        cls.w__long = cls.space.wrap(gateway.interp2app(w__long))
+    def w__long(self, obj):
+        import sys
+        # XXX: currently returns a W_LongObject but might return
+        # W_IntObject in the future
+        return obj + sys.maxsize - sys.maxsize
 
     def test_trunc(self):
         import math
@@ -401,6 +400,8 @@ class AppTestLong:
 
     def test_large_identity(self):
         import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only')
         a = sys.maxsize + 1
         b = sys.maxsize + 2
         assert a is not b
