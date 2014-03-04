@@ -8,8 +8,6 @@ Or, alternatively:
 (gdb) python execfile('/path/to/gdb_pypy.py')
 """
 
-from __future__ import with_statement
-
 import re
 import sys
 import os.path
