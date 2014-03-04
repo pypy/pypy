@@ -1088,15 +1088,20 @@ class BaseRangeListStrategy(ListStrategy):
         w_list.extend(w_any)
 
     def reverse(self, w_list):
-        # XXX this could be specialized for SimpleRange to promote to Range
         self.switch_to_integer_strategy(w_list)
         w_list.reverse()
+
+    def sort(self, w_list, reverse):
+        step = self.step(w_list)
+        if step > 0 and reverse or step < 0 and not reverse:
+            self.switch_to_integer_strategy(w_list)
+            w_list.sort(reverse)
 
 
 class SimpleRangeListStrategy(BaseRangeListStrategy):
     """SimpleRangeListStrategy is used when a list is created using the range
        method providing only positive length. The storage is a one element tuple
-       with positive integer less than 2**31 - 1 storing length."""
+       with positive integer storing length."""
 
     _applevel_repr = "simple_range"
 
@@ -1116,6 +1121,9 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
 
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[0]
+
+    def step(self, w_list):
+        return 1
 
     def _getitem_unwrapped(self, w_list, i):
         length = self.unerase(w_list.lstorage)
@@ -1155,11 +1163,6 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
         self.switch_to_integer_strategy(w_list)
         return w_list.pop(index)
 
-    def sort(self, w_list, reverse):
-        if reverse:
-            self.switch_to_integer_strategy(w_list)
-            w_list.sort(reverse)
-
 
 class RangeListStrategy(BaseRangeListStrategy):
     """RangeListStrategy is used when a list is created using the range method.
@@ -1192,6 +1195,9 @@ class RangeListStrategy(BaseRangeListStrategy):
 
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[2]
+
+    def step(self, w_list):
+        return self.unerase(w_list.lstorage)[1]
 
     def _getitem_unwrapped(self, w_list, i):
         v = self.unerase(w_list.lstorage)
@@ -1253,12 +1259,6 @@ class RangeListStrategy(BaseRangeListStrategy):
         else:
             self.switch_to_integer_strategy(w_list)
             return w_list.pop(index)
-
-    def sort(self, w_list, reverse):
-        step = self.unerase(w_list.lstorage)[1]
-        if step > 0 and reverse or step < 0 and not reverse:
-            self.switch_to_integer_strategy(w_list)
-            w_list.sort(reverse)
 
 
 class AbstractUnwrappedStrategy(object):

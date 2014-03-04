@@ -460,8 +460,12 @@ class TestW_ListStrategies(TestW_ListObject):
 
         assert l.length() == 5
 
+        l = make_range_list(self.space, 0, 1, 1)
+        assert self.space.eq_w(l.pop(0), self.space.wrap(0))
 
-
+        l = make_range_list(self.space, 0, 1, 10)
+        l.sort(False)
+        assert isinstance(l.strategy, SimpleRangeListStrategy)
 
     def test_keep_range(self):
         # simple list
