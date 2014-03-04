@@ -94,3 +94,8 @@ In a lot of places CPython allows objects with __int__ and __float__ instead of 
 
 .. branch: test-58c3d8552833
 Fix for getarrayitem_gc_pure optimization
+
+.. branch: simple-range-strategy
+Implements SimpleRangeListStrategy for case range(n) where n is a positive number.
+Makes some traces nicer by getting rid of multiplication for calculating loop counter
+and propagates that n > 0 further to get rid of guards.
