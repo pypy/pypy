@@ -214,17 +214,24 @@ class TestPopenR(BaseRtypingTest):
             py.test.skip("not for win32")
 
     def test_popen(self):
-        def f():
-            f = rfile.create_popen_file("python -c 'print 42'", "r")
-            s = f.read()
-            f.close()
-        self.interpret(f, [])
-
-    def test_pclose(self):
-        retval = 32
-        cmd = "python -c 'import sys; print 45; sys.exit(%s)'" % retval
+        printval = 42
+        cmd = "python -c 'print %s'" % printval
         def f():
             f = rfile.create_popen_file(cmd, "r")
             s = f.read()
+            f.close()
+            assert s == "%s\n" % printval
+        self.interpret(f, [])
+
+    def test_pclose(self):
+        printval = 42
+        retval = 32
+        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+            printval, retval)
+        def f():
+            f = rfile.create_popen_file(cmd, "r")
+            s = f.read()
+            assert s == "%s\n" % printval
             return f.close()
         r = self.interpret(f, [])
+        assert r == retval
