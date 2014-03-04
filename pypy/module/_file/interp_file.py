@@ -181,7 +181,7 @@ class W_File(W_AbstractStream):
                     data = stream.read(n)
                 except OSError, e:
                     # a special-case only for read() (similar to CPython, which
-                    # also looses partial data with other methods): if we get
+                    # also loses partial data with other methods): if we get
                     # EAGAIN after already some data was received, return it.
                     if is_wouldblock_error(e):
                         got = result.build()
