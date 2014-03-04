@@ -111,6 +111,13 @@ class AppTestTextIO:
             assert f.read() == data * 2
             assert buf.getvalue() == (data * 2).encode(encoding)
 
+    def test_writelines_error(self):
+        import _io
+        txt = _io.TextIOWrapper(_io.BytesIO())
+        raises(TypeError, txt.writelines, [1, 2, 3])
+        raises(TypeError, txt.writelines, None)
+        raises(TypeError, txt.writelines, b'abc')
+
     def test_tell(self):
         import _io
         r = _io.BytesIO("abc\ndef\n")
