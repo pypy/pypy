@@ -137,6 +137,7 @@ def closerange(fd_low, fd_high):
 #   with other wrappers that directly handle unicode strings.
 @specialize.argtype(0)
 def open(path, flags, mode):
+    assert path is not None
     if isinstance(path, str):
         return os.open(path, flags, mode)
     else:
