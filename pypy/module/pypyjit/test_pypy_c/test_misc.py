@@ -176,14 +176,14 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             guard_not_invalidated?
-            i16 = int_ge(i11, i12)
-            guard_false(i16, descr=...)
+            i16 = int_lt(i11, i12)
+            guard_true(i16, descr=...)
             i20 = int_add(i11, 1)
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
-            i25 = int_ge(i11, i9)
-            guard_false(i25, descr=...)
+            i25 = int_lt(i11, i9)
+            guard_true(i25, descr=...)
             i27 = int_add_ovf(i7, i11)
             guard_no_overflow(descr=...)
             --TICK--
@@ -214,10 +214,10 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
-            i23 = int_lt(i18, 0)
-            guard_false(i23, descr=...)
-            i25 = int_ge(i18, i9)
-            guard_false(i25, descr=...)
+            i23 = int_ge(i18, 0)
+            guard_true(i23, descr=...)
+            i25 = int_lt(i18, i9)
+            guard_true(i25, descr=...)
             i27 = int_add_ovf(i7, i18)
             guard_no_overflow(descr=...)
             --TICK--
