@@ -186,7 +186,7 @@ class TestDirect:
             f.close()
 
 
-class TestPopen:
+class TestPopen(object):
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("not for win32")
@@ -196,3 +196,42 @@ class TestPopen:
         s = f.read()
         f.close()
         assert s == '42\n'
+
+    def test_pclose(self):
+        retval = 32
+        printval = 42
+        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+            printval, retval)
+        f = rfile.create_popen_file(cmd, "r")
+        s = f.read()
+        r = f.close()
+        assert s == "%s\n" % printval
+        assert os.WEXITSTATUS(r) == retval
+
+class TestPopenR(BaseRtypingTest):
+    def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("not for win32")
+
+    def test_popen(self):
+        printval = 42
+        cmd = "python -c 'print %s'" % printval
+        def f():
+            f = rfile.create_popen_file(cmd, "r")
+            s = f.read()
+            f.close()
+            assert s == "%s\n" % printval
+        self.interpret(f, [])
+
+    def test_pclose(self):
+        printval = 42
+        retval = 32
+        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+            printval, retval)
+        def f():
+            f = rfile.create_popen_file(cmd, "r")
+            s = f.read()
+            assert s == "%s\n" % printval
+            return f.close()
+        r = self.interpret(f, [])
+        assert os.WEXITSTATUS(r) == retval
