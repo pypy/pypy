@@ -1,15 +1,17 @@
-from pypy.interpreter.gateway import unwrap_spec
+import os
+import sys
+
 from rpython.rlib import rposix, objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
-from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.rtyper.module import ll_os_stat
+from rpython.rtyper.module.ll_os import RegisterOs
+
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
-import os
-import sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
@@ -208,17 +210,12 @@ opened on a directory, not a file."""
 
 # ____________________________________________________________
 
-# For LL backends, expose all fields.
-# For OO backends, only the portable fields (the first 10).
 STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
-PORTABLE_STAT_FIELDS = unrolling_iterable(
-                                 enumerate(ll_os_stat.PORTABLE_STAT_FIELDS))
+
+STATVFS_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STATVFS_FIELDS))
 
 def build_stat_result(space, st):
-    if space.config.translation.type_system == 'ootype':
-        FIELDS = PORTABLE_STAT_FIELDS
-    else:
-        FIELDS = STAT_FIELDS    # also when not translating at all
+    FIELDS = STAT_FIELDS    # also when not translating at all
     lst = [None] * ll_os_stat.N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
@@ -252,6 +249,16 @@ def build_stat_result(space, st):
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
                                   space.wrap('stat_result'))
     return space.call_function(w_stat_result, w_tuple, w_keywords)
+
+
+def build_statvfs_result(space, st):
+    vals_w = [None] * len(ll_os_stat.STATVFS_FIELDS)
+    for i, (name, _) in STATVFS_FIELDS:
+        vals_w[i] = space.wrap(getattr(st, name))
+    w_tuple = space.newtuple(vals_w)
+    w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
+    return space.call_function(w_statvfs_result, w_tuple)
+
 
 @unwrap_spec(fd=c_int)
 def fstat(space, fd):
@@ -313,6 +320,26 @@ If newval is omitted, return the current setting.
         return space.wrap(state.stat_float_times)
     else:
         state.stat_float_times = space.bool_w(w_value)
+
+
+@unwrap_spec(fd=c_int)
+def fstatvfs(space, fd):
+    try:
+        st = os.fstatvfs(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+    else:
+        return build_statvfs_result(space, st)
+
+
+def statvfs(space, w_path):
+    try:
+        st = dispatch_filename(rposix.statvfs)(space, w_path)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
+    else:
+        return build_statvfs_result(space, st)
+
 
 @unwrap_spec(fd=c_int)
 def dup(space, fd):
@@ -480,11 +507,7 @@ def getlogin(space):
 def getstatfields(space):
     # for app_posix.py: export the list of 'st_xxx' names that we know
     # about at RPython level
-    if space.config.translation.type_system == 'ootype':
-        FIELDS = PORTABLE_STAT_FIELDS
-    else:
-        FIELDS = STAT_FIELDS    # also when not translating at all
-    return space.newlist([space.wrap(name) for _, (name, _) in FIELDS])
+    return space.newlist([space.wrap(name) for _, (name, _) in STAT_FIELDS])
 
 
 class State:
@@ -700,11 +723,16 @@ def run_fork_hooks(where, space):
     for hook in get_fork_hooks(where):
         hook(space)
 
-def fork(space):
+def _run_forking_function(space, kind):
     run_fork_hooks('before', space)
-
     try:
-        pid = os.fork()
+        if kind == "F":
+            pid = os.fork()
+            master_fd = -1
+        elif kind == "P":
+            pid, master_fd = os.forkpty()
+        else:
+            raise AssertionError
     except OSError, e:
         try:
             run_fork_hooks('parent', space)
@@ -712,12 +740,14 @@ def fork(space):
             # Don't clobber the OSError if the fork failed
             pass
         raise wrap_oserror(space, e)
-
     if pid == 0:
         run_fork_hooks('child', space)
     else:
         run_fork_hooks('parent', space)
+    return pid, master_fd
 
+def fork(space):
+    pid, irrelevant = _run_forking_function(space, "F")
     return space.wrap(pid)
 
 def openpty(space):
@@ -729,10 +759,7 @@ def openpty(space):
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
 def forkpty(space):
-    try:
-        pid, master_fd = os.forkpty()
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    pid, master_fd = _run_forking_function(space, "P")
     return space.newtuple([space.wrap(pid),
                            space.wrap(master_fd)])
 
@@ -841,8 +868,8 @@ second form is used, set the access and modified times to the current time.
         args_w = space.fixedview(w_tuple)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
-        actime = space.float_w(args_w[0])
-        modtime = space.float_w(args_w[1])
+        actime = space.float_w(args_w[0], allow_conversion=False)
+        modtime = space.float_w(args_w[1], allow_conversion=False)
         dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
@@ -960,7 +987,39 @@ def getgroups(space):
 
     Return list of supplemental group IDs for the process.
     """
-    return space.newlist([space.wrap(e) for e in os.getgroups()])
+    try:
+        list = os.getgroups()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newlist([space.wrap(e) for e in list])
+
+def setgroups(space, w_list):
+    """ setgroups(list)
+
+    Set the groups of the current process to list.
+    """
+    list = []
+    for w_gid in space.unpackiterable(w_list):
+        gid = space.int_w(w_gid)
+        check_uid_range(space, gid)
+        list.append(gid)
+    try:
+        os.setgroups(list[:])
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(username=str, gid=c_gid_t)
+def initgroups(space, username, gid):
+    """ initgroups(username, gid) -> None
+    
+    Call the system initgroups() to initialize the group access list with all of
+    the groups of which the specified username is a member, plus the specified
+    group id.
+    """
+    try:
+        os.initgroups(username, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 def getpgrp(space):
     """ getpgrp() -> pgrp
@@ -1062,6 +1121,77 @@ def setsid(space):
         raise wrap_oserror(space, e)
     return space.w_None
 
+@unwrap_spec(fd=c_int)
+def tcgetpgrp(space, fd):
+    """ tcgetpgrp(fd) -> pgid
+
+    Return the process group associated with the terminal given by a fd.
+    """
+    try:
+        pgid = os.tcgetpgrp(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(pgid)
+
+@unwrap_spec(fd=c_int, pgid=c_gid_t)
+def tcsetpgrp(space, fd, pgid):
+    """ tcsetpgrp(fd, pgid)
+
+    Set the process group associated with the terminal given by a fd.
+    """
+    try:
+        os.tcsetpgrp(fd, pgid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+def getresuid(space):
+    """ getresuid() -> (ruid, euid, suid)
+
+    Get tuple of the current process's real, effective, and saved user ids.
+    """
+    try:
+        (ruid, euid, suid) = os.getresuid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(ruid),
+                           space.wrap(euid),
+                           space.wrap(suid)])
+
+def getresgid(space):
+    """ getresgid() -> (rgid, egid, sgid)
+
+    Get tuple of the current process's real, effective, and saved group ids.
+    """
+    try:
+        (rgid, egid, sgid) = os.getresgid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(rgid),
+                           space.wrap(egid),
+                           space.wrap(sgid)])
+
+@unwrap_spec(ruid=c_uid_t, euid=c_uid_t, suid=c_uid_t)
+def setresuid(space, ruid, euid, suid):
+    """ setresuid(ruid, euid, suid)
+
+    Set the current process's real, effective, and saved user ids.
+    """
+    try:
+        os.setresuid(ruid, euid, suid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(rgid=c_gid_t, egid=c_gid_t, sgid=c_gid_t)
+def setresgid(space, rgid, egid, sgid):
+    """ setresgid(rgid, egid, sgid)
+    
+    Set the current process's real, effective, and saved group ids.
+    """
+    try:
+        os.setresgid(rgid, egid, sgid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
         @unwrap_spec(status=c_int)
@@ -1103,15 +1233,37 @@ def confname_w(space, w_name, namespace):
 
 def sysconf(space, w_name):
     num = confname_w(space, w_name, os.sysconf_names)
-    return space.wrap(os.sysconf(num))
+    try:
+        res = os.sysconf(num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
     num = confname_w(space, w_name, os.pathconf_names)
     try:
-        return space.wrap(os.fpathconf(fd, num))
+        res = os.fpathconf(fd, num)
     except OSError, e:
         raise wrap_oserror(space, e)
+    return space.wrap(res)
+
+@unwrap_spec(path='str0')
+def pathconf(space, path, w_name):
+    num = confname_w(space, w_name, os.pathconf_names)
+    try:
+        res = os.pathconf(path, num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
+
+def confstr(space, w_name):
+    num = confname_w(space, w_name, os.confstr_names)
+    try:
+        res = os.confstr(num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
 
 @unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
@@ -1191,3 +1343,10 @@ def urandom(space, n):
         return space.wrap(rurandom.urandom(context, n))
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def ctermid(space):
+    """ctermid() -> string
+
+    Return the name of the controlling terminal for this process.
+    """
+    return space.wrap(os.ctermid())

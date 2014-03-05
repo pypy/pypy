@@ -1,14 +1,15 @@
 import py
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 from rpython.conftest import option
 from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
     MixLevelHelperAnnotator, PseudoHighLevelCallable, llhelper,
-    cast_instance_to_base_ptr, cast_base_ptr_to_instance, base_ptr_lltype)
+    cast_instance_to_base_ptr, cast_base_ptr_to_instance)
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem.lltype import *
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rclass import fishllattr
+from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.translator import TranslationContext
 
@@ -100,8 +101,8 @@ class TestLowLevelAnnotateTestCase:
             p2 = p1.sub1
             p3 = cast_pointer(PS1, p2)
             return p3
-        s = self.annotate(llf, [annmodel.SomePtr(PS1)])
-        assert isinstance(s, annmodel.SomePtr)
+        s = self.annotate(llf, [SomePtr(PS1)])
+        assert isinstance(s, SomePtr)
         assert s.ll_ptrtype == PS1
 
     def test_cast_simple_widening_from_gc(self):
@@ -114,7 +115,7 @@ class TestLowLevelAnnotateTestCase:
             p3 = cast_pointer(PS1, p2)
             return p3
         s = self.annotate(llf, [])
-        assert isinstance(s, annmodel.SomePtr)
+        assert isinstance(s, SomePtr)
         assert s.ll_ptrtype == PS1
 
     def test_cast_pointer(self):
@@ -152,7 +153,7 @@ class TestLowLevelAnnotateTestCase:
         PF = Ptr(F)
         def llf(p):
             return p(0)
-        s = self.annotate(llf, [annmodel.SomePtr(PF)])
+        s = self.annotate(llf, [SomePtr(PF)])
         assert s.knowntype == int
 
 
@@ -201,7 +202,7 @@ class TestLowLevelAnnotateTestCase:
                     assert a.binding(vT) == a.bookkeeper.immutablevalue(T)
                     assert a.binding(vi).knowntype == int
                     assert a.binding(vp).ll_ptrtype.TO == T
-                    assert a.binding(rv) == annmodel.lltype_to_annotation(T.OF)
+                    assert a.binding(rv) == lltype_to_annotation(T.OF)
                 elif func is ll_make:
                     vT, vn = args
                     assert a.binding(vT) == a.bookkeeper.immutablevalue(T)
@@ -280,7 +281,7 @@ class TestLowLevelAnnotateTestCase:
                     vp, vi = args
                     assert a.binding(vi).knowntype == int
                     assert a.binding(vp).ll_ptrtype == T
-                    assert a.binding(rv) == annmodel.lltype_to_annotation(
+                    assert a.binding(rv) == lltype_to_annotation(
                         T.TO.OF)
                 else:
                     assert False, func
@@ -344,7 +345,7 @@ class TestLowLevelAnnotateTestCase:
         def llf():
             return getRuntimeTypeInfo(S)
         s = self.annotate(llf, [])
-        assert isinstance(s, annmodel.SomePtr)
+        assert isinstance(s, SomePtr)
         assert s.ll_ptrtype == Ptr(RuntimeTypeInfo)
         assert s.const == getRuntimeTypeInfo(S)
 
@@ -352,8 +353,8 @@ class TestLowLevelAnnotateTestCase:
         S = GcStruct('s', ('x', Signed), rtti=True)
         def llf(p):
             return runtime_type_info(p)
-        s = self.annotate(llf, [annmodel.SomePtr(Ptr(S))])
-        assert isinstance(s, annmodel.SomePtr)
+        s = self.annotate(llf, [SomePtr(Ptr(S))])
+        assert isinstance(s, SomePtr)
         assert s.ll_ptrtype == Ptr(RuntimeTypeInfo)
 
     def test_cast_primitive(self):
@@ -367,7 +368,6 @@ class TestLowLevelAnnotateTestCase:
         assert s.unsigned == True
 
     def test_pbctype(self):
-        py.test.skip("annotation crash")
         TYPE = Void
         TYPE2 = Signed
         def g(lst):
@@ -463,34 +463,6 @@ def test_llhelper():
     res = interpret(h, [8, 5, 2])
     assert res == 99
 
-def test_oohelper():
-    S = ootype.Instance('S', ootype.ROOT, {'x': Signed, 'y': Signed})
-    def f(s,z):
-        #assert we_are_translated()
-        return s.x*s.y+z
-
-    def g(s):
-        #assert we_are_translated()
-        return s.x+s.y
-
-    F = ootype.StaticMethod([S, Signed], Signed)
-    G = ootype.StaticMethod([S], Signed)
-
-    def h(x, y, z):
-        s = ootype.new(S)
-        s.x = x
-        s.y = y
-        fsm = llhelper(F, f)
-        gsm = llhelper(G, g)
-        assert typeOf(fsm) == F
-        return fsm(s, z)+fsm(s, z*2)+gsm(s)
-
-    res = h(8, 5, 2)
-    assert res == 99
-    res = interpret(h, [8, 5, 2], type_system='ootype')
-    assert res == 99
-
-
 
 def test_cast_instance_to_base_ptr():
     class A:
@@ -507,12 +479,12 @@ def test_cast_instance_to_base_ptr():
         return a1
 
     res = interpret(f, [5, 10])
-    assert typeOf(res) == base_ptr_lltype()
+    assert typeOf(res) == OBJECTPTR
     assert fishllattr(res, 'x') == 5
     assert fishllattr(res, 'y') == 10
 
     res = interpret(f, [25, 10])
-    assert res == nullptr(base_ptr_lltype().TO)
+    assert res == nullptr(OBJECTPTR.TO)
 
 
 def test_cast_base_ptr_to_instance():

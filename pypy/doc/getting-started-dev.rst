@@ -4,6 +4,12 @@ Getting Started with RPython
 
 .. contents::
 
+.. warning::
+
+    Please `read this FAQ entry`_ first!
+
+.. _`read this FAQ entry`: http://doc.pypy.org/en/latest/faq.html#do-i-have-to-rewrite-my-programs-in-rpython
+
 RPython is a subset of Python that can be statically compiled. The PyPy
 interpreter is written mostly in RPython (with pieces in Python), while
 the RPython compiler is written in Python. The hard to understand part
@@ -109,45 +115,6 @@ version is now in a ``.so`` library. You can run it say using ctypes:
    >>> f(6)
    1
 
-Translating the flow graph to CLI or JVM code
-+++++++++++++++++++++++++++++++++++++++++++++
-
-PyPy also contains a `CLI backend`_ and JVM backend which
-can translate flow graphs into .NET executables or a JVM jar
-file respectively.  Both are able to translate the entire
-interpreter.  You can try out the CLI and JVM backends
-from the interactive translator shells as follows::
-
-    >>> def myfunc(a, b): return a+b
-    ... 
-    >>> t = Translation(myfunc, [int, int])
-    >>> t.annotate()
-    >>> f = t.compile_cli() # or compile_jvm()
-    >>> f(4, 5)
-    9
-
-The object returned by ``compile_cli`` or ``compile_jvm``
-is a wrapper around the real
-executable: the parameters are passed as command line arguments, and
-the returned value is read from the standard output.
-
-Once you have compiled the snippet, you can also try to launch the
-executable directly from the shell. You will find the
-executable in one of the ``/tmp/usession-*`` directories::
-
-    # For CLI:
-    $ mono /tmp/usession-trunk-<username>/main.exe 4 5
-    9
-
-    # For JVM:
-    $ java -cp /tmp/usession-trunk-<username>/pypy pypy.Main 4 5
-    9
-
-To translate and run for the CLI you must have the SDK installed: Windows
-users need the `.NET Framework SDK`_, while Linux and Mac users
-can use Mono_.  To translate and run for the JVM you must have a JDK 
-installed (at least version 6) and ``java``/``javac`` on your path.
-
 A slightly larger example
 +++++++++++++++++++++++++
 
@@ -185,31 +152,31 @@ own interpreters`_.
 There are several environment variables you can find useful while playing with the RPython:
 
 ``PYPY_USESSION_DIR``
-    RPython uses temporary session directories to store files that are generated during the 
+    RPython uses temporary session directories to store files that are generated during the
     translation process(e.g., translated C files). ``PYPY_USESSION_DIR`` serves as a base directory for these session
     dirs. The default value for this variable is the system's temporary dir.
 
 ``PYPY_USESSION_KEEP``
-    By default RPython keeps only the last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``. 
+    By default RPython keeps only the last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``.
     Increase this value if you want to preserve C files longer (useful when producing lots of lldebug builds).
 
 .. _`your own interpreters`: faq.html#how-do-i-compile-my-own-interpreters
 
-.. _`start reading sources`: 
+.. _`start reading sources`:
 
 Where to start reading the sources
----------------------------------- 
+----------------------------------
 
 PyPy is made from parts that are relatively independent of each other.
 You should start looking at the part that attracts you most (all paths are
-relative to the PyPy top level directory).  You may look at our `directory reference`_ 
+relative to the PyPy top level directory).  You may look at our `directory reference`_
 or start off at one of the following points:
 
 *  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
    in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
    function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
    the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
-   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode 
+   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode
    interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
@@ -247,7 +214,7 @@ or start off at one of the following points:
 
 .. _`RPython standard library`: rlib.html
 
-.. _optionaltool: 
+.. _optionaltool:
 
 
 Running PyPy's unit tests
@@ -278,7 +245,7 @@ and you can use shell completion to point at directories or files::
     # or for running tests of a whole subdirectory
     py.test pypy/interpreter/
 
-See `py.test usage and invocations`_ for some more generic info 
+See `py.test usage and invocations`_ for some more generic info
 on how you can run tests.
 
 Beware trying to run "all" pypy tests by pointing to the root
@@ -346,29 +313,29 @@ You may be interested in reading more about the distinction between
 
 .. _`interpreter-level and app-level`: coding-guide.html#interpreter-level
 
-.. _`trace example`: 
+.. _`trace example`:
 
-Tracing bytecode and operations on objects
-++++++++++++++++++++++++++++++++++++++++++ 
+Tracing bytecodes
++++++++++++++++++
 
-You can use the trace object space to monitor the interpretation
-of bytecodes in connection with object space operations.  To enable 
-it, set ``__pytrace__=1`` on the interactive PyPy console:: 
+You can use a simple tracing mode to monitor the interpretation of
+bytecodes.  To enable it, set ``__pytrace__ = 1`` on the interactive
+PyPy console::
 
     >>>> __pytrace__ = 1
     Tracing enabled
-    >>>> a = 1 + 2
-    |- <<<< enter <inline>a = 1 + 2 @ 1 >>>>
-    |- 0    LOAD_CONST    0 (W_IntObject(1))
-    |- 3    LOAD_CONST    1 (W_IntObject(2))
-    |- 6    BINARY_ADD
-      |-    add(W_IntObject(1), W_IntObject(2))   -> W_IntObject(3)
-    |- 7    STORE_NAME    0 (a)
-      |-    hash(W_StringObject('a'))   -> W_IntObject(-468864544)
-      |-    int_w(W_IntObject(-468864544))   -> -468864544
-    |-10    LOAD_CONST    2 (<W_NoneObject()>)
-    |-13    RETURN_VALUE
-    |- <<<< leave <inline>a = 1 + 2 @ 1 >>>>
+    >>>> x = 5
+            <module>:           LOAD_CONST    0 (5)
+            <module>:           STORE_NAME    0 (x)
+            <module>:           LOAD_CONST    1 (None)
+            <module>:           RETURN_VALUE    0 
+    >>>> x
+            <module>:           LOAD_NAME    0 (x)
+            <module>:           PRINT_EXPR    0 
+    5
+            <module>:           LOAD_CONST    0 (None)
+            <module>:           RETURN_VALUE    0 
+    >>>>
 
 Demos
 -------
@@ -378,24 +345,24 @@ written using the RPython translation toolchain.
 
 .. _`example-interpreter`: https://bitbucket.org/pypy/example-interpreter
 
-Additional Tools for running (and hacking) PyPy 
+Additional Tools for running (and hacking) PyPy
 -----------------------------------------------
 
-We use some optional tools for developing PyPy. They are not required to run 
+We use some optional tools for developing PyPy. They are not required to run
 the basic tests or to get an interactive PyPy prompt but they help to
-understand  and debug PyPy especially for the translation process.  
+understand  and debug PyPy especially for the translation process.
 
 graphviz & pygame for flow graph viewing (highly recommended)
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 graphviz and pygame are both necessary if you
-want to look at generated flow graphs: 
+want to look at generated flow graphs:
 
-	graphviz: http://www.graphviz.org/Download.php 
+	graphviz: http://www.graphviz.org/Download.php
 
 	pygame: http://www.pygame.org/download.shtml
 
-py.test and the py lib 
+py.test and the py lib
 +++++++++++++++++++++++
 
 The `py.test testing tool`_ drives all our testing needs.
@@ -406,7 +373,7 @@ writing, logging and some other support  functionality.
 You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
-Getting involved 
+Getting involved
 -----------------
 
 PyPy employs an open development process.  You are invited to join our
@@ -419,7 +386,7 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`full Python interpreter`: getting-started-python.html
 .. _`the blog`: http://morepypy.blogspot.com
-.. _`pypy-dev mailing list`: http://python.org/mailman/listinfo/pypy-dev
+.. _`pypy-dev mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: index.html
 
 .. _`py library`: http://pylib.org

@@ -29,6 +29,7 @@ class GCTest(object):
     GC_CAN_SHRINK_ARRAY = False
     GC_CAN_SHRINK_BIG_ARRAY = False
     BUT_HOW_BIG_IS_A_BIG_STRING = 3*WORD
+    WREF_IS_INVALID_BEFORE_DEL_IS_CALLED = False
 
     def setup_class(cls):
         cls._saved_logstate = py.log._getstate()
@@ -370,15 +371,23 @@ class GCTest(object):
         class A(object):
             count = 0
         a = A()
+        expected_invalid = self.WREF_IS_INVALID_BEFORE_DEL_IS_CALLED
         class B(object):
             def __del__(self):
                 # when __del__ is called, the weakref to myself is still valid
-                # in RPython (at least with most GCs; this test might be
-                # skipped for specific GCs)
-                if self.ref() is self:
-                    a.count += 10  # ok
+                # in RPython with most GCs.  However, this can lead to strange
+                # bugs with incminimark.  https://bugs.pypy.org/issue1687
+                # So with incminimark, we expect the opposite.
+                if expected_invalid:
+                    if self.ref() is None:
+                        a.count += 10  # ok
+                    else:
+                        a.count = 666  # not ok
                 else:
-                    a.count = 666  # not ok
+                    if self.ref() is self:
+                        a.count += 10  # ok
+                    else:
+                        a.count = 666  # not ok
         def g():
             b = B()
             ref = weakref.ref(b)

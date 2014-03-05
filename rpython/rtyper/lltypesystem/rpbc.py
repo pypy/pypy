@@ -1,25 +1,20 @@
 import types
-import sys
-from rpython.tool.pairtype import pairtype, pair
-from rpython.annotator import model as annmodel
-from rpython.annotator import description
-from rpython.flowspace.model import Constant, Variable
-from rpython.rtyper.lltypesystem.lltype import \
-     typeOf, Void, ForwardReference, Struct, Bool, Char, \
-     Ptr, malloc, nullptr, Array, Signed, FuncType
-from rpython.rtyper.rmodel import Repr, TyperError, inputconst, inputdesc
-from rpython.rtyper.rpbc import samesig,\
-     commonbase, allattributenames, adjust_shape, \
-     AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr, \
-     AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
-     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr, \
-     SingleFrozenPBCRepr, none_frozen_pbc_repr, get_concrete_calltable
-from rpython.rtyper.lltypesystem import rclass, llmemory
-from rpython.tool.sourcetools import has_varargs
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.debug import ll_assert
 
+from rpython.annotator import description, model as annmodel
+from rpython.rlib.debug import ll_assert
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import callparse
+from rpython.rtyper.lltypesystem import rclass, llmemory
+from rpython.rtyper.lltypesystem.lltype import (typeOf, Void, ForwardReference,
+    Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed)
+from rpython.rtyper.rmodel import Repr, TyperError, inputconst
+from rpython.rtyper.rpbc import (AbstractClassesPBCRepr, AbstractMethodsPBCRepr,
+    OverriddenFunctionPBCRepr, AbstractMultipleFrozenPBCRepr,
+    AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr,
+    SingleFrozenPBCRepr, MethodOfFrozenPBCRepr, none_frozen_pbc_repr,
+    get_concrete_calltable)
+from rpython.tool.pairtype import pairtype
+
 
 def rtype_is_None(robj1, rnone2, hop, pos=0):
     if isinstance(robj1.lowleveltype, Ptr):
@@ -40,6 +35,7 @@ def rtype_is_None(robj1, rnone2, hop, pos=0):
             return inputconst(Bool, False)
     else:
         raise TyperError('rtype_is_None of %r' % (robj1))
+
 
 # ____________________________________________________________
 
@@ -67,7 +63,7 @@ class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
         mangled_name, r_value = self.fieldmap[attr]
         cmangledname = inputconst(Void, mangled_name)
         return llops.genop('getfield', [vpbc, cmangledname],
-                           resulttype = r_value)
+                           resulttype=r_value)
 
 
 class MultipleUnrelatedFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
@@ -86,6 +82,7 @@ class MultipleUnrelatedFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
     def null_instance(self):
         return llmemory.Address._defl()
 
+
 class __extend__(pairtype(MultipleUnrelatedFrozenPBCRepr,
                           MultipleUnrelatedFrozenPBCRepr),
                  pairtype(MultipleUnrelatedFrozenPBCRepr,
@@ -100,10 +97,12 @@ class __extend__(pairtype(MultipleUnrelatedFrozenPBCRepr,
         vlist = hop.inputargs(r, r)
         return hop.genop('adr_eq', vlist, resulttype=Bool)
 
+
 class __extend__(pairtype(MultipleFrozenPBCRepr,
                           MultipleUnrelatedFrozenPBCRepr)):
     def convert_from_to((robj1, robj2), v, llops):
         return llops.genop('cast_ptr_to_adr', [v], resulttype=llmemory.Address)
+
 
 # ____________________________________________________________
 
@@ -122,6 +121,7 @@ class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
 
     def get_specfunc_row(self, llop, v, c_rowname, resulttype):
         return llop.genop('getfield', [v, c_rowname], resulttype=resulttype)
+
 
 class SmallFunctionSetPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
@@ -180,9 +180,6 @@ class SmallFunctionSetPBCRepr(Repr):
             return chr(0)
         funcdesc = self.rtyper.annotator.bookkeeper.getdesc(value)
         return self.convert_desc(funcdesc)
-
-##     def convert_to_concrete_llfn(self, v, shape, index, llop):
-##         return v
 
     def rtype_simple_call(self, hop):
         return self.call('simple_call', hop)
@@ -244,7 +241,7 @@ class SmallFunctionSetPBCRepr(Repr):
                              resulttype=rresult)
         return hop.llops.convertvar(v_result, rresult, hop.r_result)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         if not self.s_pbc.can_be_None:
             return inputconst(Bool, True)
         else:
@@ -252,15 +249,6 @@ class SmallFunctionSetPBCRepr(Repr):
             return hop.genop('char_ne', [v1, inputconst(Char, '\000')],
                          resulttype=Bool)
 
-##     def rtype_simple_call(self, hop):
-##         v_index = hop.inputarg(self, arg=0)
-##         v_ptr = hop.llops.convertvar(v_index, self, self.pointer_repr)
-##         hop2 = hop.copy()
-##         hop2.args_r[0] = self.pointer_repr
-##         hop2.args_v[0] = v_ptr
-##         return hop2.dispatch()
-
-##     rtype_call_args = rtype_simple_call
 
 class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_set, r_ptr), v, llops):
@@ -273,6 +261,7 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionsPBCRepr)):
             return llops.genop('getarrayitem', [r_set.c_pointer_table, v_int],
                                resulttype=r_ptr.lowleveltype)
 
+
 def compression_function(r_set):
     if r_set._compression_function is None:
         table = []
@@ -280,6 +269,7 @@ def compression_function(r_set):
             table.append((chr(i), p))
         last_c, last_p = table[-1]
         unroll_table = unrolling_iterable(table[:-1])
+
         def ll_compress(fnptr):
             for c, p in unroll_table:
                 if fnptr == p:
@@ -290,6 +280,7 @@ def compression_function(r_set):
         r_set._compression_function = ll_compress
     return r_set._compression_function
 
+
 class __extend__(pairtype(FunctionsPBCRepr, SmallFunctionSetPBCRepr)):
     def convert_from_to((r_ptr, r_set), v, llops):
         if r_ptr.lowleveltype is Void:
@@ -298,6 +289,7 @@ class __extend__(pairtype(FunctionsPBCRepr, SmallFunctionSetPBCRepr)):
         else:
             ll_compress = compression_function(r_set)
             return llops.gendirectcall(ll_compress, v)
+
 
 def conversion_table(r_from, r_to):
     if r_to in r_from._conversion_tables:
@@ -320,28 +312,19 @@ def conversion_table(r_from, r_to):
         r_from._conversion_tables[r_to] = r
         return r
 
-## myf = open('convlog.txt', 'w')
 
 class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         c_table = conversion_table(r_from, r_to)
         if c_table:
             assert v.concretetype is Char
-##             from rpython.rtyper.lltypesystem.rstr import string_repr
-##             s = repr(llops.rtyper.annotator.annotated.get(llops.originalblock))
-##             if 'LOAD_GLOBAL' in s:
-##                 import pdb; pdb.set_trace()
-##             print >> myf, 'static small conv', s
-##             print 'static small conv', s
-##             llops.genop('debug_print',
-##                         [Constant(string_repr.convert_const("dynamic small conv" + s),
-##                                   string_repr.lowleveltype)])
             v_int = llops.genop('cast_char_to_int', [v],
                                 resulttype=Signed)
             return llops.genop('getarrayitem', [c_table, v_int],
                                resulttype=Char)
         else:
             return v
+
 
 class MethodsPBCRepr(AbstractMethodsPBCRepr):
     """Representation selected for a PBC of the form {func: classdef...}.
@@ -394,24 +377,36 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
     # no __init__ here, AbstractClassesPBCRepr.__init__ is good enough
 
     def _instantiate_runtime_class(self, hop, vtypeptr, r_instance):
-        from rpython.rtyper.lltypesystem.rbuiltin import ll_instantiate
-        v_inst1 = hop.gendirectcall(ll_instantiate, vtypeptr)
-        return hop.genop('cast_pointer', [v_inst1], resulttype = r_instance)
+        graphs = []
+        for desc in self.s_pbc.descriptions:
+            classdef = desc.getclassdef(None)
+            assert hasattr(classdef, 'my_instantiate_graph')
+            graphs.append(classdef.my_instantiate_graph)
+        c_graphs = hop.inputconst(Void, graphs)
+        #
+        # "my_instantiate = typeptr.instantiate"
+        c_name = hop.inputconst(Void, 'instantiate')
+        v_instantiate = hop.genop('getfield', [vtypeptr, c_name],
+                                 resulttype = rclass.OBJECT_VTABLE.instantiate)
+        # "my_instantiate()"
+        v_inst = hop.genop('indirect_call', [v_instantiate, c_graphs],
+                           resulttype = rclass.OBJECTPTR)
+        return hop.genop('cast_pointer', [v_inst], resulttype=r_instance)
 
     def getlowleveltype(self):
         return rclass.CLASSTYPE
 
+    def get_ll_hash_function(self):
+        return ll_cls_hash
 
-# ____________________________________________________________
+    get_ll_fasthash_function = get_ll_hash_function
 
-##def rtype_call_memo(hop):
-##    memo_table = hop.args_v[0].value
-##    if memo_table.s_result.is_constant():
-##        return hop.inputconst(hop.r_result, memo_table.s_result.const)
-##    fieldname = memo_table.fieldname
-##    assert hop.nb_args == 2, "XXX"
+    def get_ll_eq_function(self):
+        return None
 
-##    r_pbc = hop.args_r[1]
-##    assert isinstance(r_pbc, (MultipleFrozenPBCRepr, ClassesPBCRepr))
-##    v_table, v_pbc = hop.inputargs(Void, r_pbc)
-##    return r_pbc.getfield(v_pbc, fieldname, hop.llops)
+
+def ll_cls_hash(cls):
+    if not cls:
+        return 0
+    else:
+        return cls.hash

@@ -26,6 +26,9 @@ def try_cflags():
 def try_ldflags():
     yield ExternalCompilationInfo(libraries=['curses'])
     yield ExternalCompilationInfo(libraries=['curses', 'tinfo'])
+    yield ExternalCompilationInfo(libraries=['ncurses'])
+    yield ExternalCompilationInfo(libraries=['ncurses'],
+                                  library_dirs=['/usr/lib64'])
 
 def try_tools():
     try:
@@ -52,7 +55,8 @@ def guess_eci():
             HAS = rffi_platform.Has("setupterm")
         if rffi_platform.configure(CConfig)['HAS']:
             return eci
-    raise ImportError("failed to guess where ncurses is installed")
+    raise ImportError("failed to guess where ncurses is installed. "
+                      "You might need to install libncurses5-dev or similar.")
 
 eci = guess_eci()
 

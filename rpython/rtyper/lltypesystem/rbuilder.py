@@ -39,16 +39,24 @@ unicodebuilder_grow = new_grow_func('unicodebuilder_grow', rstr.mallocunicode,
                                     rstr.copy_unicode_contents)
 
 STRINGBUILDER = lltype.GcStruct('stringbuilder',
-                               ('allocated', lltype.Signed),
-                               ('used', lltype.Signed),
-                               ('buf', lltype.Ptr(STR)),
-                               adtmeths={'grow':staticAdtMethod(stringbuilder_grow)})
+    ('allocated', lltype.Signed),
+    ('used', lltype.Signed),
+    ('buf', lltype.Ptr(STR)),
+    adtmeths={
+        'grow': staticAdtMethod(stringbuilder_grow),
+        'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_string),
+    }
+)
 
 UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
-                                 ('allocated', lltype.Signed),
-                                 ('used', lltype.Signed),
-                                 ('buf', lltype.Ptr(UNICODE)),
-                              adtmeths={'grow':staticAdtMethod(unicodebuilder_grow)})
+    ('allocated', lltype.Signed),
+    ('used', lltype.Signed),
+    ('buf', lltype.Ptr(UNICODE)),
+    adtmeths={
+        'grow': staticAdtMethod(unicodebuilder_grow),
+        'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_unicode),
+    }
+)
 
 MAX = 16*1024*1024
 
@@ -109,10 +117,8 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         used = ll_builder.used
         if used + size > ll_builder.allocated:
             ll_builder.grow(ll_builder, size)
-        for i in xrange(size):
-            ll_builder.buf.chars[used] = charp[i]
-            used += 1
-        ll_builder.used = used
+        ll_builder.copy_raw_to_string(charp, ll_builder.buf, used, size)
+        ll_builder.used += size
 
     @staticmethod
     def ll_getlength(ll_builder):
@@ -128,7 +134,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder.buf
 
     @classmethod
-    def ll_is_true(cls, ll_builder):
+    def ll_bool(cls, ll_builder):
         return ll_builder != nullptr(cls.lowleveltype.TO)
 
 class StringBuilderRepr(BaseStringBuilderRepr):

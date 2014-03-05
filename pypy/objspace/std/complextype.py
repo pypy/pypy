@@ -1,10 +1,11 @@
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.strutil import string_to_float, ParseStringError
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
+from rpython.rlib.rfloat import string_to_float
+from rpython.rlib.rstring import ParseStringError
 
 # ERRORCODES
 
@@ -200,7 +201,7 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     if w_z is not None:
         # __complex__() must return a complex or (float,int,long) object
         # (XXX should not use isinstance here)
-        if not strict_typing and (space.isinstance_w(w_z, space.w_int) or 
+        if not strict_typing and (space.isinstance_w(w_z, space.w_int) or
                                   space.isinstance_w(w_z, space.w_long) or
                                   space.isinstance_w(w_z, space.w_float)):
             return (space.float_w(w_z), 0.0)
@@ -213,15 +214,16 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     #
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.
-    if isinstance(w_complex, W_ComplexObject):
-        return (w_complex.realval, w_complex.imagval)
+    if space.isinstance_w(w_complex, space.gettypefor(W_ComplexObject)):
+        real = space.float(space.getattr(w_complex, space.wrap("real")))
+        imag = space.float(space.getattr(w_complex, space.wrap("imag")))
+        return (space.float_w(real), space.float_w(imag))
     #
     # Check that it is not a string (on which space.float() would succeed).
     if (space.isinstance_w(w_complex, space.w_str) or
         space.isinstance_w(w_complex, space.w_unicode)):
-        raise operationerrfmt(space.w_TypeError,
-                              "complex number expected, got '%T'",
-                              w_complex)
+        raise oefmt(space.w_TypeError,
+                    "complex number expected, got '%T'", w_complex)
     #
     return (space.float_w(space.float(w_complex)), 0.0)
 

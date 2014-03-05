@@ -34,24 +34,19 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation", "_cffi_backend", "_csv", "cppyy"]
+     "_collections", "_multibytecodec", "micronumpy",
+     "_continuation", "_cffi_backend", "_csv", "cppyy", "_pypyjson"]
 ))
 
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "_md5", "cStringIO", "array", "_ffi",
+     "struct", "_md5", "cStringIO", "array",
      "binascii",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
      "termios", "_minimal_curses",
      ]))
-
-working_oo_modules = default_modules.copy()
-working_oo_modules.update(dict.fromkeys(
-    ["_md5", "_sha", "cStringIO", "itertools"]
-))
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
@@ -101,7 +96,6 @@ module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
     "_rawffi"   : ["rpython.rlib.clibffi"],
-    "_ffi"      : ["rpython.rlib.clibffi"],
 
     "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
@@ -132,11 +126,6 @@ def get_module_validator(modname):
 
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
-    OptionDescription("opcodes", "opcodes to enable in the interpreter", [
-        BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
-                   default=False),
-        ]),
-
     OptionDescription("usemodules", "Which Modules should be used", [
         BoolOption(modname, "use module %s" % (modname, ),
                    default=modname in default_modules,
@@ -144,7 +133,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules,
-                   validator=get_module_validator(modname))
+                   ) #validator=get_module_validator(modname))
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",
@@ -261,17 +250,16 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         IntOption("methodcachesizeexp",
                   " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
-        BoolOption("optimized_int_add",
-                   "special case the addition of two integers in BINARY_ADD",
-                   default=False),
-        BoolOption("optimized_comparison_op",
-                   "special case the comparison of integers",
+        BoolOption("intshortcut",
+                   "special case addition and subtraction of two integers in BINARY_ADD/"
+                   "/BINARY_SUBTRACT and their inplace counterparts",
                    default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
         BoolOption("builtinshortcut",
-                   "a shortcut for operations between built-in types",
+                   "a shortcut for operations between built-in types. XXX: "
+                   "deprecated, not really a shortcut any more.",
                    default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
@@ -312,11 +300,10 @@ def set_pypy_opt_level(config, level):
 
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
-        config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
-        config.objspace.std.suggest(builtinshortcut=True)
+        config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)
@@ -340,10 +327,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
-    # some optimizations have different effects depending on the typesystem
-    if type_system == 'ootype':
-        config.objspace.std.suggest(multimethods="doubledispatch")
-
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
@@ -351,10 +334,7 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    if config.translation.type_system == 'ootype':
-        modules = working_oo_modules
-    else:
-        modules = working_modules
+    modules = working_modules
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which

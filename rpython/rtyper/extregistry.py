@@ -13,9 +13,6 @@ class AutoRegisteringType(type):
         if '_type_' in dict:
             selfcls._register_type(dict['_type_'])
             del selfcls._type_
-        if '_metatype_' in dict:
-            selfcls._register_metatype(dict['_metatype_'])
-            del selfcls._metatype_
 
     def _register(selfcls, dict, key):
         if isinstance(key, tuple):
@@ -31,9 +28,6 @@ class AutoRegisteringType(type):
 
     def _register_type(selfcls, key):
         selfcls._register(EXT_REGISTRY_BY_TYPE, key)
-
-    def _register_metatype(selfcls, key):
-        selfcls._register(EXT_REGISTRY_BY_METATYPE, key)
 
 
 class ExtRegistryEntry(object):
@@ -120,27 +114,19 @@ class FlexibleWeakDict(UserDict.DictMixin):
 
 EXT_REGISTRY_BY_VALUE = FlexibleWeakDict()
 EXT_REGISTRY_BY_TYPE = weakref.WeakKeyDictionary()
-EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 
 # ____________________________________________________________
 # Public interface to access the registry
 
 def _lookup_type_cls(tp):
-    try:
-        return EXT_REGISTRY_BY_TYPE[tp]
-    except (KeyError, TypeError):
-        return EXT_REGISTRY_BY_METATYPE[type(tp)]
+    return EXT_REGISTRY_BY_TYPE[tp]
 
 def lookup_type(tp):
     Entry = _lookup_type_cls(tp)
     return Entry(tp)
 
 def is_registered_type(tp):
-    try:
-        _lookup_type_cls(tp)
-    except KeyError:
-        return False
-    return True
+    return tp in EXT_REGISTRY_BY_TYPE
 
 def _lookup_cls(instance):
     try:

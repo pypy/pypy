@@ -9,7 +9,7 @@ from rpython.rtyper.exceptiondata import UnknownException
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.lltypesystem import lltype
 from rpython.annotator import model as annmodel
-from rpython.annotator.model import lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
 from rpython.tool import leakfinder
 from rpython.conftest import option
@@ -26,18 +26,17 @@ def teardown_module(mod):
 
 
 
-def timelog(prefix, call, *args, **kwds): 
+def timelog(prefix, call, *args, **kwds):
     #import time
-    #print prefix, "...", 
+    #print prefix, "...",
     #start = time.time()
-    res = call(*args, **kwds) 
-    #elapsed = time.time() - start 
+    res = call(*args, **kwds)
+    #elapsed = time.time() - start
     #print "%.2f secs" % (elapsed,)
-    return res 
+    return res
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
-             type_system="lltype", backendopt=False, config=None,
-             **extraconfigopts):
+             backendopt=False, config=None, **extraconfigopts):
     t = TranslationContext(config=config)
     t.config.set(**extraconfigopts)
     a = t.buildannotator(policy=policy)
@@ -48,10 +47,10 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
         a.simplify()
         t.view()
     global typer # we need it for find_exception
-    typer = t.buildrtyper(type_system=type_system)
-    timelog("rtyper-specializing", typer.specialize) 
+    typer = t.buildrtyper()
+    timelog("rtyper-specializing", typer.specialize)
     #t.view()
-    timelog("checking graphs", t.checkgraphs) 
+    timelog("checking graphs", t.checkgraphs)
     if backendopt:
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
@@ -88,14 +87,13 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
             policy = AnnotatorPolicy()
 
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
-                                   viewbefore, policy, type_system=type_system,
-                                   backendopt=backendopt, config=config,
-                                   **extraconfigopts)
+                                   viewbefore, policy, backendopt=backendopt,
+                                   config=config, **extraconfigopts)
         interp = LLInterpreter(typer)
         _tcache[key] = (t, interp, graph)
-        # keep the cache small 
-        _lastinterpreted.append(key) 
-        if len(_lastinterpreted) >= 4: 
+        # keep the cache small
+        _lastinterpreted.append(key)
+        if len(_lastinterpreted) >= 4:
             del _tcache[_lastinterpreted.pop(0)]
     if view == 'auto':
         view = getattr(option, 'view', False)
@@ -164,8 +162,6 @@ def test_raise():
     assert res == 41
     interpret_raises(IndexError, raise_exception, [42])
     interpret_raises(ValueError, raise_exception, [43])
-    interpret_raises(IndexError, raise_exception, [42], type_system="ootype")
-    interpret_raises(ValueError, raise_exception, [43], type_system="ootype")
 
 def test_call_raise():
     res = interpret(call_raise, [41])
@@ -273,7 +269,7 @@ def test_list_reverse():
     print res
     for i in range(3):
         assert res.ll_items()[i] == 3-i
-        
+
 def test_list_pop():
     def f():
         l = [1,2,3]
@@ -340,14 +336,15 @@ def test_mod_ovf_zer():
 
 def test_funny_links():
     from rpython.flowspace.model import Block, FunctionGraph, \
-         SpaceOperation, Variable, Constant, Link
+         Variable, Constant, Link
+    from rpython.flowspace.operation import op
     for i in range(2):
         v_i = Variable("i")
-        v_case = Variable("case")
         block = Block([v_i])
         g = FunctionGraph("is_one", block)
-        block.operations.append(SpaceOperation("eq", [v_i, Constant(1)], v_case))
-        block.exitswitch = v_case
+        op1 = op.eq(v_i, Constant(1))
+        block.operations.append(op1)
+        block.exitswitch = op1.result
         tlink = Link([Constant(1)], g.returnblock, True)
         flink = Link([Constant(0)], g.returnblock, False)
         links = [tlink, flink]
@@ -485,25 +482,6 @@ def call_raise_intercept(i):
     except ValueError:
         raise TypeError
 
-def test_llinterp_fail():
-    def aa(i):
-        if i:
-            raise TypeError()
-    
-    def bb(i):
-        try:
-            aa(i)
-        except TypeError:
-            pass
-    
-    t = TranslationContext()
-    annotator = t.buildannotator()
-    annotator.build_types(bb, [int])
-    t.buildrtyper(type_system="ootype").specialize()
-    graph = graphof(t, bb)
-    interp = LLInterpreter(t.rtyper)
-    res = interp.eval_graph(graph, [1])
-
 def test_half_exceptiontransformed_graphs():
     from rpython.translator import exceptiontransform
     def f1(x):
@@ -581,7 +559,7 @@ def test_malloc_checker():
             free(t, flavor='raw')
     interpret(f, [1])
     py.test.raises(leakfinder.MallocMismatch, "interpret(f, [0])")
-    
+
     def f():
         t1 = malloc(T, flavor='raw')
         t2 = malloc(T, flavor='raw')
@@ -615,7 +593,7 @@ def test_context_manager():
 def test_scoped_allocator():
     from rpython.rtyper.lltypesystem.lltype import scoped_alloc, Array, Signed
     T = Array(Signed)
-    
+
     def f():
         x = 0
         with scoped_alloc(T, 1) as array:
@@ -630,12 +608,12 @@ def test_raising_llimpl():
 
     def external():
         pass
-    
+
     def raising():
         raise OSError(15, "abcd")
-    
+
     ext = register_external(external, [], llimpl=raising, llfakeimpl=raising)
-    
+
     def f():
         # this is a useful llfakeimpl that raises an exception
         try:

@@ -3,7 +3,8 @@ from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
 from rpython.rtyper import raddress, rptr, extregistry, rrange
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem.rdict import rtype_r_dict
 from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
 
@@ -46,20 +47,18 @@ def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
-            None, hop.args_s[1].const, # shape
+            hop.args_s[1].const, # shape
             range(hop.nb_args-2))
-    if arguments.w_starstararg is not None:
-        raise TyperError("**kwds call not implemented")
     if arguments.w_stararg is not None:
         # expand the *arg in-place -- it must be a tuple
-        from rpython.rtyper.rtuple import AbstractTupleRepr
+        from rpython.rtyper.rtuple import TupleRepr
         if arguments.w_stararg != hop.nb_args - 3:
             raise TyperError("call pattern too complex")
         hop.nb_args -= 1
         v_tuple = hop.args_v.pop()
         s_tuple = hop.args_s.pop()
         r_tuple = hop.args_r.pop()
-        if not isinstance(r_tuple, AbstractTupleRepr):
+        if not isinstance(r_tuple, TupleRepr):
             raise TyperError("*arg must be a tuple")
         for i in range(len(r_tuple.items_r)):
             v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
@@ -73,10 +72,8 @@ def call_args_expand(hop, takes_kwds = True):
         raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
-    for i, key in enumerate(keywords):
-        index = arguments.keywords_w[i]
-        kwds_i['i_' + key] = index
-
+    for key in keywords:
+        kwds_i['i_' + key] = keywords[key]
     return hop, kwds_i
 
 
@@ -90,10 +87,6 @@ class BuiltinFunctionRepr(Repr):
         "Find the function to use to specialize calls to this built-in func."
         try:
             return BUILTIN_TYPER[self.builtinfunc]
-        except (KeyError, TypeError):
-            pass
-        try:
-            return rtyper.type_system.rbuiltin.BUILTIN_TYPER[self.builtinfunc]
         except (KeyError, TypeError):
             pass
         if extregistry.is_registered(self.builtinfunc):
@@ -198,7 +191,7 @@ def get_builtin_method_self(x):
 def rtype_builtin_bool(hop):
     # not called any more?
     assert hop.nb_args == 1
-    return hop.args_r[0].rtype_is_true(hop)
+    return hop.args_r[0].rtype_bool(hop)
 
 def rtype_builtin_int(hop):
     if isinstance(hop.args_s[0], annmodel.SomeString):
@@ -308,7 +301,7 @@ def rtype_hlinvoke(hop):
     s_callable = r_callable.get_s_callable()
 
     nbargs = len(hop.args_s) - 1 + nimplicitarg
-    s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
+    s_sigs = r_func.get_s_signatures((nbargs, (), False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
                          "annotations: %r" % (r_callable,
@@ -359,7 +352,8 @@ else:
         getattr(WindowsError.__init__, 'im_func', WindowsError.__init__)] = (
         rtype_WindowsError__init__)
 
-BUILTIN_TYPER[object.__init__] = rtype_object__init__
+BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
+    rtype_object__init__)
 # annotation of low-level types
 
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
@@ -691,3 +685,101 @@ BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
 BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
+
+def rtype_builtin_isinstance(hop):
+    hop.exception_cannot_occur()
+    if hop.s_result.is_constant():
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
+
+    if hop.args_s[1].is_constant() and hop.args_s[1].const == list:
+        if hop.args_s[0].knowntype != list:
+            raise TyperError("isinstance(x, list) expects x to be known statically to be a list or None")
+        rlist = hop.args_r[0]
+        vlist = hop.inputarg(rlist, arg=0)
+        cnone = hop.inputconst(rlist, None)
+        return hop.genop('ptr_ne', [vlist, cnone], resulttype=lltype.Bool)
+
+    assert isinstance(hop.args_r[0], rclass.InstanceRepr)
+    return hop.args_r[0].rtype_isinstance(hop)
+
+def rtype_instantiate(hop):
+    hop.exception_cannot_occur()
+    s_class = hop.args_s[0]
+    assert isinstance(s_class, annmodel.SomePBC)
+    if len(s_class.descriptions) != 1:
+        # instantiate() on a variable class
+        vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
+        r_class = hop.args_r[0]
+        return r_class._instantiate_runtime_class(hop, vtypeptr,
+                                                  hop.r_result.lowleveltype)
+    classdef = s_class.any_description().getuniqueclassdef()
+    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
+
+def rtype_builtin_hasattr(hop):
+    hop.exception_cannot_occur()
+    if hop.s_result.is_constant():
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
+
+    raise TyperError("hasattr is only suported on a constant")
+
+def rtype_ordered_dict(hop):
+    from rpython.rtyper.lltypesystem.rordereddict import ll_newdict
+
+    hop.exception_cannot_occur()
+    r_dict = hop.r_result
+    cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
+    v_result = hop.gendirectcall(ll_newdict, cDICT)
+    if hasattr(r_dict, 'r_dict_eqfn'):
+        v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
+        v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
+        if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
+            cname = hop.inputconst(lltype.Void, 'fnkeyeq')
+            hop.genop('setfield', [v_result, cname, v_eqfn])
+        if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
+            cname = hop.inputconst(lltype.Void, 'fnkeyhash')
+            hop.genop('setfield', [v_result, cname, v_hashfn])
+    return v_result
+
+BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
+BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
+BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
+BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
+BUILTIN_TYPER[annmodel.SomeOrderedDict.knowntype] = rtype_ordered_dict
+BUILTIN_TYPER[objectmodel.r_ordereddict] = rtype_ordered_dict
+
+# _________________________________________________________________
+# weakrefs
+
+import weakref
+from rpython.rtyper.lltypesystem import llmemory
+
+def rtype_weakref_create(hop):
+    # Note: this code also works for the RPython-level calls 'weakref.ref(x)'.
+    vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRefPtr)
+
+def rtype_weakref_deref(hop):
+    c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
+    assert v_wref.concretetype == llmemory.WeakRefPtr
+    hop.exception_cannot_occur()
+    return hop.genop('weakref_deref', [v_wref], resulttype=c_ptrtype.value)
+
+def rtype_cast_ptr_to_weakrefptr(hop):
+    vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.genop('cast_ptr_to_weakrefptr', vlist,
+                     resulttype=llmemory.WeakRefPtr)
+
+def rtype_cast_weakrefptr_to_ptr(hop):
+    c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
+    assert v_wref.concretetype == llmemory.WeakRefPtr
+    hop.exception_cannot_occur()
+    return hop.genop('cast_weakrefptr_to_ptr', [v_wref],
+                     resulttype=c_ptrtype.value)
+
+BUILTIN_TYPER[weakref.ref] = rtype_weakref_create
+BUILTIN_TYPER[llmemory.weakref_create] = rtype_weakref_create
+BUILTIN_TYPER[llmemory.weakref_deref] = rtype_weakref_deref
+BUILTIN_TYPER[llmemory.cast_ptr_to_weakrefptr] = rtype_cast_ptr_to_weakrefptr
+BUILTIN_TYPER[llmemory.cast_weakrefptr_to_ptr] = rtype_cast_weakrefptr_to_ptr

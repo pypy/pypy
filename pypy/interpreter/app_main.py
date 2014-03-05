@@ -119,13 +119,12 @@ def display_exception():
     except:
         try:
             stderr = sys.stderr
-        except AttributeError:
-            pass   # too bad
-        else:
             print >> stderr, 'Error calling sys.excepthook:'
             originalexcepthook(*sys.exc_info())
             print >> stderr
             print >> stderr, 'Original exception was:'
+        except:
+            pass   # too bad
 
     # we only get here if sys.excepthook didn't do its job
     originalexcepthook(etype, evalue, etraceback)
@@ -195,6 +194,11 @@ def _print_jit_help():
 def print_version(*args):
     print >> sys.stderr, "Python", sys.version
     raise SystemExit
+
+
+def funroll_loops(*args):
+    print("Vroom vroom, I'm a racecar!")
+
 
 def set_jit_option(options, jitparam, *args):
     if jitparam == 'help':
@@ -381,6 +385,7 @@ cmdline_options = {
     'Q':         (div_option,      Ellipsis),
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
+    '-funroll-loops': (funroll_loops, None),
     '--':        (end_options,     None),
     }
 
@@ -550,8 +555,15 @@ def run_command_line(interactive,
         # or
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
+        try:
+            # we need a version of getenv that bypasses Python caching
+            from __pypy__.os import real_getenv
+        except ImportError:
+            # dont fail on CPython here
+            real_getenv = os.getenv
+
         return (interactive or
-                ((inspect or (readenv and os.getenv('PYTHONINSPECT')))
+                ((inspect or (readenv and real_getenv('PYTHONINSPECT')))
                  and sys.stdin.isatty()))
 
     success = True

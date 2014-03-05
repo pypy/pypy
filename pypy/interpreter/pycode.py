@@ -12,7 +12,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR, CO_KILL_DOCSTRING)
+    CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash
@@ -31,7 +31,7 @@ def unpack_str_tuple(space,w_str_tuple):
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
-default_magic = (168686339+2) | 0x0a0d0000              # this PyPy's magic
+default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
                                                         # (from CPython 2.7.0)
 
 # cpython_code_signature helper
@@ -189,9 +189,8 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(None, fresh_frame.locals_stack_w,
-                                             func.name,
-                                             sig, func.defs_w)
+        args.parse_into_scope(None, fresh_frame.locals_stack_w, func.name,
+                              sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -202,9 +201,8 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(w_obj, fresh_frame.locals_stack_w,
-                                             func.name,
-                                             sig, func.defs_w)
+        args.parse_into_scope(w_obj, fresh_frame.locals_stack_w, func.name,
+                              sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -251,8 +249,9 @@ class PyCode(eval.Code):
                         tuple(self.co_cellvars))
 
     def exec_host_bytecode(self, w_globals, w_locals):
-        from pypy.interpreter.pyframe import CPythonFrame
-        frame = CPythonFrame(self.space, self, w_globals, None)
+        if sys.version_info < (2, 7):
+            raise Exception("PyPy no longer supports Python 2.6 or lower")
+        frame = self.space.FrameClass(self.space, self, w_globals, None)
         frame.setdictscope(w_locals)
         return frame.run()
 

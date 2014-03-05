@@ -8,8 +8,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 canmallocgc=False, canrun=False, oo=False,
-                 tryfold=False):
+                 canmallocgc=False, canrun=False, tryfold=False):
         # self.opname = ... (set afterwards)
 
         if canfold:
@@ -42,9 +41,6 @@ class LLOp(object):
         # The operation can be run directly with __call__
         self.canrun = canrun or canfold
 
-        # The operation belongs to the ootypesystem
-        self.oo = oo
-
     # __________ make the LLOp instances callable from LL helpers __________
 
     __name__ = property(lambda self: 'llop_'+self.opname)
@@ -68,10 +64,7 @@ class LLOp(object):
         global lltype                 #  <- lazy import hack, worth an XXX
         from rpython.rtyper.lltypesystem import lltype
         if self.canrun:
-            if self.oo:
-                from rpython.rtyper.ootypesystem.ooopimpl import get_op_impl
-            else:
-                from rpython.rtyper.lltypesystem.opimpl import get_op_impl
+            from rpython.rtyper.lltypesystem.opimpl import get_op_impl
             op_impl = get_op_impl(self.opname)
         else:
             error = TypeError("cannot constant-fold operation %r" % (
@@ -87,14 +80,10 @@ class LLOp(object):
             return True
         if self is llop.debug_assert:   # debug_assert is pure enough
             return True
-        # reading from immutable (lltype)
+        # reading from immutable
         if self is llop.getfield or self is llop.getarrayitem:
             field = getattr(args_v[1], 'value', None)
             return args_v[0].concretetype.TO._immutable_field(field)
-        # reading from immutable (ootype) (xxx what about arrays?)
-        if self is llop.oogetfield:
-            field = getattr(args_v[1], 'value', None)
-            return args_v[0].concretetype._immutable_field(field)
         # default
         return False
 
@@ -152,7 +141,7 @@ class Entry(ExtRegistryEntry):
     _type_ = LLOp
 
     def compute_result_annotation(self, RESULTTYPE, *args):
-        from rpython.annotator.model import lltype_to_annotation
+        from rpython.rtyper.llannotation import lltype_to_annotation
         assert RESULTTYPE.is_constant()
         return lltype_to_annotation(RESULTTYPE.const)
 
@@ -178,7 +167,7 @@ class Entry(ExtRegistryEntry):
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
 # Note that many exception-raising operations can be replaced by calls
-# to helper functions in rpython.rtyper.raisingops.raisingops.
+# to helper functions in rpython.rtyper.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {
@@ -350,7 +339,7 @@ LL_OPERATIONS = {
     'lllong_lshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_rshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_xor':            LLOp(canfold=True),
-    
+
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),
@@ -421,8 +410,9 @@ LL_OPERATIONS = {
     'raw_memclear':         LLOp(),
     'raw_memcopy':          LLOp(),
     'raw_memmove':          LLOp(),
-    'raw_load':             LLOp(sideeffects=False),
-    'raw_store':            LLOp(),
+    'raw_load':             LLOp(sideeffects=False, canrun=True),
+    'raw_store':            LLOp(canrun=True),
+    'bare_raw_store':       LLOp(),
     'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
@@ -457,6 +447,7 @@ LL_OPERATIONS = {
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'jit_record_known_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
+    'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),
@@ -481,13 +472,12 @@ LL_OPERATIONS = {
     'gc_obtain_free_space': LLOp(),
     'gc_set_max_heap_size': LLOp(),
     'gc_can_move'         : LLOp(sideeffects=False),
-    'gc_thread_prepare'   : LLOp(canmallocgc=True),
     'gc_thread_run'       : LLOp(),
     'gc_thread_start'     : LLOp(),
     'gc_thread_die'       : LLOp(),
     'gc_thread_before_fork':LLOp(),   # returns an opaque address
     'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
-    'gc_assume_young_pointers': LLOp(canrun=True),
+    'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
 
@@ -573,32 +563,6 @@ LL_OPERATIONS = {
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
-
-    # __________ ootype operations __________
-    'new':                  LLOp(oo=True, canraise=(MemoryError,)),
-    'runtimenew':           LLOp(oo=True, canraise=(MemoryError,)),
-    'oonewcustomdict':      LLOp(oo=True, canraise=(MemoryError,)),
-    'oonewarray':           LLOp(oo=True, canraise=(MemoryError,)),
-    'oosetfield':           LLOp(oo=True),
-    'oogetfield':           LLOp(oo=True, sideeffects=False, canrun=True),
-    'oosend':               LLOp(oo=True, canraise=(Exception,)),
-    'ooupcast':             LLOp(oo=True, canfold=True),
-    'oodowncast':           LLOp(oo=True, canfold=True),
-    'cast_to_object':       LLOp(oo=True, canfold=True),
-    'cast_from_object':     LLOp(oo=True, canfold=True),
-    'oononnull':            LLOp(oo=True, canfold=True),
-    'ooisnot':              LLOp(oo=True, canfold=True),
-    'ooisnull':             LLOp(oo=True, canfold=True),
-    'oois':                 LLOp(oo=True, canfold=True),
-    'instanceof':           LLOp(oo=True, canfold=True),
-    'classof':              LLOp(oo=True, canfold=True),
-    'subclassof':           LLOp(oo=True, canfold=True),
-    'oostring':             LLOp(oo=True, sideeffects=False),
-    'oobox_int':            LLOp(oo=True, sideeffects=False),
-    'oounbox_int':          LLOp(oo=True, sideeffects=False),
-    'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
-    'ooparse_float':        LLOp(oo=True, canraise=(ValueError,)),
-    'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),
 }
 # ***** Run test_lloperation after changes. *****
 

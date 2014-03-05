@@ -54,7 +54,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 #         ...               // extra instance attributes
 #     }
 #
-# there's also a nongcobject 
+# there's also a nongcobject
 
 OBJECT_VTABLE = lltype.ForwardReference()
 CLASSTYPE = Ptr(OBJECT_VTABLE)
@@ -69,6 +69,7 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(Array(Char))),
+                            ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints = {'immutable': True}))
 # non-gc case
@@ -185,6 +186,7 @@ class ClassRepr(AbstractClassRepr):
         """Initialize the 'self' portion of the 'vtable' belonging to the
         given subclass."""
         if self.classdef is None:
+            vtable.hash = hash(rsubcls)
             # initialize the 'subclassrange_*' and 'name' fields
             if rsubcls.classdef is not None:
                 #vtable.parenttypeptr = rsubcls.rbase.getvtable()
@@ -282,16 +284,11 @@ class ClassRepr(AbstractClassRepr):
         cname = inputconst(Void, mangled_name)
         return llops.genop('getfield', [v_vtable, cname], resulttype=r)
 
-    def rtype_issubtype(self, hop): 
+    def rtype_issubtype(self, hop):
         class_repr = get_type_repr(self.rtyper)
         v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
         if isinstance(v_cls2, Constant):
             cls2 = v_cls2.value
-            # XXX re-implement the following optimization
-##            if cls2.subclassrange_max == cls2.subclassrange_min:
-##                # a class with no subclass
-##                return hop.genop('ptr_eq', [v_cls1, v_cls2], resulttype=Bool)
-##            else:
             minid = hop.inputconst(Signed, cls2.subclassrange_min)
             maxid = hop.inputconst(Signed, cls2.subclassrange_max)
             return hop.gendirectcall(ll_issubclass_const, v_cls1, minid,
@@ -311,7 +308,7 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             ForwardRef = lltype.FORWARDREF_BY_FLAVOR[LLFLAVOR[gcflavor]]
             self.object_type = ForwardRef()
-            
+
         self.iprebuiltinstances = identity_dict()
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor
@@ -442,8 +439,10 @@ class InstanceRepr(AbstractInstanceRepr):
                     except AttributeError:
                         attrvalue = self.classdef.classdesc.read_attribute(name, None)
                         if attrvalue is None:
-                            warning("prebuilt instance %r has no attribute %r" % (
-                                    value, name))
+                            # Ellipsis from get_reusable_prebuilt_instance()
+                            if value is not Ellipsis:
+                                warning("prebuilt instance %r has no "
+                                        "attribute %r" % (value, name))
                             llattrvalue = r.lowleveltype._defl()
                         else:
                             llattrvalue = r.convert_desc_or_const(attrvalue)
@@ -575,7 +574,7 @@ class InstanceRepr(AbstractInstanceRepr):
         self.setfield(vinst, attr, vvalue, hop.llops,
                       flags=hop.args_s[0].flags)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         vinst, = hop.inputargs(self)
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 

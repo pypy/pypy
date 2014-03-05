@@ -160,12 +160,42 @@ class TestMisc(BaseTestPyPyC):
         jump(..., descr=...)
         """)
 
-    def test_range_iter(self):
+    def test_range_iter_simple(self):
         def main(n):
             def g(n):
                 return range(n)
             s = 0
             for i in range(n):  # ID: for
+                tmp = g(n)
+                s += tmp[i]     # ID: getitem
+                a = 0
+            return s
+        #
+        log = self.run(main, [1000])
+        assert log.result == 1000 * 999 / 2
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            guard_not_invalidated?
+            i16 = int_lt(i11, i12)
+            guard_true(i16, descr=...)
+            i20 = int_add(i11, 1)
+            i21 = force_token()
+            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_not_invalidated?
+            i25 = int_lt(i11, i9)
+            guard_true(i25, descr=...)
+            i27 = int_add_ovf(i7, i11)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(..., descr=...)
+        """)
+
+    def test_range_iter_normal(self):
+        def main(n):
+            def g(n):
+                return range(n)
+            s = 0
+            for i in range(1, n):  # ID: for
                 tmp = g(n)
                 s += tmp[i]     # ID: getitem
                 a = 0
@@ -184,10 +214,10 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
-            i23 = int_lt(i18, 0)
-            guard_false(i23, descr=...)
-            i25 = int_ge(i18, i9)
-            guard_false(i25, descr=...)
+            i23 = int_ge(i18, 0)
+            guard_true(i23, descr=...)
+            i25 = int_lt(i18, i9)
+            guard_true(i25, descr=...)
             i27 = int_add_ovf(i7, i18)
             guard_no_overflow(descr=...)
             --TICK--
@@ -333,8 +363,8 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_id("struct")
         if sys.maxint == 2 ** 63 - 1:
             extra = """
-            i8 = int_lt(i4, -2147483648)
-            guard_false(i8, descr=...)
+            i8 = int_ge(i4, -2147483648)
+            guard_true(i8, descr=...)
             """
         else:
             extra = ""
@@ -408,3 +438,20 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [300])
         loop, = log.loops_by_id("long_op")
         assert len(loop.ops_by_id("long_op")) == 0
+
+    def test_settrace(self):
+        def main(n):
+            import sys
+            sys.settrace(lambda *args, **kwargs: None)
+
+            def f():
+                return 1
+
+            while n:
+                n -= f()
+
+        log = self.run(main, [300])
+        loops = log.loops_by_filename(self.filepath)
+        # the following assertion fails if the loop was cancelled due
+        # to "abort: vable escape"
+        assert len(loops) == 1

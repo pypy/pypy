@@ -98,6 +98,7 @@ class Parser(object):
         self._anonymous_counter = 0
         self._structnode2type = weakref.WeakKeyDictionary()
         self._override = False
+        self._packed = False
 
     def _parse(self, csource):
         csource, macros = _preprocess(csource)
@@ -142,18 +143,21 @@ class Parser(object):
                 if 1 <= linenum <= len(csourcelines):
                     line = csourcelines[linenum-1]
         if line:
-            msg = 'cannot parse "%s"\n%s' % (line, msg)
+            msg = 'cannot parse "%s"\n%s' % (line.strip(), msg)
         else:
             msg = 'parse error\n%s' % (msg,)
         raise api.CDefError(msg)
 
-    def parse(self, csource, override=False):
+    def parse(self, csource, override=False, packed=False):
         prev_override = self._override
+        prev_packed = self._packed
         try:
             self._override = override
+            self._packed = packed
             self._internal_parse(csource)
         finally:
             self._override = prev_override
+            self._packed = prev_packed
 
     def _internal_parse(self, csource):
         ast, macros = self._parse(csource)
@@ -217,19 +221,18 @@ class Parser(object):
             #
             if decl.name:
                 tp = self._get_type(node, partial_length_ok=True)
-                if self._is_constant_declaration(node):
+                if self._is_constant_globalvar(node):
                     self._declare('constant ' + decl.name, tp)
                 else:
                     self._declare('variable ' + decl.name, tp)
 
-    def parse_type(self, cdecl, consider_function_as_funcptr=False):
+    def parse_type(self, cdecl):
         ast, macros = self._parse('void __dummy(\n%s\n);' % cdecl)
         assert not macros
         exprnode = ast.ext[-1].type.args.params[0]
         if isinstance(exprnode, pycparser.c_ast.ID):
             raise api.CDefError("unknown identifier '%s'" % (exprnode.name,))
-        return self._get_type(exprnode.type,
-                     consider_function_as_funcptr=consider_function_as_funcptr)
+        return self._get_type(exprnode.type)
 
     def _declare(self, name, obj):
         if name in self._declarations:
@@ -249,28 +252,17 @@ class Parser(object):
             return model.ConstPointerType(type)
         return model.PointerType(type)
 
-    def _get_type(self, typenode, convert_array_to_pointer=False,
-                  name=None, partial_length_ok=False,
-                  consider_function_as_funcptr=False):
+    def _get_type(self, typenode, name=None, partial_length_ok=False):
         # first, dereference typedefs, if we have it already parsed, we're good
         if (isinstance(typenode, pycparser.c_ast.TypeDecl) and
             isinstance(typenode.type, pycparser.c_ast.IdentifierType) and
             len(typenode.type.names) == 1 and
             ('typedef ' + typenode.type.names[0]) in self._declarations):
             type = self._declarations['typedef ' + typenode.type.names[0]]
-            if isinstance(type, model.ArrayType):
-                if convert_array_to_pointer:
-                    return type.item
-            else:
-                if (consider_function_as_funcptr and
-                        isinstance(type, model.RawFunctionType)):
-                    return type.as_function_pointer()
             return type
         #
         if isinstance(typenode, pycparser.c_ast.ArrayDecl):
             # array type
-            if convert_array_to_pointer:
-                return self._get_type_pointer(self._get_type(typenode.type))
             if typenode.dim is None:
                 length = None
             else:
@@ -290,13 +282,26 @@ class Parser(object):
                 # assume a primitive type.  get it from .names, but reduce
                 # synonyms to a single chosen combination
                 names = list(type.names)
-                if names == ['signed'] or names == ['unsigned']:
-                    names.append('int')
-                if names[0] == 'signed' and names != ['signed', 'char']:
-                    names.pop(0)
-                if (len(names) > 1 and names[-1] == 'int'
-                        and names != ['unsigned', 'int']):
-                    names.pop()
+                if names != ['signed', 'char']:    # keep this unmodified
+                    prefixes = {}
+                    while names:
+                        name = names[0]
+                        if name in ('short', 'long', 'signed', 'unsigned'):
+                            prefixes[name] = prefixes.get(name, 0) + 1
+                            del names[0]
+                        else:
+                            break
+                    # ignore the 'signed' prefix below, and reorder the others
+                    newnames = []
+                    for prefix in ('unsigned', 'short', 'long'):
+                        for i in range(prefixes.get(prefix, 0)):
+                            newnames.append(prefix)
+                    if not names:
+                        names = ['int']    # implicitly
+                    if names == ['int']:   # but kill it if 'short' or 'long'
+                        if 'short' in prefixes or 'long' in prefixes:
+                            names = []
+                    names = newnames + names
                 ident = ' '.join(names)
                 if ident == 'void':
                     return model.void_type
@@ -318,10 +323,7 @@ class Parser(object):
         #
         if isinstance(typenode, pycparser.c_ast.FuncDecl):
             # a function type
-            result = self._parse_function_type(typenode, name)
-            if consider_function_as_funcptr:
-                result = result.as_function_pointer()
-            return result
+            return self._parse_function_type(typenode, name)
         #
         # nested anonymous structs or unions end up here
         if isinstance(typenode, pycparser.c_ast.Struct):
@@ -352,21 +354,24 @@ class Parser(object):
             isinstance(params[0].type.type, pycparser.c_ast.IdentifierType)
                 and list(params[0].type.type.names) == ['void']):
             del params[0]
-        args = [self._get_type(argdeclnode.type,
-                               convert_array_to_pointer=True,
-                               consider_function_as_funcptr=True)
+        args = [self._as_func_arg(self._get_type(argdeclnode.type))
                 for argdeclnode in params]
         result = self._get_type(typenode.type)
         return model.RawFunctionType(tuple(args), result, ellipsis)
 
-    def _is_constant_declaration(self, typenode, const=False):
-        if isinstance(typenode, pycparser.c_ast.ArrayDecl):
-            return self._is_constant_declaration(typenode.type)
+    def _as_func_arg(self, type):
+        if isinstance(type, model.ArrayType):
+            return model.PointerType(type.item)
+        elif isinstance(type, model.RawFunctionType):
+            return type.as_function_pointer()
+        else:
+            return type
+
+    def _is_constant_globalvar(self, typenode):
         if isinstance(typenode, pycparser.c_ast.PtrDecl):
-            const = 'const' in typenode.quals
-            return self._is_constant_declaration(typenode.type, const)
+            return 'const' in typenode.quals
         if isinstance(typenode, pycparser.c_ast.TypeDecl):
-            return const or 'const' in typenode.quals
+            return 'const' in typenode.quals
         return False
 
     def _get_struct_union_enum_type(self, kind, type, name=None, nested=False):
@@ -475,10 +480,11 @@ class Parser(object):
             if isinstance(tp, model.StructType) and tp.partial:
                 raise NotImplementedError("%s: using both bitfields and '...;'"
                                           % (tp,))
+        tp.packed = self._packed
         return tp
 
     def _make_partial(self, tp, nested):
-        if not isinstance(tp, model.StructType):
+        if not isinstance(tp, model.StructOrUnion):
             raise api.CDefError("%s cannot be partial" % (tp,))
         if not tp.has_c_name() and not nested:
             raise NotImplementedError("%s is partial but has no C name" %(tp,))
@@ -498,10 +504,10 @@ class Parser(object):
             if (isinstance(exprnode, pycparser.c_ast.ID) and
                     exprnode.name == '__dotdotdotarray__'):
                 self._partial_length = True
-                return None
+                return '...'
         #
-        raise api.FFIError("unsupported non-constant or "
-                           "not immediately constant expression")
+        raise api.FFIError("unsupported expression: expected a "
+                           "simple numeric constant")
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:

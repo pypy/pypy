@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+## FIXME: remove when https://bugs.pypy.org/issue1644 is resolved
+import sys
+if sys.platform.startswith('freebsd'):
+    raise Exception("This test hangs on FreeBSD. Test deactivated for now until https://bugs.pypy.org/issue1644 get resolved")
+
 #
 # Unit tests for the multiprocessing package
 #

@@ -1,3 +1,5 @@
+import itertools
+
 import py
 from rpython.rlib.objectmodel import r_dict, compute_identity_hash
 from rpython.rlib.rarithmetic import intmask
@@ -136,13 +138,16 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
     print ' Comparing lists '.center(totwidth, '-')
     text_right = text_right or 'expected'
     print '%s| %s' % ('optimized'.center(width), text_right.center(width))
-    for op1, op2 in zip(oplist1, oplist2):
+    for op1, op2 in itertools.izip_longest(oplist1, oplist2, fillvalue=''):
         txt1 = str(op1)
         txt2 = str(op2)
         while txt1 or txt2:
             print '%s| %s' % (txt1[:width].ljust(width), txt2[:width])
             txt1 = txt1[width:]
             txt2 = txt2[width:]
+    print '-' * totwidth
+
+    for op1, op2 in zip(oplist1, oplist2):
         assert op1.getopnum() == op2.getopnum()
         assert op1.numargs() == op2.numargs()
         for i in range(op1.numargs()):
@@ -177,6 +182,5 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
                     else:
                         assert False
     assert len(oplist1) == len(oplist2)
-    print '-'*totwidth
     return True
 

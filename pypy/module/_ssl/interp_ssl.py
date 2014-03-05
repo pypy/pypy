@@ -399,7 +399,7 @@ class SSLObject(W_Root):
 
         proto = libssl_SSL_CIPHER_get_version(current)
         if proto:
-            w_proto = space.wrap(rffi.charp2str(name))
+            w_proto = space.wrap(rffi.charp2str(proto))
         else:
             w_proto = space.w_None
 
@@ -476,15 +476,15 @@ def _decode_certificate(space, certificate, verbose=False):
                 w_serial = space.wrap(rffi.charpsize2str(buf, length))
             space.setitem(w_retval, space.wrap("serialNumber"), w_serial)
 
-            libssl_BIO_reset(biobuf)
-            notBefore = libssl_X509_get_notBefore(certificate)
-            libssl_ASN1_TIME_print(biobuf, notBefore)
-            with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
-                length = libssl_BIO_gets(biobuf, buf, 99)
-                if length < 0:
-                    raise _ssl_seterror(space, None, length)
-                w_date = space.wrap(rffi.charpsize2str(buf, length))
-            space.setitem(w_retval, space.wrap("notBefore"), w_date)
+        libssl_BIO_reset(biobuf)
+        notBefore = libssl_X509_get_notBefore(certificate)
+        libssl_ASN1_TIME_print(biobuf, notBefore)
+        with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
+            length = libssl_BIO_gets(biobuf, buf, 99)
+            if length < 0:
+                raise _ssl_seterror(space, None, length)
+            w_date = space.wrap(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.wrap("notBefore"), w_date)
 
         libssl_BIO_reset(biobuf)
         notAfter = libssl_X509_get_notAfter(certificate)
@@ -711,8 +711,12 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
             raise ssl_error(space, "SSL_CTX_use_certificate_chain_file error")
 
     # ssl compatibility
-    libssl_SSL_CTX_set_options(ss.ctx, 
-                               SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
+    options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+    if protocol != PY_SSL_VERSION_SSL2:
+        # SSLv2 is extremely broken, don't use it unless a user specifically
+        # requests it
+        options |= SSL_OP_NO_SSLv2
+    libssl_SSL_CTX_set_options(ss.ctx, options)
 
     verification_mode = SSL_VERIFY_NONE
     if cert_mode == PY_SSL_CERT_OPTIONAL:
@@ -722,7 +726,10 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
     libssl_SSL_CTX_set_verify(ss.ctx, verification_mode, None)
     ss.ssl = libssl_SSL_new(ss.ctx) # new ssl struct
     libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
-    libssl_SSL_set_mode(ss.ssl, SSL_MODE_AUTO_RETRY)
+    # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
+    # of a str object may be changed by the garbage collector.
+    libssl_SSL_set_mode(ss.ssl,
+                        SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
 
     # If the socket is in non-blocking mode or timeout mode, set the BIO
     # to non-blocking mode (blocking is the default)
@@ -730,7 +737,6 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
         # Set both the read and write BIO's to non-blocking mode
         libssl_BIO_set_nbio(libssl_SSL_get_rbio(ss.ssl), 1)
         libssl_BIO_set_nbio(libssl_SSL_get_wbio(ss.ssl), 1)
-    libssl_SSL_set_connect_state(ss.ssl)
 
     if side == PY_SSL_CLIENT:
         libssl_SSL_set_connect_state(ss.ssl)

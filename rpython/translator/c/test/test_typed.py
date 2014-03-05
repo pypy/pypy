@@ -17,16 +17,6 @@ class TestTypedTestCase(object):
     def getcompiled(self, func, argtypes):
         return compile(func, argtypes, backendopt=False)
 
-    def get_wrapper(self, func):
-        def wrapper(*args):
-            try:
-                return func(*args)
-            except OverflowError:
-                return -1
-            except ZeroDivisionError:
-                return -2
-        return wrapper
-
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr, [])
         assert set_attr() == 2
@@ -470,32 +460,32 @@ class TestTypedTestCase(object):
                 assert res == f(i, ord(l[j]))
 
     def test_int_overflow(self):
-        fn = self.getcompiled(self.get_wrapper(snippet.add_func), [int])
-        assert fn(sys.maxint) == -1
+        fn = self.getcompiled(snippet.add_func, [int])
+        fn(sys.maxint, expected_exception_name='OverflowError')
 
     def test_int_floordiv_ovf_zer(self):
-        fn = self.getcompiled(self.get_wrapper(snippet.div_func), [int])
-        assert fn(-1) == -1
-        assert fn(0) == -2
+        fn = self.getcompiled(snippet.div_func, [int])
+        fn(-1, expected_exception_name='OverflowError')
+        fn(0, expected_exception_name='ZeroDivisionError')
 
     def test_int_mul_ovf(self):
-        fn = self.getcompiled(self.get_wrapper(snippet.mul_func), [int, int])
+        fn = self.getcompiled(snippet.mul_func, [int, int])
         for y in range(-5, 5):
             for x in range(-5, 5):
                 assert fn(x, y) == snippet.mul_func(x, y)
         n = sys.maxint / 4
         assert fn(n, 3) == snippet.mul_func(n, 3)
         assert fn(n, 4) == snippet.mul_func(n, 4)
-        assert fn(n, 5) == -1
+        fn(n, 5, expected_exception_name='OverflowError')
 
     def test_int_mod_ovf_zer(self):
-        fn = self.getcompiled(self.get_wrapper(snippet.mod_func), [int])
-        assert fn(-1) == -1
-        assert fn(0) == -2
+        fn = self.getcompiled(snippet.mod_func, [int])
+        fn(-1, expected_exception_name='OverflowError')
+        fn(0, expected_exception_name='ZeroDivisionError')
 
     def test_int_lshift_ovf(self):
-        fn = self.getcompiled(self.get_wrapper(snippet.lshift_func), [int])
-        assert fn(1) == -1
+        fn = self.getcompiled(snippet.lshift_func, [int])
+        fn(1, expected_exception_name='OverflowError')
 
     def test_int_unary_ovf(self):
         def w(a, b):
@@ -503,12 +493,12 @@ class TestTypedTestCase(object):
                 return snippet.unary_func(a)[0]
             else:
                 return snippet.unary_func(a)[1]
-        fn = self.getcompiled(self.get_wrapper(w), [int, int])
+        fn = self.getcompiled(w, [int, int])
         for i in range(-3, 3):
             assert fn(i, 0) == -(i)
             assert fn(i, 1) == abs(i - 1)
-        assert fn(-sys.maxint - 1, 0) == -1
-        assert fn(-sys.maxint, 0) == -1
+        fn(-sys.maxint - 1, 0, expected_exception_name='OverflowError')
+        fn(-sys.maxint, 0, expected_exception_name='OverflowError')
 
     # floats
     def test_float_operations(self):

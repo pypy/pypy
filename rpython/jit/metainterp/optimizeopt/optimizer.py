@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, 
                                                      IntLowerBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
-from rpython.jit.metainterp.typesystem import llhelper, oohelper
+from rpython.jit.metainterp.typesystem import llhelper
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
 from rpython.rlib.objectmodel import specialize
@@ -256,7 +256,6 @@ CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
-oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 REMOVED = AbstractResOp(None)
 
 
@@ -324,10 +323,6 @@ class Optimization(object):
     def force_at_end_of_preamble(self):
         pass
 
-    # It is too late to force stuff here, it must be done in force_at_end_of_preamble
-    def new(self):
-        raise NotImplementedError
-
     # Called after last operation has been propagated to flush out any posponed ops
     def flush(self):
         pass
@@ -351,7 +346,8 @@ class Optimizer(Optimization):
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
         self.producer = {}
-        self.pendingfields = []
+        self.pendingfields = None # set temporarily to a list, normally by
+                                  # heap.py, as we're about to generate a guard
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
         self.replaces_guard = {}
@@ -389,16 +385,6 @@ class Optimizer(Optimization):
     def flush(self):
         for o in self.optimizations:
             o.flush()
-
-    def new(self):
-        new = Optimizer(self.metainterp_sd, self.loop)
-        return self._new(new)
-
-    def _new(self, new):
-        optimizations = [o.new() for o in self.optimizations]
-        new.set_optimizations(optimizations)
-        new.quasi_immutable_deps = self.quasi_immutable_deps
-        return new
 
     def produce_potential_short_preamble_ops(self, sb):
         for opt in self.optimizations:
@@ -546,12 +532,14 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
+            pendingfields = self.pendingfields
+            self.pendingfields = None
             if self.replaces_guard and op in self.replaces_guard:
                 self.replace_op(self.replaces_guard[op], op)
                 del self.replaces_guard[op]
                 return
             else:
-                op = self.store_final_boxes_in_guard(op)
+                op = self.store_final_boxes_in_guard(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
         if op.result:
@@ -571,17 +559,18 @@ class Optimizer(Optimization):
         else:
             assert False
 
-    def store_final_boxes_in_guard(self, op):
+    def store_final_boxes_in_guard(self, op, pendingfields):
+        assert pendingfields is not None
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         try:
-            newboxes = modifier.finish(self, self.pendingfields)
+            newboxes = modifier.finish(self, pendingfields)
             if len(newboxes) > self.metainterp_sd.options.failargs_limit:
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
-        descr.store_final_boxes(op, newboxes)
+        descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
             if self.getvalue(op.getarg(0)) in self.bool_boxes:
@@ -639,13 +628,6 @@ class Optimizer(Optimization):
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
 
-    def optimize_GETARRAYITEM_GC_PURE(self, op):
-        indexvalue = self.getvalue(op.getarg(1))
-        if indexvalue.is_constant():
-            arrayvalue = self.getvalue(op.getarg(0))
-            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
-        self.optimize_default(op)
-
     def optimize_STRGETITEM(self, op):
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():
@@ -672,6 +654,3 @@ class Optimizer(Optimization):
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
-
-
-

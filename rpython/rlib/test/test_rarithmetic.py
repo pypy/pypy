@@ -1,6 +1,7 @@
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
+from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
 import sys
 import py
 
@@ -67,7 +68,7 @@ class Test_r_int:
                     left, right = types
                     cmp = f(left(larg), right(rarg))
                     assert res == cmp
-                    
+
 class Test_r_uint:
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
@@ -114,12 +115,12 @@ class Test_r_uint:
 
     def unary_test(self, f):
         for arg in (0, 3, 12345):
-            res = f(arg) & maxint_mask 
+            res = f(arg) & maxint_mask
             cmp = f(r_uint(arg))
             assert res == cmp
 
     def binary_test(self, f, rargs = None, translated=False):
-        mask = maxint_mask 
+        mask = maxint_mask
         if not rargs:
             rargs = (1, 3, 55)
         # when translated merging different int types is not allowed
@@ -177,7 +178,7 @@ def test_intmask():
     assert intmask(2*sys.maxint+1) == -1
     assert intmask(sys.maxint*2) == -2
     assert intmask(sys.maxint*2+2) == 0
-    assert intmask(2*(sys.maxint*1+1)) == 0    
+    assert intmask(2*(sys.maxint*1+1)) == 0
     assert intmask(1 << (machbits-1)) == 1 << (machbits-1)
     assert intmask(sys.maxint+1) == minint
     assert intmask(minint-1) == sys.maxint
@@ -228,13 +229,13 @@ def test_ovfcheck():
     except OverflowError:
         assert False
     else:
-        pass        
+        pass
     try:
         ovfcheck(n-n)
     except OverflowError:
         assert False
     else:
-        pass    
+        pass
 
     # overflowing
     try:
@@ -312,7 +313,7 @@ def test_r_singlefloat_eq():
     assert x != 2.5
     py.test.raises(TypeError, "x>y")
 
-class BaseTestRarithmetic(BaseRtypingTest):
+class TestRarithmetic(BaseRtypingTest):
     def test_compare_singlefloat_crashes(self):
         from rpython.rlib.rarithmetic import r_singlefloat
         from rpython.rtyper.error import MissingRTypeOperation
@@ -331,11 +332,6 @@ class BaseTestRarithmetic(BaseRtypingTest):
         res = self.interpret(f, [123])
         assert res == 4 + 2
 
-class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
-    pass
 
 def test_int_real_union():
     from rpython.rtyper.lltypesystem.rffi import r_int_real
@@ -412,3 +408,123 @@ def test_byteswap():
 
 def test_byteswap_interpret():
     interpret(test_byteswap, [])
+
+
+class TestStringToInt:
+
+    def test_string_to_int(self):
+        cases = [('0', 0),
+                 ('1', 1),
+                 ('9', 9),
+                 ('10', 10),
+                 ('09', 9),
+                 ('0000101', 101),    # not octal unless base 0 or 8
+                 ('5123', 5123),
+                 (' 0', 0),
+                 ('0  ', 0),
+                 (' \t \n   32313  \f  \v   \r  \n\r    ', 32313),
+                 ('+12', 12),
+                 ('-5', -5),
+                 ('- 5', -5),
+                 ('+ 5', 5),
+                 ('  -123456789 ', -123456789),
+                 ]
+        for s, expected in cases:
+            assert string_to_int(s) == expected
+            #assert string_to_bigint(s).tolong() == expected
+
+    def test_string_to_int_base(self):
+        cases = [('111', 2, 7),
+                 ('010', 2, 2),
+                 ('102', 3, 11),
+                 ('103', 4, 19),
+                 ('107', 8, 71),
+                 ('109', 10, 109),
+                 ('10A', 11, 131),
+                 ('10a', 11, 131),
+                 ('10f', 16, 271),
+                 ('10F', 16, 271),
+                 ('0x10f', 16, 271),
+                 ('0x10F', 16, 271),
+                 ('10z', 36, 1331),
+                 ('10Z', 36, 1331),
+                 ('12',   0, 12),
+                 ('015',  0, 13),
+                 ('0x10', 0, 16),
+                 ('0XE',  0, 14),
+                 ('0',    0, 0),
+                 ('0b11', 2, 3),
+                 ('0B10', 2, 2),
+                 ('0o77', 8, 63),
+                 ]
+        for s, base, expected in cases:
+            assert string_to_int(s, base) == expected
+            assert string_to_int('+'+s, base) == expected
+            assert string_to_int('-'+s, base) == -expected
+            assert string_to_int(s+'\n', base) == expected
+            assert string_to_int('  +'+s, base) == expected
+            assert string_to_int('-'+s+'  ', base) == -expected
+
+    def test_string_to_int_error(self):
+        cases = ['0x123',    # must use base 0 or 16
+                 ' 0X12 ',
+                 '0b01',
+                 '0o01',
+                 '',
+                 '++12',
+                 '+-12',
+                 '-+12',
+                 '--12',
+                 '12a6',
+                 '12A6',
+                 'f',
+                 'Z',
+                 '.',
+                 '@',
+                 ]
+        for s in cases:
+            py.test.raises(ParseStringError, string_to_int, s)
+            py.test.raises(ParseStringError, string_to_int, '  '+s)
+            py.test.raises(ParseStringError, string_to_int, s+'  ')
+            py.test.raises(ParseStringError, string_to_int, '+'+s)
+            py.test.raises(ParseStringError, string_to_int, '-'+s)
+        py.test.raises(ParseStringError, string_to_int, '0x', 16)
+        py.test.raises(ParseStringError, string_to_int, '-0x', 16)
+
+        exc = py.test.raises(ParseStringError, string_to_int, '')
+        assert exc.value.msg == "invalid literal for int() with base 10"
+        exc = py.test.raises(ParseStringError, string_to_int, '', 0)
+        assert exc.value.msg == "invalid literal for int() with base 0"
+
+    def test_string_to_int_overflow(self):
+        import sys
+        py.test.raises(ParseStringOverflowError, string_to_int,
+               str(sys.maxint*17))
+
+    def test_string_to_int_not_overflow(self):
+        import sys
+        for x in [-sys.maxint-1, sys.maxint]:
+            y = string_to_int(str(x))
+            assert y == x
+
+    def test_string_to_int_base_error(self):
+        cases = [('1', 1),
+                 ('1', 37),
+                 ('a', 0),
+                 ('9', 9),
+                 ('0x123', 7),
+                 ('145cdf', 15),
+                 ('12', 37),
+                 ('12', 98172),
+                 ('12', -1),
+                 ('12', -908),
+                 ('12.3', 10),
+                 ('12.3', 13),
+                 ('12.3', 16),
+                 ]
+        for s, base in cases:
+            py.test.raises(ParseStringError, string_to_int, s, base)
+            py.test.raises(ParseStringError, string_to_int, '  '+s, base)
+            py.test.raises(ParseStringError, string_to_int, s+'  ', base)
+            py.test.raises(ParseStringError, string_to_int, '+'+s, base)
+            py.test.raises(ParseStringError, string_to_int, '-'+s, base)

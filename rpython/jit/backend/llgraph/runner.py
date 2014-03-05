@@ -1,10 +1,12 @@
 import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
+from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -101,6 +103,9 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
 
+    def get_vinfo(self):
+        return self.vinfo
+
     def __repr__(self):
         return 'FieldDescr(%r, %r)' % (self.S, self.fieldname)
 
@@ -116,16 +121,36 @@ class FieldDescr(AbstractDescr):
     def is_field_signed(self):
         return _is_signed_kind(self.FIELD)
 
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
 def _is_signed_kind(TYPE):
     return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
             rffi.cast(TYPE, -1) == -1)
 
 class ArrayDescr(AbstractDescr):
     def __init__(self, A):
-        self.A = A
+        self.A = self.OUTERA = A
+        if isinstance(A, lltype.Struct):
+            self.A = A._flds[A._arrayfld]
 
     def __repr__(self):
-        return 'ArrayDescr(%r)' % (self.A,)
+        return 'ArrayDescr(%r)' % (self.OUTERA,)
 
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'
@@ -138,6 +163,25 @@ class ArrayDescr(AbstractDescr):
 
     def is_array_of_structs(self):
         return isinstance(self.A.OF, lltype.Struct)
+
+    def is_item_integer_bounded(self):
+        return getkind(self.A.OF) == 'int' \
+            and rffi.sizeof(self.A.OF) < symbolic.WORD
+
+    def get_item_integer_min(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
+    def get_item_integer_max(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
 
 class InteriorFieldDescr(AbstractDescr):
     def __init__(self, A, fieldname):
@@ -157,6 +201,24 @@ class InteriorFieldDescr(AbstractDescr):
     def is_float_field(self):
         return getkind(self.FIELD) == 'float'
 
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
 _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),
                 'i': 0,
@@ -170,7 +232,7 @@ class LLGraphCPU(model.AbstractCPU):
     translate_support_code = False
     is_llgraph = True
 
-    def __init__(self, rtyper, stats=None, *ignored_args, **ignored_kwds):
+    def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
         self.rtyper = rtyper
         self.llinterp = LLInterpreter(rtyper)
@@ -178,8 +240,10 @@ class LLGraphCPU(model.AbstractCPU):
         class MiniStats:
             pass
         self.stats = stats or MiniStats()
+        self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, looptoken, log=True,
+                     name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
         looptoken.compiled_loop_token = clt
         lltrace = LLTrace(inputargs, operations)
@@ -188,7 +252,7 @@ class LLGraphCPU(model.AbstractCPU):
         self._record_labels(lltrace)
 
     def compile_bridge(self, faildescr, inputargs, operations,
-                       original_loop_token, log=True):
+                       original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         lltrace = LLTrace(inputargs, operations)
@@ -286,7 +350,7 @@ class LLGraphCPU(model.AbstractCPU):
     def get_savedata_ref(self, deadframe):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
-    
+
     # ------------------------------------------------------------
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
@@ -316,6 +380,8 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = FieldDescr(S, fieldname)
             self.descrs[key] = descr
+            if self.vinfo_for_tests is not None:
+                descr.vinfo = self.vinfo_for_tests
             return descr
 
     def arraydescrof(self, A):
@@ -334,7 +400,7 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = InteriorFieldDescr(A, fieldname)
             self.descrs[key] = descr
-            return descr        
+            return descr
 
     def _calldescr_dynamic_for_tests(self, atypes, rtype,
                                      abiname='FFI_DEFAULT_ABI'):
@@ -374,6 +440,8 @@ class LLGraphCPU(model.AbstractCPU):
             res = self.llinterp.eval_graph(ptr._obj.graph, args)
         else:
             res = ptr._obj._callable(*args)
+        if RESULT is lltype.Void:
+            return None
         return support.cast_result(RESULT, res)
 
     def _do_call(self, func, args_i, args_r, args_f, calldescr):
@@ -411,11 +479,12 @@ class LLGraphCPU(model.AbstractCPU):
 
     bh_setfield_raw   = bh_setfield_gc
     bh_setfield_raw_i = bh_setfield_raw
-    bh_setfield_raw_r = bh_setfield_raw
     bh_setfield_raw_f = bh_setfield_raw
 
     def bh_arraylen_gc(self, a, descr):
         array = a._obj.container
+        if descr.A is not descr.OUTERA:
+            array = getattr(array, descr.OUTERA._arrayfld)
         return array.getlength()
 
     def bh_getarrayitem_gc(self, a, index, descr):
@@ -496,6 +565,8 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_raw_store_i(self, struct, offset, newvalue, descr):
         ll_p = rffi.cast(rffi.CCHARP, struct)
         ll_p = rffi.cast(lltype.Ptr(descr.A), rffi.ptradd(ll_p, offset))
+        if descr.A.OF == lltype.SingleFloat:
+            newvalue = longlong.int2singlefloat(newvalue)
         ll_p[0] = rffi.cast(descr.A.OF, newvalue)
 
     def bh_raw_store_f(self, struct, offset, newvalue, descr):
@@ -600,6 +671,7 @@ class LLFrame(object):
     forced_deadframe = None
     overflow_flag = False
     last_exception = None
+    force_guard_op = None
 
     def __init__(self, cpu, argboxes, args):
         self.env = {}
@@ -766,6 +838,8 @@ class LLFrame(object):
         if self.forced_deadframe is not None:
             saved_data = self.forced_deadframe._saved_data
             self.fail_guard(descr, saved_data)
+        self.force_guard_op = self.current_op
+    execute_guard_not_forced_2 = execute_guard_not_forced
 
     def execute_guard_not_invalidated(self, descr):
         if self.lltrace.invalid:
@@ -802,7 +876,7 @@ class LLFrame(object):
         else:
             ovf = False
         self.overflow_flag = ovf
-        return z        
+        return z
 
     def execute_guard_no_overflow(self, descr):
         if self.overflow_flag:
@@ -820,6 +894,12 @@ class LLFrame(object):
         y = support.cast_from_floatstorage(lltype.Float, value)
         x = math.sqrt(y)
         return support.cast_to_floatstorage(x)
+
+    def execute_cond_call(self, calldescr, cond, func, *args):
+        if not cond:
+            return
+        # cond_call can't have a return value
+        self.execute_call(calldescr, func, *args)
 
     def execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
@@ -881,7 +961,6 @@ class LLFrame(object):
         #     res = CALL assembler_call_helper(pframe)
         #     jmp @done
         #   @fastpath:
-        #     RESET_VABLE
         #     res = GETFIELD(pframe, 'result')
         #   @done:
         #
@@ -901,25 +980,17 @@ class LLFrame(object):
             vable = lltype.nullptr(llmemory.GCREF.TO)
         #
         # Emulate the fast path
-        def reset_vable(jd, vable):
-            if jd.index_of_virtualizable != -1:
-                fielddescr = jd.vable_token_descr
-                NULL = lltype.nullptr(llmemory.GCREF.TO)
-                self.cpu.bh_setfield_gc(vable, NULL, fielddescr)
+        #
         faildescr = self.cpu.get_latest_descr(pframe)
         if faildescr == self.cpu.done_with_this_frame_descr_int:
-            reset_vable(jd, vable)
             return self.cpu.get_int_value(pframe, 0)
         elif faildescr == self.cpu.done_with_this_frame_descr_ref:
-            reset_vable(jd, vable)
             return self.cpu.get_ref_value(pframe, 0)
         elif faildescr == self.cpu.done_with_this_frame_descr_float:
-            reset_vable(jd, vable)
             return self.cpu.get_float_value(pframe, 0)
         elif faildescr == self.cpu.done_with_this_frame_descr_void:
-            reset_vable(jd, vable)
             return None
-        #
+
         assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
         try:
             result = assembler_helper_ptr(pframe, vable)
@@ -952,10 +1023,10 @@ class LLFrame(object):
     def execute_force_token(self, _):
         return self
 
-    def execute_cond_call_gc_wb(self, descr, a, b):
+    def execute_cond_call_gc_wb(self, descr, a):
         py.test.skip("cond_call_gc_wb not supported")
 
-    def execute_cond_call_gc_wb_array(self, descr, a, b, c):
+    def execute_cond_call_gc_wb_array(self, descr, a, b):
         py.test.skip("cond_call_gc_wb_array not supported")
 
     def execute_keepalive(self, descr, x):

@@ -7,13 +7,14 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator.signature import Sig
 from rpython.annotator.specialize import flatten_star_args
+from rpython.rtyper.llannotation import (
+    SomePtr, annotation_to_lltype, lltype_to_annotation)
+from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import extregistry
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rmodel import warning
-from rpython.translator.simplify import get_functype
 
 
 class KeyComp(object):
@@ -58,7 +59,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
             else:
                 new_args_s.append(annmodel.not_const(s_obj))
                 try:
-                    key.append(annmodel.annotation_to_lltype(s_obj))
+                    key.append(annotation_to_lltype(s_obj))
                 except ValueError:
                     # passing non-low-level types to a ll_* function is allowed
                     # for module/ll_*
@@ -75,19 +76,9 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
     default_specialize = staticmethod(default_specialize)
 
-    def specialize__ts(pol, funcdesc, args_s, ref):
-        ts = pol.rtyper.type_system
-        ref = ref.split('.')
-        x = ts
-        for part in ref:
-            x = getattr(x, part)
-        bk = pol.rtyper.annotator.bookkeeper
-        funcdesc2 = bk.getdesc(x)
-        return pol.default_specialize(funcdesc2, args_s)
-
     def specialize__semierased(funcdesc, args_s):
-        a2l = annmodel.annotation_to_lltype
-        l2a = annmodel.lltype_to_annotation
+        a2l = annotation_to_lltype
+        l2a = lltype_to_annotation
         args_s[:] = [l2a(a2l(s)) for s in args_s]
         return LowLevelAnnotatorPolicy.default_specialize(funcdesc, args_s)
     specialize__semierased = staticmethod(specialize__semierased)
@@ -131,8 +122,8 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
 
     def specialize__genconst(pol, funcdesc, args_s, i):
         # XXX this is specific to the JIT
-        TYPE = annmodel.annotation_to_lltype(args_s[i], 'genconst')
-        args_s[i] = annmodel.lltype_to_annotation(TYPE)
+        TYPE = annotation_to_lltype(args_s[i], 'genconst')
+        args_s[i] = lltype_to_annotation(TYPE)
         alt_name = funcdesc.name + "__%s" % (TYPE._short_name(),)
         return funcdesc.cachedgraph(TYPE, alt_name=valid_identifier(alt_name))
 
@@ -143,10 +134,10 @@ class MixLevelHelperAnnotator(object):
         self.rtyper = rtyper
         self.policy = MixLevelAnnotatorPolicy(self)
         self.pending = []     # list of (ll_function, graph, args_s, s_result)
-        self.delayedreprs = {}
+        self.delayedreprs = set()
         self.delayedconsts = []
         self.delayedfuncs = []
-        self.newgraphs = {}
+        self.newgraphs = set()
 
     def getgraph(self, ll_function, args_s, s_result):
         # get the graph of the mix-level helper ll_function and prepare it for
@@ -179,19 +170,13 @@ class MixLevelHelperAnnotator(object):
         return Constant(p, lltype.typeOf(p))
 
     def graph2delayed(self, graph, FUNCTYPE=None):
-        if self.rtyper.type_system.name == 'lltypesystem':
-            if FUNCTYPE is None:
-                FUNCTYPE = lltype.ForwardReference()
-            # obscure hack: embed the name of the function in the string, so
-            # that the genc database can get it even before the delayedptr
-            # is really computed
-            name = "delayed!%s" % (graph.name,)
-            delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), name, solid=True)
-        else:
-            if FUNCTYPE is None:
-                FUNCTYPE = ootype.ForwardReference()
-            name = "delayed!%s" % (graph.name,)
-            delayedptr = ootype._forward_static_meth(FUNCTYPE, _name=name)
+        if FUNCTYPE is None:
+            FUNCTYPE = lltype.ForwardReference()
+        # obscure hack: embed the name of the function in the string, so
+        # that the genc database can get it even before the delayedptr
+        # is really computed
+        name = "delayed!%s" % (graph.name,)
+        delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), name, solid=True)
         self.delayedfuncs.append((delayedptr, graph))
         return delayedptr
 
@@ -210,7 +195,7 @@ class MixLevelHelperAnnotator(object):
         else:
             delayed = r.set_setup_maybe_delayed()
         if delayed:
-            self.delayedreprs[r] = True
+            self.delayedreprs.add(r)
         return r
 
     def s_r_instanceof(self, cls, can_be_None=True, check_never_seen=True):
@@ -227,11 +212,7 @@ class MixLevelHelperAnnotator(object):
             # the prebuilt attribute values of the instance
             bk = self.rtyper.annotator.bookkeeper
             bk.immutablevalue(obj)
-
-            if self.rtyper.type_system.name == 'lltypesystem':
-                delayedptr = lltype._ptr(repr.lowleveltype, "delayed!")
-            else:
-                delayedptr = ootype.make_instance(repr.lowleveltype)
+            delayedptr = lltype._ptr(repr.lowleveltype, "delayed!")
             self.delayedconsts.append((delayedptr, repr, obj))
             return delayedptr
         else:
@@ -256,7 +237,7 @@ class MixLevelHelperAnnotator(object):
             ann.annotated[graph.returnblock] = graph
             s_function = bk.immutablevalue(ll_function)
             bk.emulate_pbc_call(graph, s_function, args_s)
-            self.newgraphs[graph] = True
+            self.newgraphs.add(graph)
         ann.complete_helpers(self.policy)
         for ll_function, graph, args_s, s_result in self.pending:
             s_real_result = ann.binding(graph.getreturnvar())
@@ -267,13 +248,13 @@ class MixLevelHelperAnnotator(object):
                                 (graph, s_result, s_real_result))
         del self.pending[:]
         for graph in translator.graphs[original_graph_count:]:
-            self.newgraphs[graph] = True
+            self.newgraphs.add(graph)
 
     def finish_rtype(self):
         rtyper = self.rtyper
         translator = rtyper.annotator.translator
         original_graph_count = len(translator.graphs)
-        rtyper.type_system.perform_normalizations(rtyper)
+        perform_normalizations(rtyper)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
         rtyper.call_all_setups()
@@ -281,11 +262,11 @@ class MixLevelHelperAnnotator(object):
             p._become(repr.convert_const(obj))
         rtyper.call_all_setups()
         for p, graph in self.delayedfuncs:
-            self.newgraphs[graph] = True
+            self.newgraphs.add(graph)
             real_p = rtyper.getcallable(graph)
-            REAL = get_functype(lltype.typeOf(real_p))
-            FUNCTYPE = get_functype(lltype.typeOf(p))
-            if isinstance(FUNCTYPE, (lltype.ForwardReference, ootype.ForwardReference)):
+            REAL = lltype.typeOf(real_p).TO
+            FUNCTYPE = lltype.typeOf(p).TO
+            if isinstance(FUNCTYPE, lltype.ForwardReference):
                 FUNCTYPE.become(REAL)
             assert FUNCTYPE == REAL
             p._become(real_p)
@@ -294,13 +275,13 @@ class MixLevelHelperAnnotator(object):
         del self.delayedconsts[:]
         del self.delayedfuncs[:]
         for graph in translator.graphs[original_graph_count:]:
-            self.newgraphs[graph] = True
+            self.newgraphs.add(graph)
 
     def backend_optimize(self, **flags):
         # only optimize the newly created graphs
         from rpython.translator.backendopt.all import backend_optimizations
         translator = self.rtyper.annotator.translator
-        newgraphs = self.newgraphs.keys()
+        newgraphs = list(self.newgraphs)
         backend_optimizations(translator, newgraphs, secondary=True,
                               inline_graph_from_anywhere=True, **flags)
         self.newgraphs.clear()
@@ -334,7 +315,7 @@ class PseudoHighLevelCallableEntry(extregistry.ExtRegistryEntry):
         p = self.instance.llfnptr
         TYPE = lltype.typeOf(p)
         c_func = Constant(p, TYPE)
-        FUNCTYPE = get_functype(TYPE)
+        FUNCTYPE = TYPE.TO
         for r_arg, ARGTYPE in zip(args_r, FUNCTYPE.ARGS):
             assert r_arg.lowleveltype == ARGTYPE
         assert r_res.lowleveltype == FUNCTYPE.RESULT
@@ -363,10 +344,7 @@ def llhelper(F, f):
     #       prebuilt_g()
 
     # the next line is the implementation for the purpose of direct running
-    if isinstance(F, ootype.OOType):
-        return ootype.static_meth(F, f.func_name, _callable=f)
-    else:
-        return lltype.functionptr(F.TO, f.func_name, _callable=f)
+    return lltype.functionptr(F.TO, f.func_name, _callable=f)
 
 def llhelper_args(f, ARGS, RESULT):
     return llhelper(lltype.Ptr(lltype.FuncType(ARGS, RESULT)), f)
@@ -378,18 +356,12 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
         assert s_F.is_constant()
         assert s_callable.is_constant()
         F = s_F.const
-        if isinstance(F, ootype.OOType):
-            FUNC = F
-            resultcls = annmodel.SomeOOStaticMeth
-        else:
-            FUNC = F.TO
-            resultcls = annmodel.SomePtr
-
-        args_s = [annmodel.lltype_to_annotation(T) for T in FUNC.ARGS]
+        FUNC = F.TO
+        args_s = [lltype_to_annotation(T) for T in FUNC.ARGS]
         key = (llhelper, s_callable.const)
         s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-        assert annmodel.lltype_to_annotation(FUNC.RESULT).contains(s_res)
-        return resultcls(F)
+        assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
+        return SomePtr(F)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -442,21 +414,15 @@ def make_string_entries(strtype):
             ll_s.chars[i] = c
         return ll_s
 
-    def oostr(s):
-        if strtype is str:
-            return ootype.make_string(s)
-        else:
-            return ootype.make_unicode(s)
-
     class LLStrEntry(extregistry.ExtRegistryEntry):
         _about_ = llstr
 
         def compute_result_annotation(self, s_str):
             from rpython.rtyper.lltypesystem.rstr import STR, UNICODE
             if strtype is str:
-                return annmodel.lltype_to_annotation(lltype.Ptr(STR))
+                return lltype_to_annotation(lltype.Ptr(STR))
             else:
-                return annmodel.lltype_to_annotation(lltype.Ptr(UNICODE))
+                return lltype_to_annotation(lltype.Ptr(UNICODE))
 
         def specialize_call(self, hop):
             hop.exception_cannot_occur()
@@ -465,21 +431,10 @@ def make_string_entries(strtype):
             return hop.genop('same_as', [v_ll_str],
                              resulttype = hop.r_result.lowleveltype)
 
-    class OOStrEntry(extregistry.ExtRegistryEntry):
-        _about_ = oostr
+    return hlstr, llstr
 
-        def compute_result_annotation(self, s_str):
-            if strtype is str:
-                return annmodel.lltype_to_annotation(ootype.String)
-            else:
-                return annmodel.lltype_to_annotation(ootype.Unicode)
-
-        specialize_call = LLStrEntry.specialize_call.im_func
-
-    return hlstr, llstr, oostr
-
-hlstr,     llstr,     oostr     = make_string_entries(str)
-hlunicode, llunicode, oounicode = make_string_entries(unicode)
+hlstr, llstr = make_string_entries(str)
+hlunicode, llunicode = make_string_entries(unicode)
 
 # ____________________________________________________________
 
@@ -504,31 +459,18 @@ def cast_object_to_ptr(PTR, object):
     #
     if isinstance(PTR, lltype.Ptr):
         return lltype._ptr(PTR, object, True)
-    elif isinstance(PTR, ootype.Instance):
-        return object
     else:
         raise NotImplementedError("cast_object_to_ptr(%r, ...)" % PTR)
 
 @specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
-    return cast_object_to_ptr(base_ptr_lltype(), instance)
-
-@specialize.argtype(0)
-def cast_instance_to_base_obj(instance):
-    return cast_object_to_ptr(base_obj_ootype(), instance)
+    from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+    return cast_object_to_ptr(OBJECTPTR, instance)
 
 @specialize.argtype(0)
 def cast_instance_to_gcref(instance):
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   cast_instance_to_base_ptr(instance))
-
-def base_ptr_lltype():
-    from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
-    return OBJECTPTR
-
-def base_obj_ootype():
-    from rpython.rtyper.ootypesystem.rclass import OBJECT
-    return OBJECT
 
 class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_object_to_ptr
@@ -536,9 +478,7 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     def compute_result_annotation(self, s_PTR, s_object):
         assert s_PTR.is_constant()
         if isinstance(s_PTR.const, lltype.Ptr):
-            return annmodel.SomePtr(s_PTR.const)
-        elif isinstance(s_PTR.const, ootype.Instance):
-            return annmodel.SomeOOInstance(s_PTR.const)
+            return SomePtr(s_PTR.const)
         else:
             assert False
 
@@ -549,10 +489,6 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
             T = lltype.Ptr
             opname = 'cast_pointer'
             null = lltype.nullptr(PTR.TO)
-        elif isinstance(PTR, ootype.Instance):
-            T = ootype.Instance
-            opname = 'ooupcast'
-            null = ootype.null(PTR)
         else:
             assert False
 
@@ -586,12 +522,9 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
         return annmodel.SomeInstance(classdef, can_be_None=True)
 
     def specialize_call(self, hop):
-        # XXX: check if there is any test to port from oo-jit/
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         if isinstance(v_arg.concretetype, lltype.Ptr):
             opname = 'cast_pointer'
-        elif isinstance(v_arg.concretetype, ootype.Instance):
-            opname = 'oodowncast'
         else:
             assert False
         hop.exception_cannot_occur()
@@ -604,14 +537,14 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
 def placeholder_sigarg(s):
     if s == "self":
         def expand(s_self, *args_s):
-            assert isinstance(s_self, annmodel.SomePtr)
+            assert isinstance(s_self, SomePtr)
             return s_self
     elif s == "SELF":
         raise NotImplementedError
     else:
         assert s.islower()
         def expand(s_self, *args_s):
-            assert isinstance(s_self, annmodel.SomePtr)
+            assert isinstance(s_self, SomePtr)
             return getattr(s_self.ll_ptrtype.TO, s.upper())
     return expand
 

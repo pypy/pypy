@@ -25,6 +25,12 @@ class TestUnicodeObject:
         w_str = self.space.wrap(u'abcd')
         assert self.space.listview_unicode(w_str) == list(u"abcd")
 
+    def test_new_shortcut(self):
+        space = self.space
+        w_uni = self.space.wrap(u'abcd')
+        w_new = space.call_method(
+                space.w_unicode, "__new__", space.w_unicode, w_uni)
+        assert w_new is w_uni
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -80,6 +86,7 @@ class AppTestUnicodeString:
     def test_contains(self):
         assert u'a' in 'abc'
         assert 'a' in u'abc'
+        raises(UnicodeDecodeError, "u'\xe2' in 'g\xe2teau'")
 
     def test_splitlines(self):
         assert u''.splitlines() == []
@@ -208,7 +215,15 @@ class AppTestUnicodeString:
         assert u"!Brown Fox".istitle() == True
         assert u"Brow&&&&N Fox".istitle() == True
         assert u"!Brow&&&&n Fox".istitle() == False
-        
+        assert u'\u1FFc'.istitle()
+        assert u'Greek \u1FFcitlecases ...'.istitle()
+
+    def test_islower_isupper_with_titlecase(self):
+        # \u01c5 is a char which is neither lowercase nor uppercase, but
+        # titlecase
+        assert not u'\u01c5abc'.islower()
+        assert not u'\u01c5ABC'.isupper()
+
     def test_capitalize(self):
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '
@@ -882,3 +897,31 @@ class AppTestUnicodeString:
         assert b == u'hello \u1234'
 
         assert u'%s' % S(u'mar\xe7') == u'mar\xe7'
+
+    def test_isdecimal(self):
+        assert u'0'.isdecimal()
+        assert not u''.isdecimal()
+        assert not u'a'.isdecimal()
+        assert not u'\u2460'.isdecimal() # CIRCLED DIGIT ONE
+
+    def test_isnumeric(self):
+        assert u'0'.isnumeric()
+        assert not u''.isnumeric()
+        assert not u'a'.isnumeric()
+        assert u'\u2460'.isnumeric() # CIRCLED DIGIT ONE
+
+    def test_replace_autoconvert(self):
+        res = 'one!two!three!'.replace(u'!', u'@', 1)
+        assert res == u'one@two!three!'
+        assert type(res) == unicode
+
+    def test_join_subclass(self):
+        class UnicodeSubclass(unicode):
+            pass
+        class StrSubclass(str):
+            pass
+
+        s1 = UnicodeSubclass(u'a')
+        assert u''.join([s1]) is not s1
+        s2 = StrSubclass(u'a')
+        assert u''.join([s2]) is not s2

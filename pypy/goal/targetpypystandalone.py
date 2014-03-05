@@ -80,8 +80,9 @@ def create_entry_point(space, w_dict):
     # register the minimal equivalent of running a small piece of code. This
     # should be used as sparsely as possible, just to register callbacks
 
-    from rpython.rlib.entrypoint import entrypoint
+    from rpython.rlib.entrypoint import entrypoint, RPython_StartupCode
     from rpython.rtyper.lltypesystem import rffi, lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
 
     w_pathsetter = space.appexec([], """():
     def f(path):
@@ -90,9 +91,10 @@ def create_entry_point(space, w_dict):
     return f
     """)
 
-    @entrypoint('main', [rffi.CCHARP, lltype.Signed], c_name='pypy_setup_home')
+    @entrypoint('main', [rffi.CCHARP, rffi.INT], c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
+        verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home:
             home = rffi.charp2str(ll_home)
         else:
@@ -115,19 +117,38 @@ def create_entry_point(space, w_dict):
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
-            return 1
+            return -1
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
+        after = rffi.aroundstate.after
+        if after: after()
         source = rffi.charp2str(ll_source)
-        return _pypy_execute_source(source)
+        res = _pypy_execute_source(source)
+        before = rffi.aroundstate.before
+        if before: before()
+        return rffi.cast(rffi.INT, res)
+
+    @entrypoint('main', [rffi.CCHARP, lltype.Signed],
+                c_name='pypy_execute_source_ptr')
+    def pypy_execute_source_ptr(ll_source, ll_ptr):
+        after = rffi.aroundstate.after
+        if after: after()
+        source = rffi.charp2str(ll_source)
+        space.setitem(w_globals, space.wrap('c_argument'),
+                      space.wrap(ll_ptr))
+        res = _pypy_execute_source(source)
+        before = rffi.aroundstate.before
+        if before: before()
+        return rffi.cast(rffi.INT, res)        
 
     @entrypoint('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
         if not space.config.objspace.usemodules.thread:
             return
         os_thread.setup_threads(space)
-        rffi.aroundstate.before()
+        before = rffi.aroundstate.before
+        if before: before()
 
     @entrypoint('main', [], c_name='pypy_thread_attach')
     def pypy_thread_attach():
@@ -138,7 +159,8 @@ def create_entry_point(space, w_dict):
         rthread.gc_thread_start()
         os_thread.bootstrapper.nbthreads += 1
         os_thread.bootstrapper.release()
-        rffi.aroundstate.before()
+        before = rffi.aroundstate.before
+        if before: before()
 
     w_globals = space.newdict()
     space.setitem(w_globals, space.wrap('__builtins__'),
@@ -153,10 +175,11 @@ def create_entry_point(space, w_dict):
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
-            return 1
+            return -1
         return 0
 
     return entry_point, {'pypy_execute_source': pypy_execute_source,
+                         'pypy_execute_source_ptr': pypy_execute_source_ptr,
                          'pypy_init_threads': pypy_init_threads,
                          'pypy_thread_attach': pypy_thread_attach,
                          'pypy_setup_home': pypy_setup_home}
@@ -234,9 +257,6 @@ class PyPyTarget(object):
             from pypy.config.pypyoption import enable_translationmodules
             enable_translationmodules(config)
 
-        ## if config.translation.type_system == 'ootype':
-        ##     config.objspace.usemodules.suggest(rbench=True)
-
         config.translation.suggest(check_str_without_nul=True)
 
         if config.translation.thread:
@@ -271,12 +291,6 @@ class PyPyTarget(object):
         elif config.objspace.usemodules.pypyjit:
             config.translation.jit = True
 
-        if config.translation.backend == "cli":
-            config.objspace.usemodules.clr = True
-        # XXX did it ever work?
-        #elif config.objspace.usemodules.clr:
-        #    config.translation.backend == "cli"
-
         if config.translation.sandbox:
             config.objspace.lonepycfiles = False
             config.objspace.usepycfiles = False
@@ -291,16 +305,6 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
-
-        if config.translation.backend in ["cli", "jvm"] and sys.platform == "win32":
-            # HACK: The ftruncate implementation in streamio.py which is used for the Win32 platform
-            # is specific for the C backend and can't be generated on CLI or JVM. Because of that,
-            # we have to patch it out.
-            from rpython.rlib import streamio
-            def ftruncate_win32_dummy(fd, size): pass
-            def _setfd_binary_dummy(fd): pass
-            streamio.ftruncate_win32 = ftruncate_win32_dummy
-            streamio._setfd_binary = _setfd_binary_dummy
 
         return self.get_entry_point(config)
 

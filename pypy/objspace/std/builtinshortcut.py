@@ -122,7 +122,7 @@ def install_is_true(space, mm_nonzero, mm_len):
             # always directly return a Bool; however, the __len__ method
             # of built-in objects typically returns an unwrappable integer
             if isinstance(w_res, W_BoolObject):
-                return w_res.boolval
+                return bool(w_res.intval)
             try:
                 return space.int_w(w_res) != 0
             except OperationError:
@@ -131,6 +131,7 @@ def install_is_true(space, mm_nonzero, mm_len):
                 w_obj = w_res
 
         # general case fallback
-        return DescrOperation.is_true(space, w_obj)
+        return _DescrOperation_is_true(space, w_obj)
 
+    _DescrOperation_is_true = DescrOperation.is_true.im_func
     space.is_true = is_true

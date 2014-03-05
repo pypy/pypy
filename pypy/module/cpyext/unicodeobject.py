@@ -12,8 +12,8 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
-from pypy.objspace.std import unicodeobject, unicodetype, stringtype
-from rpython.rlib import runicode
+from pypy.objspace.std import unicodeobject
+from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
 import sys
 
@@ -262,7 +262,7 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
 def PyUnicode_GetDefaultEncoding(space):
     """Returns the currently active default encoding."""
     if default_encoding[0] == '\x00':
-        encoding = unicodetype.getdefaultencoding(space)
+        encoding = unicodeobject.getdefaultencoding(space)
         i = 0
         while i < len(encoding) and i < DEFAULT_ENCODING_SIZE:
             default_encoding[i] = encoding[i]
@@ -273,6 +273,8 @@ def PyUnicode_GetDefaultEncoding(space):
 def PyUnicode_SetDefaultEncoding(space, encoding):
     """Sets the currently active default encoding. Returns 0 on
     success, -1 in case of an error."""
+    if not encoding:
+        PyErr_BadArgument(space)
     w_encoding = space.wrap(rffi.charp2str(encoding))
     setdefaultencoding(space, w_encoding)
     default_encoding[0] = '\x00'
@@ -293,7 +295,7 @@ def PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors):
         encoding = rffi.charp2str(llencoding)
     if llerrors:
         errors = rffi.charp2str(llerrors)
-    return unicodetype.encode_object(space, w_unicode, encoding, errors)
+    return unicodeobject.encode_object(space, w_unicode, encoding, errors)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
@@ -316,7 +318,7 @@ def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
     if not PyUnicode_Check(space, w_unicode):
         PyErr_BadArgument(space)
 
-    return unicodetype.encode_object(space, w_unicode, 'unicode-escape', 'strict')
+    return unicodeobject.encode_object(space, w_unicode, 'unicode-escape', 'strict')
 
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
 def PyUnicode_FromUnicode(space, wchar_p, length):
@@ -350,8 +352,11 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     in the unicode() built-in function.  The codec to be used is looked up
     using the Python codec registry.  Return NULL if an exception was raised by
     the codec."""
-    w_str = space.wrap(rffi.charpsize2str(s, size))
+    if not encoding:
+        # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
+        encoding = PyUnicode_GetDefaultEncoding(space)
     w_encoding = space.wrap(rffi.charp2str(encoding))
+    w_str = space.wrap(rffi.charpsize2str(s, size))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     else:
@@ -379,6 +384,9 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
+    if not encoding:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("decoding Unicode is not supported"))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
@@ -463,7 +471,7 @@ def make_conversion_functions(suffix, encoding):
         exception was raised by the codec."""
         if not PyUnicode_Check(space, w_unicode):
             PyErr_BadArgument(space)
-        return unicodetype.encode_object(space, w_unicode, encoding, "strict")
+        return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
 
     @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Decode%s' % suffix)
@@ -684,9 +692,9 @@ def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     str = space.unicode_w(w_str)
     substr = space.unicode_w(w_substr)
     if rffi.cast(lltype.Signed, direction) <= 0:
-        return stringtype.stringstartswith(str, substr, start, end)
+        return rstring.startswith(str, substr, start, end)
     else:
-        return stringtype.stringendswith(str, substr, start, end)
+        return rstring.endswith(str, substr, start, end)
 
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_Count(space, w_str, w_substr, start, end):

@@ -18,7 +18,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_n
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rclass
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 
 
 
@@ -313,7 +313,7 @@ class MIFrame(object):
             opnum = rop.GUARD_TRUE
         else:
             opnum = rop.GUARD_FALSE
-        self.generate_guard(opnum, box)
+        self.metainterp.generate_guard(opnum, box)
         if not switchcase:
             self.pc = target
 
@@ -341,10 +341,12 @@ class MIFrame(object):
         value = box.nonnull()
         if value:
             if not self.metainterp.heapcache.is_class_known(box):
-                self.generate_guard(rop.GUARD_NONNULL, box, resumepc=orgpc)
+                self.metainterp.generate_guard(rop.GUARD_NONNULL, box,
+                                               resumepc=orgpc)
         else:
             if not isinstance(box, Const):
-                self.generate_guard(rop.GUARD_ISNULL, box, resumepc=orgpc)
+                self.metainterp.generate_guard(rop.GUARD_ISNULL, box,
+                                               resumepc=orgpc)
                 promoted_box = box.constbox()
                 self.metainterp.replace_box(box, promoted_box)
         return value
@@ -592,9 +594,9 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-            #                          rop.GETFIELD_GC, fielddescr, box)
-            # XXX the sanity check does not seem to do anything, remove?
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC, fielddescr, box)
+            assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -604,7 +606,7 @@ class MIFrame(object):
     def _opimpl_getfield_gc_greenfield_any(self, box, fielddescr, pc):
         ginfo = self.metainterp.jitdriver_sd.greenfield_info
         if (ginfo is not None and fielddescr in ginfo.green_field_descrs
-            and not self._nonstandard_virtualizable(pc, box)):
+            and not self._nonstandard_virtualizable(pc, box, fielddescr)):
             # fetch the result, but consider it as a Const box and don't
             # record any operation
             resbox = executor.execute(self.metainterp.cpu, self.metainterp,
@@ -621,7 +623,11 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+        # The following test is disabled because buggy.  It is supposed
+        # to be: not(we're writing null into a freshly allocated object)
+        # but the bug is that is_unescaped() can be True even after the
+        # field cache is cleared --- see test_ajit:test_unescaped_write_zero
+        if 1:  # tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
             self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
@@ -641,7 +647,6 @@ class MIFrame(object):
     def _opimpl_getfield_raw_any(self, box, fielddescr):
         return self.execute_with_descr(rop.GETFIELD_RAW, fielddescr, box)
     opimpl_getfield_raw_i = _opimpl_getfield_raw_any
-    opimpl_getfield_raw_r = _opimpl_getfield_raw_any
     opimpl_getfield_raw_f = _opimpl_getfield_raw_any
 
     @arguments("box", "descr")
@@ -655,7 +660,6 @@ class MIFrame(object):
     def _opimpl_setfield_raw_any(self, box, valuebox, fielddescr):
         self.execute_with_descr(rop.SETFIELD_RAW, fielddescr, box, valuebox)
     opimpl_setfield_raw_i = _opimpl_setfield_raw_any
-    opimpl_setfield_raw_r = _opimpl_setfield_raw_any
     opimpl_setfield_raw_f = _opimpl_setfield_raw_any
 
     @arguments("box", "box", "box", "descr")
@@ -672,6 +676,10 @@ class MIFrame(object):
     opimpl_raw_load_i = _opimpl_raw_load
     opimpl_raw_load_f = _opimpl_raw_load
 
+    @arguments("box")
+    def opimpl_hint_force_virtualizable(self, box):
+        self.metainterp.gen_store_back_in_vable(box)
+
     @arguments("box", "descr", "descr", "orgpc")
     def opimpl_record_quasiimmut_field(self, box, fielddescr,
                                        mutatefielddescr, orgpc):
@@ -680,7 +688,8 @@ class MIFrame(object):
         descr = QuasiImmutDescr(cpu, box, fielddescr, mutatefielddescr)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
-        self.generate_guard(rop.GUARD_NOT_INVALIDATED, resumepc=orgpc)
+        self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
+                                       resumepc=orgpc)
 
     @arguments("box", "descr", "orgpc")
     def opimpl_jit_force_quasi_immutable(self, box, mutatefielddescr, orgpc):
@@ -699,28 +708,47 @@ class MIFrame(object):
             do_force_quasi_immutable(self.metainterp.cpu, box.getref_base(),
                                      mutatefielddescr)
             raise SwitchToBlackhole(Counters.ABORT_FORCE_QUASIIMMUT)
-        self.generate_guard(rop.GUARD_ISNULL, mutatebox, resumepc=orgpc)
+        self.metainterp.generate_guard(rop.GUARD_ISNULL, mutatebox,
+                                       resumepc=orgpc)
 
-    def _nonstandard_virtualizable(self, pc, box):
+    def _nonstandard_virtualizable(self, pc, box, fielddescr):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]
-        if (self.metainterp.jitdriver_sd.virtualizable_info is None and
-            self.metainterp.jitdriver_sd.greenfield_info is None):
-            return True      # can occur in case of multiple JITs
-        standard_box = self.metainterp.virtualizable_boxes[-1]
-        if standard_box is box:
-            return False
         if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
             return True
-        eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
-                                                   box, standard_box)
-        eqbox = self.implement_guard_value(eqbox, pc)
-        isstandard = eqbox.getint()
-        if isstandard:
-            self.metainterp.replace_box(box, standard_box)
-        else:
-            self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
-        return not isstandard
+        if box is self.metainterp.forced_virtualizable:
+            self.metainterp.forced_virtualizable = None
+        if (self.metainterp.jitdriver_sd.virtualizable_info is not None or
+            self.metainterp.jitdriver_sd.greenfield_info is not None):
+            standard_box = self.metainterp.virtualizable_boxes[-1]
+            if standard_box is box:
+                return False
+            vinfo = self.metainterp.jitdriver_sd.virtualizable_info
+            if vinfo is fielddescr.get_vinfo():
+                eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
+                                                           box, standard_box)
+                eqbox = self.implement_guard_value(eqbox, pc)
+                isstandard = eqbox.getint()
+                if isstandard:
+                    self.metainterp.replace_box(box, standard_box)
+                    return False
+        if not self.metainterp.heapcache.is_unescaped(box):
+            self.emit_force_virtualizable(fielddescr, box)
+        self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
+        return True
+
+    def emit_force_virtualizable(self, fielddescr, box):
+        vinfo = fielddescr.get_vinfo()
+        assert vinfo is not None
+        token_descr = vinfo.vable_token_descr
+        mi = self.metainterp
+        tokenbox = mi.execute_and_record(rop.GETFIELD_GC, token_descr, box)
+        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox,
+                                       history.CONST_NULL)
+        funcbox = ConstInt(rffi.cast(lltype.Signed, vinfo.clear_vable_ptr))
+        calldescr = vinfo.clear_vable_descr
+        self.execute_varargs(rop.COND_CALL, [condbox, funcbox, box],
+                             calldescr, False, False)
 
     def _get_virtualizable_field_index(self, fielddescr):
         # Get the index of a fielddescr.  Must only be called for
@@ -730,7 +758,7 @@ class MIFrame(object):
 
     @arguments("box", "descr", "orgpc")
     def _opimpl_getfield_vable(self, box, fielddescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fielddescr):
             return self._opimpl_getfield_gc_any(box, fielddescr)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_virtualizable_field_index(fielddescr)
@@ -742,7 +770,7 @@ class MIFrame(object):
 
     @arguments("box", "box", "descr", "orgpc")
     def _opimpl_setfield_vable(self, box, valuebox, fielddescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fielddescr):
             return self._opimpl_setfield_gc_any(box, valuebox, fielddescr)
         index = self._get_virtualizable_field_index(fielddescr)
         self.metainterp.virtualizable_boxes[index] = valuebox
@@ -772,7 +800,7 @@ class MIFrame(object):
 
     @arguments("box", "box", "descr", "descr", "orgpc")
     def _opimpl_getarrayitem_vable(self, box, indexbox, fdescr, adescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fdescr):
             arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             return self._opimpl_getarrayitem_gc_any(arraybox, indexbox, adescr)
         self.metainterp.check_synchronized_virtualizable()
@@ -786,7 +814,7 @@ class MIFrame(object):
     @arguments("box", "box", "box", "descr", "descr", "orgpc")
     def _opimpl_setarrayitem_vable(self, box, indexbox, valuebox,
                                    fdescr, adescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fdescr):
             arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             self._opimpl_setarrayitem_gc_any(arraybox, indexbox, valuebox,
                                              adescr)
@@ -802,7 +830,7 @@ class MIFrame(object):
 
     @arguments("box", "descr", "descr", "orgpc")
     def opimpl_arraylen_vable(self, box, fdescr, adescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fdescr):
             arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             return self.opimpl_arraylen_gc(arraybox, adescr)
         vinfo = self.metainterp.jitdriver_sd.virtualizable_info
@@ -855,6 +883,21 @@ class MIFrame(object):
     opimpl_residual_call_irf_r = _opimpl_residual_call3
     opimpl_residual_call_irf_f = _opimpl_residual_call3
     opimpl_residual_call_irf_v = _opimpl_residual_call3
+
+    @arguments("box", "box", "boxes", "descr", "orgpc")
+    def opimpl_conditional_call_i_v(self, condbox, funcbox, argboxes, calldescr,
+                                    pc):
+        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "box", "boxes2", "descr", "orgpc")
+    def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
+                                     calldescr, pc):
+        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "box", "boxes3", "descr", "orgpc")
+    def opimpl_conditional_call_irf_v(self, condbox, funcbox, argboxes,
+                                      calldescr, pc):
+        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
 
     @arguments("int", "boxes3", "boxes3", "orgpc")
     def _opimpl_recursive_call(self, jdindex, greenboxes, redboxes, pc):
@@ -943,8 +986,9 @@ class MIFrame(object):
             promoted_box = resbox.constbox()
             # This is GUARD_VALUE because GUARD_TRUE assumes the existance
             # of a label when computing resumepc
-            self.generate_guard(rop.GUARD_VALUE, resbox, [promoted_box],
-                                resumepc=orgpc)
+            self.metainterp.generate_guard(rop.GUARD_VALUE, resbox,
+                                           [promoted_box],
+                                           resumepc=orgpc)
             self.metainterp.replace_box(box, constbox)
             return constbox
 
@@ -956,7 +1000,8 @@ class MIFrame(object):
     def opimpl_guard_class(self, box, orgpc):
         clsbox = self.cls_of_box(box)
         if not self.metainterp.heapcache.is_class_known(box):
-            self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
+            self.metainterp.generate_guard(rop.GUARD_CLASS, box, [clsbox],
+                                           resumepc=orgpc)
             self.metainterp.heapcache.class_now_known(box)
         return clsbox
 
@@ -973,9 +1018,6 @@ class MIFrame(object):
     @arguments("int", "boxes3", "jitcode_position", "boxes3", "orgpc")
     def opimpl_jit_merge_point(self, jdindex, greenboxes,
                                jcposition, redboxes, orgpc):
-        resumedescr = compile.ResumeAtPositionDescr()
-        self.capture_resumedata(resumedescr, orgpc)
-
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
@@ -1007,6 +1049,9 @@ class MIFrame(object):
             # much less expensive to blackhole out of.
             saved_pc = self.pc
             self.pc = orgpc
+            resumedescr = compile.ResumeAtPositionDescr()
+            self.metainterp.capture_resumedata(resumedescr, orgpc)
+
             self.metainterp.reached_loop_header(greenboxes, redboxes, resumedescr)
             self.pc = saved_pc
             # no exception, which means that the jit_merge_point did not
@@ -1056,8 +1101,8 @@ class MIFrame(object):
         # xxx hack
         if not self.metainterp.heapcache.is_class_known(exc_value_box):
             clsbox = self.cls_of_box(exc_value_box)
-            self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
-                                resumepc=orgpc)
+            self.metainterp.generate_guard(rop.GUARD_CLASS, exc_value_box,
+                                           [clsbox], resumepc=orgpc)
         self.metainterp.class_of_last_exc_is_const = True
         self.metainterp.last_exc_value_box = exc_value_box
         self.metainterp.popframe()
@@ -1204,7 +1249,7 @@ class MIFrame(object):
                                                    CIF_DESCRIPTION_P)
 
         kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
-        
+
         if kind != 'v':
             ofs = cif_description.exchange_result
             assert ofs % itemsize == 0     # alignment check (result)
@@ -1239,10 +1284,6 @@ class MIFrame(object):
 
     def setup_resume_at_op(self, pc):
         self.pc = pc
-        ##  values = ' '.join([box.repr_rpython() for box in self.env])
-        ##  log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
-        ##                                             self.pc, values,
-        ##                                             self.exception_target))
 
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
@@ -1260,43 +1301,6 @@ class MIFrame(object):
         except ChangeFrame:
             pass
 
-    def generate_guard(self, opnum, box=None, extraargs=[], resumepc=-1):
-        if isinstance(box, Const):    # no need for a guard
-            return
-        metainterp = self.metainterp
-        if box is not None:
-            moreargs = [box] + extraargs
-        else:
-            moreargs = list(extraargs)
-        metainterp_sd = metainterp.staticdata
-        if opnum == rop.GUARD_NOT_FORCED:
-            resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
-                                                   metainterp.jitdriver_sd)
-        elif opnum == rop.GUARD_NOT_INVALIDATED:
-            resumedescr = compile.ResumeGuardNotInvalidated()
-        else:
-            resumedescr = compile.ResumeGuardDescr()
-        guard_op = metainterp.history.record(opnum, moreargs, None,
-                                             descr=resumedescr)
-        self.capture_resumedata(resumedescr, resumepc)
-        self.metainterp.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
-        # count
-        metainterp.attach_debug_info(guard_op)
-        return guard_op
-
-    def capture_resumedata(self, resumedescr, resumepc=-1):
-        metainterp = self.metainterp
-        virtualizable_boxes = None
-        if (metainterp.jitdriver_sd.virtualizable_info is not None or
-            metainterp.jitdriver_sd.greenfield_info is not None):
-            virtualizable_boxes = metainterp.virtualizable_boxes
-        saved_pc = self.pc
-        if resumepc >= 0:
-            self.pc = resumepc
-        resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
-                                  metainterp.virtualref_boxes, resumedescr)
-        self.pc = saved_pc
-
     def implement_guard_value(self, box, orgpc):
         """Promote the given Box into a Const.  Note: be careful, it's a
         bit unclear what occurs if a single opcode needs to generate
@@ -1305,8 +1309,8 @@ class MIFrame(object):
             return box     # no promotion needed, already a Const
         else:
             promoted_box = box.constbox()
-            self.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
-                                resumepc=orgpc)
+            self.metainterp.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
+                                           resumepc=orgpc)
             self.metainterp.replace_box(box, promoted_box)
             return promoted_box
 
@@ -1339,12 +1343,7 @@ class MIFrame(object):
             self.metainterp.assert_no_exception()
         return resbox
 
-    def do_residual_call(self, funcbox, argboxes, descr, pc,
-                         assembler_call=False,
-                         assembler_call_jd=None):
-        # First build allboxes: it may need some reordering from the
-        # list provided in argboxes, depending on the order in which
-        # the arguments are expected by the function
+    def _build_allboxes(self, funcbox, argboxes, descr):
         allboxes = [None] * (len(argboxes)+1)
         allboxes[0] = funcbox
         src_i = src_r = src_f = 0
@@ -1373,7 +1372,16 @@ class MIFrame(object):
             allboxes[i] = box
             i += 1
         assert i == len(allboxes)
+        return allboxes
+
+    def do_residual_call(self, funcbox, argboxes, descr, pc,
+                         assembler_call=False,
+                         assembler_call_jd=None):
+        # First build allboxes: it may need some reordering from the
+        # list provided in argboxes, depending on the order in which
+        # the arguments are expected by the function
         #
+        allboxes = self._build_allboxes(funcbox, argboxes, descr)
         effectinfo = descr.get_extra_info()
         if (assembler_call or
                 effectinfo.check_forces_virtual_or_virtualizable()):
@@ -1395,8 +1403,8 @@ class MIFrame(object):
                     assembler_call_jd)
             if resbox is not None:
                 self.make_result_of_lastop(resbox)
-            self.metainterp.vable_after_residual_call()
-            self.generate_guard(rop.GUARD_NOT_FORCED, None)
+            self.metainterp.vable_after_residual_call(funcbox)
+            self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
             if vablebox is not None:
                 self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
             self.metainterp.handle_possible_exception()
@@ -1412,6 +1420,15 @@ class MIFrame(object):
             exc = effectinfo.check_can_raise()
             pure = effectinfo.check_is_elidable()
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+
+    def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
+        allboxes = self._build_allboxes(funcbox, argboxes, descr)
+        effectinfo = descr.get_extra_info()
+        assert not effectinfo.check_forces_virtual_or_virtualizable()
+        exc = effectinfo.check_can_raise()
+        pure = effectinfo.check_is_elidable()
+        return self.execute_varargs(rop.COND_CALL, [condbox] + allboxes, descr,
+                                    exc, pure)
 
     def _do_jit_force_virtual(self, allboxes, descr, pc):
         assert len(allboxes) == 2
@@ -1636,6 +1653,7 @@ class MetaInterp(object):
         self.portal_trace_positions = []
         self.free_frames_list = []
         self.last_exc_value_box = None
+        self.forced_virtualizable = None
         self.partial_trace = None
         self.retracing_from = -1
         self.call_pure_results = args_dict_box()
@@ -1758,6 +1776,45 @@ class MetaInterp(object):
                     print " ",
                 print jitcode.name
             raise AssertionError
+
+    def generate_guard(self, opnum, box=None, extraargs=[], resumepc=-1):
+        if isinstance(box, Const):    # no need for a guard
+            return
+        if box is not None:
+            moreargs = [box] + extraargs
+        else:
+            moreargs = list(extraargs)
+        metainterp_sd = self.staticdata
+        if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
+            resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
+                                                         self.jitdriver_sd)
+        elif opnum == rop.GUARD_NOT_INVALIDATED:
+            resumedescr = compile.ResumeGuardNotInvalidated()
+        else:
+            resumedescr = compile.ResumeGuardDescr()
+        guard_op = self.history.record(opnum, moreargs, None,
+                                             descr=resumedescr)
+        self.capture_resumedata(resumedescr, resumepc)
+        self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
+        # count
+        self.attach_debug_info(guard_op)
+        return guard_op
+
+    def capture_resumedata(self, resumedescr, resumepc=-1):
+        virtualizable_boxes = None
+        if (self.jitdriver_sd.virtualizable_info is not None or
+            self.jitdriver_sd.greenfield_info is not None):
+            virtualizable_boxes = self.virtualizable_boxes
+        saved_pc = 0
+        if self.framestack:
+            frame = self.framestack[-1]
+            saved_pc = frame.pc
+            if resumepc >= 0:
+                frame.pc = resumepc
+        resume.capture_resumedata(self.framestack, virtualizable_boxes,
+                                  self.virtualref_boxes, resumedescr)
+        if self.framestack:
+            self.framestack[-1].pc = saved_pc
 
     def create_empty_history(self):
         self.history = history.History()
@@ -2006,7 +2063,7 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
-        self.heapcache.reset()
+        self.heapcache.reset(reset_virtuals=False)
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
@@ -2050,11 +2107,11 @@ class MetaInterp(object):
                 if not box1.same_constant(box2):
                     break
             else:
-                # Found!  Compile it as a loop.
-                # raises in case it works -- which is the common case
                 if self.partial_trace:
                     if  start != self.retracing_from:
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
+                # Found!  Compile it as a loop.
+                # raises in case it works -- which is the common case
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
@@ -2156,7 +2213,10 @@ class MetaInterp(object):
             raise NotImplementedError(opname[opnum])
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):
-        cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
+        JitCell = self.jitdriver_sd.warmstate.JitCell
+        cell = JitCell.get_jit_cell_at_key(greenkey)
+        if cell is None:
+            return None
         token = cell.get_procedure_token()
         if with_compiled_targets:
             if not token:
@@ -2229,8 +2289,8 @@ class MetaInterp(object):
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
     def compile_done_with_this_frame(self, exitbox):
-        self.gen_store_back_in_virtualizable()
         # temporarily put a JUMP to a pseudo-loop
+        self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
         if result_type == history.VOID:
@@ -2256,8 +2316,24 @@ class MetaInterp(object):
         if target_token is not token:
             compile.giveup()
 
+    def store_token_in_vable(self):
+        vinfo = self.jitdriver_sd.virtualizable_info
+        if vinfo is None:
+            return
+        vbox = self.virtualizable_boxes[-1]
+        if vbox is self.forced_virtualizable:
+            return # we already forced it by hand
+        force_token_box = history.BoxPtr()
+        # in case the force_token has not been recorded, record it here
+        # to make sure we know the virtualizable can be broken. However, the
+        # contents of the virtualizable should be generally correct
+        self.history.record(rop.FORCE_TOKEN, [], force_token_box)
+        self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
+                            None, descr=vinfo.vable_token_descr)
+        self.generate_guard(rop.GUARD_NOT_FORCED_2, None)
+
     def compile_exit_frame_with_exception(self, valuebox):
-        self.gen_store_back_in_virtualizable()
+        self.store_token_in_vable()
         sd = self.staticdata
         token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
@@ -2369,7 +2445,7 @@ class MetaInterp(object):
                 # it by ConstPtr(NULL).
                 self.stop_tracking_virtualref(i)
 
-    def vable_after_residual_call(self):
+    def vable_after_residual_call(self, funcbox):
         vinfo = self.jitdriver_sd.virtualizable_info
         if vinfo is not None:
             virtualizable_box = self.virtualizable_boxes[-1]
@@ -2377,6 +2453,14 @@ class MetaInterp(object):
             if vinfo.tracing_after_residual_call(virtualizable):
                 # the virtualizable escaped during CALL_MAY_FORCE.
                 self.load_fields_from_virtualizable()
+                target_name = self.staticdata.get_name_from_address(funcbox.getaddr())
+                if target_name:
+                    target_name = "ConstClass(%s)" % target_name
+                else:
+                    target_name = str(funcbox.getaddr())
+                debug_print('vable escaped during a call in %s to %s' % (
+                    self.framestack[-1].jitcode.name, target_name
+                ))
                 raise SwitchToBlackhole(Counters.ABORT_ESCAPE,
                                         raising_exception=True)
                 # ^^^ we set 'raising_exception' to True because we must still
@@ -2396,27 +2480,25 @@ class MetaInterp(object):
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
 
     def handle_possible_exception(self):
-        frame = self.framestack[-1]
         if self.last_exc_value_box is not None:
             exception_box = self.cpu.ts.cls_of_box(self.last_exc_value_box)
-            op = frame.generate_guard(rop.GUARD_EXCEPTION,
-                                      None, [exception_box])
+            op = self.generate_guard(rop.GUARD_EXCEPTION,
+                                     None, [exception_box])
             assert op is not None
             op.result = self.last_exc_value_box
             self.class_of_last_exc_is_const = True
             self.finishframe_exception()
         else:
-            frame.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
+            self.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
 
     def handle_possible_overflow_error(self):
-        frame = self.framestack[-1]
         if self.last_exc_value_box is not None:
-            frame.generate_guard(rop.GUARD_OVERFLOW, None)
+            self.generate_guard(rop.GUARD_OVERFLOW, None)
             assert isinstance(self.last_exc_value_box, Const)
             assert self.class_of_last_exc_is_const
             self.finishframe_exception()
         else:
-            frame.generate_guard(rop.GUARD_NO_OVERFLOW, None)
+            self.generate_guard(rop.GUARD_NO_OVERFLOW, None)
 
     def assert_no_exception(self):
         assert self.last_exc_value_box is None
@@ -2443,12 +2525,13 @@ class MetaInterp(object):
         if vinfo is not None:
             self.virtualizable_boxes = virtualizable_boxes
             # just jumped away from assembler (case 4 in the comment in
-            # virtualizable.py) into tracing (case 2); check that vable_token
-            # is and stays NULL.  Note the call to reset_vable_token() in
-            # warmstate.py.
+            # virtualizable.py) into tracing (case 2); if we get the
+            # virtualizable from somewhere strange it might not be forced,
+            # do it
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            assert not vinfo.is_token_nonnull_gcref(virtualizable)
+            if vinfo.is_token_nonnull_gcref(virtualizable):
+                vinfo.reset_token_gcref(virtualizable)
             # fill the virtualizable with the local boxes
             self.synchronize_virtualizable()
         #
@@ -2484,11 +2567,20 @@ class MetaInterp(object):
                                                         virtualizable)
             self.virtualizable_boxes.append(virtualizable_box)
 
-    def gen_store_back_in_virtualizable(self):
+    def gen_store_back_in_vable(self, box):
         vinfo = self.jitdriver_sd.virtualizable_info
         if vinfo is not None:
             # xxx only write back the fields really modified
             vbox = self.virtualizable_boxes[-1]
+            if vbox is not box:
+                # ignore the hint on non-standard virtualizable
+                # specifically, ignore it on a virtual
+                return
+            if self.forced_virtualizable is not None:
+                # this can happen only in strange cases, but we don't care
+                # it was already forced
+                return
+            self.forced_virtualizable = vbox
             for i in range(vinfo.num_static_extra_boxes):
                 fieldbox = self.virtualizable_boxes[i]
                 descr = vinfo.static_field_descrs[i]
@@ -2505,6 +2597,9 @@ class MetaInterp(object):
                     self.execute_and_record(rop.SETARRAYITEM_GC, descr,
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
+            # we're during tracing, so we should not execute it
+            self.history.record(rop.SETFIELD_GC, [vbox, self.cpu.ts.CONST_NULL],
+                                None, descr=vinfo.vable_token_descr)
 
     def replace_box(self, oldbox, newbox):
         assert isinstance(oldbox, Box)

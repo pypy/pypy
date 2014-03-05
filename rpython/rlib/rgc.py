@@ -15,7 +15,6 @@ collect = gc.collect
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
-    So far only implemented by the Boehm GC and the semispace/generation GCs.
     """
     pass
 
@@ -94,9 +93,9 @@ class DumpHeapEntry(ExtRegistryEntry):
     _about_ = _heap_stats
 
     def compute_result_annotation(self):
-        from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import SomePtr
         from rpython.memory.gc.base import ARRAY_TYPEID_MAP
-        return annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP))
+        return SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP))
 
     def specialize_call(self, hop):
         hop.exception_is_here()
@@ -114,8 +113,8 @@ class MallocNonMovingEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_TP, s_n=None, s_zero=None):
         # basically return the same as malloc
-        from rpython.annotator.builtin import malloc
-        return malloc(s_TP, s_n, s_zero=s_zero)
+        from rpython.annotator.builtin import BUILTIN_ANALYZERS
+        return BUILTIN_ANALYZERS[lltype.malloc](s_TP, s_n, s_zero=s_zero)
 
     def specialize_call(self, hop, i_zero=None):
         # XXX assume flavor and zero to be None by now
@@ -262,6 +261,10 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
+def no_release_gil(func):
+    func._dont_inline_ = True
+    func._no_release_gil_ = True
+    return func
 
 def no_collect(func):
     func._dont_inline_ = True
@@ -343,6 +346,9 @@ def get_rpy_type_index(gcref):
     return intmask(id(Class))
 
 def cast_gcref_to_int(gcref):
+    # This is meant to be used on cast_instance_to_gcref results.
+    # Don't use this on regular gcrefs obtained e.g. with
+    # lltype.cast_opaque_ptr().
     if we_are_translated():
         return lltype.cast_ptr_to_int(gcref)
     else:
@@ -421,11 +427,11 @@ def try_cast_gcref_to_instance(Class, gcref):
     # Before translation, unwraps the RPython instance contained in a _GcRef.
     # After translation, it is a type-check performed by the GC.
     if we_are_translated():
-        from rpython.rtyper.annlowlevel import base_ptr_lltype
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         from rpython.rtyper.lltypesystem import rclass
         if _is_rpy_instance(gcref):
-            objptr = lltype.cast_opaque_ptr(base_ptr_lltype(), gcref)
+            objptr = lltype.cast_opaque_ptr(OBJECTPTR, gcref)
             if objptr.typeptr:   # may be NULL, e.g. in rdict's dummykeyobj
                 clsptr = _get_llcls_from_cls(Class)
                 if rclass.ll_isinstance(objptr, clsptr):
@@ -445,8 +451,9 @@ def s_list_of_gcrefs():
     global _cache_s_list_of_gcrefs
     if _cache_s_list_of_gcrefs is None:
         from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import SomePtr
         from rpython.annotator.listdef import ListDef
-        s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        s_gcref = SomePtr(llmemory.GCREF)
         _cache_s_list_of_gcrefs = annmodel.SomeList(
             ListDef(None, s_gcref, mutated=True, resized=False))
     return _cache_s_list_of_gcrefs
@@ -461,15 +468,17 @@ class Entry(ExtRegistryEntry):
 
 class Entry(ExtRegistryEntry):
     _about_ = get_rpy_referents
+
     def compute_result_annotation(self, s_gcref):
-        from rpython.annotator import model as annmodel
-        assert annmodel.SomePtr(llmemory.GCREF).contains(s_gcref)
+        from rpython.rtyper.llannotation import SomePtr
+        assert SomePtr(llmemory.GCREF).contains(s_gcref)
         return s_list_of_gcrefs()
+
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
         hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_referents', vlist,
-                         resulttype = hop.r_result)
+                         resulttype=hop.r_result)
 
 class Entry(ExtRegistryEntry):
     _about_ = get_rpy_memory_usage
@@ -515,10 +524,11 @@ class Entry(ExtRegistryEntry):
 class Entry(ExtRegistryEntry):
     _about_ = _get_llcls_from_cls
     def compute_result_annotation(self, s_Class):
-        from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import SomePtr
         from rpython.rtyper.lltypesystem import rclass
         assert s_Class.is_constant()
-        return annmodel.SomePtr(rclass.CLASSTYPE)
+        return SomePtr(rclass.CLASSTYPE)
+
     def specialize_call(self, hop):
         from rpython.rtyper.rclass import getclassrepr
         from rpython.flowspace.model import Constant
@@ -543,9 +553,11 @@ class Entry(ExtRegistryEntry):
 
 class Entry(ExtRegistryEntry):
     _about_ = get_typeids_z
+
     def compute_result_annotation(self):
-        from rpython.annotator.model import SomePtr
+        from rpython.rtyper.llannotation import SomePtr
         return SomePtr(lltype.Ptr(ARRAY_OF_CHAR))
+
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)

@@ -1,11 +1,13 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
 class LLBuffer(RWBuffer):
@@ -34,8 +36,7 @@ class LLBuffer(RWBuffer):
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)
-        for i in range(len(string)):
-            raw_cdata[i] = string[i]
+        copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
 
 
 class MiniBuffer(W_Root):
@@ -59,6 +60,9 @@ class MiniBuffer(W_Root):
     def descr__buffer__(self, space):
         return self.buffer.descr__buffer__(space)
 
+    def descr_str(self, space):
+        return space.wrap(self.buffer.as_str())
+
 
 MiniBuffer.typedef = TypeDef(
     "buffer",
@@ -68,6 +72,7 @@ MiniBuffer.typedef = TypeDef(
     __setitem__ = interp2app(MiniBuffer.descr_setitem),
     __buffer__ = interp2app(MiniBuffer.descr__buffer__),
     __weakref__ = make_weakref_descr(MiniBuffer),
+    __str__ = interp2app(MiniBuffer.descr_str),
     )
 MiniBuffer.typedef.acceptable_as_base_class = False
 
@@ -82,11 +87,9 @@ def buffer(space, w_cdata, size=-1):
         if size < 0:
             size = w_cdata._sizeof()
     else:
-        raise operationerrfmt(space.w_TypeError,
-                              "expected a pointer or array cdata, got '%s'",
-                              ctype.name)
+        raise oefmt(space.w_TypeError,
+                    "expected a pointer or array cdata, got '%s'", ctype.name)
     if size < 0:
-        raise operationerrfmt(space.w_TypeError,
-                              "don't know the size pointed to by '%s'",
-                              ctype.name)
+        raise oefmt(space.w_TypeError,
+                    "don't know the size pointed to by '%s'", ctype.name)
     return space.wrap(MiniBuffer(LLBuffer(w_cdata._cdata, size), w_cdata))

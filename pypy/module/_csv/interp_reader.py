@@ -39,19 +39,20 @@ class W_Reader(W_Root):
         field_builder.append(c)
 
     def save_field(self, field_builder):
+        space = self.space
         field = field_builder.build()
         if self.numeric_field:
-            from pypy.objspace.std.strutil import ParseStringError
-            from pypy.objspace.std.strutil import string_to_float
+            from rpython.rlib.rstring import ParseStringError
+            from rpython.rlib.rfloat import string_to_float
             self.numeric_field = False
             try:
                 ff = string_to_float(field)
-            except ParseStringError, e:
-                raise OperationError(self.space.w_ValueError,
-                                     self.space.wrap(e.msg))
-            w_obj = self.space.wrap(ff)
+            except ParseStringError as e:
+                from pypy.objspace.std.intobject import wrap_parsestringerror
+                raise wrap_parsestringerror(space, e, space.wrap(field))
+            w_obj = space.wrap(ff)
         else:
-            w_obj = self.space.wrap(field)
+            w_obj = space.wrap(field)
         self.fields_w.append(w_obj)
 
     def next_w(self):

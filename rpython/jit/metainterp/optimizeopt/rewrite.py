@@ -20,9 +20,6 @@ class OptRewrite(Optimization):
         self.loop_invariant_results = {}
         self.loop_invariant_producer = {}
 
-    def new(self):
-        return OptRewrite()
-
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_potential(op)
@@ -89,8 +86,21 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v1.is_null() or v2.is_null():
             self.make_constant_int(op.result, 0)
-        else:
-            self.emit_operation(op)
+            return
+        elif v2.is_constant():
+            val = v2.box.getint()
+            if val == -1 or v1.intbound.lower >= 0 \
+                and v1.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v1)
+                return
+        elif v1.is_constant():
+            val = v1.box.getint()
+            if val == -1 or v2.intbound.lower >= 0 \
+                and v2.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v2)
+                return
+
+        self.emit_operation(op)
 
     def optimize_INT_OR(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -107,6 +117,11 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
+        elif v1.is_constant() and v1.box.getint() == 0:
+            op = op.copy_and_change(rop.INT_NEG, args=[v2.box])
+            self.emit_operation(op)
+        elif v1 is v2:
+            self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
             # Synthesize the reverse ops for optimize_default to reuse
@@ -124,6 +139,7 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
+            self.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op.result)
             # Synthesize the reverse op for optimize_default to reuse
             self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
             self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
@@ -166,6 +182,8 @@ class OptRewrite(Optimization):
 
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
+        elif v1.is_constant() and v1.box.getint() == 0:
+            self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
 
@@ -174,6 +192,19 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
 
         if v2.is_constant() and v2.box.getint() == 0:
+            self.make_equal_to(op.result, v1)
+        elif v1.is_constant() and v1.box.getint() == 0:
+            self.make_constant_int(op.result, 0)
+        else:
+            self.emit_operation(op)
+
+    def optimize_INT_XOR(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+
+        if v1.is_constant() and v1.box.getint() == 0:
+            self.make_equal_to(op.result, v2)
+        elif v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
@@ -240,7 +271,13 @@ class OptRewrite(Optimization):
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            raise InvalidLoop('A promote of a virtual (a recently allocated object) never makes sense!')
+            arg = value.get_constant_class(self.optimizer.cpu)
+            if arg:
+                addr = arg.getaddr()
+                name = self.optimizer.metainterp_sd.get_name_from_address(addr)
+            else:
+                name = "<unknown>"
+            raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
@@ -250,7 +287,7 @@ class OptRewrite(Optimization):
                 # This is only safe if the class of the guard_value matches the
                 # class of the guard_*_class, otherwise the intermediate ops might
                 # be executed with wrong classes.
-                previous_classbox = value.get_constant_class(self.optimizer.cpu)            
+                previous_classbox = value.get_constant_class(self.optimizer.cpu)
                 expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
                 assert previous_classbox is not None
                 assert expected_classbox is not None
@@ -343,6 +380,15 @@ class OptRewrite(Optimization):
         resvalue = self.getvalue(op.result)
         self.loop_invariant_results[key] = resvalue
 
+    def optimize_COND_CALL(self, op):
+        arg = op.getarg(0)
+        val = self.getvalue(arg)
+        if val.is_constant():
+            if val.box.same_constant(CONST_0):
+                return
+            op = op.copy_and_change(rop.CALL, args=op.getarglist()[1:])
+        self.emit_operation(op)
+
     def _optimize_nullness(self, op, box, expect_nonnull):
         value = self.getvalue(box)
         if value.is_nonnull():
@@ -401,18 +447,6 @@ class OptRewrite(Optimization):
 
     def optimize_INSTANCE_PTR_NE(self, op):
         self._optimize_oois_ooisnot(op, True, True)
-
-##    def optimize_INSTANCEOF(self, op):
-##        value = self.getvalue(op.args[0])
-##        realclassbox = value.get_constant_class(self.optimizer.cpu)
-##        if realclassbox is not None:
-##            checkclassbox = self.optimizer.cpu.typedescr2classbox(op.descr)
-##            result = self.optimizer.cpu.ts.subclassOf(self.optimizer.cpu,
-##                                                      realclassbox,
-##                                                      checkclassbox)
-##            self.make_constant_int(op.result, result)
-##            return
-##        self.emit_operation(op)
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles

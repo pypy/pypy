@@ -2,29 +2,64 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
+import time
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.error import OperationError
+from rpython.rlib.rarithmetic import r_longlong
 
 
-##import sys
-##def debug(msg, n):
-##    return
-##    tb = []
-##    try:
-##        for i in range(1, 8):
-##            tb.append(sys._getframe(i).f_code.co_name)
-##    except:
-##        pass
-##    tb = ' '.join(tb)
-##    msg = '| %6d | %d %s | %s\n' % (rthread.get_ident(), n, msg, tb)
-##    sys.stderr.write(msg)
+LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
+TIMEOUT_MAX = LONGLONG_MAX
+
+RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
+
+def parse_acquire_args(space, blocking, timeout):
+    if not blocking and timeout != -1.0:
+        raise OperationError(space.w_ValueError, space.wrap(
+                "can't specify a timeout for a non-blocking call"))
+    if timeout < 0.0 and timeout != -1.0:
+        raise OperationError(space.w_ValueError, space.wrap(
+                "timeout value must be strictly positive"))
+    if not blocking:
+        microseconds = 0
+    elif timeout == -1.0:
+        microseconds = -1
+    else:
+        timeout *= 1e6
+        if timeout > float(TIMEOUT_MAX):
+            raise OperationError(space.w_OverflowError, space.wrap(
+                    "timeout value is too large"))
+        microseconds = r_longlong(timeout)
+    return microseconds
+
+
+def acquire_timed(space, lock, microseconds):
+    """Helper to acquire an interruptible lock with a timeout."""
+    endtime = (time.time() * 1e6) + microseconds
+    while True:
+        result = lock.acquire_timed(microseconds)
+        if result == RPY_LOCK_INTR:
+            # Run signal handlers if we were interrupted
+            space.getexecutioncontext().checksignals()
+            if microseconds >= 0:
+                microseconds = r_longlong(endtime - (time.time() * 1e6))
+                # Check for negative values, since those mean block
+                # forever
+                if microseconds <= 0:
+                    result = RPY_LOCK_FAILURE
+        if result != RPY_LOCK_INTR:
+            break
+    return result
 
 
 class Lock(W_Root):
     "A box around an interp-level lock object."
+
+    _immutable_fields_ = ["lock"]
 
     def __init__(self, space):
         self.space = space
@@ -33,8 +68,8 @@ class Lock(W_Root):
         except rthread.error:
             raise wrap_thread_error(space, "out of resources")
 
-    @unwrap_spec(waitflag=int)
-    def descr_lock_acquire(self, space, waitflag=1):
+    @unwrap_spec(blocking=int)
+    def descr_lock_acquire(self, space, blocking=1):
         """Lock the lock.  With the default argument of True, this blocks
 if the lock is already locked (even by the same thread), waiting for
 another thread to release the lock, and returns True once the lock is
@@ -42,8 +77,23 @@ acquired.  With an argument of False, this will always return immediately
 and the return value reflects whether the lock is acquired.
 The blocking operation is not interruptible."""
         mylock = self.lock
-        result = mylock.acquire(bool(waitflag))
+        result = mylock.acquire(bool(blocking))
         return space.newbool(result)
+
+    @unwrap_spec(blocking=int, timeout=float)
+    def descr_lock_py3k_acquire(self, space, blocking=1, timeout=-1.0):
+        """(Backport of a Python 3 API for PyPy.  This version takes
+a timeout argument and handles signals, like Ctrl-C.)
+
+Lock the lock.  Without argument, this blocks if the lock is already
+locked (even by the same thread), waiting for another thread to release
+the lock, and return None once the lock is acquired.
+With an argument, this will only block if the argument is true,
+and the return value reflects whether the lock is acquired.
+The blocking operation is interruptible."""
+        microseconds = parse_acquire_args(space, blocking, timeout)
+        result = acquire_timed(space, self.lock, microseconds)
+        return space.newbool(result == RPY_LOCK_ACQUIRED)
 
     def descr_lock_release(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
@@ -81,6 +131,7 @@ descr_release = interp2app(Lock.descr_lock_release)
 descr_locked  = interp2app(Lock.descr_lock_locked)
 descr__enter__ = interp2app(Lock.descr__enter__)
 descr__exit__ = interp2app(Lock.descr__exit__)
+descr_py3k_acquire = interp2app(Lock.descr_lock_py3k_acquire)
 
 
 Lock.typedef = TypeDef("thread.lock",
@@ -96,6 +147,7 @@ A lock is not owned by the thread that locked it; another thread may
 unlock it.  A thread attempting to lock a lock that it has already locked
 will block until another thread unlocks it.  Deadlocks may ensue.""",
     acquire = descr_acquire,
+    _py3k_acquire = descr_py3k_acquire,
     release = descr_release,
     locked  = descr_locked,
     __enter__ = descr__enter__,

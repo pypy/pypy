@@ -57,4 +57,4 @@ def get_long_info(space):
     return space.call_function(w_long_info, space.newtuple(info_w))
 
 def get_float_repr_style(space):
-    return space.wrap("short" if rfloat.USE_SHORT_FLOAT_REPR else "legacy")
+    return space.wrap("short")

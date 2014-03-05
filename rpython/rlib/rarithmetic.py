@@ -33,6 +33,8 @@ mark where overflow checking is required.
 import sys, struct
 from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
+from rpython.flowspace.model import Constant, const
+from rpython.flowspace.specialcase import register_flow_sc
 
 """
 Long-term target:
@@ -513,6 +515,15 @@ class BaseIntTypeEntry(extregistry.ExtRegistryEntry):
 r_int = build_int('r_int', True, LONG_BIT)
 r_uint = build_int('r_uint', False, LONG_BIT)
 
+@register_flow_sc(r_uint)
+def sc_r_uint(ctx, w_value):
+    # (normally, the 32-bit constant is a long, and is not allowed to
+    # show up in the flow graphs at all)
+    if isinstance(w_value, Constant):
+        return Constant(r_uint(w_value.value))
+    return ctx.appcall(r_uint, w_value)
+
+
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
@@ -668,3 +679,34 @@ def byteswap(arg):
     if T == lltype.Float:
         return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
+
+
+# String parsing support
+# ---------------------------
+
+def string_to_int(s, base=10):
+    """Utility to converts a string to an integer.
+    If base is 0, the proper base is guessed based on the leading
+    characters of 's'.  Raises ParseStringError in case of error.
+    Raises ParseStringOverflowError in case the result does not fit.
+    """
+    from rpython.rlib.rstring import (
+        NumberStringParser, ParseStringOverflowError, strip_spaces)
+    s = literal = strip_spaces(s)
+    p = NumberStringParser(s, literal, base, 'int')
+    base = p.base
+    result = 0
+    while True:
+        digit = p.next_digit()
+        if digit == -1:
+            return result
+
+        if p.sign == -1:
+            digit = -digit
+
+        try:
+            result = ovfcheck(result * base)
+            result = ovfcheck(result + digit)
+        except OverflowError:
+            raise ParseStringOverflowError(p)
+string_to_int._elidable_function_ = True

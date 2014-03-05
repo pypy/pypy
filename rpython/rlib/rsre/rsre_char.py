@@ -145,13 +145,11 @@ def check_charset(pattern, ppos, char_code):
     result = False
     while True:
         opcode = pattern[ppos]
-        i = 0
-        for function in set_dispatch_unroll:
-            if function is not None and opcode == i:
+        for i, function in set_dispatch_unroll:
+            if opcode == i:
                 newresult, ppos = function(pattern, ppos, char_code)
                 result |= newresult
                 break
-            i = i + 1
         else:
             if opcode == 0: # FAILURE
                 break
@@ -192,46 +190,75 @@ def set_range(pat, index, char_code):
 
 def set_bigcharset(pat, index, char_code):
     # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
-    # XXX this function needs a makeover, it's very bad
     count = pat[index+1]
     index += 2
-    if char_code < 65536:
-        block_index = char_code >> 8
-        # NB: there are CODESIZE block indices per bytecode
-        a = to_byte_array(pat[index+(block_index / CODESIZE)])
-        block = a[block_index % CODESIZE]
-        index += 256 / CODESIZE  # skip block indices
-        if CODESIZE == 2:
-            shift = 4
-        else:
-            shift = 5
-        block_value = pat[index+(block * (32 / CODESIZE)
-                                 + ((char_code & 255) >> shift))]
-        match = (block_value & (1 << (char_code & ((8 * CODESIZE) - 1)))) != 0
+
+    if CODESIZE == 2:
+        # One bytecode is 2 bytes, so contains 2 of the blockindices.
+        # So the 256 blockindices are packed in 128 bytecodes, but
+        # we need to unpack it as a byte.
+        assert char_code < 65536
+        shift = 4
     else:
-        index += 256 / CODESIZE  # skip block indices
-        match = False
+        # One bytecode is 4 bytes, so contains 4 of the blockindices.
+        # So the 256 blockindices are packed in 64 bytecodes, but
+        # we need to unpack it as a byte.
+        if char_code >= 65536:
+            index += 256 / CODESIZE + count * (32 / CODESIZE)
+            return False, index
+        shift = 5
+
+    block = pat[index + (char_code >> (shift + 5))]
+
+    block_shift = char_code >> 5
+    if BIG_ENDIAN:
+        block_shift = ~block_shift
+    block_shift &= (CODESIZE - 1) * 8
+    block = (block >> block_shift) & 0xFF
+
+    index += 256 / CODESIZE
+    block_value = pat[index+(block * (32 / CODESIZE)
+                             + ((char_code & 255) >> shift))]
+    match = (block_value & (1 << (char_code & ((8 * CODESIZE) - 1))))
     index += count * (32 / CODESIZE)  # skip blocks
     return match, index
 
-def to_byte_array(int_value):
-    """Creates a list of bytes out of an integer representing data that is
-    CODESIZE bytes wide."""
-    byte_array = [0] * CODESIZE
-    for i in range(CODESIZE):
-        byte_array[i] = int_value & 0xff
-        int_value = int_value >> 8
-    if BIG_ENDIAN:
-        byte_array.reverse()
-    return byte_array
+def set_unicode_general_category(pat, index, char_code):
+    # Unicode "General category property code" (not used by Python).
+    # A general category is two letters.  'pat[index+1]' contains both
+    # the first character, and the second character shifted by 8.
+    # http://en.wikipedia.org/wiki/Unicode_character_property#General_Category
+    # Also supports single-character categories, if the second character is 0.
+    # Negative matches are triggered by bit number 7.
+    assert unicodedb is not None
+    cat = unicodedb.category(char_code)
+    category_code = pat[index + 1]
+    first_character = category_code & 0x7F
+    second_character = (category_code >> 8) & 0x7F
+    negative_match = category_code & 0x80
+    #
+    if second_character == 0:
+        # single-character match
+        check = ord(cat[0])
+        expected = first_character
+    else:
+        # two-characters match
+        check = ord(cat[0]) | (ord(cat[1]) << 8)
+        expected = first_character | (second_character << 8)
+    #
+    if negative_match:
+        result = check != expected
+    else:
+        result = check == expected
+    #
+    return result, index + 2
 
-set_dispatch_table = [
-    None, # FAILURE
-    None, None, None, None, None, None, None, None,
-    set_category, set_charset, set_bigcharset, None, None, None,
-    None, None, None, None, set_literal, None, None, None, None,
-    None, None,
-    None,  # NEGATE
-    set_range
-]
-set_dispatch_unroll = unrolling_iterable(set_dispatch_table)
+set_dispatch_table = {
+    9: set_category,
+    10: set_charset,
+    11: set_bigcharset,
+    19: set_literal,
+    27: set_range,
+    70: set_unicode_general_category,
+}
+set_dispatch_unroll = unrolling_iterable(sorted(set_dispatch_table.items()))

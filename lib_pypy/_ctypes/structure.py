@@ -2,6 +2,8 @@
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
+from _ctypes.array import Array
+from _ctypes.pointer import _Pointer
 import inspect
 
 def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
@@ -20,7 +22,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
                 or tp._type_ not in "iIhHbBlLqQ"):
                 #XXX: are those all types?
                 #     we just dont get the type name
-                #     in the interp levle thrown TypeError
+                #     in the interp level thrown TypeError
                 #     from rawffi if there are more
                 raise TypeError('bit fields not allowed for type ' + tp.__name__)
 
@@ -104,8 +106,11 @@ class Field(object):
     def __set__(self, obj, value):
         fieldtype = self.ctype
         cobj = fieldtype.from_param(value)
-        if ensure_objects(cobj) is not None:
-            key = keepalive_key(self.num)
+        key = keepalive_key(self.num)
+        if issubclass(fieldtype, _Pointer) and isinstance(cobj, Array):
+            # if our value is an Array we need the whole thing alive
+            store_reference(obj, key, cobj)
+        elif ensure_objects(cobj) is not None:
             store_reference(obj, key, cobj._objects)
         arg = cobj._get_buffer_value()
         if fieldtype._fficompositesize is not None:

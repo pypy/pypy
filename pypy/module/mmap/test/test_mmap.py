@@ -525,6 +525,8 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         assert m[-3:7] == "bar"
 
+        assert m[1:0:1] == ""
+
         f.close()
 
     def test_sequence_type(self):
@@ -548,6 +550,24 @@ class AppTestMMap:
         assert b[3] == "b"
         assert b[:] == "foobar"
         m.close()
+        f.close()
+
+    def test_buffer_write(self):
+        from mmap import mmap
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        m[5] = '?'
+        b = buffer(m)
+        try:
+            b[:3] = "FOO"
+        except TypeError:     # on CPython: "buffer is read-only" :-/
+            skip("on CPython: buffer is read-only")
+        m.close()
+        f.seek(0)
+        got = f.read()
+        assert got == "FOOba?"
         f.close()
 
     def test_offset(self):

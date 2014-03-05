@@ -3,7 +3,7 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py root-pypy-dir [--nostrip] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
+    package.py [--nostrip] [--without-tk] root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
 
 Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
@@ -46,7 +46,9 @@ def fix_permissions(basedir):
         os.system("chmod -R g-w %s" % basedir)
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
-            copy_to_dir = None, override_pypy_c = None, nostrip=False):
+            copy_to_dir=None, override_pypy_c=None, nostrip=False,
+            withouttk=False):
+    assert '/' not in rename_pypy_c
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
@@ -66,9 +68,22 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             raise PyPyCNotFound(
                 'Bogus path: %r does not exist (see docstring for more info)'
                 % (os.path.dirname(str(pypy_c)),))
+    win_extras = ['libpypy-c.dll', 'libexpat.dll', 'sqlite3.dll',
+                      'libeay32.dll', 'ssleay32.dll']
     subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
     if not sys.platform == 'win32':
         subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
+        subprocess.check_call([str(pypy_c), '-c', 'import syslog'])
+    if not withouttk:
+        try:
+            subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
+        except subprocess.CalledProcessError:
+            print >>sys.stderr, """Building Tk bindings failed.
+You can either install Tk development headers package or
+add --without-tk option to skip packaging binary CFFI extension."""
+            sys.exit(1)
+        #Can the dependencies be found from cffi somehow?    
+        win_extras += ['tcl85.dll', 'tk85.dll']    
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -76,6 +91,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     builddir = udir.ensure("build", dir=True)
     pypydir = builddir.ensure(name, dir=True)
     includedir = basedir.join('include')
+    # Recursively copy all headers, shutil has only ignore
+    # so we do a double-negative to include what we want
+    def copyonly(dirpath, contents):
+        return set(contents) - set(
+            shutil.ignore_patterns('*.h', '*.incl')(dirpath, contents),
+        )
+    shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
@@ -84,9 +106,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
 
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
 
-        for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll',
-                      'libeay32.dll', 'ssleay32.dll']:
+        for extra in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -95,18 +115,32 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        if pypy_c.dirpath().join("libpypy-c.lib").check():
-            shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+        importlib_name = 'python27.lib'    
+        if pypy_c.dirpath().join(importlib_name).check():
+            shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
                         str(pypydir.join('include/python27.lib')))
-            print "Picking %s as %s" % (pypy_c.dirpath().join("libpypy-c.lib"),
+            print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
                         pypydir.join('include/python27.lib'))
         else:
             pass
             # XXX users will complain that they cannot compile cpyext
             # modules for windows, has the lib moved or are there no
             # exported functions in the dll so no import library is created?
+        if not withouttk:
+            try:
+                p = pypy_c.dirpath().join('tcl85.dll')
+                if not p.check():
+                    p = py.path.local.sysfind('tcl85.dll')
+                tktcldir = p.dirpath().join('..').join('lib')
+                shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
+            except WindowsError:
+                print >>sys.stderr, """Packaging Tk runtime failed.
+tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
+directory next to the dlls, as per build instructions."""
+                import traceback;traceback.print_exc()
+                sys.exit(1)
 
-    # Careful: to copy lib_pypy, copying just the svn-tracked files
+    # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
@@ -117,11 +151,6 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
                                            '*.c', '*.o'))
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
-    headers = includedir.listdir('*.h') + includedir.listdir('*.inl')
-    for n in headers:
-        # we want to put there all *.h and *.inl from trunk/include
-        # and from pypy/_interfaces
-        shutil.copy(str(n), str(pypydir.join('include')))
     #
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
@@ -182,14 +211,34 @@ using another platform..."""
         print "Ready in %s" % (builddir,)
     return builddir # for tests
 
+
+def print_usage():
+    print >>sys.stderr, __doc__
+    sys.exit(1)
+
+
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print >>sys.stderr, __doc__
-        sys.exit(1)
-    else:
-        args = sys.argv[1:]
-        kw = {}
-        if args[0] == '--nostrip':
+        print_usage()
+
+    args = sys.argv[1:]
+    kw = {}
+
+    for i, arg in enumerate(args):
+        if arg == '--nostrip':
             kw['nostrip'] = True
-            args = args[1:]
-        package(*args, **kw)
+        elif arg == '--without-tk':
+            kw['withouttk'] = True
+        elif not arg.startswith('--'):
+            break
+        else:
+            print_usage()
+
+    if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
+        kw['nostrip'] = True
+
+    if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
+        kw['withouttk'] = True
+
+    args = args[i:]
+    package(*args, **kw)

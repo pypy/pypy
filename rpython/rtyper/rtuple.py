@@ -5,7 +5,10 @@ from rpython.flowspace.model import Constant
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem.lltype import Void, Signed, Bool
+from rpython.rtyper.lltypesystem.lltype import (
+    Void, Signed, Bool, Ptr, GcStruct, malloc, typeOf, nullptr)
+from rpython.rtyper.lltypesystem.rstr import LLHelpers
+from rpython.rtyper.rstr import AbstractStringRepr
 from rpython.rtyper.rmodel import (Repr, IntegerRepr, inputconst, IteratorRepr,
     externalvsinternal)
 from rpython.tool.pairtype import pairtype
@@ -13,8 +16,7 @@ from rpython.tool.pairtype import pairtype
 
 class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
-        repr_class = rtyper.type_system.rtuple.TupleRepr
-        return repr_class(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
+        return TupleRepr(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
 
     def rtyper_makekey_ex(self, rtyper):
         keys = [rtyper.makekey(s_item) for s_item in self.items]
@@ -71,17 +73,16 @@ def gen_hash_function(items_r):
 
 def gen_str_function(tuplerepr):
     items_r = tuplerepr.items_r
-    str_funcs = [r_item.ll_str for r_item in items_r]
-    key = tuplerepr.rstr_ll, tuple(str_funcs)
+    key = tuple([r_item.ll_str for r_item in items_r])
     try:
         return _gen_str_function_cache[key]
     except KeyError:
-        autounrolling_funclist = unrolling_iterable(enumerate(str_funcs))
+        autounrolling_funclist = unrolling_iterable(enumerate(key))
 
-        constant = tuplerepr.rstr_ll.ll_constant
-        start    = tuplerepr.rstr_ll.ll_build_start
-        push     = tuplerepr.rstr_ll.ll_build_push
-        finish   = tuplerepr.rstr_ll.ll_build_finish
+        constant = LLHelpers.ll_constant
+        start = LLHelpers.ll_build_start
+        push = LLHelpers.ll_build_push
+        finish = LLHelpers.ll_build_finish
         length = len(items_r)
 
         def ll_str(t):
@@ -105,7 +106,28 @@ def gen_str_function(tuplerepr):
         return ll_str
 
 
-class AbstractTupleRepr(Repr):
+# ____________________________________________________________
+#
+#  Concrete implementation of RPython tuples:
+#
+#    struct tuple {
+#        type0 item0;
+#        type1 item1;
+#        type2 item2;
+#        ...
+#    }
+
+def TUPLE_TYPE(field_lltypes):
+    if len(field_lltypes) == 0:
+        return Void      # empty tuple
+    else:
+        fields = [('item%d' % i, TYPE) for i, TYPE in enumerate(field_lltypes)]
+        kwds = {'hints': {'immutable': True,
+                          'noidentity': True}}
+        return Ptr(GcStruct('tuple%d' % len(field_lltypes), *fields, **kwds))
+
+
+class TupleRepr(Repr):
 
     def __init__(self, rtyper, items_r):
         self.items_r = []
@@ -118,6 +140,7 @@ class AbstractTupleRepr(Repr):
         self.fieldnames = ['item%d' % i for i in range(len(items_r))]
         self.lltypes = [r.lowleveltype for r in items_r]
         self.tuple_cache = {}
+        self.lowleveltype = TUPLE_TYPE(self.lltypes)
 
     def getitem(self, llops, v_tuple, index):
         """Generate the operations to get the index'th item of v_tuple,
@@ -127,19 +150,37 @@ class AbstractTupleRepr(Repr):
         r_external_item = self.external_items_r[index]
         return llops.convertvar(v, r_item, r_external_item)
 
+    @classmethod
+    def newtuple(cls, llops, r_tuple, items_v):
+        # items_v should have the lowleveltype of the internal reprs
+        assert len(r_tuple.items_r) == len(items_v)
+        for r_item, v_item in zip(r_tuple.items_r, items_v):
+            assert r_item.lowleveltype == v_item.concretetype
+        #
+        if len(r_tuple.items_r) == 0:
+            return inputconst(Void, ())    # a Void empty tuple
+        c1 = inputconst(Void, r_tuple.lowleveltype.TO)
+        cflags = inputconst(Void, {'flavor': 'gc'})
+        v_result = llops.genop('malloc', [c1, cflags],
+                                         resulttype = r_tuple.lowleveltype)
+        for i in range(len(r_tuple.items_r)):
+            cname = inputconst(Void, r_tuple.fieldnames[i])
+            llops.genop('setfield', [v_result, cname, items_v[i]])
+        return v_result
+
+    @classmethod
     def newtuple_cached(cls, hop, items_v):
         r_tuple = hop.r_result
         if hop.s_result.is_constant():
             return inputconst(r_tuple, hop.s_result.const)
         else:
             return cls.newtuple(hop.llops, r_tuple, items_v)
-    newtuple_cached = classmethod(newtuple_cached)
 
+    @classmethod
     def _rtype_newtuple(cls, hop):
         r_tuple = hop.r_result
         vlist = hop.inputargs(*r_tuple.items_r)
         return cls.newtuple_cached(hop, vlist)
-    _rtype_newtuple = classmethod(_rtype_newtuple)
 
     def convert_const(self, value):
         assert isinstance(value, tuple) and len(value) == len(self.items_r)
@@ -174,8 +215,48 @@ class AbstractTupleRepr(Repr):
             return self.IteratorRepr(self)
         raise TyperError("can only iterate over tuples of length 1 for now")
 
+    def instantiate(self):
+        if len(self.items_r) == 0:
+            return dum_empty_tuple     # PBC placeholder for an empty tuple
+        else:
+            return malloc(self.lowleveltype.TO)
 
-class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
+    def rtype_bltn_list(self, hop):
+        from rpython.rtyper.lltypesystem import rlist
+        nitems = len(self.items_r)
+        vtup = hop.inputarg(self, 0)
+        LIST = hop.r_result.lowleveltype.TO
+        cno = inputconst(Signed, nitems)
+        hop.exception_is_here()
+        vlist = hop.gendirectcall(LIST.ll_newlist, cno)
+        v_func = hop.inputconst(Void, rlist.dum_nocheck)
+        for index in range(nitems):
+            name = self.fieldnames[index]
+            ritem = self.items_r[index]
+            cname = hop.inputconst(Void, name)
+            vitem = hop.genop('getfield', [vtup, cname], resulttype = ritem)
+            vitem = hop.llops.convertvar(vitem, ritem, hop.r_result.item_repr)
+            cindex = inputconst(Signed, index)
+            hop.gendirectcall(rlist.ll_setitem_nonneg, v_func, vlist, cindex, vitem)
+        return vlist
+
+    def getitem_internal(self, llops, v_tuple, index):
+        """Return the index'th item, in internal repr."""
+        name = self.fieldnames[index]
+        llresult = self.lltypes[index]
+        cname = inputconst(Void, name)
+        return  llops.genop('getfield', [v_tuple, cname], resulttype = llresult)
+
+
+def rtype_newtuple(hop):
+    return TupleRepr._rtype_newtuple(hop)
+
+newtuple = TupleRepr.newtuple
+
+def dum_empty_tuple(): pass
+
+
+class __extend__(pairtype(TupleRepr, IntegerRepr)):
 
     def rtype_getitem((r_tup, r_int), hop):
         v_tuple, v_index = hop.inputargs(r_tup, Signed)
@@ -186,7 +267,7 @@ class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
         index = v_index.value
         return r_tup.getitem(hop.llops, v_tuple, index)
 
-class __extend__(AbstractTupleRepr):
+class __extend__(TupleRepr):
 
     def rtype_getslice(r_tup, hop):
         s_start = hop.args_s[1]
@@ -203,7 +284,7 @@ class __extend__(AbstractTupleRepr):
                    for i in indices]
         return hop.r_result.newtuple(hop.llops, hop.r_result, items_v)
 
-class __extend__(pairtype(AbstractTupleRepr, Repr)):
+class __extend__(pairtype(TupleRepr, Repr)):
     def rtype_contains((r_tup, r_item), hop):
         s_tup = hop.args_s[0]
         if not s_tup.is_constant():
@@ -224,7 +305,7 @@ class __extend__(pairtype(AbstractTupleRepr, Repr)):
         hop2.v_s_insertfirstarg(v_dict, s_dict)
         return hop2.dispatch()
 
-class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
+class __extend__(pairtype(TupleRepr, TupleRepr)):
 
     def rtype_add((r_tup1, r_tup2), hop):
         v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
@@ -265,6 +346,21 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
     def rtype_is_((robj1, robj2), hop):
         raise TyperError("cannot compare tuples with 'is'")
 
+class __extend__(pairtype(AbstractStringRepr, TupleRepr)):
+    def rtype_mod((r_str, r_tuple), hop):
+        r_tuple = hop.args_r[1]
+        v_tuple = hop.args_v[1]
+
+        sourcevars = []
+        for i, r_arg in enumerate(r_tuple.external_items_r):
+            v_item = r_tuple.getitem(hop.llops, v_tuple, i)
+            sourcevars.append((v_item, r_arg))
+
+        return r_str.ll.do_stringformat(hop, sourcevars)
+
+# ____________________________________________________________
+#
+#  Iteration.
 
 class AbstractTupleIteratorRepr(IteratorRepr):
 
@@ -279,3 +375,28 @@ class AbstractTupleIteratorRepr(IteratorRepr):
         hop.exception_is_here()
         v = hop.gendirectcall(self.ll_tuplenext, v_iter)
         return hop.llops.convertvar(v, self.r_tuple.items_r[0], self.r_tuple.external_items_r[0])
+
+class Length1TupleIteratorRepr(AbstractTupleIteratorRepr):
+
+    def __init__(self, r_tuple):
+        self.r_tuple = r_tuple
+        self.lowleveltype = Ptr(GcStruct('tuple1iter',
+                                         ('tuple', r_tuple.lowleveltype)))
+        self.ll_tupleiter = ll_tupleiter
+        self.ll_tuplenext = ll_tuplenext
+
+TupleRepr.IteratorRepr = Length1TupleIteratorRepr
+
+def ll_tupleiter(ITERPTR, tuple):
+    iter = malloc(ITERPTR.TO)
+    iter.tuple = tuple
+    return iter
+
+def ll_tuplenext(iter):
+    # for iterating over length 1 tuples only!
+    t = iter.tuple
+    if t:
+        iter.tuple = nullptr(typeOf(t).TO)
+        return t.item0
+    else:
+        raise StopIteration

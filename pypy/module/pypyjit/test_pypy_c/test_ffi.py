@@ -7,9 +7,9 @@ class Test__ffi(BaseTestPyPyC):
         from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
-                from _ffi import CDLL, types
+                from _rawffi.alt import CDLL, types
             except ImportError:
-                sys.stderr.write('SKIP: cannot import _ffi\n')
+                sys.stderr.write('SKIP: cannot import _rawffi.alt\n')
                 return 0
 
             libm = CDLL(libm_name)
@@ -45,9 +45,9 @@ class Test__ffi(BaseTestPyPyC):
         from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
-                from _ffi import CDLL, types
+                from _rawffi.alt import CDLL, types
             except ImportError:
-                sys.stderr.write('SKIP: cannot import _ffi\n')
+                sys.stderr.write('SKIP: cannot import _rawffi.alt\n')
                 return 0
 
             libm = CDLL(libm_name)
@@ -82,12 +82,12 @@ class Test__ffi(BaseTestPyPyC):
             from threading import Thread
             #
             if os.name == 'nt':
-                from _ffi import WinDLL, types
+                from _rawffi.alt import WinDLL, types
                 libc = WinDLL('Kernel32.dll')
                 sleep = libc.getfunc('Sleep', [types.uint], types.uint)
                 delays = [0]*n + [1000]
             else:
-                from _ffi import CDLL, types
+                from _rawffi.alt import CDLL, types
                 libc = CDLL(libc_name)
                 sleep = libc.getfunc('sleep', [types.uint], types.uint)
                 delays = [0]*n + [1]
@@ -144,7 +144,7 @@ class Test__ffi(BaseTestPyPyC):
 
     def test__ffi_struct(self):
         def main():
-            from _ffi import _StructDescr, Field, types
+            from _rawffi.alt import _StructDescr, Field, types
             fields = [
                 Field('x', types.slong),
                 ]
@@ -228,7 +228,7 @@ class Test__ffi(BaseTestPyPyC):
             except ImportError:
                 sys.stderr.write('SKIP: cannot import cffi\n')
                 return 0
-                
+
             ffi = cffi.FFI()
 
             ffi.cdef("""
@@ -269,11 +269,104 @@ class Test__ffi(BaseTestPyPyC):
                 n += 1
             return n
 
-        log = self.run(main, [], import_site=True)
+        log = self.run(main, [], import_site=True,
+                       discard_stdout_before_last_line=True)  # <- for Win32
         assert log.result == 10000
         loop, = log.loops_by_id('cfficall')
         assert loop.match_by_id('cfficall', """
             ...
             f1 = call_release_gil(..., descr=<Calli 4 ii EF=6 OS=62>)
             ...
+        """)
+
+    def test__cffi_bug1(self):
+        from rpython.rlib.test.test_clibffi import get_libm_name
+        def main(libm_name):
+            try:
+                import _cffi_backend
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _cffi_backend\n')
+                return 0
+
+            libm = _cffi_backend.load_library(libm_name)
+            BDouble = _cffi_backend.new_primitive_type("double")
+            BSin = _cffi_backend.new_function_type([BDouble], BDouble)
+            sin = libm.load_function(BSin, 'sin')
+
+            def f(*args):
+                for i in range(300):
+                    sin(*args)
+
+            f(1.0)
+            f(1)
+        #
+        libm_name = get_libm_name(sys.platform)
+        self.run(main, [libm_name])
+        # assert did not crash
+
+    def test_cffi_init_struct_with_list(self):
+        def main(n):
+            import sys
+            try:
+                import cffi
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import cffi\n')
+                return 0
+
+            ffi = cffi.FFI()
+            ffi.cdef("""
+            struct s {
+                short x;
+                short y;
+                short z;
+            };
+            """)
+
+            for i in xrange(n):
+                ffi.new("struct s *", [i, i, i])
+
+        log = self.run(main, [300])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+        i161 = int_lt(i160, i43)
+        guard_true(i161, descr=...)
+        i162 = int_add(i160, 1)
+        setfield_gc(p22, i162, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current .>)
+        guard_not_invalidated(descr=...)
+        p163 = force_token()
+        p164 = force_token()
+        p165 = getarrayitem_gc(p67, 0, descr=<ArrayP .>)
+        guard_value(p165, ConstPtr(ptr70), descr=...)
+        p166 = getfield_gc(p165, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .+>)
+        guard_value(p166, ConstPtr(ptr72), descr=...)
+        p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
+        guard_no_exception(descr=...)
+        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4>)
+        setfield_gc(p167, 0, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
+        setfield_gc(p167, ConstPtr(ptr86), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
+        guard_no_exception(descr=...)
+        i169 = int_add(i168, i97)
+        i170 = int_sub(i160, i106)
+        setfield_gc(p167, i168, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
+        setfield_gc(p167, ConstPtr(ptr89), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
+        i171 = uint_gt(i170, i108)
+        guard_false(i171, descr=...)
+        i172 = int_sub(i160, -32768)
+        i173 = int_and(i172, 65535)
+        i174 = int_add(i173, -32768)
+        setarrayitem_raw(i169, 0, i174, descr=<ArrayS 2>)
+        i175 = int_add(i168, i121)
+        i176 = int_sub(i160, i130)
+        i177 = uint_gt(i176, i132)
+        guard_false(i177, descr=...)
+        setarrayitem_raw(i175, 0, i174, descr=<ArrayS 2>)
+        i178 = int_add(i168, i140)
+        i179 = int_sub(i160, i149)
+        i180 = uint_gt(i179, i151)
+        guard_false(i180, descr=...)
+        setarrayitem_raw(i178, 0, i174, descr=<ArrayS 2>)
+        --TICK--
+        i183 = arraylen_gc(p67, descr=<ArrayP .>)
+        i184 = arraylen_gc(p92, descr=<ArrayP .>)
+        jump(..., descr=...)
         """)

@@ -1,9 +1,9 @@
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem.rbytearray import hlbytearray
 from rpython.rtyper.annlowlevel import llstr, hlstr
 
-class TestByteArray(BaseRtypingTest, LLRtypeMixin):
+class TestByteArray(BaseRtypingTest):
     def test_bytearray_creation(self):
         def f(x):
             if x:
@@ -50,3 +50,27 @@ class TestByteArray(BaseRtypingTest, LLRtypeMixin):
 
         ll_res = self.interpret(f, [123])
         assert hlstr(ll_res) == "123"
+
+    def test_getslice(self):
+        def f(x):
+            b = bytearray(str(x))
+            b = b[1:3]
+            b[0] += 5
+            return str(b)
+
+        ll_res = self.interpret(f, [12345])
+        assert hlstr(ll_res) == f(12345) == "73"
+
+    def test_bytearray_not_constant(self):
+        for constant in ['f', 'foo']:
+            def f(x):
+                i = 0
+                total = 0
+                while i < x:
+                    b = bytearray(constant)
+                    b[0] = b[0] + 1
+                    total += b[0]
+                    i += 1
+                return total
+            ll_res = self.interpret(f, [5])
+            assert ll_res == f(5)

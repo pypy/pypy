@@ -45,6 +45,41 @@ extension modules there is a good chance that it will work with PyPy.
 
 We list the differences we know about in `cpython differences`_.
 
+-----------------------------------------------
+Module xyz does not work with PyPy: ImportError
+-----------------------------------------------
+
+A module installed for CPython is not automatically available for PyPy
+--- just like a module installed for CPython 2.6 is not automatically
+available for CPython 2.7 if you installed both.  In other words, you
+need to install the module xyz specifically for PyPy.
+
+On Linux, this means that you cannot use ``apt-get`` or some similar
+package manager: these tools are only meant *for the version of CPython
+provided by the same package manager.*  So forget about them for now
+and read on.
+
+It is quite common nowadays that xyz is available on PyPI_ and
+installable with ``pip install xyz``.  The simplest solution is to `use
+virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
+and type: ``pip install xyz``.
+
+If you get errors from the C compiler, the module is a CPython C
+Extension module using unsupported features.  `See below.`_
+
+Alternatively, if either the module xyz is not available on PyPI or you
+don't want to use virtualenv, then download the source code of xyz,
+decompress the zip/tarball, and run the standard command: ``pypy
+setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
+you may need to run the command with `sudo` for a global installation.
+The other commands of ``setup.py`` are available too, like ``build``.
+
+.. _PyPI: https://pypi.python.org/pypi
+.. _`use virtualenv (as documented here)`: getting-started.html#installing-using-virtualenv
+
+
+.. _`See below.`: 
+
 --------------------------------------------
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
@@ -55,7 +90,9 @@ the 1.4 release, but support is still in beta phase.  CPython
 extension modules in PyPy are often much slower than in CPython due to
 the need to emulate refcounting.  It is often faster to take out your
 CPython extension and replace it with a pure python version that the
-JIT can see.
+JIT can see.  If trying to install module xyz, and the module has both
+a C and a Python version of the same code, try first to disable the C
+version; this is usually easily done by changing some line in ``setup.py``.
 
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
@@ -66,21 +103,26 @@ with PyPy see the `compatibility wiki`_.
 
 .. _`extension modules`: cpython_differences.html#extension-modules
 .. _`cpython differences`: cpython_differences.html
-.. _`compatibility wiki`:
-.. https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 
 ---------------------------------
 On which platforms does PyPy run?
 ---------------------------------
 
-PyPy is regularly and extensively tested on Linux machines and on Mac
-OS X and mostly works under Windows too (but is tested there less
-extensively). PyPy needs a CPython running on the target platform to
-bootstrap, as cross compilation is not really meant to work yet.
-At the moment you need CPython 2.5 - 2.7
-for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
-(There has also been good progress on getting the JIT working for ARMv7.)
+PyPy is regularly and extensively tested on Linux machines. It mostly
+works on Mac and Windows: it is tested there, but most of us are running
+Linux so fixes may depend on 3rd-party contributions.  PyPy's JIT
+works on x86 (32-bit or 64-bit) and on ARM (ARMv6 or ARMv7).
+Support for POWER (64-bit) is stalled at the moment.
+
+To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
+another (e.g. older) PyPy.  Cross-translation is not really supported:
+e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
+Cross-translation is only explicitly supported between a 32-bit Intel
+Linux and ARM Linux (see here__).
+
+.. __: arm.html
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?
@@ -96,8 +138,21 @@ features (such as set comprehensions).
 Does PyPy have a GIL?  Why?
 -------------------------------------------------
 
-Yes, PyPy has a GIL.  Removing the GIL is very hard.  The first problem
-is that our garbage collectors are not re-entrant.
+Yes, PyPy has a GIL.  Removing the GIL is very hard.  The problems are
+essentially the same as with CPython (including the fact that our
+garbage collectors are not thread-safe so far).  Fixing it is possible,
+as shown by Jython and IronPython, but difficult.  It would require
+adapting the whole source code of PyPy, including subtle decisions about
+whether some effects are ok or not for the user (i.e. the Python
+programmer).
+
+Instead, since 2012, there is work going on on a still very experimental
+Software Transactional Memory (STM) version of PyPy.  This should give
+an alternative PyPy which internally has no GIL, while at the same time
+continuing to give the Python programmer the complete illusion of having
+one.  It would in fact push forward *more* GIL-ish behavior, like
+declaring that some sections of the code should run without releasing
+the GIL in the middle (these are called *atomic sections* in STM).
 
 ------------------------------------------
 How do I write extension modules for PyPy?
@@ -112,7 +167,7 @@ How fast is PyPy?
 -----------------
 This really depends on your code.
 For pure Python algorithmic code, it is very fast.  For more typical
-Python programs we generally are 3 times the speed of Cpython 2.6 .
+Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our 
 `jit documentation`_.
 
@@ -188,7 +243,7 @@ most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
 .. _`contact us`: index.html
-.. _`mailing list`: http://python.org/mailman/listinfo/pypy-dev
+.. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 
 -------------------------------------------------------------
 OSError: ... cannot restore segment prot after reloc... Help?
@@ -198,7 +253,9 @@ On Linux, if SELinux is enabled, you may get errors along the lines of
 "OSError: externmod.so: cannot restore segment prot after reloc: Permission
 denied." This is caused by a slight abuse of the C compiler during
 configuration, and can be disabled by running the following command with root
-privileges::
+privileges:
+
+.. code-block:: console
 
     # setenforce 0
 
@@ -253,6 +310,7 @@ use of reflection capabilities (e.g. ``__dict__``).
 You cannot use most existing standard library modules from RPython.  The
 exceptions are
 some functions in ``os``, ``math`` and ``time`` that have native support.
+We have our own "RPython standard library" in ``rpython.rlib.*``.
 
 To read more about the RPython limitations read the `RPython description`_.
 
@@ -306,7 +364,7 @@ Do I have to rewrite my programs in RPython?
 
 No, and you shouldn't try.  First and foremost, RPython is a language
 designed for writing interpreters. It is a restricted subset of
-Python.  If you program is not an interpreter but tries to do "real
+Python.  If your program is not an interpreter but tries to do "real
 things", like use *any* part of the standard Python library or *any*
 3rd-party library, then it is not RPython to start with.  You should
 only look at RPython if you try to `write your own interpreter`__.
@@ -322,45 +380,57 @@ if you manage to.
 Yes, it is possible with enough effort to compile small self-contained
 pieces of RPython code doing a few performance-sensitive things.  But
 this case is not interesting for us.  If you needed to rewrite the code
-in RPython, you could as well have rewritten it in C for example.  The
-latter is a much more supported, much more documented language `:-)`
+in RPython, you could as well have rewritten it in C or C++ or Java for
+example.  These are much more supported, much more documented languages
+`:-)`
+
+  *The above paragraphs are not the whole truth.  It* is *true that there
+  are cases where writing a program as RPython gives you substantially
+  better speed than running it on top of PyPy.  However, the attitude of
+  the core group of people behind PyPy is to answer: "then report it as a
+  performance bug against PyPy!".*
+
+  *Here is a more diluted way to put it.  The "No, don't!" above is a
+  general warning we give to new people.  They are likely to need a lot
+  of help from* some *source, because RPython is not so simple nor
+  extensively documented; but at the same time, we, the pypy core group
+  of people, are not willing to invest time in supporting 3rd-party
+  projects that do very different things than interpreters for dynamic
+  languages --- just because we have other interests and there are only
+  so many hours a day.  So as a summary I believe it is only fair to
+  attempt to point newcomers at existing alternatives, which are more
+  mainstream and where they will get help from many people.*
+
+  *If anybody seriously wants to promote RPython anyway, they are welcome
+  to: we won't actively resist such a plan.  There are a lot of things
+  that could be done to make RPython a better Java-ish language for
+  example, starting with supporting non-GIL-based multithreading, but we
+  don't implement them because they have little relevance to us.  This
+  is open source, which means that anybody is free to promote and
+  develop anything; but it also means that you must let us choose* not
+  *to go into that direction ourselves.*
 
 ---------------------------------------------------
 Which backends are there for the RPython toolchain?
 ---------------------------------------------------
 
-Currently, there are backends for C_, the CLI_, and the JVM_.
-All of these can translate the entire PyPy interpreter.
+Currently, there only backends is C_.
+It can translate the entire PyPy interpreter.
 To learn more about backends take a look at the `translation document`_.
 
 .. _C: translation.html#the-c-back-end
-.. _CLI: cli-backend.html
-.. _JVM: translation.html#genjvm
 .. _`translation document`: translation.html
 
 ------------------
 Could we use LLVM?
 ------------------
 
-In theory yes.  But we tried to use it 5 or 6 times already, as a
-translation backend or as a JIT backend --- and failed each time.
+There is a (static) translation backend using LLVM in the branch
+``llvm-translation-backend``.  It can translate PyPy with or without the JIT on
+Linux.
 
-In more details: using LLVM as a (static) translation backend is
-pointless nowadays because you can generate C code and compile it with
-clang.  (Note that compiling PyPy with clang gives a result that is not
-faster than compiling it with gcc.)  We might in theory get extra
-benefits from LLVM's GC integration, but this requires more work on the
-LLVM side before it would be remotely useful.  Anyway, it could be
-interfaced via a custom primitive in the C code.
-
-On the other hand, using LLVM as our JIT backend looks interesting as
-well --- but again we made an attempt, and it failed: LLVM has no way to
-patch the generated machine code.
-
-So the position of the core PyPy developers is that if anyone wants to
-make an N+1'th attempt with LLVM, he is welcome, and he will receive a
-bit of help on the IRC channel, but he is left with the burden of proof
-that it works.
+Using LLVM as our JIT backend looks interesting as well -- we made an attempt,
+but it failed: LLVM has no way to patch the generated machine code.
 
 ----------------------
 How do I compile PyPy?

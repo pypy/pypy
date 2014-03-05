@@ -1,54 +1,101 @@
-======================
-What's new in PyPy 2.1
-======================
+=======================
+What's new in PyPy 2.2+
+=======================
 
-.. this is a revision shortly after release-2.0
-.. startrev: a13c07067613
+.. this is a revision shortly after release-2.2.x
+.. startrev: 4cd1bc8b3111
 
-.. branch: numpy-pickle
-Pickling of numpy arrays and dtypes (including record dtypes)
+.. branch: release-2.2.x
 
-.. branch: remove-array-smm
-Remove multimethods in the arraymodule
+.. branch: numpy-newbyteorder
+Clean up numpy types, add newbyteorder functionality
 
-.. branch: callback-stacklet
-Fixed bug when switching stacklets from a C callback
+.. branch: windows-packaging
+Package tk/tcl runtime with win32
 
-.. branch: remove-set-smm
-Remove multi-methods on sets
+.. branch: armhf-singlefloat
+JIT support for singlefloats on ARM using the hardfloat ABI
 
-.. branch: numpy-subarrays
-Implement subarrays for numpy
+.. branch: voidtype_strformat
+Better support for record numpy arrays
 
-.. branch: remove-dict-smm
-Remove multi-methods on dict
+.. branch: osx-eci-frameworks-makefile
+OSX: Ensure frameworks end up in Makefile when specified in External compilation info
 
-.. branch: remove-list-smm-2
-Remove remaining multi-methods on list
+.. branch: less-stringly-ops
+Use subclasses of SpaceOperation instead of SpaceOperator objects.
+Random cleanups in flowspace and annotator.
 
-.. branch: arm-stacklet
-Stacklet support for ARM, enables _continuation support
+.. branch: ndarray-buffer
+adds support for the buffer= argument to the ndarray ctor
 
-.. branch: remove-tuple-smm
-Remove multi-methods on tuple
+.. branch: better_ftime_detect2
+On OpenBSD do not pull in libcompat.a as it is about to be removed.
+And more generally, if you have gettimeofday(2) you will not need ftime(3).
 
-.. branch: remove-iter-smm
-Remove multi-methods on iterators
+.. branch: timeb_h
+Remove dependency upon <sys/timeb.h> on OpenBSD. This will be disappearing
+along with libcompat.a.
 
-.. branch: emit-call-x86
-.. branch: emit-call-arm
+.. branch: OlivierBlanvillain/fix-3-broken-links-on-pypy-published-pap-1386250839215
+Fix 3 broken links on PyPy published papers in docs.
 
-.. branch: on-abort-resops
-Added list of resops to the pypyjit on_abort hook.
+.. branch: jit-ordereddict
 
-.. branch: logging-perf
-Speeds up the stdlib logging module
+.. branch: refactor-str-types
+Remove multimethods on str/unicode/bytearray and make the implementations share code.
 
-.. branch: operrfmt-NT
-Adds a couple convenient format specifiers to operationerrfmt
+.. branch: remove-del-from-generatoriterator
+Speed up generators that don't yield inside try or wait blocks by skipping
+unnecessary cleanup.
 
-.. branch: win32-fixes3
-Skip and fix some non-translated (own) tests for win32 builds
+.. branch: annotator
+Remove FlowObjSpace.
+Improve cohesion between rpython.flowspace and rpython.annotator.
 
-.. branch: ctypes-byref
-Add the '_obj' attribute on ctypes pointer() and byref() objects
+.. branch: detect-immutable-fields
+mapdicts keep track of whether or not an attribute is every assigned to
+multiple times. If it's only assigned once then an elidable lookup is used when
+possible.
+
+.. branch: precompiled-headers
+Create a Makefile using precompiled headers for MSVC platforms.
+The downside is a messy nmake-compatible Makefile. Since gcc shows minimal
+speedup, it was not implemented.
+
+.. branch: camelot
+With a properly configured 256-color terminal (TERM=...-256color), the
+Mandelbrot set shown during translation now uses a range of 50 colours.
+Essential!
+
+.. branch: NonConstant
+Simplify implementation of NonConstant.
+
+.. branch: array-propagate-len
+Kill some guards and operations in JIT traces by adding integer bounds
+propagation for getfield_(raw|gc) and getarrayitem_(raw|gc).
+
+.. branch: optimize-int-and
+Optimize away INT_AND with constant mask of 1s that fully cover the bitrange
+of other operand.
+
+.. branch: bounds-int-add-or
+Propagate appropriate bounds through INT_(OR|XOR|AND) operations if the
+operands are positive to kill some guards
+
+.. branch: remove-intlong-smm
+kills int/long/smalllong/bool multimethods
+
+.. branch: numpy-refactor
+Cleanup micronumpy module
+
+.. branch: int_w-refactor
+In a lot of places CPython allows objects with __int__ and __float__ instead of actual ints and floats, while until now pypy disallowed them. We fix it by making space.{int_w,float_w,etc.} accepting those objects by default, and disallowing conversions only when explicitly needed.
+
+.. branch: test-58c3d8552833
+Fix for getarrayitem_gc_pure optimization
+
+.. branch: simple-range-strategy
+Implements SimpleRangeListStrategy for case range(n) where n is a positive number.
+Makes some traces nicer by getting rid of multiplication for calculating loop counter
+and propagates that n > 0 further to get rid of guards.

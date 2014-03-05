@@ -28,9 +28,6 @@ def load_bytecode(filename):
 def target(driver, args):
     return entry_point, None
 
-def jitpolicy(driver):
-    from rpython.jit.codewriter.policy import JitPolicy
-    return JitPolicy()
 # ____________________________________________________________
 
 

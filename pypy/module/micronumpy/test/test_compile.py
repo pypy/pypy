@@ -1,8 +1,7 @@
-
 import py
 from pypy.module.micronumpy.compile import (numpy_compile, Assignment,
     ArrayConstant, FloatConstant, Operator, Variable, RangeConstant, Execute,
-    FunctionCall, FakeSpace)
+    FunctionCall, FakeSpace, W_NDimArray)
 
 
 class TestCompiler(object):
@@ -83,6 +82,7 @@ class TestCompiler(object):
         interp = self.compile(code)
         assert interp.code.statements[0] == Assignment(
             'a', Operator(Variable('b'), "+", FloatConstant(3)))
+
 
 class TestRunner(object):
     def run(self, code):
@@ -290,4 +290,32 @@ class TestRunner(object):
         ''')
         assert interp.results[0].real == 0
         assert interp.results[0].imag == 1
-        
+
+    def test_view_none(self):
+        interp = self.run('''
+        a = [1, 0, 3, 0]
+        b = None
+        c = view(a, b)
+        c -> 0
+        ''')
+        assert interp.results[0].value == 1
+
+    def test_view_ndarray(self):
+        interp = self.run('''
+        a = [1, 0, 3, 0]
+        b = ndarray
+        c = view(a, b)
+        c
+        ''')
+        results = interp.results[0]
+        assert isinstance(results, W_NDimArray)
+
+    def test_view_dtype(self):
+        interp = self.run('''
+        a = [1, 0, 3, 0]
+        b = int
+        c = view(a, b)
+        c
+        ''')
+        results = interp.results[0]
+        assert isinstance(results, W_NDimArray)

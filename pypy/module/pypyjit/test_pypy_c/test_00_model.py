@@ -3,7 +3,7 @@ import sys, os
 import types
 import subprocess
 import py
-from lib_pypy import disassembler
+from rpython.tool import disassembler
 from rpython.tool.udir import udir
 from rpython.tool import logparser
 from rpython.jit.tool.jitoutput import parse_prof
@@ -25,7 +25,8 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func_or_src, args=[], import_site=False, **jitopts):
+    def run(self, func_or_src, args=[], import_site=False,
+            discard_stdout_before_last_line=False, **jitopts):
         jitopts.setdefault('threshold', 200)
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
@@ -69,6 +70,9 @@ class BaseTestPyPyC(object):
         if stderr.startswith('debug_alloc.h:'):   # lldebug builds
             stderr = ''
         assert not stderr
+        #
+        if discard_stdout_before_last_line:
+            stdout = stdout.splitlines(True)[-1]
         #
         # parse the JIT log
         rawlog = logparser.parse_log_file(str(logfile))
@@ -125,7 +129,7 @@ class TestLog(object):
 class TestOpMatcher_(object):
 
     def match(self, src1, src2, **kwds):
-        from pypy.tool.jitlogparser.parser import SimpleParser
+        from rpython.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
         matcher = OpMatcher(loop.operations)
         try:
@@ -548,10 +552,10 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f, import_site=True)
         loop, = log.loops_by_id('ntohs')
         assert loop.match_by_id('ntohs', """
-            guard_not_invalidated(descr=...)
             p12 = call(ConstClass(ntohs), 1, descr=...)
             guard_no_exception(descr=...)
-        """)
+        """,
+        include_guard_not_invalidated=False)
         #
         py.test.raises(InvalidMatch, loop.match_by_id, 'ntohs', """
             guard_not_invalidated(descr=...)

@@ -3,7 +3,7 @@ from rpython.rlib.objectmodel import *
 from rpython.rlib import types
 from rpython.annotator import model
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.conftest import option
 
@@ -54,13 +54,13 @@ def play_with_r_dict(d):
         assert x == 42
         count += 1
     assert count == 1
-        
+
     count = 0
     for x in d.iteritems():
         assert len(x) == 2 and x[0] == 'hello' and x[1] == 42
         count += 1
     assert count == 1
-        
+
     d.clear()
     assert d.keys() == []
     return True   # for the tests below
@@ -189,7 +189,7 @@ def test_current_object_addr_as_int():
     foo = Foo()
     assert current_object_addr_as_int(foo) == intmask(id(foo))
 
-class BaseTestObjectModel(BaseRtypingTest):
+class TestObjectModel(BaseRtypingTest):
 
     def test_we_are_translated(self):
         assert we_are_translated() == False
@@ -198,7 +198,7 @@ class BaseTestObjectModel(BaseRtypingTest):
             return we_are_translated()
         res = self.interpret(fn, [])
         assert res is True
-    
+
     def test_rtype_r_dict(self):
         res = self.interpret(test_r_dict, [])
         assert res is True
@@ -239,7 +239,7 @@ class BaseTestObjectModel(BaseRtypingTest):
             def _freeze_(self):
                 return True
         obj = FreezingClass()
-        pbc_d = r_dict(obj.key_eq, obj.key_hash)        
+        pbc_d = r_dict(obj.key_eq, obj.key_hash)
         def fn():
             return play_with_r_dict(pbc_d)
         assert self.interpret(fn, []) is True
@@ -356,8 +356,6 @@ class BaseTestObjectModel(BaseRtypingTest):
 
         assert self.interpret(fn, [15]) == 11
 
-class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
-
     def test_rtype_keepalive(self):
         from rpython.rlib import objectmodel
         def f():
@@ -395,13 +393,9 @@ class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
         h_None     = compute_hash(None)
         h_tuple    = compute_hash(("world", None, 42, 7.5))
         h_q        = compute_hash(q)
-        
+
         res = self.interpret(f, [42])
         assert res == 84
-
-
-class TestOOtype(BaseTestObjectModel, OORtypeMixin):
-    pass
 
 
 def test_specialize_decorator():
@@ -409,7 +403,7 @@ def test_specialize_decorator():
         pass
 
     specialize.memo()(f)
-    
+
     assert f._annspecialcase_ == 'specialize:memo'
 
     specialize.arg(0)(f)
@@ -432,7 +426,7 @@ def test_enforceargs_decorator():
     exc = py.test.raises(TypeError, "f(1, 2, 3)")
     assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
-    
+
 
 def test_enforceargs_defaults():
     @enforceargs(int, int)
@@ -529,7 +523,7 @@ def test_newlist_nonconst():
         if llop.opname == 'malloc_varsize':
             break
     assert llop.args[2] is graph.startblock.inputargs[0]
-    
+
 def test_resizelist_hint():
     from rpython.annotator.model import SomeInteger
     def f(z):
@@ -554,3 +548,87 @@ def test_resizelist_hint_len():
 
     r = interpret(f, [29])
     assert r == 1
+
+def test_import_from_mixin():
+    class M:    # old-style
+        def f(self): pass
+    class A:    # old-style
+        import_from_mixin(M)
+    assert A.f.im_func is not M.f.im_func
+
+    class M(object):
+        def f(self): pass
+    class A:    # old-style
+        import_from_mixin(M)
+    assert A.f.im_func is not M.f.im_func
+
+    class M:    # old-style
+        def f(self): pass
+    class A(object):
+        import_from_mixin(M)
+    assert A.f.im_func is not M.f.im_func
+
+    class M(object):
+        def f(self): pass
+    class A(object):
+        import_from_mixin(M)
+    assert A.f.im_func is not M.f.im_func
+
+    class MBase(object):
+        a = 42; b = 43; c = 1000
+        def f(self): return "hi"
+        def g(self): return self.c - 1
+    class M(MBase):
+        a = 84
+        def f(self): return "there"
+    class A(object):
+        import_from_mixin(M)
+        c = 88
+    assert A.f.im_func is not M.f.im_func
+    assert A.f.im_func is not MBase.f.im_func
+    assert A.g.im_func is not MBase.g.im_func
+    assert A().f() == "there"
+    assert A.a == 84
+    assert A.b == 43
+    assert A.c == 88
+    assert A().g() == 87
+
+    try:
+        class B(object):
+            a = 63
+            import_from_mixin(M)
+    except Exception, e:
+        assert ("would overwrite the value already defined locally for 'a'"
+                in str(e))
+    else:
+        raise AssertionError("failed to detect overwritten attribute")
+
+    class M(object):
+        def __str__(self):
+            return "m!"
+    class A(object):
+        import_from_mixin(M)
+    class B(object):
+        import_from_mixin(M, special_methods=['__str__'])
+    assert str(A()).startswith('<')
+    assert str(B()) == "m!"
+
+    class M(object):
+        pass
+    class A(object):
+        def __init__(self):
+            self.foo = 42
+    class B(A):
+        import_from_mixin(M)
+    assert B().foo == 42
+
+    d = dict(__name__='foo')
+    exec """class M(object):
+                @staticmethod
+                def f(): pass
+    """ in d
+    M = d['M']
+    class A(object):
+        import_from_mixin(M)
+    assert A.f is not M.f
+    assert A.f.__module__ != M.f.__module__

@@ -1780,7 +1780,19 @@ class ArgumentParser(_AttributeHolder, _ActionsContainer):
             # error if this argument is not allowed with other previously
             # seen arguments, assuming that actions that use the default
             # value don't really count as "present"
-            if argument_values is not action.default:
+
+            # XXX PyPy bug-to-bug compatibility: "is" on primitive types
+            # is not consistent in CPython.  We'll assume it is close
+            # enough for ints (which is true only for "small ints"), but
+            # for floats and longs and complexes we'll go for the option
+            # of forcing "is" to say False, like it usually does on
+            # CPython.  A fix is pending on CPython trunk
+            # (http://bugs.python.org/issue18943) but that might change
+            # the details of the semantics and so not be applied to 2.7.
+            # See the line AA below.
+
+            if (argument_values is not action.default or
+                    type(argument_values) in (float, long, complex)):  # AA
                 seen_non_default_actions.add(action)
                 for conflict_action in action_conflicts.get(action, []):
                     if conflict_action in seen_non_default_actions:

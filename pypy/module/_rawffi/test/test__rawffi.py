@@ -1,6 +1,6 @@
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
+from pypy.module._rawffi.interp_rawffi import TYPEMAP, TYPEMAP_FLOAT_LETTERS
 from pypy.module._rawffi.tracker import Tracker
 
 import os, sys, py
@@ -48,12 +48,12 @@ class AppTestFfi:
             free(x1->next);
             free(x1);
         }
-        
+
         const char *static_str = "xxxxxx";
         long static_int = 42;
         double static_double = 42.42;
         long double static_longdouble = 42.42;
-        
+
         unsigned short add_shorts(short one, short two)
         {
            return one + two;
@@ -175,7 +175,7 @@ class AppTestFfi:
             inp.y = inp.x * 100;
             return inp;
         }
-        
+
         '''))
         symbols = """get_char char_check get_raw_pointer
                      add_shorts
@@ -194,7 +194,7 @@ class AppTestFfi:
         eci = ExternalCompilationInfo(export_symbols=symbols)
         return str(platform.compile([c_file], eci, 'x', standalone=False))
     prepare_c_example = staticmethod(prepare_c_example)
-    
+
     def setup_class(cls):
         space = cls.space
         from rpython.rlib.clibffi import get_libc_name
@@ -211,6 +211,7 @@ class AppTestFfi:
         cls.w_platform = space.wrap(platform.name)
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
+        cls.w_float_typemap = space.wrap(TYPEMAP_FLOAT_LETTERS)
 
     def test_libload(self):
         import _rawffi
@@ -222,7 +223,8 @@ class AppTestFfi:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
         except OSError, e:
             print e
-            assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
+            assert str(e).startswith(
+                "Cannot load library xxxxx_this_name_does_not_exist_xxxxx: ")
         else:
             raise AssertionError("did not fail??")
 
@@ -319,6 +321,16 @@ class AppTestFfi:
         res = _rawffi.wcharp2unicode(a.buffer)
         assert isinstance(res, unicode)
         assert res == u'xx'
+        a.free()
+
+    def test_rawstring2charp(self):
+        import _rawffi
+        A = _rawffi.Array('c')
+        a = A(10, 'x'*10)
+        _rawffi.rawstring2charp(a.buffer, "foobar")
+        assert ''.join([a[i] for i in range(10)]) == "foobarxxxx"
+        _rawffi.rawstring2charp(a.buffer, buffer("baz"))
+        assert ''.join([a[i] for i in range(10)]) == "bazbarxxxx"
         a.free()
 
     def test_raw_callable(self):
@@ -438,7 +450,7 @@ class AppTestFfi:
         arg.free()
         assert t.tm_year == 70
         assert t.tm_sec == 1
-        assert t.tm_min == 2      
+        assert t.tm_min == 2
         x.free()
 
     def test_nested_structures(self):
@@ -464,6 +476,20 @@ class AppTestFfi:
         free_double_struct = lib.ptr("free_double_struct", ['P'], None)
         free_double_struct(res)
 
+    def test_structure_bitfields_char(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'B', 1),
+                               ('B', 'B', 6),
+                               ('C', 'B', 1)])
+        x = X()
+        x.A = 0xf
+        x.B = 0xff
+        x.C = 0xf
+        assert x.A == 1
+        assert x.B == 63
+        assert x.C == 1
+        x.free()
+
     def test_structure_bitfields(self):
         import _rawffi
         X = _rawffi.Structure([('A', 'I', 1),
@@ -484,6 +510,60 @@ class AppTestFfi:
         y = Y()
         y.a, y.b, y.c = -1, -7, 0
         assert (y.a, y.b, y.c) == (-1, -7, 0)
+        y.free()
+
+    def test_structure_bitfields_longlong(self):
+        import _rawffi
+        Z = _rawffi.Structure([('a', 'Q', 1),
+                               ('b', 'Q', 62),
+                               ('c', 'Q', 1)])
+        z = Z()
+        z.a, z.b, z.c = 7, 0x1000000000000001, 7
+        assert (z.a, z.b, z.c) == (1, 0x1000000000000001, 1)
+        z.free()
+
+    def test_structure_ulonglong_bitfields(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'Q', 1),
+                               ('B', 'Q', 62),
+                               ('C', 'Q', 1)])
+        x = X()
+        x.A, x.B, x.C = 7, 0x1000000000000001, 7
+        assert x.A == 1
+        assert x.B == 0x1000000000000001
+        assert x.C == 1
+        x.free()
+
+    def test_structure_longlong_bitfields(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'q', 1),
+                               ('b', 'q', 61),
+                               ('c', 'q', 1)])
+        y = Y()
+        y.a, y.b, y.c = 0, -7, 0
+        assert (y.a, y.b, y.c) == (0, -7, 0)
+        y.free()
+
+    def test_structure_ulonglong_bitfields(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'Q', 1),
+                               ('B', 'Q', 62),
+                               ('C', 'Q', 1)])
+        x = X()
+        x.A, x.B, x.C = 7, 0x1000000000000001, 7
+        assert x.A == 1
+        assert x.B == 0x1000000000000001
+        assert x.C == 1
+        x.free()
+
+    def test_structure_longlong_bitfields(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'q', 1),
+                               ('b', 'q', 61),
+                               ('c', 'q', 1)])
+        y = Y()
+        y.a, y.b, y.c = 0, -7, 0
+        assert (y.a, y.b, y.c) == (0, -7, 0)
         y.free()
 
     def test_invalid_bitfields(self):
@@ -571,7 +651,7 @@ class AppTestFfi:
         res = pass_ll(arg1)
         assert res[0] == 1<<42
         arg1.free()
-    
+
     def test_callback(self):
         import _rawffi
         import struct
@@ -680,8 +760,19 @@ class AppTestFfi:
     def test_sizes_and_alignments(self):
         import _rawffi
         for k, (s, a) in self.sizes_and_alignments.iteritems():
+            print k,s,a
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
+
+    def test_unaligned(self):
+        import _rawffi
+        for k in self.float_typemap:
+            S = _rawffi.Structure([('pad', 'c'), ('value', k)], pack=1)
+            s = S()
+            s.value = 4
+            assert s.value == 4
+            s.free()
+
 
     def test_array_addressof(self):
         import _rawffi
@@ -970,7 +1061,7 @@ class AppTestFfi:
         assert res.y == 33
         assert s2h.x == 7
         assert s2h.y == 11
-        
+
         s2h.free()
 
     def test_ret_struct_containing_array(self):
@@ -1027,9 +1118,17 @@ class AppTestFfi:
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang
 
+    def test_overflow_error(self):
+        import _rawffi
+        A = _rawffi.Array('d')
+        arg1 = A(1)
+        raises(OverflowError, "arg1[0] = 10**900")
+        arg1.free()
+
+
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
-    
+
     def setup_class(cls):
         cls.w_sizes_and_alignments = cls.space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
@@ -1040,24 +1139,32 @@ class AppTestAutoFree:
         gc.collect()
         gc.collect()
         S = _rawffi.Structure([('x', 'i')])
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
         s = S(autofree=True)
         s.x = 3
         s = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def test_array_autofree(self):
         import gc, _rawffi
         gc.collect()
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
 
         A = _rawffi.Array('c')
         a = A(6, 'xxyxx\x00', autofree=True)
         assert _rawffi.charp2string(a.buffer) == 'xxyxx'
         a = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def teardown_class(cls):
         Tracker.DO_TRACING = False

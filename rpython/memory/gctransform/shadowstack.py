@@ -1,10 +1,12 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgc
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.llannotation import SomeAddress
 from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.rtyper.rbuiltin import gen_cast
@@ -14,11 +16,11 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def annotate_walker_functions(self, getfn):
         self.incr_stack_ptr = getfn(self.root_walker.incr_stack,
                                    [annmodel.SomeInteger()],
-                                   annmodel.SomeAddress(),
+                                   SomeAddress(),
                                    inline = True)
         self.decr_stack_ptr = getfn(self.root_walker.decr_stack,
                                    [annmodel.SomeInteger()],
-                                   annmodel.SomeAddress(),
+                                   SomeAddress(),
                                    inline = True)
 
     def build_root_walker(self):
@@ -211,7 +213,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         # no thread_before_fork_ptr here
         self.thread_after_fork_ptr = getfn(thread_after_fork,
                                            [annmodel.SomeInteger(),
-                                            annmodel.SomeAddress()],
+                                            SomeAddress()],
                                            annmodel.s_None,
                                            minimal_transform=False)
 
@@ -241,8 +243,8 @@ class ShadowStackRootWalker(BaseRootWalker):
         def gc_start_fresh_new_state():
             shadow_stack_pool.start_fresh_new_state()
 
-        s_gcref = annmodel.SomePtr(llmemory.GCREF)
-        s_addr = annmodel.SomeAddress()
+        s_gcref = SomePtr(llmemory.GCREF)
+        s_addr = SomeAddress()
         self.gc_shadowstackref_new_ptr = getfn(gc_shadowstackref_new,
                                                [], s_gcref,
                                                minimal_transform=False)
@@ -304,12 +306,12 @@ class ShadowStackPool(object):
                   "save_current_state_away: broken shadowstack")
         #shadowstackref.fullstack = True
         #
-        # cannot use llop.gc_assume_young_pointers() here, because
+        # cannot use llop.gc_writebarrier() here, because
         # we are in a minimally-transformed GC helper :-/
         gc = self.gcdata.gc
-        if hasattr(gc.__class__, 'assume_young_pointers'):
+        if hasattr(gc.__class__, 'write_barrier'):
             shadowstackadr = llmemory.cast_ptr_to_adr(shadowstackref)
-            gc.assume_young_pointers(shadowstackadr)
+            gc.write_barrier(shadowstackadr)
         #
         self.gcdata.root_stack_top = llmemory.NULL  # to detect missing restore
 

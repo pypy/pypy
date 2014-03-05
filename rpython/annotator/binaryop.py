@@ -5,49 +5,28 @@ Binary operations between SomeValues.
 import py
 import operator
 from rpython.tool.pairtype import pair, pairtype
-from rpython.annotator.model import SomeObject, SomeInteger, SomeBool, s_Bool
-from rpython.annotator.model import SomeString, SomeChar, SomeList, SomeDict
-from rpython.annotator.model import SomeUnicodeCodePoint, SomeUnicodeString
-from rpython.annotator.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
-from rpython.annotator.model import SomeInstance, SomeBuiltin, SomeIterator
-from rpython.annotator.model import SomePBC, SomeFloat, s_None, SomeByteArray
-from rpython.annotator.model import SomeWeakRef
-from rpython.annotator.model import SomeAddress, SomeTypedAddressAccess
-from rpython.annotator.model import SomeSingleFloat, SomeLongFloat, SomeType
-from rpython.annotator.model import unionof, UnionError, missing_operation
-from rpython.annotator.model import read_can_only_throw
-from rpython.annotator.model import add_knowntypedata, merge_knowntypedata
+from rpython.annotator.model import (
+    SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
+    SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
+    SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
+    SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
+    SomeWeakRef, SomeSingleFloat,
+    SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
+    read_can_only_throw, add_knowntypedata,
+    merge_knowntypedata,)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
-from rpython.tool.error import AnnotatorError
+from rpython.annotator.model import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-# XXX unify this with ObjSpace.MethodTable
-BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
-                         'truediv', 'floordiv', 'divmod',
-                         'and_', 'or_', 'xor',
-                         'lshift', 'rshift',
-                         'getitem', 'setitem', 'delitem',
-                         'getitem_idx', 'getitem_key', 'getitem_idx_key',
-                         'inplace_add', 'inplace_sub', 'inplace_mul',
-                         'inplace_truediv', 'inplace_floordiv', 'inplace_div',
-                         'inplace_mod',
-                         'inplace_lshift', 'inplace_rshift',
-                         'inplace_and', 'inplace_or', 'inplace_xor',
-                         'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_', 'cmp',
-                         'coerce',
-                         ]
-                        +[opname+'_ovf' for opname in
-                          """add sub mul floordiv div mod lshift
-                           """.split()
-                          ])
+BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
+                        if oper.dispatch == 2])
 
-for opname in BINARY_OPERATIONS:
-    missing_operation(pairtype(SomeObject, SomeObject), opname)
 
 class __extend__(pairtype(SomeObject, SomeObject)):
 
@@ -81,46 +60,39 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const < obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def le((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const <= obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def eq((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const == obj2.const)
         else:
-            getbookkeeper().count("non_int_eq", obj1, obj2)
             return s_Bool
 
     def ne((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const != obj2.const)
         else:
-            getbookkeeper().count("non_int_eq", obj1, obj2)
             return s_Bool
 
     def gt((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const > obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def ge((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const >= obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def cmp((obj1, obj2)):
-        getbookkeeper().count("cmp", obj1, obj2)
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(cmp(obj1.const, obj2.const))
         else:
@@ -166,12 +138,18 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         return r
 
     def divmod((obj1, obj2)):
-        getbookkeeper().count("divmod", obj1, obj2)
         return SomeTuple([pair(obj1, obj2).div(), pair(obj1, obj2).mod()])
 
     def coerce((obj1, obj2)):
-        getbookkeeper().count("coerce", obj1, obj2)
         return pair(obj1, obj2).union()   # reasonable enough
+
+    def getitem((obj1, obj2)):
+        return s_ImpossibleValue
+    add = sub = mul = truediv = floordiv = div = mod = getitem
+    lshift = rshift = and_ = or_ = xor = delitem = getitem
+
+    def setitem((obj1, obj2), _):
+        return s_ImpossibleValue
 
     # approximation of an annotation intersection, the result should be the annotation obj or
     # the intersection of obj and improvement
@@ -196,7 +174,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     getitem_key = getitem_idx_key
 
 
-class __extend__(pairtype(SomeType, SomeType)):
+class __extend__(pairtype(SomeType, SomeType),
+                 pairtype(SomeType, SomeConstantType),
+                 pairtype(SomeConstantType, SomeType),):
 
     def union((obj1, obj2)):
         result = SomeType()
@@ -243,14 +223,16 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
             if t2 is int:
                 if int2.nonneg == False:
-                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t1
+                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
+                            "integers are of the same signedness")
                 knowntype = t1
             elif t1 is int:
                 if int1.nonneg == False:
-                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t2
+                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
+                            "integers are of the same signedness")
                 knowntype = t2
             else:
-                raise UnionError, "Merging these types (%s, %s) is not supported" % (t1, t2)
+                raise UnionError(int1, int2)
         return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
                            knowntype=knowntype)
 
@@ -411,10 +393,7 @@ class __extend__(pairtype(SomeByteArray, SomeByteArray)):
         return SomeByteArray(can_be_None=can_be_None)
 
     def add((b1, b2)):
-        result = SomeByteArray()
-        if b1.is_immutable_constant() and b2.is_immutable_constant():
-            result.const = b1.const + b2.const
-        return result
+        return SomeByteArray()
 
 class __extend__(pairtype(SomeByteArray, SomeInteger)):
     def getitem((s_b, s_i)):
@@ -428,10 +407,7 @@ class __extend__(pairtype(SomeString, SomeByteArray),
                  pairtype(SomeChar, SomeByteArray),
                  pairtype(SomeByteArray, SomeChar)):
     def add((b1, b2)):
-        result = SomeByteArray()
-        if b1.is_immutable_constant() and b2.is_immutable_constant():
-            result.const = b1.const + b2.const
-        return result
+        return SomeByteArray()
 
 class __extend__(pairtype(SomeChar, SomeChar)):
 
@@ -455,7 +431,7 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
 class __extend__(pairtype(SomeString, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeString)):
     def mod((str, unistring)):
-        raise NotImplementedError(
+        raise AnnotatorError(
             "string formatting mixing strings and unicode not supported")
 
 
@@ -469,9 +445,8 @@ class __extend__(pairtype(SomeString, SomeTuple),
             if (is_unicode and isinstance(s_item, (SomeChar, SomeString)) or
                 is_string and isinstance(s_item, (SomeUnicodeCodePoint,
                                                   SomeUnicodeString))):
-                raise NotImplementedError(
+                raise AnnotatorError(
                     "string formatting mixing strings and unicode not supported")
-        getbookkeeper().count('strformat', s_string, s_tuple)
         no_nul = s_string.no_nul
         for s_item in s_tuple.items:
             if isinstance(s_item, SomeFloat):
@@ -489,7 +464,6 @@ class __extend__(pairtype(SomeString, SomeObject),
                  pairtype(SomeUnicodeString, SomeObject)):
 
     def mod((s_string, args)):
-        getbookkeeper().count('strformat', s_string, args)
         return s_string.__class__()
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
@@ -551,9 +525,9 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 
     def union((tup1, tup2)):
         if len(tup1.items) != len(tup2.items):
-            raise UnionError("cannot take the union of a tuple of length %d "
-                             "and a tuple of length %d" % (len(tup1.items),
-                                                           len(tup2.items)))
+            raise UnionError(tup1, tup2, "RPython cannot unify tuples of "
+                    "different length: %d versus %d" % \
+                    (len(tup1.items), len(tup2.items)))
         else:
             unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
@@ -579,7 +553,8 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 class __extend__(pairtype(SomeDict, SomeDict)):
 
     def union((dic1, dic2)):
-        return SomeDict(dic1.dictdef.union(dic2.dictdef))
+        assert dic1.__class__ == dic2.__class__
+        return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
 
 class __extend__(pairtype(SomeDict, SomeObject)):
@@ -590,19 +565,16 @@ class __extend__(pairtype(SomeDict, SomeObject)):
         return [KeyError]
 
     def getitem((dic1, obj2)):
-        getbookkeeper().count("dict_getitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         return dic1.dictdef.read_value()
     getitem.can_only_throw = _can_only_throw
 
     def setitem((dic1, obj2), s_value):
-        getbookkeeper().count("dict_setitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
     setitem.can_only_throw = _can_only_throw
 
     def delitem((dic1, obj2)):
-        getbookkeeper().count("dict_delitem", dic1)
         dic1.dictdef.generalize_key(obj2)
     delitem.can_only_throw = _can_only_throw
 
@@ -616,7 +588,6 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
             except IndexError:
                 return s_ImpossibleValue
         else:
-            getbookkeeper().count("tuple_random_getitem", tup1)
             return unionof(*tup1.items)
     getitem.can_only_throw = [IndexError]
 
@@ -627,74 +598,63 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         return lst1.listdef.offspring()
 
     def getitem((lst1, int2)):
-        getbookkeeper().count("list_getitem", int2)
         return lst1.listdef.read_item()
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((lst1, int2)):
-        getbookkeeper().count("list_getitem", int2)
         return lst1.listdef.read_item()
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx
 
     def setitem((lst1, int2), s_value):
-        getbookkeeper().count("list_setitem", int2)
         lst1.listdef.mutate()
         lst1.listdef.generalize(s_value)
     setitem.can_only_throw = [IndexError]
 
     def delitem((lst1, int2)):
-        getbookkeeper().count("list_delitem", int2)
         lst1.listdef.resize()
     delitem.can_only_throw = [IndexError]
 
 class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeChar(no_nul=str1.no_nul)
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeChar(no_nul=str1.no_nul)
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
-        getbookkeeper().count("str_mul", str1, int2)
         return SomeString(no_nul=str1.no_nul)
 
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeUnicodeCodePoint()
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeUnicodeCodePoint()
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
-        getbookkeeper().count("str_mul", str1, int2)
         return SomeUnicodeString()
 
 class __extend__(pairtype(SomeInteger, SomeString),
                  pairtype(SomeInteger, SomeUnicodeString)):
 
     def mul((int1, str2)): # xxx do we want to support this
-        getbookkeeper().count("str_mul", str2, int1)
         return str2.basestringclass()
 
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
@@ -726,7 +686,8 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         else:
             basedef = ins1.classdef.commonbase(ins2.classdef)
             if basedef is None:
-                raise UnionError(ins1, ins2)
+                raise UnionError(ins1, ins2, "RPython cannot unify instances "
+                        "with no common base class")
         flags = ins1.flags
         if flags:
             flags = flags.copy()
@@ -768,7 +729,8 @@ class __extend__(pairtype(SomeIterator, SomeIterator)):
     def union((iter1, iter2)):
         s_cont = unionof(iter1.s_container, iter2.s_container)
         if iter1.variant != iter2.variant:
-            raise UnionError("merging incompatible iterators variants")
+            raise UnionError(iter1, iter2,
+                    "RPython cannot unify incompatible iterator variants")
         return SomeIterator(s_cont, *iter1.variant)
 
 
@@ -778,8 +740,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
         if (bltn1.analyser != bltn2.analyser or
             bltn1.methodname != bltn2.methodname or
             bltn1.s_self is None or bltn2.s_self is None):
-            raise UnionError("cannot merge two different builtin functions "
-                             "or methods:\n  %r\n  %r" % (bltn1, bltn2))
+            raise UnionError(bltn1, bltn2)
         s_self = unionof(bltn1.s_self, bltn2.s_self)
         return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
@@ -822,14 +783,14 @@ def _make_none_union(classname, constructor_args='', glob=None):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
 
         class __extend__(pairtype(SomePBC, %(classname)s)):
             def union((pbc, obj)):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
     """ % loc)
     exec source.compile() in glob
 
@@ -837,6 +798,7 @@ _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
 _make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
+_make_none_union('SomeOrderedDict',          'obj.dictdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeWeakRef',         'obj.classdef')
 
@@ -864,89 +826,6 @@ class __extend__(pairtype(SomeString, SomePBC)):
             raise AnnotatorError('add on %r' % pbc)
         return s_ImpossibleValue
 
-# ____________________________________________________________
-# annotation of low-level types
-from rpython.annotator.model import SomePtr, SomeOOInstance, SomeOOClass
-from rpython.annotator.model import SomeOOObject
-from rpython.annotator.model import ll_to_annotation, annotation_to_lltype
-from rpython.rtyper.ootypesystem import ootype
-
-_make_none_union('SomeOOInstance', 'ootype=obj.ootype, can_be_None=True')
-
-class __extend__(pairtype(SomePtr, SomePtr)):
-    def union((p1, p2)):
-        assert p1.ll_ptrtype == p2.ll_ptrtype,("mixing of incompatible pointer types: %r, %r" %
-                                               (p1.ll_ptrtype, p2.ll_ptrtype))
-        return SomePtr(p1.ll_ptrtype)
-
-class __extend__(pairtype(SomePtr, SomeInteger)):
-
-    def getitem((p, int1)):
-        example = p.ll_ptrtype._example()
-        try:
-            v = example[0]
-        except IndexError:
-            return None       # impossible value, e.g. FixedSizeArray(0)
-        return ll_to_annotation(v)
-    getitem.can_only_throw = []
-
-    def setitem((p, int1), s_value):   # just doing checking
-        example = p.ll_ptrtype._example()
-        if example[0] is not None:  # ignore Void s_value
-            v_lltype = annotation_to_lltype(s_value)
-            example[0] = v_lltype._defl()
-    setitem.can_only_throw = []
-
-class __extend__(pairtype(SomePtr, SomeObject)):
-    def union((p, obj)):
-        assert False, ("mixing pointer type %r with something else %r" % (p.ll_ptrtype, obj))
-
-    def getitem((p, obj)):
-        assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
-
-    def setitem((p, obj), s_value):
-        assert False,"ptr %r setitem index not an int: %r" % (p.ll_ptrtype, obj)
-
-class __extend__(pairtype(SomeObject, SomePtr)):
-    def union((obj, p2)):
-        return pair(p2, obj).union()
-
-
-class __extend__(pairtype(SomeOOInstance, SomeOOInstance)):
-    def union((r1, r2)):
-        common = ootype.commonBaseclass(r1.ootype, r2.ootype)
-        assert common is not None, 'Mixing of incompatible instances %r, %r' %(r1.ootype, r2.ootype)
-        return SomeOOInstance(common, can_be_None=r1.can_be_None or r2.can_be_None)
-
-class __extend__(pairtype(SomeOOClass, SomeOOClass)):
-    def union((r1, r2)):
-        if r1.ootype is None:
-            common = r2.ootype
-        elif r2.ootype is None:
-            common = r1.ootype
-        elif r1.ootype == r2.ootype:
-            common = r1.ootype
-        elif isinstance(r1.ootype, ootype.Instance) and isinstance(r2.ootype, ootype.Instance):
-            common = ootype.commonBaseclass(r1.ootype, r2.ootype)
-            assert common is not None, ('Mixing of incompatible classes %r, %r'
-                                        % (r1.ootype, r2.ootype))
-        else:
-            common = ootype.Object
-        return SomeOOClass(common)
-
-class __extend__(pairtype(SomeOOInstance, SomeObject)):
-    def union((r, obj)):
-        assert False, ("mixing reference type %r with something else %r" % (r.ootype, obj))
-
-class __extend__(pairtype(SomeObject, SomeOOInstance)):
-    def union((obj, r2)):
-        return pair(r2, obj).union()
-
-class __extend__(pairtype(SomeOOObject, SomeOOObject)):
-    def union((r1, r2)):
-        assert r1.ootype is ootype.Object and r2.ootype is ootype.Object
-        return SomeOOObject()
-
 #_________________________________________
 # weakrefs
 
@@ -961,62 +840,3 @@ class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
             if basedef is None:    # no common base class! complain...
                 return SomeObject()
         return SomeWeakRef(basedef)
-
-#_________________________________________
-# memory addresses
-
-class __extend__(pairtype(SomeAddress, SomeAddress)):
-    def union((s_addr1, s_addr2)):
-        return SomeAddress()
-
-    def sub((s_addr1, s_addr2)):
-        if s_addr1.is_null_address() and s_addr2.is_null_address():
-            return getbookkeeper().immutablevalue(0)
-        return SomeInteger()
-
-    def is_((s_addr1, s_addr2)):
-        assert False, "comparisons with is not supported by addresses"
-
-class __extend__(pairtype(SomeTypedAddressAccess, SomeTypedAddressAccess)):
-    def union((s_taa1, s_taa2)):
-        assert s_taa1.type == s_taa2.type
-        return s_taa1
-
-class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
-    def getitem((s_taa, s_int)):
-        from rpython.annotator.model import lltype_to_annotation
-        return lltype_to_annotation(s_taa.type)
-    getitem.can_only_throw = []
-
-    def setitem((s_taa, s_int), s_value):
-        from rpython.annotator.model import annotation_to_lltype
-        assert annotation_to_lltype(s_value) is s_taa.type
-    setitem.can_only_throw = []
-
-
-class __extend__(pairtype(SomeAddress, SomeInteger)):
-    def add((s_addr, s_int)):
-        return SomeAddress()
-
-    def sub((s_addr, s_int)):
-        return SomeAddress()
-
-class __extend__(pairtype(SomeAddress, SomeImpossibleValue)):
-    # need to override this specifically to hide the 'raise UnionError'
-    # of pairtype(SomeAddress, SomeObject).
-    def union((s_addr, s_imp)):
-        return s_addr
-
-class __extend__(pairtype(SomeImpossibleValue, SomeAddress)):
-    # need to override this specifically to hide the 'raise UnionError'
-    # of pairtype(SomeObject, SomeAddress).
-    def union((s_imp, s_addr)):
-        return s_addr
-
-class __extend__(pairtype(SomeAddress, SomeObject)):
-    def union((s_addr, s_obj)):
-        raise UnionError, "union of address and anything else makes no sense"
-
-class __extend__(pairtype(SomeObject, SomeAddress)):
-    def union((s_obj, s_addr)):
-        raise UnionError, "union of address and anything else makes no sense"

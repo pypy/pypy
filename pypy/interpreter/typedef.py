@@ -2,7 +2,7 @@ import py
 
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
      WrappedDefault)
 
@@ -329,10 +329,6 @@ def _builduserclswithfeature(config, supercls, *features):
                     instance=True)
                 base_user_setup(self, space, w_subtype)
 
-            def setclass(self, space, w_subtype):
-                # only used by descr_set___class__
-                self.w__class__ = w_subtype
-
         add(Proto)
 
     subcls = type(name, (supercls,), body)
@@ -553,9 +549,9 @@ class Member(W_Root):
 
     def typecheck(self, space, w_obj):
         if not space.isinstance_w(w_obj, self.w_cls):
-            m = "descriptor '%s' for '%s' objects doesn't apply to '%T' object"
-            raise operationerrfmt(space.w_TypeError, m,
-                                  self.name, self.w_cls.name, w_obj)
+            raise oefmt(space.w_TypeError,
+                        "descriptor '%N' for '%N' objects doesn't apply to "
+                        "'%T' object", self, self.w_cls, w_obj)
 
     def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value
@@ -609,7 +605,7 @@ def generic_new_descr(W_Type):
 #
 # Definition of the type's descriptors for all the internal types
 
-from pypy.interpreter.eval import Code, Frame
+from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SuspendedUnroller
@@ -624,8 +620,9 @@ from pypy.interpreter.special import NotImplemented, Ellipsis
 def descr_get_dict(space, w_obj):
     w_dict = w_obj.getdict(space)
     if w_dict is None:
-        msg = "descriptor '__dict__' doesn't apply to '%T' objects"
-        raise operationerrfmt(space.w_TypeError, msg, w_obj)
+        raise oefmt(space.w_TypeError,
+                    "descriptor '__dict__' doesn't apply to '%T' objects",
+                    w_obj)
     return w_dict
 
 def descr_set_dict(space, w_obj, w_dict):
@@ -715,13 +712,6 @@ BuiltinCode.typedef = TypeDef('builtin-code',
 BuiltinCode.typedef.acceptable_as_base_class = False
 
 
-Frame.typedef = TypeDef('internal-frame',
-    f_code = GetSetProperty(Frame.fget_code),
-    f_locals = GetSetProperty(Frame.fget_getdictscope),
-    f_globals = interp_attrproperty_w('w_globals', cls=Frame),
-    )
-Frame.typedef.acceptable_as_base_class = False
-
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
     __eq__ = interp2app(PyCode.descr_code__eq__),
@@ -760,7 +750,10 @@ PyFrame.typedef = TypeDef('frame',
     f_exc_value = GetSetProperty(PyFrame.fget_f_exc_value),
     f_exc_traceback = GetSetProperty(PyFrame.fget_f_exc_traceback),
     f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
-    **Frame.typedef.rawdict)
+    f_code = GetSetProperty(PyFrame.fget_code),
+    f_locals = GetSetProperty(PyFrame.fget_getdictscope),
+    f_globals = interp_attrproperty_w('w_globals', cls=PyFrame),
+)
 PyFrame.typedef.acceptable_as_base_class = False
 
 Module.typedef = TypeDef("module",

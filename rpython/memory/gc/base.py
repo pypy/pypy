@@ -74,7 +74,8 @@ class GCBase(object):
                             is_rpython_class,
                             has_custom_trace,
                             get_custom_trace,
-                            fast_path_tracing):
+                            fast_path_tracing,
+                            has_gcptr):
         self.getfinalizer = getfinalizer
         self.getlightfinalizer = getlightfinalizer
         self.is_varsize = is_varsize
@@ -92,6 +93,7 @@ class GCBase(object):
         self.has_custom_trace = has_custom_trace
         self.get_custom_trace = get_custom_trace
         self.fast_path_tracing = fast_path_tracing
+        self.has_gcptr = has_gcptr
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)
@@ -99,7 +101,7 @@ class GCBase(object):
     def set_root_walker(self, root_walker):
         self.root_walker = root_walker
 
-    def write_barrier(self, newvalue, addr_struct):
+    def write_barrier(self, addr_struct):
         pass
 
     def size_gc_header(self, typeid=0):
@@ -428,6 +430,7 @@ def choose_gc_from_config(config):
                "generation": "generation.GenerationGC",
                "hybrid": "hybrid.HybridGC",
                "minimark" : "minimark.MiniMarkGC",
+               "incminimark" : "incminimark.IncrementalMiniMarkGC",
                }
     try:
         modulename, classname = classes[config.translation.gc].split('.')

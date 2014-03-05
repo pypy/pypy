@@ -1,5 +1,5 @@
 import new
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
@@ -10,8 +10,8 @@ from rpython.rlib import jit
 
 
 def raise_type_err(space, argument, expected, w_obj):
-    raise operationerrfmt(space.w_TypeError, "argument %s must be %s, not %T",
-                          argument, expected, w_obj)
+    raise oefmt(space.w_TypeError,
+                "argument %s must be %s, not %T", argument, expected, w_obj)
 
 def unwrap_attr(space, w_attr):
     try:
@@ -126,10 +126,8 @@ class W_ClassObject(W_Root):
                 return space.newtuple(self.bases_w)
         w_value = self.lookup(space, name)
         if w_value is None:
-            raise operationerrfmt(
-                space.w_AttributeError,
-                "class %s has no attribute '%s'",
-                self.name, name)
+            raise oefmt(space.w_AttributeError,
+                        "class %s has no attribute '%s'", self.name, name)
 
         w_descr_get = space.lookup(w_value, '__get__')
         if w_descr_get is None:
@@ -158,18 +156,15 @@ class W_ClassObject(W_Root):
     def descr_delattr(self, space, w_attr):
         name = unwrap_attr(space, w_attr)
         if name in ("__dict__", "__name__", "__bases__"):
-            raise operationerrfmt(
-                space.w_TypeError,
-                "cannot delete attribute '%s'", name)
+            raise oefmt(space.w_TypeError,
+                        "cannot delete attribute '%s'", name)
         try:
             space.delitem(self.w_dict, w_attr)
         except OperationError, e:
             if not e.match(space, space.w_KeyError):
                 raise
-            raise operationerrfmt(
-                space.w_AttributeError,
-                "class %s has no attribute '%s'",
-                self.name, name)
+            raise oefmt(space.w_AttributeError,
+                        "class %s has no attribute '%s'", self.name, name)
 
     def descr_repr(self, space):
         mod = self.get_module_string(space)
@@ -362,10 +357,9 @@ class W_InstanceObject(W_Root):
                 raise
         # not found at all
         if exc:
-            raise operationerrfmt(
-                space.w_AttributeError,
-                "%s instance has no attribute '%s'",
-                self.w_class.name, name)
+            raise oefmt(space.w_AttributeError,
+                        "%s instance has no attribute '%s'",
+                        self.w_class.name, name)
         else:
             return None
 
@@ -416,10 +410,9 @@ class W_InstanceObject(W_Root):
             space.call_function(w_meth, w_name)
         else:
             if not self.deldictvalue(space, name):
-                raise operationerrfmt(
-                    space.w_AttributeError,
-                    "%s instance has no attribute '%s'",
-                    self.w_class.name, name)
+                raise oefmt(space.w_AttributeError,
+                            "%s instance has no attribute '%s'",
+                            self.w_class.name, name)
 
     def descr_repr(self, space):
         w_meth = self.getattr(space, '__repr__', False)

@@ -1,7 +1,6 @@
 import py, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import socket as cpy_socket
 
 # cannot test error codes in Win32 because ll2ctypes doesn't save
@@ -302,6 +301,8 @@ def test_getaddrinfo_http():
             addr.get_port() == 80):
             found = True
     assert found, lst
+    # The following might fail if the DNS redirects failed requests to a
+    # catch-all address (i.e. opendns).
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
 
@@ -310,7 +311,7 @@ def test_getaddrinfo_pydotorg():
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '82.94.164.162':
+        if addr.get_host() == '140.211.10.69':
             found = True
     assert found, lst
 

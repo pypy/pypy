@@ -127,8 +127,8 @@ class Entry(ExtRegistryEntry):
         return None
 
     def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem.rstr import string_repr
         fn = self.instance
-        string_repr = hop.rtyper.type_system.rstr.string_repr
         vlist = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
         t = hop.rtyper.annotator.translator
@@ -190,10 +190,29 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         return None
-    
+
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.genop('debug_flush', [])
+
+
+def debug_forked(original_offset):
+    """ Call after a fork(), passing as argument the result of
+        debug_offset() called before the fork.
+    """
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_forked
+
+    def compute_result_annotation(self, s_original_offset):
+        return None
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('debug_forked', vlist)
 
 
 def llinterpcall(RESTYPE, pythonfunction, *args):
@@ -210,12 +229,13 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_RESTYPE, s_pythonfunction, *args_s):
         from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import lltype_to_annotation
         from rpython.rtyper.lltypesystem import lltype
         assert s_RESTYPE.is_constant()
         assert s_pythonfunction.is_constant()
         s_result = s_RESTYPE.const
         if isinstance(s_result, lltype.LowLevelType):
-            s_result = annmodel.lltype_to_annotation(s_result)
+            s_result = lltype_to_annotation(s_result)
         assert isinstance(s_result, annmodel.SomeObject)
         return s_result
 
@@ -278,7 +298,7 @@ class Entry(ExtRegistryEntry):
             from rpython.annotator.annrpython import log
             log.WARNING('make_sure_not_resized called, but has no effect since list_comprehension is off')
         return s_arg
-    
+
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
@@ -294,7 +314,7 @@ def mark_dict_non_null(d):
 
 class DictMarkEntry(ExtRegistryEntry):
     _about_ = mark_dict_non_null
-    
+
     def compute_result_annotation(self, s_dict):
         from rpython.annotator.model import SomeDict
 

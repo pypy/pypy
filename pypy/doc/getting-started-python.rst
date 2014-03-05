@@ -6,7 +6,7 @@ Getting Started with PyPy's Python Interpreter
 
 
 PyPy's Python interpreter is a very compliant Python
-interpreter implemented in RPython.  When compiled, it passes most of 
+interpreter implemented in RPython.  When compiled, it passes most of
 `CPythons core language regression tests`_ and comes with many of the extension
 modules included in the standard library including ``ctypes``. It can run large
 libraries such as Django_ and Twisted_. There are some small behavioral
@@ -18,8 +18,8 @@ differences`_.
 
 .. _`CPython differences`: cpython_differences.html
 
-To actually use PyPy's Python interpreter, the first thing to do is to 
-`download a pre-built PyPy`_ for your architecture.  
+To actually use PyPy's Python interpreter, the first thing to do is to
+`download a pre-built PyPy`_ for your architecture.
 
 .. _`download a pre-built PyPy`:  http://pypy.org/download.html
 
@@ -31,8 +31,8 @@ Windows, see the `windows document`_)
 
 .. _`windows document`: windows.html
 
-You can translate the whole of PyPy's Python interpreter to low level C code,
-or `CLI code`_.  If you intend to build using gcc, check to make sure that
+You can translate the whole of PyPy's Python interpreter to low level C code.
+If you intend to build using gcc, check to make sure that
 the version you have is not 4.2 or you will run into `this bug`_.
 
 .. _`this bug`: https://bugs.launchpad.net/ubuntu/+source/gcc-4.2/+bug/187391
@@ -57,6 +57,18 @@ the version you have is not 4.2 or you will run into `this bug`_.
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
 
+   On SLES11:
+
+     $ sudo zypper install gcc make python-devel pkg-config \
+     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
+     libexpat-devel libffi-devel python-curses
+
+   On Mac OS X, most of these build-time dependencies are installed alongside
+   the Developer Tools. However, note that in order for the installation to
+   find them you may need to run:
+
+     $ xcode-select --install
+
    The above command lines are split with continuation characters, giving the necessary dependencies first, then the optional ones.
 
    * ``pkg-config`` (to help us locate libffi files)
@@ -71,9 +83,9 @@ the version you have is not 4.2 or you will run into `this bug`_.
 
 
 3. Translation is time-consuming -- 45 minutes on a very fast machine --
-   and RAM-hungry.  As of March 2011, you will need **at least** 2 GB of 
-   memory on a 
-   32-bit machine and 4GB on a 64-bit machine.  If your memory resources 
+   and RAM-hungry.  As of March 2011, you will need **at least** 2 GB of
+   memory on a
+   32-bit machine and 4GB on a 64-bit machine.  If your memory resources
    are constrained, or your machine is slow you might want to pick the
    `optimization level`_ `1` in the next step.  A level of
    `2` or `3` or `jit` gives much better results, though.  But if all
@@ -82,7 +94,7 @@ the version you have is not 4.2 or you will run into `this bug`_.
 
    Let me stress this again: at ``--opt=1`` you get the Boehm
    GC, which is here mostly for historical and for testing reasons.
-   You really do not want to pick it for a program you intend to use.  
+   You really do not want to pick it for a program you intend to use.
    The resulting ``pypy-c`` is slow.
 
 4. Run::
@@ -91,8 +103,8 @@ the version you have is not 4.2 or you will run into `this bug`_.
      python ../../rpython/bin/rpython --opt=jit targetpypystandalone.py
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
-   of your choice like ``--opt=2`` if you do not want to include the JIT
-   compiler, which makes the Python interpreter much slower.  
+   of your choice.  Typical example: ``--opt=2`` gives a good (but of
+   course slower) Python interpreter without the JIT.
 
 .. _`optimization level`: config/opt.html
 
@@ -104,8 +116,8 @@ translation options that where used to produce this particular
 executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
-    Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
-    [PyPy 2.0.0 with GCC 4.7.1] on linux2
+    Python 2.7.3 (480845e6b1dd, Jul 31 2013, 11:05:31)
+    [PyPy 2.1.0 with GCC 4.7.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``RPython magically makes you rich
     and famous (says so on the tin)''
@@ -119,7 +131,7 @@ executable. The executable behaves mostly like a normal Python interpreter::
     >>>> pystone.main()
     Pystone(1.1) time for 50000 passes = 0.060004
     This machine benchmarks at 833278 pystones/second
-    >>>> 
+    >>>>
 
 Note that pystone gets faster as the JIT kicks in.
 This executable can be moved around or copied on other machines; see
@@ -141,70 +153,6 @@ but they are not really tested any more.  Look, for example, at the
 `objspace proxies`_ document.
 
 .. _`objspace proxies`: objspace-proxies.html
-
-.. _`CLI code`: 
-
-Translating using the CLI backend
-+++++++++++++++++++++++++++++++++
-
-**Note: the CLI backend is no longer maintained**
-
-To create a standalone .NET executable using the `CLI backend`_::
-
-    ./translate.py --backend=cli targetpypystandalone.py
-
-The executable and all its dependencies will be stored in the
-./pypy-cli-data directory. To run pypy.NET, you can run
-./pypy-cli-data/main.exe. If you are using Linux or Mac, you can use
-the convenience ./pypy-cli script::
-
-    $ ./pypy-cli
-    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.6.0] on linux2
-    Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``distopian and utopian chairs''
-    >>>> 
-
-Moreover, at the moment it's not possible to do the full translation
-using only the tools provided by the Microsoft .NET SDK, since
-``ilasm`` crashes when trying to assemble the pypy-cli code due to its
-size.  Microsoft .NET SDK 2.0.50727.42 is affected by this bug; other
-versions could be affected as well: if you find a version of the SDK
-that works, please tell us.
-
-Windows users that want to compile their own pypy-cli can install
-Mono_: if a Mono installation is detected the translation toolchain
-will automatically use its ``ilasm2`` tool to assemble the
-executables.
-
-To try out the experimental .NET integration, check the documentation of the
-clr_ module.
-
-..  not working now:
-
-    .. _`JVM code`: 
-
-    Translating using the JVM backend
-    +++++++++++++++++++++++++++++++++
-
-    To create a standalone JVM executable::
-
-        ./translate.py --backend=jvm targetpypystandalone.py
-
-    This will create a jar file ``pypy-jvm.jar`` as well as a convenience
-    script ``pypy-jvm`` for executing it.  To try it out, simply run
-    ``./pypy-jvm``::
-
-        $ ./pypy-jvm 
-        Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-        [PyPy 1.6.0] on linux2
-        Type "help", "copyright", "credits" or "license" for more information.
-        And now for something completely different: ``# assert did not crash''
-        >>>> 
-
-    Alternatively, you can run it using ``java -jar pypy-jvm.jar``. At the moment
-    the executable does not provide any interesting features, like integration with
-    Java.
 
 Installation
 ++++++++++++
@@ -235,7 +183,7 @@ correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy2.0``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy2.1``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report
@@ -258,22 +206,22 @@ supported by distutils and use Python 2.5 or greater to run PyPy::
     cd pypy
     python bin/pyinteractive.py
 
-After a few seconds (remember: this is running on top of CPython), 
-you should be at the PyPy prompt, which is the same as the Python 
+After a few seconds (remember: this is running on top of CPython),
+you should be at the PyPy prompt, which is the same as the Python
 prompt, but with an extra ">".
 
 Now you are ready to start running Python code.  Most Python
-modules should work if they don't involve CPython extension 
+modules should work if they don't involve CPython extension
 modules.  **This is slow, and most C modules are not present by
 default even if they are standard!**  Here is an example of
-determining PyPy's performance in pystones:: 
+determining PyPy's performance in pystones::
 
-    >>>> from test import pystone 
+    >>>> from test import pystone
     >>>> pystone.main(10)
 
 The parameter is the number of loops to run through the test. The
 default is 50000, which is far too many to run in a non-translated
-PyPy version (i.e. when PyPy's interpreter itself is being interpreted 
+PyPy version (i.e. when PyPy's interpreter itself is being interpreted
 by CPython).
 
 pyinteractive.py options
@@ -300,9 +248,7 @@ options do.
 
 
 .. _Mono: http://www.mono-project.com/Main_Page
-.. _`CLI backend`: cli-backend.html
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
-.. _clr: clr-module.html
 .. _`CPythons core language regression tests`: http://buildbot.pypy.org/summary?category=applevel&branch=%3Ctrunk%3E
 
 .. include:: _ref.txt

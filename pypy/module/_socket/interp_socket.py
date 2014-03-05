@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import gateway
 
 class SignalChecker:
@@ -464,8 +464,8 @@ class W_RSocket(W_Root, RSocket):
             elif cmd == _c.SIO_KEEPALIVE_VALS:
                 value_size = rffi.sizeof(_c.tcp_keepalive)
             else:
-                raise operationerrfmt(space.w_ValueError,
-                                      "invalid ioctl command %d", cmd)
+                raise oefmt(space.w_ValueError,
+                            "invalid ioctl command %d", cmd)
 
             value_ptr = lltype.malloc(rffi.VOIDP.TO, value_size, flavor='raw')
             try:
@@ -473,7 +473,7 @@ class W_RSocket(W_Root, RSocket):
                     option_ptr = rffi.cast(rffi.INTP, value_ptr)
                     option_ptr[0] = space.int_w(w_option)
                 elif cmd == _c.SIO_KEEPALIVE_VALS:
-                    w_onoff, w_time, w_interval = space.unpackiterable(w_option)
+                    w_onoff, w_time, w_interval = space.unpackiterable(w_option, 3)
                     option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
                     option_ptr.c_onoff = space.uint_w(w_onoff)
                     option_ptr.c_keepalivetime = space.uint_w(w_time)

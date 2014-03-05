@@ -72,28 +72,51 @@ class AppTestRangeListObject(object):
         r.sort(key=lambda x: -x)
         assert r == range(9, -1, -1)
     def test_pop(self):
+        # RangeListStrategy
+        r = range(1, 10)
+        res = r.pop()
+        assert res == 9
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(1, 9))
+        res = r.pop(0)
+        assert res == 1
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(2, 9))
+        res = r.pop(len(r) - 1)
+        assert res == 8
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(2, 8))
+        res = r.pop(2)
+        assert res == 4
+        assert not self.not_forced(r)
+        assert r == [2, 3, 5, 6, 7]
+        res = r.pop(2)
+        assert res == 5
+        assert not self.not_forced(r)
+        assert r == [2, 3, 6, 7]
+
+        # SimpleRangeListStrategy
         r = range(10)
         res = r.pop()
         assert res == 9
         assert self.not_forced(r)
-        assert repr(r) == repr(range(9))
+        res = r.pop()
+        assert res == 8
+        assert repr(r) == repr(range(8))
+        assert self.not_forced(r)
         res = r.pop(0)
         assert res == 0
-        assert self.not_forced(r)
-        assert repr(r) == repr(range(1, 9))
-        res = r.pop(len(r) - 1)
-        assert res == 8
-        assert self.not_forced(r)
-        assert repr(r) == repr(range(1, 8))
-        res = r.pop(2)
-        assert res == 3
         assert not self.not_forced(r)
-        assert r == [1, 2, 4, 5, 6, 7]
-        res = r.pop(2)
-        assert res == 4
-        assert not self.not_forced(r)
-        assert r == [1, 2, 5, 6, 7]
-       
+        assert r == [1, 2, 3, 4, 5, 6, 7]
+
+    def test_getitem_simple(self):
+        r = range(4)
+        assert r[-1] == 3
+        assert r[3] == 3
+        assert r[-4] == 0
+        raises(IndexError, r.__getitem__, -5)
+        raises(IndexError, r.__getitem__, 4)
+
     def test_reduce(self):
         it = iter(range(10))
         assert it.next() == 0

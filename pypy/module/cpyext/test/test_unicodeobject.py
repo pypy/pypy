@@ -91,6 +91,7 @@ class TestUnicode(BaseApiTest):
         invalid = rffi.str2charp('invalid')
         utf_8 = rffi.str2charp('utf-8')
         prev_encoding = rffi.str2charp(space.unwrap(w_default_encoding))
+        self.raises(space, api, TypeError, api.PyUnicode_SetDefaultEncoding, lltype.nullptr(rffi.CCHARP.TO))
         assert api.PyUnicode_SetDefaultEncoding(invalid) == -1
         assert api.PyErr_Occurred() is space.w_LookupError
         api.PyErr_Clear()
@@ -315,6 +316,15 @@ class TestUnicode(BaseApiTest):
 
         rffi.free_charp(b_text)
         rffi.free_charp(b_encoding)
+
+    def test_decode_null_encoding(self, space, api):
+        null_charp = lltype.nullptr(rffi.CCHARP.TO)
+        u_text = u'abcdefg'
+        s_text = space.str_w(api.PyUnicode_AsEncodedString(space.wrap(u_text), null_charp, null_charp))
+        b_text = rffi.str2charp(s_text)
+        assert space.unwrap(api.PyUnicode_Decode(b_text, len(s_text), null_charp, null_charp)) == u_text
+        self.raises(space, api, TypeError, api.PyUnicode_FromEncodedObject, space.wrap(u_text), null_charp, None)
+        rffi.free_charp(b_text)
 
     def test_leak(self):
         size = 50

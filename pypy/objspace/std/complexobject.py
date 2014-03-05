@@ -1,6 +1,7 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
@@ -52,16 +53,16 @@ class W_ComplexObject(W_AbstractComplexObject):
     from pypy.objspace.std.complextype import complex_typedef as typedef
     _immutable_fields_ = ['realval', 'imagval']
 
-    def __init__(w_self, realval=0.0, imgval=0.0):
-        w_self.realval = float(realval)
-        w_self.imagval = float(imgval)
+    def __init__(self, realval=0.0, imgval=0.0):
+        self.realval = float(realval)
+        self.imagval = float(imgval)
 
-    def unwrap(w_self, space):   # for tests only
-        return complex(w_self.realval, w_self.imagval)
+    def unwrap(self, space):   # for tests only
+        return complex(self.realval, self.imagval)
 
-    def __repr__(w_self):
+    def __repr__(self):
         """ representation for debugging purposes """
-        return "<W_ComplexObject(%f,%f)>" % (w_self.realval, w_self.imagval)
+        return "<W_ComplexObject(%f,%f)>" % (self.realval, self.imagval)
 
     def as_tuple(self):
         return (self.realval, self.imagval)
@@ -120,16 +121,13 @@ w_one = W_ComplexObject(1, 0)
 
 
 def delegate_Bool2Complex(space, w_bool):
-    return W_ComplexObject(w_bool.boolval, 0.0)
+    return W_ComplexObject(w_bool.intval, 0.0)
 
 def delegate_Int2Complex(space, w_int):
     return W_ComplexObject(w_int.intval, 0.0)
 
 def delegate_Long2Complex(space, w_long):
-    try:
-        dval =  w_long.tofloat()
-    except OverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(str(e)))
+    dval = w_long.tofloat(space)
     return W_ComplexObject(dval, 0.0)
 
 def delegate_Float2Complex(space, w_float):
@@ -219,17 +217,21 @@ def eq__Complex_Long(space, w_complex1, w_long2):
     if w_complex1.imagval:
         return space.w_False
     return space.eq(space.newfloat(w_complex1.realval), w_long2)
+eq__Complex_Int = eq__Complex_Long
 
 def eq__Long_Complex(space, w_long1, w_complex2):
     return eq__Complex_Long(space, w_complex2, w_long1)
+eq__Int_Complex = eq__Long_Complex
 
 def ne__Complex_Long(space, w_complex1, w_long2):
     if w_complex1.imagval:
         return space.w_True
     return space.ne(space.newfloat(w_complex1.realval), w_long2)
+ne__Complex_Int = ne__Complex_Long
 
 def ne__Long_Complex(space, w_long1, w_complex2):
     return ne__Complex_Long(space, w_complex2, w_long1)
+ne__Int_Complex = ne__Long_Complex
 
 def lt__Complex_Complex(space, w_complex1, w_complex2):
     raise OperationError(space.w_TypeError, space.wrap('cannot compare complex numbers using <, <=, >, >='))

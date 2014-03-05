@@ -1,21 +1,23 @@
 import sys
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Variable, Constant
 from rpython.jit.metainterp.typesystem import deref
 from rpython.rlib import rgc
 from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rlist
+from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper.lltypesystem import rordereddict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.ootypesystem import ootype, rdict as oo_rdict
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.translator import TranslationContext
 from rpython.translator.unsimplify import split_block
 
@@ -31,11 +33,11 @@ def _annotation(a, x):
     if T == lltype.Ptr(ll_rstr.STR):
         t = str
     else:
-        t = annmodel.lltype_to_annotation(T)
+        t = lltype_to_annotation(T)
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype", translationoptions={}):
+             translationoptions={}):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     for key, value in translationoptions.items():
@@ -44,7 +46,7 @@ def annotate(func, values, inline=None, backendoptimize=True,
     a = t.buildannotator(policy=annpolicy)
     argtypes = getargtypes(a, values)
     a.build_types(func, argtypes, main_entry_point=True)
-    rtyper = t.buildrtyper(type_system = type_system)
+    rtyper = t.buildrtyper()
     rtyper.specialize()
     #if inline:
     #    auto_inlining(t, threshold=inline)
@@ -74,7 +76,7 @@ def autodetect_jit_markers_redvars(graph):
             # another block, so the set of alive_v will be different.
             methname = op.args[0].value
             assert methname == 'jit_merge_point', (
-                "reds='auto' is supported only for jit drivers which " 
+                "reds='auto' is supported only for jit drivers which "
                 "calls only jit_merge_point. Found a call to %s" % methname)
             #
             # compute the set of live variables across the jit_marker
@@ -149,7 +151,7 @@ def decode_hp_hint_args(op):
 def maybe_on_top_of_llinterp(rtyper, fnptr):
     # Run a generated graph on top of the llinterp for testing.
     # When translated, this just returns the fnptr.
-    funcobj = get_funcobj(fnptr)
+    funcobj = fnptr._obj
     if hasattr(funcobj, 'graph'):
         llinterp = LLInterpreter(rtyper)  #, exc_data_ptr=exc_data_ptr)
         def on_top_of_llinterp(*args):
@@ -212,6 +214,7 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+_ll_3_list_resize_hint_really = rlist_ll._ll_list_resize_hint_really
 
 @elidable
 def _ll_1_gc_identityhash(x):
@@ -272,10 +275,9 @@ def _ll_2_int_lshift_ovf(x, y):
     return result
 
 def _ll_1_int_abs(x):
-    if x < 0:
-        return -x
-    else:
-        return x
+    # this version doesn't branch
+    mask = x >> (LONG_BIT - 1)
+    return (x ^ mask) - mask
 
 def _ll_1_cast_uint_to_float(x):
     # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
@@ -492,11 +494,6 @@ class LLtypeHelpers:
 
     # ---------- dict ----------
 
-    def _ll_0_newdict(DICT):
-        return ll_rdict.ll_newdict(DICT)
-    _ll_0_newdict.need_result_type = True
-
-    _ll_2_dict_delitem = ll_rdict.ll_dict_delitem
     _ll_1_dict_copy = ll_rdict.ll_copy
     _ll_1_dict_clear = ll_rdict.ll_clear
     _ll_2_dict_update = ll_rdict.ll_update
@@ -523,6 +520,33 @@ class LLtypeHelpers:
     _ll_1_dictiter_nextitems.need_result_type = True
 
     _ll_1_dict_resize = ll_rdict.ll_dict_resize
+
+    # ---------- ordered dict ----------
+
+    _ll_1_odict_copy = rordereddict.ll_dict_copy
+    _ll_1_odict_clear = rordereddict.ll_dict_clear
+    _ll_2_odict_update = rordereddict.ll_dict_update
+
+    _ll_1_odict_keys   = rordereddict.ll_dict_keys
+    _ll_1_odict_values = rordereddict.ll_dict_values
+    _ll_1_odict_items  = rordereddict.ll_dict_items
+    _ll_1_odict_keys  .need_result_type = True
+    _ll_1_odict_values.need_result_type = True
+    _ll_1_odict_items .need_result_type = True
+
+    _odictnext_keys   = staticmethod(rordereddict.ll_dictnext_group['keys'])
+    _odictnext_values = staticmethod(rordereddict.ll_dictnext_group['values'])
+    _odictnext_items  = staticmethod(rordereddict.ll_dictnext_group['items'])
+
+    def _ll_1_odictiter_nextkeys(iter):
+        return LLtypeHelpers._odictnext_keys(None, iter)
+    def _ll_1_odictiter_nextvalues(iter):
+        return LLtypeHelpers._odictnext_values(None, iter)
+    def _ll_1_odictiter_nextitems(RES, iter):
+        return LLtypeHelpers._odictnext_items(lltype.Ptr(RES), iter)
+    _ll_1_odictiter_nextitems.need_result_type = True
+
+    _ll_1_odict_resize = rordereddict.ll_dict_resize
 
     # ---------- strings and unicode ----------
 
@@ -698,78 +722,6 @@ class LLtypeHelpers:
     def _ll_1_gc_add_memory_pressure(num):
         llop.gc_add_memory_pressure(lltype.Void, num)
 
-class OOtypeHelpers:
-
-    # ---------- dict ----------
-
-    def _ll_0_newdict(DICT):
-        return oo_rdict.ll_newdict(DICT)
-    _ll_0_newdict.need_result_type = True
-
-    def _ll_3_dict_setitem(d, key, value):
-        d.ll_set(key, value)
-
-    def _ll_2_dict_contains(d, key):
-        return d.ll_contains(key)
-
-    def _ll_1_dict_clear(d):
-        d.ll_clear()
-
-    _ll_2_dict_getitem = oo_rdict.ll_dict_getitem
-    _ll_2_dict_delitem = oo_rdict.ll_dict_delitem
-    _ll_3_dict_setdefault = oo_rdict.ll_dict_setdefault
-    _ll_3_dict_get = oo_rdict.ll_dict_get
-    _ll_1_dict_copy = oo_rdict.ll_dict_copy
-    _ll_2_dict_update = oo_rdict.ll_dict_update
-
-    # ---------- dict keys(), values(), items(), iter ----------
-
-    _ll_1_dict_keys   = oo_rdict.ll_dict_keys
-    _ll_1_dict_values = oo_rdict.ll_dict_values
-    _ll_1_dict_items  = oo_rdict.ll_dict_items
-    _ll_1_dict_keys  .need_result_type = True
-    _ll_1_dict_values.need_result_type = True
-    _ll_1_dict_items .need_result_type = True
-
-    _dictnext_keys   = staticmethod(oo_rdict.ll_dictnext_group['keys'])
-    _dictnext_values = staticmethod(oo_rdict.ll_dictnext_group['values'])
-    _dictnext_items  = staticmethod(oo_rdict.ll_dictnext_group['items'])
-
-    def _ll_1_dictiter_nextkeys(iter):
-        return OOtypeHelpers._dictnext_keys(None, iter)
-    def _ll_1_dictiter_nextvalues(iter):
-        return OOtypeHelpers._dictnext_values(None, iter)
-    def _ll_1_dictiter_nextitems(RES, iter):
-        return OOtypeHelpers._dictnext_items(RES, iter)
-    _ll_1_dictiter_nextitems.need_result_type = True
-
-    # --------------- oostring and oounicode ----------------
-
-    def _ll_2_oostring_signed_foldable(n, base):
-        return ootype.oostring(n, base)
-
-    def _ll_1_oostring_char_foldable(ch):
-        return ootype.oostring(ch, -1)
-
-    def _ll_1_oostring_unsigned_foldable(n):
-        return ootype.oostring(n, -1)
-
-    def _ll_1_oostring_string_foldable(s):
-        return ootype.oostring(s, -1)
-
-    def _ll_1_oostring_root_foldable(s):
-        return ootype.oostring(s, -1)
-
-    def _ll_2_oounicode_signed_foldable(n, base):
-        return ootype.oounicode(n, base)
-
-    def _ll_1_oounicode_unichar_foldable(ch):
-        return ootype.oounicode(ch, -1)
-
-    def _ll_1_oounicode_string_foldable(s):
-        return ootype.oounicode(s, -1)
-
-# -------------------------------------------------------
 
 def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):
     name = '_ll_%d_%s' % (nb_args, oopspec_name.replace('.', '_'))
@@ -778,11 +730,7 @@ def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):
     try:
         wrapper = globals()[name]
     except KeyError:
-        if rtyper.type_system.name == 'lltypesystem':
-            Helpers = LLtypeHelpers
-        else:
-            Helpers = OOtypeHelpers
-        wrapper = getattr(Helpers, name).im_func
+        wrapper = getattr(LLtypeHelpers, name).im_func
     if extra is not None:
         wrapper = wrapper(*extra)
     return wrapper
@@ -823,16 +771,6 @@ def get_call_oopspec_opargs(fnobj, opargs):
     normalized_opargs = normalize_opargs(argtuple, opargs)
     return oopspec, normalized_opargs
 
-def get_oostring_oopspec(op):
-    T = op.args[0].concretetype
-    if T is not ootype.Signed:
-        args = op.args[:-1]
-    else:
-        args = op.args
-    if isinstance(T, ootype.Instance):
-        T = ootype.ROOT
-    return '%s_%s_foldable' % (op.opname, T._name.lower()), args
-
 def get_identityhash_oopspec(op):
     return 'gc_identityhash', op.args
 
@@ -858,15 +796,10 @@ def get_send_oopspec(SELFTYPE, name):
 
 
 def decode_builtin_call(op):
-    if op.opname == 'oosend':
-        SELFTYPE, name, opargs = decompose_oosend(op)
-        return get_send_oopspec(SELFTYPE, name), opargs
-    elif op.opname == 'direct_call':
-        fnobj = get_funcobj(op.args[0].value)
+    if op.opname == 'direct_call':
+        fnobj = op.args[0].value._obj
         opargs = op.args[1:]
         return get_call_oopspec_opargs(fnobj, opargs)
-    elif op.opname in ('oostring', 'oounicode'):
-        return get_oostring_oopspec(op)
     elif op.opname == 'gc_identityhash':
         return get_identityhash_oopspec(op)
     elif op.opname == 'gc_id':
@@ -882,12 +815,12 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
         return rtyper._builtin_func_for_spec_cache[key]
     except (KeyError, AttributeError):
         pass
-    args_s = [annmodel.lltype_to_annotation(v) for v in ll_args]
+    args_s = [lltype_to_annotation(v) for v in ll_args]
     if '.' not in oopspec_name:    # 'newxxx' operations
         LIST_OR_DICT = ll_res
     else:
         LIST_OR_DICT = ll_args[0]
-    s_result = annmodel.lltype_to_annotation(ll_res)
+    s_result = lltype_to_annotation(ll_res)
     impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
         bk = rtyper.annotator.bookkeeper
@@ -907,15 +840,3 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
     rtyper._builtin_func_for_spec_cache[key] = (c_func, LIST_OR_DICT)
     #
     return c_func, LIST_OR_DICT
-
-
-def decompose_oosend(op):
-    name = op.args[0].value
-    opargs = op.args[1:]
-    SELFTYPE = opargs[0].concretetype
-    return SELFTYPE, name, opargs
-
-def lookup_oosend_method(op):
-    SELFTYPE, methname, args_v = decompose_oosend(op)
-    _, meth = SELFTYPE._lookup(methname)
-    return SELFTYPE, methname, meth

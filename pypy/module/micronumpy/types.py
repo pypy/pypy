@@ -1,43 +1,39 @@
 import functools
 import math
-
-from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy import interp_boxes
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
-from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
-from rpython.rlib import rfloat, clibffi, rcomplex
-from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
-                                  raw_storage_getitem)
+from rpython.rlib import clibffi, jit, rfloat, rcomplex
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rstruct.runpack import runpack
-from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
+    most_neg_value_of, LONG_BIT
+from rpython.rlib.rawstorage import (alloc_raw_storage,
+    raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, unpack_float,
                                        pack_float80, unpack_float80)
+from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
+from rpython.rlib.rstruct.runpack import runpack
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib import jit
-from rpython.rlib.rstring import StringBuilder
+from pypy.module.micronumpy import boxes
+from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage
+from pypy.module.micronumpy.strides import calc_strides
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
+log10 = math.log(10)
 
-def isfinite(d):
-    return not rfloat.isinf(d) and not rfloat.isnan(d)
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        raw = self.unbox(v)
         return self.box(
             func(
                 self,
-                self.for_computation(raw)
+                self.for_computation(self.unbox(v)),
             )
         )
     return dispatcher
@@ -58,8 +54,6 @@ def complex_to_real_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        from pypy.module.micronumpy.interp_boxes import W_GenericBox
-        assert isinstance(v, W_GenericBox)
         return self.box_component(
             func(
                 self,
@@ -67,7 +61,6 @@ def complex_to_real_unary_op(func):
             )
         )
     return dispatcher
-
 
 def raw_unary_op(func):
     specialize.argtype(1)(func)
@@ -116,19 +109,16 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _attrs_ = ()
+    _immutable_fields_ = ['native']
 
-    SortRepr = None # placeholders for sorting classes, overloaded in sort.py
-    Sort = None
-
-    def _unimplemented_ufunc(self, *args):
-        raise NotImplementedError
-
-    def malloc(self, size):
-        return alloc_raw_storage(size, track_allocation=False, zero=True)
+    def __init__(self, native=True):
+        self.native = native
 
     def __repr__(self):
         return self.__class__.__name__
+
+    def malloc(self, size):
+        return alloc_raw_storage(size, track_allocation=False, zero=True)
 
 class Primitive(object):
     _mixin_ = True
@@ -150,7 +140,6 @@ class Primitive(object):
         array = rffi.cast(rffi.CArrayPtr(self.T), data)
         return self.box(array[0])
 
-    @specialize.argtype(1)
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
         return box.value
@@ -177,16 +166,21 @@ class Primitive(object):
         raise NotImplementedError
 
     def _read(self, storage, i, offset):
-        return raw_storage_getitem(self.T, storage, i + offset)
+        res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
+        if not self.native:
+            res = byteswap(res)
+        return res
+
+    def _write(self, storage, i, offset, value):
+        if not self.native:
+            value = byteswap(value)
+        raw_storage_setitem_unaligned(storage, i + offset, value)
 
     def read(self, arr, i, offset, dtype=None):
         return self.box(self._read(arr.storage, i, offset))
 
     def read_bool(self, arr, i, offset):
         return bool(self.for_computation(self._read(arr.storage, i, offset)))
-
-    def _write(self, storage, i, offset, value):
-        raw_storage_setitem(storage, i + offset, value)
 
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box))
@@ -196,8 +190,10 @@ class Primitive(object):
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value)
 
-    def runpack_str(self, s):
-        v = runpack(self.format_code, s)
+    def runpack_str(self, space, s):
+        v = rffi.cast(self.T, runpack(self.format_code, s))
+        if not self.native:
+            v = byteswap(v)
         return self.box(v)
 
     @simple_binary_op
@@ -246,14 +242,6 @@ class Primitive(object):
 
     @raw_unary_op
     def isinf(self, v):
-        return False
-
-    @raw_unary_op
-    def isneginf(self, v):
-        return False
-
-    @raw_unary_op
-    def isposinf(self, v):
         return False
 
     @raw_binary_op
@@ -307,22 +295,14 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
-class NonNativePrimitive(Primitive):
-    _mixin_ = True
-
-    def _read(self, storage, i, offset):
-        res = raw_storage_getitem(self.T, storage, i + offset)
-        return byteswap(res)
-
-    def _write(self, storage, i, offset, value):
-        value = byteswap(value)
-        raw_storage_setitem(storage, i + offset, value)
+    @raw_unary_op
+    def rint(self, v):
+        float64 = Float64()
+        return float64.rint(float64.box(v))
 
 class Bool(BaseType, Primitive):
-    _attrs_ = ()
-
     T = lltype.Bool
-    BoxType = interp_boxes.W_BoolBox
+    BoxType = boxes.W_BoolBox
     format_code = "?"
 
     True = BoxType(True)
@@ -351,6 +331,8 @@ class Bool(BaseType, Primitive):
         return self._coerce(space, w_item)
 
     def _coerce(self, space, w_item):
+        if space.is_none(w_item):
+            return self.box(False)
         return self.box(space.is_true(w_item))
 
     def to_builtin_type(self, space, w_item):
@@ -388,7 +370,7 @@ class Bool(BaseType, Primitive):
 
     @simple_unary_op
     def invert(self, v):
-        return ~v
+        return not v
 
     @raw_unary_op
     def isfinite(self, v):
@@ -404,13 +386,20 @@ class Bool(BaseType, Primitive):
             return 1
         return 0
 
-NonNativeBool = Bool
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        if decimals != 0:
+            return v
+        return Float64().box(self.unbox(v))
 
 class Integer(Primitive):
     _mixin_ = True
 
     def _base_coerce(self, space, w_item):
+        if w_item is None:
+            return self.box(0)
         return self.box(space.int_w(space.call_function(space.w_int, w_item)))
+
     def _coerce(self, space, w_item):
         return self._base_coerce(space, w_item)
 
@@ -424,17 +413,29 @@ class Integer(Primitive):
     def default_fromstring(self, space):
         return self.box(0)
 
-    @simple_binary_op
-    def div(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def div(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
-        return v1 / v2
+            return self.box(0)
+        if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
+                self.T is rffi.LONG or self.T is rffi.LONGLONG):
+            if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
+                return self.box(0)
+        return self.box(v1 / v2)
 
-    @simple_binary_op
-    def floordiv(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def floordiv(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
-        return v1 // v2
+            return self.box(0)
+        if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
+                self.T is rffi.LONG or self.T is rffi.LONGLONG):
+            if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
+                return self.box(0)
+        return self.box(v1 // v2)
 
     @simple_binary_op
     def mod(self, v1, v2):
@@ -484,14 +485,6 @@ class Integer(Primitive):
     def isinf(self, v):
         return False
 
-    @raw_unary_op
-    def isposinf(self, v):
-        return False
-
-    @raw_unary_op
-    def isneginf(self, v):
-        return False
-
     @simple_binary_op
     def bitwise_and(self, v1, v2):
         return v1 & v2
@@ -508,125 +501,68 @@ class Integer(Primitive):
     def invert(self, v):
         return ~v
 
-    @simple_unary_op
+    @specialize.argtype(1)
     def reciprocal(self, v):
-        if v == 0:
+        raw = self.for_computation(self.unbox(v))
+        ans = 0
+        if raw == 0:
             # XXX good place to warn
-            # XXX can't do the following, func is specialized only on argtype(v)
-            # (which is the same for all int classes)
-            #if self.T in (rffi.INT, rffi.LONG):
-            #    return most_neg_value_of(self.T)
-            return 0
-        if abs(v) == 1:
-            return v
-        return 0
+            if self.T is rffi.INT or self.T is rffi.LONG or self.T is rffi.LONGLONG:
+                ans = most_neg_value_of(self.T)
+        elif abs(raw) == 1:
+            ans = raw
+        return self.box(ans)
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if decimals < 0:
+            # No ** in rpython
+            factor = 1
+            for i in xrange(-decimals):
+                factor *=10
+            #int does floor division, we want toward zero
+            if raw < 0:
+                ans = - (-raw / factor * factor)
+            else:
+                ans = raw / factor * factor
+        else:
+            ans = raw
+        return self.box(ans)
 
     @raw_unary_op
     def signbit(self, v):
         return v < 0
 
-class NonNativeInteger(NonNativePrimitive, Integer):
-    _mixin_ = True
-
 class Int8(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.SIGNEDCHAR
-    BoxType = interp_boxes.W_Int8Box
+    BoxType = boxes.W_Int8Box
     format_code = "b"
-NonNativeInt8 = Int8
 
 class UInt8(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.UCHAR
-    BoxType = interp_boxes.W_UInt8Box
+    BoxType = boxes.W_UInt8Box
     format_code = "B"
-NonNativeUInt8 = UInt8
 
 class Int16(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.SHORT
-    BoxType = interp_boxes.W_Int16Box
-    format_code = "h"
-
-class NonNativeInt16(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
-    T = rffi.SHORT
-    BoxType = interp_boxes.W_Int16Box
+    BoxType = boxes.W_Int16Box
     format_code = "h"
 
 class UInt16(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.USHORT
-    BoxType = interp_boxes.W_UInt16Box
-    format_code = "H"
-
-class NonNativeUInt16(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
-    T = rffi.USHORT
-    BoxType = interp_boxes.W_UInt16Box
+    BoxType = boxes.W_UInt16Box
     format_code = "H"
 
 class Int32(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.INT
-    BoxType = interp_boxes.W_Int32Box
-    format_code = "i"
-
-class NonNativeInt32(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
-    T = rffi.INT
-    BoxType = interp_boxes.W_Int32Box
+    BoxType = boxes.W_Int32Box
     format_code = "i"
 
 class UInt32(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.UINT
-    BoxType = interp_boxes.W_UInt32Box
+    BoxType = boxes.W_UInt32Box
     format_code = "I"
-
-class NonNativeUInt32(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
-    T = rffi.UINT
-    BoxType = interp_boxes.W_UInt32Box
-    format_code = "I"
-
-class Long(BaseType, Integer):
-    _attrs_ = ()
-
-    T = rffi.LONG
-    BoxType = interp_boxes.W_LongBox
-    format_code = "l"
-
-class NonNativeLong(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
-    T = rffi.LONG
-    BoxType = interp_boxes.W_LongBox
-    format_code = "l"
-
-class ULong(BaseType, Integer):
-    _attrs_ = ()
-
-    T = rffi.ULONG
-    BoxType = interp_boxes.W_ULongBox
-    format_code = "L"
-
-class NonNativeULong(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
-    T = rffi.ULONG
-    BoxType = interp_boxes.W_ULongBox
-    format_code = "L"
 
 def _int64_coerce(self, space, w_item):
     try:
@@ -642,22 +578,12 @@ def _int64_coerce(self, space, w_item):
     return self.box(value)
 
 class Int64(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.LONGLONG
-    BoxType = interp_boxes.W_Int64Box
+    BoxType = boxes.W_Int64Box
     format_code = "q"
 
-    _coerce = func_with_new_name(_int64_coerce, '_coerce')
-
-class NonNativeInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
-    T = rffi.LONGLONG
-    BoxType = interp_boxes.W_Int64Box
-    format_code = "q"
-
-    _coerce = func_with_new_name(_int64_coerce, '_coerce')
+    if LONG_BIT == 32:
+        _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
 def _uint64_coerce(self, space, w_item):
     try:
@@ -673,27 +599,43 @@ def _uint64_coerce(self, space, w_item):
     return self.box(value)
 
 class UInt64(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.ULONGLONG
-    BoxType = interp_boxes.W_UInt64Box
+    BoxType = boxes.W_UInt64Box
     format_code = "Q"
 
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
-class NonNativeUInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
+class Long(BaseType, Integer):
+    T = rffi.LONG
+    BoxType = boxes.W_LongBox
+    format_code = "l"
 
-    T = rffi.ULONGLONG
-    BoxType = interp_boxes.W_UInt64Box
-    format_code = "Q"
+def _ulong_coerce(self, space, w_item):
+    try:
+        return self._base_coerce(space, w_item)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    bigint = space.bigint_w(w_item)
+    try:
+        value = bigint.touint()
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.w_None)
+    return self.box(value)
 
-    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
+class ULong(BaseType, Integer):
+    T = rffi.ULONG
+    BoxType = boxes.W_ULongBox
+    format_code = "L"
+
+    _coerce = func_with_new_name(_ulong_coerce, '_coerce')
 
 class Float(Primitive):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
+        if w_item is None:
+            return self.box(0.0)
         if space.is_none(w_item):
             return self.box(rfloat.NAN)
         return self.box(space.float_w(space.call_function(space.w_float, w_item)))
@@ -797,6 +739,16 @@ class Float(Primitive):
     @simple_unary_op
     def ceil(self, v):
         return math.ceil(v)
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if rfloat.isinf(raw):
+            return v
+        elif rfloat.isnan(raw):
+            return v
+        ans = rfloat.round_double(raw, decimals, half_even=True)
+        return self.box(ans)
 
     @simple_unary_op
     def trunc(self, v):
@@ -908,16 +860,8 @@ class Float(Primitive):
         return rfloat.isinf(v)
 
     @raw_unary_op
-    def isneginf(self, v):
-        return rfloat.isinf(v) and v < 0
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return rfloat.isinf(v) and v > 0
-
-    @raw_unary_op
     def isfinite(self, v):
-        return not (rfloat.isinf(v) or rfloat.isnan(v))
+        return rfloat.isfinite(v)
 
     @simple_unary_op
     def radians(self, v):
@@ -993,58 +937,84 @@ class Float(Primitive):
         else:
             return v1 + v2
 
-class NonNativeFloat(NonNativePrimitive, Float):
-    _mixin_ = True
+    @simple_unary_op
+    def rint(self, v):
+        x = float(v)
+        if rfloat.isfinite(x):
+            import math
+            y = math.floor(x)
+            r = x - y
+
+            if r > 0.5:
+                y += 1.0
+
+            if r == 0.5:
+                r = y - 2.0 * math.floor(0.5 * y)
+                if r == 1.0:
+                    y += 1.0
+            return y
+        else:
+            return x
+
+class Float16(BaseType, Float):
+    _STORAGE_T = rffi.USHORT
+    T = rffi.SHORT
+    BoxType = boxes.W_Float16Box
+
+    @specialize.argtype(1)
+    def box(self, value):
+        return self.BoxType(rffi.cast(rffi.DOUBLE, value))
+
+    def runpack_str(self, space, s):
+        assert len(s) == 2
+        fval = self.box(unpack_float(s, native_is_bigendian))
+        if not self.native:
+            fval = self.byteswap(fval)
+        return fval
+
+    def default_fromstring(self, space):
+        return self.box(-1.0)
+
+    def byteswap(self, w_v):
+        value = self.unbox(w_v)
+        hbits = float_pack(value, 2)
+        swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
+        return self.box(float_unpack(r_ulonglong(swapped), 2))
 
     def _read(self, storage, i, offset):
-        res = raw_storage_getitem(self.T, storage, i + offset)
-        return rffi.cast(lltype.Float, byteswap(res))
+        hbits = raw_storage_getitem_unaligned(self._STORAGE_T, storage, i + offset)
+        if not self.native:
+            hbits = byteswap(hbits)
+        return float_unpack(r_ulonglong(hbits), 2)
 
     def _write(self, storage, i, offset, value):
-        swapped_value = byteswap(rffi.cast(self.T, value))
-        raw_storage_setitem(storage, i + offset, swapped_value)
+        try:
+            hbits = float_pack(value, 2)
+        except OverflowError:
+            hbits = float_pack(rfloat.INFINITY, 2)
+        hbits = rffi.cast(self._STORAGE_T, hbits)
+        if not self.native:
+            hbits = byteswap(hbits)
+        raw_storage_setitem_unaligned(storage, i + offset, hbits)
 
 class Float32(BaseType, Float):
-    _attrs_ = ()
-
     T = rffi.FLOAT
-    BoxType = interp_boxes.W_Float32Box
+    BoxType = boxes.W_Float32Box
     format_code = "f"
-
-class NonNativeFloat32(BaseType, NonNativeFloat):
-    _attrs_ = ()
-
-    T = rffi.FLOAT
-    BoxType = interp_boxes.W_Float32Box
-    format_code = "f"
-
-    def read_bool(self, arr, i, offset):
-        # it's not clear to me why this is needed
-        # but a hint might be that calling for_computation(v)
-        # causes translation to fail, and the assert is necessary
-        v = self._read(arr.storage, i, offset)
-        assert isinstance(v, float)
-        return bool(v)
 
 class Float64(BaseType, Float):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
-    BoxType = interp_boxes.W_Float64Box
-    format_code = "d"
-
-class NonNativeFloat64(BaseType, NonNativeFloat):
-    _attrs_ = ()
-
-    T = rffi.DOUBLE
-    BoxType = interp_boxes.W_Float64Box
+    BoxType = boxes.W_Float64Box
     format_code = "d"
 
 class ComplexFloating(object):
     _mixin_ = True
-    _attrs_ = ()
 
     def _coerce(self, space, w_item):
+        if w_item is None:
+            return self.box_complex(0.0, 0.0)
+        if space.is_none(w_item):
+            return self.box_complex(rfloat.NAN, rfloat.NAN)
         w_item = space.call_function(space.w_complex, w_item)
         real, imag = space.unpackcomplex(w_item)
         return self.box_complex(real, imag)
@@ -1063,15 +1033,28 @@ class ComplexFloating(object):
 
     def str_format(self, box):
         real, imag = self.for_computation(self.unbox(box))
-        imag_str = str_format(imag) + 'j'
+        imag_str = str_format(imag)
+        if not rfloat.isfinite(imag):
+            imag_str += '*'
+        imag_str += 'j'
 
         # (0+2j) => 2j
-        if real == 0:
+        if real == 0 and math.copysign(1, real) == 1:
             return imag_str
 
         real_str = str_format(real)
-        op = '+' if imag >= 0 else ''
+        op = '+' if imag >= 0 or rfloat.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
+
+    def runpack_str(self, space, s):
+        comp = self.ComponentBoxType._get_dtype(space).itemtype
+        l = len(s) // 2
+        real = comp.runpack_str(space, s[:l])
+        imag = comp.runpack_str(space, s[l:])
+        if not self.native:
+            real = comp.byteswap(real)
+            imag = comp.byteswap(imag)
+        return self.composite(real, imag)
 
     @staticmethod
     def for_computation(v):
@@ -1082,8 +1065,12 @@ class ComplexFloating(object):
         return v
 
     def to_builtin_type(self, space, box):
-        real,imag = self.for_computation(self.unbox(box))
+        real, imag = self.for_computation(self.unbox(box))
         return space.newcomplex(real, imag)
+
+    def bool(self, v):
+        real, imag = self.for_computation(self.unbox(v))
+        return bool(real) or bool(imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
@@ -1118,27 +1105,44 @@ class ComplexFloating(object):
         array = rffi.cast(rffi.CArrayPtr(self.T), data)
         return self.box_complex(array[0], array[1])
 
+    def composite(self, v1, v2):
+        assert isinstance(v1, self.ComponentBoxType)
+        assert isinstance(v2, self.ComponentBoxType)
+        real = v1.value
+        imag = v2.value
+        return self.box_complex(real, imag)
+
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
-        # do this in two stages since real, imag are read only
-        real, imag = box.real, box.imag
-        return real, imag
-
-    def store(self, arr, i, offset, box):
-        real, imag = self.unbox(box)
-        raw_storage_setitem(arr.storage, i+offset, real)
-        raw_storage_setitem(arr.storage,
-                i+offset+rffi.sizeof(self.T), imag)
+        return box.real, box.imag
 
     def _read(self, storage, i, offset):
-        real = raw_storage_getitem(self.T, storage, i + offset)
-        imag = raw_storage_getitem(self.T, storage,
-                              i + offset + rffi.sizeof(self.T))
+        real = raw_storage_getitem_unaligned(self.T, storage, i + offset)
+        imag = raw_storage_getitem_unaligned(self.T, storage, i + offset + rffi.sizeof(self.T))
+        if not self.native:
+            real = byteswap(real)
+            imag = byteswap(imag)
         return real, imag
 
     def read(self, arr, i, offset, dtype=None):
         real, imag = self._read(arr.storage, i, offset)
         return self.box_complex(real, imag)
+
+    def _write(self, storage, i, offset, value):
+        real, imag = value
+        if not self.native:
+            real = byteswap(real)
+            imag = byteswap(imag)
+        raw_storage_setitem_unaligned(storage, i + offset, real)
+        raw_storage_setitem_unaligned(storage, i + offset + rffi.sizeof(self.T), imag)
+
+    def store(self, arr, i, offset, box):
+        self._write(arr.storage, i, offset, self.unbox(box))
+
+    def fill(self, storage, width, box, start, stop, offset):
+        value = self.unbox(box)
+        for i in xrange(start, stop, width):
+            self._write(storage, i, offset, value)
 
     @complex_binary_op
     def add(self, v1, v2):
@@ -1157,17 +1161,10 @@ class ComplexFloating(object):
         try:
             return rcomplex.c_div(v1, v2)
         except ZeroDivisionError:
-            if rcomplex.c_abs(*v1) == 0:
+            if rcomplex.c_abs(*v1) == 0 or \
+                    (rfloat.isnan(v1[0]) and rfloat.isnan(v1[1])):
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
-
-    @specialize.argtype(1)
-    def composite(self, v1, v2):
-        assert isinstance(v1, self.ComponentBoxType)
-        assert isinstance(v2, self.ComponentBoxType)
-        real = v1.value
-        imag = v2.value
-        return self.box_complex(real, imag)
 
     @complex_unary_op
     def pos(self, v):
@@ -1217,11 +1214,11 @@ class ComplexFloating(object):
 
     def _lt(self, v1, v2):
         (r1, i1), (r2, i2) = v1, v2
-        if r1 < r2:
+        if r1 < r2 and not rfloat.isnan(i1) and not rfloat.isnan(i2):
             return True
-        elif not r1 <= r2:
-            return False
-        return i1 < i2
+        if r1 == r2 and i1 < i2:
+            return True
+        return False
 
     @raw_binary_op
     def lt(self, v1, v2):
@@ -1259,10 +1256,14 @@ class ComplexFloating(object):
         return self._bool(v1) ^ self._bool(v2)
 
     def min(self, v1, v2):
-        return self.fmin(v1, v2)
+        if self.le(v1, v2) or self.isnan(v1):
+            return v1
+        return v2
 
     def max(self, v1, v2):
-        return self.fmax(v1, v2)
+        if self.ge(v1, v2) or self.isnan(v1):
+            return v1
+        return v2
 
     @complex_binary_op
     def floordiv(self, v1, v2):
@@ -1278,21 +1279,23 @@ class ComplexFloating(object):
     #def mod(self, v1, v2):
     #    return math.fmod(v1, v2)
 
-    @complex_binary_op
     def pow(self, v1, v2):
-        if v1[1] == 0 and v2[1] == 0 and v1[0] > 0:
-            return math.pow(v1[0], v2[0]), 0
-        #if not isfinite(v1[0]) or not isfinite(v1[1]):
-        #    return rfloat.NAN, rfloat.NAN
-        try:
-            return rcomplex.c_pow(v1, v2)
-        except ZeroDivisionError:
-            return rfloat.NAN, rfloat.NAN
-        except OverflowError:
-            return rfloat.INFINITY, -math.copysign(rfloat.INFINITY, v1[1])
-        except ValueError:
-            return rfloat.NAN, rfloat.NAN
-
+        y = self.for_computation(self.unbox(v2))
+        if y[1] == 0:
+            if y[0] == 0:
+                return self.box_complex(1, 0)
+            if y[0] == 1:
+                return v1
+            if y[0] == 2:
+                return self.mul(v1, v1)
+        x = self.for_computation(self.unbox(v1))
+        if x[0] == 0 and x[1] == 0:
+            if y[0] > 0 and y[1] == 0:
+                return self.box_complex(0, 0)
+            return self.box_complex(rfloat.NAN, rfloat.NAN)
+        b = self.for_computation(self.unbox(self.log(v1)))
+        return self.exp(self.box_complex(b[0] * y[0] - b[1] * y[1],
+                                         b[0] * y[1] + b[1] * y[0]))
 
     #complex copysign does not exist in numpy
     #@complex_binary_op
@@ -1317,20 +1320,12 @@ class ComplexFloating(object):
         return -1,0
 
     def fmax(self, v1, v2):
-        if self.isnan(v2):
-            return v1
-        elif self.isnan(v1):
-            return v2
-        if self.ge(v1, v2):
+        if self.ge(v1, v2) or self.isnan(v2):
             return v1
         return v2
 
     def fmin(self, v1, v2):
-        if self.isnan(v2):
-            return v1
-        elif self.isnan(v1):
-            return v2
-        if self.le(v1, v2):
+        if self.le(v1, v2) or self.isnan(v2):
             return v1
         return v2
 
@@ -1353,6 +1348,18 @@ class ComplexFloating(object):
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        ans = list(self.for_computation(self.unbox(v)))
+        if rfloat.isfinite(ans[0]):
+            ans[0] = rfloat.round_double(ans[0], decimals, half_even=True)
+        if rfloat.isfinite(ans[1]):
+            ans[1] = rfloat.round_double(ans[1], decimals, half_even=True)
+        return self.box_complex(ans[0], ans[1])
+
+    def rint(self, v):
+        return self.round(v)
 
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
@@ -1377,7 +1384,7 @@ class ComplexFloating(object):
                 if v[0] < 0:
                     return 0., 0.
                 return rfloat.INFINITY, rfloat.NAN
-            elif (isfinite(v[0]) or \
+            elif (rfloat.isfinite(v[0]) or \
                                  (rfloat.isinf(v[0]) and v[0] > 0)):
                 return rfloat.NAN, rfloat.NAN
         try:
@@ -1405,7 +1412,7 @@ class ComplexFloating(object):
                 if v[0] < 0:
                     return -1., 0.
                 return rfloat.NAN, rfloat.NAN
-            elif (isfinite(v[0]) or \
+            elif (rfloat.isfinite(v[0]) or \
                                  (rfloat.isinf(v[0]) and v[0] > 0)):
                 return rfloat.NAN, rfloat.NAN
         try:
@@ -1422,7 +1429,7 @@ class ComplexFloating(object):
         if rfloat.isinf(v[0]):
             if v[1] == 0.:
                 return rfloat.NAN, 0.
-            if isfinite(v[1]):
+            if rfloat.isfinite(v[1]):
                 return rfloat.NAN, rfloat.NAN
             elif not rfloat.isnan(v[1]):
                 return rfloat.NAN, rfloat.INFINITY
@@ -1433,7 +1440,7 @@ class ComplexFloating(object):
         if rfloat.isinf(v[0]):
             if v[1] == 0.:
                 return rfloat.NAN, 0.0
-            if isfinite(v[1]):
+            if rfloat.isfinite(v[1]):
                 return rfloat.NAN, rfloat.NAN
             elif not rfloat.isnan(v[1]):
                 return rfloat.INFINITY, rfloat.NAN
@@ -1441,7 +1448,7 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def tan(self, v):
-        if rfloat.isinf(v[0]) and isfinite(v[1]):
+        if rfloat.isinf(v[0]) and rfloat.isfinite(v[1]):
             return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tan(*v)
 
@@ -1467,7 +1474,7 @@ class ComplexFloating(object):
     @complex_unary_op
     def sinh(self, v):
         if rfloat.isinf(v[1]):
-            if isfinite(v[0]):
+            if rfloat.isfinite(v[0]):
                 if v[0] == 0.0:
                     return 0.0, rfloat.NAN
                 return rfloat.NAN, rfloat.NAN
@@ -1478,7 +1485,7 @@ class ComplexFloating(object):
     @complex_unary_op
     def cosh(self, v):
         if rfloat.isinf(v[1]):
-            if isfinite(v[0]):
+            if rfloat.isfinite(v[0]):
                 if v[0] == 0.0:
                     return rfloat.NAN, 0.0
                 return rfloat.NAN, rfloat.NAN
@@ -1488,7 +1495,7 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def tanh(self, v):
-        if rfloat.isinf(v[1]) and isfinite(v[0]):
+        if rfloat.isinf(v[1]) and rfloat.isfinite(v[0]):
             return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tanh(*v)
 
@@ -1517,7 +1524,7 @@ class ComplexFloating(object):
 
     @raw_unary_op
     def isfinite(self, v):
-        return isfinite(v[0]) and isfinite(v[1])
+        return rfloat.isfinite(v[0]) and rfloat.isfinite(v[1])
 
     #@simple_unary_op
     #def radians(self, v):
@@ -1530,22 +1537,25 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def log(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        return rcomplex.c_log(*v)
+        try:
+            return rcomplex.c_log(*v)
+        except ValueError:
+            return -rfloat.INFINITY, math.atan2(v[1], v[0])
 
     @complex_unary_op
     def log2(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        r = rcomplex.c_log(*v)
+        try:
+            r = rcomplex.c_log(*v)
+        except ValueError:
+            r = -rfloat.INFINITY, math.atan2(v[1], v[0])
         return r[0] / log2, r[1] / log2
 
     @complex_unary_op
     def log10(self, v):
-        if v[0] == 0 and v[1] == 0:
-            return -rfloat.INFINITY, 0
-        return rcomplex.c_log10(*v)
+        try:
+            return rcomplex.c_log10(*v)
+        except ValueError:
+            return -rfloat.INFINITY, math.atan2(v[1], v[0]) / log10
 
     @complex_unary_op
     def log1p(self, v):
@@ -1557,35 +1567,37 @@ class ComplexFloating(object):
             return rfloat.NAN, rfloat.NAN
 
 class Complex64(ComplexFloating, BaseType):
-    _attrs_ = ()
-
     T = rffi.FLOAT
-    BoxType = interp_boxes.W_Complex64Box
-    ComponentBoxType = interp_boxes.W_Float32Box
-
-NonNativeComplex64 = Complex64
+    BoxType = boxes.W_Complex64Box
+    ComponentBoxType = boxes.W_Float32Box
 
 class Complex128(ComplexFloating, BaseType):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
-    BoxType = interp_boxes.W_Complex128Box
-    ComponentBoxType = interp_boxes.W_Float64Box
+    BoxType = boxes.W_Complex128Box
+    ComponentBoxType = boxes.W_Float64Box
 
-NonNativeComplex128 = Complex128
+if boxes.long_double_size == 8:
+    class FloatLong(BaseType, Float):
+        T = rffi.DOUBLE
+        BoxType = boxes.W_FloatLongBox
+        format_code = "d"
 
-if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
-    class Float96(BaseType, Float):
-        _attrs_ = ()
+    class ComplexLong(ComplexFloating, BaseType):
+        T = rffi.DOUBLE
+        BoxType = boxes.W_ComplexLongBox
+        ComponentBoxType = boxes.W_FloatLongBox
 
+elif boxes.long_double_size in (12, 16):
+    class FloatLong(BaseType, Float):
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float96Box
-        format_code = "q"
+        BoxType = boxes.W_FloatLongBox
 
-        def runpack_str(self, s):
-            assert len(s) == 12
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
+        def runpack_str(self, space, s):
+            assert len(s) == boxes.long_double_size
+            fval = self.box(unpack_float80(s, native_is_bigendian))
+            if not self.native:
+                fval = self.byteswap(fval)
+            return fval
 
         def byteswap(self, w_v):
             value = self.unbox(w_v)
@@ -1593,89 +1605,21 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
 
-    NonNativeFloat96 = Float96
-
-    class Complex192(ComplexFloating, BaseType):
-        _attrs_ = ()
-
+    class ComplexLong(ComplexFloating, BaseType):
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex192Box
-        ComponentBoxType = interp_boxes.W_Float96Box
+        BoxType = boxes.W_ComplexLongBox
+        ComponentBoxType = boxes.W_FloatLongBox
 
-    NonNativeComplex192 = Complex192
-
-elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
-    class Float128(BaseType, Float):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float128Box
-        format_code = "q"
-
-        def runpack_str(self, s):
-            assert len(s) == 16
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
-
-        def byteswap(self, w_v):
-            value = self.unbox(w_v)
-            result = StringBuilder(10)
-            pack_float80(result, value, 10, not native_is_bigendian)
-            return self.box(unpack_float80(result.build(), native_is_bigendian))
-
-    NonNativeFloat128 = Float128
-
-    class Complex256(ComplexFloating, BaseType):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex256Box
-        ComponentBoxType = interp_boxes.W_Float128Box
-
-    NonNativeComplex256 = Complex256
-
-class BaseStringType(object):
-    _mixin_ = True
-
-    def __init__(self, size=0):
-        self.size = size
-
+class FlexibleType(BaseType):
     def get_element_size(self):
-        return self.size * rffi.sizeof(self.T)
-
-    def get_size(self):
-        return self.size
-
-
-class StringType(BaseType, BaseStringType):
-    T = lltype.Char
-
-    @jit.unroll_safe
-    def coerce(self, space, dtype, w_item):
-        from pypy.module.micronumpy.interp_dtype import new_string_dtype
-        arg = space.str_w(space.str(w_item))
-        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
-        for i in range(len(arg)):
-            arr.storage[i] = arg[i]
-        return interp_boxes.W_StringBox(arr,  0, arr.dtype)
-
-    @jit.unroll_safe
-    def store(self, arr, i, offset, box):
-        assert isinstance(box, interp_boxes.W_StringBox)
-        for k in range(min(self.size, box.arr.size-offset)):
-            arr.storage[k + i] = box.arr.storage[k + offset]
-
-    def read(self, arr, i, offset, dtype=None):
-        if dtype is None:
-            dtype = arr.dtype
-        return interp_boxes.W_StringBox(arr, i + offset, dtype)
+        return rffi.sizeof(self.T)
 
     @jit.unroll_safe
     def to_str(self, item):
         builder = StringBuilder()
-        assert isinstance(item, interp_boxes.W_StringBox)
+        assert isinstance(item, boxes.W_FlexibleBox)
         i = item.ofs
-        end = i+self.size
+        end = i + item.dtype.elsize
         while i < end:
             assert isinstance(item.arr.storage[i], str)
             if item.arr.storage[i] == '\x00':
@@ -1684,6 +1628,57 @@ class StringType(BaseType, BaseStringType):
             i += 1
         return builder.build()
 
+def str_unary_op(func):
+    specialize.argtype(1)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v1):
+        return func(self, self.to_str(v1))
+    return dispatcher
+
+def str_binary_op(func):
+    specialize.argtype(1, 2)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v1, v2):
+        return func(self,
+            self.to_str(v1),
+            self.to_str(v2)
+        )
+    return dispatcher
+
+class StringType(FlexibleType):
+    T = lltype.Char
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        if isinstance(w_item, boxes.W_StringBox):
+            return w_item
+        if w_item is None:
+            w_item = space.wrap('')
+        arg = space.str_w(space.str(w_item))
+        arr = VoidBoxStorage(dtype.elsize, dtype)
+        j = min(len(arg), dtype.elsize)
+        for i in range(j):
+            arr.storage[i] = arg[i]
+        for j in range(j, dtype.elsize):
+            arr.storage[j] = '\x00'
+        return boxes.W_StringBox(arr,  0, arr.dtype)
+
+    def store(self, arr, i, offset, box):
+        assert isinstance(box, boxes.W_StringBox)
+        size = min(arr.dtype.elsize - offset, box.arr.size - box.ofs)
+        return self._store(arr.storage, i, offset, box, size)
+
+    @jit.unroll_safe
+    def _store(self, storage, i, offset, box, size):
+        assert isinstance(box, boxes.W_StringBox)
+        for k in range(size):
+            storage[k + offset + i] = box.arr.storage[k + box.ofs]
+
+    def read(self, arr, i, offset, dtype=None):
+        if dtype is None:
+            dtype = arr.dtype
+        return boxes.W_StringBox(arr, i + offset, dtype)
+
     def str_format(self, item):
         builder = StringBuilder()
         builder.append("'")
@@ -1691,38 +1686,83 @@ class StringType(BaseType, BaseStringType):
         builder.append("'")
         return builder.build()
 
-    # XXX move to base class when UnicodeType is supported
+    # XXX move the rest of this to base class when UnicodeType is supported
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
 
-    def build_and_convert(self, space, mydtype, box):
-        assert isinstance(box, interp_boxes.W_GenericBox)
-        if box.get_dtype(space).is_str_or_unicode():
-            arg = box.get_dtype(space).itemtype.to_str(box)
-        else:
-            w_arg = box.descr_str(space)
-            arg = space.str_w(space.str(w_arg))
-        arr = VoidBoxStorage(self.size, mydtype)
-        i = 0
-        for i in range(min(len(arg), self.size)):
-            arr.storage[i] = arg[i]
-        for j in range(i + 1, self.size):
-            arr.storage[j] = '\x00'
-        return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+    @str_binary_op
+    def eq(self, v1, v2):
+        return v1 == v2
 
-class VoidType(BaseType, BaseStringType):
+    @str_binary_op
+    def ne(self, v1, v2):
+        return v1 != v2
+
+    @str_binary_op
+    def lt(self, v1, v2):
+        return v1 < v2
+
+    @str_binary_op
+    def le(self, v1, v2):
+        return v1 <= v2
+
+    @str_binary_op
+    def gt(self, v1, v2):
+        return v1 > v2
+
+    @str_binary_op
+    def ge(self, v1, v2):
+        return v1 >= v2
+
+    @str_binary_op
+    def logical_and(self, v1, v2):
+        return bool(v1) and bool(v2)
+
+    @str_binary_op
+    def logical_or(self, v1, v2):
+        return bool(v1) or bool(v2)
+
+    @str_unary_op
+    def logical_not(self, v):
+        return not bool(v)
+
+    @str_binary_op
+    def logical_xor(self, v1, v2):
+        return bool(v1) ^ bool(v2)
+
+    def bool(self, v):
+        return bool(self.to_str(v))
+
+    def fill(self, storage, width, box, start, stop, offset):
+        for i in xrange(start, stop, width):
+            self._store(storage, i, offset, box, width)
+
+class UnicodeType(FlexibleType):
+    T = lltype.UniChar
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        if isinstance(w_item, boxes.W_UnicodeBox):
+            return w_item
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "coerce (probably from set_item) not implemented for unicode type"))
+
+class VoidType(FlexibleType):
     T = lltype.Char
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
-        from interp_dtype import W_Dtype
-        items_w = space.fixedview(w_items)
+        from pypy.module.micronumpy.descriptor import W_Dtype
+        if w_items is not None:
+            items_w = space.fixedview(w_items)
+        else:
+            items_w = [None] * shape[0]
         subdtype = dtype.subdtype
         assert isinstance(subdtype, W_Dtype)
         itemtype = subdtype.itemtype
         if len(shape) <= 1:
             for i in range(len(items_w)):
-                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                w_box = itemtype.coerce(space, subdtype, items_w[i])
                 itemtype.store(arr, 0, ofs, w_box)
                 ofs += itemtype.get_element_size()
         else:
@@ -1735,90 +1775,164 @@ class VoidType(BaseType, BaseStringType):
                 ofs += size
 
     def coerce(self, space, dtype, w_items):
-        arr = VoidBoxStorage(self.size, dtype)
+        arr = VoidBoxStorage(dtype.elsize, dtype)
         self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
-        return interp_boxes.W_VoidBox(arr, 0, dtype)
+        return boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):
-        assert isinstance(box, interp_boxes.W_VoidBox)
-        for k in range(self.get_element_size()):
+        assert i == 0
+        assert isinstance(box, boxes.W_VoidBox)
+        assert box.dtype is box.arr.dtype
+        for k in range(box.arr.dtype.elsize):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
 
     def readarray(self, arr, i, offset, dtype=None):
         from pypy.module.micronumpy.base import W_NDimArray
         if dtype is None:
             dtype = arr.dtype
-        strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
+        strides, backstrides = calc_strides(dtype.shape, dtype.subdtype,
+                                            arr.order)
         implementation = SliceArray(i + offset, strides, backstrides,
-                             dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
+                                    dtype.shape, arr, W_NDimArray(arr),
+                                    dtype.subdtype)
         return W_NDimArray(implementation)
-
-NonNativeVoidType = VoidType
-NonNativeStringType = StringType
-
-class UnicodeType(BaseType, BaseStringType):
-    T = lltype.UniChar
-
-NonNativeUnicodeType = UnicodeType
-
-class RecordType(BaseType):
-
-    T = lltype.Char
-
-    def __init__(self, offsets_and_fields, size):
-        self.offsets_and_fields = offsets_and_fields
-        self.size = size
-
-    def get_element_size(self):
-        return self.size
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
             dtype = arr.dtype
-        return interp_boxes.W_VoidBox(arr, i + offset, dtype)
-
-    @jit.unroll_safe
-    def coerce(self, space, dtype, w_item):
-        if isinstance(w_item, interp_boxes.W_VoidBox):
-            return w_item
-        # we treat every sequence as sequence, no special support
-        # for arrays
-        if not space.issequence_w(w_item):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "expected sequence"))
-        if len(self.offsets_and_fields) != space.len_w(w_item):
-            raise OperationError(space.w_ValueError, space.wrap(
-                "wrong length"))
-        items_w = space.fixedview(w_item)
-        arr = VoidBoxStorage(self.size, dtype)
-        for i in range(len(items_w)):
-            subdtype = dtype.fields[dtype.fieldnames[i]][1]
-            ofs, itemtype = self.offsets_and_fields[i]
-            w_item = items_w[i]
-            w_box = itemtype.coerce(space, subdtype, w_item)
-            itemtype.store(arr, 0, ofs, w_box)
-        return interp_boxes.W_VoidBox(arr, 0, dtype)
-
-    @jit.unroll_safe
-    def store(self, arr, i, ofs, box):
-        assert isinstance(box, interp_boxes.W_VoidBox)
-        for k in range(self.get_element_size()):
-            arr.storage[k + i] = box.arr.storage[k + box.ofs]
+        return boxes.W_VoidBox(arr, i + offset, dtype)
 
     @jit.unroll_safe
     def str_format(self, box):
-        assert isinstance(box, interp_boxes.W_VoidBox)
+        assert isinstance(box, boxes.W_VoidBox)
+        arr = self.readarray(box.arr, box.ofs, 0, box.dtype)
+        return arr.dump_data(prefix='', suffix='')
+
+    def to_builtin_type(self, space, item):
+        ''' From the documentation of ndarray.item():
+        "Void arrays return a buffer object for item(),
+         unless fields are defined, in which case a tuple is returned."
+        '''
+        assert isinstance(item, boxes.W_VoidBox)
+        dt = item.arr.dtype
+        ret_unwrapped = []
+        for name in dt.names:
+            ofs, dtype = dt.fields[name]
+            if isinstance(dtype.itemtype, VoidType):
+                read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
+            else:
+                read_val = dtype.itemtype.read(item.arr, ofs, 0, dtype)
+            if isinstance (read_val, boxes.W_StringBox):
+                # StringType returns a str
+                read_val = space.wrap(dtype.itemtype.to_str(read_val))
+            ret_unwrapped = ret_unwrapped + [read_val,]
+        if len(ret_unwrapped) == 0:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                    "item() for Void aray with no fields not implemented"))
+        return space.newtuple(ret_unwrapped)
+
+class RecordType(FlexibleType):
+    T = lltype.Char
+
+    def read(self, arr, i, offset, dtype=None):
+        if dtype is None:
+            dtype = arr.dtype
+        return boxes.W_VoidBox(arr, i + offset, dtype)
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        from pypy.module.micronumpy.base import W_NDimArray
+        if isinstance(w_item, boxes.W_VoidBox):
+            return w_item
+        if w_item is not None:
+            if space.isinstance_w(w_item, space.w_tuple):
+                if len(dtype.fields) != space.len_w(w_item):
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "size of tuple must match number of fields."))
+                items_w = space.fixedview(w_item)
+            elif isinstance(w_item, W_NDimArray) and w_item.is_scalar():
+                items_w = space.fixedview(w_item.get_scalar_value())
+            else:
+                # XXX support initializing from readable buffers
+                items_w = [w_item]
+        else:
+            items_w = [None] * len(dtype.fields)
+        arr = VoidBoxStorage(dtype.elsize, dtype)
+        for i in range(len(dtype.fields)):
+            ofs, subdtype = dtype.fields[dtype.names[i]]
+            itemtype = subdtype.itemtype
+            try:
+                w_box = itemtype.coerce(space, subdtype, items_w[i])
+            except IndexError:
+                w_box = itemtype.coerce(space, subdtype, None)
+            itemtype.store(arr, 0, ofs, w_box)
+        return boxes.W_VoidBox(arr, 0, dtype)
+
+    def runpack_str(self, space, s):
+        raise oefmt(space.w_NotImplementedError,
+                    "fromstring not implemented for record types")
+
+    def store(self, arr, i, ofs, box):
+        assert isinstance(box, boxes.W_VoidBox)
+        self._store(arr.storage, i, ofs, box, box.dtype.elsize)
+
+    @jit.unroll_safe
+    def _store(self, storage, i, ofs, box, size):
+        for k in range(size):
+            storage[k + i + ofs] = box.arr.storage[k + box.ofs]
+
+    def fill(self, storage, width, box, start, stop, offset):
+        assert isinstance(box, boxes.W_VoidBox)
+        assert width == box.dtype.elsize
+        for i in xrange(start, stop, width):
+            self._store(storage, i, offset, box, width)
+
+    def byteswap(self, w_v):
+        # XXX implement
+        return w_v
+
+    def to_builtin_type(self, space, box):
+        assert isinstance(box, boxes.W_VoidBox)
+        items = []
+        dtype = box.dtype
+        for name in dtype.names:
+            ofs, subdtype = dtype.fields[name]
+            itemtype = subdtype.itemtype
+            subbox = itemtype.read(box.arr, box.ofs, ofs, subdtype)
+            items.append(itemtype.to_builtin_type(space, subbox))
+        return space.newtuple(items)
+
+    @jit.unroll_safe
+    def str_format(self, box):
+        assert isinstance(box, boxes.W_VoidBox)
         pieces = ["("]
         first = True
-        for ofs, tp in self.offsets_and_fields:
+        for name in box.dtype.names:
+            ofs, subdtype = box.dtype.fields[name]
+            tp = subdtype.itemtype
             if first:
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
+            val = tp.read(box.arr, box.ofs, ofs, subdtype)
+            pieces.append(tp.str_format(val))
         pieces.append(")")
         return "".join(pieces)
+
+    def eq(self, v1, v2):
+        assert isinstance(v1, boxes.W_VoidBox)
+        assert isinstance(v2, boxes.W_VoidBox)
+        s1 = v1.dtype.elsize
+        s2 = v2.dtype.elsize
+        assert s1 == s2
+        for i in range(s1):
+            if v1.arr.storage[v1.ofs + i] != v2.arr.storage[v2.ofs + i]:
+                return False
+        return True
+
+    def ne(self, v1, v2):
+        return not self.eq(v1, v2)
 
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:
@@ -1838,7 +1952,7 @@ def _setup():
     # compute alignment
     for tp in globals().values():
         if isinstance(tp, type) and hasattr(tp, 'T'):
-            tp.alignment = clibffi.cast_type_to_ffitype(tp.T).c_alignment
+            tp.alignment = widen(clibffi.cast_type_to_ffitype(tp.T).c_alignment)
             if issubclass(tp, Float):
                 all_float_types.append((tp, 'float'))
             if issubclass(tp, Integer):
@@ -1847,50 +1961,3 @@ def _setup():
                 all_complex_types.append((tp, 'complex'))
 _setup()
 del _setup
-
-class BaseFloat16(Float):
-    _mixin_ = True
-
-    _attrs_ = ()
-    _STORAGE_T = rffi.USHORT
-    T = rffi.SHORT
-
-    BoxType = interp_boxes.W_Float16Box
-
-    @specialize.argtype(1)
-    def box(self, value):
-        return self.BoxType(rffi.cast(rffi.DOUBLE, value))
-
-    def runpack_str(self, s):
-        assert len(s) == 2
-        fval = unpack_float(s, native_is_bigendian)
-        return self.box(fval)
-
-    def default_fromstring(self, space):
-        return self.box(-1.0)
-
-    def byteswap(self, w_v):
-        value = self.unbox(w_v)
-        hbits = float_pack(value,2)
-        swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
-        return self.box(float_unpack(r_ulonglong(swapped), 2))
-
-class Float16(BaseType, BaseFloat16):
-    def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
-        return float_unpack(r_ulonglong(hbits), 2)
-
-    def _write(self, storage, i, offset, value):
-        hbits = float_pack(value,2)
-        raw_storage_setitem(storage, i + offset,
-                rffi.cast(self._STORAGE_T, hbits))
-
-class NonNativeFloat16(BaseType, BaseFloat16):
-    def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
-        return float_unpack(r_ulonglong(byteswap(hbits)), 2)
-
-    def _write(self, storage, i, offset, value):
-        hbits = float_pack(value,2)
-        raw_storage_setitem(storage, i + offset,
-                byteswap(rffi.cast(self._STORAGE_T, hbits)))

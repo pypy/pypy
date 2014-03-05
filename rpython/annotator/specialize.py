@@ -5,6 +5,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import Block, Link, Variable, SpaceOperation
 from rpython.flowspace.model import checkgraph
+from rpython.flowspace.operation import op
 from rpython.annotator import model as annmodel
 from rpython.flowspace.argument import Signature
 
@@ -33,14 +34,15 @@ def flatten_star_args(funcdesc, args_s):
             argscopy = [Variable(v) for v in graph.getargs()]
             starargs = [Variable('stararg%d'%i) for i in range(nb_extra_args)]
             newstartblock = Block(argscopy[:-1] + starargs)
-            newtup = SpaceOperation('newtuple', starargs, argscopy[-1])
+            newtup = op.newtuple(*starargs)
+            newtup.result = argscopy[-1]
             newstartblock.operations.append(newtup)
             newstartblock.closeblock(Link(argscopy, graph.startblock))
             graph.startblock = newstartblock
             argnames = argnames + ['.star%d' % i for i in range(nb_extra_args)]
             graph.signature = Signature(argnames)
-            # note that we can mostly ignore defaults: if nb_extra_args > 0, 
-            # then defaults aren't applied.  if nb_extra_args == 0, then this 
+            # note that we can mostly ignore defaults: if nb_extra_args > 0,
+            # then defaults aren't applied.  if nb_extra_args == 0, then this
             # just removes the *arg and the defaults keep their meaning.
             if nb_extra_args > 0:
                 graph.defaults = None   # shouldn't be used in this case
@@ -66,7 +68,7 @@ def default_specialize(funcdesc, args_s):
             if jit_look_inside:
                 access_directly = True
                 key = (AccessDirect, key)
-                break                
+                break
             else:
                 new_flags = s_obj.flags.copy()
                 del new_flags['access_directly']
@@ -258,16 +260,17 @@ def memo(funcdesc, arglist_s):
             assert not s.can_be_None, "memo call: cannot mix None and PBCs"
             for desc in s.descriptions:
                 if desc.pyobj is None:
-                    raise Exception("memo call with a class or PBC that has no "
-                                   "corresponding Python object (%r)" % (desc,))
+                    raise annmodel.AnnotatorError(
+                        "memo call with a class or PBC that has no "
+                        "corresponding Python object (%r)" % (desc,))
                 values.append(desc.pyobj)
         elif isinstance(s, SomeImpossibleValue):
             return s    # we will probably get more possible args later
         elif isinstance(s, SomeBool):
             values = [False, True]
         else:
-            raise Exception("memo call: argument must be a class or a frozen "
-                            "PBC, got %r" % (s,))
+            raise annmodel.AnnotatorError("memo call: argument must be a class"
+                                          "or a frozen PBC, got %r" % (s,))
         argvalues.append(values)
     # the list of all possible tuples of arguments to give to the memo function
     possiblevalues = cartesian_product(argvalues)
@@ -280,8 +283,8 @@ def memo(funcdesc, arglist_s):
     except KeyError:
         func = funcdesc.pyobj
         if func is None:
-            raise Exception("memo call: no Python function object to call "
-                            "(%r)" % (funcdesc,))
+            raise annmodel.AnnotatorError("memo call: no Python function object"
+                                          "to call (%r)" % (funcdesc,))
 
         def compute_one_result(args):
             value = func(*args)
@@ -331,7 +334,7 @@ def maybe_star_args(funcdesc, key, args_s):
     if key1 is not None:
         key = key + key1
     return funcdesc.cachedgraph(key, builder=builder)
- 
+
 def specialize_argvalue(funcdesc, args_s, *argindices):
     from rpython.annotator.model import SomePBC
     key = []
@@ -344,8 +347,8 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
             desc, = s.descriptions
             key.append(desc)
         else:
-            raise Exception("specialize:arg(%d): argument not constant: %r"
-                            % (i, s))
+            raise annmodel.AnnotatorError("specialize:arg(%d): argument not "
+                                          "constant: %r" % (i, s))
     key = tuple(key)
     return maybe_star_args(funcdesc, key, args_s)
 
@@ -379,4 +382,4 @@ def specialize_arglistitemtype(funcdesc, args_s, i):
 
 def specialize_call_location(funcdesc, args_s, op):
     assert op is not None
-    return maybe_star_args(funcdesc, op, args_s)
+    return maybe_star_args(funcdesc, (op,), args_s)

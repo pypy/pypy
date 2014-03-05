@@ -1,7 +1,7 @@
 import py
 from rpython.rlib.objectmodel import newlist_hint
 from rpython.rlib.jit import JitDriver, promote
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 
 
 class ListTests:
@@ -98,8 +98,8 @@ class ListTests:
         self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc=0)
 
     def test_vlist_alloc_and_set(self):
-        # the check_loops fails, because [non-null] * n is not supported yet
-        # (it is implemented as a residual call)
+        # the check_loops fails, because [non-null] * n is only supported
+        # if n < 15 (otherwise it is implemented as a residual call)
         jitdriver = JitDriver(greens = [], reds = ['n'])
         def f(n):
             l = [1] * 20
@@ -116,7 +116,7 @@ class ListTests:
 
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
-        py.test.skip("'[non-null] * n' gives a residual call so far")
+        py.test.skip("'[non-null] * n' for n >= 15 gives a residual call so far")
         self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
 
     def test_arraycopy_simpleoptimize(self):
@@ -287,9 +287,74 @@ class ListTests:
         assert res == 5
         self.check_resops(call=0)
 
+    def test_list_mul_virtual(self):
+        class Foo:
+            def __init__(self, l):
+                self.l = l
+                l[0] = self
 
-class TestOOtype(ListTests, OOJitMixin):
-    pass
+        myjitdriver = JitDriver(greens = [], reds = ['y'])
+        def f(y):
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y)
+                Foo([None] * 5)
+                y -= 1
+            return 42
+
+        self.meta_interp(f, [5])
+        self.check_resops({'int_sub': 2,
+                           'int_gt': 2,
+                           'guard_true': 2,
+                           'jump': 1})
+
+    def test_list_mul_virtual_nonzero(self):
+        class base:
+            pass
+        class Foo(base):
+            def __init__(self, l):
+                self.l = l
+                l[0] = self
+        class nil(base):
+            pass
+
+        nil = nil()
+
+        myjitdriver = JitDriver(greens = [], reds = ['y'])
+        def f(y):
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y)
+                Foo([nil] * 5)
+                y -= 1
+            return 42
+
+        self.meta_interp(f, [5])
+        self.check_resops({'int_sub': 2,
+                           'int_gt': 2,
+                           'guard_true': 2,
+                           'jump': 1})
+
+    def test_list_mul_unsigned_virtual(self):
+        from rpython.rlib.rarithmetic import r_uint
+
+        class Foo:
+            def __init__(self, l):
+                self.l = l
+                l[0] = self
+
+        myjitdriver = JitDriver(greens = [], reds = ['y'])
+        def f(y):
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y)
+                Foo([None] * r_uint(5))
+                y -= 1
+            return 42
+
+        self.meta_interp(f, [5])
+        self.check_resops({'int_sub': 2,
+                           'int_gt': 2,
+                           'guard_true': 2,
+                           'jump': 1})
+
 
 class TestLLtype(ListTests, LLJitMixin):
     def test_listops_dont_invalidate_caches(self):
@@ -318,4 +383,34 @@ class TestLLtype(ListTests, LLJitMixin):
         assert res == f(37)
         # There is the one actual field on a, plus several fields on the list
         # itself
-        self.check_resops(getfield_gc=10)
+        self.check_resops(getfield_gc=7)
+
+    def test_conditional_call_append(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n):
+            l = []
+            while n > 0:
+                jitdriver.jit_merge_point()
+                l.append(n)
+                n -= 1
+            return len(l)
+
+        res = self.meta_interp(f, [10])
+        assert res == 10
+        self.check_resops(call=0, cond_call=2)
+
+    def test_conditional_call_pop(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n):
+            l = range(n)
+            while n > 0:
+                jitdriver.jit_merge_point()
+                l.pop()
+                n -= 1
+            return len(l)
+
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops(call=0, cond_call=2)

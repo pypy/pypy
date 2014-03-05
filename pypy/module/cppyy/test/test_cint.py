@@ -131,11 +131,11 @@ class AppTestCINTPYTHONIZATIONS:
         # TVectorF is a typedef of floats
         v = cppyy.gbl.TVectorF(N)
         for i in range(N):
-             v[i] = i*i
+            v[i] = i*i
 
         assert len(v) == N
         for j in v:
-             assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
+            assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
 
 
 class AppTestCINTTTREE:

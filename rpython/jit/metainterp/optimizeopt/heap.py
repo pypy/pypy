@@ -1,8 +1,8 @@
 import os
 
+from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
-from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
@@ -32,14 +32,14 @@ class CachedField(object):
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structvalue = optheap.getvalue(op.getarg(0))
-        fieldvalue  = optheap.getvalue(op.getarglist()[-1])
+        fieldvalue = optheap.getvalue(op.getarglist()[-1])
         if self.possible_aliasing(optheap, structvalue):
             self.force_lazy_setfield(optheap)
             assert not self.possible_aliasing(optheap, structvalue)
         cached_fieldvalue = self._cached_fields.get(structvalue, None)
 
         # Hack to ensure constants are imported from the preamble
-        if cached_fieldvalue and fieldvalue.is_constant(): 
+        if cached_fieldvalue and fieldvalue.is_constant():
             optheap.optimizer.ensure_imported(cached_fieldvalue)
             cached_fieldvalue = self._cached_fields.get(structvalue, None)
 
@@ -50,7 +50,7 @@ class CachedField(object):
             if not self._lazy_setfield_registered:
                 optheap._lazy_setfields_and_arrayitems.append(self)
                 self._lazy_setfield_registered = True
-            
+
         else:
             # this is the case where the pending setfield ends up
             # storing precisely the value that is already there,
@@ -100,7 +100,7 @@ class CachedField(object):
             # back in the cache: the value of this particular structure's
             # field.
             structvalue = optheap.getvalue(op.getarg(0))
-            fieldvalue  = optheap.getvalue(op.getarglist()[-1])
+            fieldvalue = optheap.getvalue(op.getarglist()[-1])
             self.remember_field_value(structvalue, fieldvalue, op)
         elif not can_cache:
             self.clear()
@@ -184,9 +184,6 @@ class OptHeap(Optimization):
             self.postponed_op = None
             self.next_optimization.propagate_forward(postponed_op)
 
-    def new(self):
-        return OptHeap()
-
     def produce_potential_short_preamble_ops(self, sb):
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():
@@ -264,6 +261,7 @@ class OptHeap(Optimization):
             return
         if (opnum == rop.CALL or
             opnum == rop.CALL_PURE or
+            opnum == rop.COND_CALL or
             opnum == rop.CALL_MAY_FORCE or
             opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
@@ -403,7 +401,6 @@ class OptHeap(Optimization):
         #
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
-        
 
     def optimize_GETARRAYITEM_GC(self, op):
         arrayvalue = self.getvalue(op.getarg(0))

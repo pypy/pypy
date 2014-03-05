@@ -1,10 +1,11 @@
 import py
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, raw_memcopy
-from rpython.annotator.model import lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
@@ -52,7 +53,7 @@ def _isllptr(p):
 class _IsLLPtrEntry(ExtRegistryEntry):
     _about_ = _isllptr
     def compute_result_annotation(self, s_p):
-        result = isinstance(s_p, annmodel.SomePtr)
+        result = isinstance(s_p, SomePtr)
         return self.bookkeeper.immutablevalue(result)
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -60,10 +61,10 @@ class _IsLLPtrEntry(ExtRegistryEntry):
 
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
-               sandboxsafe=False, threadsafe='auto',
+               sandboxsafe=False, releasegil='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, elidable_function=False,
-               macro=None, random_effects_on_gcobjs='auto'):
+               elidable_function=False, macro=None,
+               random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -77,7 +78,7 @@ def llexternal(name, args, result, _callable=None,
     as constant RPython functions.  We don't support yet C functions that
     invoke callbacks passed otherwise (e.g. set by a previous C call).
 
-    threadsafe: whether it's ok to release the GIL around the call.
+    releasegil: whether it's ok to release the GIL around the call.
                 Default is yes, unless sandboxsafe is set, in which case
                 we consider that the function is really short-running and
                 don't bother releasing the GIL.  An explicit True or False
@@ -97,8 +98,6 @@ def llexternal(name, args, result, _callable=None,
     if elidable_function:
         _callable._elidable_function_ = True
     kwds = {}
-    if oo_primitive:
-        kwds['oo_primitive'] = oo_primitive
 
     has_callback = False
     for ARG in args:
@@ -109,20 +108,22 @@ def llexternal(name, args, result, _callable=None,
     else:
         callbackholder = None
 
-    if threadsafe in (False, True):
+    if releasegil in (False, True):
         # invoke the around-handlers, which release the GIL, if and only if
         # the C function is thread-safe.
-        invoke_around_handlers = threadsafe
+        invoke_around_handlers = releasegil
     else:
         # default case:
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
-        invoke_around_handlers = not sandboxsafe
+        # Also, _nowrapper functions cannot release the GIL, by default.
+        invoke_around_handlers = not sandboxsafe and not _nowrapper
 
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
             has_callback)               # because the callback can do it
+    assert not (elidable_function and random_effects_on_gcobjs)
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
@@ -183,10 +184,6 @@ def llexternal(name, args, result, _callable=None,
 
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
-        # XXX the next line is a workaround for the annotation bug
-        # shown in rpython.test.test_llann:test_pbctype.  Remove it
-        # when the test is fixed...
-        assert isinstance(lltype.Signed, lltype.Number)
         real_args = ()
         to_free = ()
         for i, TARGET in unrolling_arg_tps:
@@ -651,6 +648,10 @@ VOIDPP = CArrayPtr(VOIDP)
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
+# const char *
+CONST_CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True,
+                                       'render_as_const': True}))
+
 # wchar_t *
 CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
 
@@ -677,7 +678,8 @@ SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
 def make_string_mappings(strtype):
 
     if strtype is str:
-        from rpython.rtyper.lltypesystem.rstr import STR as STRTYPE
+        from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
+                                                      copy_string_to_raw)
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
@@ -685,7 +687,9 @@ def make_string_mappings(strtype):
         lastchar = '\x00'
         builder_class = StringBuilder
     else:
-        from rpython.rtyper.lltypesystem.rstr import UNICODE as STRTYPE
+        from rpython.rtyper.lltypesystem.rstr import (
+            UNICODE as STRTYPE,
+            copy_unicode_to_raw as copy_string_to_raw)
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
@@ -702,11 +706,9 @@ def make_string_mappings(strtype):
         else:
             array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=False)
         i = len(s)
+        ll_s = llstrtype(s)
+        copy_string_to_raw(ll_s, array, 0, i)
         array[i] = lastchar
-        i -= 1
-        while i >= 0:
-            array[i] = s[i]
-            i -= 1
         return array
     str2charp._annenforceargs_ = [strtype, bool]
 
@@ -739,14 +741,14 @@ def make_string_mappings(strtype):
         string is already nonmovable.  Must be followed by a
         free_nonmovingbuffer call.
         """
+        lldata = llstrtype(data)
         if rgc.can_move(data):
             count = len(data)
             buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-            for i in range(count):
-                buf[i] = data[i]
+            copy_string_to_raw(lldata, buf, 0, count)
             return buf
         else:
-            data_start = cast_ptr_to_adr(llstrtype(data)) + \
+            data_start = cast_ptr_to_adr(lldata) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
     get_nonmovingbuffer._annenforceargs_ = [strtype]
@@ -993,7 +995,7 @@ class MakeEntry(ExtRegistryEntry):
         TP = s_type.const
         if not isinstance(TP, lltype.Struct):
             raise TypeError("make called with %s instead of Struct as first argument" % TP)
-        return annmodel.SomePtr(lltype.Ptr(TP))
+        return SomePtr(lltype.Ptr(TP))
 
     def specialize_call(self, hop, **fields):
         assert hop.args_s[0].is_constant()
@@ -1133,7 +1135,7 @@ class scoped_alloc_unicodebuffer:
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
 c_memcpy = llexternal("memcpy",
-    [VOIDP, VOIDP, SIZE_T],
-    lltype.Void,
-    threadsafe=False
-)
+            [VOIDP, VOIDP, SIZE_T],
+            lltype.Void,
+            releasegil=False
+        )

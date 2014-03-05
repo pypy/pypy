@@ -1,6 +1,6 @@
 import audioop
 import unittest
-from test.test_support import run_unittest
+from test.test_support import run_unittest, impl_detail
 
 endian = 'big' if audioop.getsample('\0\1', 2, 0) == 1 else 'little'
 
@@ -93,21 +93,25 @@ class TestAudioop(unittest.TestCase):
                 wtd = len(d2)//3
                 self.assertEqual(len(audioop.lin2lin(d1, got, wtd)), len(d2))
 
+    @impl_detail(pypy=False)
     def test_adpcm2lin(self):
         # Very cursory test
         self.assertEqual(audioop.adpcm2lin(b'\0\0', 1, None), (b'\0' * 4, (0,0)))
         self.assertEqual(audioop.adpcm2lin(b'\0\0', 2, None), (b'\0' * 8, (0,0)))
         self.assertEqual(audioop.adpcm2lin(b'\0\0', 4, None), (b'\0' * 16, (0,0)))
 
+    @impl_detail(pypy=False)
     def test_lin2adpcm(self):
         # Very cursory test
         self.assertEqual(audioop.lin2adpcm('\0\0\0\0', 1, None), ('\0\0', (0,0)))
 
+    @impl_detail(pypy=False)
     def test_lin2alaw(self):
         self.assertEqual(audioop.lin2alaw(data[0], 1), '\xd5\xc5\xf5')
         self.assertEqual(audioop.lin2alaw(data[1], 2), '\xd5\xd5\xd5')
         self.assertEqual(audioop.lin2alaw(data[2], 4), '\xd5\xd5\xd5')
 
+    @impl_detail(pypy=False)
     def test_alaw2lin(self):
         # Cursory
         d = audioop.lin2alaw(data[0], 1)
@@ -123,11 +127,13 @@ class TestAudioop(unittest.TestCase):
             self.assertEqual(audioop.alaw2lin(d, 4),
                              b'\x00\x00\x08\x00\x00\x00\x08\x01\x00\x00\x10\x02')
 
+    @impl_detail(pypy=False)
     def test_lin2ulaw(self):
         self.assertEqual(audioop.lin2ulaw(data[0], 1), '\xff\xe7\xdb')
         self.assertEqual(audioop.lin2ulaw(data[1], 2), '\xff\xff\xff')
         self.assertEqual(audioop.lin2ulaw(data[2], 4), '\xff\xff\xff')
 
+    @impl_detail(pypy=False)
     def test_ulaw2lin(self):
         # Cursory
         d = audioop.lin2ulaw(data[0], 1)
@@ -195,6 +201,7 @@ class TestAudioop(unittest.TestCase):
         self.assertRaises(audioop.error,
             audioop.findmax, ''.join( chr(x) for x in xrange(256)), -2392392)
 
+    @impl_detail(pypy=False)
     def test_issue7673(self):
         state = None
         for data, size in INVALID_DATA:
@@ -219,6 +226,7 @@ class TestAudioop(unittest.TestCase):
             self.assertRaises(audioop.error, audioop.lin2alaw, data, size)
             self.assertRaises(audioop.error, audioop.lin2adpcm, data, size, state)
 
+    @impl_detail(pypy=False)
     def test_wrongsize(self):
         data = b'abc'
         state = None

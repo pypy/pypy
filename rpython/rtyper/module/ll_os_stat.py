@@ -2,20 +2,23 @@
 and os.fstat().  In RPython like in plain Python the stat result can be
 indexed like a tuple but also exposes the st_xxx attributes.
 """
-import os, sys
+
+import os
+import sys
+
 from rpython.annotator import model as annmodel
-from rpython.tool.pairtype import pairtype
-from rpython.tool.sourcetools import func_with_new_name, func_renamer
-from rpython.rtyper import extregistry
-from rpython.rtyper.extfunc import register_external, extdef
-from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.tool import rffi_platform as platform
-from rpython.rtyper.lltypesystem.rtupletype import TUPLE_TYPE
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.objectmodel import specialize
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper import extregistry
 from rpython.rtyper.annlowlevel import hlstr
+from rpython.rtyper.extfunc import extdef
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.rtuple import TUPLE_TYPE
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.tool.pairtype import pairtype
+from rpython.tool.sourcetools import func_renamer
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # Support for float times is here.
 # - ALL_STAT_FIELDS contains Float fields if the system can retrieve
@@ -47,11 +50,25 @@ ALL_STAT_FIELDS = [
     ("st_flags",     lltype.Signed),
     #("st_gen",       lltype.Signed),     -- new in CPy 2.5, not implemented
     #("st_birthtime", lltype.Float),      -- new in CPy 2.5, not implemented
-    ]
+]
 N_INDEXABLE_FIELDS = 10
 
 # For OO backends, expose only the portable fields (the first 10).
 PORTABLE_STAT_FIELDS = ALL_STAT_FIELDS[:N_INDEXABLE_FIELDS]
+
+STATVFS_FIELDS = [
+    ("f_bsize", lltype.Signed),
+    ("f_frsize", lltype.Signed),
+    ("f_blocks", lltype.Signed),
+    ("f_bfree", lltype.Signed),
+    ("f_bavail", lltype.Signed),
+    ("f_files", lltype.Signed),
+    ("f_ffree", lltype.Signed),
+    ("f_favail", lltype.Signed),
+    ("f_flag", lltype.Signed),
+    ("f_namemax", lltype.Signed),
+]
+
 
 # ____________________________________________________________
 #
@@ -71,7 +88,7 @@ class SomeStatResult(annmodel.SomeObject):
         assert s_attr.is_constant(), "non-constant attr name in getattr()"
         attrname = s_attr.const
         TYPE = STAT_FIELD_TYPES[attrname]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
     def _get_rmarshall_support_(self):     # for rlib.rmarshal
         # reduce and recreate stat_result objects from 10-tuples
@@ -79,12 +96,33 @@ class SomeStatResult(annmodel.SomeObject):
         def stat_result_reduce(st):
             return (st[0], st[1], st[2], st[3], st[4],
                     st[5], st[6], st[7], st[8], st[9])
+
         def stat_result_recreate(tup):
             return make_stat_result(tup + extra_zeroes)
-        s_reduced = annmodel.SomeTuple([annmodel.lltype_to_annotation(TYPE)
+        s_reduced = annmodel.SomeTuple([lltype_to_annotation(TYPE)
                                        for name, TYPE in PORTABLE_STAT_FIELDS])
         extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS))
         return s_reduced, stat_result_reduce, stat_result_recreate
+
+
+class SomeStatvfsResult(annmodel.SomeObject):
+    if hasattr(os, 'statvfs_result'):
+        knowntype = os.statvfs_result
+    else:
+        knowntype = None # will not be used
+
+    def rtyper_makerepr(self, rtyper):
+        from rpython.rtyper.module import r_os_stat
+        return r_os_stat.StatvfsResultRepr(rtyper)
+
+    def rtyper_makekey_ex(self, rtyper):
+        return self.__class__,
+
+    def getattr(self, s_attr):
+        assert s_attr.is_constant()
+        TYPE = STATVFS_FIELD_TYPES[s_attr.const]
+        return lltype_to_annotation(TYPE)
+
 
 class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
     def getitem((s_sta, s_int)):
@@ -92,9 +130,19 @@ class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
         index = s_int.const
         assert 0 <= index < N_INDEXABLE_FIELDS, "os.stat()[index] out of range"
         name, TYPE = STAT_FIELDS[index]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
+
+
+class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
+    def getitem((s_stat, s_int)):
+        assert s_int.is_constant()
+        name, TYPE = STATVFS_FIELDS[s_int.const]
+        return lltype_to_annotation(TYPE)
+
 
 s_StatResult = SomeStatResult()
+s_StatvfsResult = SomeStatvfsResult()
+
 
 def make_stat_result(tup):
     """Turn a tuple into an os.stat_result object."""
@@ -103,6 +151,11 @@ def make_stat_result(tup):
     for i, name in enumerate(STAT_FIELD_NAMES[N_INDEXABLE_FIELDS:]):
         kwds[name] = tup[N_INDEXABLE_FIELDS + i]
     return os.stat_result(positional, kwds)
+
+
+def make_statvfs_result(tup):
+    return os.statvfs_result(tup)
+
 
 class MakeStatResultEntry(extregistry.ExtRegistryEntry):
     _about_ = make_stat_result
@@ -114,22 +167,33 @@ class MakeStatResultEntry(extregistry.ExtRegistryEntry):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.specialize_make_stat_result(hop)
 
+
+class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
+    _about_ = make_statvfs_result
+
+    def compute_result_annotation(self, s_tup):
+        return s_StatvfsResult
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.module import r_os_stat
+        return r_os_stat.specialize_make_statvfs_result(hop)
+
 # ____________________________________________________________
 #
 # RFFI support
 
 if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
-    INCLUDES = ['sys/types.h', 'sys/stat.h']
+    INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h']
 else:
     _name_struct_stat = 'stat'
-    INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
+    INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
     # This must be set to 64 on some systems to enable large file support.
     #pre_include_bits = ['#define _FILE_OFFSET_BITS 64'],
     # ^^^ nowadays it's always set in all C files we produce.
-    includes = INCLUDES
+    includes=INCLUDES
 )
 
 if TIMESPEC is not None:
@@ -141,7 +205,7 @@ if TIMESPEC is not None:
 
 
 def posix_declaration(try_to_add=None):
-    global STAT_STRUCT
+    global STAT_STRUCT, STATVFS_STRUCT
 
     LL_STAT_FIELDS = STAT_FIELDS[:]
     if try_to_add:
@@ -173,15 +237,17 @@ def posix_declaration(try_to_add=None):
     class CConfig:
         _compilation_info_ = compilation_info
         STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
+        STATVFS_STRUCT = platform.Struct('struct statvfs', STATVFS_FIELDS)
+
     try:
-        config = platform.configure(CConfig, ignore_errors=
-                                    try_to_add is not None)
+        config = platform.configure(CConfig, ignore_errors=try_to_add is not None)
     except platform.CompilationError:
         if try_to_add:
             return    # failed to add this field, give up
         raise
 
     STAT_STRUCT = lltype.Ptr(config['STAT_STRUCT'])
+    STATVFS_STRUCT = lltype.Ptr(config['STATVFS_STRUCT'])
     if try_to_add:
         STAT_FIELDS.append(try_to_add)
 
@@ -201,6 +267,9 @@ if sys.platform != 'win32':
 STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
 STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
 del _name, _TYPE
+
+STATVFS_FIELD_TYPES = dict(STATVFS_FIELDS)
+STATVFS_FIELD_NAMES = [name for name, tp in STATVFS_FIELDS]
 
 
 def build_stat_result(st):
@@ -231,6 +300,21 @@ def build_stat_result(st):
     if "st_flags"   in STAT_FIELD_TYPES: result += (st.c_st_flags,)
 
     return make_stat_result(result)
+
+
+def build_statvfs_result(st):
+    return make_statvfs_result((
+        st.c_f_bsize,
+        st.c_f_frsize,
+        st.c_f_blocks,
+        st.c_f_bfree,
+        st.c_f_bavail,
+        st.c_f_files,
+        st.c_f_ffree,
+        st.c_f_favail,
+        st.c_f_flag,
+        st.c_f_namemax
+    ))
 
 
 def register_stat_variant(name, traits):
@@ -301,6 +385,56 @@ def register_stat_variant(name, traits):
         [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
         llimpl=posix_stat_llimpl, llfakeimpl=posix_fakeimpl)
 
+
+def register_statvfs_variant(name, traits):
+    if name != 'fstatvfs':
+        arg_is_path = True
+        s_arg = traits.str0
+        ARG1 = traits.CCHARP
+    else:
+        arg_is_path = False
+        s_arg = int
+        ARG1 = rffi.INT
+
+    posix_mystatvfs = rffi.llexternal(name,
+        [ARG1, STATVFS_STRUCT], rffi.INT,
+        compilation_info=compilation_info
+    )
+
+    @func_renamer('os_%s_llimpl' % (name,))
+    def posix_statvfs_llimpl(arg):
+        stresult = lltype.malloc(STATVFS_STRUCT.TO, flavor='raw')
+        try:
+            if arg_is_path:
+                arg = traits.str2charp(arg)
+            error = rffi.cast(rffi.LONG, posix_mystatvfs(arg, stresult))
+            if arg_is_path:
+                traits.free_charp(arg)
+            if error != 0:
+                raise OSError(rposix.get_errno(), "os_?statvfs failed")
+            return build_statvfs_result(stresult)
+        finally:
+            lltype.free(stresult, flavor='raw')
+
+    @func_renamer('os_%s_fake' % (name,))
+    def posix_fakeimpl(arg):
+        if s_arg == traits.str0:
+            arg = hlstr(arg)
+        st = getattr(os, name)(arg)
+        fields = [TYPE for fieldname, TYPE in STATVFS_FIELDS]
+        TP = TUPLE_TYPE(fields)
+        ll_tup = lltype.malloc(TP.TO)
+        for i, (fieldname, TYPE) in enumerate(STATVFS_FIELDS):
+            val = getattr(st, fieldname)
+            rffi.setintfield(ll_tup, 'item%d' % i, int(val))
+        return ll_tup
+
+    return extdef(
+        [s_arg], s_StatvfsResult, "ll_os.ll_os_%s" % (name,),
+        llimpl=posix_statvfs_llimpl, llfakeimpl=posix_fakeimpl
+    )
+
+
 def make_win32_stat_impl(name, traits):
     from rpython.rlib import rwin32
     from rpython.rtyper.module.ll_win32file import make_win32_traits
@@ -333,16 +467,14 @@ def make_win32_stat_impl(name, traits):
     def attribute_data_to_stat(info):
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime, ctime_ns = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
-        mtime, mtime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
-        atime, atime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
+        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
+        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
+        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
 
         result = (st_mode,
                   0, 0, 0, 0, 0,
                   st_size,
-                  float(atime) + atime_ns * 1e-9,
-                  float(mtime) + mtime_ns * 1e-9,
-                  float(ctime) + ctime_ns * 1e-9)
+                  atime, mtime, ctime)
 
         return make_stat_result(result)
 
@@ -350,9 +482,9 @@ def make_win32_stat_impl(name, traits):
         # similar to the one above
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime, ctime_ns = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
-        mtime, mtime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
-        atime, atime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
+        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
+        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
+        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
 
         # specific to fstat()
         st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
@@ -361,9 +493,7 @@ def make_win32_stat_impl(name, traits):
         result = (st_mode,
                   st_ino, 0, st_nlink, 0, 0,
                   st_size,
-                  atime + atime_ns * 1e-9,
-                  mtime + mtime_ns * 1e-9,
-                  ctime + ctime_ns * 1e-9)
+                  atime, mtime, ctime)
 
         return make_stat_result(result)
 
@@ -446,12 +576,10 @@ def make_longlong(high, low):
 # Seconds between 1.1.1601 and 1.1.1970
 secs_between_epochs = rffi.r_longlong(11644473600)
 
-def FILE_TIME_to_time_t_nsec(filetime):
+def FILE_TIME_to_time_t_float(filetime):
     ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
     # FILETIME is in units of 100 nsec
-    nsec = (ft % 10000000) * 100
-    time = (ft / 10000000) - secs_between_epochs
-    return intmask(time), intmask(nsec)
+    return float(ft) * (1.0 / 10000000.0) - secs_between_epochs
 
 def time_t_to_FILE_TIME(time, filetime):
     ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)

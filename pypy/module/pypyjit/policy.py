@@ -98,18 +98,20 @@ class PyPyJitPolicy(JitPolicy):
                 modname == '__builtin__.functional' or
                 modname == '__builtin__.descriptor' or
                 modname == 'thread.os_local' or
-                modname == 'thread.os_thread'):
+                modname == 'thread.os_thread' or
+                modname.startswith('_rawffi.alt')):
             return True
         if '.' in modname:
             modname, rest = modname.split('.', 1)
         else:
             rest = ''
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
-                       'imp', 'sys', 'array', '_ffi', 'itertools', 'operator',
+                       'imp', 'sys', 'array', 'itertools', 'operator',
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
                        'mmap', 'marshal', '_codecs', 'rctime', 'cppyy',
-                       '_cffi_backend', 'pyexpat', '_continuation', '_io']:
+                       '_cffi_backend', 'pyexpat', '_continuation', '_io',
+                       'thread', 'select']:
             if modname == 'pypyjit' and 'interp_resop' in rest:
                 return False
             return True

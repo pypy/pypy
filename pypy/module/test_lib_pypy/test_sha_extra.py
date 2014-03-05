@@ -1,14 +1,20 @@
-# Testing sha module (NIST's Secure Hash Algorithm)
+"""Testing sha module (NIST's Secure Hash Algorithm)
 
-# use the three examples from Federal Information Processing Standards
-# Publication 180-1, Secure Hash Standard,  1995 April 17
-# http://www.itl.nist.gov/div897/pubs/fip180-1.htm
-from __future__ import absolute_import
-from lib_pypy import _sha as pysha
+use the three examples from Federal Information Processing Standards
+Publication 180-1, Secure Hash Standard,  1995 April 17
+http://www.itl.nist.gov/div897/pubs/fip180-1.htm
+"""
+from pypy.module.test_lib_pypy.support import import_lib_pypy
 
-class TestSHA: 
-    def check(self, data, digest):
-        computed = pysha.new(data).hexdigest()
+
+class AppTestSHA:
+    spaceconfig = dict(usemodules=('struct',))
+
+    def setup_class(cls):
+        cls.w__sha = import_lib_pypy(cls.space, '_sha')
+
+    def w_check(self, data, digest):
+        computed = self._sha.new(data).hexdigest()
         assert computed == digest
 
     def test_case_1(self):
@@ -23,10 +29,11 @@ class TestSHA:
         self.check("a" * 1000000,
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
 
-
-def test_attributes():
-    assert pysha.digest_size == 20
-    assert pysha.digestsize == 20
-    assert pysha.blocksize == 1
-    assert pysha.new().digest_size == 20
-    assert pysha.new().digestsize == 20
+    def test_attributes(self):
+        _sha = self._sha
+        assert _sha.digest_size == 20
+        assert _sha.digestsize == 20
+        assert _sha.blocksize == 1
+        assert _sha.new().digest_size == 20
+        assert _sha.new().digestsize == 20
+        assert _sha.new().block_size == 64

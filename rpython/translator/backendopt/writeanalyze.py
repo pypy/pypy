@@ -1,10 +1,10 @@
 from rpython.flowspace.model import Variable
 from rpython.translator.backendopt import graphanalyze
-from rpython.rtyper.ootypesystem import ootype
 
 top_set = object()
 empty_set = frozenset()
 
+CUTOFF = 1000
 
 class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def bottom_result(self):
@@ -22,6 +22,8 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def add_to_result(self, result, other):
         if other is top_set:
             return top_set
+        if len(other) + len(result) > CUTOFF:
+            return top_set
         result.update(other)
         return result
 
@@ -36,7 +38,7 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         return result1.union(result2)
 
     def analyze_simple_operation(self, op, graphinfo):
-        if op.opname in ("setfield", "oosetfield"):
+        if op.opname == "setfield":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return frozenset([
                     ("struct", op.args[0].concretetype, op.args[1].value)])
@@ -47,15 +49,6 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
 
     def _array_result(self, TYPE):
         return frozenset([("array", TYPE)])
-
-    def analyze_external_method(self, op, TYPE, meth):
-        if isinstance(TYPE, ootype.Array):
-            methname = op.args[0].value
-            if methname == 'll_setitem_fast':
-                return self._array_result(op.args[1].concretetype)
-            elif methname in ('ll_getitem_fast', 'll_length'):
-                return self.bottom_result()
-        return graphanalyze.GraphAnalyzer.analyze_external_method(self, op, TYPE, meth)
 
     def compute_graph_info(self, graph):
         return FreshMallocs(graph)

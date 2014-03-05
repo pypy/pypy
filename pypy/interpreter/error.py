@@ -6,7 +6,7 @@ import traceback
 from errno import EINTR
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 
 from pypy.interpreter import debug
 
@@ -29,23 +29,22 @@ class OperationError(Exception):
     _application_traceback = None
 
     def __init__(self, w_type, w_value, tb=None):
-        assert w_type is not None
         self.setup(w_type)
         self._w_value = w_value
         self._application_traceback = tb
 
     def setup(self, w_type):
+        assert w_type is not None
         self.w_type = w_type
         if not we_are_translated():
             self.debug_excs = []
 
     def clear(self, space):
-        # for sys.exc_clear()
-        self.w_type = space.w_None
-        self._w_value = space.w_None
-        self._application_traceback = None
-        if not we_are_translated():
-            del self.debug_excs[:]
+        # XXX remove this method.  The point is that we cannot always
+        # hack at 'self' to clear w_type and _w_value, because in some
+        # corner cases the OperationError will be used again: see
+        # test_interpreter.py:test_with_statement_and_sys_clear.
+        pass
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
@@ -227,9 +226,9 @@ class OperationError(Exception):
     def _exception_getclass(self, space, w_inst):
         w_type = space.exception_getclass(w_inst)
         if not space.exception_is_valid_class_w(w_type):
-            msg = ("exceptions must be old-style classes or derived "
-                   "from BaseException, not %N")
-            raise operationerrfmt(space.w_TypeError, msg, w_type)
+            raise oefmt(space.w_TypeError,
+                        "exceptions must be old-style classes or derived from "
+                        "BaseException, not %N", w_type)
         return w_type
 
     def write_unraisable(self, space, where, w_object=None,
@@ -300,6 +299,10 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
+@specialize.memo()
+def get_cleared_operation_error(space):
+    return OperationError(space.w_None, space.w_None)
+
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
 # formatting with '%' -- in the common case were we don't
@@ -347,7 +350,6 @@ def get_operrcls2(valuefmt):
                 self.xstrings = strings
                 for i, _, attr in entries:
                     setattr(self, attr, args[i])
-                assert w_type is not None
 
             def _compute_value(self, space):
                 lst = [None] * (len(formats) + len(formats) + 1)
@@ -369,15 +371,28 @@ def get_operrcls2(valuefmt):
         _fmtcache2[formats] = OpErrFmt
     return OpErrFmt, strings
 
-def get_operationerr_class(valuefmt):
+class OpErrFmtNoArgs(OperationError):
+
+    def __init__(self, w_type, value):
+        self._value = value
+        self.setup(w_type)
+
+    def get_w_value(self, space):
+        w_value = self._w_value
+        if w_value is None:
+            self._w_value = w_value = space.wrap(self._value)
+        return w_value
+
+@specialize.memo()
+def get_operr_class(valuefmt):
     try:
         result = _fmtcache[valuefmt]
     except KeyError:
         result = _fmtcache[valuefmt] = get_operrcls2(valuefmt)
     return result
-get_operationerr_class._annspecialcase_ = 'specialize:memo'
 
-def operationerrfmt(w_type, valuefmt, *args):
+@specialize.arg(1)
+def oefmt(w_type, valuefmt, *args):
     """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
     needed.
@@ -389,9 +404,10 @@ def operationerrfmt(w_type, valuefmt, *args):
     %T - The result of space.type(w_arg).getname(space)
 
     """
-    OpErrFmt, strings = get_operationerr_class(valuefmt)
+    if not len(args):
+        return OpErrFmtNoArgs(w_type, valuefmt)
+    OpErrFmt, strings = get_operr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
-operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
 
 # ____________________________________________________________
 

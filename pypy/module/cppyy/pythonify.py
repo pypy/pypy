@@ -426,6 +426,11 @@ def _init_pythonify():
     # mostly for the benefit of the CINT backend, which treats std as special
     gbl.std = make_cppnamespace(None, "std", None, False)
 
+    # install a type for enums to refer to
+    # TODO: this is correct for C++98, not for C++11 and in general there will
+    # be the same issue for all typedef'd builtin types
+    setattr(gbl, 'unsigned int', int)
+
     # install for user access
     cppyy.gbl = gbl
 

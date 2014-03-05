@@ -198,9 +198,6 @@ inspecting the *im_self* entry in the stack below the ``N`` arguments:
 if it is not None, then it is considered to be an additional first
 argument in the call to the *im_func* object from the stack.
 
-You can enable this feature with the :config:`objspace.opcodes.CALL_METHOD`
-option.
-
 .. more here?
 
 Overall Effects

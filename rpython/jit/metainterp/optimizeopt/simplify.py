@@ -7,7 +7,13 @@ class OptSimplify(Optimization):
     def __init__(self, unroll):
         self.last_label_descr = None
         self.unroll = unroll
-        
+
+    def emit_operation(self, op):
+        if op.is_guard():
+            if self.optimizer.pendingfields is None:
+                self.optimizer.pendingfields = []
+        Optimization.emit_operation(self, op)
+
     def optimize_CALL_PURE(self, op):
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
@@ -39,7 +45,7 @@ class OptSimplify(Optimization):
                 return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
             self.last_label_descr = op.getdescr()
         self.emit_operation(op)
-        
+
     def optimize_JUMP(self, op):
         if not self.unroll:
             descr = op.getdescr()

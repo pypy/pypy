@@ -99,8 +99,6 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
     elif backend_name == MODEL_X86_64:
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
-    #elif backend_name == 'cli':
-    #    return "rpython.jit.backend.cli.runner", "CliCPU"
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
     else:

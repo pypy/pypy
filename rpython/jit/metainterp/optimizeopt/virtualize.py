@@ -45,6 +45,15 @@ class AbstractVirtualValue(optimizer.OptValue):
             return value
         return OptValue(self.force_box(optforce))
 
+    def get_args_for_fail(self, modifier):
+        # checks for recursion: it is False unless
+        # we have already seen the very same keybox
+        if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            self._get_args_for_fail(modifier)
+
+    def _get_args_for_fail(self, modifier):
+        raise NotImplementedError("abstract base")
+
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
             return self._make_virtual(modifier)
@@ -193,16 +202,13 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             self._cached_sorted_fields = lst
         return lst
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            lst = self._get_field_descr_list()
-            fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
-            modifier.register_virtual_fields(self.keybox, fieldboxes)
-            for ofs in lst:
-                fieldvalue = self._fields[ofs]
-                fieldvalue.get_args_for_fail(modifier)
+    def _get_args_for_fail(self, modifier):
+        lst = self._get_field_descr_list()
+        fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
+        modifier.register_virtual_fields(self.keybox, fieldboxes)
+        for ofs in lst:
+            fieldvalue = self._fields[ofs]
+            fieldvalue.get_args_for_fail(modifier)
 
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
@@ -254,18 +260,15 @@ class AbstractVArrayValue(AbstractVirtualValue):
     def set_item_value(self, i, newval):
         raise NotImplementedError
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            itemboxes = []
-            for i in range(self.getlength()):
-                itemvalue = self.get_item_value(i)
-                itemboxes.append(itemvalue.get_key_box())
-            modifier.register_virtual_fields(self.keybox, itemboxes)
-            for i in range(self.getlength()):
-                itemvalue = self.get_item_value(i)
-                itemvalue.get_args_for_fail(modifier)
+    def _get_args_for_fail(self, modifier):
+        itemboxes = []
+        for i in range(self.getlength()):
+            itemvalue = self.get_item_value(i)
+            itemboxes.append(itemvalue.get_key_box())
+        modifier.register_virtual_fields(self.keybox, itemboxes)
+        for i in range(self.getlength()):
+            itemvalue = self.get_item_value(i)
+            itemvalue.get_args_for_fail(modifier)
 
 
 class VArrayValue(AbstractVArrayValue):
@@ -370,17 +373,16 @@ class VArrayStructValue(AbstractVirtualValue):
             descrs.append(item_descrs)
         return descrs
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            itemdescrs = self._get_list_of_descrs()
-            itemboxes = []
-            for i in range(len(self._items)):
-                for descr in itemdescrs[i]:
-                    itemboxes.append(self._items[i][descr].get_key_box())
-            modifier.register_virtual_fields(self.keybox, itemboxes)
-            for i in range(len(self._items)):
-                for descr in itemdescrs[i]:
-                    self._items[i][descr].get_args_for_fail(modifier)
+    def _get_args_for_fail(self, modifier):
+        itemdescrs = self._get_list_of_descrs()
+        itemboxes = []
+        for i in range(len(self._items)):
+            for descr in itemdescrs[i]:
+                itemboxes.append(self._items[i][descr].get_key_box())
+        modifier.register_virtual_fields(self.keybox, itemboxes)
+        for i in range(len(self._items)):
+            for descr in itemdescrs[i]:
+                self._items[i][descr].get_args_for_fail(modifier)
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         if self in already_forced:
@@ -481,11 +483,19 @@ class VRawSliceValue(AbstractVirtualValue):
     def getitem_raw(self, offset, length, descr):
         return self.rawbuffer_value.getitem_raw(self.offset+offset, length, descr)
 
+    def _get_args_for_fail(self, modifier):
+        box = self.rawbuffer_value.get_key_box()
+        modifier.register_virtual_fields(self.keybox, [box])
+        self.rawbuffer_value.get_args_for_fail(modifier)
+
+    def _make_virtual(self, modifier):
+        return modifier.make_vrawslice(self.offset)
+
+
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def new(self):
-        return OptVirtualize()
+    _last_guard_not_forced_2 = None
 
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer.cpu, known_class, box, source_op)
@@ -527,11 +537,34 @@ class OptVirtualize(optimizer.Optimization):
             return
         self.emit_operation(op)
 
+    def optimize_GUARD_NOT_FORCED_2(self, op):
+        self._last_guard_not_forced_2 = op
+
+    def optimize_FINISH(self, op):
+        if self._last_guard_not_forced_2 is not None:
+            guard_op = self._last_guard_not_forced_2
+            self.emit_operation(op)
+            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [])
+            i = len(self.optimizer._newoperations) - 1
+            assert i >= 0
+            self.optimizer._newoperations.insert(i, guard_op)
+        else:
+            self.emit_operation(op)
+
     def optimize_CALL_MAY_FORCE(self, op):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
             if self._optimize_JIT_FORCE_VIRTUAL(op):
+                return
+        self.emit_operation(op)
+
+    def optimize_COND_CALL(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
+            value = self.getvalue(op.getarg(2))
+            if value.is_virtual():
                 return
         self.emit_operation(op)
 
@@ -657,6 +690,11 @@ class OptVirtualize(optimizer.Optimization):
             self.do_RAW_MALLOC_VARSIZE_CHAR(op)
         elif effectinfo.oopspecindex == EffectInfo.OS_RAW_FREE:
             self.do_RAW_FREE(op)
+        elif effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
+            # we might end up having CALL here instead of COND_CALL
+            value = self.getvalue(op.getarg(1))
+            if value.is_virtual():
+                return
         else:
             self.emit_operation(op)
 
@@ -698,7 +736,6 @@ class OptVirtualize(optimizer.Optimization):
             self.make_constant_int(op.result, value.getlength())
         else:
             value.ensure_nonnull()
-            ###self.optimize_default(op)
             self.emit_operation(op)
 
     def optimize_GETARRAYITEM_GC(self, op):

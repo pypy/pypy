@@ -8,22 +8,25 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
 from rpython.rtyper.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
-from rpython.rtyper.ootypesystem import rlist as oo_rlist
 from rpython.rtyper.rint import signed_repr
 from rpython.rtyper.rlist import *
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext
 
 
-# undo the specialization parameter
+# undo the specialization parameters
 for n1 in 'get set del'.split():
+    if n1 == "get":
+        extraarg = "ll_getitem_fast, "
+    else:
+        extraarg = ""
     for n2 in '', '_nonneg':
         name = 'll_%sitem%s' % (n1, n2)
         globals()['_' + name] = globals()[name]
         exec """if 1:
             def %s(*args):
-                return _%s(dum_checkidx, *args)
-""" % (name, name)
+                return _%s(dum_checkidx, %s*args)
+""" % (name, name, extraarg)
 del n1, n2, name
 
 
@@ -187,7 +190,9 @@ class Freezing:
         return True
 
 
-class BaseTestRlist(BaseRtypingTest):
+class TestRlist(BaseRtypingTest):
+    type_system = 'lltype'
+    rlist = ll_rlist
 
     def test_simple(self):
         def dummyfn():
@@ -1139,13 +1144,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        if self.type_system == 'lltype':
-            # on lltype we always get an AssertionError
-            py.test.raises(AssertionError, self.interpret, f, [1])
-        else:
-            # on ootype we happen to get through the ll_asserts and to
-            # hit the IndexError from ootype.py
-            self.interpret_raises(IndexError, f, [1])
+        py.test.raises(AssertionError, self.interpret, f, [1])
 
         def f(x):
             l = [1]
@@ -1190,13 +1189,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        if self.type_system == 'lltype':
-            # on lltype we always get an AssertionError
-            py.test.raises(AssertionError, self.interpret, f, [1])
-        else:
-            # on ootype we happen to get through the ll_asserts and to
-            # hit the IndexError from ootype.py
-            self.interpret_raises(IndexError, f, [1])
+        py.test.raises(AssertionError, self.interpret, f, [1])
 
         def f(x):
             l = [1]
@@ -1233,13 +1226,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        if self.type_system == 'lltype':
-            # on lltype we always get an AssertionError
-            py.test.raises(AssertionError, self.interpret, f, [1])
-        else:
-            # on ootype we happen to get through the ll_asserts and to
-            # hit the IndexError from ootype.py
-            self.interpret_raises(IndexError, f, [1])
+        py.test.raises(AssertionError, self.interpret, f, [1])
 
     def test_charlist_extension_1(self):
         def f(n):
@@ -1399,7 +1386,6 @@ class BaseTestRlist(BaseRtypingTest):
         assert res == True
 
     def test_immutable_list_out_of_instance(self):
-        from rpython.translator.simplify import get_funcobj
         for immutable_fields in (["a", "b"], ["a", "b", "y[*]"]):
             class A(object):
                 _immutable_fields_ = immutable_fields
@@ -1418,7 +1404,7 @@ class BaseTestRlist(BaseRtypingTest):
             block = graph.startblock
             op = block.operations[-1]
             assert op.opname == 'direct_call'
-            func = get_funcobj(op.args[0].value)._callable
+            func = op.args[2].value
             assert ('foldable' in func.func_name) == \
                    ("y[*]" in immutable_fields)
 
@@ -1434,10 +1420,6 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert self.ll_to_string(res) == 'abc'
-
-class TestLLtype(BaseTestRlist, LLRtypeMixin):
-    type_system = 'lltype'
-    rlist = ll_rlist
 
     def test_memoryerror(self):
         def fn(i):
@@ -1461,7 +1443,7 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_A_list = s.items[0]
@@ -1489,7 +1471,7 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_A_list = s.items[0]
@@ -1533,8 +1515,8 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         block = graph.startblock
         lst1_getitem_op = block.operations[-3]     # XXX graph fishing
         lst2_getitem_op = block.operations[-2]
-        func1 = lst1_getitem_op.args[0].value._obj._callable
-        func2 = lst2_getitem_op.args[0].value._obj._callable
+        func1 = lst1_getitem_op.args[2].value
+        func2 = lst2_getitem_op.args[2].value
         assert func1.oopspec == 'list.getitem_foldable(l, index)'
         assert not hasattr(func2, 'oopspec')
 
@@ -1611,10 +1593,43 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         finally:
             rlist.ll_getitem_foldable_nonneg = prev
 
+    def test_extend_was_not_overallocating(self):
+        from rpython.rlib import rgc
+        from rpython.rlib.objectmodel import resizelist_hint
+        from rpython.rtyper.lltypesystem import lltype
+        old_arraycopy = rgc.ll_arraycopy
+        try:
+            GLOB = lltype.GcStruct('GLOB', ('seen', lltype.Signed))
+            glob = lltype.malloc(GLOB, immortal=True)
+            glob.seen = 0
+            def my_arraycopy(*args):
+                glob.seen += 1
+                return old_arraycopy(*args)
+            rgc.ll_arraycopy = my_arraycopy
+            def dummyfn():
+                lst = []
+                i = 0
+                while i < 30:
+                    i += 1
+                    resizelist_hint(lst, i)
+                    lst.append(i)
+                return glob.seen
+            res = self.interpret(dummyfn, [])
+        finally:
+            rgc.ll_arraycopy = old_arraycopy
+        #
+        assert 2 <= res <= 10
 
-class TestOOtype(BaseTestRlist, OORtypeMixin):
-    rlist = oo_rlist
-    type_system = 'ootype'
-
-    def test_reversed(self):
-        py.test.skip("unsupported")
+    def test_alloc_and_set(self):
+        def fn(i):
+            lst = [0] * r_uint(i)
+            return lst
+        t, rtyper, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        seen = 0
+        for op in block.operations:
+            if op.opname in ['cast_int_to_uint', 'cast_uint_to_int']:
+                continue
+            assert op.opname == 'direct_call'
+            seen += 1
+        assert seen == 1

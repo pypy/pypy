@@ -4,6 +4,7 @@ from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from rpython.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from rpython.jit.codewriter.format import assert_format
 from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rtyper.lltypesystem import lltype, rclass, rstr, rffi
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -49,7 +50,7 @@ class FakeDict(object):
 class FakeCPU:
     class tracker:
         pass
-    
+
     def __init__(self, rtyper):
         rtyper._builtin_func_for_spec_cache = FakeDict()
         self.rtyper = rtyper
@@ -71,7 +72,8 @@ class FakeCallControl:
     callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
+    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
+                     extraeffect=None):
         try:
             name = op.args[0].value._obj._name
             if 'cannot_raise' in name or name.startswith('cast_'):
@@ -80,8 +82,10 @@ class FakeCallControl:
             pass
         return FakeDescr(oopspecindex)
     def calldescr_canraise(self, calldescr):
-        return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex is None
+        return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex == EffectInfo.OS_NONE
     def get_vinfo(self, VTYPEPTR):
+        if hasattr(VTYPEPTR.TO, 'inst_vlist'):
+            return FakeVInfo()
         return None
 
 class FakeCallControlWithVRefInfo:
@@ -93,10 +97,17 @@ class FakeCallControlWithVRefInfo:
         if op.args[0].value._obj._name == 'jit_force_virtual':
             return 'residual'
         return 'builtin'
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, **kwds):
         return FakeDescr()
     def calldescr_canraise(self, calldescr):
         return False
+
+class FakeVInfo:
+    static_field_to_extra_box = {}
+    array_fields = {'inst_vlist': '?'}
+    array_field_counter = {'inst_vlist': 0}
+    array_field_descrs = [FakeDescr()]
+    array_descrs = [FakeDescr()]
 
 # ____________________________________________________________
 
@@ -123,8 +134,8 @@ def test_repr():
 
 class TestFlatten:
 
-    def make_graphs(self, func, values, type_system='lltype'):
-        self.rtyper = support.annotate(func, values, type_system=type_system)
+    def make_graphs(self, func, values):
+        self.rtyper = support.annotate(func, values)
         return self.rtyper.annotator.translator.graphs
 
     def encoding_test(self, func, args, expected,
@@ -982,6 +993,16 @@ class TestFlatten:
             int_return %i2
         """, transform=True)
 
+    def test_direct_ptradd_2(self):
+        def f(p, n):
+            return lltype.direct_ptradd(p, n + 2)
+        self.encoding_test(f, [lltype.nullptr(rffi.SHORTP.TO), 123], """
+            int_add %i1, $2 -> %i2
+            int_mul %i2, $<ItemOffset <SHORT> 1> -> %i3
+            int_add %i0, %i3 -> %i4
+            int_return %i4
+        """, transform=True)
+
     def test_convert_float_bytes(self):
         from rpython.rlib.longlong2float import float2longlong, longlong2float
         def f(x):
@@ -998,6 +1019,22 @@ class TestFlatten:
             convert_longlong_bytes_to_float %(tmp_var)s -> %(result_var)s
             float_return %(result_var)s
         """ % {"result_var": result_var, "tmp_var": tmp_var}, transform=True)
+
+    def test_vable_attribute_list_is_not_None(self):
+        class F:
+            _virtualizable_ = ['vlist[*]']
+            vlist = None
+            def __init__(self, x):
+                self.vlist = [x]
+        def g():
+            return F(42)
+        def f():
+            f = g()
+            if f.vlist is not None:
+                pass
+        e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
+                           transform=True)
+        assert str(e.value).startswith("A virtualizable array is passed aroun")
 
 
 def check_force_cast(FROM, TO, operations, value):

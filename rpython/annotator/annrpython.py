@@ -5,11 +5,11 @@ import types
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
-                             AnnotatorError, gather_error, ErrorWrapper)
+                             gather_error, source_lines)
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
-from rpython.annotator import model as annmodel, signature, unaryop, binaryop
+from rpython.annotator import model as annmodel, signature
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -18,15 +18,12 @@ py.log.setconsumer("annrpython", ansi_log)
 
 FAIL = object()
 
-
 class RPythonAnnotator(object):
     """Block annotator for RPython.
     See description in doc/translation.txt."""
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
-        import rpython.rtyper.ootypesystem.ooregistry # has side effects
         import rpython.rtyper.extfuncregistry # has side effects
-        import rpython.rlib.nonconst # has side effects
 
         if translator is None:
             # interface for tests
@@ -138,10 +135,8 @@ class RPythonAnnotator(object):
         checkgraph(flowgraph)
 
         nbarg = len(flowgraph.getargs())
-        if len(inputcells) != nbarg: 
-            raise TypeError("%s expects %d args, got %d" %(       
-                            flowgraph, nbarg, len(inputcells)))
-        
+        assert len(inputcells) == nbarg # wrong number of args
+
         # register the entry point
         self.addpendinggraph(flowgraph, inputcells)
         # recursively proceed until no more pending block is left
@@ -161,7 +156,7 @@ class RPythonAnnotator(object):
             else:
                 return object
         else:
-            raise TypeError, ("Variable or Constant instance expected, "
+            raise TypeError("Variable or Constant instance expected, "
                               "got %r" % (variable,))
 
     def getuserclassdefinitions(self):
@@ -222,7 +217,7 @@ class RPythonAnnotator(object):
 
             text = format_blocked_annotation_error(self, self.blocked_blocks)
             #raise SystemExit()
-            raise AnnotatorError(text)
+            raise annmodel.AnnotatorError(text)
         for graph in newgraphs:
             v = graph.getreturnvar()
             if v not in self.bindings:
@@ -241,11 +236,9 @@ class RPythonAnnotator(object):
                 else:
                     raise
         elif isinstance(arg, Constant):
-            #if arg.value is undefined_value:   # undefined local variables
-            #    return annmodel.s_ImpossibleValue
-            return self.bookkeeper.immutableconstant(arg)
+            return self.bookkeeper.immutablevalue(arg.value)
         else:
-            raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
+            raise TypeError('Variable or Constant expected, got %r' % (arg,))
 
     def typeannotation(self, t):
         return signature.annotation(t, self.bookkeeper)
@@ -267,7 +260,7 @@ class RPythonAnnotator(object):
                 pos = '?'
         if pos != '?':
             pos = self.whereami(pos)
- 
+
         log.WARNING("%s/ %s" % (pos, msg))
 
 
@@ -297,7 +290,7 @@ class RPythonAnnotator(object):
         v = graph.getreturnvar()
         try:
             return self.bindings[v]
-        except KeyError: 
+        except KeyError:
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
             return annmodel.s_ImpossibleValue
@@ -384,8 +377,8 @@ class RPythonAnnotator(object):
         try:
             unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         except annmodel.UnionError, e:
-            e.args = e.args + (
-                ErrorWrapper(gather_error(self, graph, block, None)),)
+            # Add source code to the UnionError
+            e.source = '\n'.join(source_lines(graph, block, None, long=True))
             raise
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
@@ -459,12 +452,12 @@ class RPythonAnnotator(object):
         # occour for this specific, typed operation.
         if block.exitswitch == c_last_exception:
             op = block.operations[-1]
-            if op.opname in binaryop.BINARY_OPERATIONS:
+            if op.dispatch == 2:
                 arg1 = self.binding(op.args[0])
                 arg2 = self.binding(op.args[1])
                 binop = getattr(pair(arg1, arg2), op.opname, None)
                 can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
-            elif op.opname in unaryop.UNARY_OPERATIONS:
+            elif op.dispatch == 1:
                 arg1 = self.binding(op.args[0])
                 opname = op.opname
                 if opname == 'contains': opname = 'op_contains'
@@ -587,27 +580,22 @@ class RPythonAnnotator(object):
 
     def consider_op(self, block, opindex):
         op = block.operations[opindex]
-        argcells = [self.binding(a) for a in op.args]
-        consider_meth = getattr(self,'consider_op_'+op.opname,
-                                None)
-        if not consider_meth:
-            raise Exception,"unknown op: %r" % op
-
-        # let's be careful about avoiding propagated SomeImpossibleValues
-        # to enter an op; the latter can result in violations of the
-        # more general results invariant: e.g. if SomeImpossibleValue enters is_
-        #  is_(SomeImpossibleValue, None) -> SomeBool
-        #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
-        # boom -- in the assert of setbinding()
-        for arg in argcells:
-            if isinstance(arg, annmodel.SomeImpossibleValue):
-                raise BlockedInference(self, op, opindex)
         try:
-            resultcell = consider_meth(*argcells)
-        except Exception, e:
+            argcells = [self.binding(a) for a in op.args]
+
+            # let's be careful about avoiding propagated SomeImpossibleValues
+            # to enter an op; the latter can result in violations of the
+            # more general results invariant: e.g. if SomeImpossibleValue enters is_
+            #  is_(SomeImpossibleValue, None) -> SomeBool
+            #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
+            # boom -- in the assert of setbinding()
+            for arg in argcells:
+                if isinstance(arg, annmodel.SomeImpossibleValue):
+                    raise BlockedInference(self, op, opindex)
+            resultcell = op.consider(self, *argcells)
+        except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             graph = self.bookkeeper.position_key[0]
-            e.args = e.args + (
-                ErrorWrapper(gather_error(self, graph, block, opindex)),)
+            e.source = gather_error(self, graph, block, opindex)
             raise
         if resultcell is None:
             resultcell = self.noreturnvalue(op)
@@ -619,44 +607,6 @@ class RPythonAnnotator(object):
 
     def noreturnvalue(self, op):
         return annmodel.s_ImpossibleValue  # no return value (hook method)
-
-    # XXX "contains" clash with SomeObject method
-    def consider_op_contains(self, seq, elem):
-        self.bookkeeper.count("contains", seq)
-        return seq.op_contains(elem)
-
-    def consider_op_newtuple(self, *args):
-        return annmodel.SomeTuple(items = args)
-
-    def consider_op_newlist(self, *args):
-        return self.bookkeeper.newlist(*args)
-
-    def consider_op_newdict(self):
-        return self.bookkeeper.newdict()
-
-
-    def _registeroperations(cls, unary_ops, binary_ops):
-        # All unary operations
-        d = {}
-        for opname in unary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
-def consider_op_%s(self, arg, *args):
-    return arg.%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-        # All binary operations
-        for opname in binary_ops:
-            fnname = 'consider_op_' + opname
-            exec py.code.Source("""
-def consider_op_%s(self, arg1, arg2, *args):
-    return pair(arg1,arg2).%s(*args)
-""" % (opname, opname)).compile() in globals(), d
-            setattr(cls, fnname, d[fnname])
-    _registeroperations = classmethod(_registeroperations)
-
-# register simple operations handling
-RPythonAnnotator._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
 
 
 class BlockedInference(Exception):

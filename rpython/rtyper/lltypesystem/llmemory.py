@@ -553,6 +553,12 @@ class AddressAsInt(Symbolic):
         if isinstance(ofs, FieldOffset) and ofs.TYPE is self.adr.ptr._TYPE.TO:
             fieldadr = getattr(self.adr.ptr, ofs.fldname)
             return AddressAsInt(cast_ptr_to_adr(fieldadr))
+        if (isinstance(ofs, ItemOffset) and
+            isinstance(self.adr.ptr._TYPE.TO, lltype.Array) and
+            self.adr.ptr._TYPE.TO._hints.get('nolength') is True and
+            ofs.TYPE is self.adr.ptr._TYPE.TO.OF):
+            itemadr = self.adr.ptr[ofs.repeat]
+            return AddressAsInt(cast_ptr_to_adr(itemadr))
         return NotImplemented
     def __repr__(self):
         try:
@@ -899,11 +905,12 @@ class RawMemmoveEntry(ExtRegistryEntry):
     _about_ = raw_memmove
 
     def compute_result_annotation(self, s_from, s_to, s_size):
-        from rpython.annotator.model import SomeAddress, SomeInteger
+        from rpython.annotator.model import SomeInteger
+        from rpython.rtyper.llannotation import SomeAddress
         assert isinstance(s_from, SomeAddress)
         assert isinstance(s_to, SomeAddress)
         assert isinstance(s_size, SomeInteger)
-    
+
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         v_list = hop.inputargs(Address, Address, lltype.Signed)

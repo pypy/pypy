@@ -1,34 +1,23 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import rstackovf
 from rpython.rtyper import rclass
-
+from rpython.rtyper.lltypesystem.rclass import (ll_issubclass, ll_type,
+        ll_cast_to_object)
 
 # the exceptions that can be implicitely raised by some operations
-standardexceptions = {
-    TypeError        : True,
-    OverflowError    : True,
-    ValueError       : True,
-    ZeroDivisionError: True,
-    MemoryError      : True,
-    IOError          : True,
-    OSError          : True,
-    StopIteration    : True,
-    KeyError         : True,
-    IndexError       : True,
-    AssertionError   : True,
-    RuntimeError     : True,
-    UnicodeDecodeError: True,
-    UnicodeEncodeError: True,
-    NotImplementedError: True,
-    rstackovf._StackOverflow: True,
-    }
+standardexceptions = set([TypeError, OverflowError, ValueError,
+    ZeroDivisionError, MemoryError, IOError, OSError, StopIteration, KeyError,
+    IndexError, AssertionError, RuntimeError, UnicodeDecodeError,
+    UnicodeEncodeError, NotImplementedError, rstackovf._StackOverflow])
 
 class UnknownException(Exception):
     pass
 
 
-class AbstractExceptionData:
+class ExceptionData(object):
     """Public information for the code generators to help with exceptions."""
+
     standardexceptions = standardexceptions
 
     def __init__(self, rtyper):
@@ -63,10 +52,10 @@ class AbstractExceptionData:
         return helper_fn
 
     def get_standard_ll_exc_instance(self, rtyper, clsdef):
-        rclass = rtyper.type_system.rclass
-        r_inst = rclass.getinstancerepr(rtyper, clsdef)
+        from rpython.rtyper.lltypesystem.rclass import getinstancerepr
+        r_inst = getinstancerepr(rtyper, clsdef)
         example = r_inst.get_reusable_prebuilt_instance()
-        example = self.cast_exception(self.lltype_of_exception_value, example)
+        example = ll_cast_to_object(example)
         return example
 
     def get_standard_ll_exc_instance_by_class(self, exceptionclass):
@@ -75,3 +64,21 @@ class AbstractExceptionData:
         clsdef = self.rtyper.annotator.bookkeeper.getuniqueclassdef(
             exceptionclass)
         return self.get_standard_ll_exc_instance(self.rtyper, clsdef)
+
+    def make_helpers(self, rtyper):
+        # create helper functionptrs
+        self.fn_exception_match  = self.make_exception_matcher(rtyper)
+        self.fn_type_of_exc_inst = self.make_type_of_exc_inst(rtyper)
+        self.fn_raise_OSError    = self.make_raise_OSError(rtyper)
+
+    def make_exception_matcher(self, rtyper):
+        # ll_exception_matcher(real_exception_vtable, match_exception_vtable)
+        s_typeptr = SomePtr(self.lltype_of_exception_type)
+        helper_fn = rtyper.annotate_helper_fn(ll_issubclass, [s_typeptr, s_typeptr])
+        return helper_fn
+
+    def make_type_of_exc_inst(self, rtyper):
+        # ll_type_of_exc_inst(exception_instance) -> exception_vtable
+        s_excinst = SomePtr(self.lltype_of_exception_value)
+        helper_fn = rtyper.annotate_helper_fn(ll_type, [s_excinst])
+        return helper_fn

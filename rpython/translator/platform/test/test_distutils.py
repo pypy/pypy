@@ -11,3 +11,7 @@ class TestDistutils(BasicTest):
 
     def test_900_files(self):
         py.test.skip('Makefiles not suppoerted')
+
+    def test_precompiled_headers(self):
+        py.test.skip('Makefiles not suppoerted')
+

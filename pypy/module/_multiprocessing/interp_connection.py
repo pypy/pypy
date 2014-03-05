@@ -5,8 +5,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import (
-    OperationError, operationerrfmt, wrap_oserror)
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
@@ -403,9 +402,8 @@ class W_PipeConnection(W_BaseConnection):
 
             if (result == 0 and
                 rwin32.GetLastError() == ERROR_NO_SYSTEM_RESOURCES):
-                raise operationerrfmt(
-                    space.w_ValueError,
-                    "Cannot send %d bytes over connection", size)
+                raise oefmt(space.w_ValueError,
+                            "Cannot send %d bytes over connection", size)
         finally:
             rffi.free_charp(charp)
             lltype.free(written_ptr, flavor='raw')

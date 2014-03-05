@@ -2,9 +2,9 @@ License
 =======
 
 Except when otherwise stated (look for LICENSE files in directories or
-information at the beginning of each file) all software and
-documentation in the 'pypy', 'ctype_configure', 'dotviewer', 'demo',
-and 'lib_pypy' directories is licensed as follows: 
+information at the beginning of each file) all software and documentation in
+the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', and 'lib_pypy'
+directories is licensed as follows: 
 
     The MIT License
 
@@ -28,7 +28,7 @@ and 'lib_pypy' directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2013
+PyPy Copyright holders 2003-2014
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -38,176 +38,239 @@ copyrighted by one or more of the following people and organizations:
     Armin Rigo
     Maciej Fijalkowski
     Carl Friedrich Bolz
-    Amaury Forgeot d'Arc
     Antonio Cuni
+    Amaury Forgeot d'Arc
     Samuele Pedroni
-    Michael Hudson
-    Holger Krekel
     Alex Gaynor
+    Michael Hudson
+    David Schneider
+    Holger Krekel
     Christian Tismer
     Hakan Ardo
     Benjamin Peterson
-    David Schneider
-    Eric van Riet Paap
+    Matti Picus
+    Philip Jenvey
     Anders Chrigstrom
+    Brian Kearns
+    Eric van Riet Paap
     Richard Emslie
-    Dan Villiom Podlaski Christiansen
     Alexander Schremmer
+    Wim Lavrijsen
+    Dan Villiom Podlaski Christiansen
+    Manuel Jacob
     Lukas Diekmann
-    Aurelien Campeas
-    Anders Lehmann
-    Camillo Bruni
-    Niklaus Haldimann
     Sven Hager
-    Leonardo Santagada
+    Anders Lehmann
+    Aurelien Campeas
+    Niklaus Haldimann
+    Ronan Lamy
+    Camillo Bruni
+    Laura Creighton
     Toon Verwaest
+    Leonardo Santagada
     Seo Sanghyeon
     Justin Peel
-    Lawrence Oluyede
-    Bartosz Skowron
+    Ronny Pfannschmidt
+    David Edelsohn
+    Anders Hammarquist
     Jakub Gustak
     Guido Wesdorp
+    Lawrence Oluyede
+    Bartosz Skowron
     Daniel Roberts
-    Laura Creighton
+    Niko Matsakis
     Adrien Di Mascio
     Ludovic Aubry
-    Niko Matsakis
-    Wim Lavrijsen
-    Matti Picus
-    Jason Creighton
+    Alexander Hesse
     Jacob Hallen
+    Romain Guillebert
+    Jason Creighton
     Alex Martelli
-    Anders Hammarquist
+    Michal Bendowski
     Jan de Mooij
-    Stephan Diehl
     Michael Foord
+    Stephan Diehl
     Stefan Schwarzer
+    Valentino Volonghi
     Tomek Meka
     Patrick Maupin
+    stian
     Bob Ippolito
     Bruno Gola
-    Alexandre Fayolle
-    Marius Gedminas
-    Simon Burton
-    David Edelsohn
     Jean-Paul Calderone
-    John Witulski
     Timo Paulssen
-    holger krekel
+    Alexandre Fayolle
+    Simon Burton
+    Marius Gedminas
+    John Witulski
+    Greg Price
     Dario Bertini
     Mark Pearse
+    Simon Cross
+    Konstantin Lopuhin
     Andreas Stührk
     Jean-Philippe St. Pierre
     Guido van Rossum
     Pavel Vinogradov
-    Valentino Volonghi
     Paul deGrandis
     Ilya Osadchiy
-    Ronny Pfannschmidt
     Adrian Kuhn
+    Boris Feigin
     tav
     Georg Brandl
-    Philip Jenvey
-    Gerald Klix
+    Bert Freudenberg
+    Stian Andreassen
+    Stefano Rivera
     Wanja Saatkamp
-    Boris Feigin
+    Gerald Klix
+    Mike Blume
+    Taavi Burns
     Oscar Nierstrasz
     David Malcolm
     Eugene Oden
     Henry Mason
+    Preston Timmons
     Jeff Terrace
+    David Ripton
+    Dusty Phillips
     Lukas Renggli
     Guenter Jantzen
+    Tobias Oberstein
+    Remi Meier
     Ned Batchelder
-    Bert Freudenberg
     Amit Regmi
     Ben Young
     Nicolas Chauvat
     Andrew Durdin
     Michael Schneider
     Nicholas Riley
+    Jason Chu
+    Igor Trindade Oliveira
+    Jeremy Thurgood
     Rocco Moretti
     Gintautas Miliauskas
     Michael Twomey
-    Igor Trindade Oliveira
     Lucian Branescu Mihaila
+    Tim Felgentreff
+    Tyler Wade
+    Gabriel Lavoie
     Olivier Dormond
     Jared Grubb
     Karl Bartel
-    Gabriel Lavoie
-    Victor Stinner
     Brian Dorsey
+    Victor Stinner
     Stuart Williams
+    Jasper Schulz
     Toby Watson
     Antoine Pitrou
+    Aaron Iles
+    Michael Cheng
     Justas Sadzevicius
+    Gasper Zejn
     Neil Shepperd
     Mikael Schönenberg
-    Gasper Zejn
-    Jonathan David Riehl
     Elmo Mäntynen
+    Tobias Pape
+    Jonathan David Riehl
+    Stanislaw Halik
     Anders Qvist
+    Chirag Jadwani
     Beatrice During
+    Alex Perry
+    Vincent Legoll
+    Alan McIntyre
     Alexander Sedov
     Corbin Simpson
-    Vincent Legoll
-    Romain Guillebert
-    Alan McIntyre
-    Alex Perry
-    Jens-Uwe Mager
-    Simon Cross
-    Dan Stromberg
+    Christopher Pope
+    Laurence Tratt
     Guillebert Romain
+    Christian Tismer 
+    Dan Stromberg
+    Stefano Parmesan
+    Christian Hudon
+    Alexis Daboville
+    Jens-Uwe Mager
     Carl Meyer
+    Karl Ramm
     Pieter Zieschang
-    Alejandro J. Cura
+    Gabriel
+    Paweł Piotr Przeradowski
+    Andrew Dalke
     Sylvain Thenault
-    Christoph Gerum
-    Travis Francis Athougies
-    Henrik Vendelbo
-    Lutz Paelike
+    Nathan Taylor
+    Vladimir Kryachko
+    Jacek Generowicz
+    Alejandro J. Cura
     Jacob Oscarson
-    Martin Blais
+    Travis Francis Athougies
+    Kristjan Valur Jonsson
+    Neil Blakey-Milner
+    Lutz Paelike
     Lucio Torre
-    Lene Wagner
+    Lars Wassermann
+    Henrik Vendelbo
+    Dan Buch
     Miguel de Val Borro
     Artur Lisiecki
-    Bruno Gola
+    Sergey Kishchenko
     Ignas Mikalajunas
-    Stefano Rivera
-    Joshua Gilbert
-    Godefroid Chappelle
-    Yusei Tahara
-    Christopher Armstrong
-    Stephan Busemann
-    Gustavo Niemeyer
+    Christoph Gerum
+    Martin Blais
+    Lene Wagner
+    Tomo Cocoa
+    Andrews Medina
+    roberto@goyle
     William Leslie
-    Akira Li
-    Kristjan Valur Jonsson
     Bobby Impollonia
-    Michael Hudson-Doyle
-    Laurence Tratt
-    Yasir Suhail
+    timo@eistee.fritz.box
     Andrew Thompson
-    Anders Sigfridsson
-    Floris Bruynooghe
-    Jacek Generowicz
+    Yusei Tahara
+    Roberto De Ioris
+    Juan Francisco Cantero Hurtado
+    Godefroid Chappelle
+    Joshua Gilbert
     Dan Colish
-    Zooko Wilcox-O Hearn
-    Dan Loewenherz
-    Chris Lambacher
-    Dinu Gherman
-    Brett Cannon
-    Daniel Neuhäuser
-    Michael Chermside
-    Konrad Delong
-    Anna Ravencroft
-    Greg Price
-    Armin Ronacher
+    Christopher Armstrong
+    Michael Hudson-Doyle
+    Anders Sigfridsson
+    Yasir Suhail
+    Floris Bruynooghe
+    Akira Li
+    Gustavo Niemeyer
+    Stephan Busemann
+    Anna Katrina Dominguez
     Christian Muirhead
+    James Lan
+    shoma hosaka
+    Daniel Neuhäuser
+    Buck Golemon
+    Konrad Delong
+    Dinu Gherman
+    Chris Lambacher
+    coolbutuseless@gmail.com
     Jim Baker
     Rodrigo Araújo
-    Romain Guillebert
+    Armin Ronacher
+    Brett Cannon
+    yrttyr
+    Zooko Wilcox-O Hearn
+    Tomer Chachamu
+    Christopher Groskopf
+    opassembler.py
+    Antony Lee
+    Jim Hunziker
+    Markus Unterwaditzer
+    Even Wiik Thomassen
+    jbs
+    soareschen
+    Flavio Percoco
+    Kristoffer Kleine
+    yasirs
+    Michael Chermside
+    Anna Ravencroft
+    Andrew Chambers
+    Julien Phalip
+    Dan Loewenherz
 
     Heinrich-Heine University, Germany 
     Open End AB (formerly AB Strakt), Sweden
@@ -218,44 +281,21 @@ copyrighted by one or more of the following people and organizations:
     Impara, Germany
     Change Maker, Sweden 
     University of California Berkeley, USA
+    Google Inc.
+    King's College London
 
 The PyPy Logo as used by http://speed.pypy.org and others was created
 by Samuel Reis and is distributed on terms of Creative Commons Share Alike
 License.
  
-License for 'lib-python/2.7.0' and 'lib-python/2.7.0-modified'
-============================================================== 
+License for 'lib-python/2.7'
+============================
 
-Except when otherwise stated (look for LICENSE files or
-copyright/license information at the beginning of each file) the files
-in the 'lib-python/2.7.0' and 'lib-python/2.7.0-modified' directories
-are all copyrighted by the Python Software Foundation and licensed under
-the Python Software License of which you can find a copy here:
+Except when otherwise stated (look for LICENSE files or copyright/license
+information at the beginning of each file) the files in the 'lib-python/2.7'
+directory are all copyrighted by the Python Software Foundation and licensed
+under the Python Software License of which you can find a copy here:
 http://www.python.org/doc/Copyright.html 
-
-License for 'pypy/translator/jvm/src/jna.jar'
-=============================================
-
-The file 'pypy/translator/jvm/src/jna.jar' is licensed under the GNU
-Lesser General Public License of which you can find a copy here:
-http://www.gnu.org/licenses/lgpl.html
-
-License for 'pypy/translator/jvm/src/jasmin.jar'
-================================================
-
-The file 'pypy/translator/jvm/src/jasmin.jar' is copyright (c) 1996-2004 Jon Meyer
-and distributed with permission.  The use of Jasmin by PyPy does not imply
-that PyPy is endorsed by Jon Meyer nor any of Jasmin's contributors.  Furthermore,
-the following disclaimer applies to Jasmin:
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
-TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 License for 'pypy/module/unicodedata/'
 ======================================

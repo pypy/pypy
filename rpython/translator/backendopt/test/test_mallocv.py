@@ -1,17 +1,11 @@
 import py
 import sys
 from rpython.translator.backendopt.mallocv import MallocVirtualizer
-from rpython.translator.backendopt.inline import inline_function
-from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.translator import simplify
-from rpython.flowspace.model import checkgraph, Block, mkentrymap
 from rpython.flowspace.model import summary
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation
-from rpython.rtyper.ootypesystem import ootype
+from rpython.rtyper.lltypesystem import lltype, lloperation
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rlib import objectmodel
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.conftest import option
 
@@ -22,13 +16,8 @@ class CHECK_RAISES:
         self.excname = excname
 
 
-class BaseMallocRemovalTest(object):
-    type_system = None
-    MallocRemover = None
-
-    def _skip_oo(self, msg):
-        if self.type_system == 'ootype':
-            py.test.skip(msg)
+class TestMallocRemoval(object):
+    type_system = 'lltype'
 
     def check_malloc_removed(cls, graph, expected_mallocs, expected_calls):
         count_mallocs = 0
@@ -48,7 +37,7 @@ class BaseMallocRemovalTest(object):
         t = TranslationContext()
         self.translator = t
         t.buildannotator().build_types(fn, signature)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         graph = graphof(t, fn)
         if option.view:
             t.view()
@@ -59,7 +48,6 @@ class BaseMallocRemovalTest(object):
         mallocv = MallocVirtualizer(t.graphs, t.rtyper, verbose=True)
         while True:
             progress = mallocv.remove_mallocs_once()
-            #simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
             if progress and option.view:
                 t.view()
             t.checkgraphs()
@@ -552,10 +540,6 @@ class BaseMallocRemovalTest(object):
                                      # g(Virtual, Virtual)
 
 
-class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
-    type_system = 'lltype'
-    #MallocRemover = LLTypeMallocRemover
-
     def test_getsubstruct(self):
         SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
         BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
@@ -802,32 +786,3 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
                 t.y += 1
             return s.x
         graph = self.check(f, [int], [5], 123)
-
-
-class DISABLED_TestOOTypeMallocRemoval(BaseMallocRemovalTest):
-    type_system = 'ootype'
-    #MallocRemover = OOTypeMallocRemover
-
-    def test_oononnull(self):
-        FOO = ootype.Instance('Foo', ootype.ROOT)
-        def fn():
-            s = ootype.new(FOO)
-            return bool(s)
-        self.check(fn, [], [], True)
-
-    def test_classattr_as_defaults(self):
-        class Bar:
-            foo = 41
-        
-        def fn():
-            x = Bar()
-            x.foo += 1
-            return x.foo
-        self.check(fn, [], [], 42)
-
-    def test_fn5(self):
-        # don't test this in ootype because the class attribute access
-        # is turned into an oosend which prevents malloc removal to
-        # work unless we inline first. See test_classattr in
-        # test_inline.py
-        pass

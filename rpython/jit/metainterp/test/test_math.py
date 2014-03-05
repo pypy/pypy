@@ -1,16 +1,16 @@
 import math
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 class MathTests:
-    
+
     def test_math_sqrt(self):
         def f(x):
             try:
                 return math.sqrt(x)
             except ValueError:
                 return -INFINITY
-        
+
         res = self.interp_operations(f, [0.0])
         assert res == 0.0
         self.check_operations_history(call_pure=1)
@@ -39,9 +39,6 @@ class MathTests:
         assert isnan(res) and not isinf(res)
         self.check_operations_history(call_pure=0)
 
-
-class TestOOtype(MathTests, OOJitMixin):
-    pass
 
 class TestLLtype(MathTests, LLJitMixin):
     pass

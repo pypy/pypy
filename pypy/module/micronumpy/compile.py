@@ -1,20 +1,17 @@
-
 """ This is a set of tools for standalone compiling of numpy expressions.
 It should not be imported by the module itself
 """
-
 import re
-
+from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy import interp_boxes
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.interp_numarray import array
-from pypy.module.micronumpy.interp_arrayops import where
-from pypy.module.micronumpy import interp_ufuncs
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
+from pypy.module.micronumpy import boxes, ufuncs
+from pypy.module.micronumpy.arrayops import where
+from pypy.module.micronumpy.ndarray import W_NDimArray
+from pypy.module.micronumpy.ctors import array
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 
 class BogusBytecode(Exception):
@@ -35,15 +32,20 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
+
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
     def __init__(self, name):
         self.name = name
+
+    def lookup(self, name):
+        return self.getdictvalue(self, name)
 
 class FakeSpace(object):
     w_ValueError = W_TypeObject("ValueError")
@@ -51,6 +53,7 @@ class FakeSpace(object):
     w_IndexError = W_TypeObject("IndexError")
     w_OverflowError = W_TypeObject("OverflowError")
     w_NotImplementedError = W_TypeObject("NotImplementedError")
+    w_AttributeError = W_TypeObject("AttributeError")
     w_None = None
 
     w_bool = W_TypeObject("bool")
@@ -68,6 +71,8 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
+        self.w_Ellipsis = special.Ellipsis(self)
+        self.w_NotImplemented = special.NotImplemented(self)
 
     def _freeze_(self):
         return True
@@ -86,7 +91,10 @@ class FakeSpace(object):
         return StringObject(NonConstant('foo'))
 
     def isinstance_w(self, w_obj, w_tp):
-        return w_obj.tp == w_tp
+        try:
+            return w_obj.tp == w_tp
+        except AttributeError:
+            return False
 
     def decode_index4(self, w_idx, size):
         if isinstance(w_idx, IntObject):
@@ -140,14 +148,14 @@ class FakeSpace(object):
     def float(self, w_obj):
         if isinstance(w_obj, FloatObject):
             return w_obj
-        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        assert isinstance(w_obj, boxes.W_GenericBox)
         return self.float(w_obj.descr_float(self))
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FloatObject)
         return w_obj.floatval
 
-    def int_w(self, w_obj):
+    def int_w(self, w_obj, allow_conversion=True):
         if isinstance(w_obj, IntObject):
             return w_obj.intval
         elif isinstance(w_obj, FloatObject):
@@ -172,31 +180,53 @@ class FakeSpace(object):
     def int(self, w_obj):
         if isinstance(w_obj, IntObject):
             return w_obj
-        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        assert isinstance(w_obj, boxes.W_GenericBox)
         return self.int(w_obj.descr_int(self))
 
     def str(self, w_obj):
         if isinstance(w_obj, StringObject):
             return w_obj
-        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        assert isinstance(w_obj, boxes.W_GenericBox)
         return self.str(w_obj.descr_str(self))
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
-        return False
-        #return w_obj.boolval
+        return bool(w_obj.intval)
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
 
+    def eq_w(self, w_obj, w_what):
+        return w_obj == w_what
+
+    def issubtype(self, w_type1, w_type2):
+        return BoolObject(True)
+
     def type(self, w_obj):
-        return w_obj.tp
+        if self.is_none(w_obj):
+            return self.w_None
+        try:
+            return w_obj.tp
+        except AttributeError:
+            if isinstance(w_obj, W_NDimArray):
+                return W_NDimArray
+            return self.w_None
+
+    def lookup(self, w_obj, name):
+        w_type = self.type(w_obj)
+        if not self.is_none(w_type):
+            return w_type.lookup(name)
 
     def gettypefor(self, w_obj):
-        return None
+        return W_TypeObject(w_obj.typedef.name)
 
     def call_function(self, tp, w_dtype):
         return w_dtype
+
+    def call_method(self, w_obj, s, *args):
+        # XXX even the hacks have hacks
+        return None
+        #return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
     def interp_w(self, tp, what):
@@ -233,7 +263,7 @@ class FloatObject(W_Root):
 class BoolObject(W_Root):
     tp = FakeSpace.w_bool
     def __init__(self, boolval):
-        self.boolval = boolval
+        self.intval = boolval
 
 class IntObject(W_Root):
     tp = FakeSpace.w_int
@@ -328,6 +358,8 @@ class Variable(Node):
         self.name = name.strip(" ")
 
     def execute(self, interp):
+        if self.name == 'None':
+            return None
         return interp.variables[self.name]
 
     def __repr__(self):
@@ -364,7 +396,7 @@ class Operator(Node):
         else:
             raise NotImplementedError
         if (not isinstance(w_res, W_NDimArray) and
-            not isinstance(w_res, interp_boxes.W_GenericBox)):
+            not isinstance(w_res, boxes.W_GenericBox)):
             dtype = get_dtype_cache(interp.space).w_float64dtype
             w_res = W_NDimArray.new_scalar(interp.space, dtype, w_res)
         return w_res
@@ -450,6 +482,32 @@ class SliceConstant(Node):
     def __repr__(self):
         return 'slice(%s,%s,%s)' % (self.start, self.stop, self.step)
 
+class ArrayClass(Node):
+    def __init__(self):
+        self.v = W_NDimArray
+
+    def execute(self, interp):
+       return self.v
+
+    def __repr__(self):
+        return '<class W_NDimArray>'
+
+class DtypeClass(Node):
+    def __init__(self, dt):
+        self.v = dt
+
+    def execute(self, interp):
+        if self.v == 'int':
+            dtype = get_dtype_cache(interp.space).w_int64dtype
+        elif self.v == 'float':
+            dtype = get_dtype_cache(interp.space).w_float64dtype
+        else:
+            raise BadToken('unknown v to dtype "%s"' % self.v)
+        return dtype
+
+    def __repr__(self):
+        return '<class %s dtype>' % self.v
+
 class Execute(Node):
     def __init__(self, expr):
         self.expr = expr
@@ -493,10 +551,10 @@ class FunctionCall(Node):
             elif self.name == "all":
                 w_res = arr.descr_all(interp.space)
             elif self.name == "unegative":
-                neg = interp_ufuncs.get(interp.space).negative
+                neg = ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
             elif self.name == "cos":
-                cos = interp_ufuncs.get(interp.space).cos
+                cos = ufuncs.get(interp.space).cos
                 w_res = cos.call(interp.space, [arr])
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
@@ -532,6 +590,14 @@ class FunctionCall(Node):
                 w_res = where(interp.space, arr, arg1, arg2)
             else:
                 assert False
+        elif self.name in TWO_ARG_FUNCTIONS_OR_NONE:
+            if len(self.args) != 2:
+                raise ArgumentMismatch
+            arg = self.args[1].execute(interp)
+            if self.name == 'view':
+                w_res = arr.descr_view(interp.space, arg)
+            else:
+                assert False
         else:
             raise WrongFunctionName
         if isinstance(w_res, W_NDimArray):
@@ -542,7 +608,7 @@ class FunctionCall(Node):
             dtype = get_dtype_cache(interp.space).w_int64dtype
         elif isinstance(w_res, BoolObject):
             dtype = get_dtype_cache(interp.space).w_booldtype
-        elif isinstance(w_res, interp_boxes.W_GenericBox):
+        elif isinstance(w_res, boxes.W_GenericBox):
             dtype = w_res.get_dtype(interp.space)
         else:
             dtype = None
@@ -651,8 +717,14 @@ class Parser(object):
             if token.name == 'identifier':
                 if tokens.remaining() and tokens.get(0).name == 'paren_left':
                     stack.append(self.parse_function_call(token.v, tokens))
+                elif token.v.strip(' ') == 'ndarray':
+                    stack.append(ArrayClass())
+                elif token.v.strip(' ') == 'int':
+                    stack.append(DtypeClass('int'))
+                elif token.v.strip(' ') == 'float':
+                    stack.append(DtypeClass('float'))
                 else:
-                    stack.append(Variable(token.v))
+                    stack.append(Variable(token.v.strip(' ')))
             elif token.name == 'array_left':
                 stack.append(ArrayConstant(self.parse_array_const(tokens)))
             elif token.name == 'operator':
