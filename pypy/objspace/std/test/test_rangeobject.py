@@ -1,5 +1,6 @@
 import py
 
+
 class AppTestRangeListObject(object):
     spaceconfig = {"objspace.std.withrangelist": True}
 
@@ -23,6 +24,14 @@ class AppTestRangeListObject(object):
             result.append(i)
         assert result == [1, 3, 5, 7]
         assert self.not_forced(r)
+
+    def test_getitem_simple(self):
+        r = range(4)
+        assert r[-1] == 3
+        assert r[3] == 3
+        assert r[-4] == 0
+        raises(IndexError, r.__getitem__, -5)
+        raises(IndexError, r.__getitem__, 4)
 
     def test_getitem_slice(self):
         result = []
@@ -71,6 +80,7 @@ class AppTestRangeListObject(object):
         r = range(10)
         r.sort(key=lambda x: -x)
         assert r == range(9, -1, -1)
+
     def test_pop(self):
         # RangeListStrategy
         r = range(1, 10)
@@ -108,14 +118,6 @@ class AppTestRangeListObject(object):
         assert res == 0
         assert not self.not_forced(r)
         assert r == [1, 2, 3, 4, 5, 6, 7]
-
-    def test_getitem_simple(self):
-        r = range(4)
-        assert r[-1] == 3
-        assert r[3] == 3
-        assert r[-4] == 0
-        raises(IndexError, r.__getitem__, -5)
-        raises(IndexError, r.__getitem__, 4)
 
     def test_reduce(self):
         it = iter(range(10))

@@ -784,8 +784,6 @@ class AppTestW_ListObject(object):
         assert l == [1,2,3,4,5]
 
     def test_iadd_subclass(self):
-        #XXX
-        skip("Maybe there is something wrong in descroperation?")
         class Bar(object):
             def __radd__(self, other):
                 return ('radd', self, other)
@@ -1441,7 +1439,7 @@ class AppTestForRangeLists(AppTestW_ListObject):
         l.__setslice__(0,3,l2)
         assert l == [0,1,2]
 
-    def test_getitem(self):
+    def test_getitem_range(self):
         l = range(5)
         raises(IndexError, "l[-6]")
         raises(IndexError, "l[5]")
