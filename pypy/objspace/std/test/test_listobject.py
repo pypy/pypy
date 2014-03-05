@@ -1557,12 +1557,17 @@ class AppTestListObject(object):
 
 
 class AppTestListObjectWithRangeList(AppTestListObject):
+    """Run the list object tests with range lists enabled. Tests should go in
+    AppTestListObject so they can be run -A against CPython as well.
+    """
     spaceconfig = {"objspace.std.withrangelist": True}
 
 
 class AppTestRangeListForcing:
     """Tests for range lists that test forcing. Regular tests should go in
-    AppTestListObject so they can be run -A against CPython as well.
+    AppTestListObject so they can be run -A against CPython as well. Separate
+    from AppTestListObjectWithRangeList so we don't silently overwrite tests
+    with the same names.
     """
     spaceconfig = {"objspace.std.withrangelist": True}
 
