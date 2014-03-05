@@ -2,7 +2,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import UnicodeBuilder
 
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 
@@ -56,15 +56,15 @@ class CodecState(object):
                 else:
                     msg = ("encoding error handler must return "
                            "(unicode, int) tuple, not %R")
-                raise operationerrfmt(space.w_TypeError, msg, w_res)
+                raise oefmt(space.w_TypeError, msg, w_res)
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
             if newpos < 0:
                 newpos = len(input) + newpos
             if newpos < 0 or newpos > len(input):
-                raise operationerrfmt(
-                    space.w_IndexError,
-                    "position %d from error handler out of bounds", newpos)
+                raise oefmt(space.w_IndexError,
+                            "position %d from error handler out of bounds",
+                            newpos)
             replace = space.unicode_w(w_replace)
             return replace, newpos
         return call_errorhandler
@@ -164,9 +164,7 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
                 state.codec_search_cache[normalized_encoding] = w_result
                 state.modified()
                 return w_result
-    raise operationerrfmt(
-        space.w_LookupError,
-        "unknown encoding: %s", encoding)
+    raise oefmt(space.w_LookupError, "unknown encoding: %s", encoding)
 
 # ____________________________________________________________
 # Register standard error handlers
@@ -216,8 +214,8 @@ def replace_errors(space, w_exc):
         text = u'\ufffd' * size
         return space.newtuple([space.wrap(text), w_end])
     else:
-        raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %T in error callback", w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -236,8 +234,8 @@ def xmlcharrefreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %T in error callback", w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -268,8 +266,8 @@ def backslashreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %T in error callback", w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def register_builtin_error_handlers(space):
     "NOT_RPYTHON"
@@ -292,9 +290,8 @@ def lookup_error(space, errors):
     try:
         w_err_handler = state.codec_error_registry[errors]
     except KeyError:
-        raise operationerrfmt(
-            space.w_LookupError,
-            "unknown error handler name %s", errors)
+        raise oefmt(space.w_LookupError,
+                    "unknown error handler name %s", errors)
     return w_err_handler
 
 

@@ -594,11 +594,9 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            # XXX pypy with the following check fails on micronumpy,
-            # XXX investigate
-            #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-            #                          rop.GETFIELD_GC, fielddescr, box)
-            #assert resbox.constbox().same_constant(tobox.constbox())
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC, fielddescr, box)
+            assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -741,6 +739,7 @@ class MIFrame(object):
 
     def emit_force_virtualizable(self, fielddescr, box):
         vinfo = fielddescr.get_vinfo()
+        assert vinfo is not None
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
         tokenbox = mi.execute_and_record(rop.GETFIELD_GC, token_descr, box)

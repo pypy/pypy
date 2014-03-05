@@ -1,5 +1,5 @@
 from pypy.interpreter import gateway, baseobjspace, argument
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
 from pypy.interpreter.typedef import descr_del_dict
@@ -151,8 +151,8 @@ def _gettypeerrormsg(nbargs):
 _gettypeerrormsg._annspecialcase_ = 'specialize:memo'
 
 def gettypeerror(space, operatorsymbol, *args_w):
-    msg = _gettypeerrormsg(len(args_w))
-    return operationerrfmt(space.w_TypeError, msg, operatorsymbol, *args_w)
+    return oefmt(space.w_TypeError, _gettypeerrormsg(len(args_w)),
+                 operatorsymbol, *args_w)
 
 def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, selfindex=0,
                             allow_NotImplemented_results=False):

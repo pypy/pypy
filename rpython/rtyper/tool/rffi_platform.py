@@ -198,12 +198,14 @@ def configure(CConfig, ignore_errors=False):
     """
     for attr in ['_includes_', '_libraries_', '_sources_', '_library_dirs_',
                  '_include_dirs_', '_header_']:
-        assert not hasattr(CConfig, attr), "Found legacy attribute %s on CConfig" % (attr,)
+        assert not hasattr(CConfig, attr), \
+            "Found legacy attribute %s on CConfig" % attr
+
     entries = []
     for key in dir(CConfig):
         value = getattr(CConfig, key)
         if isinstance(value, CConfigEntry):
-            entries.append((key, value))            
+            entries.append((key, value))
 
     if entries:   # can be empty if there are only CConfigSingleEntries
         writer = _CWriter(CConfig)

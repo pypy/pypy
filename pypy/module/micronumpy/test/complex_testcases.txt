@@ -1346,7 +1346,7 @@ log0200 log -0.59999999999999998 0.80000000000000004 -> 2.2204460492503132e-17 2
 log0201 log 0.79999999999999993 0.60000000000000009 -> 6.1629758220391547e-33 0.64350110879328448
 
 -- special values
-log1000 log -0.0 0.0 -> -inf 0.0         divide-by-zero
+log1000 log -0.0 0.0 -> -inf 3.1415926535897931         divide-by-zero
 log1001 log 0.0 0.0 -> -inf 0.0                         divide-by-zero
 log1002 log 0.0 inf -> inf 1.5707963267948966
 log1003 log 2.3 inf -> inf 1.5707963267948966
@@ -1368,8 +1368,8 @@ log1018 log nan 0.0 -> nan nan
 log1019 log nan 2.3 -> nan nan
 log1020 log nan inf -> inf nan
 log1021 log nan nan -> nan nan
-log1022 log -0.0 -0.0 -> -inf 0.0       divide-by-zero
-log1023 log 0.0 -0.0 -> -inf 0.0        divide-by-zero
+log1022 log -0.0 -0.0 -> -inf -3.1415926535897931       divide-by-zero
+log1023 log 0.0 -0.0 -> -inf -0.0                       divide-by-zero
 log1024 log 0.0 -inf -> inf -1.5707963267948966
 log1025 log 2.3 -inf -> inf -1.5707963267948966
 log1026 log -0.0 -inf -> inf -1.5707963267948966
@@ -1514,7 +1514,7 @@ logt0200 log10 -0.59999999999999998 0.80000000000000004 -> 9.6432746655328709e-1
 logt0201 log10 0.79999999999999993 0.60000000000000009 -> 2.6765463916147622e-33 0.2794689806475476
 
 -- special values
-logt1000 log10 -0.0 0.0 -> -inf 0.0         divide-by-zero
+logt1000 log10 -0.0 0.0 -> -inf 1.3643763538418412         divide-by-zero
 logt1001 log10 0.0 0.0 -> -inf 0.0          divide-by-zero
 logt1002 log10 0.0 inf -> inf 0.68218817692092071
 logt1003 log10 2.3 inf -> inf 0.68218817692092071
@@ -1536,8 +1536,8 @@ logt1018 log10 nan 0.0 -> nan nan
 logt1019 log10 nan 2.3 -> nan nan
 logt1020 log10 nan inf -> inf nan
 logt1021 log10 nan nan -> nan nan
-logt1022 log10 -0.0 -0.0 -> -inf 0.0       divide-by-zero
-logt1023 log10 0.0 -0.0 -> -inf 0.0        divide-by-zero
+logt1022 log10 -0.0 -0.0 -> -inf -1.3643763538418412       divide-by-zero
+logt1023 log10 0.0 -0.0 -> -inf -0.0        divide-by-zero
 logt1024 log10 0.0 -inf -> inf -0.68218817692092071
 logt1025 log10 2.3 -inf -> inf -0.68218817692092071
 logt1026 log10 -0.0 -inf -> inf -0.68218817692092071

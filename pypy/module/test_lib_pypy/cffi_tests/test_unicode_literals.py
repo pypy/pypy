@@ -11,6 +11,13 @@ from __future__ import unicode_literals
 import sys, math
 from cffi import FFI
 
+lib_m = "m"
+if sys.platform == 'win32':
+    #there is a small chance this fails on Mingw via environ $CC
+    import distutils.ccompiler
+    if distutils.ccompiler.get_default_compiler() == 'msvc':
+        lib_m = 'msvcrt'
+
 
 def test_cast():
     ffi = FFI()
@@ -56,7 +63,7 @@ def test_enum():
 def test_dlopen():
     ffi = FFI()
     ffi.cdef("double sin(double x);")
-    m = ffi.dlopen("m")                           # unicode literal
+    m = ffi.dlopen(lib_m)                           # unicode literal
     x = m.sin(1.23)
     assert x == math.sin(1.23)
 

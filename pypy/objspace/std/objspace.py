@@ -2,7 +2,7 @@ import __builtin__
 import types
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod)
@@ -34,7 +34,7 @@ from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
-from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.intobject import wrapint
 from pypy.objspace.std.unicodeobject import wrapunicode
 
 class StdObjSpace(ObjSpace):
@@ -58,8 +58,8 @@ class StdObjSpace(ObjSpace):
         self.w_None = W_NoneObject.w_None
         self.w_False = W_BoolObject.w_False
         self.w_True = W_BoolObject.w_True
-        self.w_NotImplemented = self.wrap(special.NotImplemented(self))
-        self.w_Ellipsis = self.wrap(special.Ellipsis(self))
+        self.w_NotImplemented = self.wrap(special.NotImplemented())
+        self.w_Ellipsis = self.wrap(special.Ellipsis())
 
         # types
         self.builtin_types = {}
@@ -367,9 +367,9 @@ class StdObjSpace(ObjSpace):
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
         else:
-            raise operationerrfmt(self.w_TypeError,
-                                  "%N.__new__(%N): only for the type %N",
-                                  w_type, w_subtype, w_type)
+            raise oefmt(self.w_TypeError,
+                        "%N.__new__(%N): only for the type %N",
+                        w_type, w_subtype, w_type)
         return instance
     allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
@@ -516,7 +516,7 @@ class StdObjSpace(ObjSpace):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.
         if type(w_obj) is W_BoolObject:
-            return w_obj.boolval
+            return bool(w_obj.intval)
         return self._DescrOperation_is_true(w_obj)
 
     def getattr(self, w_obj, w_name):

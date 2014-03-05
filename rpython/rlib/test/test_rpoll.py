@@ -1,5 +1,6 @@
 import os
 import errno
+import py
 
 from rpython.rlib.rsocket import *
 from rpython.rlib.rpoll import *
@@ -55,6 +56,8 @@ def test_simple():
     serv.close()
 
 def test_select():
+    if os.name == 'nt':
+        py.test.skip('cannot select on file handles on windows')
     def f():
         readend, writeend = os.pipe()
         try:
@@ -72,6 +75,8 @@ def test_select():
     interpret(f, [])
 
 def test_select_timeout():
+    if os.name == 'nt':
+        py.test.skip('cannot select on file handles on windows')
     from time import time
     def f():
         # once there was a bug where the sleeping time was doubled

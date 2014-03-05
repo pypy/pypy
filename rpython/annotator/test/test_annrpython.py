@@ -3722,6 +3722,18 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
 
+    def test_immutable_list_is_assigned_a_resizable_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            foo = []
+            foo.append(n)
+            a.lst = foo
+
+        a = self.RPythonAnnotator()
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
+
     def test_can_merge_immutable_list_with_regular_list(self):
         class A:
             _immutable_fields_ = 'lst[*]'
@@ -4139,6 +4151,16 @@ class TestAnnotateTestCase:
             a.build_types(f, [str])
         assert ("Cannot prove that the object is callable" in exc.value.msg)
 
+    def test_UnionError_on_PBC(self):
+        l = ['a', 1]
+        def f(x):
+            l.append(x)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as excinfo:
+            a.build_types(f, [int])
+        assert 'Happened at file' in excinfo.value.source
+        assert 'Known variable annotations:' in excinfo.value.source
+
     def test_str_format_error(self):
         def f(s, x):
             return s.format(x)
@@ -4159,6 +4181,21 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         assert isinstance(a.build_types(f, []), annmodel.SomeOrderedDict)
+
+    def test_enumerate_none(self):
+        # enumerate(None) can occur as an intermediate step during a full
+        # annotation, because the None will be generalized later to
+        # None-or-list for example
+        def f(flag):
+            if flag:
+                x = None
+            else:
+                x = [42]
+            return enumerate(x).next()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert s.items[1].const == 42
 
 
 def g(n):

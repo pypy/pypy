@@ -9,7 +9,7 @@ from rpython.rlib.runicode import (
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
@@ -69,8 +69,9 @@ class W_UnicodeObject(W_Root):
 
     def ord(self, space):
         if len(self._value) != 1:
-            msg = "ord() expected a character, but string of length %d found"
-            raise operationerrfmt(space.w_TypeError, msg, len(self._value))
+            raise oefmt(space.w_TypeError,
+                         "ord() expected a character, but string of length %d "
+                         "found", len(self._value))
         return space.wrap(ord(self._value[0]))
 
     def _new(self, value):
@@ -164,8 +165,8 @@ class W_UnicodeObject(W_Root):
             (space.isinstance_w(w_obj, space.w_unicode) and
              space.findattr(w_obj, space.wrap('__unicode__')) is None)):
             if encoding is not None or errors is not None:
-                raise operationerrfmt(space.w_TypeError,
-                                      "decoding Unicode is not supported")
+                raise oefmt(space.w_TypeError,
+                            "decoding Unicode is not supported")
             if (is_precisely_unicode and
                 space.is_w(w_unicodetype, space.w_unicode)):
                 return w_obj
@@ -300,16 +301,16 @@ class W_UnicodeObject(W_Root):
                 elif space.isinstance_w(w_newval, space.w_int):
                     newval = space.int_w(w_newval)
                     if newval < 0 or newval > maxunicode:
-                        raise operationerrfmt(space.w_TypeError,
-                                              "character mapping must be in "
-                                              "range(%s)", hex(maxunicode + 1))
+                        raise oefmt(space.w_TypeError,
+                                    "character mapping must be in range(%s)",
+                                    hex(maxunicode + 1))
                     result.append(unichr(newval))
                 elif space.isinstance_w(w_newval, space.w_unicode):
                     result.append(space.unicode_w(w_newval))
                 else:
-                    raise operationerrfmt(space.w_TypeError,
-                                          "character mapping must return "
-                                          "integer, None or unicode")
+                    raise oefmt(space.w_TypeError,
+                                "character mapping must return integer, None "
+                                "or unicode")
         return W_UnicodeObject(u''.join(result))
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
@@ -435,9 +436,9 @@ def encode_object(space, w_object, encoding, errors):
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.wrap(0))
     if not space.isinstance_w(w_retval, space.w_str):
-        raise operationerrfmt(
-            space.w_TypeError,
-            "encoder did not return an string object (type '%T')", w_retval)
+        raise oefmt(space.w_TypeError,
+                    "encoder did not return an string object (type '%T')",
+                    w_retval)
     return w_retval
 
 
@@ -471,14 +472,13 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     # explicitly block bytearray on 2.7
     from .bytearrayobject import W_BytearrayObject
     if isinstance(w_obj, W_BytearrayObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "decoding bytearray is not supported")
+        raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
 
     w_retval = decode_object(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
-        raise operationerrfmt(space.w_TypeError,
-            "decoder did not return an unicode object (type '%T')",
-            w_retval)
+        raise oefmt(space.w_TypeError,
+                    "decoder did not return an unicode object (type '%T')",
+                    w_retval)
     assert isinstance(w_retval, W_UnicodeObject)
     return w_retval
 
@@ -1062,8 +1062,7 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
-        raise operationerrfmt(space.w_TypeError, "expected unicode, got '%T'",
-                              w_unistr)
+        raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     unistr = w_unistr._value
     result = ['\0'] * len(unistr)
     digits = ['0', '1', '2', '3', '4',

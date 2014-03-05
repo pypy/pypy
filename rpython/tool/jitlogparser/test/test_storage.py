@@ -1,5 +1,5 @@
 import py
-from pypy.tool.jitlogparser.storage import LoopStorage
+from rpython.tool.jitlogparser.storage import LoopStorage
 
 def test_load_codes():
     tmppath = py.test.ensuretemp('load_codes')

@@ -86,8 +86,21 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v1.is_null() or v2.is_null():
             self.make_constant_int(op.result, 0)
-        else:
-            self.emit_operation(op)
+            return
+        elif v2.is_constant():
+            val = v2.box.getint()
+            if val == -1 or v1.intbound.lower >= 0 \
+                and v1.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v1)
+                return
+        elif v1.is_constant():
+            val = v1.box.getint()
+            if val == -1 or v2.intbound.lower >= 0 \
+                and v2.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v2)
+                return
+
+        self.emit_operation(op)
 
     def optimize_INT_OR(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -258,7 +271,13 @@ class OptRewrite(Optimization):
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            raise InvalidLoop('A promote of a virtual (a recently allocated object) never makes sense!')
+            arg = value.get_constant_class(self.optimizer.cpu)
+            if arg:
+                addr = arg.getaddr()
+                name = self.optimizer.metainterp_sd.get_name_from_address(addr)
+            else:
+                name = "<unknown>"
+            raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.

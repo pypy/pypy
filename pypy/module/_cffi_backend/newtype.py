@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib.objectmodel import specialize
@@ -91,9 +91,8 @@ def new_array_type(space, w_ctptr, w_length):
                              space.wrap("first arg must be a pointer ctype"))
     ctitem = w_ctptr.ctitem
     if ctitem.size < 0:
-        raise operationerrfmt(space.w_ValueError,
-                              "array item of unknown size: '%s'",
-                              ctitem.name)
+        raise oefmt(space.w_ValueError, "array item of unknown size: '%s'",
+                    ctitem.name)
     if space.is_w(w_length, space.w_None):
         length = -1
         arraysize = -1
@@ -115,20 +114,43 @@ def new_array_type(space, w_ctptr, w_length):
 
 # ____________________________________________________________
 
-SF_MSVC_BITFIELDS = 1
-SF_GCC_ARM_BITFIELDS = 2
-SF_GCC_BIG_ENDIAN = 4
-SF_PACKED = 8
+
+SF_MSVC_BITFIELDS     = 0x01
+SF_GCC_ARM_BITFIELDS  = 0x02
+SF_GCC_X86_BITFIELDS  = 0x10
+
+SF_GCC_BIG_ENDIAN     = 0x04
+SF_GCC_LITTLE_ENDIAN  = 0x40
+
+SF_PACKED             = 0x08
+
 
 if sys.platform == 'win32':
-    DEFAULT_SFLAGS = SF_MSVC_BITFIELDS
+    DEFAULT_SFLAGS_PLATFORM = SF_MSVC_BITFIELDS
 else:
     if rffi_platform.getdefined('__arm__', ''):
-        DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
+        DEFAULT_SFLAGS_PLATFORM = SF_GCC_ARM_BITFIELDS
     else:
-        DEFAULT_SFLAGS = 0
-    if sys.byteorder == 'big':
-        DEFAULT_SFLAGS |= SF_GCC_BIG_ENDIAN
+        DEFAULT_SFLAGS_PLATFORM = SF_GCC_X86_BITFIELDS
+
+if sys.byteorder == 'big':
+    DEFAULT_SFLAGS_ENDIAN = SF_GCC_BIG_ENDIAN
+else:
+    DEFAULT_SFLAGS_ENDIAN = SF_GCC_LITTLE_ENDIAN
+
+
+def complete_sflags(sflags):
+    # add one of the SF_xxx_BITFIELDS flags if none is specified
+    if not (sflags & (SF_MSVC_BITFIELDS | SF_GCC_ARM_BITFIELDS |
+                      SF_GCC_X86_BITFIELDS)):
+        sflags |= DEFAULT_SFLAGS_PLATFORM
+    # add one of SF_GCC_xx_ENDIAN if none is specified
+    if not (sflags & (SF_GCC_BIG_ENDIAN | SF_GCC_LITTLE_ENDIAN)):
+        sflags |= DEFAULT_SFLAGS_ENDIAN
+    return sflags
+
+# ____________________________________________________________
+
 
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
@@ -141,8 +163,8 @@ def new_union_type(space, name):
 @unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
              sflags=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
-                             totalsize=-1, totalalignment=-1,
-                             sflags=DEFAULT_SFLAGS):
+                             totalsize=-1, totalalignment=-1, sflags=0):
+    sflags = complete_sflags(sflags)
     if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
             or w_ctype.size >= 0):
         raise OperationError(space.w_TypeError,
@@ -175,17 +197,16 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         if len(field_w) > 3: foffset = space.int_w(field_w[3])
         #
         if fname in fields_dict:
-            raise operationerrfmt(space.w_KeyError,
-                                  "duplicate field name '%s'", fname)
+            raise oefmt(space.w_KeyError, "duplicate field name '%s'", fname)
         #
         if ftype.size < 0:
             if (isinstance(ftype, ctypearray.W_CTypeArray) and fbitsize < 0
                     and (i == len(fields_w) - 1 or foffset != -1)):
                 with_var_array = True
             else:
-                raise operationerrfmt(space.w_TypeError,
-                    "field '%s.%s' has ctype '%s' of unknown size",
-                                  w_ctype.name, fname, ftype.name)
+                raise oefmt(space.w_TypeError,
+                            "field '%s.%s' has ctype '%s' of unknown size",
+                            w_ctype.name, fname, ftype.name)
         #
         if is_union:
             boffset = 0         # reset each field at offset 0
@@ -250,24 +271,21 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             # this is the case of a bitfield
 
             if foffset >= 0:
-                raise operationerrfmt(space.w_TypeError,
-                                      "field '%s.%s' is a bitfield, "
-                                      "but a fixed offset is specified",
-                                      w_ctype.name, fname)
+                raise oefmt(space.w_TypeError,
+                            "field '%s.%s' is a bitfield, but a fixed offset "
+                            "is specified", w_ctype.name, fname)
 
             if not (isinstance(ftype, ctypeprim.W_CTypePrimitiveSigned) or
                     isinstance(ftype, ctypeprim.W_CTypePrimitiveUnsigned) or
                     isinstance(ftype,ctypeprim.W_CTypePrimitiveCharOrUniChar)):
-                raise operationerrfmt(space.w_TypeError,
-                                      "field '%s.%s' declared as '%s' "
-                                      "cannot be a bit field",
-                                      w_ctype.name, fname, ftype.name)
+                raise oefmt(space.w_TypeError,
+                            "field '%s.%s' declared as '%s' cannot be a bit "
+                            "field", w_ctype.name, fname, ftype.name)
             if fbitsize > 8 * ftype.size:
-                raise operationerrfmt(space.w_TypeError,
-                                      "bit field '%s.%s' is declared '%s:%d',"
-                                      " which exceeds the width of the type",
-                                      w_ctype.name, fname,
-                                      ftype.name, fbitsize)
+                raise oefmt(space.w_TypeError,
+                            "bit field '%s.%s' is declared '%s:%d', which "
+                            "exceeds the width of the type",
+                            w_ctype.name, fname, ftype.name, fbitsize)
 
             # compute the starting position of the theoretical field
             # that covers a complete 'ftype', inside of which we will
@@ -277,9 +295,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
             if fbitsize == 0:
                 if fname != '':
-                    raise operationerrfmt(space.w_TypeError,
-                                          "field '%s.%s' is declared with :0",
-                                          w_ctype.name, fname)
+                    raise oefmt(space.w_TypeError,
+                                "field '%s.%s' is declared with :0",
+                                w_ctype.name, fname)
                 if (sflags & SF_MSVC_BITFIELDS) == 0:
                     # GCC's notion of "ftype :0;"
                     # pad boffset to a value aligned for "ftype"
@@ -308,10 +326,11 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                         # allowed position
                         if ((sflags & SF_PACKED) != 0 and
                             (bits_already_occupied & 7) != 0):
-                            raise operationerrfmt(space.w_NotImplementedError,
-                                "with 'packed', gcc would compile field "
-                                "'%s.%s' to reuse some bits in the previous "
-                                "field", w_ctype.name, fname)
+                            raise oefmt(space.w_NotImplementedError,
+                                        "with 'packed', gcc would compile "
+                                        "field '%s.%s' to reuse some bits in "
+                                        "the previous field",
+                                        w_ctype.name, fname)
                         field_offset_bytes += falign
                         assert boffset < field_offset_bytes * 8
                         boffset = field_offset_bytes * 8
@@ -362,9 +381,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         totalsize = (got + alignment - 1) & ~(alignment - 1)
         totalsize = totalsize or 1
     elif totalsize < got:
-        raise operationerrfmt(space.w_TypeError,
-                     "%s cannot be of size %d: there are fields at least "
-                     "up to %d", w_ctype.name, totalsize, got)
+        raise oefmt(space.w_TypeError,
+                    "%s cannot be of size %d: there are fields at least up to "
+                    "%d", w_ctype.name, totalsize, got)
     if totalalignment < 0:
         totalalignment = alignment
 
@@ -436,11 +455,11 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
         or isinstance(w_fresult, ctypearray.W_CTypeArray)):
         if (isinstance(w_fresult, ctypestruct.W_CTypeStructOrUnion) and
                 w_fresult.size < 0):
-            raise operationerrfmt(space.w_TypeError,
-                                  "result type '%s' is opaque", w_fresult.name)
+            raise oefmt(space.w_TypeError,
+                        "result type '%s' is opaque", w_fresult.name)
         else:
-            raise operationerrfmt(space.w_TypeError,
-                                  "invalid result type: '%s'", w_fresult.name)
+            raise oefmt(space.w_TypeError,
+                        "invalid result type: '%s'", w_fresult.name)
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, w_fresult, ellipsis)
     return fct

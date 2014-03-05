@@ -189,8 +189,7 @@ class PyPyConsole(code.InteractiveConsole):
             try:
                 code.exec_code(self.space, self.w_globals, self.w_globals)
             finally:
-                if self.tracelevel:
-                    self.space.unsettrace()
+                self.unsettrace()
             self.checktrace()
 
         # run doit() in an exception-catching box
@@ -203,7 +202,38 @@ class PyPyConsole(code.InteractiveConsole):
 
     def settrace(self):
         if self.tracelevel:
-            self.space.settrace()
+            ec = self.space.getexecutioncontext()
+            if not hasattr(self, '_orig_bytecode_only_trace'):
+                self._orig_bytecode_only_trace = ec.bytecode_only_trace
+            ec.bytecode_only_trace = self._do_bytecode_only_trace
+
+    def unsettrace(self):
+        if self.tracelevel:
+            ec = self.space.getexecutioncontext()
+            ec.bytecode_only_trace = self._orig_bytecode_only_trace
+
+    def _do_bytecode_only_trace(self, frame):
+        from pypy.tool.pydis import Bytecode, HAVE_ARGUMENT
+
+        if frame.hide():
+            return
+
+        self.unsettrace()
+        next_instr = frame.last_instr
+        opcode = ord(frame.pycode.co_code[next_instr])
+
+        oparg = 0
+        if opcode >= HAVE_ARGUMENT:
+            lo = ord(frame.pycode.co_code[next_instr+1])
+            hi = ord(frame.pycode.co_code[next_instr+2])
+            oparg = (hi * 256) | lo
+
+        class fake:
+            code = frame.pycode
+        bytecode = Bytecode(fake, next_instr, oparg, 0)
+        print '\t%-19s %s' % (str(frame.pycode.co_name) + ':',
+                              bytecode.repr_with_space(self.space))
+        self.settrace()
 
     def checktrace(self):
         s = self.space
@@ -213,11 +243,11 @@ class PyPyConsole(code.InteractiveConsole):
                                        s.wrap("__pytrace__")))
 
         if self.tracelevel > 0 and tracelevel == 0:
-            s.reset_trace()
+            self.unsettrace()
             print "Tracing disabled"
 
         if self.tracelevel == 0 and tracelevel > 0:
-            self.space.unsettrace()
+            self.unsettrace()
             print "Tracing enabled"
 
         self.tracelevel = tracelevel

@@ -499,6 +499,16 @@ class Transformer(object):
 
     def rewrite_op_hint(self, op):
         hints = op.args[1].value
+
+        # hack: if there are both 'promote' and 'promote_string', kill
+        # one of them based on the type of the value
+        if hints.get('promote_string') and hints.get('promote'):
+            hints = hints.copy()
+            if op.args[0].concretetype == lltype.Ptr(rstr.STR):
+                del hints['promote']
+            else:
+                del hints['promote_string']
+
         if hints.get('promote') and op.args[0].concretetype is not lltype.Void:
             assert op.args[0].concretetype != lltype.Ptr(rstr.STR)
             kind = getkind(op.args[0].concretetype)
@@ -963,21 +973,17 @@ class Transformer(object):
         return self._rewrite_equality(op, 'int_is_true')
 
     def rewrite_op_ptr_eq(self, op):
-        prefix = ''
         if self._is_rclass_instance(op.args[0]):
             assert self._is_rclass_instance(op.args[1])
             op = SpaceOperation('instance_ptr_eq', op.args, op.result)
-            prefix = 'instance_'
-        op1 = self._rewrite_equality(op, prefix + 'ptr_iszero')
+        op1 = self._rewrite_equality(op, 'ptr_iszero')
         return self._rewrite_cmp_ptrs(op1)
 
     def rewrite_op_ptr_ne(self, op):
-        prefix = ''
         if self._is_rclass_instance(op.args[0]):
             assert self._is_rclass_instance(op.args[1])
             op = SpaceOperation('instance_ptr_ne', op.args, op.result)
-            prefix = 'instance_'
-        op1 = self._rewrite_equality(op, prefix + 'ptr_nonzero')
+        op1 = self._rewrite_equality(op, 'ptr_nonzero')
         return self._rewrite_cmp_ptrs(op1)
 
     rewrite_op_ptr_iszero = _rewrite_cmp_ptrs

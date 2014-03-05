@@ -25,10 +25,9 @@ class UnicodeWithEncoding:
     def as_unicode(self):
         return self.unistr
 
-class TestPosixUnicode:
+class BasePosixUnicode:
     def setup_method(self, method):
-        self.ufilename = (unicode(udir.join('test_open')) +
-                          u'\u65e5\u672c.txt') # "Japan"
+        self.ufilename = self._get_filename()
         try:
             f = file(self.ufilename, 'w')
         except UnicodeEncodeError:
@@ -148,3 +147,13 @@ class TestPosixUnicode:
             rposix.unsetenv(self.path)
 
         interpret(f, []) # does not crash
+
+
+class TestPosixAscii(BasePosixUnicode):
+    def _get_filename(self):
+        return str(udir.join('test_open_ascii'))
+
+class TestPosixUnicode(BasePosixUnicode):
+    def _get_filename(self):
+        return (unicode(udir.join('test_open')) +
+                u'\u65e5\u672c.txt') # "Japan"

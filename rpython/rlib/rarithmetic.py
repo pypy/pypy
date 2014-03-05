@@ -690,9 +690,8 @@ def string_to_int(s, base=10):
     characters of 's'.  Raises ParseStringError in case of error.
     Raises ParseStringOverflowError in case the result does not fit.
     """
-    from rpython.rlib.rstring import NumberStringParser, \
-        ParseStringOverflowError, \
-        ParseStringError, strip_spaces
+    from rpython.rlib.rstring import (
+        NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
     p = NumberStringParser(s, literal, base, 'int')
     base = p.base
@@ -710,5 +709,4 @@ def string_to_int(s, base=10):
             result = ovfcheck(result + digit)
         except OverflowError:
             raise ParseStringOverflowError(p)
-
-
+string_to_int._elidable_function_ = True
