@@ -2,7 +2,6 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
-from pypy.interpreter.special import Ellipsis
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -171,7 +170,6 @@ class BaseConcreteArray(object):
         """
         if (space.isinstance_w(w_idx, space.w_str) or
             space.isinstance_w(w_idx, space.w_slice) or
-            isinstance(w_idx, Ellipsis) or
             space.is_w(w_idx, space.w_None)):
             raise IndexError
         if isinstance(w_idx, W_NDimArray) and not w_idx.is_scalar():
@@ -227,7 +225,7 @@ class BaseConcreteArray(object):
                 raise OperationError(space.w_IndexError, space.wrap(
                     "arrays used as indices must be of integer (or boolean) type"))
             return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
-        elif space.is_w(w_idx, space.w_None) or isinstance(w_idx, Ellipsis):
+        elif space.is_w(w_idx, space.w_None):
             return Chunks([NewAxisChunk()])
         result = []
         i = 0
