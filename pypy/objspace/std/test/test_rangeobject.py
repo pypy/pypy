@@ -109,6 +109,7 @@ class AppTestRangeListObject(object):
         assert not self.not_forced(r)
         assert r == [1, 2, 3, 4, 5, 6, 7]
 
+    def test_getitem_simple(self):
         r = range(4)
         assert r[-1] == 3
         assert r[3] == 3
