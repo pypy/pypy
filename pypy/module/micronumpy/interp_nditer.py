@@ -1,13 +1,12 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                              shape_agreement_multiple)
-from pypy.module.micronumpy.iter import MultiDimViewIterator, SliceIterator
-from pypy.module.micronumpy import support
-from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
+from pypy.module.micronumpy.concrete import SliceArray
 
 class AbstractIterator(object):
     def done(self):
@@ -199,7 +198,7 @@ def get_iter(space, order, arr, shape):
         backstrides = imp.backstrides
     r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                     shape, backward)
-    return MultiDimViewIterator(imp, imp.dtype, imp.start, r[0], r[1], shape)
+    return ArrayIter(imp, shape, r[0], r[1])
 
 def is_backward(imp, order):
     if order == 'K' or (order == 'C' and imp.order == 'C'):

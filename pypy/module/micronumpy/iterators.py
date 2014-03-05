@@ -40,7 +40,6 @@ next_skip_x(steps) tries to do the iteration for a number of steps at once,
 but then we cannot guarantee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
-from pypy.module.micronumpy import support
 from rpython.rlib import jit
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.base import W_NDimArray
@@ -133,8 +132,15 @@ class ArrayIter(object):
     def getitem(self):
         return self.array.getitem(self.offset)
 
+    def getitem_bool(self):
+        return self.array.getitem_bool(self.offset)
+
+    def setitem(self, elem):
+        self.array.setitem(self.offset, elem)
+
 class SliceIterator(object):
-    def __init__(self, arr, strides, backstrides, shape, order="C", backward=False, dtype=None):
+    def __init__(self, arr, strides, backstrides, shape, order="C",
+                    backward=False, dtype=None):
         self.indexes = [0] * (len(shape) - 1)
         self.offset = 0
         self.arr = arr
@@ -152,7 +158,8 @@ class SliceIterator(object):
             self.shapelen = len(self.shape)
         else:
             shape = [support.product(shape)]
-            self.strides, self.backstrides = support.calc_strides(shape, dtype, order)
+            self.strides, self.backstrides = support.calc_strides(shape,
+                                                           dtype, order)
             self.slicesize = support.product(shape)
             self.shapelen = 0
             self.gap = self.strides
@@ -179,14 +186,8 @@ class SliceIterator(object):
 
     def getslice(self):
         from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
-        return SliceArray(self.offset, self.gap, self.backstrides, [self.slicesize], self.arr.implementation, self.arr, self.dtype)
-
-    def getitem_bool(self):
-        return self.array.getitem_bool(self.offset)
-
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
-
+        return SliceArray(self.offset, self.gap, self.backstrides,
+        [self.slicesize], self.arr.implementation, self.arr, self.dtype)
 
 def AxisIter(array, shape, axis, cumulative):
     strides = array.get_strides()
