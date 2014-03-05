@@ -2,293 +2,275 @@
 #ifndef _STMGC_H
 #define _STMGC_H
 
-#include <stdlib.h>
+
+/* ==================== INTERNAL ==================== */
+
+/* See "API" below. */
+
+
+#include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <limits.h>
+#include <unistd.h>
 
-
-typedef intptr_t revision_t;
-typedef uintptr_t urevision_t;
-
-typedef struct stm_object_s {
-    revision_t h_tid;
-    revision_t h_revision;
-    revision_t h_original;
-} *gcptr;
-
-
-/* by convention the lower half of _tid is used to store the object type */
-#define stm_get_tid(o)       ((o)->h_tid & STM_USER_TID_MASK)
-#define stm_set_tid(o, tid)  ((o)->h_tid = ((o)->h_tid & ~STM_USER_TID_MASK) \
-                                           | (tid))
-
-#define STM_SIZE_OF_USER_TID       (sizeof(revision_t) / 2)    /* in bytes */
-#define STM_FIRST_GCFLAG           (1L << (8 * STM_SIZE_OF_USER_TID))
-#define STM_USER_TID_MASK          (STM_FIRST_GCFLAG - 1)
-#define PREBUILT_FLAGS             (STM_FIRST_GCFLAG * ((1<<0) | (1<<1) |    \
-                                               (1<<2) | (1<<3) | (1<<13)))
-#define PREBUILT_REVISION          1
-
-
-/* push roots around allocating functions! */
-
-/* allocate an object out of the local nursery */
-inline gcptr stm_allocate(size_t size, unsigned long tid);
-/* allocate an object that is be immutable. it cannot be changed with
-   a stm_write_barrier() or after the next commit */
-gcptr stm_allocate_immutable(size_t size, unsigned long tid);
-
-/* allocates a public reference to the object that will 
-   not be freed until stm_unregister_integer_address is 
-   called on the result (push roots!) */
-intptr_t stm_allocate_public_integer_address(gcptr);
-void stm_unregister_integer_address(intptr_t); /* push roots too! */
-_Bool stm_is_registered(gcptr);
-
-/* returns a never changing hash for the object */
-revision_t stm_hash(gcptr);
-/* returns a number for the object which is unique during its lifetime */
-revision_t stm_id(gcptr);
-/* returns nonzero if the two object-copy pointers belong to the
-same original object */
-#if 0 // (optimized version below)
-_Bool stm_pointer_equal(gcptr, gcptr);
-_Bool stm_pointer_equal_prebuilt(gcptr, gcptr); /* 2nd arg is known prebuilt */
+#if LONG_MAX == 2147483647
+# error "Requires a 64-bit environment"
 #endif
 
-/* to push/pop objects into the local shadowstack */
-#if 0     // (optimized version below)
-void stm_push_root(gcptr);
-gcptr stm_pop_root(void);
+
+#define TLPREFIX __attribute__((address_space(256)))
+
+typedef TLPREFIX struct object_s object_t;
+typedef TLPREFIX struct stm_segment_info_s stm_segment_info_t;
+typedef TLPREFIX struct stm_read_marker_s stm_read_marker_t;
+typedef TLPREFIX struct stm_creation_marker_s stm_creation_marker_t;
+typedef TLPREFIX char stm_char;
+typedef void* stm_jmpbuf_t[5];  /* for use with __builtin_setjmp() */
+
+struct stm_read_marker_s {
+    /* In every segment, every object has a corresponding read marker.
+       We assume that objects are at least 16 bytes long, and use
+       their address divided by 16.  The read marker is equal to
+       'STM_SEGMENT->transaction_read_version' if and only if the
+       object was read in the current transaction.  The nurseries
+       also have corresponding read markers, but they are never used. */
+    uint8_t rm;
+};
+
+struct stm_segment_info_s {
+    uint8_t transaction_read_version;
+    int segment_num;
+    char *segment_base;
+    stm_char *nursery_current;
+    uintptr_t nursery_end;
+    struct stm_thread_local_s *running_thread;
+    stm_jmpbuf_t *jmpbuf_ptr;
+};
+#define STM_SEGMENT           ((stm_segment_info_t *)4352)
+
+typedef struct stm_thread_local_s {
+    /* every thread should handle the shadow stack itself */
+    object_t **shadowstack, **shadowstack_base;
+    /* a generic optional thread-local object */
+    object_t *thread_local_obj;
+    /* the next fields are handled automatically by the library */
+    int associated_segment_num;
+    struct stm_thread_local_s *prev, *next;
+} stm_thread_local_t;
+
+/* this should use llvm's coldcc calling convention,
+   but it's not exposed to C code so far */
+void _stm_write_slowpath(object_t *);
+object_t *_stm_allocate_slowpath(ssize_t);
+object_t *_stm_allocate_external(ssize_t);
+void _stm_become_inevitable(const char*);
+void _stm_start_transaction(stm_thread_local_t *, stm_jmpbuf_t *);
+void _stm_collectable_safe_point(void);
+
+/* for tests, but also used in duhton: */
+object_t *_stm_allocate_old(ssize_t size_rounded_up);
+char *_stm_real_address(object_t *o);
+#ifdef STM_TESTS
+bool _stm_was_read(object_t *obj);
+bool _stm_was_written(object_t *obj);
+uint8_t _stm_get_page_flag(uintptr_t index);
+bool _stm_in_nursery(object_t *obj);
+bool _stm_in_transaction(stm_thread_local_t *tl);
+char *_stm_get_segment_base(long index);
+void _stm_test_switch(stm_thread_local_t *tl);
+void _stm_largemalloc_init_arena(char *data_start, size_t data_size);
+int _stm_largemalloc_resize_arena(size_t new_size);
+char *_stm_largemalloc_data_start(void);
+char *_stm_large_malloc(size_t request_size);
+void _stm_large_free(char *data);
+void _stm_large_dump(void);
+bool (*_stm_largemalloc_keep)(char *data);
+void _stm_largemalloc_sweep(void);
+void _stm_start_safe_point(void);
+void _stm_stop_safe_point(void);
+void _stm_set_nursery_free_count(uint64_t free_count);
+long _stm_count_modified_old_objects(void);
+long _stm_count_objects_pointing_to_nursery(void);
+object_t *_stm_enum_modified_old_objects(long index);
+object_t *_stm_enum_objects_pointing_to_nursery(long index);
+uint64_t _stm_total_allocated(void);
 #endif
 
-/* initialize/deinitialize the stm framework in the current thread */
-void stm_initialize(void);
-void stm_finalize(void);
-
-/* alternate initializers/deinitializers, to use for places that may or
-   may not be recursive, like callbacks from C code.  The return value
-   of the first one must be passed as argument to the second. */
-int stm_enter_callback_call(void);
-void stm_leave_callback_call(int);
-
-/* read/write barriers.
-
-   - the read barrier must be applied before reading from an object.
-     the result is valid as long as we're in the same transaction,
-     and stm_write_barrier() is not called on the same object.
-
-   - the write barrier must be applied before writing to an object.
-     the result is valid for a shorter period of time: we have to
-     do stm_write_barrier() again if we ended the transaction, or
-     if we did a potential collection (e.g. stm_allocate()).
-
-   - as an optimization, stm_repeat_read_barrier() can be used
-     instead of stm_read_barrier() if the object was already
-     obtained by a stm_read_barrier() in the same transaction.
-     The only thing that may have occurred is that a
-     stm_write_barrier() on the same object could have made it
-     invalid.
-
-   - a different optimization is to read immutable fields: in order
-     to do that, use stm_immut_read_barrier(), which only activates
-     on stubs.
-
-   - stm_repeat_write_barrier() can be used on an object on which
-     we already did stm_write_barrier(), but a potential collection
-     can have occurred.
-
-   - stm_write_barrier_noptr() is a slightly cheaper version of
-     stm_write_barrier(), for when we are going to write
-     non-gc-pointers into the object.
-*/
-#if 0     // (optimized version below)
-gcptr stm_read_barrier(gcptr);
-gcptr stm_write_barrier(gcptr);
-gcptr stm_repeat_read_barrier(gcptr);
-gcptr stm_immut_read_barrier(gcptr);
-gcptr stm_repeat_write_barrier(gcptr);   /* <= always returns its argument */
-gcptr stm_write_barrier_noptr(gcptr);
-#endif
-
-/* start a new transaction, calls callback(), and when it returns
-   finish that transaction.  callback() is called with the 'arg'
-   provided, and with a retry_counter number.  Must save roots around
-   this call.  The callback() is called repeatedly as long as it
-   returns a value > 0. */
-void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int));
-
-/* finish the current transaction, start a new one, or turn the current
-   transaction inevitable.  Must save roots around calls to these three
-   functions. */
-void stm_commit_transaction(void);
-void stm_begin_inevitable_transaction(void);
-void stm_become_inevitable(const char *reason);
-
-/* specialized usage: for custom setjmp/longjmp implementation.
-   Must save roots around calls. */
-void stm_begin_transaction(void *buf, void (*longjmp_callback)(void *));
-void stm_transaction_break(void *buf, void (*longjmp_callback)(void *));
-void stm_invalidate_jmp_buf(void *buf);
-
-/* debugging: check if we're currently running a transaction or not. */
-int stm_in_transaction(void);
-
-/* change the default transaction length, and ask if now would be a good
-   time to break the transaction (by returning from the 'callback' above
-   with a positive value). */
-void stm_set_transaction_length(long length_max); /* save roots! */
-_Bool stm_should_break_transaction(void);
-
-/* change the atomic counter by 'delta' and return the new value.  Used
-   with +1 to enter or with -1 to leave atomic mode, or with 0 to just
-   know the current value of the counter.  The current transaction is
-   *never* interrupted as long as this counter is positive. */
-long stm_atomic(long delta);
+#define _STM_GCFLAG_WRITE_BARRIER      0x01
+#define _STM_NSE_SIGNAL_MAX               1
+#define _STM_FAST_ALLOC           (66*1024)
 
 
-/* callback: get the size of an object */
-extern size_t stmcb_size(gcptr);
-
-/* callback: trace the content of an object */
-extern void stmcb_trace(gcptr, void visit(gcptr *));
-
-/* You can put one GC-tracked thread-local object here.
-   (Obviously it can be a container type containing more GC objects.)
-   It is set to NULL by stm_initialize(). */
-extern __thread gcptr stm_thread_local_obj;
-
-/* For tracking where aborts occurs, you can push/pop information
-   into this stack.  When an abort occurs this information is encoded
-   and flattened into a buffer which can later be retrieved with
-   stm_inspect_abort_info().  (XXX details not documented yet) */
-void stm_abort_info_push(gcptr obj, long fieldoffsets[]);
-void stm_abort_info_pop(long count);
-char *stm_inspect_abort_info(void);    /* turns inevitable, push roots! */
-
-/* mostly for debugging support */
-void stm_abort_and_retry(void);
-void stm_minor_collect(void);
-void stm_major_collect(void);
-
-/* weakref support: allocate a weakref object, and set it to point
-   weakly to 'obj'.  The weak pointer offset is hard-coded to be at
-   'size - WORD'.  Important: stmcb_trace() must NOT trace it.
-   Weakrefs are *immutable*!  Don't attempt to use stm_write_barrier()
-   on them. */
-gcptr stm_weakref_allocate(size_t size, unsigned long tid, gcptr obj);
-
-
-
-/****************  END OF PUBLIC INTERFACE  *****************/
-/************************************************************/
-
-/* Clear some memory when aborting a transaction in the current
-   thread. This is a provisional API. The information is stored
-   in the current tx_descriptor. */
-void stm_clear_on_abort(void *start, size_t bytes);
-
-/* If the current transaction aborts later, invoke 'callback(key)'.
-   If the current transaction commits, then the callback is forgotten.
-   You can only register one callback per key.  You can call
-   'stm_call_on_abort(key, NULL)' to cancel an existing callback. */
-void stm_call_on_abort(void *key, void callback(void *));
-
-/* only user currently is stm_allocate_public_integer_address() */
-/* needs to be in an inevitable transaction! */
-void stm_register_integer_address(intptr_t);
-
-/* enter single-threaded mode. Used e.g. when patching assembler
-   code that mustn't be executed in another thread while being
-   patched. This can be used to atomically update non-transactional
-   memory.
-   These calls may collect! */
-void stm_stop_all_other_threads(void);
-void stm_partial_commit_and_resume_other_threads(void);
-
-/* macro functionality */
-
-extern __thread gcptr *stm_shadowstack;
-extern __thread int stm_active;
-extern __thread char *stm_nursery_current;
-extern __thread char *stm_nursery_nextlimit;
-
-#define stm_push_root(obj)  (*stm_shadowstack++ = (obj))
-#define stm_pop_root()      (*--stm_shadowstack)
-
-extern __thread revision_t stm_private_rev_num;
-gcptr stm_DirectReadBarrier(gcptr);
-gcptr stm_WriteBarrier(gcptr);
-gcptr stm_RepeatReadBarrier(gcptr);
-gcptr stm_ImmutReadBarrier(gcptr);
-gcptr stm_RepeatWriteBarrier(gcptr);
-static const revision_t GCFLAG_PREBUILT_ORIGINAL = STM_FIRST_GCFLAG << 3;
-static const revision_t GCFLAG_PUBLIC_TO_PRIVATE = STM_FIRST_GCFLAG << 4;
-static const revision_t GCFLAG_WRITE_BARRIER = STM_FIRST_GCFLAG << 5;
-static const revision_t GCFLAG_MOVED = STM_FIRST_GCFLAG << 6;
-static const revision_t GCFLAG_STUB = STM_FIRST_GCFLAG << 8;
-extern __thread char *stm_read_barrier_cache;
-#define FX_MASK 65535
-#define FXCACHE_AT(obj)  \
-    (*(gcptr *)(stm_read_barrier_cache + ((revision_t)(obj) & FX_MASK)))
-
-#define UNLIKELY(test)  __builtin_expect(test, 0)
-
-_Bool stm_direct_pointer_equal(gcptr, gcptr);
-#define stm_pointer_equal(p1, p2)                    \
-    (((p1) == (p2))                                  \
-    || ((p1) != NULL && (p2) != NULL                 \
-        && stm_direct_pointer_equal(p1, p2)))
-#define stm_pointer_equal_prebuilt(p1, p2)           \
-    (((p1) == (p2))                                  \
-     || (((p1) != NULL) && ((p1)->h_original == (revision_t)(p2)) &&    \
-         !((p1)->h_tid & GCFLAG_PREBUILT_ORIGINAL)))
-
-#ifdef STM_BARRIER_COUNT
-# define STM_BARRIER_NUMBERS  12
-# define STM_BARRIER_NAMES "stm_read_barrier\n"         \
-                           "stm_write_barrier\n"        \
-                           "stm_repeat_read_barrier\n"  \
-                           "stm_immut_read_barrier\n"   \
-                           "stm_repeat_write_barrier\n" \
-                           "stm_write_barrier_noptr\n"
-# define STM_COUNT(id, x)  (stm_barriercount[id]++, x)
-extern long stm_barriercount[STM_BARRIER_NUMBERS];
+/* ==================== HELPERS ==================== */
+#ifdef NDEBUG
+#define OPT_ASSERT(cond) do { if (!(cond)) __builtin_unreachable(); } while (0)
 #else
-# define STM_COUNT(id, x)  (x)
+#define OPT_ASSERT(cond) assert(cond)
 #endif
+#define LIKELY(x)   __builtin_expect(x, true)
+#define UNLIKELY(x) __builtin_expect(x, false)
+#define IMPLY(a, b) (!(a) || (b))
 
-#define stm_read_barrier(obj)                                   \
-    (UNLIKELY(((obj)->h_revision != stm_private_rev_num) &&     \
-              (FXCACHE_AT(obj) != (obj))) ?                     \
-        STM_COUNT(0, stm_DirectReadBarrier(obj))                \
-     :  STM_COUNT(1, obj))
 
-#define stm_write_barrier(obj)                                  \
-    (UNLIKELY(((obj)->h_revision != stm_private_rev_num) ||     \
-              (((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0)) ?   \
-        STM_COUNT(2, stm_WriteBarrier(obj))                     \
-     :  STM_COUNT(3, obj))
+/* ==================== PUBLIC API ==================== */
 
-#define stm_repeat_read_barrier(obj)                            \
-    (UNLIKELY(((obj)->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE |       \
-                               GCFLAG_MOVED)) != 0) ?           \
-        STM_COUNT(4, stm_RepeatReadBarrier(obj))                \
-     :  STM_COUNT(5, obj))
+/* Structure of objects
+   --------------------
 
-#define stm_immut_read_barrier(obj)                             \
-    (UNLIKELY(((obj)->h_tid & GCFLAG_STUB) != 0) ?              \
-        STM_COUNT(6, stm_ImmutReadBarrier(obj))                 \
-     :  STM_COUNT(7, obj))
+   Objects manipulated by the user program, and managed by this library,
+   must start with a "struct object_s" field.  Pointers to any user object
+   must use the "TLPREFIX struct foo *" type --- don't forget TLPREFIX.
+   The best is to use typedefs like above.
 
-#define stm_repeat_write_barrier(obj)                           \
-    (UNLIKELY(((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0) ?     \
-        STM_COUNT(8, stm_RepeatWriteBarrier(obj))               \
-     :  STM_COUNT(9, obj))
+   The object_s part contains some fields reserved for the STM library.
+   Right now this is only one byte.
+*/
 
-#define stm_write_barrier_noptr(obj)                            \
-    (UNLIKELY((obj)->h_revision != stm_private_rev_num) ?       \
-        STM_COUNT(10, stm_WriteBarrier(obj))                    \
-     :  STM_COUNT(11, obj))
+struct object_s {
+    uint32_t stm_flags;            /* reserved for the STM library */
+};
 
+/* The read barrier must be called whenever the object 'obj' is read.
+   It is not required to call it before reading: it can be delayed for a
+   bit, but we must still be in the same "scope": no allocation, no
+   transaction commit, nothing that can potentially collect or do a safe
+   point (like stm_write() on a different object).  Also, if we might
+   have finished the transaction and started the next one, then
+   stm_read() needs to be called again.  It can be omitted if
+   stm_write() is called, or immediately after getting the object from
+   stm_allocate(), as long as the rules above are respected.
+*/
+static inline void stm_read(object_t *obj)
+{
+    ((stm_read_marker_t *)(((uintptr_t)obj) >> 4))->rm =
+        STM_SEGMENT->transaction_read_version;
+}
+
+/* The write barrier must be called *before* doing any change to the
+   object 'obj'.  If we might have finished the transaction and started
+   the next one, then stm_write() needs to be called again.  It is not
+   necessary to call it immediately after stm_allocate().
+*/
+static inline void stm_write(object_t *obj)
+{
+    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0))
+        _stm_write_slowpath(obj);
+}
+
+/* Must be provided by the user of this library.
+   The "size rounded up" must be a multiple of 8 and at least 16.
+   "Tracing" an object means enumerating all GC references in it,
+   by invoking the callback passed as argument.
+*/
+extern ssize_t stmcb_size_rounded_up(struct object_s *);
+extern void stmcb_trace(struct object_s *, void (object_t **));
+
+
+/* Allocate an object of the given size, which must be a multiple
+   of 8 and at least 16.  In the fast-path, this is inlined to just
+   a few assembler instructions.
+*/
+static inline object_t *stm_allocate(ssize_t size_rounded_up)
+{
+    OPT_ASSERT(size_rounded_up >= 16);
+    OPT_ASSERT((size_rounded_up & 7) == 0);
+
+    if (UNLIKELY(size_rounded_up >= _STM_FAST_ALLOC))
+        return _stm_allocate_external(size_rounded_up);
+
+    stm_char *p = STM_SEGMENT->nursery_current;
+    stm_char *end = p + size_rounded_up;
+    STM_SEGMENT->nursery_current = end;
+    if (UNLIKELY((uintptr_t)end > STM_SEGMENT->nursery_end))
+        return _stm_allocate_slowpath(size_rounded_up);
+
+    return (object_t *)p;
+}
+
+
+/* stm_setup() needs to be called once at the beginning of the program.
+   stm_teardown() can be called at the end, but that's not necessary
+   and rather meant for tests.
+ */
+void stm_setup(void);
+void stm_teardown(void);
+
+/* Push and pop roots from/to the shadow stack. Only allowed inside
+   transaction. */
+#define STM_PUSH_ROOT(tl, p)   (*((tl).shadowstack++) = (object_t *)(p))
+#define STM_POP_ROOT(tl, p)    ((p) = (typeof(p))*(--(tl).shadowstack))
+
+
+/* Every thread needs to have a corresponding stm_thread_local_t
+   structure.  It may be a "__thread" global variable or something else.
+   Use the following functions at the start and at the end of a thread.
+   The user of this library needs to maintain the two shadowstack fields;
+   at any call to stm_allocate(), these fields should point to a range
+   of memory that can be walked in order to find the stack roots.
+*/
+void stm_register_thread_local(stm_thread_local_t *tl);
+void stm_unregister_thread_local(stm_thread_local_t *tl);
+
+/* Starting and ending transactions.  stm_read(), stm_write() and
+   stm_allocate() should only be called from within a transaction.
+   Use the macro STM_START_TRANSACTION() to start a transaction that
+   can be restarted using the 'jmpbuf' (a local variable of type
+   stm_jmpbuf_t). */
+#define STM_START_TRANSACTION(tl, jmpbuf)  ({                   \
+    while (__builtin_setjmp(jmpbuf) == 1) { /*redo setjmp*/ }   \
+    _stm_start_transaction(tl, &jmpbuf);                        \
+})
+
+/* Start an inevitable transaction, if it's going to return from the
+   current function immediately. */
+static inline void stm_start_inevitable_transaction(stm_thread_local_t *tl) {
+    _stm_start_transaction(tl, NULL);
+}
+
+/* Commit a transaction. */
+void stm_commit_transaction(void);
+
+/* Abort the currently running transaction. */
+void stm_abort_transaction(void) __attribute__((noreturn));
+
+/* Turn the current transaction inevitable.  The 'jmpbuf' passed to
+   STM_START_TRANSACTION() is not going to be used any more after
+   this call (but the stm_become_inevitable() itself may still abort). */
+static inline void stm_become_inevitable(const char* msg) {
+    if (STM_SEGMENT->jmpbuf_ptr != NULL)
+        _stm_become_inevitable(msg);
+}
+
+/* Forces a safe-point if needed.  Normally not needed: this is
+   automatic if you call stm_allocate(). */
+static inline void stm_safe_point(void) {
+    if (STM_SEGMENT->nursery_end <= _STM_NSE_SIGNAL_MAX)
+        _stm_collectable_safe_point();
+}
+
+/* Forces a collection. */
+void stm_collect(long level);
+
+/* Prepare an immortal "prebuilt" object managed by the GC.  Takes a
+   pointer to an 'object_t', which should not actually be a GC-managed
+   structure but a real static structure.  Returns the equivalent
+   GC-managed pointer.  Works by copying it into the GC pages, following
+   and fixing all pointers it contains, by doing stm_setup_prebuilt() on
+   each of them recursively.  (Note that this will leave garbage in the
+   static structure, but it should never be used anyway.) */
+object_t *stm_setup_prebuilt(object_t *);
+
+/* Hash, id.  The id is just the address of the object (of the address
+   where it *will* be after the next minor collection).  The hash is the
+   same, mangled -- except on prebuilt objects, where it can be
+   controlled for each prebuilt object individually.  (Useful uor PyPy) */
+long stm_identityhash(object_t *obj);
+long stm_id(object_t *obj);
+void stm_set_prebuilt_identityhash(object_t *obj, uint64_t hash);
+
+
+/* ==================== END ==================== */
 
 #endif

@@ -1,16 +1,29 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-/* This file is optional: it can be used to compile all .c files
- * into one single big compilation unit.  You must compile either
- * this, or individually the other .c files in this directory.
- */
+#define _GNU_SOURCE
+#include "stmgc.h"
+#include "stm/atomic.h"
+#include "stm/list.h"
+#include "stm/core.h"
+#include "stm/pagecopy.h"
+#include "stm/pages.h"
+#include "stm/gcpage.h"
+#include "stm/sync.h"
+#include "stm/largemalloc.h"
+#include "stm/nursery.h"
+#include "stm/contention.h"
+#include "stm/fprintcolor.h"
 
-#include "et.c"
-#include "lists.c"
-#include "steal.c"
-#include "nursery.c"
-#include "gcpage.c"
-#include "stmsync.c"
-#include "extra.c"
-#include "weakref.c"
-#include "dbgmem.c"
-#include "fprintcolor.c"
+#include "stm/misc.c"
+#include "stm/list.c"
+#include "stm/pagecopy.c"
+#include "stm/pages.c"
+#include "stm/prebuilt.c"
+#include "stm/gcpage.c"
+#include "stm/largemalloc.c"
+#include "stm/nursery.c"
+#include "stm/sync.c"
+#include "stm/setup.c"
+#include "stm/hash_id.c"
+#include "stm/core.c"
+#include "stm/contention.c"
+#include "stm/fprintcolor.c"

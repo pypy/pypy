@@ -15,14 +15,14 @@ def mangle(lines):
         yield line
 
 def main(stmgc_dir):
-    stmgc_dir = py.path.local(stmgc_dir).join('c4')
+    stmgc_dir = py.path.local(stmgc_dir).join('c7')
     popen = subprocess.Popen(['hg', 'id', '-i'], cwd=str(stmgc_dir),
                              stdout=subprocess.PIPE)
     rev = popen.stdout.read().strip()
     popen.wait()
     #
     stmgc_dest = py.path.local(__file__).join('..', 'src_stm')
-    plist = stmgc_dir.visit(rec=lambda p: False)
+    plist = stmgc_dir.visit(rec=lambda p: p.basename == 'stm')
     for p in sorted(plist):
         if not (p.basename.endswith('.c') or p.basename.endswith('.h')):
             continue
