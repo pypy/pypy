@@ -1,4 +1,3 @@
-
 """ Interpreter-level implementation of structure, exposing ll-structure
 to app-level with apropriate interface
 """
@@ -19,6 +18,7 @@ from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi, rgc
 from rpython.rlib.rarithmetic import intmask, signedtype, widen
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
+
 
 def unpack_fields(space, w_fields):
     fields_w = space.unpackiterable(w_fields)

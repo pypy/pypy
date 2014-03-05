@@ -1,4 +1,3 @@
-
 """ This file makes open() and friends RPython. Note that RFile should not
 be used directly and instead it's magically appearing each time you call
 python builtin open()
@@ -17,27 +16,27 @@ eci = ExternalCompilationInfo(includes=['stdio.h', 'unistd.h', 'sys/types.h'])
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
-FILE = lltype.Struct('FILE') # opaque type maybe
-
 class CConfig(object):
     _compilation_info_ = eci
 
     off_t = platform.SimpleType('off_t')
 
+config = platform.configure(CConfig)
 
-CC = platform.configure(CConfig)
-OFF_T = CC['off_t']
+OFF_T = config['off_t']
+FILE = lltype.Struct('FILE')  # opaque type maybe
+
 c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
 c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                                     lltype.Ptr(FILE)], rffi.SIZE_T)
+                                 lltype.Ptr(FILE)], rffi.SIZE_T)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                                   lltype.Ptr(FILE)], rffi.SIZE_T)
+                               lltype.Ptr(FILE)], rffi.SIZE_T)
 c_feof = llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
 c_ferror = llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
 c_clearerror = llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
 c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
-                          rffi.INT)
+                     rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
@@ -52,6 +51,13 @@ c_pclose = llexternal('pclose', [lltype.Ptr(FILE)], rffi.INT)
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
+
+
+def _error(ll_file):
+    errno = c_ferror(ll_file)
+    c_clearerror(ll_file)
+    raise OSError(errno, os.strerror(errno))
+
 
 def create_file(filename, mode="r", buffering=-1):
     assert buffering == -1
@@ -71,12 +77,14 @@ def create_file(filename, mode="r", buffering=-1):
         lltype.free(ll_name, flavor='raw')
     return RFile(ll_f)
 
+
 def create_temp_rfile():
     res = c_tmpfile()
     if not res:
         errno = rposix.get_errno()
         raise OSError(errno, os.strerror(errno))
     return RFile(res)
+
 
 def create_popen_file(command, type):
     ll_command = rffi.str2charp(command)
@@ -92,6 +100,7 @@ def create_popen_file(command, type):
     finally:
         lltype.free(ll_command, flavor='raw')
     return RPopenFile(ll_f)
+
 
 class RFile(object):
     def __init__(self, ll_file):
@@ -224,7 +233,7 @@ class RFile(object):
         while raw_buf[strlen] != '\0':
             strlen += 1
         if (strlen == BASE_LINE_SIZE - 1 and
-              raw_buf[BASE_LINE_SIZE - 2] != '\n'):
+                raw_buf[BASE_LINE_SIZE - 2] != '\n'):
             return -1    # overflow!
         # common case
         return strlen
@@ -255,9 +264,3 @@ class RFile(object):
 
 class RPopenFile(RFile):
     _do_close = staticmethod(c_pclose)
-
-
-def _error(ll_file):
-    errno = c_ferror(ll_file)
-    c_clearerror(ll_file)
-    raise OSError(errno, os.strerror(errno))
