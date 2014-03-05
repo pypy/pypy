@@ -2,7 +2,8 @@ from rpython.rtyper.lltypesystem import lltype, rclass
 from rpython.flowspace.model import checkgraph, copygraph
 from rpython.flowspace.model import Block, Link, SpaceOperation, Constant
 from rpython.translator.unsimplify import split_block, varoftype
-from rpython.annotator.model import lltype_to_annotation, s_Int
+from rpython.annotator.model import s_Int
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import (MixLevelHelperAnnotator,
                                       cast_base_ptr_to_instance)
 from rpython.rlib import rstm

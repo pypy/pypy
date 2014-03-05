@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.framework import ( TYPE_ID,
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
-from rpython.rtyper import rmodel
+from rpython.rtyper import rmodel, llannotation
 
 
 class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
@@ -14,7 +14,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                                       s_gc, s_typeid16)
         gc = self.gcdata.gc
         #
-        s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        s_gcref = llannotation.SomePtr(llmemory.GCREF)
 
         self.malloc_weakref_ptr = self._getfn(
             GCClass.malloc_weakref.im_func,
@@ -25,7 +25,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             return gc.get_size(obj)
         pypy_stmcb_size.c_name = "pypy_stmcb_size"
         self.autoregister_ptrs.append(
-            getfn(pypy_stmcb_size, [annmodel.SomeAddress()],
+            getfn(pypy_stmcb_size, [llannotation.SomeAddress()],
                   annmodel.SomeInteger()))
         #
         def invokecallback(root, visit_fn):
@@ -34,8 +34,8 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             gc.trace(obj, invokecallback, visit_fn)
         pypy_stmcb_trace.c_name = "pypy_stmcb_trace"
         self.autoregister_ptrs.append(
-            getfn(pypy_stmcb_trace, [annmodel.SomeAddress(),
-                                     annmodel.SomePtr(GCClass.VISIT_FPTR)],
+            getfn(pypy_stmcb_trace, [llannotation.SomeAddress(),
+                                     llannotation.SomePtr(GCClass.VISIT_FPTR)],
                   annmodel.s_None))
 
     def build_root_walker(self):

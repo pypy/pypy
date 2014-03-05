@@ -331,6 +331,7 @@ class CStandaloneBuilder(CBuilder):
         from rpython.annotator import model as annmodel
         from rpython.rtyper.lltypesystem import rffi
         from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+        from rpython.rtyper.llannotation import lltype_to_annotation
         entrypoint = self.entrypoint
         #
         def entrypoint_wrapper(argc, argv):
@@ -343,7 +344,7 @@ class CStandaloneBuilder(CBuilder):
         #
         mix = MixLevelHelperAnnotator(self.translator.rtyper)
         args_s = [annmodel.SomeInteger(),
-                  annmodel.lltype_to_annotation(rffi.CCHARPP)]
+                  lltype_to_annotation(rffi.CCHARPP)]
         s_result = annmodel.SomeInteger()
         graph = mix.getgraph(entrypoint_wrapper, args_s, s_result)
         mix.finish()

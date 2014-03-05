@@ -605,12 +605,12 @@ class TestTransform(BaseTestTransform):
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,
                                        random_effects_on_gcobjs=True,
-                                       threadsafe=True)   # GIL is released
+                                       releasegil=True)
 external_any_gcobj = rffi.llexternal('external_any_gcobj', [], lltype.Void,
                                      _callable=lambda: None,
                                      random_effects_on_gcobjs=True,
-                                     threadsafe=False)   # GIL is not released
+                                     releasegil=False)
 external_safest = rffi.llexternal('external_safest', [], lltype.Void,
                                   _callable=lambda: None,
                                   random_effects_on_gcobjs=False,
-                                  threadsafe=False)   # GIL is not released
+                                  releasegil=False)
