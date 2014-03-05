@@ -542,7 +542,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
 
 def _string_to_w_long(space, w_longtype, w_source, string, base=10):
     try:
-        bigint = rbigint.fromstr2(string, base)
+        bigint = rbigint.fromstr(string, base)
     except ParseStringError as e:
         from pypy.objspace.std.intobject import wrap_parsestringerror
         raise wrap_parsestringerror(space, e, w_source)
