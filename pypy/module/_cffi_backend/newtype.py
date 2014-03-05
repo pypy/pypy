@@ -114,20 +114,43 @@ def new_array_type(space, w_ctptr, w_length):
 
 # ____________________________________________________________
 
-SF_MSVC_BITFIELDS = 1
-SF_GCC_ARM_BITFIELDS = 2
-SF_GCC_BIG_ENDIAN = 4
-SF_PACKED = 8
+
+SF_MSVC_BITFIELDS     = 0x01
+SF_GCC_ARM_BITFIELDS  = 0x02
+SF_GCC_X86_BITFIELDS  = 0x10
+
+SF_GCC_BIG_ENDIAN     = 0x04
+SF_GCC_LITTLE_ENDIAN  = 0x40
+
+SF_PACKED             = 0x08
+
 
 if sys.platform == 'win32':
-    DEFAULT_SFLAGS = SF_MSVC_BITFIELDS
+    DEFAULT_SFLAGS_PLATFORM = SF_MSVC_BITFIELDS
 else:
     if rffi_platform.getdefined('__arm__', ''):
-        DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
+        DEFAULT_SFLAGS_PLATFORM = SF_GCC_ARM_BITFIELDS
     else:
-        DEFAULT_SFLAGS = 0
-    if sys.byteorder == 'big':
-        DEFAULT_SFLAGS |= SF_GCC_BIG_ENDIAN
+        DEFAULT_SFLAGS_PLATFORM = SF_GCC_X86_BITFIELDS
+
+if sys.byteorder == 'big':
+    DEFAULT_SFLAGS_ENDIAN = SF_GCC_BIG_ENDIAN
+else:
+    DEFAULT_SFLAGS_ENDIAN = SF_GCC_LITTLE_ENDIAN
+
+
+def complete_sflags(sflags):
+    # add one of the SF_xxx_BITFIELDS flags if none is specified
+    if not (sflags & (SF_MSVC_BITFIELDS | SF_GCC_ARM_BITFIELDS |
+                      SF_GCC_X86_BITFIELDS)):
+        sflags |= DEFAULT_SFLAGS_PLATFORM
+    # add one of SF_GCC_xx_ENDIAN if none is specified
+    if not (sflags & (SF_GCC_BIG_ENDIAN | SF_GCC_LITTLE_ENDIAN)):
+        sflags |= DEFAULT_SFLAGS_ENDIAN
+    return sflags
+
+# ____________________________________________________________
+
 
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
@@ -140,8 +163,8 @@ def new_union_type(space, name):
 @unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
              sflags=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
-                             totalsize=-1, totalalignment=-1,
-                             sflags=DEFAULT_SFLAGS):
+                             totalsize=-1, totalalignment=-1, sflags=0):
+    sflags = complete_sflags(sflags)
     if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
             or w_ctype.size >= 0):
         raise OperationError(space.w_TypeError,

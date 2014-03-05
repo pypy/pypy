@@ -2886,7 +2886,7 @@ def _test_bitfield_details(flag):
                                        ('b1', BInt, 9),
                                        ('b2', BUInt, 7),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag % 2 == 0:   # gcc, any variant
+    if not (flag & SF_MSVC_BITFIELDS):   # gcc, any variant
         assert typeoffsetof(BStruct, 'c') == (BChar, 3)
         assert sizeof(BStruct) == 4
     else:               # msvc
@@ -2901,20 +2901,20 @@ def _test_bitfield_details(flag):
     p.c = b'\x9D'
     raw = buffer(p)[:]
     if sys.byteorder == 'little':
-        if flag == 0 or flag == 2:  # gcc, little endian
-            assert raw == b'A7\xC7\x9D'
-        elif flag == 1: # msvc
+        if flag & SF_MSVC_BITFIELDS:
             assert raw == b'A\x00\x00\x007\xC7\x00\x00\x9D\x00\x00\x00'
-        elif flag == 4: # gcc, big endian
+        elif flag & SF_GCC_LITTLE_ENDIAN:
+            assert raw == b'A7\xC7\x9D'
+        elif flag & SF_GCC_BIG_ENDIAN:
             assert raw == b'A\xE3\x9B\x9D'
         else:
             raise AssertionError("bad flag")
     else:
-        if flag == 0 or flag == 2:  # gcc
-            assert raw == b'A\xC77\x9D'
-        elif flag == 1: # msvc
+        if flag & SF_MSVC_BITFIELDS:
             assert raw == b'A\x00\x00\x00\x00\x00\xC77\x9D\x00\x00\x00'
-        elif flag == 4: # gcc, big endian
+        elif flag & SF_GCC_LITTLE_ENDIAN:
+            assert raw == b'A\xC77\x9D'
+        elif flag & SF_GCC_BIG_ENDIAN:
             assert raw == b'A\x9B\xE3\x9D'
         else:
             raise AssertionError("bad flag")
@@ -2924,18 +2924,15 @@ def _test_bitfield_details(flag):
                                        ('',  BShort, 9),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
     assert typeoffsetof(BStruct, 'c') == (BChar, 4)
-    if flag == 0:   # gcc
-        assert sizeof(BStruct) == 5
-        assert alignof(BStruct) == 1
-    elif flag == 1: # msvc
+    if flag & SF_MSVC_BITFIELDS:
         assert sizeof(BStruct) == 6
         assert alignof(BStruct) == 2
-    elif flag == 2: # gcc ARM
-        assert sizeof(BStruct) == 6
-        assert alignof(BStruct) == 2
-    elif flag == 4: # gcc, big endian
+    elif flag & SF_GCC_X86_BITFIELDS:
         assert sizeof(BStruct) == 5
         assert alignof(BStruct) == 1
+    elif flag & SF_GCC_ARM_BITFIELDS:
+        assert sizeof(BStruct) == 6
+        assert alignof(BStruct) == 2
     else:
         raise AssertionError("bad flag")
     #
@@ -2944,37 +2941,43 @@ def _test_bitfield_details(flag):
                                        ('',  BInt, 0),
                                        ('',  BInt, 0),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag == 0:    # gcc
-        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
-        assert sizeof(BStruct) == 5
-        assert alignof(BStruct) == 1
-    elif flag == 1:  # msvc
+    if flag & SF_MSVC_BITFIELDS:
         assert typeoffsetof(BStruct, 'c') == (BChar, 1)
         assert sizeof(BStruct) == 2
         assert alignof(BStruct) == 1
-    elif flag == 2:  # gcc ARM
-        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
-        assert sizeof(BStruct) == 8
-        assert alignof(BStruct) == 4
-    elif flag == 4:  # gcc, big endian
+    elif flag & SF_GCC_X86_BITFIELDS:
         assert typeoffsetof(BStruct, 'c') == (BChar, 4)
         assert sizeof(BStruct) == 5
         assert alignof(BStruct) == 1
+    elif flag & SF_GCC_ARM_BITFIELDS:
+        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+        assert sizeof(BStruct) == 8
+        assert alignof(BStruct) == 4
     else:
         raise AssertionError("bad flag")
 
 
-def test_bitfield_as_gcc():
-    _test_bitfield_details(flag=0)
+SF_MSVC_BITFIELDS     = 0x01
+SF_GCC_ARM_BITFIELDS  = 0x02
+SF_GCC_X86_BITFIELDS  = 0x10
+
+SF_GCC_BIG_ENDIAN     = 0x04
+SF_GCC_LITTLE_ENDIAN  = 0x40
+
+SF_PACKED             = 0x08
+
+def test_bitfield_as_x86_gcc():
+    _test_bitfield_details(flag=SF_GCC_X86_BITFIELDS|SF_GCC_LITTLE_ENDIAN)
 
 def test_bitfield_as_msvc():
-    _test_bitfield_details(flag=1)
+    _test_bitfield_details(flag=SF_MSVC_BITFIELDS|SF_GCC_LITTLE_ENDIAN)
 
 def test_bitfield_as_arm_gcc():
-    _test_bitfield_details(flag=2)
+    _test_bitfield_details(flag=SF_GCC_ARM_BITFIELDS|SF_GCC_LITTLE_ENDIAN)
 
-def test_bitfield_as_big_endian():
-    _test_bitfield_details(flag=4)
+def test_bitfield_as_ppc_gcc():
+    # PowerPC uses the same format as X86, but is big-endian
+    _test_bitfield_details(flag=SF_GCC_X86_BITFIELDS|SF_GCC_BIG_ENDIAN)
 
 
 def test_struct_array_no_length():
@@ -3150,7 +3153,7 @@ def test_packed():
     complete_struct_or_union(BStruct, [('a1', BLong, -1),
                                        ('a2', BChar, -1),
                                        ('a3', BShort, -1)],
-                             None, -1, -1, 8)   # SF_PACKED==8
+                             None, -1, -1, SF_PACKED)
     d = BStruct.fields
     assert len(d) == 3
     assert d[0][0] == 'a1'
@@ -3179,7 +3182,7 @@ def test_packed_with_bitfields():
                    complete_struct_or_union,
                    BStruct, [('a1', BLong, 30),
                              ('a2', BChar, 5)],
-                   None, -1, -1, 8)   # SF_PACKED==8
+                   None, -1, -1, SF_PACKED)
 
 def test_version():
     # this test is here mostly for PyPy
