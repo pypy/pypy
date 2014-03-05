@@ -45,7 +45,6 @@ def make_range_list(space, start, step, length):
         storage = strategy.erase(None)
     elif start == 0 and step == 1:
         strategy = space.fromcache(SimpleRangeListStrategy)
-        assert length > 0
         storage = strategy.erase((length,))
     else:
         strategy = space.fromcache(RangeListStrategy)
@@ -1126,7 +1125,6 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
 
     def _getitem_unwrapped(self, w_list, i):
         length = self.unerase(w_list.lstorage)[0]
-        assert length > 0
         if i < 0:
             i += length
             if i < 0:
