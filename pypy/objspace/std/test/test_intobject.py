@@ -563,6 +563,25 @@ class AppTestInt:
         base = MyInt(24)
         assert int('10', base) == 24
 
+    def test_truediv(self):
+        import operator
+        x = 1000000
+        a = x / 2
+        assert a == 500000
+        a = operator.truediv(x, 2)
+        assert a == 500000.0
+
+        x = 63050394783186940
+        a = x / 7
+        assert a == 9007199254740991
+        a = operator.truediv(x, 7)
+        assert a == 9007199254740991.0
+        exec("from __future__ import division; "
+             "a = x / 7; b = operator.truediv(x, 7)")
+        assert a == 9007199254740991.0
+        assert b == 9007199254740991.0
+
+
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
 
