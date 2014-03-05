@@ -11,7 +11,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         BaseNumpyAppTest.setup_class.im_func(cls)
 
     def test_basic(self):
-        from numpypy import arange, nditer
+        from numpy import arange, nditer
         a = arange(6).reshape(2,3)
         r = []
         for x in nditer(a):
@@ -24,7 +24,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert r == [0, 1, 2, 3, 4, 5]
 
     def test_order(self):
-        from numpypy import arange, nditer
+        from numpy import arange, nditer
         a = arange(6).reshape(2,3)
         r = []
         for x in nditer(a, order='C'):
@@ -36,14 +36,14 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert r == [0, 3, 1, 4, 2, 5]
 
     def test_readwrite(self):
-        from numpypy import arange, nditer
+        from numpy import arange, nditer
         a = arange(6).reshape(2,3)
         for x in nditer(a, op_flags=['readwrite']):
             x[...] = 2 * x
         assert (a == [[0, 2, 4], [6, 8, 10]]).all()
 
     def test_external_loop(self):
-        from numpypy import arange, nditer, array
+        from numpy import arange, nditer, array
         a = arange(24).reshape(2, 3, 4)
         r = []
         n = 0
@@ -67,7 +67,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert e
 
     def test_index(self):
-        from numpypy import arange, nditer, zeros
+        from numpy import arange, nditer
         a = arange(6).reshape(2,3)
 
         r = []
@@ -92,7 +92,7 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     @py.test.mark.xfail(reason="Fortran order not implemented")
     def test_iters_with_different_order(self):
-        from numpypy import nditer, array
+        from numpy import nditer, array
 
         a = array([[1, 2], [3, 4]], order="C")
         b = array([[1, 2], [3, 4]], order="F")
@@ -102,7 +102,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert list(it) == zip(range(1, 5), range(1, 5))
 
     def test_interface(self):
-        from numpypy import arange, nditer, zeros
+        from numpy import arange, nditer, zeros
         a = arange(6).reshape(2,3)
         r = []
         it = nditer(a, flags=['f_index'])
@@ -120,7 +120,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert str(exc.value).startswith("Iterator flag EXTERNAL_LOOP cannot")
 
     def test_buffered(self):
-        from numpypy import arange, nditer, array
+        from numpy import arange, nditer, array
         a = arange(6).reshape(2,3)
         r = []
         for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
@@ -128,7 +128,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (array(r) == [0, 3, 1, 4, 2, 5]).all()
 
     def test_op_dtype(self):
-        from numpypy import arange, nditer, sqrt, array
+        from numpy import arange, nditer, sqrt, array
         a = arange(6).reshape(2,3) - 3
         exc = raises(nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
@@ -146,26 +146,26 @@ class AppTestNDIter(BaseNumpyAppTest):
                             1+0j, 1.41421356237+0j]).sum()) < 1e-5
 
     def test_casting(self):
-        from numpypy import arange, nditer
+        from numpy import arange, nditer
         a = arange(6.)
-        exc = raises(nditer, a, flags=['buffered'], op_dtypes=['float32'])
+        exc = raises(ValueError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
         assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
         r = []
         for x in nditer(a, flags=['buffered'], op_dtypes=['float32'],
                                 casting='same_kind'):
             r.append(x)
         assert r == [0., 1., 2., 3., 4., 5.]
-        exc = raises(nditer, a, flags=['buffered'],
+        exc = raises(ValueError, nditer, a, flags=['buffered'],
                         op_dtypes=['int32'], casting='same_kind')
         assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
         r = []
         b = arange(6)
-        exc = raises(nditer, b, flags=['buffered'], op_dtypes=['float64'],
+        exc = raises(ValueError, nditer, b, flags=['buffered'], op_dtypes=['float64'],
                                 op_flags=['readwrite'], casting='same_kind')
         assert str(exc.value).startswith("Iterator requested dtype could not be cast")
 
     def test_broadcast(self):
-        from numpypy import arange, nditer
+        from numpy import arange, nditer
         a = arange(3)
         b = arange(6).reshape(2,3)
         r = []
@@ -173,11 +173,11 @@ class AppTestNDIter(BaseNumpyAppTest):
             r.append((x, y))
         assert r == [(0, 0), (1, 1), (2, 2), (0, 3), (1, 4), (2, 5)]
         a = arange(2)
-        exc = raises(nditer, [a, b])
+        exc = raises(ValueError, nditer, [a, b])
         assert str(exc.value).find('shapes (2) (2,3)') > 0
 
     def test_outarg(self):
-        from numpypy import nditer, zeros, arange
+        from numpy import nditer, zeros, arange
 
         def square1(a):
             it = nditer([a, None])
@@ -202,7 +202,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert str(exc.value).startswith('non-broadcastable output')
 
     def test_outer_product(self):
-        from numpypy import nditer, arange
+        from numpy import nditer, arange
         a = arange(3)
         b = arange(8).reshape(2,4)
         it = nditer([a, b, None], flags=['external_loop'],
@@ -214,7 +214,7 @@ class AppTestNDIter(BaseNumpyAppTest):
             assert (it.operands[2][i] == a[i]*b).all()
 
     def test_reduction(self):
-        from numpypy import nditer, arange, array
+        from numpy import nditer, arange, array
         a = arange(24).reshape(2, 3, 4)
         b = array(0)
         #reduction operands must be readwrite
@@ -249,13 +249,13 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (it.operands[1] == a.sum(axis=2)).all()
 
     def test_get_dtypes(self):
-        from numpypy import array, dtype, nditer
+        from numpy import array, dtype, nditer
         x = array([1, 2])
         y = array([1.0, 2.0])
         assert nditer([x, y]).dtypes == (dtype("int64"), dtype("float64"))
 
     def test_multi_index(self):
-        import numpypy as np
+        import numpy as np
 
         a = np.arange(6).reshape(2, 3)
 

@@ -42,6 +42,7 @@ dimension, perhaps we could overflow times in one big step.
 """
 from rpython.rlib import jit
 from pypy.module.micronumpy import support
+from pypy.module.micronumpy.strides import calc_strides
 from pypy.module.micronumpy.base import W_NDimArray
 
 
@@ -148,7 +149,7 @@ class SliceIterator(object):
             dtype = arr.implementation.dtype
         if backward:
             self.slicesize = shape[0]
-            self.gap = [support.product(shape[1:]) * dtype.get_size()]
+            self.gap = [support.product(shape[1:]) * dtype.elsize]
             self.strides = strides[1:]
             self.backstrides = backstrides[1:]
             self.shape = shape[1:]
@@ -157,9 +158,8 @@ class SliceIterator(object):
             self.shape.reverse()
             self.shapelen = len(self.shape)
         else:
-            shape = [support.product(shape)]
-            self.strides, self.backstrides = support.calc_strides(shape,
-                                                           dtype, order)
+            self.shape = [support.product(shape)]
+            self.strides, self.backstrides = calc_strides(shape, dtype, order)
             self.slicesize = support.product(shape)
             self.shapelen = 0
             self.gap = self.strides
@@ -185,9 +185,10 @@ class SliceIterator(object):
         self.offset = offset
 
     def getslice(self):
-        from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
-        return SliceArray(self.offset, self.gap, self.backstrides,
+        from pypy.module.micronumpy.concrete import SliceArray
+        retVal = SliceArray(self.offset, self.gap, self.backstrides,
         [self.slicesize], self.arr.implementation, self.arr, self.dtype)
+        return retVal
 
 def AxisIter(array, shape, axis, cumulative):
     strides = array.get_strides()

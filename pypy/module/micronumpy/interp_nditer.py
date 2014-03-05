@@ -198,7 +198,7 @@ def get_iter(space, order, arr, shape):
         backstrides = imp.backstrides
     r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                     shape, backward)
-    return ArrayIter(imp, shape, r[0], r[1])
+    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1])
 
 def is_backward(imp, order):
     if order == 'K' or (order == 'C' and imp.order == 'C'):
@@ -268,7 +268,8 @@ class W_NDIter(W_Root):
         parse_func_flags(space, self, w_flags)
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
-        self.set_op_axes(space, w_op_axes)
+        if not space.is_none(w_op_axes):
+            self.set_op_axes(space, w_op_axes)
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
         if self.tracked_index != "":
