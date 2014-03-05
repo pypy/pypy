@@ -6,7 +6,6 @@ import re
 from py.path import local
 from py.process import cmdexec
 
-from rpython.annotator import model as annmodel
 from rpython.conftest import cdir
 from rpython.flowspace.model import mkentrymap, Constant, Variable
 from rpython.memory.gctransform.llvmgcroot import (
@@ -19,6 +18,7 @@ from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.lltypesystem import (llarena, llgroup, llmemory, lltype,
      rffi)
 from rpython.rtyper.lltypesystem.ll2ctypes import (_llvm_needs_header,
@@ -1679,9 +1679,9 @@ class GenLLVM(object):
             main.c_name = 'main'
 
             mixlevelannotator = MixLevelHelperAnnotator(self.translator.rtyper)
-            arg1 = annmodel.lltype_to_annotation(rffi.INT)
-            arg2 = annmodel.lltype_to_annotation(rffi.CCHARPP)
-            res = annmodel.lltype_to_annotation(lltype.Signed)
+            arg1 = lltype_to_annotation(rffi.INT)
+            arg2 = lltype_to_annotation(rffi.CCHARPP)
+            res = lltype_to_annotation(lltype.Signed)
             graph = mixlevelannotator.getgraph(main, [arg1, arg2], res)
             mixlevelannotator.finish()
             mixlevelannotator.backend_optimize()
