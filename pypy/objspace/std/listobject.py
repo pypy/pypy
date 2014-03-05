@@ -142,7 +142,6 @@ def list_unroll_condition(w_list1, space, w_list2):
 
 
 class W_ListObject(W_Root):
-
     strategy = None
 
     def __init__(self, space, wrappeditems, sizehint=-1):
@@ -1128,10 +1127,13 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
     def _getitem_unwrapped(self, w_list, i):
         length = self.unerase(w_list.lstorage)[0]
         assert length > 0
-        if 0 <= i < length:
-            return i
-        else:
+        if i < 0:
+            i += length
+            if i < 0:
+                raise IndexError
+        elif i >= length:
             raise IndexError
+        return i
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):

@@ -166,7 +166,6 @@ class TestW_ListObject(object):
             self.space.setitem(w_lhslist, w_slice, w_rhslist)
             assert self.space.unwrap(w_lhslist) == expected
 
-
         test1([5,7,1,4], 1, 3, [9,8],  [5,9,8,4])
         test1([5,7,1,4], 1, 3, [9],    [5,9,4])
         test1([5,7,1,4], 1, 3, [9,8,6],[5,9,8,6,4])
@@ -294,6 +293,7 @@ class TestW_ListObject(object):
                            self.space.w_True)
         assert self.space.eq_w(self.space.eq(w_list2, w_list3),
                            self.space.w_False)
+
     def test_ne(self):
         w = self.space.wrap
 
@@ -312,6 +312,7 @@ class TestW_ListObject(object):
                            self.space.w_False)
         assert self.space.eq_w(self.space.ne(w_list2, w_list3),
                            self.space.w_True)
+
     def test_lt(self):
         w = self.space.wrap
 
@@ -428,6 +429,7 @@ class TestW_ListObject(object):
             intlist.find(w(4), 4, 7)
         with py.test.raises(ValueError):
             intlist.find(w(4), 0, 2)
+
 
 class AppTestW_ListObject(object):
     def setup_class(cls):
@@ -662,7 +664,6 @@ class AppTestW_ListObject(object):
         raises(IndexError, "l[1]")
 
     def test_setitem(self):
-
         l = []
         raises(IndexError, "l[1] = 2")
 
@@ -860,7 +861,6 @@ class AppTestW_ListObject(object):
         assert [0] * MyIndex(3) == [0, 0, 0]
         raises(TypeError, "[0]*MyInt(3)")
         raises(TypeError, "[0]*MyIndex(MyInt(3))")
-
 
     def test_index(self):
         c = range(10)
@@ -1318,6 +1318,8 @@ class AppTestW_ListObject(object):
         assert ([5] >= [N]) is False
 
     def test_resizelist_hint(self):
+        if self.on_cpython:
+            skip('pypy-only test')
         import __pypy__
         l2 = []
         __pypy__.resizelist_hint(l2, 100)
@@ -1326,6 +1328,8 @@ class AppTestW_ListObject(object):
         assert len(l1) == 0
 
     def test_use_method_for_wrong_object(self):
+        if self.on_cpython:
+            skip('pypy-only test')
         raises(TypeError, list.append.im_func, 1, 2)
 
     def test_ne_NotImplemented(self):
@@ -1439,7 +1443,20 @@ class AppTestForRangeLists(AppTestW_ListObject):
 
     def test_getitem(self):
         l = range(5)
-        raises(IndexError, "l[-10]")
+        raises(IndexError, "l[-6]")
+        raises(IndexError, "l[5]")
+        assert l[0] == 0
+        assert l[-1] == 4
+        assert l[-2] == 3
+        assert l[-5] == 0
+
+        l = range(1, 5)
+        raises(IndexError, "l[-5]")
+        raises(IndexError, "l[4]")
+        assert l[0] == 1
+        assert l[-1] == 4
+        assert l[-2] == 3
+        assert l[-4] == 1
 
     def test_append(self):
         l = range(5)
@@ -1514,6 +1531,7 @@ class AppTestWithoutStrategies(object):
 
         notshared = l[:]
         assert notshared == []
+
 
 class AppTestListFastSubscr:
     spaceconfig = {"objspace.std.optimized_list_getitem": True}
