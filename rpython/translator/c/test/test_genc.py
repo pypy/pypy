@@ -50,7 +50,7 @@ def parse_ulonglong(a):
                                            unsigned_ffffffff)
 
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
-            annotatorpolicy=None, thread=False):
+            annotatorpolicy=None, thread=False, **kwds):
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
 
     for argtype in argtypes:
@@ -98,7 +98,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         return 0
 
     t = Translation(entry_point, None, gc=gcpolicy, backend="c",
-                    policy=annotatorpolicy, thread=thread)
+                    policy=annotatorpolicy, thread=thread, **kwds)
     if not backendopt:
         t.disable(["backendopt_lltype"])
     t.driver.config.translation.countmallocs = True
@@ -573,6 +573,22 @@ def test_recursive_llhelper():
     t.bar = llhelper(FTPTR, a_f.make_func())
     fn = compile(chooser, [bool])
     assert fn(True)
+
+def test_ordered_dict():
+    try:
+        from collections import OrderedDict
+    except ImportError:
+        py.test.skip("Please update to Python 2.7")
+
+    expected = [('ea', 1), ('bb', 2), ('c', 3), ('d', 4), ('e', 5),
+                ('ef', 6)]
+    d = OrderedDict(expected)
+
+    def f():
+        assert d.items() == expected
+
+    fn = compile(f, [])
+    fn()
 
 def test_inhibit_tail_call():
     def foobar_fn(n):

@@ -6,7 +6,7 @@ import traceback
 from errno import EINTR
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 
 from pypy.interpreter import debug
 
@@ -40,12 +40,11 @@ class OperationError(Exception):
             self.debug_excs = []
 
     def clear(self, space):
-        # for sys.exc_clear()
-        self.w_type = space.w_None
-        self._w_value = space.w_None
-        self._application_traceback = None
-        if not we_are_translated():
-            del self.debug_excs[:]
+        # XXX remove this method.  The point is that we cannot always
+        # hack at 'self' to clear w_type and _w_value, because in some
+        # corner cases the OperationError will be used again: see
+        # test_interpreter.py:test_with_statement_and_sys_clear.
+        pass
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
@@ -227,9 +226,9 @@ class OperationError(Exception):
     def _exception_getclass(self, space, w_inst):
         w_type = space.exception_getclass(w_inst)
         if not space.exception_is_valid_class_w(w_type):
-            msg = ("exceptions must be old-style classes or derived "
-                   "from BaseException, not %N")
-            raise operationerrfmt(space.w_TypeError, msg, w_type)
+            raise oefmt(space.w_TypeError,
+                        "exceptions must be old-style classes or derived from "
+                        "BaseException, not %N", w_type)
         return w_type
 
     def write_unraisable(self, space, where, w_object=None,
@@ -299,6 +298,10 @@ class OperationError(Exception):
         executioncontext.leave() being called with got_exception=True.
         """
         self._application_traceback = traceback
+
+@specialize.memo()
+def get_cleared_operation_error(space):
+    return OperationError(space.w_None, space.w_None)
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
@@ -371,8 +374,8 @@ def get_operrcls2(valuefmt):
 class OpErrFmtNoArgs(OperationError):
 
     def __init__(self, w_type, value):
-        self.setup(w_type)
         self._value = value
+        self.setup(w_type)
 
     def get_w_value(self, space):
         w_value = self._w_value
@@ -380,15 +383,16 @@ class OpErrFmtNoArgs(OperationError):
             self._w_value = w_value = space.wrap(self._value)
         return w_value
 
-def get_operationerr_class(valuefmt):
+@specialize.memo()
+def get_operr_class(valuefmt):
     try:
         result = _fmtcache[valuefmt]
     except KeyError:
         result = _fmtcache[valuefmt] = get_operrcls2(valuefmt)
     return result
-get_operationerr_class._annspecialcase_ = 'specialize:memo'
 
-def operationerrfmt(w_type, valuefmt, *args):
+@specialize.arg(1)
+def oefmt(w_type, valuefmt, *args):
     """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
     needed.
@@ -402,9 +406,8 @@ def operationerrfmt(w_type, valuefmt, *args):
     """
     if not len(args):
         return OpErrFmtNoArgs(w_type, valuefmt)
-    OpErrFmt, strings = get_operationerr_class(valuefmt)
+    OpErrFmt, strings = get_operr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
-operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
 
 # ____________________________________________________________
 

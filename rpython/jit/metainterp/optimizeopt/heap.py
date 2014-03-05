@@ -184,9 +184,6 @@ class OptHeap(Optimization):
             self.postponed_op = None
             self.next_optimization.propagate_forward(postponed_op)
 
-    def new(self):
-        return OptHeap()
-
     def produce_potential_short_preamble_ops(self, sb):
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():

@@ -628,9 +628,9 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-            #                          rop.GETFIELD_GC, fielddescr, box)
-            # XXX the sanity check does not seem to do anything, remove?
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC, fielddescr, box)
+            assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -657,7 +657,11 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+        # The following test is disabled because buggy.  It is supposed
+        # to be: not(we're writing null into a freshly allocated object)
+        # but the bug is that is_unescaped() can be True even after the
+        # field cache is cleared --- see test_ajit:test_unescaped_write_zero
+        if 1:  # tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
             self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
@@ -769,6 +773,7 @@ class MIFrame(object):
 
     def emit_force_virtualizable(self, fielddescr, box):
         vinfo = fielddescr.get_vinfo()
+        assert vinfo is not None
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
         tokenbox = mi.execute_and_record(rop.GETFIELD_GC, token_descr, box)
@@ -1432,7 +1437,7 @@ class MIFrame(object):
                     assembler_call_jd)
             if resbox is not None:
                 self.make_result_of_lastop(resbox)
-            self.metainterp.vable_after_residual_call()
+            self.metainterp.vable_after_residual_call(funcbox)
             self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
             if vablebox is not None:
                 self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
@@ -2113,7 +2118,7 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
-        self.heapcache.reset()
+        self.heapcache.reset(reset_virtuals=False)
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
@@ -2157,11 +2162,11 @@ class MetaInterp(object):
                 if not box1.same_constant(box2):
                     break
             else:
-                # Found!  Compile it as a loop.
-                # raises in case it works -- which is the common case
                 if self.partial_trace:
                     if  start != self.retracing_from:
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
+                # Found!  Compile it as a loop.
+                # raises in case it works -- which is the common case
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
@@ -2263,7 +2268,10 @@ class MetaInterp(object):
             raise NotImplementedError(opname[opnum])
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):
-        cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
+        JitCell = self.jitdriver_sd.warmstate.JitCell
+        cell = JitCell.get_jit_cell_at_key(greenkey)
+        if cell is None:
+            return None
         token = cell.get_procedure_token()
         if with_compiled_targets:
             if not token:
@@ -2492,7 +2500,7 @@ class MetaInterp(object):
                 # it by ConstPtr(NULL).
                 self.stop_tracking_virtualref(i)
 
-    def vable_after_residual_call(self):
+    def vable_after_residual_call(self, funcbox):
         vinfo = self.jitdriver_sd.virtualizable_info
         if vinfo is not None:
             virtualizable_box = self.virtualizable_boxes[-1]
@@ -2500,6 +2508,14 @@ class MetaInterp(object):
             if vinfo.tracing_after_residual_call(virtualizable):
                 # the virtualizable escaped during CALL_MAY_FORCE.
                 self.load_fields_from_virtualizable()
+                target_name = self.staticdata.get_name_from_address(funcbox.getaddr())
+                if target_name:
+                    target_name = "ConstClass(%s)" % target_name
+                else:
+                    target_name = str(funcbox.getaddr())
+                debug_print('vable escaped during a call in %s to %s' % (
+                    self.framestack[-1].jitcode.name, target_name
+                ))
                 raise SwitchToBlackhole(Counters.ABORT_ESCAPE,
                                         raising_exception=True)
                 # ^^^ we set 'raising_exception' to True because we must still

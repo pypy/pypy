@@ -7,7 +7,7 @@ import sys, os, stat
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
@@ -669,8 +669,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         return None
     else:
         # ImportError
-        msg = "No module named %s"
-        raise operationerrfmt(space.w_ImportError, msg, modulename)
+        raise oefmt(space.w_ImportError, "No module named %s", modulename)
 
 @jit.dont_look_inside
 def reload(space, w_module):
@@ -684,9 +683,8 @@ def reload(space, w_module):
     w_modulename = space.getattr(w_module, space.wrap("__name__"))
     modulename = space.str0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
-        raise operationerrfmt(
-            space.w_ImportError,
-            "reload(): module %s not in sys.modules", modulename)
+        raise oefmt(space.w_ImportError,
+                    "reload(): module %s not in sys.modules", modulename)
 
     try:
         w_mod = space.reloading_modules[modulename]
@@ -703,10 +701,9 @@ def reload(space, w_module):
         if parent_name:
             w_parent = check_sys_modules_w(space, parent_name)
             if w_parent is None:
-                raise operationerrfmt(
-                    space.w_ImportError,
-                    "reload(): parent %s not in sys.modules",
-                    parent_name)
+                raise oefmt(space.w_ImportError,
+                            "reload(): parent %s not in sys.modules",
+                            parent_name)
             w_path = space.getattr(w_parent, space.wrap("__path__"))
         else:
             w_path = None
@@ -716,8 +713,7 @@ def reload(space, w_module):
 
         if not find_info:
             # ImportError
-            msg = "No module named %s"
-            raise operationerrfmt(space.w_ImportError, msg, modulename)
+            raise oefmt(space.w_ImportError, "No module named %s", modulename)
 
         try:
             try:
@@ -837,11 +833,11 @@ def getimportlock(space):
 # CPython leaves a gap of 10 when it increases its own magic number.
 # To avoid assigning exactly the same numbers as CPython, we can pick
 # any number between CPython + 2 and CPython + 9.  Right now,
-# default_magic = CPython + 6.
+# default_magic = CPython + 7.
 #
-#     default_magic - 6    -- used by CPython without the -U option
-#     default_magic - 5    -- used by CPython with the -U option
-#     default_magic        -- used by PyPy [because of CALL_METHOD]
+#     CPython + 0                  -- used by CPython without the -U option
+#     CPython + 1                  -- used by CPython with the -U option
+#     CPython + 7 = default_magic  -- used by PyPy (incompatible!)
 #
 from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
@@ -992,8 +988,7 @@ def read_compiled_module(space, cpathname, strbuf):
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
     if not isinstance(w_code, Code):
-        raise operationerrfmt(space.w_ImportError,
-                              "Non-code object in %s", cpathname)
+        raise oefmt(space.w_ImportError, "Non-code object in %s", cpathname)
     return w_code
 
 @jit.dont_look_inside
@@ -1004,8 +999,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     module object.
     """
     if magic != get_pyc_magic(space):
-        raise operationerrfmt(space.w_ImportError,
-                              "Bad magic number in %s", cpathname)
+        raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
     try:

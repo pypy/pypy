@@ -13,13 +13,6 @@ from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
 
-# In the CPython struct module, pack() unconsistently accepts inputs
-# that are out-of-range or floats instead of ints.  Should we emulate
-# this?  Let's use a flag for now:
-
-PACK_ACCEPTS_BROKEN_INPUT = True
-
-# ____________________________________________________________
 
 def pack_pad(fmtiter, count):
     fmtiter.result.append_multiple_char('\x00', count)
@@ -99,12 +92,8 @@ def min_max_acc_method(size, signed):
             max = r_ulonglong(max)
     return min, max, accept_method
 
-def make_int_packer(size, signed, cpython_checks_range, _memo={}):
-    if cpython_checks_range:
-        check_range = True
-    else:
-        check_range = not PACK_ACCEPTS_BROKEN_INPUT
-    key = (size, signed, check_range)
+def make_int_packer(size, signed, _memo={}):
+    key = size, signed
     try:
         return _memo[key]
     except KeyError:
@@ -121,9 +110,8 @@ def make_int_packer(size, signed, cpython_checks_range, _memo={}):
     def pack_int(fmtiter):
         method = getattr(fmtiter, accept_method)
         value = method()
-        if check_range:
-            if value < min or value > max:
-                raise StructError(errormsg)
+        if not min <= value <= max:
+            raise StructError(errormsg)
         if fmtiter.bigendian:
             for i in unroll_revrange_size:
                 x = (value >> (8*i)) & 0xff
@@ -237,8 +225,8 @@ standard_fmttable = {
 
 for c, size in [('b', 1), ('h', 2), ('i', 4), ('l', 4), ('q', 8)]:
     standard_fmttable[c] = {'size': size,
-                            'pack': make_int_packer(size, True, True),
+                            'pack': make_int_packer(size, True),
                             'unpack': make_int_unpacker(size, True)}
     standard_fmttable[c.upper()] = {'size': size,
-                                    'pack': make_int_packer(size, False, True),
+                                    'pack': make_int_packer(size, False),
                                     'unpack': make_int_unpacker(size, False)}

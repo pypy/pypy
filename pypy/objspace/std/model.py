@@ -32,17 +32,10 @@ class StdTypeModel:
         # All the Python types that we want to provide in this StdObjSpace
         class result:
             from pypy.objspace.std.objecttype import object_typedef
-            from pypy.objspace.std.booltype   import bool_typedef
-            from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
-            from pypy.objspace.std.basestringtype import basestring_typedef
-            from pypy.objspace.std.stringtype import str_typedef
-            from pypy.objspace.std.bytearraytype import bytearray_typedef
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
-            from pypy.objspace.std.longtype   import long_typedef
-            from pypy.objspace.std.unicodetype import unicode_typedef
             from pypy.objspace.std.nonetype import none_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
@@ -59,7 +52,8 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import setobject
-        from pypy.objspace.std import stringobject
+        from pypy.objspace.std import basestringtype
+        from pypy.objspace.std import bytesobject
         from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
@@ -81,27 +75,33 @@ class StdTypeModel:
         self.pythontypes.append(setobject.W_SetObject.typedef)
         self.pythontypes.append(setobject.W_FrozensetObject.typedef)
         self.pythontypes.append(iterobject.W_AbstractSeqIterObject.typedef)
+        self.pythontypes.append(basestringtype.basestring_typedef)
+        self.pythontypes.append(bytesobject.W_BytesObject.typedef)
+        self.pythontypes.append(bytearrayobject.W_BytearrayObject.typedef)
+        self.pythontypes.append(unicodeobject.W_UnicodeObject.typedef)
+        self.pythontypes.append(intobject.W_IntObject.typedef)
+        self.pythontypes.append(boolobject.W_BoolObject.typedef)
+        self.pythontypes.append(longobject.W_LongObject.typedef)
 
         # the set of implementation types
         self.typeorder = {
             objectobject.W_ObjectObject: [],
+            # XXX: Bool/Int/Long are pythontypes but still included here
+            # for delegation to Float/Complex
             boolobject.W_BoolObject: [],
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
-            stringobject.W_StringObject: [],
-            bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             complexobject.W_ComplexObject: [],
-            unicodeobject.W_UnicodeObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
 
         self.imported_but_not_registered = {
-            stringobject.W_StringObject: True,
+            bytesobject.W_BytesObject: True,
         }
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
@@ -134,26 +134,16 @@ class StdTypeModel:
         # XXX build these lists a bit more automatically later
 
         self.typeorder[boolobject.W_BoolObject] += [
-            (intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
-            (longobject.W_LongObject,   longobject.delegate_Bool2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
             ]
         self.typeorder[intobject.W_IntObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
-            (longobject.W_LongObject,   longobject.delegate_Int2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
         if config.objspace.std.withsmalllong:
             from pypy.objspace.std import smalllongobject
-            self.typeorder[boolobject.W_BoolObject] += [
-                (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Bool2SmallLong),
-                ]
-            self.typeorder[intobject.W_IntObject] += [
-                (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Int2SmallLong),
-                ]
             self.typeorder[smalllongobject.W_SmallLongObject] += [
-                (longobject.W_LongObject, smalllongobject.delegate_SmallLong2Long),
                 (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
                 (complexobject.W_ComplexObject, smalllongobject.delegate_SmallLong2Complex),
                 ]
@@ -167,17 +157,8 @@ class StdTypeModel:
                     complexobject.delegate_Float2Complex),
             ]
 
-        self.typeorder[stringobject.W_StringObject] += [
-            (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-            ]
         if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
-            self.typeorder[strbufobject.W_StringBufferObject] += [
-                (stringobject.W_StringObject,
-                                       strbufobject.delegate_buf2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strbufobject.delegate_buf2unicode)
-                ]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []
@@ -240,8 +221,9 @@ def _op_swapped_negated(function):
         return space.not_(function(space, w_2, w_1))
     return op
 
-OPERATORS = ['lt', 'le', 'eq', 'ne', 'gt', 'ge']
-OP_CORRESPONDANCES = [
+
+CMP_OPS = dict(lt='<', le='<=', eq='==', ne='!=', gt='>', ge='>=')
+CMP_CORRESPONDANCES = [
     ('eq', 'ne', _op_negated),
     ('lt', 'gt', _op_swapped),
     ('le', 'ge', _op_swapped),
@@ -250,22 +232,27 @@ OP_CORRESPONDANCES = [
     ('lt', 'le', _op_swapped_negated),
     ('gt', 'ge', _op_swapped_negated),
     ]
-for op1, op2, value in OP_CORRESPONDANCES[:]:
-    i = OP_CORRESPONDANCES.index((op1, op2, value))
-    OP_CORRESPONDANCES.insert(i+1, (op2, op1, value))
+for op1, op2, value in CMP_CORRESPONDANCES[:]:
+    i = CMP_CORRESPONDANCES.index((op1, op2, value))
+    CMP_CORRESPONDANCES.insert(i+1, (op2, op1, value))
+BINARY_BITWISE_OPS = {'and': '&', 'lshift': '<<', 'or': '|', 'rshift': '>>',
+                      'xor': '^'}
+BINARY_OPS = dict(add='+', div='/', floordiv='//', mod='%', mul='*', sub='-',
+                  truediv='/', **BINARY_BITWISE_OPS)
+COMMUTATIVE_OPS = ('add', 'mul', 'and', 'or', 'xor')
 
 def add_extra_comparisons():
     """
     Add the missing comparison operators if they were not explicitly
     defined:  eq <-> ne  and  lt <-> le <-> gt <-> ge.
-    We try to add them in the order defined by the OP_CORRESPONDANCES
+    We try to add them in the order defined by the CMP_CORRESPONDANCES
     table, thus favouring swapping the arguments over negating the result.
     """
     originalentries = {}
-    for op in OPERATORS:
+    for op in CMP_OPS.iterkeys():
         originalentries[op] = getattr(MM, op).signatures()
 
-    for op1, op2, correspondance in OP_CORRESPONDANCES:
+    for op1, op2, correspondance in CMP_CORRESPONDANCES:
         mirrorfunc = getattr(MM, op2)
         for types in originalentries[op1]:
             t1, t2 = types
@@ -367,7 +354,7 @@ NOT_MULTIMETHODS = set(
     ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
      'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
      'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel',
-     'isinstance', 'issubtype', 'int'])
+     'isinstance', 'issubtype', 'int', 'ord'])
 # XXX should we just remove those from the method table or we're happy
 #     with just not having multimethods?
 

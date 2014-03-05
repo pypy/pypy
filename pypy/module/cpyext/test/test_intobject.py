@@ -97,7 +97,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
 
                 return (PyObject *)enumObj;
              """),
-            ], 
+            ],
             prologue="""
             typedef struct
             {
@@ -166,3 +166,24 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
         assert isinstance(a, int)
         assert a == int(a) == 42
         assert a.name == "ULTIMATE_ANSWER"
+
+    def test_int_cast(self):
+        mod = self.import_extension('foo', [
+                #prove it works for ints
+                ("test_int", "METH_NOARGS",
+                """
+                PyObject * obj = PyInt_FromLong(42);
+                if (!PyInt_Check(obj)) {
+                    Py_DECREF(obj);
+                    PyErr_SetNone(PyExc_ValueError);
+                    return NULL;
+                }
+                PyObject * val = PyInt_FromLong(((PyIntObject *)obj)->ob_ival);
+                Py_DECREF(obj);
+                return val;
+                """
+                ),
+                ])
+        i = mod.test_int()
+        assert isinstance(i, int)
+        assert i == 42

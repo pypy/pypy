@@ -1,6 +1,6 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
@@ -16,6 +16,7 @@ from rpython.jit.tool.oparser import parse, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
+from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import rop, opname, ResOperation
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
@@ -91,6 +92,7 @@ class LLtypeMixin(object):
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
                                         ('floatval', lltype.Float),
+                                        ('charval', lltype.Char),
                                         ('next', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
@@ -107,6 +109,7 @@ class LLtypeMixin(object):
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
+    chardescr = cpu.fielddescrof(NODE, 'charval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
@@ -203,6 +206,10 @@ class LLtypeMixin(object):
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_FREE))
 
+    chararray = lltype.GcArray(lltype.Char)
+    chararraydescr = cpu.arraydescrof(chararray)
+    u2array = lltype.GcArray(rffi.USHORT)
+    u2arraydescr = cpu.arraydescrof(u2array)
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(
@@ -220,6 +227,12 @@ class LLtypeMixin(object):
     rawarraydescr_char = cpu.arraydescrof(lltype.Array(lltype.Char,
                                                        hints={'nolength': True}))
 
+    fc_array = lltype.GcArray(
+        lltype.Struct(
+            "floatchar", ("float", lltype.Float), ("char", lltype.Char)))
+    fc_array_descr = cpu.arraydescrof(fc_array)
+    fc_array_floatdescr = cpu.interiorfielddescrof(fc_array, "float")
+    fc_array_chardescr = cpu.interiorfielddescrof(fc_array, "char")
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
@@ -306,13 +319,21 @@ class FakeMetaInterpStaticData(object):
         class memory_manager:
             retrace_limit = 5
             max_retrace_guards = 15
+        jitcounter = DeterministicJitCounter()
+
+    def get_name_from_address(self, addr):
+        # hack
+        try:
+            return "".join(addr.ptr.name)[:-1] # remove \x00
+        except AttributeError:
+            return ""
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
     def __init__(self, metainterp_sd=None, original_greenkey=None):
         self.metainterp_sd = metainterp_sd
         self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
+    def store_final_boxes(self, op, boxes, metainterp_sd):
         op.setfailargs(boxes)
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure

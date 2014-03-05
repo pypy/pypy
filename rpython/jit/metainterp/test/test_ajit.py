@@ -3232,7 +3232,7 @@ class BaseLLtypeTests(BasicTests):
             py.test.skip("needs 'time'")
         T = rffi.CArrayPtr(rffi.TIME_T)
 
-        external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
         # Not a real lock, has all the same properties with respect to GIL
         # release though, so good for this test.
         class Lock(object):
@@ -3358,6 +3358,33 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [1], enable_opts='')
         assert res == main(1)
         self.check_resops(call=0, getfield_gc=0)
+
+    def test_isvirtual_call_assembler(self):
+        driver = JitDriver(greens = ['code'], reds = ['n', 's'])
+
+        @look_inside_iff(lambda t1, t2: isvirtual(t1))
+        def g(t1, t2):
+            return t1[0] == t2[0]
+
+        def create(n):
+            return (1, 2, n)
+        create._dont_inline_ = True
+
+        def f(code, n):
+            s = 0
+            while n > 0:
+                driver.can_enter_jit(code=code, n=n, s=s)
+                driver.jit_merge_point(code=code, n=n, s=s)
+                t = create(n)
+                if code:
+                    f(0, 3)
+                s += t[2]
+                g(t, (1, 2, n))
+                n -= 1
+            return s
+
+        self.meta_interp(f, [1, 10], inline=True)
+        self.check_resops(call=0, call_may_force=0, call_assembler=2)
 
     def test_reuse_elidable_result(self):
         driver = JitDriver(reds=['n', 's'], greens = [])
@@ -3925,3 +3952,21 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.interp_operations(f, [])
         assert res == 2
         self.check_operations_history(call_release_gil=1, call_may_force=0)
+
+    def test_unescaped_write_zero(self):
+        class A:
+            pass
+        def g():
+            return A()
+        @dont_look_inside
+        def escape():
+            print "hi!"
+        def f(n):
+            a = g()
+            a.x = n
+            escape()
+            a.x = 0
+            escape()
+            return a.x
+        res = self.interp_operations(f, [42])
+        assert res == 0

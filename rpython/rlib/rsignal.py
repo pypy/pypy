@@ -78,11 +78,11 @@ pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
 pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
 pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
-pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
+pypysig_poll = external('pypysig_poll', [], rffi.INT, releasegil=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
 # pointless and a performance issue
 pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
-                            threadsafe=False)
+                            releasegil=False)
 
 # don't use rffi.LONGP because the JIT doesn't support raw arrays so far
 struct_name = 'pypysig_long_struct'
@@ -101,7 +101,7 @@ pypysig_get_occurred = external('pypysig_get_occurred', [], lltype.Signed,
 pypysig_set_occurred = external('pypysig_set_occurred', [lltype.Signed],
                                 lltype.Void, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
-c_pause = external('pause', [], rffi.INT, threadsafe=True)
+c_pause = external('pause', [], rffi.INT, releasegil=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
 
 if sys.platform != 'win32':

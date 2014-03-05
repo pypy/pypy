@@ -1,9 +1,11 @@
 import py
 
+
 class AppTestGC(object):
     def test_collect(self):
         import gc
         gc.collect() # mostly a "does not crash" kind of test
+        gc.collect(0) # mostly a "does not crash" kind of test
 
     def test_disable_finalizers(self):
         import gc
@@ -68,6 +70,7 @@ class AppTestGC(object):
         gc.enable()
         assert gc.isenabled()
 
+
 class AppTestGcDumpHeap(object):
     pytestmark = py.test.mark.xfail(run=False)
 
@@ -80,10 +83,10 @@ class AppTestGcDumpHeap(object):
                 self.count = count
                 self.size = size
                 self.links = links
-        
+
         def fake_heap_stats():
             return [X(1, 12, [0, 0]), X(2, 10, [10, 0])]
-        
+
         cls._heap_stats = rgc._heap_stats
         rgc._heap_stats = fake_heap_stats
         fname = udir.join('gcdump.log')
@@ -93,10 +96,10 @@ class AppTestGcDumpHeap(object):
     def teardown_class(cls):
         import py
         from rpython.rlib import rgc
-        
+
         rgc._heap_stats = cls._heap_stats
         assert py.path.local(cls._fname).read() == '1 12 0,0\n2 10 10,0\n'
-    
+
     def test_gc_heap_stats(self):
         import gc
         gc.dump_heap_stats(self.fname)
@@ -122,6 +125,7 @@ class AppTestGcMethodCache(object):
         rlist.pop()
         for r in rlist:
             assert r() is None
+
 
 class AppTestGcMapDictIndexCache(AppTestGcMethodCache):
     spaceconfig = {"objspace.std.withmethodcache": True,

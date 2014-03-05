@@ -244,22 +244,18 @@ class _Condition(_Verbose):
                 if __debug__:
                     self._note("%s.wait(): got it", self)
             else:
-                # Balancing act:  We can't afford a pure busy loop, so we
-                # have to sleep; but if we sleep the whole timeout time,
-                # we'll be unresponsive.  The scheme here sleeps very
-                # little at first, longer as time goes on, but never longer
-                # than 20 times per second (or the timeout time remaining).
-                endtime = _time() + timeout
-                delay = 0.0005 # 500 us -> initial delay of 1 ms
-                while True:
-                    gotit = waiter.acquire(0)
-                    if gotit:
-                        break
-                    remaining = endtime - _time()
-                    if remaining <= 0:
-                        break
-                    delay = min(delay * 2, remaining, .05)
-                    _sleep(delay)
+                # PyPy patch: use _py3k_acquire()
+                if timeout > 0:
+                    try:
+                        gotit = waiter._py3k_acquire(True, timeout)
+                    except OverflowError:
+                        # bah, in Python 3, acquire(True, timeout) raises
+                        # OverflowError if the timeout is too huge.  For
+                        # forward-compatibility reasons we do the same.
+                        waiter.acquire()
+                        gotit = True
+                else:
+                    gotit = waiter.acquire(False)
                 if not gotit:
                     if __debug__:
                         self._note("%s.wait(%s): timed out", self, timeout)

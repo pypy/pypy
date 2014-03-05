@@ -7,6 +7,9 @@ from rpython.tool.udir import udir
 if os.name != 'posix':
     py.test.skip('termios module only available on unix')
 
+if sys.platform.startswith('freebsd'):
+    raise Exception('XXX seems to hangs on FreeBSD9')
+
 class TestTermios(object):
     def setup_class(cls):
         try:

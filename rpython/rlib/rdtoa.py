@@ -38,13 +38,17 @@ eci = ExternalCompilationInfo(
                       ],
     )
 
+# dtoa.c is limited to 'int', so we refuse to pass it
+# strings or integer arguments bigger than ~2GB
+_INT_LIMIT = 0x7ffff000
+
 dg_strtod = rffi.llexternal(
     '_PyPy_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
     compilation_info=eci, sandboxsafe=True, transactionsafe=True)
 
 dg_dtoa = rffi.llexternal(
     '_PyPy_dg_dtoa', [rffi.DOUBLE, rffi.INT, rffi.INT,
-                    rffi.SIGNEDP, rffi.SIGNEDP, rffi.CCHARPP], rffi.CCHARP,
+                    rffi.INTP, rffi.INTP, rffi.CCHARPP], rffi.CCHARP,
     compilation_info=eci, sandboxsafe=True, transactionsafe=True)
 
 dg_freedtoa = rffi.llexternal(
@@ -52,6 +56,8 @@ dg_freedtoa = rffi.llexternal(
     compilation_info=eci, sandboxsafe=True, transactionsafe=True)
 
 def strtod(input):
+    if len(input) > _INT_LIMIT:
+        raise MemoryError
     ll_input = rffi.str2charp(input)
     try:
         end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
@@ -218,13 +224,13 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
         if exp >= 0:
             exp_str = str(exp)
-            if len(exp_str) < 2:
+            if len(exp_str) < 2 and not (flags & rfloat.DTSF_CUT_EXP_0):
                 s += e + '+0' + exp_str
             else:
                 s += e + '+' + exp_str
         else:
             exp_str = str(-exp)
-            if len(exp_str) < 2:
+            if len(exp_str) < 2 and not (flags & rfloat.DTSF_CUT_EXP_0):
                 s += e + '-0' + exp_str
             else:
                 s += e + '-' + exp_str
@@ -233,9 +239,11 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
 def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
-    decpt_ptr = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
+    if precision > _INT_LIMIT:
+        raise MemoryError
+    decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:
-        sign_ptr = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
+        sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
             end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
             try:

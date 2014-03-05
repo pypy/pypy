@@ -171,6 +171,9 @@ class BaseArrayTests:
         a = self.array('c')
         a.fromstring('Hi!')
         assert a[0] == 'H' and a[1] == 'i' and a[2] == '!' and len(a) == 3
+        a = self.array('c')
+        a.fromstring('')
+        assert not len(a)
 
         for t in 'bBhHiIlLfd':
             a = self.array(t)
@@ -1030,6 +1033,18 @@ class AppTestArray(BaseArrayTests):
         b = a * 13
         assert len(b) == 13
         assert str(b[12]) == "-0.0"
+
+    def test_getitem_only_ints(self):
+        class MyInt(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __int__(self):
+            return self.x
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        raises(TypeError, "a[MyInt(0)]")
+        raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):

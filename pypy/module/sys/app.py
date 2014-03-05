@@ -16,8 +16,13 @@ def excepthook(exctype, value, traceback):
         pass
 
     try:
+        encoding = sys.stderr.encoding
+    except:
+        encoding = None
+
+    try:
         from traceback import print_exception
-        print_exception(exctype, value, traceback)
+        print_exception(exctype, value, traceback, _encoding=encoding)
     except:
         if not excepthook_failsafe(exctype, value):
             raise
@@ -65,11 +70,11 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2013 PyPy development team.
+Copyright 2003-2014 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
-Portions Copyright (c) 2001-2013 Python Software Foundation.
+Portions Copyright (c) 2001-2014 Python Software Foundation.
 All Rights Reserved.
 
 Portions Copyright (c) 2000 BeOpen.com.

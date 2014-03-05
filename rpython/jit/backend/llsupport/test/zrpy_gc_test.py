@@ -135,6 +135,7 @@ def run(cbuilder, args=''):
 
 
 class BaseFrameworkTests(object):
+    gc = DEFL_GC
 
     def setup_class(cls):
         funcs = []
@@ -184,7 +185,7 @@ class BaseFrameworkTests(object):
         OLD_DEBUG = GcLLDescr_framework.DEBUG
         try:
             GcLLDescr_framework.DEBUG = True
-            cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
+            cls.cbuilder = compile(get_entry(allfuncs), cls.gc,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
                                    thread=True)
         finally:

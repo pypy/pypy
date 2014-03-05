@@ -342,10 +342,8 @@ class W_ISlice(W_Root):
             if space.is_w(w_startstop, space.w_None):
                 start = 0
             else:
-                start = space.int_w(w_startstop)
-                if start < 0:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                       "Indicies for islice() must be non-negative integers."))
+                start = self.arg_int_w(w_startstop, 0,
+                 "Indicies for islice() must be None or non-negative integers")
             w_stop = args_w[0]
         else:
             raise OperationError(space.w_TypeError, space.wrap("islice() takes at most 4 arguments (" + str(num_args) + " given)"))
@@ -353,10 +351,8 @@ class W_ISlice(W_Root):
         if space.is_w(w_stop, space.w_None):
             stop = -1
         else:
-            stop = space.int_w(w_stop)
-            if stop < 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "Stop argument must be a non-negative integer or None."))
+            stop = self.arg_int_w(w_stop, 0,
+                "Stop argument must be a non-negative integer or None.")
             stop = max(start, stop)    # for obscure CPython compatibility
 
         if num_args == 2:
@@ -364,16 +360,26 @@ class W_ISlice(W_Root):
             if space.is_w(w_step, space.w_None):
                 step = 1
             else:
-                step = space.int_w(w_step)
-                if step < 1:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "Step must be one or lager for islice()."))
+                step = self.arg_int_w(w_step, 1,
+                    "Step for islice() must be a positive integer or None")
         else:
             step = 1
 
         self.ignore = step - 1
         self.start = start
         self.stop = stop
+
+    def arg_int_w(self, w_obj, minimum, errormsg):
+        space = self.space
+        try:
+            result = space.int_w(w_obj)
+        except OperationError, e:
+            if e.async(space):
+                raise
+            result = -1
+        if result < minimum:
+            raise OperationError(space.w_ValueError, space.wrap(errormsg))
+        return result
 
     def iter_w(self):
         return self.space.wrap(self)
@@ -1077,58 +1083,64 @@ W_Compress.typedef = TypeDef(
 class W_Product(W_Root):
     def __init__(self, space, args_w, w_repeat):
         self.gears = [
-            space.fixedview(arg_w) for arg_w in args_w
+            space.unpackiterable(arg_w) for arg_w in args_w
         ] * space.int_w(w_repeat)
-        self.num_gears = len(self.gears)
-        # initialization of indicies to loop over
-        self.indicies = [
-            (0, len(gear))
-            for gear in self.gears
-        ]
-        self.cont = True
-        for _, lim in self.indicies:
-            if lim <= 0:
-                self.cont = False
+        #
+        for gear in self.gears:
+            if len(gear) == 0:
+                self.lst = None
                 break
+        else:
+            self.indices = [0] * len(self.gears)
+            self.lst = [gear[0] for gear in self.gears]
 
-    def roll_gears(self):
-        if self.num_gears == 0:
-            self.cont = False
-            return
+    def _rotate_previous_gears(self):
+        lst = self.lst
+        x = len(self.gears) - 1
+        lst[x] = self.gears[x][0]
+        self.indices[x] = 0
+        x -= 1
+        # the outer loop runs as long as a we have a carry
+        while x >= 0:
+            gear = self.gears[x]
+            index = self.indices[x] + 1
+            if index < len(gear):
+                # no carry: done
+                lst[x] = gear[index]
+                self.indices[x] = index
+                return
+            lst[x] = gear[0]
+            self.indices[x] = 0
+            x -= 1
+        else:
+            self.lst = None
 
-        # Starting from the end of the gear indicies work to the front
-        # incrementing the gear until the limit is reached. When the limit
-        # is reached carry operation to the next gear
-        should_carry = True
-
-        for n in range(0, self.num_gears):
-            nth_gear = self.num_gears - n - 1
-            if should_carry:
-                count, lim = self.indicies[nth_gear]
-                count += 1
-                if count == lim and nth_gear == 0:
-                    self.cont = False
-                if count == lim:
-                    should_carry = True
-                    count = 0
-                else:
-                    should_carry = False
-                self.indicies[nth_gear] = (count, lim)
+    def fill_next_result(self):
+        # the last gear is done here, in a function with no loop,
+        # to allow the JIT to look inside
+        lst = self.lst
+        x = len(self.gears) - 1
+        if x >= 0:
+            gear = self.gears[x]
+            index = self.indices[x] + 1
+            if index < len(gear):
+                # no carry: done
+                lst[x] = gear[index]
+                self.indices[x] = index
             else:
-                break
+                self._rotate_previous_gears()
+        else:
+            self.lst = None
 
     def iter_w(self, space):
         return space.wrap(self)
 
     def next_w(self, space):
-        if not self.cont:
+        if self.lst is None:
             raise OperationError(space.w_StopIteration, space.w_None)
-        l = [None] * self.num_gears
-        for x in range(0, self.num_gears):
-            index, limit = self.indicies[x]
-            l[x] = self.gears[x][index]
-        self.roll_gears()
-        return space.newtuple(l)
+        w_result = space.newtuple(self.lst[:])
+        self.fill_next_result()
+        return w_result
 
 
 def W_Product__new__(space, w_subtype, __args__):

@@ -162,6 +162,9 @@ class DictRepr(AbstractDictRepr):
                 fasthashfn = None
             else:
                 fasthashfn = self.key_repr.get_ll_fasthash_function()
+                if getattr(self.key_repr.get_ll_eq_function(),
+                           'no_direct_compare', False):
+                    entrymeths['no_direct_compare'] = True
             if fasthashfn is None:
                 entryfields.append(("f_hash", lltype.Signed))
                 entrymeths['hash'] = ll_hash_from_cache
@@ -820,8 +823,9 @@ def ll_update(dic1, dic2):
             entry = entries[i]
             hash = entries.hash(i)
             key = entry.key
+            value = entry.value
             j = ll_dict_lookup(dic1, key, hash)
-            _ll_dict_setitem_lookup_done(dic1, key, entry.value, hash, j)
+            _ll_dict_setitem_lookup_done(dic1, key, value, hash, j)
         i += 1
 ll_update.oopspec = 'dict.update(dic1, dic2)'
 

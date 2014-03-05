@@ -52,10 +52,12 @@ class BlackholeInterpBuilder(object):
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
         self.num_interpreters = 0
-        self._cleanup_()
+        self.blackholeinterps = []
 
     def _cleanup_(self):
-        self.blackholeinterps = []
+        # XXX don't assign a different list to blackholeinterp here,
+        # it confuses the annotator a lot
+        del self.blackholeinterps[:]
 
     def setup_insns(self, insns):
         assert len(insns) <= 256, "too many instructions!"

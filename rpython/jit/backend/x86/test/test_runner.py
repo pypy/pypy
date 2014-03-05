@@ -287,7 +287,7 @@ class TestX86(LLtypeBackendTest):
                         ]
                     ops[-2].setfailargs([i1])
                     looptoken = JitCellToken()
-                    self.cpu.compile_loop(None, [b], ops, looptoken)
+                    self.cpu.compile_loop([b], ops, looptoken)
                     deadframe = self.cpu.execute_token(looptoken, b.value)
                     result = self.cpu.get_int_value(deadframe, 0)
                     if guard == rop.GUARD_FALSE:
@@ -333,7 +333,7 @@ class TestX86(LLtypeBackendTest):
                     ops[-2].setfailargs([i1])
                     inputargs = [i for i in (a, b) if isinstance(i, Box)]
                     looptoken = JitCellToken()
-                    self.cpu.compile_loop(None, inputargs, ops, looptoken)
+                    self.cpu.compile_loop(inputargs, ops, looptoken)
                     inputvalues = [box.value for box in inputargs]
                     deadframe = self.cpu.execute_token(looptoken, *inputvalues)
                     result = self.cpu.get_int_value(deadframe, 0)
@@ -377,7 +377,7 @@ class TestX86(LLtypeBackendTest):
             ]
         inputargs = [i0]
         operations[-2].setfailargs([i1])
-        self.cpu.compile_loop(None, inputargs, operations, looptoken)
+        self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
         assert name == "Loop # 17: hello (loop counter 0)"
         assert loopaddress <= looptoken._ll_loop_code
@@ -393,7 +393,7 @@ class TestX86(LLtypeBackendTest):
         ]
         bridge[1].setfailargs([i1b])
 
-        self.cpu.compile_bridge(None, faildescr1, [i1b], bridge, looptoken)
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
         name, address, size = agent.functions[1]
         assert name == "Bridge # 0: bye (loop counter 1)"
         # Would be exactly ==, but there are some guard failure recovery
@@ -422,7 +422,7 @@ class TestX86(LLtypeBackendTest):
             ]
         inputargs = [i0]
         debug._log = dlog = debug.DebugLog()
-        info = self.cpu.compile_loop(None, inputargs, operations, looptoken)
+        info = self.cpu.compile_loop(inputargs, operations, looptoken)
         ops_offset = info.ops_offset
         debug._log = None
         #
@@ -508,7 +508,7 @@ class TestX86(LLtypeBackendTest):
             ops[5].setfailargs([])
             ops[7].setfailargs([])
             looptoken = JitCellToken()
-            self.cpu.compile_loop(None, [i1, i2], ops, looptoken)
+            self.cpu.compile_loop([i1, i2], ops, looptoken)
 
             deadframe = self.cpu.execute_token(looptoken, 123450, 123408)
             fail = self.cpu.get_latest_descr(deadframe)
@@ -549,7 +549,7 @@ class TestDebuggingAssembler(object):
         try:
             self.cpu.assembler.set_debug(True)
             looptoken = JitCellToken()
-            self.cpu.compile_loop(None, ops.inputargs, ops.operations, looptoken)
+            self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
             struct = self.cpu.assembler.loop_run_counters[0]

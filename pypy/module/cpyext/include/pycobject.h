@@ -48,7 +48,7 @@ typedef struct {
 } PyCObject;
 #endif
 
-void init_pycobject(void);
+PyTypeObject *_Py_get_cobject_type(void);
  
 #ifdef __cplusplus
 }

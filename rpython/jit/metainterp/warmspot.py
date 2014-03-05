@@ -4,6 +4,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
     cast_base_ptr_to_instance, hlstr)
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
@@ -73,7 +74,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
     translator = interp.typer.annotator.translator
     try:
         translator.config.translation.gc = "boehm"
-    except ConfigError:
+    except (ConfigError, TypeError):
         pass
     try:
         translator.config.translation.list_comprehension_operations = True
@@ -164,6 +165,12 @@ def get_stats():
 def reset_stats():
     pyjitpl._warmrunnerdesc.stats.clear()
 
+def reset_jit():
+    """Helper for some tests (see micronumpy/test/test_zjit.py)"""
+    reset_stats()
+    pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
+    pyjitpl._warmrunnerdesc.jitcounter._clear_all()
+
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator
 
@@ -204,6 +211,12 @@ class WarmRunnerDesc(object):
         from rpython.jit.metainterp.virtualref import VirtualRefInfo
         vrefinfo = VirtualRefInfo(self)
         self.codewriter.setup_vrefinfo(vrefinfo)
+        #
+        from rpython.jit.metainterp import counter
+        if self.cpu.translate_support_code:
+            self.jitcounter = counter.JitCounter(translator=translator)
+        else:
+            self.jitcounter = counter.DeterministicJitCounter()
         #
         self.hooks = policy.jithookiface
         self.make_virtualizable_infos()
@@ -509,21 +522,10 @@ class WarmRunnerDesc(object):
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
     def make_driverhook_graphs(self):
-        from rpython.rlib.jit import BaseJitCell
-        bk = self.rtyper.annotator.bookkeeper
-        classdef = bk.getuniqueclassdef(BaseJitCell)
-        s_BaseJitCell_or_None = annmodel.SomeInstance(classdef,
-                                                      can_be_None=True)
-        s_BaseJitCell_not_None = annmodel.SomeInstance(classdef)
         s_Str = annmodel.SomeString()
         #
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         for jd in self.jitdrivers_sd:
-            jd._set_jitcell_at_ptr = self._make_hook_graph(jd,
-                annhelper, jd.jitdriver.set_jitcell_at, annmodel.s_None,
-                s_BaseJitCell_not_None)
-            jd._get_jitcell_at_ptr = self._make_hook_graph(jd,
-                annhelper, jd.jitdriver.get_jitcell_at, s_BaseJitCell_or_None)
             jd._get_printable_location_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_printable_location, s_Str)
             jd._confirm_enter_jit_ptr = self._make_hook_graph(jd,
@@ -661,8 +663,8 @@ class WarmRunnerDesc(object):
         if not self.cpu.translate_support_code:
             return llhelper(FUNCPTR, func)
         FUNC = FUNCPTR.TO
-        args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
-        s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+        args_s = [lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+        s_result = lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)
         return self.annhelper.graph2delayed(graph, FUNC)
 

@@ -166,7 +166,6 @@ class TestW_ListObject(object):
             self.space.setitem(w_lhslist, w_slice, w_rhslist)
             assert self.space.unwrap(w_lhslist) == expected
 
-
         test1([5,7,1,4], 1, 3, [9,8],  [5,9,8,4])
         test1([5,7,1,4], 1, 3, [9],    [5,9,4])
         test1([5,7,1,4], 1, 3, [9,8,6],[5,9,8,6,4])
@@ -294,6 +293,7 @@ class TestW_ListObject(object):
                            self.space.w_True)
         assert self.space.eq_w(self.space.eq(w_list2, w_list3),
                            self.space.w_False)
+
     def test_ne(self):
         w = self.space.wrap
 
@@ -312,6 +312,7 @@ class TestW_ListObject(object):
                            self.space.w_False)
         assert self.space.eq_w(self.space.ne(w_list2, w_list3),
                            self.space.w_True)
+
     def test_lt(self):
         w = self.space.wrap
 
@@ -428,6 +429,7 @@ class TestW_ListObject(object):
             intlist.find(w(4), 4, 7)
         with py.test.raises(ValueError):
             intlist.find(w(4), 0, 2)
+
 
 class AppTestW_ListObject(object):
     def setup_class(cls):
@@ -662,7 +664,6 @@ class AppTestW_ListObject(object):
         raises(IndexError, "l[1]")
 
     def test_setitem(self):
-
         l = []
         raises(IndexError, "l[1] = 2")
 
@@ -841,6 +842,25 @@ class AppTestW_ListObject(object):
             [1, 2, 3] * (3,)
         except TypeError:
             pass
+
+    def test_mul___index__(self):
+        class MyInt(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __int__(self):
+            return self.x
+
+        class MyIndex(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __index__(self):
+            return self.x
+
+        assert [0] * MyIndex(3) == [0, 0, 0]
+        raises(TypeError, "[0]*MyInt(3)")
+        raises(TypeError, "[0]*MyIndex(MyInt(3))")
 
     def test_index(self):
         c = range(10)
@@ -1298,6 +1318,8 @@ class AppTestW_ListObject(object):
         assert ([5] >= [N]) is False
 
     def test_resizelist_hint(self):
+        if self.on_cpython:
+            skip('pypy-only test')
         import __pypy__
         l2 = []
         __pypy__.resizelist_hint(l2, 100)
@@ -1306,6 +1328,8 @@ class AppTestW_ListObject(object):
         assert len(l1) == 0
 
     def test_use_method_for_wrong_object(self):
+        if self.on_cpython:
+            skip('pypy-only test')
         raises(TypeError, list.append.im_func, 1, 2)
 
     def test_ne_NotImplemented(self):
@@ -1313,6 +1337,57 @@ class AppTestW_ListObject(object):
             pass
         non_list = NonList()
         assert [] != non_list
+
+    def test_extend_from_empty_list_with_subclasses(self):
+        # some of these tests used to fail by ignoring the
+        # custom __iter__() --- but only if the list has so
+        # far the empty strategy, as opposed to .extend()ing
+        # a non-empty list.
+        class T(tuple):
+            def __iter__(self):
+                yield "ok"
+        assert list(T([5, 6])) == ["ok"]
+        #
+        class L(list):
+            def __iter__(self):
+                yield "ok"
+        assert list(L([5, 6])) == ["ok"]
+        assert list(L([5.2, 6.3])) == ["ok"]
+        #
+        class S(str):
+            def __iter__(self):
+                yield "ok"
+        assert list(S("don't see me")) == ["ok"]
+        #
+        class U(unicode):
+            def __iter__(self):
+                yield "ok"
+        assert list(U(u"don't see me")) == ["ok"]
+
+    def test_extend_from_nonempty_list_with_subclasses(self):
+        l = ["hi!"]
+        class T(tuple):
+            def __iter__(self):
+                yield "okT"
+        l.extend(T([5, 6]))
+        #
+        class L(list):
+            def __iter__(self):
+                yield "okL"
+        l.extend(L([5, 6]))
+        l.extend(L([5.2, 6.3]))
+        #
+        class S(str):
+            def __iter__(self):
+                yield "okS"
+        l.extend(S("don't see me"))
+        #
+        class U(unicode):
+            def __iter__(self):
+                yield "okU"
+        l.extend(U(u"don't see me"))
+        #
+        assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
 
 
 class AppTestForRangeLists(AppTestW_ListObject):
@@ -1368,7 +1443,20 @@ class AppTestForRangeLists(AppTestW_ListObject):
 
     def test_getitem(self):
         l = range(5)
-        raises(IndexError, "l[-10]")
+        raises(IndexError, "l[-6]")
+        raises(IndexError, "l[5]")
+        assert l[0] == 0
+        assert l[-1] == 4
+        assert l[-2] == 3
+        assert l[-5] == 0
+
+        l = range(1, 5)
+        raises(IndexError, "l[-5]")
+        raises(IndexError, "l[4]")
+        assert l[0] == 1
+        assert l[-1] == 4
+        assert l[-2] == 3
+        assert l[-4] == 1
 
     def test_append(self):
         l = range(5)
@@ -1443,6 +1531,7 @@ class AppTestWithoutStrategies(object):
 
         notshared = l[:]
         assert notshared == []
+
 
 class AppTestListFastSubscr:
     spaceconfig = {"objspace.std.optimized_list_getitem": True}

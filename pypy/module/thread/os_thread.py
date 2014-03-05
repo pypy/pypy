@@ -5,7 +5,7 @@ Thread support based on OS-level threads.
 import os
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, Arguments
 
 # Here are the steps performed to start a new thread:
@@ -228,8 +228,7 @@ the suggested approach in the absence of more specific information)."""
     old_size = rthread.get_stacksize()
     error = rthread.set_stacksize(size)
     if error == -1:
-        raise operationerrfmt(space.w_ValueError,
-                              "size not valid: %d bytes", size)
+        raise oefmt(space.w_ValueError, "size not valid: %d bytes", size)
     if error == -2:
         raise wrap_thread_error(space, "setting stack size not supported")
     return space.wrap(old_size)

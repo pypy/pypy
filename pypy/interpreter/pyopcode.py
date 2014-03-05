@@ -4,16 +4,19 @@ Implementation of a part of the standard Python opcodes.
 The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
-import sys
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
-from pypy.interpreter.pycode import PyCode, BytecodeCorruption
-from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit, rstackovf, rstm
-from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.debug import check_nonneg
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter import (
+    gateway, function, eval, pyframe, pytraceback, pycode
+)
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
 from rpython.rlib.jit import we_are_jitted
 
@@ -154,12 +157,13 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
-        space = self.space
         while True:
             self.last_instr = intmask(next_instr)
-            if not jit.we_are_jitted():
+            if jit.we_are_jitted():
+                ec.bytecode_only_trace(self)
+            else:
                 ec.bytecode_trace(self)
-                next_instr = r_uint(self.last_instr)
+            next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
 
@@ -518,8 +522,9 @@ class __extend__(pyframe.PyFrame):
 
     def _load_fast_failed(self, varindex):
         varname = self.getlocalvarname(varindex)
-        message = "local variable '%s' referenced before assignment"
-        raise operationerrfmt(self.space.w_UnboundLocalError, message, varname)
+        raise oefmt(self.space.w_UnboundLocalError,
+                    "local variable '%s' referenced before assignment",
+                    varname)
     _load_fast_failed._dont_inline_ = True
 
     def LOAD_CONST(self, constindex, next_instr):
@@ -530,6 +535,44 @@ class __extend__(pyframe.PyFrame):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
         self.locals_stack_w[varindex] = w_newvalue
+
+    def getfreevarname(self, index):
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        return freevarnames[index]
+
+    def iscellvar(self, index):
+        # is the variable given by index a cell or a free var?
+        return index < len(self.pycode.co_cellvars)
+
+    def LOAD_DEREF(self, varindex, next_instr):
+        # nested scopes: access a variable through its cell object
+        cell = self.cells[varindex]
+        try:
+            w_value = cell.get()
+        except ValueError:
+            varname = self.getfreevarname(varindex)
+            if self.iscellvar(varindex):
+                message = "local variable '%s' referenced before assignment" % varname
+                w_exc_type = self.space.w_UnboundLocalError
+            else:
+                message = ("free variable '%s' referenced before assignment"
+                           " in enclosing scope" % varname)
+                w_exc_type = self.space.w_NameError
+            raise OperationError(w_exc_type, self.space.wrap(message))
+        else:
+            self.pushvalue(w_value)
+
+    def STORE_DEREF(self, varindex, next_instr):
+        # nested scopes: access a variable through its cell object
+        w_newvalue = self.popvalue()
+        cell = self.cells[varindex]
+        cell.set(w_newvalue)
+
+    def LOAD_CLOSURE(self, varindex, next_instr):
+        # nested scopes: access the cell object
+        cell = self.cells[varindex]
+        w_value = self.space.wrap(cell)
+        self.pushvalue(w_value)
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
@@ -724,7 +767,6 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         if nbargs == 0:
             frame = self
-            ec = self.space.getexecutioncontext()
             while frame:
                 if frame.last_exception is not None:
                     operror = frame.last_exception
@@ -733,6 +775,9 @@ class __extend__(pyframe.PyFrame):
             else:
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
+            if operror.w_type is space.w_None:
+                raise OperationError(space.w_TypeError,
+                    space.wrap("raise: the exception to re-raise was cleared"))
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
             raise RaiseWithExplicitTraceback(operror)
@@ -834,9 +879,8 @@ class __extend__(pyframe.PyFrame):
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
-            message = "name '%s' is not defined"
-            raise operationerrfmt(self.space.w_NameError, message,
-                                  self.space.str_w(w_varname))
+            raise oefmt(self.space.w_NameError, "name '%s' is not defined",
+                        self.space.str_w(w_varname))
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
@@ -885,8 +929,8 @@ class __extend__(pyframe.PyFrame):
     _load_global._always_inline_ = True
 
     def _load_global_failed(self, varname):
-        message = "global name '%s' is not defined"
-        raise operationerrfmt(self.space.w_NameError, message, varname)
+        raise oefmt(self.space.w_NameError,
+                    "global name '%s' is not defined", varname)
     _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
@@ -896,9 +940,9 @@ class __extend__(pyframe.PyFrame):
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
-            message = "local variable '%s' referenced before assignment"
-            raise operationerrfmt(self.space.w_UnboundLocalError, message,
-                                  varname)
+            raise oefmt(self.space.w_UnboundLocalError,
+                        "local variable '%s' referenced before assignment",
+                        varname)
         self.locals_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
@@ -1026,9 +1070,8 @@ class __extend__(pyframe.PyFrame):
         except OperationError, e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
-            raise operationerrfmt(self.space.w_ImportError,
-                                  "cannot import name '%s'",
-                                  self.space.str_w(w_name))
+            raise oefmt(self.space.w_ImportError,
+                        "cannot import name '%s'", self.space.str_w(w_name))
         self.pushvalue(w_obj)
 
     def YIELD_VALUE(self, oparg, next_instr):
@@ -1113,9 +1156,9 @@ class __extend__(pyframe.PyFrame):
         w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
         if w_enter is None or w_descr is None:
-            raise operationerrfmt(self.space.w_AttributeError,
-                "'%T' object is not a context manager"
-                " (no __enter__/__exit__ method)", w_manager)
+            raise oefmt(self.space.w_AttributeError,
+                        "'%T' object is not a context manager (no __enter__/"
+                        "__exit__ method)", w_manager)
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
@@ -1213,6 +1256,18 @@ class __extend__(pyframe.PyFrame):
         defaultarguments = self.popvalues(numdefaults)
         fn = function.Function(self.space, codeobj, self.w_globals,
                                defaultarguments)
+        self.pushvalue(self.space.wrap(fn))
+
+    @jit.unroll_safe
+    def MAKE_CLOSURE(self, numdefaults, next_instr):
+        w_codeobj = self.popvalue()
+        codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
+        w_freevarstuple = self.popvalue()
+        freevars = [self.space.interp_w(Cell, cell)
+                    for cell in self.space.fixedview(w_freevarstuple)]
+        defaultarguments = self.popvalues(numdefaults)
+        fn = function.Function(self.space, codeobj, self.w_globals,
+                               defaultarguments, freevars)
         self.pushvalue(self.space.wrap(fn))
 
     def BUILD_SLICE(self, numargs, next_instr):

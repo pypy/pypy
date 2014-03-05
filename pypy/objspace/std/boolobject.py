@@ -1,79 +1,110 @@
-from rpython.rlib.rbigint import rbigint
+"""The builtin bool implementation"""
+
+import operator
+
 from rpython.rlib.rarithmetic import r_uint
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std import newformat
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.intobject import W_IntObject
+from rpython.tool.sourcetools import func_renamer, func_with_new_name
+
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
+from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
-class W_BoolObject(W_Object):
-    from pypy.objspace.std.booltype import bool_typedef as typedef
-    _immutable_fields_ = ['boolval']
+class W_BoolObject(W_IntObject):
 
     def __init__(self, boolval):
-        self.boolval = not not boolval
+        self.intval = not not boolval
 
     def __nonzero__(self):
         raise Exception("you cannot do that, you must use space.is_true()")
 
     def __repr__(self):
-        """ representation for debugging purposes """
-        return "%s(%s)" % (self.__class__.__name__, self.boolval)
+        """representation for debugging purposes"""
+        return "%s(%s)" % (self.__class__.__name__, bool(self.intval))
+
+    def is_w(self, space, w_other):
+        return self is w_other
+
+    def immutable_unique_id(self, space):
+        return None
 
     def unwrap(self, space):
-        return self.boolval
-
-    def int_w(self, space):
-        return int(self.boolval)
+        return bool(self.intval)
 
     def uint_w(self, space):
-        intval = int(self.boolval)
-        return r_uint(intval)
-
-    def bigint_w(self, space):
-        return rbigint.fromint(int(self.boolval))
-
-    def float_w(self, space):
-        return float(self.boolval)
+        return r_uint(self.intval)
 
     def int(self, space):
-        return space.newint(int(self.boolval))
+        return space.newint(self.intval)
 
-registerimplementation(W_BoolObject)
+    @staticmethod
+    @unwrap_spec(w_obj=WrappedDefault(False))
+    def descr_new(space, w_booltype, w_obj):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        space.w_bool.check_user_subclass(w_booltype)
+        return space.newbool(space.is_true(w_obj))
+
+    def descr_repr(self, space):
+        return space.wrap('True' if self.intval else 'False')
+    descr_str = func_with_new_name(descr_repr, 'descr_str')
+
+    def descr_nonzero(self, space):
+        return self
+
+    def _make_bitwise_binop(opname):
+        descr_name = 'descr_' + opname
+        int_op = getattr(W_IntObject, descr_name)
+        op = getattr(operator,
+                     opname + '_' if opname in ('and', 'or') else opname)
+
+        @func_renamer(descr_name)
+        def descr_binop(self, space, w_other):
+            if not isinstance(w_other, W_BoolObject):
+                return int_op(self, space, w_other)
+            a = bool(self.intval)
+            b = bool(w_other.intval)
+            return space.newbool(op(a, b))
+
+        @func_renamer('descr_r' + opname)
+        def descr_rbinop(self, space, w_other):
+            return descr_binop(self, space, w_other)
+
+        return descr_binop, descr_rbinop
+
+    descr_and, descr_rand = _make_bitwise_binop('and')
+    descr_or, descr_ror = _make_bitwise_binop('or')
+    descr_xor, descr_rxor = _make_bitwise_binop('xor')
+
 
 W_BoolObject.w_False = W_BoolObject(False)
-W_BoolObject.w_True  = W_BoolObject(True)
-
-# bool-to-int delegation requires translating the .boolvar attribute
-# to an .intval one
-def delegate_Bool2IntObject(space, w_bool):
-    return W_IntObject(int(w_bool.boolval))
+W_BoolObject.w_True = W_BoolObject(True)
 
 
-def nonzero__Bool(space, w_bool):
-    return w_bool
+W_BoolObject.typedef = StdTypeDef("bool", W_IntObject.typedef,
+    __doc__ = """bool(x) -> bool
 
-def repr__Bool(space, w_bool):
-    if w_bool.boolval:
-        return space.wrap('True')
-    else:
-        return space.wrap('False')
+Returns True when the argument x is true, False otherwise.
+The builtins True and False are the only two instances of the class bool.
+The class bool is a subclass of the class int, and cannot be subclassed.""",
+    __new__ = interp2app(W_BoolObject.descr_new),
+    __repr__ = interp2app(W_BoolObject.descr_repr,
+                          doc=W_AbstractIntObject.descr_repr.__doc__),
+    __str__ = interp2app(W_BoolObject.descr_str,
+                         doc=W_AbstractIntObject.descr_str.__doc__),
+    __nonzero__ = interp2app(W_BoolObject.descr_nonzero,
+                             doc=W_AbstractIntObject.descr_nonzero.__doc__),
 
-def and__Bool_Bool(space, w_bool1, w_bool2):
-    return space.newbool(w_bool1.boolval & w_bool2.boolval)
-
-def or__Bool_Bool(space, w_bool1, w_bool2):
-    return space.newbool(w_bool1.boolval | w_bool2.boolval)
-
-def xor__Bool_Bool(space, w_bool1, w_bool2):
-    return space.newbool(w_bool1.boolval ^ w_bool2.boolval)
-
-str__Bool = repr__Bool
-
-def format__Bool_ANY(space, w_bool, w_format_spec):
-    return newformat.run_formatter(
-            space, w_format_spec, "format_int_or_long", w_bool,
-            newformat.INT_KIND)
-
-register_all(vars())
+    __and__ = interp2app(W_BoolObject.descr_and,
+                         doc=W_AbstractIntObject.descr_and.__doc__),
+    __rand__ = interp2app(W_BoolObject.descr_rand,
+                          doc=W_AbstractIntObject.descr_rand.__doc__),
+    __or__ = interp2app(W_BoolObject.descr_or,
+                        doc=W_AbstractIntObject.descr_or.__doc__),
+    __ror__ = interp2app(W_BoolObject.descr_ror,
+                         doc=W_AbstractIntObject.descr_ror.__doc__),
+    __xor__ = interp2app(W_BoolObject.descr_xor,
+                         doc=W_AbstractIntObject.descr_xor.__doc__),
+    __rxor__ = interp2app(W_BoolObject.descr_rxor,
+                          doc=W_AbstractIntObject.descr_rxor.__doc__),
+    )
+W_BoolObject.typedef.acceptable_as_base_class = False

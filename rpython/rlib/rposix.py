@@ -7,6 +7,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 
+
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
     # on top of CPython
@@ -20,6 +21,7 @@ class CConstantErrno(CConstant):
     def __setitem__(self, index, value):
         assert index == 0
         ll2ctypes.TLS.errno = value
+
 if os.name == 'nt':
     if platform.name == 'msvc':
         includes=['errno.h','stdio.h']
@@ -136,6 +138,7 @@ def closerange(fd_low, fd_high):
 #   with other wrappers that directly handle unicode strings.
 @specialize.argtype(0)
 def open(path, flags, mode):
+    assert path is not None
     if isinstance(path, str):
         return os.open(path, flags, mode)
     else:

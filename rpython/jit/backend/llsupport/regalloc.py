@@ -68,14 +68,32 @@ class LinkedList(object):
             function(arg, node.val)
             node = node.next
 
-    def pop(self, size, tp):
+    def pop(self, size, tp, hint=-1):
         if size == 2:
-            return self._pop_two(tp)
+            return self._pop_two(tp)   # 'hint' ignored for floats on 32-bit
         assert size == 1
         if not self.master_node:
             return None
         node = self.master_node
-        self.master_node = node.next
+        #
+        if hint >= 0:
+            # Look for and remove the Node with the .val matching 'hint'.
+            # If not found, fall back to removing the first Node.
+            # Note that the loop below ignores the first Node, but
+            # even if by chance it is the one with the correct .val,
+            # it will be the one we remove at the end anyway.
+            prev_node = node
+            while prev_node.next:
+                if prev_node.next.val == hint:
+                    node = prev_node.next
+                    prev_node.next = node.next
+                    break
+                prev_node = prev_node.next
+            else:
+                self.master_node = node.next
+        else:
+            self.master_node = node.next
+        #
         return self.fm.frame_pos(node.val, tp)
 
     def _candidate(self, node):
@@ -131,8 +149,7 @@ class FrameManager(object):
     def __init__(self, start_free_depth=0, freelist=None):
         self.bindings = {}
         self.current_frame_depth = start_free_depth
-        # we disable hints for now
-        #self.hint_frame_locations = {}
+        self.hint_frame_pos = {}
         self.freelist = LinkedList(self, freelist)
 
     def get_frame_depth(self):
@@ -148,22 +165,16 @@ class FrameManager(object):
             return self.bindings[box]
         except KeyError:
             pass
-        # check if we have a hint for this box
-        #if box in self.hint_frame_locations:
-        #    # if we do, try to reuse the location for this box
-        #    loc = self.hint_frame_locations[box]
-        #    if self.try_to_reuse_location(box, loc):
-        #        return loc
-        ## no valid hint.  make up a new free location
         return self.get_new_loc(box)
 
     def get_new_loc(self, box):
         size = self.frame_size(box.type)
+        hint = self.hint_frame_pos.get(box, -1)
         # frame_depth is rounded up to a multiple of 'size', assuming
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        newloc = self.freelist.pop(size, box.type)
+        newloc = self.freelist.pop(size, box.type, hint)
         if newloc is None:
             #
             index = self.get_frame_depth()
@@ -231,23 +242,6 @@ class FrameManager(object):
             assert not all[node.val]
             all[node.val] = 1
             node = node.next
-
-    def try_to_reuse_location(self, box, loc):
-        xxx
-        index = self.get_loc_index(loc)
-        if index < 0:
-            return False
-        size = self.frame_size(box.type)
-        for i in range(size):
-            while (index + i) >= len(self.used):
-                self.used.append(False)
-            if self.used[index + i]:
-                return False    # already in use
-        # good, we can reuse the location
-        for i in range(size):
-            self.used[index + i] = True
-        self.bindings[box] = loc
-        return True
 
     @staticmethod
     def _gather_gcroots(lst, var):

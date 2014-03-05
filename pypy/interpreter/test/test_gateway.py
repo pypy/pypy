@@ -457,6 +457,8 @@ class TestGateway:
                        space.mul(space.wrap(sys.maxint), space.wrap(-7)))
 
     def test_interp2app_unwrap_spec_typechecks(self):
+        from rpython.rlib.rarithmetic import r_longlong
+
         space = self.space
         w = space.wrap
         def g3_id(space, x):
@@ -490,6 +492,12 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g3_f,w(1L)),w(1.0))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
+
+        app_g3_r = gateway.interp2app_temp(g3_id,
+                                           unwrap_spec=[gateway.ObjSpace,
+                                                        r_longlong])
+        w_app_g3_r = space.wrap(app_g3_r)
+        raises(gateway.OperationError,space.call_function,w_app_g3_r,w(1.0))
 
     def test_interp2app_unwrap_spec_unicode(self):
         space = self.space
@@ -707,6 +715,18 @@ class TestGateway:
         def g(space, w_x, y):
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
+
+    def test_interp2app_doc(self):
+        space = self.space
+        def f(space, w_x):
+            """foo"""
+        w_f = space.wrap(gateway.interp2app_temp(f))
+        assert space.unwrap(space.getattr(w_f, space.wrap('__doc__'))) == 'foo'
+        #
+        def g(space, w_x):
+            never_called
+        w_g = space.wrap(gateway.interp2app_temp(g, doc='bar'))
+        assert space.unwrap(space.getattr(w_g, space.wrap('__doc__'))) == 'bar'
 
 
 class AppTestPyTestMark:

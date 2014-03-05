@@ -7,3 +7,4 @@ class TestSTMShadowStack(CompileFrameworkTests):
 
 class TestShadowStack(CompileFrameworkTests):
     gcrootfinder = "shadowstack"
+    gc = "incminimark"

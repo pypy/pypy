@@ -1,6 +1,6 @@
 import sys
 
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import r_singlefloat
@@ -430,8 +430,8 @@ class InstancePtrConverter(TypeConverter):
                 offset = capi.c_base_offset(space, w_obj.cppclass, self.cppclass, rawobject, 1)
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
-        raise operationerrfmt(space.w_TypeError, "cannot pass %T as %s",
-                              w_obj, self.cppclass.name)
+        raise oefmt(space.w_TypeError, "cannot pass %T as %s",
+                    w_obj, self.cppclass.name)
 
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)

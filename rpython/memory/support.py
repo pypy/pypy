@@ -136,13 +136,15 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, multithread=False,
                 cur = next
             free_non_gc_object(self)
 
-        def _length_estimate(self):
+        def length(self):
             chunk = self.chunk
+            result = 0
             count = self.used_in_last_chunk
             while chunk:
+                result += count
                 chunk = chunk.next
-                count += chunk_size
-            return count
+                count = chunk_size
+            return result
 
         def foreach(self, callback, arg):
             """Invoke 'callback(address, arg)' for all addresses in the stack.
@@ -159,7 +161,7 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, multithread=False,
         foreach._annspecialcase_ = 'specialize:arg(1)'
 
         def stack2dict(self):
-            result = AddressDict(self._length_estimate())
+            result = AddressDict(self.length())
             self.foreach(_add_in_dict, result)
             return result
 

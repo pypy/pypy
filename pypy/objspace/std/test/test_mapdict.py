@@ -64,7 +64,7 @@ def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
         current = PlainAttribute((str(i), DICT), current)
-    assert current.index(("0", DICT)) == 0
+    assert current.find_map_attr(("0", DICT)).storageindex == 0
 
 
 def test_search():
@@ -106,6 +106,53 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "a") == 50
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
+
+def test_attr_immutability(monkeypatch):
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "b", 30)
+    assert obj.storage == [10, 30]
+    assert obj.map.ever_mutated == True
+    assert obj.map.back.ever_mutated == False
+
+    indices = []
+
+    def _pure_mapdict_read_storage(obj, storageindex):
+        assert storageindex == 0
+        indices.append(storageindex)
+        return obj._mapdict_read_storage(storageindex)
+
+    obj.map._pure_mapdict_read_storage = _pure_mapdict_read_storage
+    monkeypatch.setattr(jit, "isconstant", lambda c: True)
+
+    assert obj.getdictvalue(space, "a") == 10
+    assert obj.getdictvalue(space, "b") == 30
+    assert obj.getdictvalue(space, "a") == 10
+    assert indices == [0, 0]
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "a", 15)
+    obj2.setdictvalue(space, "b", 25)
+    assert obj2.map is obj.map
+    assert obj2.map.ever_mutated == True
+    assert obj2.map.back.ever_mutated == False
+
+    # mutating obj2 changes the map
+    obj2.setdictvalue(space, "a", 50)
+    assert obj2.map.back.ever_mutated == True
+    assert obj2.map is obj.map
+
+def test_attr_immutability_delete(monkeypatch):
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    map1 = obj.map
+    obj.deldictvalue(space, "a")
+    obj.setdictvalue(space, "a", 20)
+    assert obj.map.ever_mutated == True
+    assert obj.map is map1
 
 def test_delete():
     for i, dattr in enumerate(["a", "b", "c"]):
@@ -231,7 +278,6 @@ def test_slots_no_dict():
     obj = cls.instantiate()
     a = 0
     b = 1
-    c = 2
     obj.setslotvalue(a, 50)
     obj.setslotvalue(b, 60)
     assert obj.getslotvalue(a) == 50
@@ -648,7 +694,7 @@ class AppTestWithMapDict(object):
     def test_delete_slot(self):
         class A(object):
             __slots__ = ['x']
-        
+
         a = A()
         a.x = 42
         del a.x

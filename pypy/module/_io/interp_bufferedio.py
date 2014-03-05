@@ -1,8 +1,9 @@
 from __future__ import with_statement
+
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
@@ -257,8 +258,8 @@ class BufferedMixin:
     def seek_w(self, space, pos, whence=0):
         self._check_init(space)
         if whence not in (0, 1, 2):
-            raise operationerrfmt(space.w_ValueError,
-                "whence must be between 0 and 2, not %d", whence)
+            raise oefmt(space.w_ValueError,
+                        "whence must be between 0 and 2, not %d", whence)
         self._check_closed(space, "seek of closed file")
         if whence != 2 and self.readable:
             # Check if seeking leaves us inside the current buffer, so as to

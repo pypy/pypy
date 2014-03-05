@@ -27,6 +27,7 @@ corresponding Unix manual entries for more information on calls."""
             'popen2': 'app_posix.popen2',
             'popen3': 'app_posix.popen3',
             'popen4': 'app_posix.popen4',
+            'startfile': 'app_startfile.startfile',
         })
 
     if hasattr(os, 'wait'):
@@ -131,6 +132,11 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(os, 'fpathconf'):
         interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
         interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
+    if hasattr(os, 'pathconf'):
+        interpleveldefs['pathconf'] = 'interp_posix.pathconf'
+    if hasattr(os, 'confstr'):
+        interpleveldefs['confstr'] = 'interp_posix.confstr'
+        interpleveldefs['confstr_names'] = 'space.wrap(os.confstr_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
@@ -149,11 +155,15 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['nice'] = 'interp_posix.nice'
     if hasattr(os, 'getlogin'):
         interpleveldefs['getlogin'] = 'interp_posix.getlogin'
+    if hasattr(os, 'ctermid'):
+        interpleveldefs['ctermid'] = 'interp_posix.ctermid'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',
                  'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid',
-                 'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs']:
+                 'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs',
+                 'setgroups', 'initgroups', 'tcgetpgrp', 'tcsetpgrp',
+                 'getresuid', 'getresgid', 'setresuid', 'setresgid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:

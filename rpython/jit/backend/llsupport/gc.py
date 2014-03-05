@@ -565,7 +565,8 @@ class GcLLDescr_framework(GcLLDescription):
     def _check_valid_gc(self):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
         # to work.  'hybrid' could work but isn't tested with the JIT.
-        if self.gcdescr.config.translation.gc not in ('minimark', 'stmgc'):
+        if self.gcdescr.config.translation.gc not in ('minimark', 'stmgc',
+                                                      'incminimark'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (self.gcdescr.config.translation.gc,))
 
@@ -576,7 +577,9 @@ class GcLLDescr_framework(GcLLDescription):
         translator = self.translator
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
-        translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
+        if not hasattr(translator, '_jit2gc'):
+            translator._jit2gc = {}
+        translator._jit2gc['layoutbuilder'] = self.layoutbuilder
 
     def _setup_gcclass(self):
         from rpython.memory.gcheader import GCHeaderBuilder
@@ -675,17 +678,19 @@ class GcLLDescr_framework(GcLLDescription):
 
         
         def malloc_str(length):
+            type_id = llop.extract_ushort(llgroup.HALFWORD, str_type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                str_type_id, length, str_basesize, str_itemsize,
+                type_id, length, str_basesize, str_itemsize,
                 str_ofs_length)
         self.generate_function('malloc_str', malloc_str,
                                [lltype.Signed])
             
         def malloc_unicode(length):
+            type_id = llop.extract_ushort(llgroup.HALFWORD, unicode_type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                unicode_type_id, length, unicode_basesize, unicode_itemsize,
+                type_id, length, unicode_basesize, unicode_itemsize,
                 unicode_ofs_length)
         self.generate_function('malloc_unicode', malloc_unicode,
                                [lltype.Signed])
