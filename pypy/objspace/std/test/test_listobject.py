@@ -431,7 +431,7 @@ class TestW_ListObject(object):
             intlist.find(w(4), 0, 2)
 
 
-class AppTestW_ListObject(object):
+class AppTestListObject(object):
     def setup_class(cls):
         import platform
         import sys
@@ -525,6 +525,18 @@ class AppTestW_ListObject(object):
             l.__init__(assignment)
             assert l == list(assignment)
 
+    def test_range_init(self):
+        x = range(5,1)
+        assert x == []
+
+        x = range(1,10)
+        x[22:0:-1] == range(1,10)
+
+        r = range(10, 10)
+        assert len(r) == 0
+        assert list(reversed(r)) == []
+        assert r[:] == []
+
     def test_extend_list(self):
         l = l0 = [1]
         l.extend([2])
@@ -609,24 +621,28 @@ class AppTestW_ListObject(object):
     def test_sort_key(self):
         def lower(x): return x.lower()
         l = ['a', 'C', 'b']
-        l.sort(key = lower)
+        l.sort(key=lower)
         assert l == ['a', 'b', 'C']
         l = []
-        l.sort(key = lower)
+        l.sort(key=lower)
         assert l == []
-        l = [ 'a' ]
-        l.sort(key = lower)
-        assert l == [ 'a' ]
+        l = ['a']
+        l.sort(key=lower)
+        assert l == ['a']
+
+        r = range(10)
+        r.sort(key=lambda x: -x)
+        assert r == range(9, -1, -1)
 
     def test_sort_reversed(self):
         l = range(10)
-        l.sort(reverse = True)
+        l.sort(reverse=True)
         assert l == range(9, -1, -1)
         l = []
-        l.sort(reverse = True)
+        l.sort(reverse=True)
         assert l == []
         l = [1]
-        l.sort(reverse = True)
+        l.sort(reverse=True)
         assert l == [1]
 
     def test_sort_cmp_key_reverse(self):
@@ -639,6 +655,17 @@ class AppTestW_ListObject(object):
         l = ["a", "d", "c", "b"]
         l.sort()
         assert l == ["a", "b", "c", "d"]
+
+    def test_sort_range(self):
+        l = range(3, 10, 3)
+        l.sort()
+        assert l == [3, 6, 9]
+        l.sort(reverse=True)
+        assert l == [9, 6, 3]
+        l.sort(reverse=True)
+        assert l == [9, 6, 3]
+        l.sort()
+        assert l == [3, 6, 9]
 
     def test_getitem(self):
         l = [1, 2, 3, 4, 5, 6, 9]
@@ -663,6 +690,23 @@ class AppTestW_ListObject(object):
         l = []
         raises(IndexError, "l[1]")
 
+    def test_getitem_range(self):
+        l = range(5)
+        raises(IndexError, "l[-6]")
+        raises(IndexError, "l[5]")
+        assert l[0] == 0
+        assert l[-1] == 4
+        assert l[-2] == 3
+        assert l[-5] == 0
+
+        l = range(1, 5)
+        raises(IndexError, "l[-5]")
+        raises(IndexError, "l[4]")
+        assert l[0] == 1
+        assert l[-1] == 4
+        assert l[-2] == 3
+        assert l[-4] == 1
+
     def test_setitem(self):
         l = []
         raises(IndexError, "l[1] = 2")
@@ -674,6 +718,10 @@ class AppTestW_ListObject(object):
         l = [5,3]
         l[0] = "2"
         assert l == ["2",3]
+
+        l = range(3)
+        l[0] = 1
+        assert l == [1,1,2]
 
     def test_delitem(self):
         l = [1, 2, 3, 4, 5, 6, 9]
@@ -740,6 +788,29 @@ class AppTestW_ListObject(object):
         assert l[1:0:None] == []
         assert l[1:0] == []
 
+    def test_getslice_invalid(self):
+        x = [1,2,3,4]
+        assert x[10:0] == []
+        assert x[10:0:None] == []
+
+        x = range(1,5)
+        assert x[10:0] == []
+        assert x[10:0:None] == []
+
+        assert x[0:22] == [1,2,3,4]
+        assert x[-1:10] == [4]
+
+        assert x[0:22:None] == [1,2,3,4]
+        assert x[-1:10:None] == [4]
+
+    def test_getslice_range_backwards(self):
+        x = range(1,10)
+        assert x[22:-10] == []
+        assert x[22:-10:-1] == [9,8,7,6,5,4,3,2,1]
+        assert x[10:3:-1] == [9,8,7,6,5]
+        assert x[10:3:-2] == [9,7,5]
+        assert x[1:5:-1] == []
+
     def test_delall(self):
         l = l0 = [1,2,3]
         del l[:]
@@ -776,6 +847,13 @@ class AppTestW_ListObject(object):
         assert l == ['a', 'b', 'c', 'd']
         l1 += [0]
         assert l1 == ['a', 'b', 'c', 0]
+
+        r1 = r2 = range(5)
+        assert r1 is r2
+        r1 += [15]
+        assert r1 is r2
+        assert r1 == [0, 1, 2, 3, 4, 15]
+        assert r2 == [0, 1, 2, 3, 4, 15]
 
     def test_iadd_iterable(self):
         l = l0 = [1,2,3]
@@ -834,6 +912,13 @@ class AppTestW_ListObject(object):
         l = range(2)
         l *= 2
         assert l == [0, 1, 0, 1]
+
+        r1 = r2 = range(3)
+        assert r1 is r2
+        r1 *= 2
+        assert r1 is r2
+        assert r1 == [0, 1, 2, 0, 1, 2]
+        assert r2 == [0, 1, 2, 0, 1, 2]
 
     def test_mul_errors(self):
         try:
@@ -915,6 +1000,11 @@ class AppTestW_ListObject(object):
         l[:] = []
         assert l == []
         assert l is l0
+
+        l = []
+        l2 = range(3)
+        l.__setslice__(0,3,l2)
+        assert l == [0,1,2]
 
     def test_assign_extended_slice(self):
         l = l0 = ['a', 'b', 'c']
@@ -1002,10 +1092,6 @@ class AppTestW_ListObject(object):
             l.append(x)
         assert l == range(5)
 
-        l = range(4)
-        l.append(4)
-        assert l == range(5)
-
         l = [1,2,3]
         l.append("a")
         assert l == [1,2,3,"a"]
@@ -1013,6 +1099,22 @@ class AppTestW_ListObject(object):
         l = [1.1, 2.2, 3.3]
         l.append(4.4)
         assert l == [1.1, 2.2, 3.3, 4.4]
+
+        l = range(4)
+        l.append(4)
+        assert l == range(5)
+
+        l = range(5)
+        l.append(26)
+        assert l == [0,1,2,3,4,26]
+
+        l = range(5)
+        l.append("a")
+        assert l == [0,1,2,3,4,"a"]
+
+        l = range(5)
+        l.append(5)
+        assert l == [0,1,2,3,4,5]
 
     def test_count(self):
         c = list('hello')
@@ -1041,6 +1143,10 @@ class AppTestW_ListObject(object):
         l.insert(0,"a")
         assert l == ["a", 1, 2, 3]
 
+        l = range(3)
+        l.insert(1,5)
+        assert l == [0,5,1,2]
+
     def test_pop(self):
         c = list('hello world')
         s = ''
@@ -1053,6 +1159,7 @@ class AppTestW_ListObject(object):
         l = range(10)
         l.pop()
         assert l == range(9)
+        assert l.pop(0) == 0
 
         l = [1.1, 2.2, 3.3]
         l.pop()
@@ -1122,6 +1229,16 @@ class AppTestW_ListObject(object):
         c = list('hello world')
         c.reverse()
         assert ''.join(c) == 'dlrow olleh'
+
+        l = range(3)
+        l.reverse()
+        assert l == [2,1,0]
+
+        r = range(3)
+        r[0] = 1
+        assert r == [1, 1, 2]
+        r.reverse()
+        assert r == [2, 1, 1]
 
     def test_reversed(self):
         assert list(list('hello').__reversed__()) == ['o', 'l', 'l', 'e', 'h']
@@ -1387,106 +1504,27 @@ class AppTestW_ListObject(object):
         #
         assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
 
+    def test_no_len_on_range_iter(self):
+        iterable = range(10)
+        raises(TypeError, len, iter(iterable))
 
-class AppTestForRangeLists(AppTestW_ListObject):
-    spaceconfig = {"objspace.std.withrangelist": True}
-
-    def test_range_simple_backwards(self):
-        x = range(5,1)
-        assert x == []
-
-    def test_range_big_start(self):
-        x = range(1,10)
-        x[22:0:-1] == range(1,10)
-
-    def test_range_list_invalid_slice(self):
-        x = [1,2,3,4]
-        assert x[10:0] == []
-        assert x[10:0:None] == []
-
-        x = range(1,5)
-        assert x[10:0] == []
-        assert x[10:0:None] == []
-
-        assert x[0:22] == [1,2,3,4]
-        assert x[-1:10] == [4]
-
-        assert x[0:22:None] == [1,2,3,4]
-        assert x[-1:10:None] == [4]
-
-    def test_range_backwards(self):
-        x = range(1,10)
-        assert x[22:-10] == []
-        assert x[22:-10:-1] == [9,8,7,6,5,4,3,2,1]
-        assert x[10:3:-1] == [9,8,7,6,5]
-        assert x[10:3:-2] == [9,7,5]
-        assert x[1:5:-1] == []
-
-    def test_sort_range(self):
-        l = range(3,10,3)
-        l.sort()
-        assert l == [3, 6, 9]
-        l.sort(reverse = True)
-        assert l == [9, 6, 3]
-        l.sort(reverse = True)
-        assert l == [9, 6, 3]
-        l.sort()
-        assert l == [3, 6, 9]
-
-    def test_slice(self):
-        l = []
-        l2 = range(3)
-        l.__setslice__(0,3,l2)
-        assert l == [0,1,2]
-
-    def test_getitem_range(self):
-        l = range(5)
-        raises(IndexError, "l[-6]")
-        raises(IndexError, "l[5]")
-        assert l[0] == 0
-        assert l[-1] == 4
-        assert l[-2] == 3
-        assert l[-5] == 0
-
-        l = range(1, 5)
-        raises(IndexError, "l[-5]")
-        raises(IndexError, "l[4]")
-        assert l[0] == 1
-        assert l[-1] == 4
-        assert l[-2] == 3
-        assert l[-4] == 1
-
-    def test_append(self):
-        l = range(5)
-        l.append(26)
-        assert l == [0,1,2,3,4,26]
-
-        l = range(5)
-        l.append("a")
-        assert l == [0,1,2,3,4,"a"]
-
-        l = range(5)
-        l.append(5)
-        assert l == [0,1,2,3,4,5]
-
-    def test_pop(self):
-        l = range(3)
-        assert l.pop(0) == 0
-
-    def test_setitem(self):
-        l = range(3)
-        l[0] = 1
-        assert l == [1,1,2]
-
-    def test_inset(self):
-        l = range(3)
-        l.insert(1,5)
-        assert l == [0,5,1,2]
-
-    def test_reverse(self):
-        l = range(3)
-        l.reverse()
-        assert l == [2,1,0]
+    def test_reduce(self):
+        if self.on_cpython:
+            skip("cpython raises TypeError")  # XXX investigate
+        it = iter(range(10))
+        assert it.next() == 0
+        assert it.next() == 1
+        assert it.next() == 2
+        assert it.next() == 3
+        seqiter_new, args = it.__reduce__()
+        assert it.next() == 4
+        assert it.next() == 5
+        it2 = seqiter_new(*args)
+        assert it2.next() == 4
+        assert it2.next() == 5
+        it3 = seqiter_new(*args)
+        assert it3.next() == 4
+        assert it3.next() == 5
 
     def test_issue1266(self):
         l = range(1)
@@ -1518,7 +1556,109 @@ class AppTestForRangeLists(AppTestW_ListObject):
         assert item11 in l[::11]
 
 
-class AppTestWithoutStrategies(object):
+class AppTestListObjectWithRangeList(AppTestListObject):
+    spaceconfig = {"objspace.std.withrangelist": True}
+
+
+class AppTestRangeListForcing:
+    """Tests for range lists that test forcing. Regular tests should go in
+    AppTestListObject so they can be run -A against CPython as well.
+    """
+    spaceconfig = {"objspace.std.withrangelist": True}
+
+    def setup_class(cls):
+        if cls.runappdirect:
+            py.test.skip("__pypy__.internal_repr() cannot be used to see "
+                         "if a range list was forced on top of pypy-c")
+        cls.w_not_forced = cls.space.appexec([], """():
+            import __pypy__
+            def f(r):
+                return (isinstance(r, list) and
+                        "RangeListStrategy" in __pypy__.internal_repr(r))
+            return f
+        """)
+
+    def test_simple(self):
+        result = []
+        r = range(1, 8, 2)
+        for i in r:
+            result.append(i)
+        assert result == [1, 3, 5, 7]
+        assert self.not_forced(r)
+
+    def test_getitem_slice(self):
+        result = []
+        r = range(1, 100, 2)
+        for i in r[10:15]:
+            result.append(i)
+        assert result == [21, 23, 25, 27, 29]
+        assert not self.not_forced(r)
+
+    def test_getitem_extended_slice(self):
+        result = []
+        r = range(1, 100, 2)
+        for i in r[40:30:-2]:
+            result.append(i)
+        assert result == [81, 77, 73, 69, 65]
+        assert not self.not_forced(r)
+
+    def test_repr(self):
+        r = range(5)
+        assert repr(r) == "[0, 1, 2, 3, 4]"
+        assert self.not_forced(r)
+
+    def test_force(self):
+        r = range(10)
+        r[0] = 42
+        assert not self.not_forced(r)
+        assert r == [42, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    def test_reverse(self):
+        r = range(10)
+        r.reverse()
+        assert not self.not_forced(r)
+        assert r == range(9, -1, -1)
+
+    def test_pop(self):
+        # RangeListStrategy
+        r = range(1, 10)
+        res = r.pop()
+        assert res == 9
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(1, 9))
+        res = r.pop(0)
+        assert res == 1
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(2, 9))
+        res = r.pop(len(r) - 1)
+        assert res == 8
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(2, 8))
+        res = r.pop(2)
+        assert res == 4
+        assert not self.not_forced(r)
+        assert r == [2, 3, 5, 6, 7]
+        res = r.pop(2)
+        assert res == 5
+        assert not self.not_forced(r)
+        assert r == [2, 3, 6, 7]
+
+        # SimpleRangeListStrategy
+        r = range(10)
+        res = r.pop()
+        assert res == 9
+        assert self.not_forced(r)
+        res = r.pop()
+        assert res == 8
+        assert repr(r) == repr(range(8))
+        assert self.not_forced(r)
+        res = r.pop(0)
+        assert res == 0
+        assert not self.not_forced(r)
+        assert r == [1, 2, 3, 4, 5, 6, 7]
+
+
+class AppTestWithoutStrategies:
     spaceconfig = {"objspace.std.withliststrategies": False}
 
     def test_no_shared_empty_list(self):
