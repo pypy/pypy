@@ -43,6 +43,9 @@ def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
         storage = strategy.erase(None)
+    elif start == 0 and step == 1:
+        strategy = space.fromcache(SimpleRangeListStrategy)
+        storage = strategy.erase((length,))
     else:
         strategy = space.fromcache(RangeListStrategy)
         storage = strategy.erase((start, step, length))
@@ -138,7 +141,6 @@ def list_unroll_condition(w_list1, space, w_list2):
 
 
 class W_ListObject(W_Root):
-
     strategy = None
 
     def __init__(self, space, wrappeditems, sizehint=-1):
@@ -999,15 +1001,7 @@ class SizeListStrategy(EmptyListStrategy):
         self.sizehint = hint
 
 
-class RangeListStrategy(ListStrategy):
-    """RangeListStrategy is used when a list is created using the range method.
-    The storage is a tuple containing only three integers start, step and
-    length and elements are calculated based on these values.  On any operation
-    destroying the range (inserting, appending non-ints) the strategy is
-    switched to IntegerListStrategy."""
-
-    _applevel_repr = "range"
-
+class BaseRangeListStrategy(ListStrategy):
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
@@ -1022,10 +1016,6 @@ class RangeListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
-    erase, unerase = rerased.new_erasing_pair("range")
-    erase = staticmethod(erase)
-    unerase = staticmethod(unerase)
-
     def clone(self, w_list):
         storage = w_list.lstorage  # lstorage is tuple, no need to clone
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
@@ -1039,6 +1029,157 @@ class RangeListStrategy(ListStrategy):
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
         w_other.lstorage = w_list.lstorage
+
+    def getitem(self, w_list, i):
+        return self.wrap(self._getitem_unwrapped(w_list, i))
+
+    def getitems_int(self, w_list):
+        return self._getitems_range(w_list, False)
+
+    def getitems_copy(self, w_list):
+        return self._getitems_range(w_list, True)
+
+    def getstorage_copy(self, w_list):
+        # tuple is immutable
+        return w_list.lstorage
+
+    @jit.dont_look_inside
+    def getitems_fixedsize(self, w_list):
+        return self._getitems_range_unroll(w_list, True)
+
+    def getitems_unroll(self, w_list):
+        return self._getitems_range_unroll(w_list, True)
+
+    def getslice(self, w_list, start, stop, step, length):
+        self.switch_to_integer_strategy(w_list)
+        return w_list.getslice(start, stop, step, length)
+
+    def append(self, w_list, w_item):
+        if type(w_item) is W_IntObject:
+            self.switch_to_integer_strategy(w_list)
+        else:
+            w_list.switch_to_object_strategy()
+        w_list.append(w_item)
+
+    def inplace_mul(self, w_list, times):
+        self.switch_to_integer_strategy(w_list)
+        w_list.inplace_mul(times)
+
+    def deleteslice(self, w_list, start, step, slicelength):
+        self.switch_to_integer_strategy(w_list)
+        w_list.deleteslice(start, step, slicelength)
+
+    def setitem(self, w_list, index, w_item):
+        self.switch_to_integer_strategy(w_list)
+        w_list.setitem(index, w_item)
+
+    def setslice(self, w_list, start, step, slicelength, sequence_w):
+        self.switch_to_integer_strategy(w_list)
+        w_list.setslice(start, step, slicelength, sequence_w)
+
+    def insert(self, w_list, index, w_item):
+        self.switch_to_integer_strategy(w_list)
+        w_list.insert(index, w_item)
+
+    def extend(self, w_list, w_any):
+        self.switch_to_integer_strategy(w_list)
+        w_list.extend(w_any)
+
+    def reverse(self, w_list):
+        self.switch_to_integer_strategy(w_list)
+        w_list.reverse()
+
+    def sort(self, w_list, reverse):
+        step = self.step(w_list)
+        if step > 0 and reverse or step < 0 and not reverse:
+            self.switch_to_integer_strategy(w_list)
+            w_list.sort(reverse)
+
+
+class SimpleRangeListStrategy(BaseRangeListStrategy):
+    """SimpleRangeListStrategy is used when a list is created using the range
+       method providing only positive length. The storage is a one element tuple
+       with positive integer storing length."""
+
+    _applevel_repr = "simple_range"
+
+    erase, unerase = rerased.new_erasing_pair("simple_range")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def find(self, w_list, w_obj, startindex, stopindex):
+        if type(w_obj) is W_IntObject:
+            obj = self.unwrap(w_obj)
+            length = self.unerase(w_list.lstorage)[0]
+            if 0 <= obj < length and startindex <= obj < stopindex:
+                return obj
+            else:
+                raise ValueError
+        return ListStrategy.find(self, w_list, w_obj, startindex, stopindex)
+
+    def length(self, w_list):
+        return self.unerase(w_list.lstorage)[0]
+
+    def step(self, w_list):
+        return 1
+
+    def _getitem_unwrapped(self, w_list, i):
+        length = self.unerase(w_list.lstorage)[0]
+        if i < 0:
+            i += length
+            if i < 0:
+                raise IndexError
+        elif i >= length:
+            raise IndexError
+        return i
+
+    @specialize.arg(2)
+    def _getitems_range(self, w_list, wrap_items):
+        length = self.unerase(w_list.lstorage)[0]
+        if wrap_items:
+            r = [None] * length
+        else:
+            r = [0] * length
+        i = 0
+        while i < length:
+            if wrap_items:
+                r[i] = self.wrap(i)
+            else:
+                r[i] = i
+            i += 1
+
+        return r
+
+    _getitems_range_unroll = jit.unroll_safe(
+            func_with_new_name(_getitems_range, "_getitems_range_unroll"))
+
+    def pop_end(self, w_list):
+        new_length = self.unerase(w_list.lstorage)[0] - 1
+        w_result = self.wrap(new_length)
+        if new_length > 0:
+            w_list.lstorage = self.erase((new_length,))
+        else:
+            strategy = w_list.strategy = self.space.fromcache(EmptyListStrategy)
+            w_list.lstorage = strategy.erase(None)
+        return w_result
+
+    def pop(self, w_list, index):
+        self.switch_to_integer_strategy(w_list)
+        return w_list.pop(index)
+
+
+class RangeListStrategy(BaseRangeListStrategy):
+    """RangeListStrategy is used when a list is created using the range method.
+    The storage is a tuple containing only three integers start, step and
+    length and elements are calculated based on these values.  On any operation
+    destroying the range (inserting, appending non-ints) the strategy is
+    switched to IntegerListStrategy."""
+
+    _applevel_repr = "range"
+
+    erase, unerase = rerased.new_erasing_pair("range")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def find(self, w_list, w_obj, startindex, stopindex):
         if type(w_obj) is W_IntObject:
@@ -1059,6 +1200,9 @@ class RangeListStrategy(ListStrategy):
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[2]
 
+    def step(self, w_list):
+        return self.unerase(w_list.lstorage)[1]
+
     def _getitem_unwrapped(self, w_list, i):
         v = self.unerase(w_list.lstorage)
         start = v[0]
@@ -1071,19 +1215,6 @@ class RangeListStrategy(ListStrategy):
         elif i >= length:
             raise IndexError
         return start + i * step
-
-    def getitems_int(self, w_list):
-        return self._getitems_range(w_list, False)
-
-    def getitem(self, w_list, i):
-        return self.wrap(self._getitem_unwrapped(w_list, i))
-
-    def getitems_copy(self, w_list):
-        return self._getitems_range(w_list, True)
-
-    def getstorage_copy(self, w_list):
-        # tuple is unmutable
-        return w_list.lstorage
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
@@ -1107,33 +1238,8 @@ class RangeListStrategy(ListStrategy):
 
         return r
 
-    @jit.dont_look_inside
-    def getitems_fixedsize(self, w_list):
-        return self._getitems_range_unroll(w_list, True)
-
-    def getitems_unroll(self, w_list):
-        return self._getitems_range_unroll(w_list, True)
     _getitems_range_unroll = jit.unroll_safe(
             func_with_new_name(_getitems_range, "_getitems_range_unroll"))
-
-    def getslice(self, w_list, start, stop, step, length):
-        self.switch_to_integer_strategy(w_list)
-        return w_list.getslice(start, stop, step, length)
-
-    def append(self, w_list, w_item):
-        if type(w_item) is W_IntObject:
-            self.switch_to_integer_strategy(w_list)
-        else:
-            w_list.switch_to_object_strategy()
-        w_list.append(w_item)
-
-    def inplace_mul(self, w_list, times):
-        self.switch_to_integer_strategy(w_list)
-        w_list.inplace_mul(times)
-
-    def deleteslice(self, w_list, start, step, slicelength):
-        self.switch_to_integer_strategy(w_list)
-        w_list.deleteslice(start, step, slicelength)
 
     def pop_end(self, w_list):
         start, step, length = self.unerase(w_list.lstorage)
@@ -1157,32 +1263,6 @@ class RangeListStrategy(ListStrategy):
         else:
             self.switch_to_integer_strategy(w_list)
             return w_list.pop(index)
-
-    def setitem(self, w_list, index, w_item):
-        self.switch_to_integer_strategy(w_list)
-        w_list.setitem(index, w_item)
-
-    def setslice(self, w_list, start, step, slicelength, sequence_w):
-        self.switch_to_integer_strategy(w_list)
-        w_list.setslice(start, step, slicelength, sequence_w)
-
-    def sort(self, w_list, reverse):
-        step = self.unerase(w_list.lstorage)[1]
-        if step > 0 and reverse or step < 0 and not reverse:
-            self.switch_to_integer_strategy(w_list)
-            w_list.sort(reverse)
-
-    def insert(self, w_list, index, w_item):
-        self.switch_to_integer_strategy(w_list)
-        w_list.insert(index, w_item)
-
-    def extend(self, w_list, w_any):
-        self.switch_to_integer_strategy(w_list)
-        w_list.extend(w_any)
-
-    def reverse(self, w_list):
-        self.switch_to_integer_strategy(w_list)
-        w_list.reverse()
 
 
 class AbstractUnwrappedStrategy(object):
@@ -1541,7 +1621,7 @@ class IntegerListStrategy(ListStrategy):
     _base_extend_from_list = _extend_from_list
 
     def _extend_from_list(self, w_list, w_other):
-        if w_other.strategy is self.space.fromcache(RangeListStrategy):
+        if isinstance(w_other.strategy, BaseRangeListStrategy):
             l = self.unerase(w_list.lstorage)
             other = w_other.getitems_int()
             assert other is not None

@@ -293,7 +293,8 @@ class AppTestSelectWithPipes(_AppTestSelect):
 class AppTestSelectWithSockets(_AppTestSelect):
     """Same tests with connected sockets.
     socket.socketpair() does not exists on win32,
-    so we start our own server."""
+    so we start our own server.
+    """
     spaceconfig = {
         "usemodules": ["select", "_socket", "rctime", "thread"],
     }
@@ -315,7 +316,7 @@ class AppTestSelectWithSockets(_AppTestSelect):
             except OperationError, e:   # should get a "Permission denied"
                 if not e.match(space, space.getattr(w_socketmod, space.wrap("error"))):
                     raise
-                print e
+                print e.errorstr(space)
             except cls.w_sock_err, e:   # should get a "Permission denied"
                 print e
             else:
@@ -330,5 +331,9 @@ class AppTestSelectWithSockets(_AppTestSelect):
         s2 = socket.socket()
         thread.start_new_thread(s2.connect, (self.sockaddress,))
         s1, addr2 = self.sock.accept()
+
+        # speed up the tests that want to fill the buffers
+        s1.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+        s2.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
 
         return s1, s2

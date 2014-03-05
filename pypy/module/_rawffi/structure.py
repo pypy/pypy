@@ -20,6 +20,7 @@ from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint, \
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
+
 def unpack_fields(space, w_fields):
     fields_w = space.unpackiterable(w_fields)
     fields = []

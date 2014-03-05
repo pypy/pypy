@@ -13,6 +13,7 @@ from rpython.rlib.objectmodel import instantiate, import_from_mixin, specialize
 from rpython.rlib.rarithmetic import (
     LONG_BIT, is_valid_int, ovfcheck, r_longlong, r_uint, string_to_int)
 from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
     InvalidBaseError, ParseStringError, ParseStringOverflowError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
@@ -163,10 +164,18 @@ _div = func_with_new_name(_floordiv, '_div')
 
 
 def _truediv(space, x, y):
+    if not y:
+        raise oefmt(space.w_ZeroDivisionError, "division by zero")
+
+    if (DBL_MANT_DIG < LONG_BIT and
+        (r_uint(abs(x)) >> DBL_MANT_DIG or r_uint(abs(y)) >> DBL_MANT_DIG)):
+        # large x or y, use long arithmetic
+        raise OverflowError
+
+    # both ints can be exactly represented as doubles, do a
+    # floating-point division
     a = float(x)
     b = float(y)
-    if b == 0.0:
-        raise oefmt(space.w_ZeroDivisionError, "division by zero")
     return space.wrap(a / b)
 
 
@@ -589,7 +598,7 @@ class W_IntObject(W_AbstractIntObject):
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
     descr_div, descr_rdiv = _make_descr_binop(_div)
-    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
+    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
     descr_divmod, descr_rdivmod = _make_descr_binop(
         _divmod, ovf2small=_divmod_ovf2small)
