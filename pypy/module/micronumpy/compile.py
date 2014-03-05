@@ -71,8 +71,8 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
-        self.w_Ellipsis = special.Ellipsis(self)
-        self.w_NotImplemented = special.NotImplemented(self)
+        self.w_Ellipsis = special.Ellipsis()
+        self.w_NotImplemented = special.NotImplemented()
 
     def _freeze_(self):
         return True
