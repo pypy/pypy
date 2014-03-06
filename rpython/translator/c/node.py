@@ -72,7 +72,7 @@ class NodeWithDependencies(Node):
             if isinstance(T, GcStruct):
                 node = self.db.gettypedefnode(T, varlength=varlength)
                 self.dependencies.add(node)
-                return 'struct %s' % node.name
+                return 'struct %s @' % node.name
             if isinstance(T, OpaqueType):
                 if T.hints.get("is_stm_header", False):
                     return 'struct rpyobj_s @'
@@ -538,7 +538,7 @@ class ContainerNode(Node):
             else:
                 assert self.implementationtypename.endswith('_t @')
                 uniontypename = 'union %su @'%self.implementationtypename[:-4]
-            if self.db.with_stm():
+            if self.db.with_stm() and self.getTYPE()._gckind == 'gc':
                 uniontypename = 'TLPREFIX ' + uniontypename
             return uniontypename, self.name[:-2]
         else:

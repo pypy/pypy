@@ -191,18 +191,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             # run-time teardown code for tests!
             gcdata.gc._teardown()
 
-        bk = self.translator.annotator.bookkeeper
         r_typeid16 = rffi.platform.numbertype_to_rclass[TYPE_ID]
         s_typeid16 = annmodel.SomeInteger(knowntype=r_typeid16)
-
-        # the point of this little dance is to not annotate
-        # self.gcdata.static_root_xyz as constants. XXX is it still needed??
-        data_classdef = bk.getuniqueclassdef(gctypelayout.GCData)
-        data_classdef.generalize_attr('static_root_start', SomeAddress())
-        data_classdef.generalize_attr('static_root_nongcend', SomeAddress())
-        data_classdef.generalize_attr('static_root_end', SomeAddress())
-        data_classdef.generalize_attr('max_type_id', annmodel.SomeInteger())
-        data_classdef.generalize_attr('typeids_z', SomeAddress())
 
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
@@ -227,6 +217,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.weakref_deref_ptr = self.inittime_helper(
             ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
 
+        bk = self.translator.annotator.bookkeeper
         classdef = bk.getuniqueclassdef(GCClass)
         s_gc = annmodel.SomeInstance(classdef)
 
@@ -271,6 +262,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def _declare_functions(self, GCClass, getfn, s_gc, s_typeid16):
         from rpython.memory.gc.base import ARRAY_TYPEID_MAP
         from rpython.memory.gc import inspector
+
+        # the point of this little dance is to not annotate
+        # self.gcdata.static_root_xyz as constants. XXX is it still needed??
+        bk = self.translator.annotator.bookkeeper
+        data_classdef = bk.getuniqueclassdef(gctypelayout.GCData)
+        data_classdef.generalize_attr('static_root_start', SomeAddress())
+        data_classdef.generalize_attr('static_root_nongcend', SomeAddress())
+        data_classdef.generalize_attr('static_root_end', SomeAddress())
+        data_classdef.generalize_attr('max_type_id', annmodel.SomeInteger())
+        data_classdef.generalize_attr('typeids_z', SomeAddress())
 
         s_gcref = SomePtr(llmemory.GCREF)
         gcdata = self.gcdata

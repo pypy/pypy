@@ -38,6 +38,10 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                      llannotation.SomePtr(GCClass.VISIT_FPTR)],
                   annmodel.s_None))
 
+    def finish_tables(self):
+        self.layoutbuilder.close_table()
+        return []
+
     def build_root_walker(self):
         return StmRootWalker(self)
 
