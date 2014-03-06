@@ -643,9 +643,8 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
        goes on.  Eventually, the real GIL should be released, so there
        is no point in trying to bound the maximal length of the wait.
     */
-    unsigned long long delay = 100000; /* in ns; initial delay is 0.1 ms */
+    unsigned long long delay = 0;
     struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
 
     while (1) {
 
@@ -672,6 +671,10 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
         }
 
         /* sleep for a bit of time */
+        if (delay == 0) {
+            clock_gettime(CLOCK_REALTIME, &t);
+            delay = 100000;    /* in ns; initial delay is 0.1 ms */
+        }
         timespec_add(&t, delay);
         int error = pthread_mutex_timedlock(&mutex_gil, &t);
 
