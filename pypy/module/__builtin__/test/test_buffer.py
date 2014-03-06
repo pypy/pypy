@@ -67,7 +67,7 @@ class AppTestMemoryView:
           def __int__(self):
             return self.x
 
-        buf = buffer('hello world')
+        buf = memoryview(b'hello world')
         raises(TypeError, "buf[MyInt(0)]")
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
 
