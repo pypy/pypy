@@ -66,7 +66,7 @@ def _days_in_month(year, month):
     return _DAYS_IN_MONTH[month]
 
 def _days_before_month(year, month):
-    "year, month -> number of days in year preceeding first day of month."
+    "year, month -> number of days in year preceding first day of month."
     assert 1 <= month <= 12, 'month must be in 1..12'
     return _DAYS_BEFORE_MONTH[month] + (month > 2 and _is_leap(year))
 
@@ -251,7 +251,7 @@ def _check_tzname(name):
 def _check_utc_offset(name, offset):
     assert name in ("utcoffset", "dst")
     if offset is None:
-        return None
+        return
     if not isinstance(offset, timedelta):
         raise TypeError("tzinfo.%s() must return None "
                         "or timedelta, not '%s'" % (name, type(offset)))
@@ -497,8 +497,7 @@ class timedelta(object):
         # secondsfrac isn't referenced again
 
         if isinstance(microseconds, float):
-            microseconds += usdouble
-            microseconds = _round(microseconds)
+            microseconds = _round(microseconds + usdouble)
             seconds, microseconds = divmod(microseconds, 1000000)
             days, seconds = divmod(seconds, 24*3600)
             d += days
@@ -510,8 +509,7 @@ class timedelta(object):
             days, seconds = divmod(seconds, 24*3600)
             d += days
             s += int(seconds)
-            microseconds += usdouble
-            microseconds = _round(microseconds)
+            microseconds = _round(microseconds + usdouble)
         assert isinstance(s, int)
         assert isinstance(microseconds, int)
         assert abs(s) <= 3 * 24 * 3600
@@ -1140,7 +1138,8 @@ class time(object):
             self = object.__new__(cls)
             self.__setstate(hour, minute or None)
             return self
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(
+            hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = object.__new__(cls)
         self._hour = hour
@@ -1444,7 +1443,8 @@ class datetime(date):
             self.__setstate(year, month)
             return self
         year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(
+            hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = object.__new__(cls)
         self._year = year
