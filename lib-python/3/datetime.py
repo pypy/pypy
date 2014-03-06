@@ -66,7 +66,7 @@ def _days_in_month(year, month):
     return _DAYS_IN_MONTH[month]
 
 def _days_before_month(year, month):
-    "year, month -> number of days in year preceeding first day of month."
+    "year, month -> number of days in year preceding first day of month."
     assert 1 <= month <= 12, 'month must be in 1..12'
     return _DAYS_BEFORE_MONTH[month] + (month > 2 and _is_leap(year))
 
@@ -316,7 +316,7 @@ def _cmperror(x, y):
     raise TypeError("can't compare '%s' to '%s'" % (
                     type(x).__name__, type(y).__name__))
 
-class timedelta(object):
+class timedelta:
     """Represent the difference between two datetime objects.
 
     Supported operators:
@@ -324,7 +324,7 @@ class timedelta(object):
     - add, subtract timedelta
     - unary plus, minus, abs
     - compare to timedelta
-    - multiply, divide by int/long
+    - multiply, divide by int
 
     In addition, datetime supports subtraction of two datetime objects
     returning a timedelta, and addition or subtraction of a datetime
@@ -399,21 +399,18 @@ class timedelta(object):
         # secondsfrac isn't referenced again
 
         if isinstance(microseconds, float):
-            microseconds += usdouble
-            microseconds = _round(microseconds)
+            microseconds = _round(microseconds + usdouble)
             seconds, microseconds = divmod(microseconds, 1000000)
             days, seconds = divmod(seconds, 24*3600)
             d += days
-            s += int(seconds)
-            microseconds = int(microseconds)
+            s += seconds
         else:
             microseconds = int(microseconds)
             seconds, microseconds = divmod(microseconds, 1000000)
             days, seconds = divmod(seconds, 24*3600)
             d += days
-            s += int(seconds)
-            microseconds += usdouble
-            microseconds = _round(microseconds)
+            s += seconds
+            microseconds = _round(microseconds + usdouble)
         assert isinstance(s, int)
         assert isinstance(microseconds, int)
         assert abs(s) <= 3 * 24 * 3600
@@ -640,7 +637,7 @@ timedelta.max = timedelta(days=999999999, hours=23, minutes=59, seconds=59,
                           microseconds=999999)
 timedelta.resolution = timedelta(microseconds=1)
 
-class date(object):
+class date:
     """Concrete date type.
 
     Constructors:
@@ -930,7 +927,7 @@ date.min = date(1, 1, 1)
 date.max = date(9999, 12, 31)
 date.resolution = timedelta(days=1)
 
-class tzinfo(object):
+class tzinfo:
     """Abstract base class for time zone info classes.
 
     Subclasses must override the name(), utcoffset() and dst() methods.
@@ -1000,7 +997,7 @@ class tzinfo(object):
 
 _tzinfo_class = tzinfo
 
-class time(object):
+class time:
     """Time with time zone.
 
     Constructors:
@@ -1039,7 +1036,8 @@ class time(object):
             self = object.__new__(cls)
             self.__setstate(hour, minute or None)
             return self
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(
+            hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = object.__new__(cls)
         self._hour = hour
@@ -1310,7 +1308,7 @@ class datetime(date):
     """datetime(year, month, day[, hour[, minute[, second[, microsecond[,tzinfo]]]]])
 
     The year, month and day arguments are required. tzinfo may be None, or an
-    instance of a tzinfo subclass. The remaining arguments may be ints or longs.
+    instance of a tzinfo subclass. The remaining arguments may be ints.
     """
     __slots__ = date.__slots__ + time.__slots__
 
@@ -1322,7 +1320,8 @@ class datetime(date):
             self.__setstate(year, month)
             return self
         year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(
+            hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = object.__new__(cls)
         self._year = year
@@ -1367,7 +1366,6 @@ class datetime(date):
 
         A timezone info object may be passed in as well.
         """
-
         _check_tzinfo_arg(tz)
 
         converter = _time.localtime if tz is None else _time.gmtime
@@ -1445,7 +1443,7 @@ class datetime(date):
     def utctimetuple(self):
         "Return UTC time tuple compatible with time.gmtime()."
         offset = self.utcoffset()
-        if offset:  # neither None nor 0
+        if offset:
             self -= offset
         y, m, d = self.year, self.month, self.day
         hh, mm, ss = self.hour, self.minute, self.second
@@ -1757,7 +1755,7 @@ class datetime(date):
 
     def __setstate(self, string, tzinfo):
         (yhi, ylo, self._month, self._day, self._hour,
-            self._minute, self._second, us1, us2, us3) = string
+         self._minute, self._second, us1, us2, us3) = string
         self._year = yhi * 256 + ylo
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
         if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
@@ -2092,6 +2090,7 @@ small dst() may get within its bounds; and it doesn't even matter if some
 perverse time zone returns a negative dst()).  So a breaking case must be
 pretty bizarre, and a tzinfo subclass can override fromutc() if it is.
 """
+
 try:
     from _datetime import *
 except ImportError:
