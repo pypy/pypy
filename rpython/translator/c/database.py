@@ -234,7 +234,8 @@ class LowLevelDatabase(object):
                     node._funccodegen_owner = funcgen
                 return node.getptrname()
             else:
-                return '((%s) NULL)' % (cdecl(self.gettype(T), ''), )
+                return 'NULL'
+                #return '((%s) NULL)' % (cdecl(self.gettype(T), ''), )
         else:
             raise Exception("don't know about %r" % (obj,))
 
