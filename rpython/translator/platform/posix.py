@@ -84,7 +84,7 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], cc=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -154,7 +154,7 @@ class BasePosix(Platform):
             ('LDFLAGS', linkflags),
             ('LDFLAGS_LINK', list(self.link_flags)),
             ('LDFLAGSEXTRA', list(eci.link_extra)),
-            ('CC', self.cc),
+            ('CC', cc or self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
             ]

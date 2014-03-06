@@ -10,6 +10,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.translator.stm import stmgcintf
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -45,7 +46,7 @@ class StmGC(MovingGCBase):
     GCHDRP = lltype.Ptr(GCHDR)
     GCHDRSIZE = 3 * WORD
 
-    HDR = rffi.COpaque('struct stm_object_s')
+    HDR = stmgcintf.GCPTR.TO
     H_TID = 0
     H_REVISION = WORD
     H_ORIGINAL = WORD * 2

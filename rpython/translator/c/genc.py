@@ -428,12 +428,16 @@ class CStandaloneBuilder(CBuilder):
         cfiles = [self.c_source_filename] + self.extrafiles + list(module_files)
         if exe_name is not None:
             exe_name = targetdir.join(exe_name)
+        kwds = {}
+        if self.config.translation.stm:
+            kwds['cc'] = 'clang'     # force the use of clang
         mk = self.translator.platform.gen_makefile(
             cfiles, self.eci,
             path=targetdir, exe_name=exe_name,
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
-            shared=self.config.translation.shared)
+            shared=self.config.translation.shared,
+            **kwds)
 
         if self.has_profopt():
             profopt = self.config.translation.profopt

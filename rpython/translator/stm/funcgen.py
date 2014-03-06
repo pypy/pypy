@@ -5,13 +5,13 @@ from rpython.translator.c.primitive import name_small_integer
 
 
 class StmHeaderOpaqueDefNode(Node):
-    typetag = 'struct'
+    typetag = ''
     dependencies = ()
 
     def __init__(self, db, T):
         Node.__init__(self, db)
         self.T = T
-        self.name = 'stm_object_s'
+        self.name = 'object_t'
 
     def setup(self):
         pass
@@ -26,7 +26,7 @@ class StmHeaderOpaqueDefNode(Node):
 class StmHeader_OpaqueNode(ContainerNode):
     nodekind = 'stmhdr'
     globalcontainer = True
-    typename = 'struct stm_object_s @'
+    typename = 'object_t @'
     implementationtypename = typename
     _funccodegen_owner = None
 
@@ -37,9 +37,9 @@ class StmHeader_OpaqueNode(ContainerNode):
         self.obj = obj
 
     def initializationexpr(self, decoration=''):
-        yield '{ %s | PREBUILT_FLAGS, PREBUILT_REVISION, %dL }' % (
-            name_small_integer(self.obj.typeid16, self.db),
-            self.obj.prebuilt_hash)
+        yield '{ { }, %s }' % (
+            name_small_integer(self.obj.typeid16, self.db))
+        #    self.obj.prebuilt_hash
 
 
 def stm_initialize(funcgen, op):

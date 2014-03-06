@@ -32,6 +32,6 @@ eci = ExternalCompilationInfo(
     separate_module_sources = [separate_source],
 )
 
-GCPTR = lltype.Ptr(rffi.COpaque('struct stm_object_s'))
+GCPTR = lltype.Ptr(rffi.COpaque('object_t', hints={"is_stm_header": True}))
 CALLBACK_TX = lltype.Ptr(lltype.FuncType([GCPTR, rffi.INT_real],
                                          rffi.INT_real))

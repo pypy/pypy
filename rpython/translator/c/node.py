@@ -43,6 +43,35 @@ class NodeWithDependencies(Node):
         Node.__init__(self, db)
         self.dependencies = set()
 
+    def make_full_type_name(self):
+        if self.db.with_stm() and self.LLTYPE._gckind == 'gc':
+            assert self.typetag == 'struct'
+            self.fulltypename = '%s_t @' % (self.name,)
+            if self.db.with_stm():
+                tlprefix = ' TLPREFIX'
+            else:
+                tlprefix = ''
+            self.forward_decl = 'typedef%s struct %s %s_t;' % (
+                tlprefix, self.name, self.name)
+        else:
+            self.fulltypename = '%s %s @' % (self.typetag, self.name)
+
+    def getfieldtype(self, T, is_array=False):
+        if self.db.with_stm():
+            if isinstance(T, GcStruct):
+                node = self.db.gettypedefnode(T)
+                self.dependencies.add(node)
+                return 'struct %s' % node.name
+            if isinstance(T, OpaqueType):
+                if T.hints.get("is_stm_header", False):
+                    return 'struct object_s @'
+        if is_array:
+            varlength = self.varlength
+        else:
+            varlength = None
+        return self.db.gettype(T, varlength=self.varlength, who_asks=self)
+
+
 class StructDefNode(NodeWithDependencies):
     typetag = 'struct'
     extra_union_for_varlength = True
@@ -83,7 +112,7 @@ class StructDefNode(NodeWithDependencies):
                 assert self.fieldnames == ('typeptr',)
                 self.fieldnames = ()
         #
-        self.fulltypename = '%s %s @' % (self.typetag, self.name)
+        self.make_full_type_name()
 
     def setup(self):
         # this computes self.fields
@@ -98,15 +127,11 @@ class StructDefNode(NodeWithDependencies):
         if needs_gcheader(self.STRUCT):
             HDR = db.gcpolicy.struct_gcheader_definition(self)
             if HDR is not None:
-                gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
+                gc_field = ("_gcheader", self.getfieldtype(HDR))
                 self.fields.append(gc_field)
         for name in self.fieldnames:
             T = self.c_struct_field_type(name)
-            if name == STRUCT._arrayfld:
-                typename = db.gettype(T, varlength=self.varlength,
-                                         who_asks=self)
-            else:
-                typename = db.gettype(T, who_asks=self)
+            typename = self.getfieldtype(T, name==STRUCT._arrayfld)
             self.fields.append((self.c_struct_field_name(name), typename))
         self.gcinfo  # force it to be computed
 
@@ -211,8 +236,8 @@ class ArrayDefNode(NodeWithDependencies):
         (self.barename,
          self.name) = db.namespace.uniquename(basename, with_number=with_number,
                                               bare=True)
-        self.fulltypename =  '%s %s @' % (self.typetag, self.name)
-        self.fullptrtypename = '%s %s *@' % (self.typetag, self.name)
+        self.make_full_type_name()
+        self.fullptrtypename = self.fulltypename.replace('@', '*@')
 
     def setup(self):
         if hasattr(self, 'itemtypename'):
@@ -225,7 +250,7 @@ class ArrayDefNode(NodeWithDependencies):
         if needs_gcheader(ARRAY):
             HDR = db.gcpolicy.array_gcheader_definition(self)
             if HDR is not None:
-                gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
+                gc_field = ("_gcheader", self.getfieldtype(HDR))
                 self.gcfields.append(gc_field)
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
@@ -494,8 +519,7 @@ class ContainerNode(Node):
     def is_thread_local(self):
         T = self.getTYPE()
         return hasattr(T, "_hints") and (T._hints.get('thread_local') or (
-                  T._hints.get('stm_thread_local') and
-                  self.db.translator.config.translation.stm))
+                  T._hints.get('stm_thread_local') and self.db.with_stm()))
 
     def compilation_info(self):
         return getattr(self.obj, self.eci_name, None)
@@ -967,7 +991,7 @@ def opaquenode_factory(db, T, obj):
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
-    if T.__name__ == 'struct stm_object_s':
+    if T.hints.get("is_stm_header", False):
         from rpython.translator.stm.funcgen import StmHeader_OpaqueNode
         return StmHeader_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))

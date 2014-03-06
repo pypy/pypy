@@ -64,7 +64,12 @@ class LowLevelDatabase(object):
 
         self.instrument_ncounter = 0
 
+    def with_stm(self):
+        return self.translator.config.translation.stm
+
     def gettypedefnode(self, T, varlength=None):
+        if self.with_stm():
+            varlength = None
         if varlength is None:
             key = T
         else:
@@ -87,7 +92,7 @@ class LowLevelDatabase(object):
             elif T == WeakRef:
                 REALT = self.gcpolicy.get_real_weakref_type()
                 node = self.gettypedefnode(REALT)
-            elif isinstance(T, OpaqueType) and T.__name__ == "struct stm_object_s":
+            elif isinstance(T, OpaqueType) and T.hints.get("is_stm_header", False):
                 from rpython.translator.stm.funcgen import StmHeaderOpaqueDefNode
                 node = StmHeaderOpaqueDefNode(self, T)
             else:
@@ -97,6 +102,8 @@ class LowLevelDatabase(object):
         return node
 
     def gettype(self, T, varlength=None, who_asks=None, argnames=[]):
+        if self.with_stm():
+            varlength = None
         if isinstance(T, Primitive) or T == GCREF:
             return PrimitiveType[T]
         elif isinstance(T, Typedef):
