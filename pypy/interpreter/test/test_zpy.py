@@ -118,9 +118,9 @@ def test_pytrace():
             '\t<module>:           LOAD_CONST    1 (None)\n'
             '\t<module>:           RETURN_VALUE    0 \n'
             '>>>> ') in output
+    # '5\n' --- this line sent to stderr
     assert ('\t<module>:           LOAD_NAME    0 (x)\n'
-            '\t<module>:           PRINT_EXPR    0 \n'
-            # '5\n' --- this line sent to stderr
-            '\t<module>:           LOAD_CONST    0 (None)\n'
+            '\t<module>:           PRINT_EXPR    0 \n') in output
+    assert ('\t<module>:           LOAD_CONST    0 (None)\n'
             '\t<module>:           RETURN_VALUE    0 \n'
             '>>>> ') in output
