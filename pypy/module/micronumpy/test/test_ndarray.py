@@ -2328,6 +2328,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[...] = 4
         assert (a == [4, 4, 4]).all()
 
+        b = np.arange(24).reshape(2,3,4)
+        b[...] = 100
+        assert (b == 100).all()
+        assert b.shape == (2, 3, 4)
+        b[...] = [10, 20, 30, 40]
+        assert (b[:,:,0] == 10).all()
+        assert (b[0,0,:] == [10, 20, 30, 40]).all()
+        assert b.shape == b[...].shape
+        assert (b == b[...]).all()
+
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
