@@ -485,15 +485,20 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 #ifdef HAS_ATOMIC_ADD
 #  define atomic_add __sync_fetch_and_add
 #else
+static inline long atomic_add(long *ptr, long value)
+{
+    long result;
+    asm volatile (
 #  if defined(__amd64__)
-#    define atomic_add(ptr, value)  asm volatile ("lock addq %0, %1"        \
-                                 : : "ri"(value), "m"(*(ptr)) : "memory")
+                  "lock xaddq %0, %1"
 #  elif defined(__i386__)
-#    define atomic_add(ptr, value)  asm volatile ("lock addl %0, %1"        \
-                                 : : "ri"(value), "m"(*(ptr)) : "memory")
+                  "lock xaddl %0, %1"
 #  else
 #    error "Please use gcc >= 4.1 or write a custom 'asm' for your CPU."
 #  endif
+                  : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
+    return result;
+}
 #endif
 
 #define ASSERT_STATUS(call)                             \
@@ -575,14 +580,100 @@ void RPyGilRelease(void)
     ASSERT_STATUS(pthread_cond_signal(&cond_gil));
 }
 
+#ifdef RPY_FASTGIL_VARNAME
+#include <time.h>
+
+static inline timespec_add(struct timespec *t, unsigned long long incr)
+{
+    unsigned long long nsec = t->tv_nsec + incr;
+    if (nsec >= 1000000000) {
+        t->tv_sec += (nsec / 1000000000);
+        nsec %= 1000000000;
+    }
+    t->tv_nsec = (long)nsec;
+}
+
+static inline void _acquire_gil_or_wait_for_fastgil_to_be_one(void)
+{
+    /* Support for the JIT, which generates calls to external C
+       functions using the following very fast pattern:
+
+       * the global variable 'RPY_FASTGIL_VARNAME' (a macro naming the
+         real variable) contains normally 0
+
+       * before doing an external C call, the generated assembler sets
+         it to 1
+
+       * afterwards, it uses an atomic instruction to decrement it,
+         and if it goes back to 0, everything is fine
+
+       * otherwise, someone else (this function actually) stole the
+         GIL.  The assembler needs to call RPyGilAcquire() again.
+    
+       This function is a balancing act inspired by CPython 2.7's
+       threading.py for _Condition.wait() (not the PyPy version, which
+       was modified).  We need to wait for the real GIL to be released,
+       but also notice if the fast GIL contains 1.  We can't afford a
+       pure busy loop, so we have to sleep; but if we just sleep until
+       the real GIL is released, we won't ever see the fast GIL being 1.
+       The scheme here sleeps very little at first, and longer as time
+       goes on.  Eventually, the real GIL should be released, so there
+       is no point in trying to bound the maximal length of the wait.
+    */
+    unsigned long long delay = 100000; /* in ns; initial delay is 0.1 ms */
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+
+    while (1) {
+
+        /* try to see if we can steal the fast GIL */
+        if (RPY_FASTGIL_VARNAME == 1) {
+            if (atomic_add(&RPY_FASTGIL_VARNAME, -1) == 1) {
+                /* yes, succeeded.  We know that the other thread is
+                   before the return to JITted assembler from the C
+                   function call.  The JITted assembler will definitely
+                   call RPyGilAcquire() then.  So we can just pretend
+                   that the GIL --- which is still acquired --- is ours
+                   now.
+                */
+                return;
+            }
+        }
+
+        /* sleep for a bit of time */
+        timespec_add(&t, delay);
+        int error = pthread_mutex_timedlock(&mutex_gil, &t);
+
+        if (error == ETIMEDOUT) {
+            delay = (delay * 3) / 2;
+            continue;
+        }
+        else {
+            ASSERT_STATUS(error);
+            /* succeeded in acquiring the real GIL */
+            return;
+        }
+    }
+}
+#endif
+
 void RPyGilAcquire(void)
 {
     _debug_print("about to RPyGilAcquire...\n");
 #ifdef RPY_ASSERT
     assert(pending_acquires >= 0);
 #endif
+    if (pthread_mutex_trylock(&mutex_gil) == 0) {
+        assert_has_the_gil();
+        _debug_print("got it without waiting\n");
+        return;
+    }
     atomic_add(&pending_acquires, 1L);
+#ifdef RPY_FASTGIL_VARNAME
+    _acquire_gil_or_wait_for_fastgil_to_be_zero();
+#else
     ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
+#endif
     atomic_add(&pending_acquires, -1L);
     assert_has_the_gil();
     _debug_print("RPyGilAcquire\n");
