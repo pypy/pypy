@@ -263,11 +263,7 @@ class AppTestSelectWithSockets(_AppTestSelect):
             try:
                 self.sock.bind(self.sockaddress)
                 break
-            except OperationError, e:   # should get a "Permission denied"
-                if not e.match(space, space.getattr(w_socketmod, space.wrap("error"))):
-                    raise
-                print(e.errorstr(space))
-            except cls.w_sock_err, e:   # should get a "Permission denied"
+            except socket.error as e:   # should get a "Permission denied"
                 print(e)
             else:
                 raise(e)
