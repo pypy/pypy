@@ -485,20 +485,15 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 #ifdef HAS_ATOMIC_ADD
 #  define atomic_add __sync_fetch_and_add
 #else
-static inline long atomic_add(long *ptr, long value)
-{
-    long result;
-    asm volatile (
 #  if defined(__amd64__)
-                  "lock xaddq %0, %1"
+#    define atomic_add(ptr, value)  asm volatile ("lock addq %0, %1"        \
+                                 : : "ri"(value), "m"(*(ptr)) : "memory")
 #  elif defined(__i386__)
-                  "lock xaddl %0, %1"
+#    define atomic_add(ptr, value)  asm volatile ("lock addl %0, %1"        \
+                                 : : "ri"(value), "m"(*(ptr)) : "memory")
 #  else
 #    error "Please use gcc >= 4.1 or write a custom 'asm' for your CPU."
 #  endif
-                  : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
-    return result;
-}
 #endif
 
 #define ASSERT_STATUS(call)                             \
@@ -583,6 +578,21 @@ void RPyGilRelease(void)
 #ifdef RPY_FASTGIL_VARNAME
 #include <time.h>
 
+static inline void *atomic_xchg(void **ptr, void *value)
+{
+    void *result;
+    asm volatile (
+#if defined(__amd64__)
+                  "xchgq %0, %1  /* automatically locked */"
+#elif defined(__i386__)
+                  "xchgl %0, %1  /* automatically locked */"
+#else
+#  error "RPY_FASTGIL_VARNAME: only for x86 right now"
+#endif
+                  : "r"(result) : "0"(value), "m"(*ptr) : "memory");
+    return result;
+}
+
 static inline timespec_add(struct timespec *t, unsigned long long incr)
 {
     unsigned long long nsec = t->tv_nsec + incr;
@@ -593,7 +603,7 @@ static inline timespec_add(struct timespec *t, unsigned long long incr)
     t->tv_nsec = (long)nsec;
 }
 
-static inline void _acquire_gil_or_wait_for_fastgil_to_be_one(void)
+static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
 {
     /* Support for the JIT, which generates calls to external C
        functions using the following very fast pattern:
@@ -602,14 +612,27 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_one(void)
          real variable) contains normally 0
 
        * before doing an external C call, the generated assembler sets
-         it to 1
+         this global variable to an in-stack pointer to its
+         ASM_FRAMEDATA_HEAD structure (for asmgcc) or to 1 (for
+         shadowstack, when implemented)
 
-       * afterwards, it uses an atomic instruction to decrement it,
-         and if it goes back to 0, everything is fine
+       * afterwards, it uses an atomic instruction to get the current
+         value stored in the variable and to replace it with zero
 
-       * otherwise, someone else (this function actually) stole the
-         GIL.  The assembler needs to call RPyGilAcquire() again.
-    
+       * if the old value was still the ASM_FRAMEDATA_HEAD pointer of
+         this thread, everything is fine
+
+       * otherwise, someone else stole the GIL.  The assembler calls a
+         helper.  This helper first needs to unlink this thread's
+         ASM_FRAMEDATA_HEAD from the chained list where it was put by
+         the stealing code.  If the old value was zero, it means that
+         the stealing code was this function here.  In that case, the
+         helper needs to call RPyGilAcquire() again.  If, on the other
+         hand, the old value is another ASM_FRAMEDATA_HEAD from a
+         different thread, it means we just stole the fast GIL from this
+         other thread.  In that case we store that different
+         ASM_FRAMEDATA_HEAD into the chained list and return immediately.
+
        This function is a balancing act inspired by CPython 2.7's
        threading.py for _Condition.wait() (not the PyPy version, which
        was modified).  We need to wait for the real GIL to be released,
@@ -627,17 +650,25 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_one(void)
     while (1) {
 
         /* try to see if we can steal the fast GIL */
-        if (RPY_FASTGIL_VARNAME == 1) {
-            if (atomic_add(&RPY_FASTGIL_VARNAME, -1) == 1) {
-                /* yes, succeeded.  We know that the other thread is
-                   before the return to JITted assembler from the C
-                   function call.  The JITted assembler will definitely
-                   call RPyGilAcquire() then.  So we can just pretend
-                   that the GIL --- which is still acquired --- is ours
-                   now.
-                */
-                return;
-            }
+        void *fastgilvalue;
+        fastgilvalue = atomic_xchg(&RPY_FASTGIL_VARNAME, NULL);
+        if (fastgilvalue != NULL) {
+            /* yes, succeeded.  We know that the other thread is before
+               the return to JITted assembler from the C function call.
+               The JITted assembler will definitely call RPyGilAcquire()
+               then.  So we can just pretend that the GIL --- which is
+               still acquired --- is ours now.  We only need to fix
+               the asmgcc linked list.
+            */
+            struct pypy_ASM_FRAMEDATA_HEAD0 *new =
+                (struct pypy_ASM_FRAMEDATA_HEAD0 *)fastgilvalue;
+            struct pypy_ASM_FRAMEDATA_HEAD0 *root = &pypy_g_ASM_FRAMEDATA_HEAD;
+            struct pypy_ASM_FRAMEDATA_HEAD0 *next = root->as_next;
+            new->as_next = next;
+            new->as_prev = root;
+            root->as_next = new;
+            next->as_prev = new;
+            return;
         }
 
         /* sleep for a bit of time */
@@ -670,7 +701,7 @@ void RPyGilAcquire(void)
     }
     atomic_add(&pending_acquires, 1L);
 #ifdef RPY_FASTGIL_VARNAME
-    _acquire_gil_or_wait_for_fastgil_to_be_zero();
+    _acquire_gil_or_wait_for_fastgil_to_be_nonzero();
 #else
     ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
 #endif
