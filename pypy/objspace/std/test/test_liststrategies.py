@@ -10,7 +10,6 @@ from pypy.objspace.std.test.test_listobject import TestW_ListObject
 py.test.py3k_skip("XXX: strategies are currently broken")
 
 class TestW_ListStrategies(TestW_ListObject):
-
     def test_check_strategy(self):
         space = self.space
         w = space.wrap
@@ -236,7 +235,6 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, IntegerListStrategy)
         l.setslice(0, 1, 2, make_range_list(space, 5, 1, 4))
         assert isinstance(l.strategy, IntegerListStrategy)
-
 
     def test_setslice_List(self):
         space = self.space
@@ -709,7 +707,6 @@ class TestW_ListStrategies(TestW_ListObject):
 
         w_l2.sort(False)
         assert space.eq_w(w_l, w_l2)
-
 
     def test_listview_bytes_list(self):
         space = self.space
