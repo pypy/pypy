@@ -43,33 +43,40 @@ class NodeWithDependencies(Node):
         Node.__init__(self, db)
         self.dependencies = set()
 
+    def make_normalizedtypename(self):
+        if self.varlength is not None:
+            assert self.typetag == 'struct'
+            self.normalizedtypename = self.db.gettype(self.LLTYPE,
+                                                      who_asks=self)
+            if not self.normalizedtypename.startswith('struct '):
+                assert self.db.with_stm()
+                assert self.normalizedtypename.endswith('_t @')
+                self.normalizedtypename = 'struct %s @' % (
+                    self.normalizedtypename[:-4],)
+
     def make_full_type_name(self):
         if self.db.with_stm() and self.LLTYPE._gckind == 'gc':
             assert self.typetag == 'struct'
             self.fulltypename = '%s_t @' % (self.name,)
-            if self.db.with_stm():
-                tlprefix = ' TLPREFIX'
-            else:
-                tlprefix = ''
-            self.forward_decl = 'typedef%s struct %s %s_t;' % (
-                tlprefix, self.name, self.name)
+            self.forward_decl = 'typedef TLPREFIX struct %s %s_t;' % (
+                self.name, self.name)
         else:
             self.fulltypename = '%s %s @' % (self.typetag, self.name)
 
     def getfieldtype(self, T, is_array=False):
-        if self.db.with_stm():
-            if isinstance(T, GcStruct):
-                node = self.db.gettypedefnode(T)
-                self.dependencies.add(node)
-                return 'struct %s' % node.name
-            if isinstance(T, OpaqueType):
-                if T.hints.get("is_stm_header", False):
-                    return 'struct object_s @'
         if is_array:
             varlength = self.varlength
         else:
             varlength = None
-        return self.db.gettype(T, varlength=self.varlength, who_asks=self)
+        if self.db.with_stm():
+            if isinstance(T, GcStruct):
+                node = self.db.gettypedefnode(T, varlength=varlength)
+                self.dependencies.add(node)
+                return 'struct %s' % node.name
+            if isinstance(T, OpaqueType):
+                if T.hints.get("is_stm_header", False):
+                    return 'struct rpyobj_s @'
+        return self.db.gettype(T, varlength=varlength, who_asks=self)
 
 
 class StructDefNode(NodeWithDependencies):
@@ -122,8 +129,7 @@ class StructDefNode(NodeWithDependencies):
         self.fields = []
         db = self.db
         STRUCT = self.STRUCT
-        if self.varlength is not None:
-            self.normalizedtypename = db.gettype(STRUCT, who_asks=self)
+        self.make_normalizedtypename()
         if needs_gcheader(self.STRUCT):
             HDR = db.gcpolicy.struct_gcheader_definition(self)
             if HDR is not None:
@@ -245,8 +251,7 @@ class ArrayDefNode(NodeWithDependencies):
         db = self.db
         ARRAY = self.ARRAY
         self.gcinfo    # force it to be computed
-        if self.varlength is not None:
-            self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
+        self.make_normalizedtypename()
         if needs_gcheader(ARRAY):
             HDR = db.gcpolicy.array_gcheader_definition(self)
             if HDR is not None:
@@ -527,9 +532,14 @@ class ContainerNode(Node):
     def get_declaration(self):
         if self.name[-2:] == '.b':
             # xxx fish fish
-            assert self.implementationtypename.startswith('struct ')
-            assert self.implementationtypename.endswith(' @')
-            uniontypename = 'union %su @' % self.implementationtypename[7:-2]
+            if self.implementationtypename.startswith('struct '):
+                assert self.implementationtypename.endswith(' @')
+                uniontypename = 'union %su @'%self.implementationtypename[7:-2]
+            else:
+                assert self.implementationtypename.endswith('_t @')
+                uniontypename = 'union %su @'%self.implementationtypename[:-4]
+            if self.db.with_stm():
+                uniontypename = 'TLPREFIX ' + uniontypename
             return uniontypename, self.name[:-2]
         else:
             return self.implementationtypename, self.name

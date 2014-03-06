@@ -38,14 +38,6 @@ class StmGC(MovingGCBase):
     malloc_zero_filled = True
     #gcflag_extra = GCFLAG_EXTRA
 
-    GCHDR = lltype.Struct(
-        'GCPTR',
-        ('h_tid', lltype.Unsigned),
-        ('h_revision', lltype.Signed),
-        ('h_original', lltype.Unsigned))
-    GCHDRP = lltype.Ptr(GCHDR)
-    GCHDRSIZE = 3 * WORD
-
     HDR = stmgcintf.GCPTR.TO
     H_TID = 0
     H_REVISION = WORD

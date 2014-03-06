@@ -68,8 +68,6 @@ class LowLevelDatabase(object):
         return self.translator.config.translation.stm
 
     def gettypedefnode(self, T, varlength=None):
-        if self.with_stm():
-            varlength = None
         if varlength is None:
             key = T
         else:
@@ -102,8 +100,6 @@ class LowLevelDatabase(object):
         return node
 
     def gettype(self, T, varlength=None, who_asks=None, argnames=[]):
-        if self.with_stm():
-            varlength = None
         if isinstance(T, Primitive) or T == GCREF:
             return PrimitiveType[T]
         elif isinstance(T, Typedef):
