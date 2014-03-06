@@ -469,6 +469,8 @@ class TestGateway:
             space.wrapbytes('\x80'))
 
     def test_interp2app_unwrap_spec_typechecks(self):
+        from rpython.rlib.rarithmetic import r_longlong
+
         space = self.space
         w = space.wrap
         def g3_id(space, x):
@@ -502,6 +504,12 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g3_f,w(1L)),w(1.0))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
+
+        app_g3_r = gateway.interp2app_temp(g3_id,
+                                           unwrap_spec=[gateway.ObjSpace,
+                                                        r_longlong])
+        w_app_g3_r = space.wrap(app_g3_r)
+        raises(gateway.OperationError,space.call_function,w_app_g3_r,w(1.0))
 
     def test_interp2app_unwrap_spec_unicode(self):
         space = self.space

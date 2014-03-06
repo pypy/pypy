@@ -59,6 +59,18 @@ class AppTestMemoryView:
     def test_hash(self):
         raises(TypeError, "hash(memoryview(b'hello'))")
 
+    def test_getitem_only_ints(self):
+        class MyInt(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __int__(self):
+            return self.x
+
+        buf = buffer('hello world')
+        raises(TypeError, "buf[MyInt(0)]")
+        raises(TypeError, "buf[MyInt(0):MyInt(5)]")
+
     def test_rw(self):
         data = bytearray(b'abcefg')
         v = memoryview(data)

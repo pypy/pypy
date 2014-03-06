@@ -185,6 +185,10 @@ class AppTestFFI(BaseAppTestFFI):
         set_val_to_ptr(ptr2, 123)
         assert get_dummy() == 123
         set_val_to_ptr(ptr2, 0)
+        #
+        class OldStyle:
+            pass
+        raises(TypeError, "set_val_to_ptr(OldStyle(), 0)")
 
     def test_convert_strings_to_char_p(self):
         """

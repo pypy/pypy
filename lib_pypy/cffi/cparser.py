@@ -98,6 +98,7 @@ class Parser(object):
         self._anonymous_counter = 0
         self._structnode2type = weakref.WeakKeyDictionary()
         self._override = False
+        self._packed = False
 
     def _parse(self, csource):
         csource, macros = _preprocess(csource)
@@ -147,13 +148,16 @@ class Parser(object):
             msg = 'parse error\n%s' % (msg,)
         raise api.CDefError(msg)
 
-    def parse(self, csource, override=False):
+    def parse(self, csource, override=False, packed=False):
         prev_override = self._override
+        prev_packed = self._packed
         try:
             self._override = override
+            self._packed = packed
             self._internal_parse(csource)
         finally:
             self._override = prev_override
+            self._packed = prev_packed
 
     def _internal_parse(self, csource):
         ast, macros = self._parse(csource)
@@ -476,6 +480,7 @@ class Parser(object):
             if isinstance(tp, model.StructType) and tp.partial:
                 raise NotImplementedError("%s: using both bitfields and '...;'"
                                           % (tp,))
+        tp.packed = self._packed
         return tp
 
     def _make_partial(self, tp, nested):

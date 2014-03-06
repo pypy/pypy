@@ -25,7 +25,7 @@ class FromAppLevelConverter(object):
             assert libffi.IS_32_BIT
             self._longlong(w_ffitype, w_obj)
         elif w_ffitype.is_signed():
-            intval = space.truncatedint_w(w_obj)
+            intval = space.truncatedint_w(w_obj, allow_conversion=False)
             self.handle_signed(w_ffitype, w_obj, intval)
         elif self.maybe_handle_char_or_unichar_p(w_ffitype, w_obj):
             # the object was already handled from within
@@ -33,16 +33,16 @@ class FromAppLevelConverter(object):
             pass
         elif w_ffitype.is_pointer():
             w_obj = self.convert_pointer_arg_maybe(w_obj, w_ffitype)
-            intval = space.truncatedint_w(w_obj)
+            intval = space.truncatedint_w(w_obj, allow_conversion=False)
             self.handle_pointer(w_ffitype, w_obj, intval)
         elif w_ffitype.is_unsigned():
-            uintval = r_uint(space.truncatedint_w(w_obj))
+            uintval = r_uint(space.truncatedint_w(w_obj, allow_conversion=False))
             self.handle_unsigned(w_ffitype, w_obj, uintval)
         elif w_ffitype.is_char():
-            intval = space.int_w(space.ord(w_obj))
+            intval = space.int_w(space.ord(w_obj), allow_conversion=False)
             self.handle_char(w_ffitype, w_obj, intval)
         elif w_ffitype.is_unichar():
-            intval = space.int_w(space.ord(w_obj))
+            intval = space.int_w(space.ord(w_obj), allow_conversion=False)
             self.handle_unichar(w_ffitype, w_obj, intval)
         elif w_ffitype.is_double():
             self._float(w_ffitype, w_obj)
@@ -60,20 +60,20 @@ class FromAppLevelConverter(object):
     def _longlong(self, w_ffitype, w_obj):
         # a separate function, which can be seen by the jit or not,
         # depending on whether longlongs are supported
-        longlongval = self.space.truncatedlonglong_w(w_obj)
+        longlongval = self.space.truncatedlonglong_w(w_obj, allow_conversion=False)
         self.handle_longlong(w_ffitype, w_obj, longlongval)
 
     def _float(self, w_ffitype, w_obj):
         # a separate function, which can be seen by the jit or not,
         # depending on whether floats are supported
-        floatval = self.space.float_w(w_obj)
+        floatval = self.space.float_w(w_obj, allow_conversion=False)
         self.handle_float(w_ffitype, w_obj, floatval)
 
     def _singlefloat(self, w_ffitype, w_obj):
         # a separate function, which can be seen by the jit or not,
         # depending on whether singlefloats are supported
         from rpython.rlib.rarithmetic import r_singlefloat
-        floatval = self.space.float_w(w_obj)
+        floatval = self.space.float_w(w_obj, allow_conversion=False)
         singlefloatval = r_singlefloat(floatval)
         self.handle_singlefloat(w_ffitype, w_obj, singlefloatval)
 

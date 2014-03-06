@@ -368,7 +368,6 @@ class TestLowLevelAnnotateTestCase:
         assert s.unsigned == True
 
     def test_pbctype(self):
-        py.test.skip("annotation crash")
         TYPE = Void
         TYPE2 = Signed
         def g(lst):

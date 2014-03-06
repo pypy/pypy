@@ -1,12 +1,12 @@
-from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
-from pypy.module.micronumpy.iter import Chunk, Chunks
-from pypy.module.micronumpy.strides import shape_agreement,\
-     shape_agreement_multiple
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.conversion_utils import clipmode_converter
-from pypy.module.micronumpy.constants import *
+from pypy.module.micronumpy import loop, descriptor, ufuncs, support, \
+    constants as NPY
+from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
+from pypy.module.micronumpy.converters import clipmode_converter
+from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
+    shape_agreement_multiple
+
 
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
@@ -84,12 +84,13 @@ def where(space, w_arr, w_x=None, w_y=None):
         if arr.get_dtype().itemtype.bool(arr.get_scalar_value()):
             return x
         return y
-    dtype = interp_ufuncs.find_binop_result_dtype(space, x.get_dtype(),
+    dtype = ufuncs.find_binop_result_dtype(space, x.get_dtype(),
                                                   y.get_dtype())
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
     out = W_NDimArray.from_shape(space, shape, dtype)
     return loop.where(space, out, shape, arr, x, y, dtype)
+
 
 def dot(space, w_obj1, w_obj2, w_out=None):
     w_arr = convert_to_array(space, w_obj1)
@@ -98,15 +99,25 @@ def dot(space, w_obj1, w_obj2, w_out=None):
     return w_arr.descr_dot(space, w_obj2, w_out)
 
 
-@unwrap_spec(axis=int)
-def concatenate(space, w_args, axis=0):
+def concatenate(space, w_args, w_axis=None):
     args_w = space.listview(w_args)
     if len(args_w) == 0:
-        raise OperationError(space.w_ValueError, space.wrap("need at least one array to concatenate"))
+        raise oefmt(space.w_ValueError, "need at least one array to concatenate")
     args_w = [convert_to_array(space, w_arg) for w_arg in args_w]
+    if w_axis is None:
+        w_axis = space.wrap(0)
+    if space.is_none(w_axis):
+        args_w = [w_arg.reshape(space,
+                                space.newlist([w_arg.descr_get_size(space)]))
+                  for w_arg in args_w]
+        w_axis = space.wrap(0)
     dtype = args_w[0].get_dtype()
     shape = args_w[0].get_shape()[:]
     ndim = len(shape)
+    if ndim == 0:
+        raise oefmt(space.w_ValueError,
+                    "zero-dimensional arrays cannot be concatenated")
+    axis = space.int_w(w_axis)
     orig_axis = axis
     if axis < 0:
         axis = ndim + axis
@@ -127,17 +138,17 @@ def concatenate(space, w_args, axis=0):
                     "all the input array dimensions except for the "
                     "concatenation axis must match exactly"))
         a_dt = arr.get_dtype()
-        if dtype.is_record_type() and a_dt.is_record_type():
+        if dtype.is_record() and a_dt.is_record():
             # Record types must match
             for f in dtype.fields:
                 if f not in a_dt.fields or \
                              dtype.fields[f] != a_dt.fields[f]:
                     raise OperationError(space.w_TypeError,
                                space.wrap("invalid type promotion"))
-        elif dtype.is_record_type() or a_dt.is_record_type():
+        elif dtype.is_record() or a_dt.is_record():
             raise OperationError(space.w_TypeError,
                         space.wrap("invalid type promotion"))
-        dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
+        dtype = ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
     res = W_NDimArray.from_shape(space, shape, dtype, 'C')
@@ -151,6 +162,7 @@ def concatenate(space, w_args, axis=0):
         Chunks(chunks).apply(space, res).implementation.setslice(space, arr)
         axis_start += arr.get_shape()[axis]
     return res
+
 
 @unwrap_spec(repeats=int)
 def repeat(space, w_arr, repeats, w_axis):
@@ -176,40 +188,38 @@ def repeat(space, w_arr, repeats, w_axis):
             Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
     return w_res
 
+
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
+
 
 def choose(space, w_arr, w_choices, w_out, w_mode):
     arr = convert_to_array(space, w_arr)
     choices = [convert_to_array(space, w_item) for w_item
                in space.listview(w_choices)]
     if not choices:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("choices list cannot be empty"))
+        raise oefmt(space.w_ValueError, "choices list cannot be empty")
     if space.is_none(w_out):
         w_out = None
     elif not isinstance(w_out, W_NDimArray):
         raise OperationError(space.w_TypeError, space.wrap(
             "return arrays must be of ArrayType"))
     shape = shape_agreement_multiple(space, choices + [w_out])
-    out = interp_dtype.dtype_agreement(space, choices, shape, w_out)
+    out = descriptor.dtype_agreement(space, choices, shape, w_out)
     dtype = out.get_dtype()
     mode = clipmode_converter(space, w_mode)
     loop.choose(space, arr, choices, shape, dtype, out, mode)
     return out
 
-def put(space, w_arr, w_indices, w_values, w_mode):
-    from pypy.module.micronumpy.support import index_w
 
+def put(space, w_arr, w_indices, w_values, w_mode):
     arr = convert_to_array(space, w_arr)
     mode = clipmode_converter(space, w_mode)
 
     if not w_indices:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("indice list cannot be empty"))
+        raise oefmt(space.w_ValueError, "indices list cannot be empty")
     if not w_values:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("value list cannot be empty"))
+        raise oefmt(space.w_ValueError, "value list cannot be empty")
 
     dtype = arr.get_dtype()
 
@@ -225,15 +235,16 @@ def put(space, w_arr, w_indices, w_values, w_mode):
 
     v_idx = 0
     for idx in indices:
-        index = index_w(space, idx)
+        index = support.index_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
-            if mode == NPY_RAISE:
-                raise OperationError(space.w_IndexError, space.wrap(
-                    "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
-            elif mode == NPY_WRAP:
+            if mode == NPY.RAISE:
+                raise oefmt(space.w_IndexError,
+                    "index %d is out of bounds for axis 0 with size %d",
+                    index, arr.get_size())
+            elif mode == NPY.WRAP:
                 index = index % arr.get_size()
-            elif mode == NPY_CLIP:
+            elif mode == NPY.CLIP:
                 if index < 0:
                     index = 0
                 else:
@@ -247,6 +258,7 @@ def put(space, w_arr, w_indices, w_values, w_mode):
             v_idx += 1
 
         arr.setitem(space, [index], dtype.coerce(space, value))
+
 
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()

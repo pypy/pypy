@@ -16,6 +16,7 @@ from rpython.rlib.rarithmetic import (
     string_to_int)
 from rpython.rlib.rbigint import (
     InvalidEndiannessError, InvalidSignednessError, rbigint)
+from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
     InvalidBaseError, ParseStringError, ParseStringOverflowError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
@@ -49,7 +50,9 @@ class W_AbstractIntObject(W_Root):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        return space.bigint_w(self).eq(space.bigint_w(w_other))
+        x = space.bigint_w(self, allow_conversion=False)
+        y = space.bigint_w(w_other, allow_conversion=False)
+        return x.eq(y)
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -297,10 +300,18 @@ _div = func_with_new_name(_floordiv, '_div')
 
 
 def _truediv(space, x, y):
+    if not y:
+        raise oefmt(space.w_ZeroDivisionError, "division by zero")
+
+    if (DBL_MANT_DIG < LONG_BIT and
+        (r_uint(abs(x)) >> DBL_MANT_DIG or r_uint(abs(y)) >> DBL_MANT_DIG)):
+        # large x or y, use long arithmetic
+        raise OverflowError
+
+    # both ints can be exactly represented as doubles, do a
+    # floating-point division
     a = float(x)
     b = float(y)
-    if b == 0.0:
-        raise oefmt(space.w_ZeroDivisionError, "division by zero")
     return space.wrap(a / b)
 
 
@@ -460,9 +471,13 @@ class W_IntObject(W_AbstractIntObject):
             raise
         return x == y
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return int(self.intval)
-    unwrap = int_w
+
+    def _int_w(self, space):
+        return int(self.intval)
+
+    unwrap = _int_w
 
     def uint_w(self, space):
         intval = self.intval
@@ -471,11 +486,17 @@ class W_IntObject(W_AbstractIntObject):
                         "cannot convert negative integer to unsigned")
         return r_uint(intval)
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         return self.asbigint()
 
-    def float_w(self, space):
+    def _bigint_w(self, space):
+        return self.asbigint()
+
+    def float_w(self, space, allow_conversion=True):
         return float(self.intval)
+
+    # note that we do NOT implement _float_w, because __float__ cannot return
+    # an int
 
     def int(self, space):
         if type(self) is W_IntObject:
@@ -743,7 +764,7 @@ class W_IntObject(W_AbstractIntObject):
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
     descr_div, descr_rdiv = _make_descr_binop(_div)
-    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv, ovf=False)
+    descr_truediv, descr_rtruediv = _make_descr_binop(_truediv)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
     descr_divmod, descr_rdivmod = _make_descr_binop(
         _divmod, ovf2small=_divmod_ovf2small)
@@ -806,7 +827,6 @@ def _recover_with_smalllong(space):
             sys.maxint == 2147483647)
 
 
-@jit.elidable
 def _string_to_int_or_long(space, w_inttype, w_source, string, base=10):
     try:
         value = string_to_int(string, base)

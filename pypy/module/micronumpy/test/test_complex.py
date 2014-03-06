@@ -61,6 +61,7 @@ def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg=''):
             '%r and %r are not sufficiently close, %g > %g' %\
             (a, b, absolute_error, max(abs_err, rel_err*abs(a))))
 
+
 def parse_testfile(fname):
     """Parse a file with test values
 
@@ -84,6 +85,7 @@ def parse_testfile(fname):
                    float(exp_real), float(exp_imag),
                    flags
                   )
+
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):

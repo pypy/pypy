@@ -171,6 +171,18 @@ class AppTestScalar(BaseNumpyAppTest):
             assert b == v
         raises(IndexError, "v['blah']")
 
+    def test_realimag(self):
+        import numpy as np
+        a = np.int64(2)
+        assert a.real == 2
+        assert a.imag == 0
+        a = np.float64(2.5)
+        assert a.real == 2.5
+        assert a.imag == 0.0
+        a = np.complex64(2.5-1.5j)
+        assert a.real == 2.5
+        assert a.imag == -1.5
+
     def test_view(self):
         import numpy as np
         import sys

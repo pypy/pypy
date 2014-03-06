@@ -104,17 +104,19 @@ class StringMethods(object):
                 return self._new_from_list(ret)
 
         index = space.getindex_w(w_index, space.w_IndexError, "string index")
+        return self._getitem_result(space, index)
+
+    def _getitem_result(self, space, index):
         selfvalue = self._val(space)
-        selflen = len(selfvalue)
-        if index < 0:
-            index += selflen
-        if index < 0 or index >= selflen:
+        try:
+            character = selfvalue[index]
+        except IndexError:
             raise oefmt(space.w_IndexError, "string index out of range")
         from pypy.objspace.std.bytesobject import W_BytesObject
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         if isinstance(self, W_BytesObject) or isinstance(self, W_BytearrayObject):
-            return space.wrap(ord(selfvalue[index]))
-        return self._new(selfvalue[index])
+            return space.wrap(ord(character))
+        return self._new(character)
 
     def descr_capitalize(self, space):
         value = self._val(space)

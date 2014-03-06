@@ -705,8 +705,8 @@ def test_instance_ptr_eq():
     c0 = const(lltype.nullptr(rclass.OBJECT))
 
     for opname, newopname, reducedname in [
-        ('ptr_eq', 'instance_ptr_eq', 'instance_ptr_iszero'),
-        ('ptr_ne', 'instance_ptr_ne', 'instance_ptr_nonzero')
+        ('ptr_eq', 'instance_ptr_eq', 'ptr_iszero'),
+        ('ptr_ne', 'instance_ptr_ne', 'ptr_nonzero')
     ]:
         op = SpaceOperation(opname, [v1, v2], v3)
         op1 = Transformer().rewrite_operation(op)
@@ -1049,6 +1049,37 @@ def test_str_promote():
     assert op1.args[2] == 'calldescr'
     assert op1.result == v2
     assert op0.opname == '-live-'
+
+def test_double_promote_str():
+    PSTR = lltype.Ptr(rstr.STR)
+    v1 = varoftype(PSTR)
+    v2 = varoftype(PSTR)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = SpaceOperation('hint',
+                         [v1, Constant({'promote_string': True}, lltype.Void)],
+                         v2)
+    op2 = SpaceOperation('hint',
+                         [v1, Constant({'promote_string': True,
+                                        'promote': True}, lltype.Void)],
+                         v2)
+    lst1 = tr.rewrite_operation(op1)
+    lst2 = tr.rewrite_operation(op2)
+    assert lst1 == lst2
+
+def test_double_promote_nonstr():
+    v1 = varoftype(lltype.Signed)
+    v2 = varoftype(lltype.Signed)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = SpaceOperation('hint',
+                         [v1, Constant({'promote': True}, lltype.Void)],
+                         v2)
+    op2 = SpaceOperation('hint',
+                         [v1, Constant({'promote_string': True,
+                                        'promote': True}, lltype.Void)],
+                         v2)
+    lst1 = tr.rewrite_operation(op1)
+    lst2 = tr.rewrite_operation(op2)
+    assert lst1 == lst2
 
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed

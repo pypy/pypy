@@ -44,7 +44,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     def __repr__(self):
         return '<W_SmallLongObject(%d)>' % self.longlong
 
-    def int_w(self, space):
+    def _int_w(self, space):
         a = self.longlong
         b = intmask(a)
         if b == a:
@@ -63,10 +63,13 @@ class W_SmallLongObject(W_AbstractLongObject):
         raise oefmt(space.w_OverflowError,
                     "long int too large to convert to unsigned int")
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         return self.asbigint()
 
-    def float_w(self, space):
+    def _bigint_w(self, space):
+        return self.asbigint()
+
+    def _float_w(self, space):
         return float(self.longlong)
 
     def int(self, space):

@@ -3722,6 +3722,18 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
 
+    def test_immutable_list_is_assigned_a_resizable_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            foo = []
+            foo.append(n)
+            a.lst = foo
+
+        a = self.RPythonAnnotator()
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
+
     def test_can_merge_immutable_list_with_regular_list(self):
         class A:
             _immutable_fields_ = 'lst[*]'

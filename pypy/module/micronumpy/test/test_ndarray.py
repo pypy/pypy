@@ -3,8 +3,8 @@ import sys
 
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.iter import Chunk, Chunks
-from pypy.module.micronumpy.interp_numarray import W_NDimArray
+from pypy.module.micronumpy.strides import Chunk, Chunks
+from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
@@ -14,15 +14,10 @@ class MockDtype(object):
         def malloc(size):
             return None
 
-        @staticmethod
-        def get_element_size():
-            return 1
-
     def __init__(self):
         self.base = self
+        self.elsize = 1
 
-    def get_size(self):
-        return 1
 
 def create_slice(space, a, chunks):
     return Chunks(chunks).apply(space, W_NDimArray(a)).implementation
@@ -202,7 +197,7 @@ class TestNumArrayDirect(object):
     def test_from_shape_and_storage(self):
         from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
         from rpython.rtyper.lltypesystem import rffi
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
         storage = alloc_raw_storage(4, track_allocation=False, zero=True)
         for i in range(4):
             raw_storage_setitem(storage, i, rffi.cast(rffi.UCHAR, i))
@@ -386,12 +381,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros(()).shape == ()
         assert zeros((), dtype='S') == ''
         assert zeros((), dtype='S').shape == ()
+        assert zeros((), dtype='S').dtype == '|S1'
 
     def test_empty_like(self):
         import numpy as np
         a = np.empty_like(np.zeros(()))
         assert a.shape == ()
         assert a.dtype == np.float_
+        a = np.empty_like(a, dtype='S')
+        assert a.dtype == '|S1'
         a = np.zeros((2, 3))
         assert a.shape == (2, 3)
         a[0,0] = 1
@@ -659,6 +657,9 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_setslice_array(self):
         from numpypy import array
+        a = array(5)
+        exc = raises(ValueError, "a[:] = 4")
+        assert exc.value[0] == "cannot slice a 0-d array"
         a = array(range(5))
         b = array(range(2))
         a[1:4:2] = b
@@ -715,9 +716,14 @@ class AppTestNumArray(BaseNumpyAppTest):
             for y in range(2):
                 expected[x, y] = math.cos(a[x]) * math.cos(b[y])
         assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
-        a = array(1)[newaxis]
+        o = array(1)
+        a = o[newaxis]
         assert a == array([1])
         assert a.shape == (1,)
+        o[newaxis, newaxis] = 2
+        assert o == 2
+        a[:] = 3
+        assert o == 3
 
     def test_newaxis_slice(self):
         from numpypy import array, newaxis
@@ -775,6 +781,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[()] = 4
         assert a == 4
 
+    def test_build_scalar(self):
+        from numpy import dtype
+        try:
+            from numpy.core.multiarray import scalar
+        except ImportError:
+            from numpy import scalar
+        exc = raises(TypeError, scalar, int, 2)
+        assert exc.value[0] == 'argument 1 must be numpy.dtype, not type'
+        exc = raises(ValueError, scalar, dtype('void'), 'abc')
+        assert exc.value[0] == 'itemsize cannot be zero'
+        exc = raises(TypeError, scalar, dtype(float), 2.5)
+        assert exc.value[0] == 'initializing object must be a string'
+        exc = raises(ValueError, scalar, dtype(float), 'abc')
+        assert exc.value[0] == 'initialization string is too small'
+        a = scalar(dtype('<f8'), dtype('<f8').type(2.5).tostring())
+        assert a == 2.5
+
     def test_len(self):
         from numpypy import array
         a = array(range(5))
@@ -821,6 +844,23 @@ class AppTestNumArray(BaseNumpyAppTest):
                 b = a.reshape(s)
                 assert b.shape == s
                 assert (b == [1]).all()
+        a = array(1.5)
+        b = a.reshape(None)
+        assert b is not a
+        assert b == a
+        b[...] = 2.5
+        assert a == 2.5
+        a = array([]).reshape((0, 2))
+        assert a.shape == (0, 2)
+        assert a.strides == (16, 8)
+        a = array([])
+        a.shape = (4, 0, 3, 0, 0, 2)
+        assert a.strides == (48, 48, 16, 16, 16, 8)
+        a = array(1.5)
+        assert a.reshape(()).shape == ()
+        a = array(1.5)
+        a.shape = ()
+        assert a.strides == ()
         a = array(range(12))
         exc = raises(ValueError, "b = a.reshape(())")
         assert str(exc.value) == "total size of new array must be unchanged"
@@ -1335,6 +1375,9 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_getslice(self):
         from numpypy import array
+        a = array(5)
+        exc = raises(ValueError, "a[:]")
+        assert exc.value[0] == "cannot slice a 0-d array"
         a = array(range(5))
         s = a[1:5]
         assert len(s) == 4
@@ -1400,6 +1443,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.sum(out=d)
         assert b == d
         assert b is d
+        c = array(1.5+2.5j)
+        assert c.real == 1.5
+        assert c.imag == 2.5
+        a.sum(out=c.imag)
+        assert c.real == 1.5
+        assert c.imag == 5
 
         assert list(zeros((0, 2)).sum(axis=1)) == []
 
@@ -1625,6 +1674,12 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_realimag_views(self):
         from numpypy import arange, array
+        a = array(1.5)
+        assert a.real == 1.5
+        assert a.imag == 0.0
+        a = array([1.5, 2.5])
+        assert (a.real == [1.5, 2.5]).all()
+        assert (a.imag == [0.0, 0.0]).all()
         a = arange(15)
         b = a.real
         b[5]=50
@@ -1676,22 +1731,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "data-type must not be 0-sized"
         assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
+        assert (a == ['a', 'b', 'c', '1']).all()
         assert a.view('S4') == 'abc1'
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.view, [('a', 'i2'), ('b', 'i2')])
-        else:
-            b = a.view([('a', 'i2'), ('b', 'i2')])
-            assert b.shape == (1,)
-            assert b[0][0] == 25185
-            assert b[0][1] == 12643
+        b = a.view([('a', 'i2'), ('b', 'i2')])
+        assert b.shape == (1,)
+        assert b[0][0] == 25185
+        assert b[0][1] == 12643
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])[0]
         assert a.shape == ()
         assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
-        a = array(2, dtype='int64')
-        b = a.view('complex64')
+        a = array(2, dtype='<i8')
+        b = a.view('<c8')
         assert 0 < b.real < 1
-        assert b.imag == 0
+        assert b.real.tostring() == '\x02\x00\x00\x00'
+        assert b.imag.tostring() == '\x00' * 4
 
     def test_array_view(self):
         from numpypy import array, dtype
@@ -1773,6 +1826,18 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_concatenate(self):
         from numpypy import array, concatenate, dtype
+        exc = raises(ValueError, concatenate, (array(1.5), array(2.5)))
+        assert exc.value[0] == 'zero-dimensional arrays cannot be concatenated'
+        a = concatenate((array(1.5), array(2.5)), axis=None)
+        assert (a == [1.5, 2.5]).all()
+        assert exc.value[0] == 'zero-dimensional arrays cannot be concatenated'
+        exc = raises(ValueError, concatenate, (array([1.5]), array(2.5)))
+        assert exc.value[0] == 'all the input arrays must have same number ' \
+                               'of dimensions'
+        exc = raises(ValueError, concatenate, (array(1.5), array([2.5])))
+        assert exc.value[0] == 'zero-dimensional arrays cannot be concatenated'
+        a = concatenate((array([1.5]), array([2.5])))
+        assert (a == [1.5, 2.5]).all()
         a1 = array([0,1,2])
         a2 = array([3,4,5])
         a = concatenate((a1, a2))
@@ -1783,6 +1848,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0,1,2,3,4,5]).all()
         a = concatenate((a1, a2), axis=-1)
         assert (a == [0,1,2,3,4,5]).all()
+        a = concatenate((a1, a2), axis=None)
+        assert (a == [0,1,2,3,4,5]).all()
 
         b1 = array([[1, 2], [3, 4]])
         b2 = array([[5, 6]])
@@ -1790,6 +1857,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [[1, 2],[3, 4],[5, 6]]).all()
         c = concatenate((b1, b2.T), axis=1)
         assert (c == [[1, 2, 5],[3, 4, 6]]).all()
+        c1 = concatenate((b1, b2), axis=None)
+        assert (c1 == [1, 2, 3, 4, 5, 6]).all()
         d = concatenate(([0],[1]))
         assert (d == [0,1]).all()
         e1 = array([[0,1],[2,3]])
@@ -2081,14 +2150,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(3.1415).astype('S3').dtype
         assert a.itemsize == 3
 
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            a = array(['1', '2','3']).astype(float)
-            assert a[2] == 3.0
-        else:
-            raises(NotImplementedError, array(['1', '2', '3']).astype, float)
+        a = array(['1', '2','3']).astype(float)
+        assert a[2] == 3.0
 
         a = array('123')
+        assert a.astype('S0').dtype == 'S3'
         assert a.astype('i8') == 123
         a = array('abcdefgh')
         exc = raises(ValueError, a.astype, 'i8')
@@ -2235,6 +2301,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[b] == a).all()
         a[b] = 1.
         assert (a == [[1., 1., 1.]]).all()
+        a[b] = np.array(2.)
+        assert (a == [[2., 2., 2.]]).all()
+        a[b] = np.array([3.])
+        assert (a == [[3., 3., 3.]]).all()
+        a[b] = np.array([[4.]])
+        assert (a == [[4., 4., 4.]]).all()
+
+    def test_ellipsis_indexing(self):
+        import numpy as np
+        a = np.array(1.5)
+        assert a[...] is a
+        a[...] = 2.5
+        assert a == 2.5
+        a = np.array([1, 2, 3])
+        assert a[...] is a
+        a[...] = 4
+        assert (a == [4, 4, 4]).all()
 
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
@@ -2636,6 +2719,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_array_interface(self):
         from numpypy import array
+        a = array(2.5)
+        i = a.__array_interface__
+        assert isinstance(i['data'][0], int)
+        assert i['shape'] == ()
+        assert i['strides'] is None
         a = array([1, 2, 3])
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
@@ -2663,7 +2751,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert arange(3)[array(1)] == 1
 
     def test_fill(self):
-        from numpypy import array, empty
+        from numpypy import array, empty, dtype, zeros
         a = array([1, 2, 3])
         a.fill(10)
         assert (a == [10, 10, 10]).all()
@@ -2699,6 +2787,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
                 assert tuple(i) == (123,) + (0,) * 4
             else:
                 assert tuple(i) == (123,) * 5
+
+        a = zeros(3, dtype=dtype(complex).newbyteorder())
+        a.fill(1.5+2.5j)
+        for i in a:
+            assert i == 1.5+2.5j
 
     def test_array_indexing_bool(self):
         from numpypy import arange
@@ -2794,6 +2887,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert ((a + a).take([3]) == [6]).all()
         a = arange(12).reshape(2, 6)
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(NotImplementedError, "a.take([3, 2, 1], mode='clip')")
+            assert exc.value[0] == "mode != raise not implemented"
 
     def test_ptp(self):
         import numpypy as np
@@ -3037,6 +3134,7 @@ class AppTestSupport(BaseNumpyAppTest):
         v = fromstring("abcd", dtype="|S2")
         assert v[0] == "ab"
         assert v[1] == "cd"
+
         v = fromstring('@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a',
                        dtype=dtype('>c16'))
         assert v.tostring() == \
@@ -3051,6 +3149,18 @@ class AppTestSupport(BaseNumpyAppTest):
         assert v[0] == 2.2-1.1j
         assert v.real == 2.2
         assert v.imag == -1.1
+
+        d = [('f0', 'i4'), ('f1', 'u2', (2, 3))]
+        if '__pypy__' not in sys.builtin_module_names:
+            r = fromstring('abcdefghijklmnop'*4*3, dtype=d)
+            assert (r[0:3:2]['f1'] == r['f1'][0:3:2]).all()
+            assert (r[0:3:2]['f1'][0] == r[0:3:2][0]['f1']).all()
+            assert (r[0:3:2]['f1'][0][()] == r[0:3:2][0]['f1'][()]).all()
+            assert r[0:3:2]['f1'][0].strides == r[0:3:2][0]['f1'].strides
+        else:
+            exc = raises(NotImplementedError, fromstring,
+                         'abcdefghijklmnop'*4*3, dtype=d)
+            assert exc.value[0] == "fromstring not implemented for record types"
 
     def test_fromstring_types(self):
         from numpypy import fromstring, array, dtype
@@ -3125,6 +3235,8 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(array([1, 2, 3])) == '[1 2 3]'
         assert str(array(['abc'], 'S3')) == "['abc']"
         assert str(array('abc')) == 'abc'
+        assert str(array(1.5)) == '1.5'
+        assert str(array(1.5).real) == '1.5'
 
 
 class AppTestRepr(BaseNumpyAppTest):
@@ -3141,6 +3253,8 @@ class AppTestRepr(BaseNumpyAppTest):
         from numpypy import array
         assert repr(array([1, 2, 3])) == 'array([1, 2, 3])'
         assert repr(array(['abc'], 'S3')) == "array(['abc'])"
+        assert repr(array(1.5)) == "array(1.5)"
+        assert repr(array(1.5).real) == "array(1.5)"
 
     def teardown_class(cls):
         if option.runappdirect:
@@ -3247,6 +3361,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
 
+    def test_count_nonzero(self):
+        import numpy as np
+        import sys
+        d = [('f0', 'i4'), ('f1', 'i4', 2)]
+        arr = np.array([0, 1])
+        if '__pypy__' not in sys.builtin_module_names:
+            arr = arr.astype(d)[:1]
+            assert np.count_nonzero(arr) == 0
+        else:
+            raises(NotImplementedError, "arr.astype(d)")
+
     def test_string_record(self):
         from numpypy import dtype, array
 
@@ -3333,6 +3458,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
         assert a == 'x'
+        a = array('abc', 'S2')
+        assert a.dtype.str == '|S2'
+        assert a == 'ab'
+        a = array('abc', 'S5')
+        assert a.dtype.str == '|S5'
+        assert a == 'abc'
 
     def test_newbyteorder(self):
         import numpy as np
@@ -3416,6 +3547,27 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0, 0, 0].shape == (10,)
         exc = raises(ValueError, "a[0, 0]['z']")
         assert exc.value.message == 'field named z not found'
+
+        import sys
+        a = array(1.5, dtype=float)
+        assert a.shape == ()
+        if '__pypy__' not in sys.builtin_module_names:
+            a = a.astype((float, 2))
+            repr(a)  # check for crash
+            assert a.shape == (2,)
+            assert tuple(a) == (1.5, 1.5)
+        else:
+            raises(NotImplementedError, "a.astype((float, 2))")
+
+        a = array([1.5], dtype=float)
+        assert a.shape == (1,)
+        if '__pypy__' not in sys.builtin_module_names:
+            a = a.astype((float, 2))
+            repr(a)  # check for crash
+            assert a.shape == (1, 2)
+            assert tuple(a[0]) == (1.5, 1.5)
+        else:
+            raises(NotImplementedError, "a.astype((float, 2))")
 
     def test_subarray_multiple_rows(self):
         import numpypy as np
@@ -3513,22 +3665,44 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         exc = raises(TypeError, np.maximum.reduce, a)
         assert exc.value[0] == 'cannot perform reduce with flexible type'
         v = a.view((float, 2))
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            m = np.maximum.reduce(v)
-            assert (m == [9, 9]).all()
-            m = np.maximum.reduce(v, axis=None)
-            assert (m == [9, 9]).all()
-            m = np.maximum.reduce(v, axis=-1)
-            assert (m == [9, 8, 7, 6, 5, 5, 6, 7, 8, 9]).all()
-            m = v.argmax()
-            assert m == 1
-        else:
-            exc = raises(NotImplementedError, np.maximum.reduce, v)
-            assert exc.value[0] == "maximum not implemented for void128"
-            exc = raises(NotImplementedError, "v.argmax()")
-            assert exc.value[0] == "argmax not implemented for void128"
+        assert v.dtype == np.dtype(float)
+        assert v.shape == (10, 2)
+        m = np.maximum.reduce(v)
+        assert (m == [9, 9]).all()
+        m = np.maximum.reduce(v, axis=None)
+        assert (m == [9, 9]).all()
+        m = np.maximum.reduce(v, axis=-1)
+        assert (m == [9, 8, 7, 6, 5, 5, 6, 7, 8, 9]).all()
+        m = v.argmax()
+        assert m == 1
+        v = a.view(('float32', 4))
+        assert v.dtype == np.dtype('float32')
+        assert v.shape == (10, 4)
+        assert v[0][-1] == 2.53125
+        exc = raises(ValueError, "a.view(('float32', 2))")
+        assert exc.value[0] == 'new type not compatible with array.'
 
+    def test_record_ufuncs(self):
+        import numpy as np
+        a = np.zeros(3, dtype=[('a', 'i8'), ('b', 'i8')])
+        b = np.zeros(3, dtype=[('a', 'i8'), ('b', 'i8')])
+        c = np.zeros(3, dtype=[('a', 'f8'), ('b', 'f8')])
+        d = np.ones(3, dtype=[('a', 'i8'), ('b', 'i8')])
+        e = np.ones(3, dtype=[('a', 'i8'), ('b', 'i8'), ('c', 'i8')])
+        exc = raises(TypeError, abs, a)
+        assert exc.value[0] == 'Not implemented for this type'
+        assert (a == a).all()
+        assert not (a != a).any()
+        assert (a == b).all()
+        assert not (a != b).any()
+        assert a != c
+        assert not a == c
+        assert (a != d).all()
+        assert not (a == d).any()
+        assert a != e
+        assert not a == e
+        assert np.greater(a, a) is NotImplemented
+        assert np.less_equal(a, a) is NotImplemented
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

@@ -2,7 +2,6 @@
 
 
 class AppTestStringObjectWithDict:
-
     def test_format_item(self):
         d = {'i': 23}
         assert 'a23b' == 'a%(i)sb' % d
@@ -36,18 +35,20 @@ class AppTestStringObjectWithDict:
         assert '' % d == ''
         n = 5
         raises(TypeError, "'' % n")
+
         class MyMapping(object):
             def __getitem__(self, key):
                 py.test.fail('should not be here')
         assert '' % MyMapping() == ''
+
         class MyMapping2(object):
             def __getitem__(self, key):
                 return key
         assert '%(key)s'%MyMapping2() == 'key'
         #assert u'%(key)s'%MyMapping2() == u'key'  # no py3k
 
-class AppTestStringObject:
 
+class AppTestStringObject:
     def test_format_item(self):
         n = 23
         assert 'a23b' == 'a%sb' % n
@@ -138,7 +139,6 @@ class AppTestStringObject:
         assert '<(1, 2)-(3, 4)>' == '<%s-%s>' % (t, (3,4))
 
     def test_format_dict(self):
-
         # I'll just note that the first of these two completely
         # contradicts what CPython's documentation says:
 
@@ -174,7 +174,16 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
-    
+
+    def test___int__(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+        x = MyInt(65)
+        assert '%c' % x == 'A'
+
 
 class AppTestWidthPrec:
     def test_width(self):
@@ -217,7 +226,6 @@ class AppTestWidthPrec:
         assert "%-05g" % ttf =="2.25 "
         assert "%05s" % ttf == " 2.25"
 
-        
     def test_star_width(self):
         f = 5
         assert "%*s" %( f, 'abc') ==  '  abc'
@@ -255,6 +263,7 @@ class AppTestWidthPrec:
         assert "%E" % (nan,) == 'NAN'
         assert "%F" % (nan,) == 'NAN'
         assert "%G" % (nan,) == 'NAN'
+
 
 class AppTestUnicodeObject:
     

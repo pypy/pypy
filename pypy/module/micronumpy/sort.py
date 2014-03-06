@@ -1,21 +1,22 @@
-
-""" This is the implementation of various sorting routines in numpy. It's here
-because it only makes sense on a concrete array
-"""
-
-from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.listsort import make_timsort_class
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
         free_raw_storage, alloc_raw_storage
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import widen
-from rpython.rlib.objectmodel import specialize
-from pypy.interpreter.error import OperationError
+from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.module.micronumpy import descriptor, types, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy import interp_dtype, types
-from pypy.module.micronumpy.iter import AxisIterator
+from pypy.module.micronumpy.iterators import AllButAxisIter
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
+
+all_types = (types.all_float_types + types.all_complex_types +
+             types.all_int_types)
+all_types = [i for i in all_types if not issubclass(i[0], types.Float16)]
+all_types = unrolling_iterable(all_types)
+
 
 def make_argsort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
@@ -70,11 +71,11 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
     class ArgArrayRepWithStorage(Repr):
         def __init__(self, index_stride_size, stride_size, size):
             start = 0
-            dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-            indexes = dtype.itemtype.malloc(size*dtype.get_size())
+            dtype = descriptor.get_dtype_cache(space).w_longdtype
+            indexes = dtype.itemtype.malloc(size * dtype.elsize)
             values = alloc_raw_storage(size * stride_size,
                                             track_allocation=False)
-            Repr.__init__(self, dtype.get_size(), stride_size,
+            Repr.__init__(self, dtype.elsize, stride_size,
                           size, values, indexes, start, start)
 
         def __del__(self):
@@ -124,14 +125,14 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             # note that it's fine ot pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
             if arr.get_size() > 0:
-                arr = arr.reshape(space, None, [arr.get_size()])
+                arr = arr.reshape(None, [arr.get_size()])
             axis = 0
         elif w_axis is None:
             axis = -1
         else:
             axis = space.int_w(w_axis)
         # create array of indexes
-        dtype = interp_dtype.get_dtype_cache(space).w_longdtype
+        dtype = descriptor.get_dtype_cache(space).w_longdtype
         index_arr = W_NDimArray.from_shape(space, arr.get_shape(), dtype)
         storage = index_arr.implementation.get_storage()
         if len(arr.get_shape()) == 1:
@@ -145,27 +146,26 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             if axis < 0:
                 axis = len(shape) + axis
             if axis < 0 or axis >= len(shape):
-                raise OperationError(space.w_IndexError, space.wrap(
-                                                    "Wrong axis %d" % axis))
-            iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
-            iter = AxisIterator(arr, iterable_shape, axis, False)
+                raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
+            arr_iter = AllButAxisIter(arr, axis)
             index_impl = index_arr.implementation
-            index_iter = AxisIterator(index_impl, iterable_shape, axis, False)
+            index_iter = AllButAxisIter(index_impl, axis)
             stride_size = arr.strides[axis]
             index_stride_size = index_impl.strides[axis]
             axis_size = arr.shape[axis]
-            while not iter.done():
+            while not arr_iter.done():
                 for i in range(axis_size):
                     raw_storage_setitem(storage, i * index_stride_size +
                                         index_iter.offset, i)
                 r = Repr(index_stride_size, stride_size, axis_size,
-                         arr.get_storage(), storage, index_iter.offset, iter.offset)
+                         arr.get_storage(), storage, index_iter.offset, arr_iter.offset)
                 ArgSort(r).sort()
-                iter.next()
+                arr_iter.next()
                 index_iter.next()
         return index_arr
 
     return argsort
+
 
 def argsort_array(arr, space, w_axis):
     cache = space.fromcache(ArgSortCache) # that populates ArgSortClasses
@@ -175,14 +175,10 @@ def argsort_array(arr, space, w_axis):
             return cache._lookup(tp)(arr, space, w_axis,
                                      itemtype.get_element_size())
     # XXX this should probably be changed
-    raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-numeric types " + \
-                  "'%s' is not implemented" % arr.dtype.get_name(), ))
+    raise oefmt(space.w_NotImplementedError,
+                "sorting of non-numeric types '%s' is not implemented",
+                arr.dtype.get_name())
 
-all_types = (types.all_float_types + types.all_complex_types +
-             types.all_int_types)
-all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__]
-all_types = unrolling_iterable(all_types)
 
 def make_sort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
@@ -278,7 +274,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         if w_axis is space.w_None:
             # note that it's fine to pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
-            arr = arr.reshape(space, None, [arr.get_size()])
+            arr = arr.reshape(None, [arr.get_size()])
             axis = 0
         elif w_axis is None:
             axis = -1
@@ -294,38 +290,33 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             if axis < 0:
                 axis = len(shape) + axis
             if axis < 0 or axis >= len(shape):
-                raise OperationError(space.w_IndexError, space.wrap(
-                                                    "Wrong axis %d" % axis))
-            iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
-            iter = AxisIterator(arr, iterable_shape, axis, False)
+                raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
+            arr_iter = AllButAxisIter(arr, axis)
             stride_size = arr.strides[axis]
             axis_size = arr.shape[axis]
-            while not iter.done():
-                r = Repr(stride_size, axis_size, arr.get_storage(), iter.offset)
+            while not arr_iter.done():
+                r = Repr(stride_size, axis_size, arr.get_storage(), arr_iter.offset)
                 ArgSort(r).sort()
-                iter.next()
+                arr_iter.next()
 
     return sort
 
+
 def sort_array(arr, space, w_axis, w_order):
-    cache = space.fromcache(SortCache) # that populates SortClasses
+    cache = space.fromcache(SortCache)  # that populates SortClasses
     itemtype = arr.dtype.itemtype
-    if not arr.dtype.is_native():
-        raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-native btyeorder not supported yet"))
+    if arr.dtype.byteorder == NPY.OPPBYTE:
+        raise oefmt(space.w_NotImplementedError,
+                    "sorting of non-native byteorder not supported yet")
     for tp in all_types:
         if isinstance(itemtype, tp[0]):
             return cache._lookup(tp)(arr, space, w_axis,
                                      itemtype.get_element_size())
     # XXX this should probably be changed
-    raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-numeric types " + \
-                  "'%s' is not implemented" % arr.dtype.get_name(), ))
+    raise oefmt(space.w_NotImplementedError,
+                "sorting of non-numeric types '%s' is not implemented",
+                arr.dtype.get_name())
 
-all_types = (types.all_float_types + types.all_complex_types +
-             types.all_int_types)
-all_types = [i for i in all_types if not issubclass(i[0], types.Float16)]
-all_types = unrolling_iterable(all_types)
 
 class ArgSortCache(object):
     built = False
@@ -341,7 +332,7 @@ class ArgSortCache(object):
             else:
                 cache[cls] = make_argsort_function(space, cls, it)
         self.cache = cache
-        self._lookup = specialize.memo()(lambda tp : cache[tp[0]])
+        self._lookup = specialize.memo()(lambda tp: cache[tp[0]])
 
 
 class SortCache(object):
@@ -358,4 +349,4 @@ class SortCache(object):
             else:
                 cache[cls] = make_sort_function(space, cls, it)
         self.cache = cache
-        self._lookup = specialize.memo()(lambda tp : cache[tp[0]])
+        self._lookup = specialize.memo()(lambda tp: cache[tp[0]])
