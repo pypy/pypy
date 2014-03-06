@@ -1275,6 +1275,18 @@ class ObjSpace(object):
         else:
             return index
 
+    def getslice(space, w_obj, w_start, w_stop):
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.getitem(w_obj, w_slice)
+
+    def setslice(space, w_obj, w_start, w_stop, w_sequence):
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.setitem(w_obj, w_slice, w_sequence)
+
+    def delslice(space, w_obj, w_start, w_stop):
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.delitem(w_obj, w_slice)
+
     def r_longlong_w(self, w_obj, allow_conversion=True):
         bigint = self.bigint_w(w_obj, allow_conversion)
         try:
