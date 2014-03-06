@@ -740,7 +740,7 @@ def gen_forwarddecl(f, database):
     print >> f, "#endif"
 
 def gen_preimpl(f, database):
-    f.write('#ifndef _PY_PREIMPLE_H\n#define _PY_PREIMPL_H\n')
+    f.write('#ifndef _PY_PREIMPL_H\n#define _PY_PREIMPL_H\n')
     if database.translator is None or database.translator.rtyper is None:
         return
     preimplementationlines = pre_include_code_lines(
