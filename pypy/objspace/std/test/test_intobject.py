@@ -576,10 +576,13 @@ class AppTestInt:
         assert a == 9007199254740991
         a = operator.truediv(x, 7)
         assert a == 9007199254740991.0
-        exec("from __future__ import division; "
-             "a = x / 7; b = operator.truediv(x, 7)")
-        assert a == 9007199254740991.0
-        assert b == 9007199254740991.0
+
+    def test_truediv_future(self):
+        ns = dict(x=63050394783186940)
+        exec("from __future__ import division; import operator; "
+             "a = x / 7; b = operator.truediv(x, 7)", ns)
+        assert ns['a'] == 9007199254740991.0
+        assert ns['b'] == 9007199254740991.0
 
 
 class AppTestIntShortcut(AppTestInt):

@@ -100,5 +100,8 @@ Implements SimpleRangeListStrategy for case range(n) where n is a positive numbe
 Makes some traces nicer by getting rid of multiplication for calculating loop counter
 and propagates that n > 0 further to get rid of guards.
 
+.. branch: popen-pclose
+Provide an exit status for popen'ed RFiles via pclose
+
 .. branch: stdlib-2.7.5
 .. branch: vendor/stdlib
