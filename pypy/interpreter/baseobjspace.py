@@ -7,7 +7,8 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id)
 from rpython.rlib.signature import signature
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
+    INT_MIN, INT_MAX, UINT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
@@ -17,8 +18,6 @@ from pypy.interpreter.miscutils import ThreadLocals
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
-
-UINT_MAX_32_BITS = r_uint(4294967295)
 
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       greens=['tp'],
@@ -1466,7 +1465,7 @@ class ObjSpace(object):
         # Like space.gateway_int_w(), but raises an app-level OverflowError if
         # the integer does not fit in 32 bits.  Here for gateway.py.
         value = self.gateway_int_w(w_obj)
-        if value < -2147483647-1 or value > 2147483647:
+        if value < INT_MIN or value > INT_MAX:
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
@@ -1475,7 +1474,7 @@ class ObjSpace(object):
         # Like space.gateway_uint_w(), but raises an app-level OverflowError if
         # the integer does not fit in 32 bits.  Here for gateway.py.
         value = self.uint_w(w_obj)
-        if value > UINT_MAX_32_BITS:
+        if value > UINT_MAX:
             raise OperationError(self.w_OverflowError,
                               self.wrap("expected an unsigned 32-bit integer"))
         return value
@@ -1488,9 +1487,19 @@ class ObjSpace(object):
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
-        if value > 2147483647:
+        if value > INT_MAX:
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
+        return value
+
+    def c_short_w(self, w_obj):
+        value = self.int_w(w_obj)
+        if value < SHRT_MIN:
+            raise oefmt(self.w_OverflowError,
+                "signed short integer is less than minimum")
+        elif value > SHRT_MAX:
+            raise oefmt(self.w_OverflowError,
+                "signed short integer is greater than maximum")
         return value
 
     def truncatedint_w(self, w_obj, allow_conversion=True):
@@ -1537,11 +1546,16 @@ class ObjSpace(object):
                 raise OperationError(self.w_TypeError,
                     self.wrap("fileno() returned a non-integer")
                 )
-        fd = self.int_w(w_fd)
+        try:
+            fd = self.c_int_w(w_fd)
+        except OperationError, e:
+            if e.match(self, self.w_OverflowError):
+                fd = -1
+            else:
+                raise
         if fd < 0:
             raise oefmt(self.w_ValueError,
-                        "file descriptor cannot be a negative integer (%d)",
-                        fd)
+                "file descriptor cannot be a negative integer (%d)", fd)
         return fd
 
     def warn(self, w_msg, w_warningcls, stacklevel=2):

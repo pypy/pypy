@@ -180,12 +180,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del x, y
 
     def test_sre(self):
+        import sys
+        for m in ['_sre', 'sre_compile', 'sre_constants', 'sre_parse', 're']:
+            # clear out these modules
+            try:
+                del sys.modules[m]
+            except KeyError:
+                pass
         module = self.import_module(name='_sre')
-        import sre_compile
-        sre_compile._sre = module
-        assert sre_compile.MAGIC == module.MAGIC
         import re
-        import time
+        assert re.sre_compile._sre is module
         s = u"Foo " * 1000 + u"Bar"
         prog = re.compile(ur"Foo.*Bar")
         assert prog.match(s)

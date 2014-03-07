@@ -2,6 +2,8 @@ from __future__ import with_statement
 
 import signal as cpy_signal
 import sys
+import os
+import errno
 
 from pypy.interpreter.error import OperationError, exception_from_errno
 from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
@@ -241,6 +243,12 @@ def set_wakeup_fd(space, fd):
             space.w_ValueError,
             space.wrap("set_wakeup_fd only works in main thread "
                        "or with __pypy__.thread.enable_signals()"))
+    if fd != -1:
+        try:
+            os.fstat(fd)
+        except OSError, e:
+            if e.errno == errno.EBADF:
+                raise OperationError(space.w_ValueError, space.wrap("invalid fd"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 

@@ -70,13 +70,13 @@ class ScriptBinding:
         f = open(filename, 'r')
         try:
             tabnanny.process_tokens(tokenize.generate_tokens(f.readline))
-        except tokenize.TokenError, msg:
+        except tokenize.TokenError as msg:
             msgtxt, (lineno, start) = msg
             self.editwin.gotoline(lineno)
             self.errorbox("Tabnanny Tokenizing Error",
                           "Token Error: %s" % msgtxt)
             return False
-        except tabnanny.NannyNag, nag:
+        except tabnanny.NannyNag as nag:
             # The error messages from tabnanny are too confusing...
             self.editwin.gotoline(nag.get_lineno())
             self.errorbox("Tab/space error", indent_message)
@@ -87,9 +87,8 @@ class ScriptBinding:
         self.shell = shell = self.flist.open_shell()
         saved_stream = shell.get_warning_stream()
         shell.set_warning_stream(shell.stderr)
-        f = open(filename, 'r')
-        source = f.read()
-        f.close()
+        with open(filename, 'r') as f:
+            source = f.read()
         if '\r' in source:
             source = re.sub(r"\r\n", "\n", source)
             source = re.sub(r"\r", "\n", source)
@@ -101,7 +100,7 @@ class ScriptBinding:
             try:
                 # If successful, return the compiled code
                 return compile(source, filename, "exec")
-            except (SyntaxError, OverflowError, ValueError), err:
+            except (SyntaxError, OverflowError, ValueError) as err:
                 try:
                     msg, (errorfilename, lineno, offset, line) = err
                     if not errorfilename:
@@ -152,16 +151,16 @@ class ScriptBinding:
         dirname = os.path.dirname(filename)
         # XXX Too often this discards arguments the user just set...
         interp.runcommand("""if 1:
-            _filename = %r
+            __file__ = {filename!r}
             import sys as _sys
             from os.path import basename as _basename
             if (not _sys.argv or
-                _basename(_sys.argv[0]) != _basename(_filename)):
-                _sys.argv = [_filename]
+                _basename(_sys.argv[0]) != _basename(__file__)):
+                _sys.argv = [__file__]
             import os as _os
-            _os.chdir(%r)
-            del _filename, _sys, _basename, _os
-            \n""" % (filename, dirname))
+            _os.chdir({dirname!r})
+            del _sys, _basename, _os
+            \n""".format(filename=filename, dirname=dirname))
         interp.prepend_syspath(filename)
         # XXX KBK 03Jul04 When run w/o subprocess, runtime warnings still
         #         go to __stderr__.  With subprocess, they go to the shell.

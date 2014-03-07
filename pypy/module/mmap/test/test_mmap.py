@@ -832,3 +832,17 @@ class AppTestMMap:
         assert m.read(10) == "ABCDEABCDE"
         m.close()
         f.close()
+
+    def test_empty_file(self):
+        import mmap
+        f = open(self.tmpname, 'w+b')
+        f.close()
+        with open(self.tmpname, 'rb') as f:
+            try:
+                m = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+                m.close()
+                assert False, "should not have been able to mmap empty file"
+            except ValueError as e:
+                assert e.message == "cannot mmap an empty file"
+            except BaseException as e:
+                assert False, "unexpected exception: " + str(e)

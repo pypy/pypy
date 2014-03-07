@@ -158,6 +158,15 @@ class TestHeap(TestCase):
         self.assertEqual(sorted(chain(*inputs)), list(self.module.merge(*inputs)))
         self.assertEqual(list(self.module.merge()), [])
 
+    def test_merge_does_not_suppress_index_error(self):
+        # Issue 19018: Heapq.merge suppresses IndexError from user generator
+        def iterable():
+            s = list(range(10))
+            for i in range(20):
+                yield s[i]       # IndexError when i > 10
+        with self.assertRaises(IndexError):
+            list(self.module.merge(iterable(), iterable()))
+
     def test_merge_stability(self):
         class Int(int):
             pass
@@ -320,6 +329,16 @@ def L(seqn):
     'Test multiple tiers of iterators'
     return chain(imap(lambda x:x, R(Ig(G(seqn)))))
 
+class SideEffectLT:
+    def __init__(self, value, heap):
+        self.value = value
+        self.heap = heap
+
+    def __lt__(self, other):
+        self.heap[:] = []
+        return self.value < other.value
+
+
 class TestErrorHandling(TestCase):
     module = None
 
@@ -365,6 +384,22 @@ class TestErrorHandling(TestCase):
                 self.assertRaises(TypeError, f, 2, X(s))
                 self.assertRaises(TypeError, f, 2, N(s))
                 self.assertRaises(ZeroDivisionError, f, 2, E(s))
+
+    # Issue #17278: the heap may change size while it's being walked.
+
+    def test_heappush_mutating_heap(self):
+        heap = []
+        heap.extend(SideEffectLT(i, heap) for i in range(200))
+        # Python version raises IndexError, C version RuntimeError
+        with self.assertRaises((IndexError, RuntimeError)):
+            self.module.heappush(heap, SideEffectLT(5, heap))
+
+    def test_heappop_mutating_heap(self):
+        heap = []
+        heap.extend(SideEffectLT(i, heap) for i in range(200))
+        # Python version raises IndexError, C version RuntimeError
+        with self.assertRaises((IndexError, RuntimeError)):
+            self.module.heappop(heap)
 
 
 class TestErrorHandlingPython(TestErrorHandling):

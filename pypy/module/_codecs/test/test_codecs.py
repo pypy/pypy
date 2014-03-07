@@ -108,13 +108,33 @@ class AppTestCodecs:
         map = tuple([unichr(i) for i in range(256)])
         assert charmap_decode('xxx\xff', 'strict', map) == (u'xxx\xff', 4)
 
-        raises(TypeError, charmap_decode, '\xff', "replace",  {0xff: 0x10001})
+        exc = raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 'a'})
+        assert exc.value[0] == "character mapping must return integer, None or unicode"
+        raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 0x110000})
+        assert (charmap_decode("\x00\x01\x02", "strict",
+                               {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
+                u"\U0010FFFFbc", 3)
+        assert (charmap_decode("\x00\x01\x02", "strict",
+                               {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
+                u"\U0010FFFFbc", 3)
+
+    def test_escape_decode_errors(self):
+        from _codecs import escape_decode as decode
+        raises(ValueError, decode, br"\x")
+        raises(ValueError, decode, br"[\x]")
+        assert decode(br"[\x]\x", "ignore") == (b"[]", 6)
+        assert decode(br"[\x]\x", "replace") == (b"[?]?", 6)
+        raises(ValueError, decode, br"\x0")
+        raises(ValueError, decode, br"[\x0]")
+        assert decode(br"[\x0]\x0", "ignore") == (b"[]", 8)
+        assert decode(br"[\x0]\x0", "replace") == (b"[?]?", 8)
 
     def test_unicode_escape(self):
         from _codecs import unicode_escape_encode, unicode_escape_decode
         assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
         assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
         assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
+
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=('array',))
@@ -134,11 +154,15 @@ class AppTestPartialEvaluation:
                 u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff\U00010000",
             ]
 
         buffer = ''
         result = u""
-        for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff".encode(encoding), check_partial):
+        for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff\U00010000".encode(encoding), check_partial):
             buffer += c
             res = _codecs.utf_8_decode(buffer,'strict',False)
             if res[1] >0 :
@@ -160,10 +184,14 @@ class AppTestPartialEvaluation:
                     u"\x00\xff\u0100",
                     u"\x00\xff\u0100",
                     u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff\U00010000",
                 ]
         buffer = ''
         result = u""
-        for (c, partialresult) in zip(u"\x00\xff\u0100\uffff".encode(encoding), check_partial):
+        for (c, partialresult) in zip(u"\x00\xff\u0100\uffff\U00010000".encode(encoding), check_partial):
             buffer += c
             res = _codecs.utf_16_decode(buffer,'strict',False)
             if res[1] >0 :
@@ -286,6 +314,28 @@ class AppTestPartialEvaluation:
         raises(ValueError, br"[\x]".decode, 'string_escape')
         raises(ValueError, br"\x0".decode, 'string_escape')
         raises(ValueError, br"[\x0]".decode, 'string_escape')
+
+    def test_unicode_escape_decode_errors(self):
+        from _codecs import unicode_escape_decode, raw_unicode_escape_decode
+        for decode in [unicode_escape_decode, raw_unicode_escape_decode]:
+            for c, d in ('u', 4), ('U', 4):
+                for i in range(d):
+                    raises(UnicodeDecodeError, decode,
+                                      "\\" + c + "0"*i)
+                    raises(UnicodeDecodeError, decode,
+                                      "[\\" + c + "0"*i + "]")
+                    data = "[\\" + c + "0"*i + "]\\" + c + "0"*i
+                    assert decode(data, "ignore") == (u"[]", len(data))
+                    assert decode(data, "replace") == (u"[\ufffd]\ufffd", len(data))
+            raises(UnicodeDecodeError, decode, r"\U00110000")
+            assert decode(r"\U00110000", "ignore") == (u"", 10)
+            assert decode(r"\U00110000", "replace") == (u"\ufffd", 10)
+        exc = raises(UnicodeDecodeError, unicode_escape_decode, "\u1z32z3", 'strict')
+        assert str(exc.value) == "'unicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, "\u1z32z3", 'strict')
+        assert str(exc.value) == "'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, "\U1z32z3", 'strict')
+        assert str(exc.value) == "'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
 
     def test_escape_encode(self):
         assert '"'.encode('string_escape') == '"'
@@ -539,6 +589,16 @@ class AppTestPartialEvaluation:
         else:
             assert res == u"\x00\x00\x01\x00\x00" # UCS2 build
 
+        def handler1(exc):
+            if not isinstance(exc, UnicodeEncodeError) \
+               and not isinstance(exc, UnicodeDecodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            l = [u"<%d>" % ord(exc.object[pos]) for pos in xrange(exc.start, exc.end)]
+            return (u"[%s]" % u"".join(l), exc.end)
+        codecs.register_error("test.handler1", handler1)
+        assert "\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
+            u"\u3042[<92><117><51>]xxx"
+
     def test_encode_error_bad_handler(self):
         import codecs
         codecs.register_error("test.bad_handler", lambda e: (repl, 1))
@@ -554,7 +614,10 @@ class AppTestPartialEvaluation:
         assert 'xxx'.encode('charmap') == 'xxx'
 
         import codecs
-        raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
+        assert exc.value[0] == 'character mapping must be in range(256)'
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: u'a'})
+        assert exc.value[0] == 'character mapping must return integer, None or str'
         raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
 
     def test_charmap_encode_replace(self):
@@ -583,6 +646,30 @@ class AppTestPartialEvaluation:
     def test_utf7_surrogate(self):
         assert '+3ADYAA-'.decode('utf-7') == u'\udc00\ud800'
 
+    def test_utf7_errors(self):
+        import codecs
+        tests = [
+            ('a\xffb', u'a\ufffdb'),
+            ('a+IK', u'a\ufffd'),
+            ('a+IK-b', u'a\ufffdb'),
+            ('a+IK,b', u'a\ufffdb'),
+            ('a+IKx', u'a\u20ac\ufffd'),
+            ('a+IKx-b', u'a\u20ac\ufffdb'),
+            ('a+IKwgr', u'a\u20ac\ufffd'),
+            ('a+IKwgr-b', u'a\u20ac\ufffdb'),
+            ('a+IKwgr,', u'a\u20ac\ufffd'),
+            ('a+IKwgr,-b', u'a\u20ac\ufffd-b'),
+            ('a+IKwgrB', u'a\u20ac\u20ac\ufffd'),
+            ('a+IKwgrB-b', u'a\u20ac\u20ac\ufffdb'),
+            ('a+/,+IKw-b', u'a\ufffd\u20acb'),
+            ('a+//,+IKw-b', u'a\ufffd\u20acb'),
+            ('a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            ('a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+        ]
+        for raw, expected in tests:
+            raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)
+            assert raw.decode('utf-7', 'replace') == expected
+
     def test_utf_16_encode_decode(self):
         import codecs, sys
         x = u'123abc'
@@ -597,7 +684,7 @@ class AppTestPartialEvaluation:
             assert codecs.getdecoder('utf-16')(
                     '\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
 
-    def test_unicode_escape(self):        
+    def test_unicode_escape(self):
         assert u'\\'.encode('unicode-escape') == '\\\\'
         assert '\\\\'.decode('unicode-escape') == u'\\'
         assert u'\ud801'.encode('unicode-escape') == '\\ud801'
