@@ -1820,6 +1820,8 @@ class timezone(tzinfo):
         return (self._offset, self._name)
 
     def __eq__(self, other):
+        if type(other) != timezone:
+            return False
         return self._offset == other._offset
 
     def __hash__(self):
