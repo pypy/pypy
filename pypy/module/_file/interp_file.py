@@ -3,6 +3,7 @@ import os
 import stat
 import errno
 from rpython.rlib import streamio
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
@@ -12,6 +13,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
+
 
 class W_File(W_AbstractStream):
     """An interp-level file object.  This implements the same interface than
@@ -115,7 +117,7 @@ class W_File(W_AbstractStream):
         self.check_mode_ok(mode)
         stream = dispatch_filename(streamio.open_file_as_stream)(
             self.space, w_name, mode, buffering,
-            space.getexecutioncontext().checksignals)
+            signal_checker(space))
         fd = stream.try_to_find_file_descriptor()
         self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
@@ -576,6 +578,10 @@ class FileState:
 
 def getopenstreams(space):
     return space.fromcache(FileState).openstreams
+
+@specialize.memo()
+def signal_checker(space):
+    return space.getexecutioncontext().checksignals
 
 MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
 MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)
