@@ -24,6 +24,7 @@ from rpython.rtyper.lltypesystem import (llarena, llgroup, llmemory, lltype,
 from rpython.rtyper.lltypesystem.ll2ctypes import (_llvm_needs_header,
      _array_mixin)
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.tool.rffi_platform import memory_alignment
 from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.removenoops import remove_same_as
 from rpython.translator.backendopt.ssa import SSI_to_SSA
@@ -35,7 +36,7 @@ from rpython.tool.udir import udir
 
 
 database = None
-align = None
+align = memory_alignment()
 
 
 class Type(object):
@@ -1700,13 +1701,6 @@ class GenLLVM(object):
         self.gcpolicy._consider_constant(ovf_err_inst._T, ovf_err_inst._obj)
         self.gcpolicy.finish()
 
-    def _parse_datalayout(self, output):
-        pointer = output.index('p:')
-        minus = output.index('-', pointer)
-        tmp = output[pointer:minus].split(':')
-        global align
-        align = int(tmp[3]) / 8
-
     def _write_special_declarations(self, f):
         f.write('declare void @abort() noreturn nounwind\n')
         f.write('declare void @llvm.gcroot(i8** %ptrloc, i8* %metadata)\n')
@@ -1736,7 +1730,6 @@ class GenLLVM(object):
         with self.main_ll_file.open('w') as f:
             output = cmdexec('clang -emit-llvm -S -x c {} -o -'
                     .format(devnull))
-            self._parse_datalayout(output)
             for line in output.splitlines(True):
                 if line.startswith('target '):
                     f.write(line)
