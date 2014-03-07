@@ -1,14 +1,16 @@
 import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.conftest import option
 
 def raises(*args, **kwargs):
     #sometimes ValueError, sometimes TypeError, but we don't really care which
-    exc = py.test.raises((ValueError, TypeError), *args, **kwargs)
+    exc = py.test.raises((ValueError, TypeError), *args[1:], **kwargs)
     return exc
 
 class AppTestNDIter(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
+        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
 
     def test_basic(self):
         from numpy import arange, nditer
@@ -111,26 +113,38 @@ class AppTestNDIter(BaseNumpyAppTest):
             it.iternext()
         assert r == [(0, 0), (1, 2), (2, 4), (3, 1), (4, 3), (5, 5)]
         it = nditer(a, flags=['multi_index'], op_flags=['writeonly'])
+        if not self.runAppDirect:
+            raises(NotImplementedError, 'it[0] = 3')
+            skip('nditer.__setitem__ not implmented')
         while not it.finished:
             it[0] = it.multi_index[1] - it.multi_index[0]
             it.iternext()
         assert (a == [[0, 1, 2], [-1, 0, 1]]).all()
         b = zeros((2, 3))
-        exc = raises(nditer, b, flags=['c_index', 'external_loop'])
+        exc = raises(ValueError, nditer, b, flags=['c_index', 'external_loop'])
         assert str(exc.value).startswith("Iterator flag EXTERNAL_LOOP cannot")
 
     def test_buffered(self):
         from numpy import arange, nditer, array
         a = arange(6).reshape(2,3)
         r = []
+        if not self.runAppDirect:
+            raises(NotImplementedError, "nditer(a, flags=['external_loop', 'buffered'], order='F')")
+            skip('nditer buffered flag not implmented')
         for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
             r.append(x)
-        assert (array(r) == [0, 3, 1, 4, 2, 5]).all()
+        array_r = array(r)
+        assert len(array_r.shape) == 2
+        assert array_r.shape == (1, 6)
+        assert (array_r == [0, 3, 1, 4, 2, 5]).all()
 
     def test_op_dtype(self):
         from numpy import arange, nditer, sqrt, array
         a = arange(6).reshape(2,3) - 3
-        exc = raises(nditer, a, op_dtypes=['complex'])
+        if not self.runAppDirect:
+            raises(NotImplementedError, nditer, a, op_dtypes=['complex'])
+            skip('nditer op_dtypes kwarg not implemented yet')
+        exc = raises(ValueError, nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
         r = []
         for x in nditer(a, op_flags=['readonly','copy'],
@@ -148,6 +162,9 @@ class AppTestNDIter(BaseNumpyAppTest):
     def test_casting(self):
         from numpy import arange, nditer
         a = arange(6.)
+        if not self.runAppDirect:
+            raises(NotImplementedError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
+            skip('nditer casting not implemented yet')
         exc = raises(ValueError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
         assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
         r = []
@@ -198,7 +215,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         c = square2([1, 2, 3], out=b)
         assert (c == [1., 4., 9.]).all()
         assert (b == c).all()
-        exc = raises(square2, arange(6).reshape(2, 3), out=b)
+        exc = raises(ValueError, square2, arange(6).reshape(2, 3), out=b)
         assert str(exc.value).startswith('non-broadcastable output')
 
     def test_outer_product(self):
@@ -217,6 +234,9 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import nditer, arange, array
         a = arange(24).reshape(2, 3, 4)
         b = array(0)
+        if not self.runAppDirect:
+            raises(NotImplementedError, nditer, [a, b], flags=['reduce_ok'])
+            skip('nditer reduce_ok not implemented yet')
         #reduction operands must be readwrite
         for x, y in nditer([a, b], flags=['reduce_ok', 'external_loop'],
                             op_flags=[['readonly'], ['readwrite']]):

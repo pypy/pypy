@@ -149,6 +149,8 @@ def parse_func_flags(space, nditer, w_flags):
         if item == 'external_loop':
             nditer.external_loop = True
         elif item == 'buffered':
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                'nditer buffered not implemented yet'))
             nditer.buffered = True
         elif item == 'c_index':
             nditer.tracked_index = 'C'
@@ -167,6 +169,8 @@ def parse_func_flags(space, nditer, w_flags):
         elif item == 'refs_ok':
             nditer.refs_ok = True
         elif item == 'reduce_ok':
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                'nditer reduce_ok not implemented yet'))
             nditer.reduce_ok = True
         elif item == 'zerosize_ok':
             nditer.zerosize_ok = True
@@ -270,6 +274,9 @@ class W_NDIter(W_Root):
                                      len(self.seq), parse_op_flag)
         if not space.is_none(w_op_axes):
             self.set_op_axes(space, w_op_axes)
+        if not space.is_none(w_op_dtypes):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                'nditer op_dtypes kwarg not implemented yet'))
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
         if self.tracked_index != "":

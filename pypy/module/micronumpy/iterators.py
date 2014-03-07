@@ -145,6 +145,7 @@ class SliceIterator(ArrayIter):
         if dtype is None:
             dtype = arr.implementation.dtype
         self.dtype = dtype
+        self.arr = arr
         if backward:
             self.slicesize = shape[0]
             self.gap = [support.product(shape[1:]) * dtype.elsize]
@@ -158,7 +159,7 @@ class SliceIterator(ArrayIter):
         else:
             shape = [support.product(shape)]
             strides, backstrides = calc_strides(shape, dtype, order)
-            size = 0
+            size = 1
             self.slicesize = support.product(shape)
             self.gap = strides
 
