@@ -593,14 +593,15 @@ static inline void *atomic_xchg(void **ptr, void *value)
     return result;
 }
 
-static inline timespec_add(struct timespec *t, unsigned long long incr)
+static inline timespec_add(struct timespec *t, long incr)
 {
-    unsigned long long nsec = t->tv_nsec + incr;
+    long nsec = t->tv_nsec + incr;
     if (nsec >= 1000000000) {
-        t->tv_sec += (nsec / 1000000000);
-        nsec %= 1000000000;
+        t->tv_sec += 1;
+        nsec -= 1000000000;
+        assert(nsec < 1000000000);
     }
-    t->tv_nsec = (long)nsec;
+    t->tv_nsec = nsec;
 }
 
 static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
@@ -613,25 +614,25 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
 
        * before doing an external C call, the generated assembler sets
          this global variable to an in-stack pointer to its
-         ASM_FRAMEDATA_HEAD structure (for asmgcc) or to 1 (for
+         ASM_FRAMEDATA structure (for asmgcc) or to 1 (for
          shadowstack, when implemented)
 
        * afterwards, it uses an atomic instruction to get the current
          value stored in the variable and to replace it with zero
 
-       * if the old value was still the ASM_FRAMEDATA_HEAD pointer of
+       * if the old value was still the ASM_FRAMEDATA pointer of
          this thread, everything is fine
 
        * otherwise, someone else stole the GIL.  The assembler calls a
-         helper.  This helper first needs to unlink this thread's
-         ASM_FRAMEDATA_HEAD from the chained list where it was put by
+         helper.  This helper will need (as the last step) to unlink this
+         thread's ASM_FRAMEDATA from the chained list where it was put by
          the stealing code.  If the old value was zero, it means that
          the stealing code was this function here.  In that case, the
          helper needs to call RPyGilAcquire() again.  If, on the other
-         hand, the old value is another ASM_FRAMEDATA_HEAD from a
+         hand, the old value is another ASM_FRAMEDATA from a
          different thread, it means we just stole the fast GIL from this
          other thread.  In that case we store that different
-         ASM_FRAMEDATA_HEAD into the chained list and return immediately.
+         ASM_FRAMEDATA into the chained list and return immediately.
 
        This function is a balancing act inspired by CPython 2.7's
        threading.py for _Condition.wait() (not the PyPy version, which
@@ -641,9 +642,10 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
        the real GIL is released, we won't ever see the fast GIL being 1.
        The scheme here sleeps very little at first, and longer as time
        goes on.  Eventually, the real GIL should be released, so there
-       is no point in trying to bound the maximal length of the wait.
+       is little point in trying to bound the maximal length of the wait,
+       but we do it anyway to avoid bad surprizes in corner cases.
     */
-    unsigned long long delay = 0;
+    long delay = 400000;    /* in ns; initial delay is 0.4 ms */
     struct timespec t;
 
     while (1) {
@@ -671,15 +673,14 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
         }
 
         /* sleep for a bit of time */
-        if (delay == 0) {
-            clock_gettime(CLOCK_REALTIME, &t);
-            delay = 100000;    /* in ns; initial delay is 0.1 ms */
-        }
+        clock_gettime(CLOCK_REALTIME, &t);
         timespec_add(&t, delay);
         int error = pthread_mutex_timedlock(&mutex_gil, &t);
 
         if (error == ETIMEDOUT) {
             delay = (delay * 3) / 2;
+            if (delay > 50000000)
+                delay = 50000000;    /* maximum delay 50 ms */
             continue;
         }
         else {
@@ -712,3 +713,6 @@ void RPyGilAcquire(void)
     assert_has_the_gil();
     _debug_print("RPyGilAcquire\n");
 }
+
+XXX even without a gil, we need to check at least for a RPY_FASTGIL_VARNAME
+that is not null, in callbacks
