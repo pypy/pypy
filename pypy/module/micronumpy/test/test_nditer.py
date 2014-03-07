@@ -1,17 +1,8 @@
 import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.conftest import option
 
-def raises(*args, **kwargs):
-    #sometimes ValueError, sometimes TypeError, but we don't really care which
-    exc = py.test.raises((ValueError, TypeError), *args[1:], **kwargs)
-    return exc
 
 class AppTestNDIter(BaseNumpyAppTest):
-    def setup_class(cls):
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
-
     def test_basic(self):
         from numpy import arange, nditer
         a = arange(6).reshape(2,3)
@@ -105,6 +96,7 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_interface(self):
         from numpy import arange, nditer, zeros
+        import sys
         a = arange(6).reshape(2,3)
         r = []
         it = nditer(a, flags=['f_index'])
@@ -113,7 +105,7 @@ class AppTestNDIter(BaseNumpyAppTest):
             it.iternext()
         assert r == [(0, 0), (1, 2), (2, 4), (3, 1), (4, 3), (5, 5)]
         it = nditer(a, flags=['multi_index'], op_flags=['writeonly'])
-        if not self.runAppDirect:
+        if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, 'it[0] = 3')
             skip('nditer.__setitem__ not implmented')
         while not it.finished:
@@ -126,9 +118,10 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_buffered(self):
         from numpy import arange, nditer, array
+        import sys
         a = arange(6).reshape(2,3)
         r = []
-        if not self.runAppDirect:
+        if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, "nditer(a, flags=['external_loop', 'buffered'], order='F')")
             skip('nditer buffered flag not implmented')
         for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
@@ -140,8 +133,9 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_op_dtype(self):
         from numpy import arange, nditer, sqrt, array
+        import sys
         a = arange(6).reshape(2,3) - 3
-        if not self.runAppDirect:
+        if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, nditer, a, op_dtypes=['complex'])
             skip('nditer op_dtypes kwarg not implemented yet')
         exc = raises(ValueError, nditer, a, op_dtypes=['complex'])
@@ -161,8 +155,9 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_casting(self):
         from numpy import arange, nditer
+        import sys
         a = arange(6.)
-        if not self.runAppDirect:
+        if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
             skip('nditer casting not implemented yet')
         exc = raises(ValueError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
@@ -232,9 +227,10 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_reduction(self):
         from numpy import nditer, arange, array
+        import sys
         a = arange(24).reshape(2, 3, 4)
         b = array(0)
-        if not self.runAppDirect:
+        if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, nditer, [a, b], flags=['reduce_ok'])
             skip('nditer reduce_ok not implemented yet')
         #reduction operands must be readwrite
@@ -276,14 +272,12 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_multi_index(self):
         import numpy as np
-
         a = np.arange(6).reshape(2, 3)
-
         it = np.nditer(a, flags=['multi_index'])
-
         res = []
         while not it.finished:
             res.append((it[0], it.multi_index))
             it.iternext()
-
-        assert res == [(0, (0, 0)), (1, (0, 1)), (2, (0, 2)), (3, (1, 0)), (4, (1, 1)), (5, (1, 2))]
+        assert res == [(0, (0, 0)), (1, (0, 1)),
+                       (2, (0, 2)), (3, (1, 0)),
+                       (4, (1, 1)), (5, (1, 2))]

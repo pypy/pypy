@@ -8,6 +8,7 @@ from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
 from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
 from pypy.module.micronumpy.concrete import SliceArray
 
+
 class AbstractIterator(object):
     def done(self):
         raise NotImplementedError("Abstract Class")
