@@ -3,6 +3,7 @@
 
 import unittest
 from ctypes import *
+
 import _ctypes_test
 from test.test_support import impl_detail
 
@@ -164,7 +165,7 @@ class CFunctions(unittest.TestCase):
         self._dll.tf_D.argtypes = (c_longdouble,)
         self.assertEqual(self._dll.tf_D(42.), 14.)
         self.assertEqual(self.S(), 42)
-        
+
     @impl_detail('long double not supported by PyPy', pypy=False)
     def test_longdouble_plus(self):
         self._dll.tf_bD.restype = c_longdouble
@@ -190,7 +191,7 @@ class CFunctions(unittest.TestCase):
         self.assertEqual(self._dll.tv_i(-42), None)
         self.assertEqual(self.S(), -42)
 
-# The following repeates the above tests with stdcall functions (where
+# The following repeats the above tests with stdcall functions (where
 # they are available)
 try:
     WinDLL

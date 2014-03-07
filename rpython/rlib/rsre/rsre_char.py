@@ -26,6 +26,11 @@ def set_unicode_db(newunicodedb):
 # Identifying as _sre from Python 2.3 and onwards (at least up to 2.7)
 MAGIC = 20031017
 
+if sys.maxint > 2**32:
+    MAXREPEAT = int(2**32 - 1)
+else:
+    MAXREPEAT = int(2**31 - 1)
+
 # In _sre.c this is bytesize of the code word type of the C implementation.
 # There it's 2 for normal Python builds and more for wide unicode builds (large 
 # enough to hold a 32-bit UCS-4 encoded character). Since here in pure Python
@@ -48,9 +53,6 @@ SRE_INFO_LITERAL = 2
 SRE_INFO_CHARSET = 4
 SRE_FLAG_LOCALE = 4 # honour system locale
 SRE_FLAG_UNICODE = 32 # use unicode locale
-OPCODE_INFO = 17
-OPCODE_LITERAL = 19
-MAXREPEAT = 65535
 
 
 def getlower(char_ord, flags):

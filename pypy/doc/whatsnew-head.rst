@@ -102,3 +102,6 @@ and propagates that n > 0 further to get rid of guards.
 
 .. branch: popen-pclose
 Provide an exit status for popen'ed RFiles via pclose
+
+.. branch: stdlib-2.7.5
+.. branch: vendor/stdlib

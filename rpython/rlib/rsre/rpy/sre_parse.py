@@ -8,7 +8,7 @@
 # See the sre.py file for information on usage and redistribution.
 #
 
-"""Internal support module for sre (copied from CPython 2.7.3)"""
+"""Internal support module for sre (copied from CPython)"""
 
 # XXX: show string offset and offending character for all errors
 
@@ -141,12 +141,12 @@ class SubPattern:
         # determine the width (min, max) for this subpattern
         if self.width:
             return self.width
-        lo = hi = 0L
+        lo = hi = 0
         UNITCODES = (ANY, RANGE, IN, LITERAL, NOT_LITERAL, CATEGORY)
         REPEATCODES = (MIN_REPEAT, MAX_REPEAT)
         for op, av in self.data:
             if op is BRANCH:
-                i = sys.maxint
+                i = MAXREPEAT - 1
                 j = 0
                 for av in av[1]:
                     l, h = av.getwidth()
@@ -164,14 +164,14 @@ class SubPattern:
                 hi = hi + j
             elif op in REPEATCODES:
                 i, j = av[2].getwidth()
-                lo = lo + long(i) * av[0]
-                hi = hi + long(j) * av[1]
+                lo = lo + i * av[0]
+                hi = hi + j * av[1]
             elif op in UNITCODES:
                 lo = lo + 1
                 hi = hi + 1
             elif op == SUCCESS:
                 break
-        self.width = int(min(lo, sys.maxint)), int(min(hi, sys.maxint))
+        self.width = min(lo, MAXREPEAT - 1), min(hi, MAXREPEAT)
         return self.width
 
 class Tokenizer:
@@ -228,7 +228,7 @@ def _class_escape(source, escape):
     if code:
         return code
     code = CATEGORIES.get(escape)
-    if code:
+    if code and code[0] == IN:
         return code
     try:
         c = escape[1:2]
@@ -498,10 +498,14 @@ def _parse(source, state):
                     continue
                 if lo:
                     min = int(lo)
+                    if min >= MAXREPEAT:
+                        raise OverflowError("the repetition number is too large")
                 if hi:
                     max = int(hi)
-                if max < min:
-                    raise error, "bad repeat interval"
+                    if max >= MAXREPEAT:
+                        raise OverflowError("the repetition number is too large")
+                    if max < min:
+                        raise error("bad repeat interval")
             else:
                 raise error, "not supported"
             # figure out which item to repeat
@@ -541,8 +545,11 @@ def _parse(source, state):
                                 break
                             name = name + char
                         group = 1
+                        if not name:
+                            raise error("missing group name")
                         if not isname(name):
-                            raise error, "bad character in group name"
+                            raise error("bad character in group name %r" %
+                                        name)
                     elif sourcematch("="):
                         # named backreference
                         name = ""
@@ -553,8 +560,11 @@ def _parse(source, state):
                             if char == ")":
                                 break
                             name = name + char
+                        if not name:
+                            raise error("missing group name")
                         if not isname(name):
-                            raise error, "bad character in group name"
+                            raise error("bad character in backref group name "
+                                        "%r" % name)
                         gid = state.groupdict.get(name)
                         if gid is None:
                             raise error, "unknown group name"
@@ -605,6 +615,8 @@ def _parse(source, state):
                             break
                         condname = condname + char
                     group = 2
+                    if not condname:
+                        raise error("missing group name")
                     if isname(condname):
                         condgroup = state.groupdict.get(condname)
                         if condgroup is None:
@@ -723,7 +735,7 @@ def parse_template(source, pattern):
                             break
                         name = name + char
                 if not name:
-                    raise error, "bad group name"
+                    raise error, "missing group name"
                 try:
                     index = int(name)
                     if index < 0:

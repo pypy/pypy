@@ -486,6 +486,23 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
+    def test_compile_error_message(self):
+        import re
+        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        compile('\xef\xbb\xbf\n', 'dummy', 'exec')
+        compile('\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
+        exc = raises(SyntaxError, compile,
+            '# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in exc.value[0]
+        exc = raises(SyntaxError, compile,
+            '\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        assert 'iso-8859-15' in exc.value[0]
+        assert 'BOM' in exc.value[0]
+        exc = raises(SyntaxError, compile,
+            '\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in exc.value[0]
+        assert 'BOM' in exc.value[0]
+
     def test_unicode_compile(self):
         try:
             compile(u'-', '?', 'eval')

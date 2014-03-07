@@ -28,6 +28,8 @@ test_urlparse.py provides a good indicator of parsing behavior.
 
 """
 
+import re
+
 __all__ = ["urlparse", "urlunparse", "urljoin", "urldefrag",
            "urlsplit", "urlunsplit", "parse_qs", "parse_qsl"]
 
@@ -40,11 +42,14 @@ uses_netloc = ['ftp', 'http', 'gopher', 'nntp', 'telnet',
                'imap', 'wais', 'file', 'mms', 'https', 'shttp',
                'snews', 'prospero', 'rtsp', 'rtspu', 'rsync', '',
                'svn', 'svn+ssh', 'sftp','nfs','git', 'git+ssh']
-non_hierarchical = ['gopher', 'hdl', 'mailto', 'news',
-                    'telnet', 'wais', 'imap', 'snews', 'sip', 'sips']
 uses_params = ['ftp', 'hdl', 'prospero', 'http', 'imap',
                'https', 'shttp', 'rtsp', 'rtspu', 'sip', 'sips',
-               'mms', '', 'sftp']
+               'mms', '', 'sftp', 'tel']
+
+# These are not actually used anymore, but should stay for backwards
+# compatibility.  (They are undocumented, but have a public-looking name.)
+non_hierarchical = ['gopher', 'hdl', 'mailto', 'news',
+                    'telnet', 'wais', 'imap', 'snews', 'sip', 'sips']
 uses_query = ['http', 'wais', 'imap', 'https', 'shttp', 'mms',
               'gopher', 'rtsp', 'rtspu', 'sip', 'sips', '']
 uses_fragment = ['ftp', 'hdl', 'http', 'gopher', 'news',
@@ -104,9 +109,11 @@ class ResultMixin(object):
         netloc = self.netloc.split('@')[-1].split(']')[-1]
         if ':' in netloc:
             port = netloc.split(':')[1]
-            return int(port, 10)
-        else:
-            return None
+            port = int(port, 10)
+            # verify legal port
+            if (0 <= port <= 65535):
+                return port
+        return None
 
 from collections import namedtuple
 
@@ -192,21 +199,21 @@ def urlsplit(url, scheme='', allow_fragments=True):
             if c not in scheme_chars:
                 break
         else:
-            try:
-                # make sure "url" is not actually a port number (in which case
-                # "scheme" is really part of the path
-                _testportnum = int(url[i+1:])
-            except ValueError:
-                scheme, url = url[:i].lower(), url[i+1:]
+            # make sure "url" is not actually a port number (in which case
+            # "scheme" is really part of the path)
+            rest = url[i+1:]
+            if not rest or any(c not in '0123456789' for c in rest):
+                # not a port number
+                scheme, url = url[:i].lower(), rest
 
     if url[:2] == '//':
         netloc, url = _splitnetloc(url, 2)
         if (('[' in netloc and ']' not in netloc) or
                 (']' in netloc and '[' not in netloc)):
             raise ValueError("Invalid IPv6 URL")
-    if allow_fragments and scheme in uses_fragment and '#' in url:
+    if allow_fragments and '#' in url:
         url, fragment = url.split('#', 1)
-    if scheme in uses_query and '?' in url:
+    if '?' in url:
         url, query = url.split('?', 1)
     v = SplitResult(scheme, netloc, url, query, fragment)
     _parse_cache[key] = v
@@ -306,6 +313,15 @@ def urldefrag(url):
     else:
         return url, ''
 
+try:
+    unicode
+except NameError:
+    def _is_unicode(x):
+        return 0
+else:
+    def _is_unicode(x):
+        return isinstance(x, unicode)
+
 # unquote method for parse_qs and parse_qsl
 # Cannot use directly from urllib as it would create a circular reference
 # because urllib uses urlparse methods (urljoin).  If you update this function,
@@ -314,24 +330,36 @@ def urldefrag(url):
 _hexdig = '0123456789ABCDEFabcdef'
 _hextochr = dict((a+b, chr(int(a+b,16)))
                  for a in _hexdig for b in _hexdig)
+_asciire = re.compile('([\x00-\x7f]+)')
 
 def unquote(s):
     """unquote('abc%20def') -> 'abc def'."""
-    res = s.split('%')
+    if _is_unicode(s):
+        if '%' not in s:
+            return s
+        bits = _asciire.split(s)
+        res = [bits[0]]
+        append = res.append
+        for i in range(1, len(bits), 2):
+            append(unquote(str(bits[i])).decode('latin1'))
+            append(bits[i + 1])
+        return ''.join(res)
+
+    bits = s.split('%')
     # fastpath
-    if len(res) == 1:
+    if len(bits) == 1:
         return s
-    res_list = [res[0]]
-    for j in xrange(1, len(res)):
-        item = res[j]
+    res = [bits[0]]
+    append = res.append
+    for j in xrange(1, len(bits)):
+        item = bits[j]
         try:
-            x = _hextochr[item[:2]] + item[2:]
+            append(_hextochr[item[:2]])
+            append(item[2:])
         except KeyError:
-            x = '%' + item
-        except UnicodeDecodeError:
-            x = unichr(int(item[:2], 16)) + item[2:]
-        res_list.append(x)
-    return ''.join(res_list)
+            append('%')
+            append(item)
+    return ''.join(res)
 
 def parse_qs(qs, keep_blank_values=0, strict_parsing=0):
     """Parse a query given as a string argument.

@@ -18,7 +18,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
+for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
@@ -655,18 +655,18 @@ class PyFrame(W_Root):
         addr = 0
         while addr < len(code):
             op = ord(code[addr])
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 blockstack.append([addr, False])
             elif op == POP_BLOCK:
                 setup_op = ord(code[blockstack[-1][0]])
-                if setup_op == SETUP_FINALLY:
+                if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                     blockstack[-1][1] = True
                 else:
                     blockstack.pop()
             elif op == END_FINALLY:
                 if len(blockstack) > 0:
                     setup_op = ord(code[blockstack[-1][0]])
-                    if setup_op == SETUP_FINALLY:
+                    if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                         blockstack.pop()
 
             if addr == new_lasti or addr == self.last_instr:
@@ -703,7 +703,7 @@ class PyFrame(W_Root):
         while addr < max_addr:
             op = ord(code[addr])
 
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 delta_iblock += 1
             elif op == POP_BLOCK:
                 delta_iblock -= 1

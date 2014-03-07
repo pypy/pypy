@@ -269,7 +269,7 @@ def memo(funcdesc, arglist_s):
         elif isinstance(s, SomeBool):
             values = [False, True]
         else:
-            raise annmodel.AnnotatorError("memo call: argument must be a class"
+            raise annmodel.AnnotatorError("memo call: argument must be a class "
                                           "or a frozen PBC, got %r" % (s,))
         argvalues.append(values)
     # the list of all possible tuples of arguments to give to the memo function

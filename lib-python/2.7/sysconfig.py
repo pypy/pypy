@@ -126,6 +126,10 @@ if os.name == "nt" and "\\pc\\v" in _PROJECT_BASE[-10:].lower():
 if os.name == "nt" and "\\pcbuild\\amd64" in _PROJECT_BASE[-14:].lower():
     _PROJECT_BASE = _safe_realpath(os.path.join(_PROJECT_BASE, pardir, pardir))
 
+# set for cross builds
+if "_PYTHON_PROJECT_BASE" in os.environ:
+    # the build directory for posix builds
+    _PROJECT_BASE = os.path.normpath(os.path.abspath("."))
 def is_python_build():
     for fn in ("Setup.dist", "Setup.local"):
         if os.path.isfile(os.path.join(_PROJECT_BASE, "Modules", fn)):
@@ -195,8 +199,171 @@ def _getuserbase():
     return env_base if env_base else joinuser("~", ".local")
 
 
+def _parse_makefile(filename, vars=None):
+    """Parse a Makefile-style file.
+
+    A dictionary containing name/value pairs is returned.  If an
+    optional dictionary is passed in as the second argument, it is
+    used instead of a new dictionary.
+    """
+    import re
+    # Regexes needed for parsing Makefile (and similar syntaxes,
+    # like old-style Setup files).
+    _variable_rx = re.compile("([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
+    _findvar1_rx = re.compile(r"\$\(([A-Za-z][A-Za-z0-9_]*)\)")
+    _findvar2_rx = re.compile(r"\${([A-Za-z][A-Za-z0-9_]*)}")
+
+    if vars is None:
+        vars = {}
+    done = {}
+    notdone = {}
+
+    with open(filename) as f:
+        lines = f.readlines()
+
+    for line in lines:
+        if line.startswith('#') or line.strip() == '':
+            continue
+        m = _variable_rx.match(line)
+        if m:
+            n, v = m.group(1, 2)
+            v = v.strip()
+            # `$$' is a literal `$' in make
+            tmpv = v.replace('$$', '')
+
+            if "$" in tmpv:
+                notdone[n] = v
+            else:
+                try:
+                    v = int(v)
+                except ValueError:
+                    # insert literal `$'
+                    done[n] = v.replace('$$', '$')
+                else:
+                    done[n] = v
+
+    # do variable interpolation here
+    while notdone:
+        for name in notdone.keys():
+            value = notdone[name]
+            m = _findvar1_rx.search(value) or _findvar2_rx.search(value)
+            if m:
+                n = m.group(1)
+                found = True
+                if n in done:
+                    item = str(done[n])
+                elif n in notdone:
+                    # get it on a subsequent round
+                    found = False
+                elif n in os.environ:
+                    # do it like make: fall back to environment
+                    item = os.environ[n]
+                else:
+                    done[n] = item = ""
+                if found:
+                    after = value[m.end():]
+                    value = value[:m.start()] + item + after
+                    if "$" in after:
+                        notdone[name] = value
+                    else:
+                        try: value = int(value)
+                        except ValueError:
+                            done[name] = value.strip()
+                        else:
+                            done[name] = value
+                        del notdone[name]
+            else:
+                # bogus variable reference; just drop it since we can't deal
+                del notdone[name]
+    # strip spurious spaces
+    for k, v in done.items():
+        if isinstance(v, str):
+            done[k] = v.strip()
+
+    # save the results in the global dictionary
+    vars.update(done)
+    return vars
+
+
+def _get_makefile_filename():
+    if _PYTHON_BUILD:
+        return os.path.join(_PROJECT_BASE, "Makefile")
+    return os.path.join(get_path('platstdlib'), "config", "Makefile")
+
+def _generate_posix_vars():
+    """Generate the Python module containing build-time variables."""
+    import pprint
+    vars = {}
+    # load the installed Makefile:
+    makefile = _get_makefile_filename()
+    try:
+        _parse_makefile(makefile, vars)
+    except IOError, e:
+        msg = "invalid Python installation: unable to open %s" % makefile
+        if hasattr(e, "strerror"):
+            msg = msg + " (%s)" % e.strerror
+        raise IOError(msg)
+
+    # load the installed pyconfig.h:
+    config_h = get_config_h_filename()
+    try:
+        with open(config_h) as f:
+            parse_config_h(f, vars)
+    except IOError, e:
+        msg = "invalid Python installation: unable to open %s" % config_h
+        if hasattr(e, "strerror"):
+            msg = msg + " (%s)" % e.strerror
+        raise IOError(msg)
+
+    # On AIX, there are wrong paths to the linker scripts in the Makefile
+    # -- these paths are relative to the Python source, but when installed
+    # the scripts are in another directory.
+    if _PYTHON_BUILD:
+        vars['LDSHARED'] = vars['BLDSHARED']
+
+    # There's a chicken-and-egg situation on OS X with regards to the
+    # _sysconfigdata module after the changes introduced by #15298:
+    # get_config_vars() is called by get_platform() as part of the
+    # `make pybuilddir.txt` target -- which is a precursor to the
+    # _sysconfigdata.py module being constructed.  Unfortunately,
+    # get_config_vars() eventually calls _init_posix(), which attempts
+    # to import _sysconfigdata, which we won't have built yet.  In order
+    # for _init_posix() to work, if we're on Darwin, just mock up the
+    # _sysconfigdata module manually and populate it with the build vars.
+    # This is more than sufficient for ensuring the subsequent call to
+    # get_platform() succeeds.
+    name = '_sysconfigdata'
+    if 'darwin' in sys.platform:
+        import imp
+        module = imp.new_module(name)
+        module.build_time_vars = vars
+        sys.modules[name] = module
+
+    pybuilddir = 'build/lib.%s-%s' % (get_platform(), sys.version[:3])
+    if hasattr(sys, "gettotalrefcount"):
+        pybuilddir += '-pydebug'
+    try:
+        os.makedirs(pybuilddir)
+    except OSError:
+        pass
+    destfile = os.path.join(pybuilddir, name + '.py')
+
+    with open(destfile, 'wb') as f:
+        f.write('# system configuration generated and used by'
+                ' the sysconfig module\n')
+        f.write('build_time_vars = ')
+        pprint.pprint(vars, stream=f)
+
+    # Create file used for sys.path fixup -- see Modules/getpath.c
+    with open('pybuilddir.txt', 'w') as f:
+        f.write(pybuilddir)
+
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
+    # in cPython, _sysconfigdata is generated at build time, see _generate_posix_vars()
+    # in PyPy no such module exists
+    #from _sysconfigdata import build_time_vars
+    #vars.update(build_time_vars)
     return
 
 def _init_non_posix(vars):
@@ -340,65 +507,11 @@ def get_config_vars(*args):
                 srcdir = os.path.join(base, _CONFIG_VARS['srcdir'])
                 _CONFIG_VARS['srcdir'] = os.path.normpath(srcdir)
 
+        # OS X platforms require special customization to handle
+        # multi-architecture, multi-os-version installers
         if sys.platform == 'darwin':
-            kernel_version = os.uname()[2] # Kernel version (8.4.3)
-            major_version = int(kernel_version.split('.')[0])
-
-            if major_version < 8:
-                # On Mac OS X before 10.4, check if -arch and -isysroot
-                # are in CFLAGS or LDFLAGS and remove them if they are.
-                # This is needed when building extensions on a 10.3 system
-                # using a universal build of python.
-                for key in ('LDFLAGS', 'BASECFLAGS',
-                        # a number of derived variables. These need to be
-                        # patched up as well.
-                        'CFLAGS', 'PY_CFLAGS', 'BLDSHARED'):
-                    flags = _CONFIG_VARS[key]
-                    flags = re.sub('-arch\s+\w+\s', ' ', flags)
-                    flags = re.sub('-isysroot [^ \t]*', ' ', flags)
-                    _CONFIG_VARS[key] = flags
-            else:
-                # Allow the user to override the architecture flags using
-                # an environment variable.
-                # NOTE: This name was introduced by Apple in OSX 10.5 and
-                # is used by several scripting languages distributed with
-                # that OS release.
-                if 'ARCHFLAGS' in os.environ:
-                    arch = os.environ['ARCHFLAGS']
-                    for key in ('LDFLAGS', 'BASECFLAGS',
-                        # a number of derived variables. These need to be
-                        # patched up as well.
-                        'CFLAGS', 'PY_CFLAGS', 'BLDSHARED'):
-
-                        if key in _CONFIG_VARS: 
-                            flags = _CONFIG_VARS[key]
-                            flags = re.sub('-arch\s+\w+\s', ' ', flags)
-                            flags = flags + ' ' + arch
-                            _CONFIG_VARS[key] = flags
-
-                # If we're on OSX 10.5 or later and the user tries to
-                # compiles an extension using an SDK that is not present
-                # on the current machine it is better to not use an SDK
-                # than to fail.
-                #
-                # The major usecase for this is users using a Python.org
-                # binary installer  on OSX 10.6: that installer uses
-                # the 10.4u SDK, but that SDK is not installed by default
-                # when you install Xcode.
-                #
-                CFLAGS = _CONFIG_VARS.get('CFLAGS', '')
-                m = re.search('-isysroot\s+(\S+)', CFLAGS)
-                if m is not None:
-                    sdk = m.group(1)
-                    if not os.path.exists(sdk):
-                        for key in ('LDFLAGS', 'BASECFLAGS',
-                             # a number of derived variables. These need to be
-                             # patched up as well.
-                            'CFLAGS', 'PY_CFLAGS', 'BLDSHARED'):
-
-                            flags = _CONFIG_VARS[key]
-                            flags = re.sub('-isysroot\s+\S+(\s|$)', ' ', flags)
-                            _CONFIG_VARS[key] = flags
+            import _osx_support
+            _osx_support.customize_config_vars(_CONFIG_VARS)
 
     if args:
         vals = []
@@ -456,6 +569,10 @@ def get_platform():
             return 'win-ia64'
         return sys.platform
 
+    # Set for cross builds explicitly
+    if "_PYTHON_HOST_PLATFORM" in os.environ:
+        return os.environ["_PYTHON_HOST_PLATFORM"]
+
     if os.name != "posix" or not hasattr(os, 'uname'):
         # XXX what about the architecture? NT is Intel or Alpha,
         # Mac OS is M68k or PPC, etc.
@@ -496,94 +613,38 @@ def get_platform():
         if m:
             release = m.group()
     elif osname[:6] == "darwin":
-        #
-        # For our purposes, we'll assume that the system version from
-        # distutils' perspective is what MACOSX_DEPLOYMENT_TARGET is set
-        # to. This makes the compatibility story a bit more sane because the
-        # machine is going to compile and link as if it were
-        # MACOSX_DEPLOYMENT_TARGET.
-        cfgvars = get_config_vars()
-        macver = cfgvars.get('MACOSX_DEPLOYMENT_TARGET')
-
-        if 1:
-            # Always calculate the release of the running machine,
-            # needed to determine if we can build fat binaries or not.
-
-            macrelease = macver
-            # Get the system version. Reading this plist is a documented
-            # way to get the system version (see the documentation for
-            # the Gestalt Manager)
-            try:
-                f = open('/System/Library/CoreServices/SystemVersion.plist')
-            except IOError:
-                # We're on a plain darwin box, fall back to the default
-                # behaviour.
-                pass
-            else:
-                try:
-                    m = re.search(
-                            r'<key>ProductUserVisibleVersion</key>\s*' +
-                            r'<string>(.*?)</string>', f.read())
-                    if m is not None:
-                        macrelease = '.'.join(m.group(1).split('.')[:2])
-                    # else: fall back to the default behaviour
-                finally:
-                    f.close()
-
-        if not macver:
-            macver = macrelease
-
-        if macver:
-            release = macver
-            osname = "macosx"
-
-            if (macrelease + '.') >= '10.4.' and \
-                    '-arch' in get_config_vars().get('CFLAGS', '').strip():
-                # The universal build will build fat binaries, but not on
-                # systems before 10.4
-                #
-                # Try to detect 4-way universal builds, those have machine-type
-                # 'universal' instead of 'fat'.
-
-                machine = 'fat'
-                cflags = get_config_vars().get('CFLAGS')
-
-                archs = re.findall('-arch\s+(\S+)', cflags)
-                archs = tuple(sorted(set(archs)))
-
-                if len(archs) == 1:
-                    machine = archs[0]
-                elif archs == ('i386', 'ppc'):
-                    machine = 'fat'
-                elif archs == ('i386', 'x86_64'):
-                    machine = 'intel'
-                elif archs == ('i386', 'ppc', 'x86_64'):
-                    machine = 'fat3'
-                elif archs == ('ppc64', 'x86_64'):
-                    machine = 'fat64'
-                elif archs == ('i386', 'ppc', 'ppc64', 'x86_64'):
-                    machine = 'universal'
-                else:
-                    raise ValueError(
-                       "Don't know machine value for archs=%r"%(archs,))
-
-            elif machine == 'i386':
-                # On OSX the machine type returned by uname is always the
-                # 32-bit variant, even if the executable architecture is
-                # the 64-bit variant
-                if sys.maxint >= 2**32:
-                    machine = 'x86_64'
-
-            elif machine in ('PowerPC', 'Power_Macintosh'):
-                # Pick a sane name for the PPC architecture.
-                # See 'i386' case
-                if sys.maxint >= 2**32:
-                    machine = 'ppc64'
-                else:
-                    machine = 'ppc'
+        import _osx_support
+        osname, release, machine = _osx_support.get_platform_osx(
+                                            get_config_vars(),
+                                            osname, release, machine)
 
     return "%s-%s-%s" % (osname, release, machine)
 
 
 def get_python_version():
     return _PY_VERSION_SHORT
+
+
+def _print_dict(title, data):
+    for index, (key, value) in enumerate(sorted(data.items())):
+        if index == 0:
+            print '%s: ' % (title)
+        print '\t%s = "%s"' % (key, value)
+
+
+def _main():
+    """Display all information sysconfig detains."""
+    if '--generate-posix-vars' in sys.argv:
+        _generate_posix_vars()
+        return
+    print 'Platform: "%s"' % get_platform()
+    print 'Python version: "%s"' % get_python_version()
+    print 'Current installation scheme: "%s"' % _get_default_scheme()
+    print
+    _print_dict('Paths', get_paths())
+    print
+    _print_dict('Variables', get_config_vars())
+
+
+if __name__ == '__main__':
+    _main()
