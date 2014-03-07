@@ -76,9 +76,9 @@ def replace_char_with_str(string, c, s):
 
 
 @specialize.argtype(0)
-def open_file_as_stream(path, mode="r", buffering=-1):
+def open_file_as_stream(path, mode="r", buffering=-1, signal_checker=None):
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
-    stream = open_path_helper(path, os_flags, basemode == "a")
+    stream = open_path_helper(path, os_flags, basemode == "a", signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
                                   writing, binary)
 
@@ -95,7 +95,7 @@ def fdopen_as_stream(fd, mode, buffering=-1):
                                   writing, binary)
 
 @specialize.argtype(0)
-def open_path_helper(path, os_flags, append):
+def open_path_helper(path, os_flags, append, signal_checker=None):
     # XXX for now always return DiskFile
     fd = rposix.open(path, os_flags, 0666)
     if append:
@@ -104,7 +104,7 @@ def open_path_helper(path, os_flags, append):
         except OSError:
             # XXX does this pass make sense?
             pass
-    return DiskFile(fd)
+    return DiskFile(fd, signal_checker)
 
 def decode_mode(mode):
     if mode[0] == 'U':
@@ -277,8 +277,9 @@ class Stream(object):
 class DiskFile(Stream):
     """Standard I/O basis stream using os.open/close/read/write/lseek"""
 
-    def __init__(self, fd):
+    def __init__(self, fd, signal_checker=None):
         self.fd = fd
+        self.signal_checker = signal_checker
 
     def seek(self, offset, whence):
         os.lseek(self.fd, offset, whence)
@@ -294,6 +295,8 @@ class DiskFile(Stream):
             except OSError, e:
                 if e.errno != errno.EINTR:
                     raise
+                if self.signal_checker is not None:
+                    self.signal_checker()
                 # else try again
 
     def readline(self):

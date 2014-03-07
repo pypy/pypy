@@ -109,12 +109,13 @@ class W_File(W_AbstractStream):
     # file lock.  They don't convert StreamErrors to OperationErrors, too.
 
     @unwrap_spec(mode=str, buffering=int)
-    def direct___init__(self, w_name, mode='r', buffering=-1):
+    def direct___init__(self, space, w_name, mode='r', buffering=-1):
         self.direct_close()
         self.w_name = w_name
         self.check_mode_ok(mode)
         stream = dispatch_filename(streamio.open_file_as_stream)(
-            self.space, w_name, mode, buffering)
+            self.space, w_name, mode, buffering,
+            space.getexecutioncontext().checksignals)
         fd = stream.try_to_find_file_descriptor()
         self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
