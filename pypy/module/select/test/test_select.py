@@ -275,6 +275,8 @@ class AppTestSelectWithSockets(_AppTestSelect):
 
         self.make_server()
 
+        self.make_server()
+
         self.sock.listen(1)
         s2 = socket.socket()
         _thread.start_new_thread(s2.connect, (self.sockaddress,))
