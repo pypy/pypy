@@ -1131,10 +1131,12 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         #check that this standard extension works
         t.strftime("%f")
 
-
     def test_format(self):
         dt = self.theclass(2007, 9, 10)
         self.assertEqual(dt.__format__(''), str(dt))
+
+        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
+            dt.__format__(123)
 
         # check that a derived class's __str__() gets called
         class A(self.theclass):
@@ -1464,6 +1466,9 @@ class TestDateTime(TestDate):
         dt = self.theclass(2007, 9, 10, 4, 5, 1, 123)
         self.assertEqual(dt.__format__(''), str(dt))
 
+        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
+            dt.__format__(123)
+
         # check that a derived class's __str__() gets called
         class A(self.theclass):
             def __str__(self):
@@ -1775,6 +1780,7 @@ class TestDateTime(TestDate):
         for insane in -1e200, 1e200:
             self.assertRaises(ValueError, self.theclass.utcfromtimestamp,
                               insane)
+
     @unittest.skipIf(sys.platform == "win32", "Windows doesn't accept negative timestamps")
     def test_negative_float_fromtimestamp(self):
         # The result is tz-dependent; at least test that this doesn't
@@ -2152,6 +2158,9 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
     def test_format(self):
         t = self.theclass(1, 2, 3, 4)
         self.assertEqual(t.__format__(''), str(t))
+
+        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
+            t.__format__(123)
 
         # check that a derived class's __str__() gets called
         class A(self.theclass):
@@ -3728,13 +3737,15 @@ class Oddballs(unittest.TestCase):
             datetime(10, 10, '10')
 
         f10 = Number(10.9)
-        with self.assertRaisesRegex(TypeError, '^nb_int should return int object$'):
+        with self.assertRaisesRegex(TypeError, '^nb_int should return int '
+                                               'object$'):
             datetime(10, 10, f10)
 
         class Float(float):
             pass
         s10 = Float(10.9)
-        with self.assertRaisesRegex(TypeError, '^integer argument expected, got float$'):
+        with self.assertRaisesRegex(TypeError, '^integer argument expected, '
+                                               'got float$'):
             datetime(10, 10, s10)
 
         with self.assertRaises(TypeError):

@@ -747,6 +747,8 @@ class date:
         return _wrap_strftime(self, fmt, self.timetuple())
 
     def __format__(self, fmt):
+        if not isinstance(fmt, str):
+            raise TypeError("must be str, not %s" % type(fmt).__name__)
         if len(fmt) != 0:
             return self.strftime(fmt)
         return str(self)
@@ -1211,6 +1213,8 @@ class time:
         return _wrap_strftime(self, fmt, timetuple)
 
     def __format__(self, fmt):
+        if not isinstance(fmt, str):
+            raise TypeError("must be str, not %s" % type(fmt).__name__)
         if len(fmt) != 0:
             return self.strftime(fmt)
         return str(self)
