@@ -139,50 +139,30 @@ class ArrayIter(object):
     def setitem(self, elem):
         self.array.setitem(self.offset, elem)
 
-class SliceIterator(object):
+class SliceIterator(ArrayIter):
     def __init__(self, arr, strides, backstrides, shape, order="C",
                     backward=False, dtype=None):
-        self.indexes = [0] * (len(shape) - 1)
-        self.offset = 0
-        self.arr = arr
         if dtype is None:
             dtype = arr.implementation.dtype
+        self.dtype = dtype
         if backward:
             self.slicesize = shape[0]
             self.gap = [support.product(shape[1:]) * dtype.elsize]
-            self.strides = strides[1:]
-            self.backstrides = backstrides[1:]
-            self.shape = shape[1:]
-            self.strides.reverse()
-            self.backstrides.reverse()
-            self.shape.reverse()
-            self.shapelen = len(self.shape)
+            strides = strides[1:]
+            backstrides = backstrides[1:]
+            shape = shape[1:]
+            strides.reverse()
+            backstrides.reverse()
+            shape.reverse()
+            size = support.product(shape)
         else:
-            self.shape = [support.product(shape)]
-            self.strides, self.backstrides = calc_strides(shape, dtype, order)
+            shape = [support.product(shape)]
+            strides, backstrides = calc_strides(shape, dtype, order)
+            size = 0
             self.slicesize = support.product(shape)
-            self.shapelen = 0
-            self.gap = self.strides
-        self.dtype = dtype
-        self._done = False
+            self.gap = strides
 
-    def done(self):
-        return self._done
-
-    @jit.unroll_safe
-    def next(self):
-        offset = self.offset
-        for i in range(self.shapelen - 1, -1, -1):
-            if self.indexes[i] < self.shape[i] - 1:
-                self.indexes[i] += 1
-                offset += self.strides[i]
-                break
-            else:
-                self.indexes[i] = 0
-                offset -= self.backstrides[i]
-        else:
-            self._done = True
-        self.offset = offset
+        ArrayIter.__init__(self, arr.implementation, size, shape, strides, backstrides)
 
     def getslice(self):
         from pypy.module.micronumpy.concrete import SliceArray
