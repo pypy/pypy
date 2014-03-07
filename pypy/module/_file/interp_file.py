@@ -111,13 +111,12 @@ class W_File(W_AbstractStream):
     # file lock.  They don't convert StreamErrors to OperationErrors, too.
 
     @unwrap_spec(mode=str, buffering=int)
-    def direct___init__(self, space, w_name, mode='r', buffering=-1):
+    def direct___init__(self, w_name, mode='r', buffering=-1):
         self.direct_close()
         self.w_name = w_name
         self.check_mode_ok(mode)
         stream = dispatch_filename(streamio.open_file_as_stream)(
-            self.space, w_name, mode, buffering,
-            signal_checker(space))
+            self.space, w_name, mode, buffering, signal_checker(self.space))
         fd = stream.try_to_find_file_descriptor()
         self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
@@ -136,7 +135,8 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.w_name = self.space.wrap('<fdopen>')
         self.check_mode_ok(mode)
-        stream = streamio.fdopen_as_stream(fd, mode, buffering)
+        stream = streamio.fdopen_as_stream(fd, mode, buffering,
+                                           signal_checker(self.space))
         self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):
@@ -581,7 +581,9 @@ def getopenstreams(space):
 
 @specialize.memo()
 def signal_checker(space):
-    return space.getexecutioncontext().checksignals
+    def checksignals():
+        space.getexecutioncontext().checksignals()
+    return checksignals
 
 MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
 MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)

@@ -85,12 +85,12 @@ def open_file_as_stream(path, mode="r", buffering=-1, signal_checker=None):
 def _setfd_binary(fd):
     pass
 
-def fdopen_as_stream(fd, mode, buffering=-1):
+def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
     # XXX XXX XXX you want do check whether the modes are compatible
     # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
     _setfd_binary(fd)
-    stream = DiskFile(fd)
+    stream = DiskFile(fd, signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
                                   writing, binary)
 
@@ -309,8 +309,9 @@ class DiskFile(Stream):
             except OSError, e:
                 if e.errno != errno.EINTR:
                     raise
-                else:
-                    continue   # try again
+                if self.signal_checker is not None:
+                    self.signal_checker()
+                continue   # try again
             if not c:
                 break
             c = c[0]
@@ -326,6 +327,8 @@ class DiskFile(Stream):
             except OSError, e:
                 if e.errno != errno.EINTR:
                     raise
+                if self.signal_checker is not None:
+                    self.signal_checker()
             else:
                 data = data[n:]
 
