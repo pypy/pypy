@@ -173,7 +173,7 @@ class IntegralType(Type):
                     ', '.join(indices), SIGNED_TYPE)
         elif isinstance(value, llgroup.GroupMemberOffset):
             grpptr = get_repr(value.grpptr)
-            grpptr.type_.to.write_group(grpptr.value._obj)
+            grpptr.type.to.write_group(grpptr.value._obj)
             member = get_repr(value.member)
             return ('ptrtoint({member.T} getelementptr({grpptr.T} null, '
                     '{} 0, i32 {value.index}) to {})'
@@ -209,9 +209,9 @@ class IntegralType(Type):
         if not indices:
             indices.append('i64 0')
         if isinstance(offset, llmemory.FieldOffset):
-            type_ = database.get_type(offset.TYPE)
+            type = database.get_type(offset.TYPE)
             indices.append('i32 {}'.format(
-                    type_.fldnames_wo_voids.index(offset.fldname)))
+                    type.fldnames_wo_voids.index(offset.fldname)))
             return offset.TYPE._flds[offset.fldname]
         if isinstance(offset, llmemory.ArrayLengthOffset):
             if offset.TYPE._gckind == 'gc':
@@ -347,10 +347,10 @@ PRIMITIVES = {
     llmemory.Address: LLVMAddress
 }
 
-for type_ in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
-    if type_ not in PRIMITIVES:
-        PRIMITIVES[type_] = IntegralType(rffi.sizeof(type_) * 8,
-                                         rffi.is_unsigned(type_))
+for type in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
+    if type not in PRIMITIVES:
+        PRIMITIVES[type] = IntegralType(rffi.sizeof(type) * 8,
+                                         rffi.is_unsigned(type))
 LLVMSigned = PRIMITIVES[lltype.Signed]
 SIGNED_TYPE = LLVMSigned.repr_type()
 LLVMHalfWord = PRIMITIVES[llgroup.HALFWORD]
@@ -364,8 +364,8 @@ class PtrType(BasePtrType):
         if to is not None:
             self.to = to
 
-    def setup_from_lltype(self, db, type_):
-        self.to = db.get_type(type_.TO)
+    def setup_from_lltype(self, db, type):
+        self.to = db.get_type(type.TO)
 
     def repr_type(self, extra_len=None):
         return self.to.repr_type() + '*'
@@ -423,14 +423,14 @@ class StructType(Type):
         self.varsize = fields[-1][0].varsize
         self.size_variants = {}
 
-    def setup_from_lltype(self, db, type_):
-        if (type_._hints.get('typeptr', False) and
+    def setup_from_lltype(self, db, type):
+        if (type._hints.get('typeptr', False) and
             db.genllvm.translator.config.translation.gcremovetypeptr):
-            self.setup('%' + type_._name, [], True)
+            self.setup('%' + type._name, [], True)
             return
-        fields = ((db.get_type(type_._flds[f]), f) for f in type_._names)
-        is_gc = type_._gckind == 'gc' and type_._first_struct() == (None, None)
-        self.setup('%' + type_._name, fields, is_gc)
+        fields = ((db.get_type(type._flds[f]), f) for f in type._names)
+        is_gc = type._gckind == 'gc' and type._first_struct() == (None, None)
+        self.setup('%' + type._name, fields, is_gc)
 
     def repr_type(self, extra_len=None):
         if extra_len not in self.size_variants:
@@ -497,8 +497,8 @@ class BareArrayType(Type):
         self.of = of
         self.length = length
 
-    def setup_from_lltype(self, db, type_):
-        self.setup(db.get_type(type_.OF), getattr(type_, 'length', None))
+    def setup_from_lltype(self, db, type):
+        self.setup(db.get_type(type.OF), getattr(type, 'length', None))
 
     def repr_type(self, extra_len=None):
         if self.of is LLVMVoid:
@@ -548,7 +548,7 @@ class BareArrayType(Type):
                 self.of.repr_type_and_value(item) for item in items))
 
     def add_indices(self, gep, key):
-        if key.type_ is LLVMVoid:
+        if key.type is LLVMVoid:
             index = int(key.value[4:])
         else:
             index = key.V
@@ -575,8 +575,8 @@ class ArrayType(Type):
         fields = [(LLVMSigned, 'len'), (self.bare_array_type, 'items')]
         self.struct_type.setup('%array_of_' + of.repr_of_type(), fields, is_gc)
 
-    def setup_from_lltype(self, db, type_):
-        self.setup(db.get_type(type_.OF), type_._gckind == 'gc')
+    def setup_from_lltype(self, db, type):
+        self.setup(db.get_type(type.OF), type._gckind == 'gc')
 
     def repr_type(self, extra_len=None):
         return self.struct_type.repr_type(extra_len)
@@ -612,8 +612,8 @@ class GroupType(Type):
     def __init__(self):
         self.written = None
 
-    def setup_from_lltype(self, db, type_):
-        self.typestr = '%group_' + type_.name
+    def setup_from_lltype(self, db, type):
+        self.typestr = '%group_' + type.name
 
     def repr_ref(self, ptr_type, obj):
         ptr_type.refs[obj] = '@group_' + obj.name
@@ -641,9 +641,9 @@ class GroupType(Type):
 
 
 class FuncType(Type):
-    def setup_from_lltype(self, db, type_):
-        self.result = db.get_type(type_.RESULT)
-        self.args = [db.get_type(argtype) for argtype in type_.ARGS
+    def setup_from_lltype(self, db, type):
+        self.result = db.get_type(type.RESULT)
+        self.args = [db.get_type(argtype) for argtype in type.ARGS
                      if argtype is not lltype.Void]
 
     def repr_type(self, extra_len=None):
@@ -686,7 +686,7 @@ class FuncType(Type):
 class OpaqueType(Type):
     typestr = '{}'
 
-    def setup_from_lltype(self, db, type_):
+    def setup_from_lltype(self, db, type):
         pass
 
     def repr_of_type(self):
@@ -726,23 +726,23 @@ class Database(object):
         self.hashes = []
         self.stack_bottoms = []
 
-    def get_type(self, type_):
+    def get_type(self, type):
         try:
-            return self.types[type_]
+            return self.types[type]
         except KeyError:
-            if isinstance(type_, lltype.Typedef):
-                return self.get_type(type_.OF)
-            elif (isinstance(type_, lltype.Array) and
-                  type_._hints.get('nolength', False)):
+            if isinstance(type, lltype.Typedef):
+                return self.get_type(type.OF)
+            elif (isinstance(type, lltype.Array) and
+                  type._hints.get('nolength', False)):
                 class_ = BareArrayType
-            elif type_ is lltype.RuntimeTypeInfo:
+            elif type is lltype.RuntimeTypeInfo:
                 class_ = self.genllvm.gcpolicy.RttiType
             else:
-                class_ = _LL_TO_LLVM[type(type_)]
-            self.types[type_] = ret = class_()
-            ret.setup_from_lltype(self, type_)
+                class_ = _LL_TO_LLVM[type.__class__]
+            self.types[type] = ret = class_()
+            ret.setup_from_lltype(self, type)
             if ret.is_gc:
-                _llvm_needs_header[type_] = database.genllvm.gcpolicy \
+                _llvm_needs_header[type] = database.genllvm.gcpolicy \
                         .get_gc_fields_lltype() # hint for ll2ctypes
             return ret
 
@@ -759,70 +759,70 @@ class Database(object):
 
 OPS = {
 }
-for type_ in ['int', 'uint', 'llong', 'ullong', 'lllong']:
-    OPS[type_ + '_lshift'] = 'shl'
-    OPS[type_ + '_rshift'] = 'lshr' if type_[0] == 'u' else 'ashr'
-    OPS[type_ + '_add'] = 'add' if type_[0] == 'u' else 'add nsw'
-    OPS[type_ + '_sub'] = 'sub' if type_[0] == 'u' else 'sub nsw'
-    OPS[type_ + '_mul'] = 'mul' if type_[0] == 'u' else 'mul nsw'
-    OPS[type_ + '_floordiv'] = 'udiv' if type_[0] == 'u' else 'sdiv'
-    OPS[type_ + '_mod'] = 'urem' if type_[0] == 'u' else 'srem'
+for type in ['int', 'uint', 'llong', 'ullong', 'lllong']:
+    OPS[type + '_lshift'] = 'shl'
+    OPS[type + '_rshift'] = 'lshr' if type[0] == 'u' else 'ashr'
+    OPS[type + '_add'] = 'add' if type[0] == 'u' else 'add nsw'
+    OPS[type + '_sub'] = 'sub' if type[0] == 'u' else 'sub nsw'
+    OPS[type + '_mul'] = 'mul' if type[0] == 'u' else 'mul nsw'
+    OPS[type + '_floordiv'] = 'udiv' if type[0] == 'u' else 'sdiv'
+    OPS[type + '_mod'] = 'urem' if type[0] == 'u' else 'srem'
     for op in ['and', 'or', 'xor']:
-        OPS['{}_{}'.format(type_, op)] = op
+        OPS['{}_{}'.format(type, op)] = op
 
-for type_ in ['float']:
+for type in ['float']:
     for op in ['add', 'sub', 'mul', 'div']:
         if op == 'div':
-            OPS['{}_truediv'.format(type_)] = 'f' + op
+            OPS['{}_truediv'.format(type)] = 'f' + op
         else:
-            OPS['{}_{}'.format(type_, op)] = 'f' + op
+            OPS['{}_{}'.format(type, op)] = 'f' + op
 
-for type_, prefix in [('char', 'u'), ('unichar', 'u'), ('int', 's'),
+for type, prefix in [('char', 'u'), ('unichar', 'u'), ('int', 's'),
                       ('uint', 'u'), ('llong', 's'), ('ullong', 'u'),
                       ('lllong', 's'), ('adr', 's'), ('ptr', 's')]:
-    OPS[type_ + '_eq'] = 'icmp eq'
-    OPS[type_ + '_ne'] = 'icmp ne'
+    OPS[type + '_eq'] = 'icmp eq'
+    OPS[type + '_ne'] = 'icmp ne'
     for op in ['gt', 'ge', 'lt', 'le']:
-        OPS['{}_{}'.format(type_, op)] = 'icmp {}{}'.format(prefix, op)
+        OPS['{}_{}'.format(type, op)] = 'icmp {}{}'.format(prefix, op)
 
-for type_ in ['float']:
-    OPS[type_ + '_ne'] = 'fcmp une'
+for type in ['float']:
+    OPS[type + '_ne'] = 'fcmp une'
     for op in ['eq', 'gt', 'ge', 'lt', 'le']:
-        OPS['{}_{}'.format(type_, op)] = 'fcmp o' + op
+        OPS['{}_{}'.format(type, op)] = 'fcmp o' + op
 
-del type_
+del type
 del op
 
 
 class ConstantRepr(object):
-    def __init__(self, type_, value):
-        self.type_ = type_
+    def __init__(self, type, value):
+        self.type = type
         self.value = value
 
     @property
     def T(self):
-        return self.type_.repr_type()
+        return self.type.repr_type()
 
     @property
     def V(self):
-        return self.type_.repr_value(self.value)
+        return self.type.repr_value(self.value)
 
     @property
     def TV(self):
-        return self.type_.repr_type_and_value(self.value)
+        return self.type.repr_type_and_value(self.value)
 
     def __repr__(self):
-        return '<{} {}>'.format(self.type_.repr_type(), self.value)
+        return '<{} {}>'.format(self.type.repr_type(), self.value)
 
 
 class VariableRepr(object):
-    def __init__(self, type_, name):
-        self.type_ = type_
+    def __init__(self, type, name):
+        self.type = type
         self.name = name
 
     @property
     def T(self):
-        return self.type_.repr_type()
+        return self.type.repr_type()
 
     @property
     def V(self):
@@ -830,10 +830,10 @@ class VariableRepr(object):
 
     @property
     def TV(self):
-        return '{} {}'.format(self.type_.repr_type(), self.name)
+        return '{} {}'.format(self.type.repr_type(), self.name)
 
     def __repr__(self):
-        return '<{} {}>'.format(self.type_.repr_type(), self.name)
+        return '<{} {}>'.format(self.type.repr_type(), self.name)
 
 
 def get_repr(cov):
@@ -1008,8 +1008,8 @@ class FunctionWriter(object):
             if opname in OPS:
                 binary_op = OPS[opname]
                 assert len(opargs) == 2
-                if ((opargs[0].type_ != opargs[1].type_) and
-                    (opargs[0].type_.bitwidth != opargs[1].type_.bitwidth) and
+                if ((opargs[0].type != opargs[1].type) and
+                    (opargs[0].type.bitwidth != opargs[1].type.bitwidth) and
                     isinstance(opargs[1], VariableRepr)):
                     assert binary_op in ('shl', 'lshr', 'ashr')
                     t = self._tmp()
@@ -1030,8 +1030,8 @@ class FunctionWriter(object):
                 else:
                     raise NotImplementedError(op)
 
-    def _tmp(self, type_=None):
-        return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
+    def _tmp(self, type=None):
+        return VariableRepr(type, '%tmp{}'.format(next(self.tmp_counter)))
 
     def op_llvm_gcmap(self, result):
         self.w('{result.V} = bitcast i8* @__gcmap to {result.T}'
@@ -1046,8 +1046,8 @@ class FunctionWriter(object):
                 .format(**locals()))
 
     def op_llvm_stack_malloc(self, result):
-        type_ = result.type_.to.repr_type()
-        self.w('{result.V} = alloca {type_}'.format(**locals()))
+        type = result.type.to.repr_type()
+        self.w('{result.V} = alloca {type}'.format(**locals()))
 
     # TODO: implement
 
@@ -1065,7 +1065,7 @@ class FunctionWriter(object):
 
     def op_debug_llinterpcall(self, result, *args):
         self.w('call void @abort() noreturn nounwind')
-        if result.type_ is not LLVMVoid:
+        if result.type is not LLVMVoid:
             self.w('{result.V} = bitcast {result.T} undef to {result.T}'
                     .format(**locals()))
 
@@ -1112,21 +1112,21 @@ class FunctionWriter(object):
         pass
 
     def _cast(self, to, fr):
-        if fr.type_ is LLVMVoid:
+        if fr.type is LLVMVoid:
             return
-        elif fr.type_ is to.type_:
+        elif fr.type is to.type:
             op = 'bitcast'
-        elif to.type_ is LLVMBool:
-            if isinstance(fr.type_, IntegralType):
+        elif to.type is LLVMBool:
+            if isinstance(fr.type, IntegralType):
                 self.w('{to.V} = icmp ne {fr.TV}, 0'.format(**locals()))
-            elif isinstance(fr.type_, FloatType):
-                zer = ConstantRepr(fr.type_, 0.0)
+            elif isinstance(fr.type, FloatType):
+                zer = ConstantRepr(fr.type, 0.0)
                 self.w('{to.V} = fcmp une {fr.TV}, {zer.V}'.format(**locals()))
             else:
                 raise NotImplementedError
             return
         else:
-            op = fr.type_.get_cast_op(to.type_)
+            op = fr.type.get_cast_op(to.type)
         self.w('{to.V} = {op} {fr.TV} to {to.T}'.format(**locals()))
     op_force_cast = _cast
     op_raw_malloc_usage = _cast
@@ -1136,10 +1136,10 @@ class FunctionWriter(object):
             (fn.value._obj is None or fn.value._obj._name == 'PYPY_NO_OP')):
             return
 
-        it = iter(fn.type_.to.args)
+        it = iter(fn.type.to.args)
         tmp = []
         for arg in args:
-            if arg.type_ is LLVMVoid:
+            if arg.type is LLVMVoid:
                 continue
             argtype = next(it)
             if isinstance(argtype, StructType):
@@ -1149,10 +1149,10 @@ class FunctionWriter(object):
             tmp.append('{arg.TV}'.format(arg=arg))
         args = ', '.join(tmp)
 
-        if result.type_ is LLVMVoid:
+        if result.type is LLVMVoid:
             fmt = 'call void {fn.V}({args})'
-        elif (isinstance(result.type_, PtrType) and
-              isinstance(result.type_.to, FuncType)):
+        elif (isinstance(result.type, PtrType) and
+              isinstance(result.type.to, FuncType)):
             fmt = '{result.V} = call {fn.TV}({args})'
         else:
             fmt = '{result.V} = call {result.T} {fn.V}({args})'
@@ -1161,9 +1161,9 @@ class FunctionWriter(object):
 
     def _get_element_ptr(self, ptr, fields, result):
         gep = GEP(self, ptr)
-        type_ = ptr.type_.to
+        type = ptr.type.to
         for field in fields:
-            type_ = type_.add_indices(gep, field)
+            type = type.add_indices(gep, field)
         gep.assign(result)
 
     def _get_element_ptr_op(self, result, ptr, *fields):
@@ -1171,7 +1171,7 @@ class FunctionWriter(object):
     op_getsubstruct = op_getarraysubstruct = _get_element_ptr_op
 
     def _get_element(self, result, var, *fields):
-        if result.type_ is not LLVMVoid:
+        if result.type is not LLVMVoid:
             t = self._tmp()
             self._get_element_ptr(var, fields, t)
             self.w('{result.V} = load {result.T}* {t.V}'.format(**locals()))
@@ -1182,7 +1182,7 @@ class FunctionWriter(object):
     def _set_element(self, result, var, *rest):
         fields = rest[:-1]
         value = rest[-1]
-        if value.type_ is not LLVMVoid:
+        if value.type is not LLVMVoid:
             t = self._tmp()
             self._get_element_ptr(var, fields, t)
             self.w('store {value.TV}, {value.T}* {t.V}'.format(**locals()))
@@ -1191,32 +1191,32 @@ class FunctionWriter(object):
     op_setarrayitem = op_bare_setarrayitem = _set_element
 
     def op_direct_fieldptr(self, result, ptr, field):
-        t = self._tmp(PtrType(result.type_.to.of))
+        t = self._tmp(PtrType(result.type.to.of))
         self._get_element_ptr(ptr, [field], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_arrayitems(self, result, ptr):
-        t = self._tmp(PtrType(result.type_.to.of))
+        t = self._tmp(PtrType(result.type.to.of))
         self._get_element_ptr(ptr, [ConstantRepr(LLVMSigned, 0)], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_ptradd(self, result, var, val):
-        t = self._tmp(PtrType(result.type_.to.of))
+        t = self._tmp(PtrType(result.type.to.of))
         self.w('{t.V} = getelementptr inbounds {var.TV}, i64 0, {val.TV}'
                 .format(**locals()))
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_getarraysize(self, result, ptr, *fields):
         gep = GEP(self, ptr)
-        type_ = ptr.type_.to
+        type = ptr.type.to
         for field in fields:
-            type_ = type_.add_indices(gep, field)
+            type = type.add_indices(gep, field)
 
-        if isinstance(type_, BareArrayType):
-            self.w('{result.V} = add {result.T} 0, {type_.length}'
+        if isinstance(type, BareArrayType):
+            self.w('{result.V} = add {result.T} 0, {type.length}'
                     .format(**locals()))
         else:
-            if type_.is_gc:
+            if type.is_gc:
                 gep.add_field_index(1)
             else:
                 gep.add_field_index(0)
@@ -1243,7 +1243,7 @@ class FunctionWriter(object):
 
     def op_int_abs(self, result, var):
         ispos = self._tmp()
-        neg = self._tmp(var.type_)
+        neg = self._tmp(var.type)
         self.w('{ispos.V} = icmp sgt {var.TV}, -1'.format(**locals()))
         self.w('{neg.V} = sub {var.T} 0, {var.V}'.format(**locals()))
         self.w('{result.V} = select i1 {ispos.V}, {var.TV}, {neg.TV}'
@@ -1306,7 +1306,7 @@ class FunctionWriter(object):
 
     def op_float_abs(self, result, var):
         ispos = self._tmp()
-        neg = self._tmp(var.type_)
+        neg = self._tmp(var.type)
         self.w('{ispos.V} = fcmp oge {var.TV}, 0.0'.format(**locals()))
         self.w('{neg.V} = fsub {var.T} 0.0, {var.V}'.format(**locals()))
         self.w('{result.V} = select i1 {ispos.V}, {var.TV}, {neg.TV}'
@@ -1332,11 +1332,11 @@ class FunctionWriter(object):
         return t3
 
     def op_raw_load(self, result, addr, offset):
-        addr = self._get_addr(result.type_, addr, offset)
+        addr = self._get_addr(result.type, addr, offset)
         self.w('{result.V} = load {addr.TV}'.format(**locals()))
 
     def op_raw_store(self, result, addr, offset, value):
-        addr = self._get_addr(value.type_, addr, offset)
+        addr = self._get_addr(value.type, addr, offset)
         self.w('store {value.TV}, {addr.TV}'.format(**locals()))
     op_bare_raw_store = op_raw_store
 
@@ -1355,7 +1355,7 @@ class FunctionWriter(object):
         self.w('{result.V} = icmp ne {compactoffset.TV}, 0'.format(**locals()))
 
     def op_combine_ushort(self, result, ushort, rest):
-        t = self._tmp(result.type_)
+        t = self._tmp(result.type)
         self.w('{t.V} = zext {ushort.TV} to {t.T}'.format(**locals()))
         self.w('{result.V} = or {t.TV}, {rest.V}'.format(**locals()))
 
@@ -1426,7 +1426,7 @@ class FunctionWriter(object):
         self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
 
     def op_stack_current(self, result):
-        if result.type_ is LLVMAddress:
+        if result.type is LLVMAddress:
             self.op_direct_call(result, get_repr(llvm_frameaddress), null_int)
         else:
             t = self._tmp(LLVMAddress)
@@ -1471,12 +1471,12 @@ class GCPolicy(object):
                     if isinstance(arg, Constant):
                         self._consider_constant(arg.concretetype, arg.value)
 
-    def _consider_constant(self, type_, value):
-        if type_ is llmemory.Address:
+    def _consider_constant(self, type, value):
+        if type is llmemory.Address:
             value = value.ptr
-            type_ = lltype.typeOf(value)
-        if isinstance(type_, lltype.Ptr):
-            type_ = type_.TO
+            type = lltype.typeOf(value)
+        if isinstance(type, lltype.Ptr):
+            type = type.TO
             try:
                 value = value._obj
             except lltype.DelayedPointer:
@@ -1484,36 +1484,36 @@ class GCPolicy(object):
                 return
             if value is None:
                 return
-        if isinstance(type_, lltype.ContainerType):
+        if isinstance(type, lltype.ContainerType):
             if isinstance(value, int):
                 return
             if value in self._considered_constant:
                 return
             self._considered_constant.add(value)
-            if (isinstance(type_, lltype.Struct) and
+            if (isinstance(type, lltype.Struct) and
                 not isinstance(value, lltype._subarray)):
-                for f in type_._names:
-                    self._consider_constant(type_._flds[f], getattr(value, f))
-            elif isinstance(type_, lltype.Array):
+                for f in type._names:
+                    self._consider_constant(type._flds[f], getattr(value, f))
+            elif isinstance(type, lltype.Array):
                 if isinstance(value, _array_mixin):
                     len_ = len(value.items)
                     items = [value.getitem(i) for i in xrange(len_)]
                 else:
                     items = value.items
                 for i in items:
-                    self._consider_constant(type_.OF, i)
-            elif type_ is lltype.RuntimeTypeInfo:
+                    self._consider_constant(type.OF, i)
+            elif type is lltype.RuntimeTypeInfo:
                 if isinstance(self.gctransformer, RefcountingGCTransformer):
                     self.gctransformer.static_deallocation_funcptr_for_type(
                             value.about)
-            elif type_ is llmemory.GCREF.TO and hasattr(value, 'container'):
+            elif type is llmemory.GCREF.TO and hasattr(value, 'container'):
                 self._consider_constant(value.ORIGTYPE.TO, value.container)
-            elif type_ is llmemory.WeakRef:
+            elif type is llmemory.WeakRef:
                 from rpython.memory.gctypelayout import convert_weakref_to
                 wrapper = convert_weakref_to(value._dereference())
                 self._consider_constant(wrapper._TYPE, wrapper)
                 value._converted_weakref = wrapper
-            self.gctransformer.consider_constant(type_, value)
+            self.gctransformer.consider_constant(type, value)
 
             p, c = lltype.parentlink(value)
             if p:
@@ -1584,7 +1584,7 @@ class FrameworkGCPolicy(GCPolicy):
 
 class RefcountGCPolicy(GCPolicy):
     class RttiType(FuncType):
-        def setup_from_lltype(self, db, type_):
+        def setup_from_lltype(self, db, type):
             self.result = LLVMVoid
             self.args = [LLVMAddress]
 
@@ -1719,12 +1719,12 @@ class GenLLVM(object):
                 '  block0:\n'
                 '    br i1 %x, label %block1, label %block2\n'
                 '  block1:\n'
-                '    call void {raise_.V}({type_.TV}, {inst.TV})\n'
+                '    call void {raise_.V}({type.TV}, {inst.TV})\n'
                 '    ret void\n'
                 '  block2:\n'
                 '    ret void\n'
                 '}}\n'.format(raise_=get_repr(exctrans.rpyexc_raise_ptr),
-                              type_=get_repr(self.ovf_err[0]),
+                              type=get_repr(self.ovf_err[0]),
                               inst=get_repr(self.ovf_err[1])))
 
     def gen_source(self):
