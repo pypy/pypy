@@ -6,33 +6,14 @@ from rpython.conftest import cdir as cdir2
 
 cdir = os.path.abspath(os.path.join(cdir2, '..', 'stm'))
 
-separate_source = '''
-//#define _GC_DEBUG   2       /* XXX move elsewhere */
-
-#include "src_stm/stmgc.h"
-
-__thread struct stm_thread_local_s stm_thread_local;
-
-extern Signed pypy_stmcb_size(void*);
-extern void pypy_stmcb_trace(void*, void(*)(void*));
-
-inline size_t stmcb_size(struct object_s *obj) {
-    return pypy_stmcb_size(obj);
-}
-
-inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
-    pypy_stmcb_trace(obj, (void(*)(void*))visit);
-}
-
-#include "src_stm/stmgc.c"
-'''
+_f = open(os.path.join(cdir, 'src_stm', 'stmgcintf.c'), 'r')
+separate_source = _f.read()
+_f.close()
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir, cdir2],
-    includes = ['src_stm/stmgc.h'],
+    includes = ['src_stm/stmgcintf.h'],
     pre_include_bits = ['#define RPY_STM 1'],
-    post_include_bits = [
-        'extern __thread struct stm_thread_local_s stm_thread_local;'],
     separate_module_sources = [separate_source],
 )
 
