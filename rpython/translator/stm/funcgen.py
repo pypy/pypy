@@ -21,7 +21,7 @@ class StmHeaderOpaqueDefNode(Node):
         return []
 
     def c_struct_field_name(self, _):
-        return 'h_tid'
+        return 'tid'
 
 
 class StmHeader_OpaqueNode(ContainerNode):
