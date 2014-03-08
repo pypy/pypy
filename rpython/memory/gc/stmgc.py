@@ -14,19 +14,7 @@ from rpython.translator.stm import stmgcintf
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
-first_gcflag = 1 << (LONG_BIT//2)
 
-
-
-
-def get_hdr_tid(addr):
-    return llmemory.cast_adr_to_ptr(addr + StmGC.H_TID, rffi.SIGNEDP)
-
-def get_hdr_revision(addr):
-    return llmemory.cast_adr_to_ptr(addr + StmGC.H_REVISION, rffi.SIGNEDP)
-
-def get_hdr_original(addr):
-    return llmemory.cast_adr_to_ptr(addr + StmGC.H_ORIGINAL, rffi.SIGNEDP)
 
 
 class StmGC(MovingGCBase):
@@ -51,34 +39,6 @@ class StmGC(MovingGCBase):
     TRANSLATION_PARAMS = {
     }
 
-    # keep in sync with stmgc.h & et.h:
-    GCFLAG_OLD                    = first_gcflag << 0
-    GCFLAG_VISITED                = first_gcflag << 1
-    GCFLAG_PUBLIC                 = first_gcflag << 2
-    GCFLAG_PREBUILT_ORIGINAL      = first_gcflag << 3
-    GCFLAG_PUBLIC_TO_PRIVATE      = first_gcflag << 4
-    GCFLAG_WRITE_BARRIER          = first_gcflag << 5 # stmgc.h
-    GCFLAG_MOVED                  = first_gcflag << 6
-    GCFLAG_BACKUP_COPY            = first_gcflag << 7 # debug
-    GCFLAG_STUB                   = first_gcflag << 8 # debug
-    GCFLAG_PRIVATE_FROM_PROTECTED = first_gcflag << 9
-    GCFLAG_HAS_ID                 = first_gcflag << 10
-    GCFLAG_IMMUTABLE              = first_gcflag << 11
-    GCFLAG_SMALLSTUB              = first_gcflag << 12
-    GCFLAG_MARKED                 = first_gcflag << 13
-    
-    PREBUILT_FLAGS    = first_gcflag * ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<13))
-    PREBUILT_REVISION = r_uint(1)
-    
-    FX_MASK = 65535
-
-    # keep in sync with nursery.h:
-    
-    # maximum size of object in nursery (is actually dependent on
-    # nursery size, but this should work)
-    GC_NURSERY_SECTION = 135168
-    
-
     def get_type_id(self, obj):
         return llop.stm_get_tid(llgroup.HALFWORD, obj)
 
@@ -87,21 +47,8 @@ class StmGC(MovingGCBase):
         # we implement differently anyway.  So directly call GCBase.setup().
         GCBase.setup(self)
         #
-        llop.stm_initialize(lltype.Void)
+        llop.stm_setup(lltype.Void)
 
-
-    def get_original_copy(self, obj):
-        addr = llmemory.cast_ptr_to_adr(obj)
-        if bool(get_hdr_tid(addr)[0] & StmGC.GCFLAG_PREBUILT_ORIGINAL):
-            return obj
-        #
-        orig = get_hdr_original(addr)[0]
-        if orig == 0:
-            return obj
-        #
-        return  llmemory.cast_adr_to_ptr(llmemory.cast_int_to_adr(orig), 
-                                         llmemory.GCREF)
-        
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         assert flags == 0
         assert isinstance(typeid16, llgroup.GroupMemberOffset)
@@ -142,12 +89,8 @@ class StmGC(MovingGCBase):
     def can_move(self, obj):
         """Means the reference will stay valid, except if not
         seen by the GC, then it can get collected."""
-        tid = get_hdr_tid(obj)[0]
-        if bool(tid & StmGC.GCFLAG_OLD):
-            return False    # XXX wrong so far.  We should add a flag to the
-                            # object that means "don't ever kill this copy"
-        return True
-        
+        return llop.stm_can_move(lltype.Bool, obj)
+
 
     @classmethod
     def JIT_max_size_of_young_obj(cls):

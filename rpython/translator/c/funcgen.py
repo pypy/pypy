@@ -625,6 +625,8 @@ class FunctionCodeGenerator(object):
     OP_JIT_STM_TRANSACTION_BREAK_POINT  = _OP_STM
     OP_JIT_STM_SHOULD_BREAK_TRANSACTION = _OP_STM
 
+    OP_STM_CAN_MOVE                     = _OP_STM
+
     def OP_STM_IGNORED_START(self, op):
         return '/* stm_ignored_start */'
 

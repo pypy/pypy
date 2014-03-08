@@ -187,7 +187,7 @@ def stm_allocate(funcgen, op):
 def stm_get_tid(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)
-    return '%s = stm_get_tid((gcptr)%s);' % (result, arg0)
+    return '%s = ((struct rpyobj_s*)%s)->tid;' % (result, arg0)
 
 def stm_hash(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
@@ -264,6 +264,11 @@ def stm_minor_collect(funcgen, op):
 
 def stm_major_collect(funcgen, op):
     return 'stm_major_collect();'
+
+def stm_can_move(funcop, op):
+    arg0 = funcgen.expr(op.args[0])
+    result = funcgen.expr(op.result)
+    return '%s = stm_can_move(%s);' % (result, arg0)
 
 
 def op_stm(funcgen, op):

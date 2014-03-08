@@ -370,6 +370,8 @@ class BlockTransformer(object):
 
 
 def insert_stm_barrier(stmtransformer, graph):
+    return #XXX
+
     """This function uses the following characters for 'categories':
 
            * 'A': any general pointer

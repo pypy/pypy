@@ -406,16 +406,12 @@ LL_OPERATIONS = {
     'cast_opaque_ptr':      LLOp(sideeffects=False),
 
     # __________ Software Transactional Memory __________
-    # (Note that these operations could also be decomposed into individual
-    # direct_calls and maybe several casts, but it looks less heavy-weight
-    # to keep them as operations until the genc stage)
-
     # NOTE: use canmallocgc for all operations that can contain a collection.
     #       that includes all that do 'BecomeInevitable' or otherwise contain
     #       possible GC safe-points! (also sync with stmframework.py)
     # (some ops like stm_commit_transaction don't need it because there
     #  must be no gc-var access afterwards anyway)
-    'stm_initialize':         LLOp(canmallocgc=True),
+    'stm_setup':              LLOp(),
     'stm_finalize':           LLOp(canmallocgc=True),
     'stm_barrier':            LLOp(sideeffects=False),
     'stm_allocate':           LLOp(sideeffects=False, canmallocgc=True),
@@ -462,6 +458,8 @@ LL_OPERATIONS = {
 
     'stm_ignored_start':      LLOp(canrun=True),
     'stm_ignored_stop':       LLOp(canrun=True),
+
+    'stm_can_move':           LLOp(),
 
     # __________ address operations __________
 
