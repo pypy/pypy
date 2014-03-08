@@ -296,6 +296,9 @@ class FunctionCodeGenerator(object):
                 label += '_back'
         yield 'goto %s;' % label
 
+    def _is_stm(self):
+        return getattr(self.db.translator, 'stm_transformation_applied', False)
+
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
         line = None
@@ -303,6 +306,13 @@ class FunctionCodeGenerator(object):
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
                 line = meth(self, op)
+        elif op.opname.startswith('stm_'):
+            if not self._is_stm():
+                raise AssertionError("STM transformation not applied.  "
+                                     "You need '--stm'")
+            from rpython.translator.stm import funcgen
+            func = getattr(funcgen, op.opname)
+            line = func(self, op)
         else:
             meth = getattr(self, macro, None)
             if meth:
@@ -570,69 +580,6 @@ class FunctionCodeGenerator(object):
         else:
             assert isinstance(ARRAY, Array)
             return '%s = %s.length;'%(self.expr(op.result), expr)
-
-
-    def _is_stm(self):
-        return getattr(self.db.translator, 'stm_transformation_applied', False)
-
-    def _OP_STM(self, op):
-        if not hasattr(self, 'op_stm'):
-            if not self._is_stm():
-                raise AssertionError("STM transformation not applied.  "
-                                     "You need '--stm'")
-            from rpython.translator.stm.funcgen import op_stm
-            self.__class__.op_stm = op_stm
-        return self.op_stm(op)
-    OP_STM_INITIALIZE                   = _OP_STM
-    OP_STM_FINALIZE                     = _OP_STM
-    OP_STM_BECOME_INEVITABLE            = _OP_STM
-    OP_STM_STOP_ALL_OTHER_THREADS       = _OP_STM
-    OP_STM_PARTIAL_COMMIT_AND_RESUME_OTHER_THREADS = _OP_STM
-    OP_STM_BARRIER                      = _OP_STM
-    OP_STM_PTR_EQ                       = _OP_STM
-    OP_STM_PUSH_ROOT                    = _OP_STM
-    OP_STM_POP_ROOT_INTO                = _OP_STM
-    OP_STM_GET_ADR_OF_NURSERY_CURRENT   = _OP_STM
-    OP_STM_GET_ADR_OF_NURSERY_NEXTLIMIT = _OP_STM
-    OP_STM_GET_ADR_OF_ACTIVE            = _OP_STM
-    OP_STM_GET_ROOT_STACK_TOP           = _OP_STM
-    OP_STM_GET_ADR_OF_PRIVATE_REV_NUM   = _OP_STM
-    OP_STM_GET_ADR_OF_READ_BARRIER_CACHE= _OP_STM
-    OP_STM_ALLOCATE                     = _OP_STM
-    OP_STM_WEAKREF_ALLOCATE             = _OP_STM
-    OP_STM_GET_TID                      = _OP_STM
-    OP_STM_HASH                         = _OP_STM
-    OP_STM_ID                           = _OP_STM
-    OP_STM_COMMIT_TRANSACTION           = _OP_STM
-    OP_STM_BEGIN_INEVITABLE_TRANSACTION = _OP_STM
-    OP_STM_SHOULD_BREAK_TRANSACTION     = _OP_STM
-    OP_STM_SET_TRANSACTION_LENGTH       = _OP_STM
-    OP_STM_CHANGE_ATOMIC                = _OP_STM
-    OP_STM_GET_ATOMIC                   = _OP_STM
-    OP_STM_THREADLOCAL_GET              = _OP_STM
-    OP_STM_THREADLOCAL_SET              = _OP_STM
-    OP_STM_PERFORM_TRANSACTION          = _OP_STM
-    OP_STM_ENTER_CALLBACK_CALL          = _OP_STM
-    OP_STM_LEAVE_CALLBACK_CALL          = _OP_STM
-    OP_STM_ABORT_AND_RETRY              = _OP_STM
-    OP_STM_ABORT_INFO_PUSH              = _OP_STM
-    OP_STM_ABORT_INFO_POP               = _OP_STM
-    OP_STM_INSPECT_ABORT_INFO           = _OP_STM
-    OP_STM_MAJOR_COLLECT                = _OP_STM
-    OP_STM_MINOR_COLLECT                = _OP_STM
-    OP_STM_CLEAR_EXCEPTION_DATA_ON_ABORT= _OP_STM
-    OP_STM_ALLOCATE_NONMOVABLE_INT_ADR  = _OP_STM
-    OP_JIT_STM_TRANSACTION_BREAK_POINT  = _OP_STM
-    OP_JIT_STM_SHOULD_BREAK_TRANSACTION = _OP_STM
-
-    OP_STM_CAN_MOVE                     = _OP_STM
-
-    def OP_STM_IGNORED_START(self, op):
-        return '/* stm_ignored_start */'
-
-    def OP_STM_IGNORED_STOP(self, op):
-        return '/* stm_ignored_stop */'
-
 
     def OP_PTR_NONZERO(self, op):
         return '%s = (%s != NULL);' % (self.expr(op.result),

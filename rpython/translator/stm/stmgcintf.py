@@ -11,6 +11,8 @@ separate_source = '''
 
 #include "src_stm/stmgc.h"
 
+__thread struct stm_thread_local_s stm_thread_local;
+
 extern Signed pypy_stmcb_size(void*);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
 
@@ -29,6 +31,8 @@ eci = ExternalCompilationInfo(
     include_dirs = [cdir, cdir2],
     includes = ['src_stm/stmgc.h'],
     pre_include_bits = ['#define RPY_STM 1'],
+    post_include_bits = [
+        'extern __thread struct stm_thread_local_s stm_thread_local;'],
     separate_module_sources = [separate_source],
 )
 

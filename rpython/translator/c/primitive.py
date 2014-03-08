@@ -237,7 +237,7 @@ PrimitiveType = {
     Bool:     'bool_t @',
     Void:     'void @',
     Address:  'void* @',
-    GCREF:    'void* @',
+    GCREF:    'rpy_gc_char *@',
     }
 
 def define_c_primitive(ll_type, c_name, suffix=''):

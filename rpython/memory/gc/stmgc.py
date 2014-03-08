@@ -27,9 +27,6 @@ class StmGC(MovingGCBase):
     #gcflag_extra = GCFLAG_EXTRA
 
     HDR = stmgcintf.GCPTR.TO
-    H_TID = 0
-    H_REVISION = WORD
-    H_ORIGINAL = WORD * 2
     typeid_is_in_field = None
 
     VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
@@ -40,7 +37,7 @@ class StmGC(MovingGCBase):
     }
 
     def get_type_id(self, obj):
-        return llop.stm_get_tid(llgroup.HALFWORD, obj)
+        return llop.stm_addr_get_tid(llgroup.HALFWORD, obj)
 
     def setup(self):
         # Hack: MovingGCBase.setup() sets up stuff related to id(), which
@@ -48,6 +45,7 @@ class StmGC(MovingGCBase):
         GCBase.setup(self)
         #
         llop.stm_setup(lltype.Void)
+        llop.stm_register_thread_local(lltype.Void)
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         assert flags == 0
@@ -69,19 +67,21 @@ class StmGC(MovingGCBase):
         #ll_assert(not needs_finalizer, 'XXX needs_finalizer')
         #ll_assert(not is_finalizer_light, 'XXX is_finalizer_light')
         ll_assert(not contains_weakptr, 'contains_weakptr: use malloc_weakref')
-        # XXX call optimized versions, e.g. if size < GC_NURSERY_SECTION
-        return llop.stm_allocate(llmemory.GCREF, size, typeid16)
+        if size < 16:
+            size = 16     # minimum size (test usually constant-folded)
+        return llop.stm_allocate_tid(llmemory.GCREF, size, typeid16)
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
                              offset_to_length):
-        # XXX be careful about overflows, and call optimized versions
+        # XXX be careful here about overflows
         totalsize = size + itemsize * length
         totalsize = llarena.round_up_for_allocation(totalsize)
-        obj = llop.stm_allocate(llmemory.Address, totalsize, typeid16)
-        (obj + offset_to_length).signed[0] = length
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+        result = llop.stm_allocate_tid(llmemory.GCREF, totalsize, typeid16)
+        llop.stm_set_into_obj(lltype.Void, result, offset_to_length, length)
+        return result
 
     def malloc_weakref(self, typeid16, size, obj):
+        raise NotImplementedError  # XXX
         return llop.stm_weakref_allocate(llmemory.GCREF, size,
                                          typeid16, obj)
 
@@ -102,18 +102,15 @@ class StmGC(MovingGCBase):
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""
-        if gen > 0:
-            llop.stm_major_collect(lltype.Void)
-        else:
-            llop.stm_minor_collect(lltype.Void)
+        llop.stm_collect(lltype.Void, gen)
 
     def writebarrier_before_copy(self, source_addr, dest_addr,
                                  source_start, dest_start, length):
         ll_assert(False, 'XXX')
         return False
-        
+
     def id(self, gcobj):
         return llop.stm_id(lltype.Signed, gcobj)
 
     def identityhash(self, gcobj):
-        return llop.stm_hash(lltype.Signed, gcobj)
+        return llop.stm_identityhash(lltype.Signed, gcobj)
