@@ -322,24 +322,22 @@ class CFuncPtr(_CData):
             #              RuntimeWarning, stacklevel=2)
             argtypes = []
 
-        argsl = list(args)
         if self._com_index:
             from ctypes import cast, c_void_p, POINTER
-            if not argsl:
+            if not args:
                 raise ValueError(
                     "native COM method call without 'this' parameter"
                     )
-            thisvalue = argsl.pop(0)
+            thisvalue = args[0]
             thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
             keepalives, newargs, argtypes, outargs, errcheckargs = (
-                        self._convert_args(argtypes, argsl, kwargs))
-            argsl.insert(0, thisvalue)
+                self._convert_args(argtypes, args[1:], kwargs))
             newargs.insert(0, thisvalue.value)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
             keepalives, newargs, argtypes, outargs, errcheckargs = (
-                        self._convert_args(argtypes, argsl, kwargs))
+                self._convert_args(argtypes, args, kwargs))
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)
