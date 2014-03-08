@@ -1,4 +1,5 @@
-#include "src_stm/stmgcintf.h"
+/* This is not meant to be compiled stand-alone, but with all
+   of PyPy's #defines and #includes prepended. */
 
 __thread struct stm_thread_local_s stm_thread_local;
 

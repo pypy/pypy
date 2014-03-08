@@ -1,3 +1,7 @@
+#ifndef _RPY_STMGCINTF_H
+#define _RPY_STMGCINTF_H
+
+
 /* meant to be #included after src_stm/stmgc.h */
 
 #include "stmgc.h"
@@ -25,3 +29,6 @@ extern __thread struct stm_thread_local_s stm_thread_local;
 # define spinlock_release(lock)                                 \
     do { write_fence(); assert((lock) != 0); (lock) = 0; } while (0)
 #endif
+
+
+#endif  /* _RPY_STMGCINTF_H */

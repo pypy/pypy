@@ -21,3 +21,10 @@
 # define RPY_LENGTH0     1       /* array decl [0] are bad */
 # define RPY_DUMMY_VARLENGTH     /* nothing */
 #endif
+
+
+#ifdef RPY_STM
+#define rpy_duck()  asm("":::"memory")   // work around an llvm bug :-/
+#else
+#define rpy_duck()  /* nothing */
+#endif

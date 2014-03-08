@@ -22,17 +22,18 @@ __thread_if_stm struct _RPyString_dump_t {
 
 char *RPyString_AsCharP(RPyString *rps)
 {
-#ifdef RPY_STM
-	rps = (RPyString *)stm_read_barrier((gcptr)rps);
-#endif
-	Signed len = RPyString_Size(rps);
+	Signed i, len = RPyString_Size(rps);
 	struct _RPyString_dump_t *dump = \
 			malloc(sizeof(struct _RPyString_dump_t) + len);
 	if (!dump)
 		return "(out of memory!)";
 	dump->next = _RPyString_dump;
 	_RPyString_dump = dump;
-	memcpy(dump->data, rps->rs_chars.items, len);
+	/* can't use memcpy() in case of stm */
+	for (i = 0; i < len; i++) {
+	    dump->data[i] = rps->rs_chars.items[i];
+            rpy_duck();
+        }
 	dump->data[len] = 0;
 	return dump->data;
 }
@@ -48,8 +49,12 @@ void RPyString_FreeCache(void)
 
 RPyString *RPyString_FromString(char *buf)
 {
-	int length = strlen(buf);
+	int i, length = strlen(buf);
 	RPyString *rps = RPyString_New(length);
-	memcpy(rps->rs_chars.items, buf, length);
+	/* can't use memcpy() in case of stm */
+	for (i = 0; i < length; i++) {
+	    rps->rs_chars.items[i] = buf[i];
+            rpy_duck();
+        }
 	return rps;
 }

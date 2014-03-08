@@ -162,18 +162,17 @@ static void display_startstop(const char *prefix, const char *postfix,
 }
 
 #ifdef RPY_STM
-# include <src_stm/atomic_ops.h>
-# include <src_stm/fprintcolor.h>
+# include <src_stm/stm/fprintcolor.h>
+# define bool_cas __sync_bool_compare_and_swap
 #else
-  typedef long revision_t;
 # define bool_cas(vp, o, n) (*(vp)=(n), 1)
 # define dprintfcolor() 0
 #endif
-static revision_t threadcounter = 0;
+static Signed threadcounter = 0;
 
 static void _prepare_display_colors(void)
 {
-    revision_t counter;
+    Signed counter;
     char *p;
     while (1) {
         counter = threadcounter;

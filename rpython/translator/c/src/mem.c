@@ -46,7 +46,7 @@ static struct pypy_debug_alloc_s *pypy_debug_alloc_list = NULL;
 
 #ifdef RPY_STM
 // spinlock_acquire/spinlock_release defined in ../../stm/src_stm/stmgcintf.h
-static revision_t pypy_debug_alloc_lock = 0;
+static Signed pypy_debug_alloc_lock = 0;
 #else
 # define spinlock_acquire(lock, targetvalue)  /* nothing */
 # define spinlock_release(lock)               /* nothing */
