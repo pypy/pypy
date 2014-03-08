@@ -645,6 +645,17 @@ class FunctionCodeGenerator(object):
 
     def OP_CAST_POINTER(self, op):
         TYPE = self.lltypemap(op.result)
+        if self._is_stm():
+            TSRC = self.lltypemap(op.args[0])
+            gcdst = isinstance(TYPE, Ptr) and TYPE.TO._gckind == 'gc'
+            gcsrc = isinstance(TSRC, Ptr) and TSRC.TO._gckind == 'gc'
+            if gcsrc != gcdst:
+                raise Exception(
+                  "stm: cast between pointer types changes the address space\n"
+                  "  func: %s\n"
+                  "    op: %s\n"
+                  "  from: %s\n"
+                  "    to: %s" % (self.graph, op, TSRC, TYPE))
         typename = self.db.gettype(TYPE)
         result = []
         result.append('%s = (%s)%s;' % (self.expr(op.result),
@@ -654,13 +665,7 @@ class FunctionCodeGenerator(object):
 
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
-
-    def OP_CAST_PTR_TO_ADR(self, op):
-        #if self.lltypemap(op.args[0]).TO._gckind == 'gc' and self._is_stm():
-        #    from pypy.translator.c.support import log
-        #    log.WARNING("cast_ptr_to_adr(gcref) might be a bad idea with STM:")
-        #    log.WARNING("  %r" % (self.graph,))
-        return self.OP_CAST_POINTER(op)
+    OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
 
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
