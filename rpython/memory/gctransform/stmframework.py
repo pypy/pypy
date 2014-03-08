@@ -56,6 +56,11 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         for var in reversed(livevars):
             hop.genop("stm_pop_root_into", [var])
 
+    def transform_generic_set(self, hop):
+        opname = hop.spaceop.opname
+        # XXX DO STUFF HERE
+        hop.rename('bare_' + opname)
+
     def gc_header_for(self, obj, needs_hash=False):
         return self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
 

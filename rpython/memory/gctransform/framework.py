@@ -725,6 +725,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.pop_roots(hop, livevars)
 
     def gct_gc_can_move(self, hop):
+        assert not self.translator.config.translation.stm, "XXX"
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr',
                            [op.args[0]], resulttype=llmemory.Address)
@@ -735,6 +736,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if self.shrink_array_ptr is None:
             return GCTransformer.gct_shrink_array(self, hop)
         op = hop.spaceop
+        assert not self.translator.config.translation.stm, "XXX"
         v_addr = hop.genop('cast_ptr_to_adr',
                            [op.args[0]], resulttype=llmemory.Address)
         v_length = op.args[1]
@@ -776,6 +778,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
                                 'inst_' + attrname)
         c_ofs = rmodel.inputconst(lltype.Signed, ofs)
+        assert not self.translator.config.translation.stm, "XXX"
         v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
                              resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
@@ -790,6 +793,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         ofs = llmemory.offsetof(self.c_const_gcdata.concretetype.TO,
                                 'inst_' + attrname)
         c_ofs = rmodel.inputconst(lltype.Signed, ofs)
+        assert not self.translator.config.translation.stm, "XXX"
         v_gcdata_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gcdata],
                                  resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
