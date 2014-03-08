@@ -200,6 +200,7 @@ void stm_teardown(void);
    transaction. */
 #define STM_PUSH_ROOT(tl, p)   (*((tl).shadowstack++) = (object_t *)(p))
 #define STM_POP_ROOT(tl, p)    ((p) = (typeof(p))*(--(tl).shadowstack))
+#define STM_POP_ROOT_RET(tl)   (*(--(tl).shadowstack))
 
 
 /* Every thread needs to have a corresponding stm_thread_local_t

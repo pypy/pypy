@@ -1,5 +1,5 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-#define _GNU_SOURCE
+#define _GNU_SOURCE 1
 #include "stmgc.h"
 #include "stm/atomic.h"
 #include "stm/list.h"
