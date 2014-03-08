@@ -772,7 +772,10 @@ def gen_structdef(f, database):
         print >> f, '\tstruct object_s lib;'
         print >> f, '\tuint32_t tid;'
         print >> f, '} rpyobj_t;'
-        print >> f
+        print >> f, 'typedef TLPREFIX char rpygcchar_t;'
+    else:
+        print >> f, 'typedef char rpygcchar_t;'
+    print >> f
     for node in structdeflist:
         if hasattr(node, 'forward_decl'):
             if node.forward_decl:

@@ -12,13 +12,6 @@
 
 
 #ifdef RPY_STM
-typedef stm_char rpy_gc_char;
-#else
-typedef char rpy_gc_char;
-#endif
-
-
-#ifdef RPY_STM
 void _pypy_stm_free(void *);
 #define _OP_RAW_MALLOCED(r)         stm_call_on_abort(r, _pypy_stm_free)
 #define _OP_RAW_STM_UNREGISTER(r)   stm_call_on_abort(r, NULL)

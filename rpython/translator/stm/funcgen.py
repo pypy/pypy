@@ -61,8 +61,9 @@ def stm_allocate_tid(funcgen, op):
     arg_size    = funcgen.expr(op.args[0])
     arg_type_id = funcgen.expr(op.args[1])
     result      = funcgen.expr(op.result)
-    return ('%s = stm_allocate(%s); ' % (result, arg_size) +
-            '((rpyobj_t *)%s)->type_id = %s;' % (result, arg_type_id))
+    # XXX NULL returns?
+    return ('%s = (rpygcchar_t *)stm_allocate(%s); ' % (result, arg_size) +
+            '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
 def stm_get_from_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF
@@ -70,7 +71,8 @@ def stm_get_from_obj(funcgen, op):
     arg_ofs = funcgen.expr(op.args[1])
     result  = funcgen.expr(op.result)
     resulttype = cdecl(funcgen.lltypename(op.result), '')
-    return '%s = *(%s *)(%s + %s);' % (result, resulttype, arg_obj, arg_ofs)
+    return '%s = *(TLPREFIX %s *)(%s + %s);' % (
+        result, resulttype, arg_obj, arg_ofs)
 
 stm_get_from_obj_const = stm_get_from_obj
 
@@ -80,7 +82,8 @@ def stm_set_into_obj(funcgen, op):
     arg_ofs = funcgen.expr(op.args[1])
     arg_val = funcgen.expr(op.args[2])
     valtype = cdecl(funcgen.lltypename(op.args[2]), '')
-    return '*(%s *)(%s + %s) = %s;' % (valtype, arg_obj, arg_ofs, arg_val)
+    return '*(TLPREFIX %s *)(%s + %s) = %s;' % (
+        valtype, arg_obj, arg_ofs, arg_val)
 
 def stm_collect(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
@@ -97,7 +100,7 @@ def stm_identityhash(funcgen, op):
 def stm_addr_get_tid(funcgen, op):
     arg0   = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)
-    return '%s = ((struct rpyobj_s *)%s)->type_id;' % (result, arg0)
+    return '%s = ((struct rpyobj_s *)%s)->tid;' % (result, arg0)
 
 def stm_become_inevitable(funcgen, op):
     try:
