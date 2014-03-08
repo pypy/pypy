@@ -49,8 +49,9 @@ static inline bool _is_young(object_t *obj)
         tree_contains(STM_PSEGMENT->young_outside_nursery, (uintptr_t)obj));
 }
 
-bool _stm_in_nursery(object_t *obj)
+long stm_can_move(object_t *obj)
 {
+    /* 'long' return value to avoid using 'bool' in the public interface */
     return _is_in_nursery(obj);
 }
 

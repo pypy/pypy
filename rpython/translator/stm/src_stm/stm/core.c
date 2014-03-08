@@ -474,6 +474,10 @@ static void abort_data_structures_from_segment_num(int segment_num)
     stm_thread_local_t *tl = pseg->pub.running_thread;
     tl->shadowstack = pseg->shadowstack_at_start_of_transaction;
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
+
+    /* reset these lists to NULL too on abort */
+    LIST_FREE(pseg->objects_pointing_to_nursery);
+    LIST_FREE(pseg->large_overflow_objects);
 }
 
 static void abort_with_mutex(void)

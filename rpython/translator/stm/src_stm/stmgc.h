@@ -10,7 +10,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <assert.h>
 #include <limits.h>
 #include <unistd.h>
@@ -73,10 +72,10 @@ void _stm_collectable_safe_point(void);
 object_t *_stm_allocate_old(ssize_t size_rounded_up);
 char *_stm_real_address(object_t *o);
 #ifdef STM_TESTS
+#include <stdbool.h>
 bool _stm_was_read(object_t *obj);
 bool _stm_was_written(object_t *obj);
 uint8_t _stm_get_page_flag(uintptr_t index);
-bool _stm_in_nursery(object_t *obj);
 bool _stm_in_transaction(stm_thread_local_t *tl);
 char *_stm_get_segment_base(long index);
 void _stm_test_switch(stm_thread_local_t *tl);
@@ -109,8 +108,8 @@ uint64_t _stm_total_allocated(void);
 #else
 #define OPT_ASSERT(cond) assert(cond)
 #endif
-#define LIKELY(x)   __builtin_expect(x, true)
-#define UNLIKELY(x) __builtin_expect(x, false)
+#define LIKELY(x)   __builtin_expect(x, 1)
+#define UNLIKELY(x) __builtin_expect(x, 0)
 #define IMPLY(a, b) (!(a) || (b))
 
 
@@ -269,6 +268,10 @@ object_t *stm_setup_prebuilt(object_t *);
 long stm_identityhash(object_t *obj);
 long stm_id(object_t *obj);
 void stm_set_prebuilt_identityhash(object_t *obj, uint64_t hash);
+
+/* Returns 1 if the object can still move (it's in the nursery), or 0
+   otherwise.  After a minor collection no object can move any more. */
+long stm_can_move(object_t *);
 
 
 /* ==================== END ==================== */
