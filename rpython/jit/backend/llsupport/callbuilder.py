@@ -44,7 +44,7 @@ class AbstractCallBuilder(object):
     def emit_call_release_gil(self):
         """Emit a CALL_RELEASE_GIL, including calls to releasegil_addr
         and reacqgil_addr."""
-        asmgcc = self.asm._is_asmgcc()
+        is_asmgcc = self.asm._is_asmgcc()
         fastgil = objectmodel.prepare_enter_callback_from_jit(is_asmgcc)
         self.select_call_release_gil_mode()
         self.prepare_arguments()
