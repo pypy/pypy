@@ -588,3 +588,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert bool(module.newInt(1))
         assert bool(module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
+
+    def test_tp_new_in_subclass_of_type(self):
+        py.test.skip("BROKEN")
+        module = self.import_module(name='foo3')
+        print 'calling module.Type()...'
+        module.Type("X", (object,), {})
