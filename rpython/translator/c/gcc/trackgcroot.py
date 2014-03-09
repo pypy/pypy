@@ -846,6 +846,10 @@ class FunctionGcRootTracker(object):
         return []
 
     def _visit_xchg(self, line):
+        # ignore the special locking xchg put there by custom assembler
+        # in thread_pthread.c, with an associated comment
+        if line.endswith('*/\n'):
+            return []
         # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
         # which is to use a marker no-op "xchgl %ebx, %ebx"
         match = self.r_binaryinsn.match(line)

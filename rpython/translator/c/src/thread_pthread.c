@@ -597,10 +597,10 @@ static inline void *atomic_xchg(void **ptr, void *value)
 {
     void *result;
 #if defined(__amd64__)
-    asm volatile ("xchgq %0, %1  /* automatically locked */"
+    asm volatile ("xchgq %0, %2  /* automatically locked */"
                   : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
 #elif defined(__i386__)
-    asm volatile ("xchgl %0, %1  /* automatically locked */"
+    asm volatile ("xchgl %0, %2  /* automatically locked */"
                   : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
 #else
     /* requires gcc >= 4.1 */
