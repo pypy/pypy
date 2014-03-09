@@ -3,9 +3,14 @@ from rpython.tool.udir import udir
 class AppTestSSL:
     spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii'))
 
+    def setup_class(cls):
+        import os
+        cls.w_nullbytecert = cls.space.wrap(os.path.join(
+            os.path.dirname(__file__), 'nullbytecert.pem'))
+
     def test_init_module(self):
         import _ssl
-    
+
     def test_sslerror(self):
         import _ssl, _socket
         assert issubclass(_ssl.SSLError, Exception)
@@ -14,7 +19,7 @@ class AppTestSSL:
 
     def test_constants(self):
         import _ssl
-        
+
         assert isinstance(_ssl.SSL_ERROR_ZERO_RETURN, int)
         assert isinstance(_ssl.SSL_ERROR_WANT_READ, int)
         assert isinstance(_ssl.SSL_ERROR_WANT_WRITE, int)
@@ -29,7 +34,7 @@ class AppTestSSL:
         assert len(_ssl.OPENSSL_VERSION_INFO) == 5
         assert isinstance(_ssl.OPENSSL_VERSION, str)
         assert 'openssl' in _ssl.OPENSSL_VERSION.lower()
-    
+
     def test_RAND_add(self):
         import _ssl
         if not hasattr(_ssl, "RAND_add"):
@@ -37,13 +42,13 @@ class AppTestSSL:
         raises(TypeError, _ssl.RAND_add, 4, 4)
         raises(TypeError, _ssl.RAND_add, "xyz", "zyx")
         _ssl.RAND_add("xyz", 1.2345)
-    
+
     def test_RAND_status(self):
         import _ssl
         if not hasattr(_ssl, "RAND_status"):
             skip("RAND_status is not available on this machine")
         _ssl.RAND_status()
-    
+
     def test_RAND_egd(self):
         import _ssl, os, stat
         if not hasattr(_ssl, "RAND_egd"):
@@ -63,6 +68,25 @@ class AppTestSSL:
             skip("hangs indefinitely on OSX & FreeBSD (also on CPython)")
         s = _socket.socket()
         ss = ssl.wrap_socket(s)
+
+    def test_test_decode_nullbytecert(self):
+        import _ssl
+        p = _ssl._test_decode_cert(self.nullbytecert)
+        subject = ((('countryName', 'US'),),
+                   (('stateOrProvinceName', 'Oregon'),),
+                   (('localityName', 'Beaverton'),),
+                   (('organizationName', 'Python Software Foundation'),),
+                   (('organizationalUnitName', 'Python Core Development'),),
+                   (('commonName', 'null.python.org\x00example.org'),),
+                   (('emailAddress', 'python-dev@python.org'),))
+        assert p['subject'] == subject
+        assert p['issuer'] == subject
+        assert p['subjectAltName'] == \
+            (('DNS', 'altnull.python.org\x00example.com'),
+             ('email', 'null@python.org\x00user@example.org'),
+             ('URI', 'http://null.python.org\x00http://example.org'),
+             ('IP Address', '192.0.2.1'),
+             ('IP Address', '2001:DB8:0:0:0:0:0:1\n'))
 
 
 class AppTestConnectedSSL:

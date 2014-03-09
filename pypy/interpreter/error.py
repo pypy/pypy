@@ -427,7 +427,6 @@ def get_operrcls2(valuefmt):
     return OpErrFmt, strings
 
 class OpErrFmtNoArgs(OperationError):
-
     def __init__(self, w_type, value):
         self._value = value
         self.setup(w_type)

@@ -898,8 +898,8 @@ class RSocket(object):
                 except CSocketError, e:
                     if e.errno != _c.EINTR:
                         raise
-                if signal_checker:
-                    signal_checker.check()
+                if signal_checker is not None:
+                    signal_checker()
         finally:
             rffi.free_nonmovingbuffer(data, dataptr)
 

@@ -1,4 +1,3 @@
-
 """
 Tests for the zlib module.
 """
@@ -24,13 +23,11 @@ class AppTestZlib(object):
         cls.w_expanded = cls.space.wrapbytes(expanded)
         cls.w_compressed = cls.space.wrapbytes(zlib.compress(expanded))
 
-
     def test_error(self):
         """
         zlib.error should be an exception class.
         """
         assert issubclass(self.zlib.error, Exception)
-
 
     def test_crc32(self):
         """
@@ -40,7 +37,6 @@ class AppTestZlib(object):
         assert self.zlib.crc32(b'') == 0
         assert self.zlib.crc32(b'\0') == 3523407757
         assert self.zlib.crc32(b'hello, world.') == 3358036098
-
 
     def test_crc32_start_value(self):
         """
@@ -81,7 +77,6 @@ class AppTestZlib(object):
         assert self.zlib.adler32(b'hello, world.') == 571147447
         assert self.zlib.adler32(b'x' * 23) == 2172062409
 
-
     def test_adler32_start_value(self):
         """
         When called with a string and an integer, zlib.adler32 should compute
@@ -101,7 +96,6 @@ class AppTestZlib(object):
         assert self.zlib.adler32(b'foo', -1) == 45547858
         assert self.zlib.adler32(b'foo', 99999999999999999999999) == 4180148562
 
-
     def test_invalidLevel(self):
         """
         zlib.compressobj should raise ValueError when an out of bounds level is
@@ -110,7 +104,6 @@ class AppTestZlib(object):
         raises(ValueError, self.zlib.compressobj, -2)
         raises(ValueError, self.zlib.compressobj, 10)
 
-
     def test_compression(self):
         """
         zlib.compressobj should return an object which can be used to compress
@@ -118,9 +111,9 @@ class AppTestZlib(object):
         """
         compressor = self.zlib.compressobj()
         bytes = compressor.compress(self.expanded)
+        raises(OverflowError, compressor.flush, 2**31)
         bytes += compressor.flush()
         assert bytes == self.compressed
-
 
     def test_decompression(self):
         """
@@ -129,9 +122,9 @@ class AppTestZlib(object):
         """
         decompressor = self.zlib.decompressobj()
         bytes = decompressor.decompress(self.compressed)
+        raises(OverflowError, decompressor.flush, 2**31)
         bytes += decompressor.flush()
         assert bytes == self.expanded
-
 
     def test_compress(self):
         """
@@ -140,14 +133,12 @@ class AppTestZlib(object):
         bytes = self.zlib.compress(self.expanded)
         assert bytes == self.compressed
 
-
     def test_decompress(self):
         """
         Test the zlib.decompress() function.
         """
         bytes = self.zlib.decompress(self.compressed)
         assert bytes == self.expanded
-
 
     def test_decompress_invalid_input(self):
         """
@@ -156,6 +147,38 @@ class AppTestZlib(object):
         raises(self.zlib.error, self.zlib.decompress, self.compressed[:-2])
         raises(self.zlib.error, self.zlib.decompress, b'foobar')
 
+    def test_bad_arguments(self):
+        import zlib
+        raises(ValueError, zlib.decompressobj().flush, 0)
+        raises(ValueError, zlib.decompressobj().flush, -1)
+        raises(TypeError, zlib.decompressobj().flush, None)
+        raises(OverflowError, zlib.decompressobj().flush, 2**31)
+        raises(ValueError, zlib.decompressobj().decompress, 'abc', -1)
+        raises(TypeError, zlib.decompressobj().decompress, 'abc', None)
+        raises(OverflowError, zlib.decompressobj().decompress, 'abc', 2**31)
+        raises(TypeError, self.zlib.decompress, self.compressed, None)
+        raises(OverflowError, self.zlib.decompress, self.compressed, 2**31)
+
+    def test_empty_flush(self):
+        import zlib
+        co = zlib.compressobj(zlib.Z_BEST_COMPRESSION)
+        assert co.flush()  # Returns a zlib header
+        dco = zlib.decompressobj()
+        assert dco.flush() == ""
+
+    def test_decompress_incomplete_stream(self):
+        import zlib
+        # This is 'foo', deflated
+        x = 'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'
+        # For the record
+        assert zlib.decompress(x) == 'foo'
+        raises(zlib.error, zlib.decompress, x[:-5])
+        # Omitting the stream end works with decompressor objects
+        # (see issue #8672).
+        dco = zlib.decompressobj()
+        y = dco.decompress(x[:-5])
+        y += dco.flush()
+        assert y == 'foo'
 
     def test_unused_data(self):
         """
@@ -163,8 +186,10 @@ class AppTestZlib(object):
         It should show up in the unused_data attribute.
         """
         d = self.zlib.decompressobj()
-        s = d.decompress(self.compressed + b'extrastuff')
+        s = d.decompress(self.compressed + b'extrastuff', 0)
         assert s == self.expanded
+        assert d.unused_data == b'extrastuff'
+        assert d.flush() == b''
         assert d.unused_data == b'extrastuff'
         # try again with several decompression steps
         d = self.zlib.decompressobj()
@@ -179,7 +204,6 @@ class AppTestZlib(object):
         assert d.unused_data == (b'spam' * 100) + (b'egg' * 50)
         assert s4 == b''
 
-
     def test_max_length(self):
         """
         Test the max_length argument of the decompress() method
@@ -192,7 +216,6 @@ class AppTestZlib(object):
             assert s1 == self.expanded[i:i+10]
             data = d.unconsumed_tail
         assert not data
-
 
     def test_buffer(self):
         """
@@ -216,3 +239,17 @@ class AppTestZlib(object):
 
         bytes = self.zlib.decompress(memoryview(self.compressed))
         assert bytes == self.expanded
+
+    def test_flush_with_freed_input(self):
+        # Issue #16411: decompressor accesses input to last decompress() call
+        # in flush(), even if this object has been freed in the meanwhile.
+        input1 = 'abcdefghijklmnopqrstuvwxyz'
+        input2 = 'QWERTYUIOPASDFGHJKLZXCVBNM'
+        data = self.zlib.compress(input1)
+        dco = self.zlib.decompressobj()
+        dco.decompress(data, 1)
+        del data
+        data = self.zlib.compress(input2)
+        assert dco.flush(1) == input1[1:]
+        assert dco.unused_data == ''
+        assert dco.unconsumed_tail == ''

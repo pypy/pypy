@@ -13,7 +13,7 @@ from rpython.rlib import jit
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, MAXREPEAT, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)

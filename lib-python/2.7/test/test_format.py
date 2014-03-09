@@ -234,6 +234,16 @@ class FormatTest(unittest.TestCase):
         testformat('%g', 1.1, '1.1')
         testformat('%#g', 1.1, '1.10000')
 
+        # Regression test for http://bugs.python.org/issue15516.
+        class IntFails(object):
+            def __int__(self):
+                raise TestFailed
+            def __long__(self):
+                return 0
+
+        fst = IntFails()
+        testformat("%x", fst, '0')
+
         # Test exception for unknown format characters
         if verbose:
             print 'Testing exceptions'
@@ -294,6 +304,23 @@ class FormatTest(unittest.TestCase):
 
 def test_main():
     test_support.run_unittest(FormatTest)
+
+    def test_precision(self):
+        INT_MAX = 2147483647
+
+        f = 1.2
+        self.assertEqual(format(f, ".0f"), "1")
+        self.assertEqual(format(f, ".3f"), "1.200")
+        with self.assertRaises(ValueError) as cm:
+            format(f, ".%sf" % (INT_MAX + 1))
+        self.assertEqual(str(cm.exception), "precision too big")
+
+        c = complex(f)
+        self.assertEqual(format(f, ".0f"), "1")
+        self.assertEqual(format(f, ".3f"), "1.200")
+        with self.assertRaises(ValueError) as cm:
+            format(f, ".%sf" % (INT_MAX + 1))
+        self.assertEqual(str(cm.exception), "precision too big")
 
 
 if __name__ == "__main__":

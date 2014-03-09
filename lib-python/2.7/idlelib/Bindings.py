@@ -15,7 +15,7 @@ from idlelib import macosxSupport
 menudefs = [
  # underscore prefixes character to underscore
  ('file', [
-   ('_New Window', '<<open-new-window>>'),
+   ('_New File', '<<open-new-window>>'),
    ('_Open...', '<<open-window-from-file>>'),
    ('Open _Module...', '<<open-module>>'),
    ('Class _Browser', '<<open-class-browser>>'),
@@ -97,6 +97,10 @@ if macosxSupport.runningAsOSXApp():
     # Remove the 'About' entry from the help menu, it is in the application
     # menu
     del menudefs[-1][1][0:2]
+
+    # Remove the 'Configure' entry from the options menu, it is in the
+    # application menu as 'Preferences'
+    del menudefs[-2][1][0:2]
 
 default_keydefs = idleConf.GetCurrentKeySet()
 

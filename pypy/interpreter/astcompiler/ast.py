@@ -2894,6 +2894,12 @@ def Module_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 1
 
+def Module_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Module_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~1
+
 _Module_field_unroller = unrolling_iterable(['body'])
 def Module_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Module, w_self)
@@ -2914,7 +2920,7 @@ Module.typedef = typedef.TypeDef("Module",
     mod.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['body']),
-    body=typedef.GetSetProperty(Module_get_body, Module_set_body, cls=Module),
+    body=typedef.GetSetProperty(Module_get_body, Module_set_body, Module_del_body, cls=Module),
     __new__=interp2app(get_AST_new(Module)),
     __init__=interp2app(Module_init),
 )
@@ -2934,6 +2940,12 @@ def Interactive_get_body(space, w_self):
 def Interactive_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 1
+
+def Interactive_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Interactive_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~1
 
 _Interactive_field_unroller = unrolling_iterable(['body'])
 def Interactive_init(space, w_self, __args__):
@@ -2955,7 +2967,7 @@ Interactive.typedef = typedef.TypeDef("Interactive",
     mod.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['body']),
-    body=typedef.GetSetProperty(Interactive_get_body, Interactive_set_body, cls=Interactive),
+    body=typedef.GetSetProperty(Interactive_get_body, Interactive_set_body, Interactive_del_body, cls=Interactive),
     __new__=interp2app(get_AST_new(Interactive)),
     __init__=interp2app(Interactive_init),
 )
@@ -2983,6 +2995,12 @@ def Expression_set_body(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 1
 
+def Expression_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Expression_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~1
+
 _Expression_field_unroller = unrolling_iterable(['body'])
 def Expression_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Expression, w_self)
@@ -3002,7 +3020,7 @@ Expression.typedef = typedef.TypeDef("Expression",
     mod.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['body']),
-    body=typedef.GetSetProperty(Expression_get_body, Expression_set_body, cls=Expression),
+    body=typedef.GetSetProperty(Expression_get_body, Expression_set_body, Expression_del_body, cls=Expression),
     __new__=interp2app(get_AST_new(Expression)),
     __init__=interp2app(Expression_init),
 )
@@ -3022,6 +3040,12 @@ def Suite_get_body(space, w_self):
 def Suite_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 1
+
+def Suite_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Suite_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~1
 
 _Suite_field_unroller = unrolling_iterable(['body'])
 def Suite_init(space, w_self, __args__):
@@ -3043,7 +3067,7 @@ Suite.typedef = typedef.TypeDef("Suite",
     mod.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['body']),
-    body=typedef.GetSetProperty(Suite_get_body, Suite_set_body, cls=Suite),
+    body=typedef.GetSetProperty(Suite_get_body, Suite_set_body, Suite_del_body, cls=Suite),
     __new__=interp2app(get_AST_new(Suite)),
     __init__=interp2app(Suite_init),
 )
@@ -3069,6 +3093,12 @@ def stmt_set_lineno(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= 1
 
+def stmt_del_lineno(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    stmt_get_lineno(space, w_self)
+    w_self.deldictvalue(space, 'lineno')
+    w_self.initialization_state &= ~1
+
 def stmt_get_col_offset(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
@@ -3090,12 +3120,18 @@ def stmt_set_col_offset(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= 2
 
+def stmt_del_col_offset(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    stmt_get_col_offset(space, w_self)
+    w_self.deldictvalue(space, 'col_offset')
+    w_self.initialization_state &= ~2
+
 stmt.typedef = typedef.TypeDef("stmt",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
-    lineno=typedef.GetSetProperty(stmt_get_lineno, stmt_set_lineno, cls=stmt),
-    col_offset=typedef.GetSetProperty(stmt_get_col_offset, stmt_set_col_offset, cls=stmt),
+    lineno=typedef.GetSetProperty(stmt_get_lineno, stmt_set_lineno, stmt_del_lineno, cls=stmt),
+    col_offset=typedef.GetSetProperty(stmt_get_col_offset, stmt_set_col_offset, stmt_del_col_offset, cls=stmt),
     __new__=interp2app(get_AST_new(stmt)),
 )
 
@@ -3122,6 +3158,12 @@ def FunctionDef_set_name(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 4
 
+def FunctionDef_del_name(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    FunctionDef_get_name(space, w_self)
+    w_self.deldictvalue(space, 'name')
+    w_self.initialization_state &= ~4
+
 def FunctionDef_get_args(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'args')
@@ -3143,6 +3185,12 @@ def FunctionDef_set_args(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'args')
     w_self.initialization_state |= 8
 
+def FunctionDef_del_args(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    FunctionDef_get_args(space, w_self)
+    w_self.deldictvalue(space, 'args')
+    w_self.initialization_state &= ~8
+
 def FunctionDef_get_body(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'body')
@@ -3159,6 +3207,12 @@ def FunctionDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 16
 
+def FunctionDef_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    FunctionDef_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~16
+
 def FunctionDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 32:
         raise_attriberr(space, w_self, 'decorator_list')
@@ -3174,6 +3228,12 @@ def FunctionDef_get_decorator_list(space, w_self):
 def FunctionDef_set_decorator_list(space, w_self, w_new_value):
     w_self.w_decorator_list = w_new_value
     w_self.initialization_state |= 32
+
+def FunctionDef_del_decorator_list(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    FunctionDef_get_decorator_list(space, w_self)
+    w_self.deldictvalue(space, 'decorator_list')
+    w_self.initialization_state &= ~32
 
 def FunctionDef_get_returns(space, w_self):
     if w_self.w_dict is not None:
@@ -3198,6 +3258,12 @@ def FunctionDef_set_returns(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'returns')
     w_self.initialization_state |= 64
 
+def FunctionDef_del_returns(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    FunctionDef_get_returns(space, w_self)
+    w_self.deldictvalue(space, 'returns')
+    w_self.initialization_state &= ~64
+
 _FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorator_list', 'returns'])
 def FunctionDef_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(FunctionDef, w_self)
@@ -3219,11 +3285,11 @@ FunctionDef.typedef = typedef.TypeDef("FunctionDef",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['name', 'args', 'body', 'decorator_list', 'returns']),
-    name=typedef.GetSetProperty(FunctionDef_get_name, FunctionDef_set_name, cls=FunctionDef),
-    args=typedef.GetSetProperty(FunctionDef_get_args, FunctionDef_set_args, cls=FunctionDef),
-    body=typedef.GetSetProperty(FunctionDef_get_body, FunctionDef_set_body, cls=FunctionDef),
-    decorator_list=typedef.GetSetProperty(FunctionDef_get_decorator_list, FunctionDef_set_decorator_list, cls=FunctionDef),
-    returns=typedef.GetSetProperty(FunctionDef_get_returns, FunctionDef_set_returns, cls=FunctionDef),
+    name=typedef.GetSetProperty(FunctionDef_get_name, FunctionDef_set_name, FunctionDef_del_name, cls=FunctionDef),
+    args=typedef.GetSetProperty(FunctionDef_get_args, FunctionDef_set_args, FunctionDef_del_args, cls=FunctionDef),
+    body=typedef.GetSetProperty(FunctionDef_get_body, FunctionDef_set_body, FunctionDef_del_body, cls=FunctionDef),
+    decorator_list=typedef.GetSetProperty(FunctionDef_get_decorator_list, FunctionDef_set_decorator_list, FunctionDef_del_decorator_list, cls=FunctionDef),
+    returns=typedef.GetSetProperty(FunctionDef_get_returns, FunctionDef_set_returns, FunctionDef_del_returns, cls=FunctionDef),
     __new__=interp2app(get_AST_new(FunctionDef)),
     __init__=interp2app(FunctionDef_init),
 )
@@ -3251,6 +3317,12 @@ def ClassDef_set_name(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 4
 
+def ClassDef_del_name(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ClassDef_get_name(space, w_self)
+    w_self.deldictvalue(space, 'name')
+    w_self.initialization_state &= ~4
+
 def ClassDef_get_bases(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'bases')
@@ -3267,6 +3339,12 @@ def ClassDef_set_bases(space, w_self, w_new_value):
     w_self.w_bases = w_new_value
     w_self.initialization_state |= 8
 
+def ClassDef_del_bases(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ClassDef_get_bases(space, w_self)
+    w_self.deldictvalue(space, 'bases')
+    w_self.initialization_state &= ~8
+
 def ClassDef_get_keywords(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'keywords')
@@ -3282,6 +3360,12 @@ def ClassDef_get_keywords(space, w_self):
 def ClassDef_set_keywords(space, w_self, w_new_value):
     w_self.w_keywords = w_new_value
     w_self.initialization_state |= 16
+
+def ClassDef_del_keywords(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ClassDef_get_keywords(space, w_self)
+    w_self.deldictvalue(space, 'keywords')
+    w_self.initialization_state &= ~16
 
 def ClassDef_get_starargs(space, w_self):
     if w_self.w_dict is not None:
@@ -3306,6 +3390,12 @@ def ClassDef_set_starargs(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'starargs')
     w_self.initialization_state |= 32
 
+def ClassDef_del_starargs(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ClassDef_get_starargs(space, w_self)
+    w_self.deldictvalue(space, 'starargs')
+    w_self.initialization_state &= ~32
+
 def ClassDef_get_kwargs(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwargs')
@@ -3329,6 +3419,12 @@ def ClassDef_set_kwargs(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'kwargs')
     w_self.initialization_state |= 64
 
+def ClassDef_del_kwargs(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ClassDef_get_kwargs(space, w_self)
+    w_self.deldictvalue(space, 'kwargs')
+    w_self.initialization_state &= ~64
+
 def ClassDef_get_body(space, w_self):
     if not w_self.initialization_state & 128:
         raise_attriberr(space, w_self, 'body')
@@ -3345,6 +3441,12 @@ def ClassDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 128
 
+def ClassDef_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ClassDef_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~128
+
 def ClassDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 256:
         raise_attriberr(space, w_self, 'decorator_list')
@@ -3360,6 +3462,12 @@ def ClassDef_get_decorator_list(space, w_self):
 def ClassDef_set_decorator_list(space, w_self, w_new_value):
     w_self.w_decorator_list = w_new_value
     w_self.initialization_state |= 256
+
+def ClassDef_del_decorator_list(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ClassDef_get_decorator_list(space, w_self)
+    w_self.deldictvalue(space, 'decorator_list')
+    w_self.initialization_state &= ~256
 
 _ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'keywords', 'starargs', 'kwargs', 'body', 'decorator_list'])
 def ClassDef_init(space, w_self, __args__):
@@ -3384,13 +3492,13 @@ ClassDef.typedef = typedef.TypeDef("ClassDef",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['name', 'bases', 'keywords', 'starargs', 'kwargs', 'body', 'decorator_list']),
-    name=typedef.GetSetProperty(ClassDef_get_name, ClassDef_set_name, cls=ClassDef),
-    bases=typedef.GetSetProperty(ClassDef_get_bases, ClassDef_set_bases, cls=ClassDef),
-    keywords=typedef.GetSetProperty(ClassDef_get_keywords, ClassDef_set_keywords, cls=ClassDef),
-    starargs=typedef.GetSetProperty(ClassDef_get_starargs, ClassDef_set_starargs, cls=ClassDef),
-    kwargs=typedef.GetSetProperty(ClassDef_get_kwargs, ClassDef_set_kwargs, cls=ClassDef),
-    body=typedef.GetSetProperty(ClassDef_get_body, ClassDef_set_body, cls=ClassDef),
-    decorator_list=typedef.GetSetProperty(ClassDef_get_decorator_list, ClassDef_set_decorator_list, cls=ClassDef),
+    name=typedef.GetSetProperty(ClassDef_get_name, ClassDef_set_name, ClassDef_del_name, cls=ClassDef),
+    bases=typedef.GetSetProperty(ClassDef_get_bases, ClassDef_set_bases, ClassDef_del_bases, cls=ClassDef),
+    keywords=typedef.GetSetProperty(ClassDef_get_keywords, ClassDef_set_keywords, ClassDef_del_keywords, cls=ClassDef),
+    starargs=typedef.GetSetProperty(ClassDef_get_starargs, ClassDef_set_starargs, ClassDef_del_starargs, cls=ClassDef),
+    kwargs=typedef.GetSetProperty(ClassDef_get_kwargs, ClassDef_set_kwargs, ClassDef_del_kwargs, cls=ClassDef),
+    body=typedef.GetSetProperty(ClassDef_get_body, ClassDef_set_body, ClassDef_del_body, cls=ClassDef),
+    decorator_list=typedef.GetSetProperty(ClassDef_get_decorator_list, ClassDef_set_decorator_list, ClassDef_del_decorator_list, cls=ClassDef),
     __new__=interp2app(get_AST_new(ClassDef)),
     __init__=interp2app(ClassDef_init),
 )
@@ -3418,6 +3526,12 @@ def Return_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
+def Return_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Return_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~4
+
 _Return_field_unroller = unrolling_iterable(['value'])
 def Return_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Return, w_self)
@@ -3437,7 +3551,7 @@ Return.typedef = typedef.TypeDef("Return",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value']),
-    value=typedef.GetSetProperty(Return_get_value, Return_set_value, cls=Return),
+    value=typedef.GetSetProperty(Return_get_value, Return_set_value, Return_del_value, cls=Return),
     __new__=interp2app(get_AST_new(Return)),
     __init__=interp2app(Return_init),
 )
@@ -3457,6 +3571,12 @@ def Delete_get_targets(space, w_self):
 def Delete_set_targets(space, w_self, w_new_value):
     w_self.w_targets = w_new_value
     w_self.initialization_state |= 4
+
+def Delete_del_targets(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Delete_get_targets(space, w_self)
+    w_self.deldictvalue(space, 'targets')
+    w_self.initialization_state &= ~4
 
 _Delete_field_unroller = unrolling_iterable(['targets'])
 def Delete_init(space, w_self, __args__):
@@ -3478,7 +3598,7 @@ Delete.typedef = typedef.TypeDef("Delete",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['targets']),
-    targets=typedef.GetSetProperty(Delete_get_targets, Delete_set_targets, cls=Delete),
+    targets=typedef.GetSetProperty(Delete_get_targets, Delete_set_targets, Delete_del_targets, cls=Delete),
     __new__=interp2app(get_AST_new(Delete)),
     __init__=interp2app(Delete_init),
 )
@@ -3498,6 +3618,12 @@ def Assign_get_targets(space, w_self):
 def Assign_set_targets(space, w_self, w_new_value):
     w_self.w_targets = w_new_value
     w_self.initialization_state |= 4
+
+def Assign_del_targets(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Assign_get_targets(space, w_self)
+    w_self.deldictvalue(space, 'targets')
+    w_self.initialization_state &= ~4
 
 def Assign_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -3522,6 +3648,12 @@ def Assign_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 8
 
+def Assign_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Assign_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~8
+
 _Assign_field_unroller = unrolling_iterable(['targets', 'value'])
 def Assign_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Assign, w_self)
@@ -3542,8 +3674,8 @@ Assign.typedef = typedef.TypeDef("Assign",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['targets', 'value']),
-    targets=typedef.GetSetProperty(Assign_get_targets, Assign_set_targets, cls=Assign),
-    value=typedef.GetSetProperty(Assign_get_value, Assign_set_value, cls=Assign),
+    targets=typedef.GetSetProperty(Assign_get_targets, Assign_set_targets, Assign_del_targets, cls=Assign),
+    value=typedef.GetSetProperty(Assign_get_value, Assign_set_value, Assign_del_value, cls=Assign),
     __new__=interp2app(get_AST_new(Assign)),
     __init__=interp2app(Assign_init),
 )
@@ -3571,6 +3703,12 @@ def AugAssign_set_target(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 4
 
+def AugAssign_del_target(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    AugAssign_get_target(space, w_self)
+    w_self.deldictvalue(space, 'target')
+    w_self.initialization_state &= ~4
+
 def AugAssign_get_op(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
@@ -3593,6 +3731,12 @@ def AugAssign_set_op(space, w_self, w_new_value):
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 8
+
+def AugAssign_del_op(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    AugAssign_get_op(space, w_self)
+    w_self.deldictvalue(space, 'op')
+    w_self.initialization_state &= ~8
 
 def AugAssign_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -3617,6 +3761,12 @@ def AugAssign_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 16
 
+def AugAssign_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    AugAssign_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~16
+
 _AugAssign_field_unroller = unrolling_iterable(['target', 'op', 'value'])
 def AugAssign_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(AugAssign, w_self)
@@ -3636,9 +3786,9 @@ AugAssign.typedef = typedef.TypeDef("AugAssign",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['target', 'op', 'value']),
-    target=typedef.GetSetProperty(AugAssign_get_target, AugAssign_set_target, cls=AugAssign),
-    op=typedef.GetSetProperty(AugAssign_get_op, AugAssign_set_op, cls=AugAssign),
-    value=typedef.GetSetProperty(AugAssign_get_value, AugAssign_set_value, cls=AugAssign),
+    target=typedef.GetSetProperty(AugAssign_get_target, AugAssign_set_target, AugAssign_del_target, cls=AugAssign),
+    op=typedef.GetSetProperty(AugAssign_get_op, AugAssign_set_op, AugAssign_del_op, cls=AugAssign),
+    value=typedef.GetSetProperty(AugAssign_get_value, AugAssign_set_value, AugAssign_del_value, cls=AugAssign),
     __new__=interp2app(get_AST_new(AugAssign)),
     __init__=interp2app(AugAssign_init),
 )
@@ -3666,6 +3816,12 @@ def For_set_target(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 4
 
+def For_del_target(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    For_get_target(space, w_self)
+    w_self.deldictvalue(space, 'target')
+    w_self.initialization_state &= ~4
+
 def For_get_iter(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'iter')
@@ -3689,6 +3845,12 @@ def For_set_iter(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'iter')
     w_self.initialization_state |= 8
 
+def For_del_iter(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    For_get_iter(space, w_self)
+    w_self.deldictvalue(space, 'iter')
+    w_self.initialization_state &= ~8
+
 def For_get_body(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'body')
@@ -3705,6 +3867,12 @@ def For_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 16
 
+def For_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    For_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~16
+
 def For_get_orelse(space, w_self):
     if not w_self.initialization_state & 32:
         raise_attriberr(space, w_self, 'orelse')
@@ -3720,6 +3888,12 @@ def For_get_orelse(space, w_self):
 def For_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
     w_self.initialization_state |= 32
+
+def For_del_orelse(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    For_get_orelse(space, w_self)
+    w_self.deldictvalue(space, 'orelse')
+    w_self.initialization_state &= ~32
 
 _For_field_unroller = unrolling_iterable(['target', 'iter', 'body', 'orelse'])
 def For_init(space, w_self, __args__):
@@ -3742,10 +3916,10 @@ For.typedef = typedef.TypeDef("For",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['target', 'iter', 'body', 'orelse']),
-    target=typedef.GetSetProperty(For_get_target, For_set_target, cls=For),
-    iter=typedef.GetSetProperty(For_get_iter, For_set_iter, cls=For),
-    body=typedef.GetSetProperty(For_get_body, For_set_body, cls=For),
-    orelse=typedef.GetSetProperty(For_get_orelse, For_set_orelse, cls=For),
+    target=typedef.GetSetProperty(For_get_target, For_set_target, For_del_target, cls=For),
+    iter=typedef.GetSetProperty(For_get_iter, For_set_iter, For_del_iter, cls=For),
+    body=typedef.GetSetProperty(For_get_body, For_set_body, For_del_body, cls=For),
+    orelse=typedef.GetSetProperty(For_get_orelse, For_set_orelse, For_del_orelse, cls=For),
     __new__=interp2app(get_AST_new(For)),
     __init__=interp2app(For_init),
 )
@@ -3773,6 +3947,12 @@ def While_set_test(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
 
+def While_del_test(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    While_get_test(space, w_self)
+    w_self.deldictvalue(space, 'test')
+    w_self.initialization_state &= ~4
+
 def While_get_body(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'body')
@@ -3789,6 +3969,12 @@ def While_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 8
 
+def While_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    While_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~8
+
 def While_get_orelse(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'orelse')
@@ -3804,6 +3990,12 @@ def While_get_orelse(space, w_self):
 def While_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
     w_self.initialization_state |= 16
+
+def While_del_orelse(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    While_get_orelse(space, w_self)
+    w_self.deldictvalue(space, 'orelse')
+    w_self.initialization_state &= ~16
 
 _While_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
 def While_init(space, w_self, __args__):
@@ -3826,9 +4018,9 @@ While.typedef = typedef.TypeDef("While",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['test', 'body', 'orelse']),
-    test=typedef.GetSetProperty(While_get_test, While_set_test, cls=While),
-    body=typedef.GetSetProperty(While_get_body, While_set_body, cls=While),
-    orelse=typedef.GetSetProperty(While_get_orelse, While_set_orelse, cls=While),
+    test=typedef.GetSetProperty(While_get_test, While_set_test, While_del_test, cls=While),
+    body=typedef.GetSetProperty(While_get_body, While_set_body, While_del_body, cls=While),
+    orelse=typedef.GetSetProperty(While_get_orelse, While_set_orelse, While_del_orelse, cls=While),
     __new__=interp2app(get_AST_new(While)),
     __init__=interp2app(While_init),
 )
@@ -3856,6 +4048,12 @@ def If_set_test(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
 
+def If_del_test(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    If_get_test(space, w_self)
+    w_self.deldictvalue(space, 'test')
+    w_self.initialization_state &= ~4
+
 def If_get_body(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'body')
@@ -3872,6 +4070,12 @@ def If_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 8
 
+def If_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    If_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~8
+
 def If_get_orelse(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'orelse')
@@ -3887,6 +4091,12 @@ def If_get_orelse(space, w_self):
 def If_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
     w_self.initialization_state |= 16
+
+def If_del_orelse(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    If_get_orelse(space, w_self)
+    w_self.deldictvalue(space, 'orelse')
+    w_self.initialization_state &= ~16
 
 _If_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
 def If_init(space, w_self, __args__):
@@ -3909,9 +4119,9 @@ If.typedef = typedef.TypeDef("If",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['test', 'body', 'orelse']),
-    test=typedef.GetSetProperty(If_get_test, If_set_test, cls=If),
-    body=typedef.GetSetProperty(If_get_body, If_set_body, cls=If),
-    orelse=typedef.GetSetProperty(If_get_orelse, If_set_orelse, cls=If),
+    test=typedef.GetSetProperty(If_get_test, If_set_test, If_del_test, cls=If),
+    body=typedef.GetSetProperty(If_get_body, If_set_body, If_del_body, cls=If),
+    orelse=typedef.GetSetProperty(If_get_orelse, If_set_orelse, If_del_orelse, cls=If),
     __new__=interp2app(get_AST_new(If)),
     __init__=interp2app(If_init),
 )
@@ -3939,6 +4149,12 @@ def With_set_context_expr(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'context_expr')
     w_self.initialization_state |= 4
 
+def With_del_context_expr(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    With_get_context_expr(space, w_self)
+    w_self.deldictvalue(space, 'context_expr')
+    w_self.initialization_state &= ~4
+
 def With_get_optional_vars(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'optional_vars')
@@ -3962,6 +4178,12 @@ def With_set_optional_vars(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'optional_vars')
     w_self.initialization_state |= 8
 
+def With_del_optional_vars(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    With_get_optional_vars(space, w_self)
+    w_self.deldictvalue(space, 'optional_vars')
+    w_self.initialization_state &= ~8
+
 def With_get_body(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'body')
@@ -3977,6 +4199,12 @@ def With_get_body(space, w_self):
 def With_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 16
+
+def With_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    With_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~16
 
 _With_field_unroller = unrolling_iterable(['context_expr', 'optional_vars', 'body'])
 def With_init(space, w_self, __args__):
@@ -3998,9 +4226,9 @@ With.typedef = typedef.TypeDef("With",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['context_expr', 'optional_vars', 'body']),
-    context_expr=typedef.GetSetProperty(With_get_context_expr, With_set_context_expr, cls=With),
-    optional_vars=typedef.GetSetProperty(With_get_optional_vars, With_set_optional_vars, cls=With),
-    body=typedef.GetSetProperty(With_get_body, With_set_body, cls=With),
+    context_expr=typedef.GetSetProperty(With_get_context_expr, With_set_context_expr, With_del_context_expr, cls=With),
+    optional_vars=typedef.GetSetProperty(With_get_optional_vars, With_set_optional_vars, With_del_optional_vars, cls=With),
+    body=typedef.GetSetProperty(With_get_body, With_set_body, With_del_body, cls=With),
     __new__=interp2app(get_AST_new(With)),
     __init__=interp2app(With_init),
 )
@@ -4028,6 +4256,12 @@ def Raise_set_exc(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'exc')
     w_self.initialization_state |= 4
 
+def Raise_del_exc(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Raise_get_exc(space, w_self)
+    w_self.deldictvalue(space, 'exc')
+    w_self.initialization_state &= ~4
+
 def Raise_get_cause(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'cause')
@@ -4051,6 +4285,12 @@ def Raise_set_cause(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'cause')
     w_self.initialization_state |= 8
 
+def Raise_del_cause(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Raise_get_cause(space, w_self)
+    w_self.deldictvalue(space, 'cause')
+    w_self.initialization_state &= ~8
+
 _Raise_field_unroller = unrolling_iterable(['exc', 'cause'])
 def Raise_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Raise, w_self)
@@ -4070,8 +4310,8 @@ Raise.typedef = typedef.TypeDef("Raise",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['exc', 'cause']),
-    exc=typedef.GetSetProperty(Raise_get_exc, Raise_set_exc, cls=Raise),
-    cause=typedef.GetSetProperty(Raise_get_cause, Raise_set_cause, cls=Raise),
+    exc=typedef.GetSetProperty(Raise_get_exc, Raise_set_exc, Raise_del_exc, cls=Raise),
+    cause=typedef.GetSetProperty(Raise_get_cause, Raise_set_cause, Raise_del_cause, cls=Raise),
     __new__=interp2app(get_AST_new(Raise)),
     __init__=interp2app(Raise_init),
 )
@@ -4092,6 +4332,12 @@ def TryExcept_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
+def TryExcept_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    TryExcept_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~4
+
 def TryExcept_get_handlers(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'handlers')
@@ -4108,6 +4354,12 @@ def TryExcept_set_handlers(space, w_self, w_new_value):
     w_self.w_handlers = w_new_value
     w_self.initialization_state |= 8
 
+def TryExcept_del_handlers(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    TryExcept_get_handlers(space, w_self)
+    w_self.deldictvalue(space, 'handlers')
+    w_self.initialization_state &= ~8
+
 def TryExcept_get_orelse(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'orelse')
@@ -4123,6 +4375,12 @@ def TryExcept_get_orelse(space, w_self):
 def TryExcept_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
     w_self.initialization_state |= 16
+
+def TryExcept_del_orelse(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    TryExcept_get_orelse(space, w_self)
+    w_self.deldictvalue(space, 'orelse')
+    w_self.initialization_state &= ~16
 
 _TryExcept_field_unroller = unrolling_iterable(['body', 'handlers', 'orelse'])
 def TryExcept_init(space, w_self, __args__):
@@ -4146,9 +4404,9 @@ TryExcept.typedef = typedef.TypeDef("TryExcept",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['body', 'handlers', 'orelse']),
-    body=typedef.GetSetProperty(TryExcept_get_body, TryExcept_set_body, cls=TryExcept),
-    handlers=typedef.GetSetProperty(TryExcept_get_handlers, TryExcept_set_handlers, cls=TryExcept),
-    orelse=typedef.GetSetProperty(TryExcept_get_orelse, TryExcept_set_orelse, cls=TryExcept),
+    body=typedef.GetSetProperty(TryExcept_get_body, TryExcept_set_body, TryExcept_del_body, cls=TryExcept),
+    handlers=typedef.GetSetProperty(TryExcept_get_handlers, TryExcept_set_handlers, TryExcept_del_handlers, cls=TryExcept),
+    orelse=typedef.GetSetProperty(TryExcept_get_orelse, TryExcept_set_orelse, TryExcept_del_orelse, cls=TryExcept),
     __new__=interp2app(get_AST_new(TryExcept)),
     __init__=interp2app(TryExcept_init),
 )
@@ -4169,6 +4427,12 @@ def TryFinally_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
+def TryFinally_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    TryFinally_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~4
+
 def TryFinally_get_finalbody(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'finalbody')
@@ -4184,6 +4448,12 @@ def TryFinally_get_finalbody(space, w_self):
 def TryFinally_set_finalbody(space, w_self, w_new_value):
     w_self.w_finalbody = w_new_value
     w_self.initialization_state |= 8
+
+def TryFinally_del_finalbody(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    TryFinally_get_finalbody(space, w_self)
+    w_self.deldictvalue(space, 'finalbody')
+    w_self.initialization_state &= ~8
 
 _TryFinally_field_unroller = unrolling_iterable(['body', 'finalbody'])
 def TryFinally_init(space, w_self, __args__):
@@ -4206,8 +4476,8 @@ TryFinally.typedef = typedef.TypeDef("TryFinally",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['body', 'finalbody']),
-    body=typedef.GetSetProperty(TryFinally_get_body, TryFinally_set_body, cls=TryFinally),
-    finalbody=typedef.GetSetProperty(TryFinally_get_finalbody, TryFinally_set_finalbody, cls=TryFinally),
+    body=typedef.GetSetProperty(TryFinally_get_body, TryFinally_set_body, TryFinally_del_body, cls=TryFinally),
+    finalbody=typedef.GetSetProperty(TryFinally_get_finalbody, TryFinally_set_finalbody, TryFinally_del_finalbody, cls=TryFinally),
     __new__=interp2app(get_AST_new(TryFinally)),
     __init__=interp2app(TryFinally_init),
 )
@@ -4235,6 +4505,12 @@ def Assert_set_test(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
 
+def Assert_del_test(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Assert_get_test(space, w_self)
+    w_self.deldictvalue(space, 'test')
+    w_self.initialization_state &= ~4
+
 def Assert_get_msg(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'msg')
@@ -4258,6 +4534,12 @@ def Assert_set_msg(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'msg')
     w_self.initialization_state |= 8
 
+def Assert_del_msg(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Assert_get_msg(space, w_self)
+    w_self.deldictvalue(space, 'msg')
+    w_self.initialization_state &= ~8
+
 _Assert_field_unroller = unrolling_iterable(['test', 'msg'])
 def Assert_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Assert, w_self)
@@ -4277,8 +4559,8 @@ Assert.typedef = typedef.TypeDef("Assert",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['test', 'msg']),
-    test=typedef.GetSetProperty(Assert_get_test, Assert_set_test, cls=Assert),
-    msg=typedef.GetSetProperty(Assert_get_msg, Assert_set_msg, cls=Assert),
+    test=typedef.GetSetProperty(Assert_get_test, Assert_set_test, Assert_del_test, cls=Assert),
+    msg=typedef.GetSetProperty(Assert_get_msg, Assert_set_msg, Assert_del_msg, cls=Assert),
     __new__=interp2app(get_AST_new(Assert)),
     __init__=interp2app(Assert_init),
 )
@@ -4298,6 +4580,12 @@ def Import_get_names(space, w_self):
 def Import_set_names(space, w_self, w_new_value):
     w_self.w_names = w_new_value
     w_self.initialization_state |= 4
+
+def Import_del_names(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Import_get_names(space, w_self)
+    w_self.deldictvalue(space, 'names')
+    w_self.initialization_state &= ~4
 
 _Import_field_unroller = unrolling_iterable(['names'])
 def Import_init(space, w_self, __args__):
@@ -4319,7 +4607,7 @@ Import.typedef = typedef.TypeDef("Import",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['names']),
-    names=typedef.GetSetProperty(Import_get_names, Import_set_names, cls=Import),
+    names=typedef.GetSetProperty(Import_get_names, Import_set_names, Import_del_names, cls=Import),
     __new__=interp2app(get_AST_new(Import)),
     __init__=interp2app(Import_init),
 )
@@ -4350,6 +4638,12 @@ def ImportFrom_set_module(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'module')
     w_self.initialization_state |= 4
 
+def ImportFrom_del_module(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ImportFrom_get_module(space, w_self)
+    w_self.deldictvalue(space, 'module')
+    w_self.initialization_state &= ~4
+
 def ImportFrom_get_names(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'names')
@@ -4365,6 +4659,12 @@ def ImportFrom_get_names(space, w_self):
 def ImportFrom_set_names(space, w_self, w_new_value):
     w_self.w_names = w_new_value
     w_self.initialization_state |= 8
+
+def ImportFrom_del_names(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ImportFrom_get_names(space, w_self)
+    w_self.deldictvalue(space, 'names')
+    w_self.initialization_state &= ~8
 
 def ImportFrom_get_level(space, w_self):
     if w_self.w_dict is not None:
@@ -4387,6 +4687,12 @@ def ImportFrom_set_level(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'level')
     w_self.initialization_state |= 16
 
+def ImportFrom_del_level(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ImportFrom_get_level(space, w_self)
+    w_self.deldictvalue(space, 'level')
+    w_self.initialization_state &= ~16
+
 _ImportFrom_field_unroller = unrolling_iterable(['module', 'names', 'level'])
 def ImportFrom_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(ImportFrom, w_self)
@@ -4407,9 +4713,9 @@ ImportFrom.typedef = typedef.TypeDef("ImportFrom",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['module', 'names', 'level']),
-    module=typedef.GetSetProperty(ImportFrom_get_module, ImportFrom_set_module, cls=ImportFrom),
-    names=typedef.GetSetProperty(ImportFrom_get_names, ImportFrom_set_names, cls=ImportFrom),
-    level=typedef.GetSetProperty(ImportFrom_get_level, ImportFrom_set_level, cls=ImportFrom),
+    module=typedef.GetSetProperty(ImportFrom_get_module, ImportFrom_set_module, ImportFrom_del_module, cls=ImportFrom),
+    names=typedef.GetSetProperty(ImportFrom_get_names, ImportFrom_set_names, ImportFrom_del_names, cls=ImportFrom),
+    level=typedef.GetSetProperty(ImportFrom_get_level, ImportFrom_set_level, ImportFrom_del_level, cls=ImportFrom),
     __new__=interp2app(get_AST_new(ImportFrom)),
     __init__=interp2app(ImportFrom_init),
 )
@@ -4429,6 +4735,12 @@ def Global_get_names(space, w_self):
 def Global_set_names(space, w_self, w_new_value):
     w_self.w_names = w_new_value
     w_self.initialization_state |= 4
+
+def Global_del_names(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Global_get_names(space, w_self)
+    w_self.deldictvalue(space, 'names')
+    w_self.initialization_state &= ~4
 
 _Global_field_unroller = unrolling_iterable(['names'])
 def Global_init(space, w_self, __args__):
@@ -4450,7 +4762,7 @@ Global.typedef = typedef.TypeDef("Global",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['names']),
-    names=typedef.GetSetProperty(Global_get_names, Global_set_names, cls=Global),
+    names=typedef.GetSetProperty(Global_get_names, Global_set_names, Global_del_names, cls=Global),
     __new__=interp2app(get_AST_new(Global)),
     __init__=interp2app(Global_init),
 )
@@ -4470,6 +4782,12 @@ def Nonlocal_get_names(space, w_self):
 def Nonlocal_set_names(space, w_self, w_new_value):
     w_self.w_names = w_new_value
     w_self.initialization_state |= 4
+
+def Nonlocal_del_names(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Nonlocal_get_names(space, w_self)
+    w_self.deldictvalue(space, 'names')
+    w_self.initialization_state &= ~4
 
 _Nonlocal_field_unroller = unrolling_iterable(['names'])
 def Nonlocal_init(space, w_self, __args__):
@@ -4491,7 +4809,7 @@ Nonlocal.typedef = typedef.TypeDef("Nonlocal",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['names']),
-    names=typedef.GetSetProperty(Nonlocal_get_names, Nonlocal_set_names, cls=Nonlocal),
+    names=typedef.GetSetProperty(Nonlocal_get_names, Nonlocal_set_names, Nonlocal_del_names, cls=Nonlocal),
     __new__=interp2app(get_AST_new(Nonlocal)),
     __init__=interp2app(Nonlocal_init),
 )
@@ -4519,6 +4837,12 @@ def Expr_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
+def Expr_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Expr_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~4
+
 _Expr_field_unroller = unrolling_iterable(['value'])
 def Expr_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Expr, w_self)
@@ -4538,7 +4862,7 @@ Expr.typedef = typedef.TypeDef("Expr",
     stmt.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value']),
-    value=typedef.GetSetProperty(Expr_get_value, Expr_set_value, cls=Expr),
+    value=typedef.GetSetProperty(Expr_get_value, Expr_set_value, Expr_del_value, cls=Expr),
     __new__=interp2app(get_AST_new(Expr)),
     __init__=interp2app(Expr_init),
 )
@@ -4615,6 +4939,12 @@ def expr_set_lineno(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= 1
 
+def expr_del_lineno(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    expr_get_lineno(space, w_self)
+    w_self.deldictvalue(space, 'lineno')
+    w_self.initialization_state &= ~1
+
 def expr_get_col_offset(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
@@ -4636,12 +4966,18 @@ def expr_set_col_offset(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= 2
 
+def expr_del_col_offset(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    expr_get_col_offset(space, w_self)
+    w_self.deldictvalue(space, 'col_offset')
+    w_self.initialization_state &= ~2
+
 expr.typedef = typedef.TypeDef("expr",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
-    lineno=typedef.GetSetProperty(expr_get_lineno, expr_set_lineno, cls=expr),
-    col_offset=typedef.GetSetProperty(expr_get_col_offset, expr_set_col_offset, cls=expr),
+    lineno=typedef.GetSetProperty(expr_get_lineno, expr_set_lineno, expr_del_lineno, cls=expr),
+    col_offset=typedef.GetSetProperty(expr_get_col_offset, expr_set_col_offset, expr_del_col_offset, cls=expr),
     __new__=interp2app(get_AST_new(expr)),
 )
 
@@ -4668,6 +5004,12 @@ def BoolOp_set_op(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 4
 
+def BoolOp_del_op(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    BoolOp_get_op(space, w_self)
+    w_self.deldictvalue(space, 'op')
+    w_self.initialization_state &= ~4
+
 def BoolOp_get_values(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'values')
@@ -4683,6 +5025,12 @@ def BoolOp_get_values(space, w_self):
 def BoolOp_set_values(space, w_self, w_new_value):
     w_self.w_values = w_new_value
     w_self.initialization_state |= 8
+
+def BoolOp_del_values(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    BoolOp_get_values(space, w_self)
+    w_self.deldictvalue(space, 'values')
+    w_self.initialization_state &= ~8
 
 _BoolOp_field_unroller = unrolling_iterable(['op', 'values'])
 def BoolOp_init(space, w_self, __args__):
@@ -4704,8 +5052,8 @@ BoolOp.typedef = typedef.TypeDef("BoolOp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['op', 'values']),
-    op=typedef.GetSetProperty(BoolOp_get_op, BoolOp_set_op, cls=BoolOp),
-    values=typedef.GetSetProperty(BoolOp_get_values, BoolOp_set_values, cls=BoolOp),
+    op=typedef.GetSetProperty(BoolOp_get_op, BoolOp_set_op, BoolOp_del_op, cls=BoolOp),
+    values=typedef.GetSetProperty(BoolOp_get_values, BoolOp_set_values, BoolOp_del_values, cls=BoolOp),
     __new__=interp2app(get_AST_new(BoolOp)),
     __init__=interp2app(BoolOp_init),
 )
@@ -4733,6 +5081,12 @@ def BinOp_set_left(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'left')
     w_self.initialization_state |= 4
 
+def BinOp_del_left(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    BinOp_get_left(space, w_self)
+    w_self.deldictvalue(space, 'left')
+    w_self.initialization_state &= ~4
+
 def BinOp_get_op(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
@@ -4755,6 +5109,12 @@ def BinOp_set_op(space, w_self, w_new_value):
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 8
+
+def BinOp_del_op(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    BinOp_get_op(space, w_self)
+    w_self.deldictvalue(space, 'op')
+    w_self.initialization_state &= ~8
 
 def BinOp_get_right(space, w_self):
     if w_self.w_dict is not None:
@@ -4779,6 +5139,12 @@ def BinOp_set_right(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'right')
     w_self.initialization_state |= 16
 
+def BinOp_del_right(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    BinOp_get_right(space, w_self)
+    w_self.deldictvalue(space, 'right')
+    w_self.initialization_state &= ~16
+
 _BinOp_field_unroller = unrolling_iterable(['left', 'op', 'right'])
 def BinOp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(BinOp, w_self)
@@ -4798,9 +5164,9 @@ BinOp.typedef = typedef.TypeDef("BinOp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['left', 'op', 'right']),
-    left=typedef.GetSetProperty(BinOp_get_left, BinOp_set_left, cls=BinOp),
-    op=typedef.GetSetProperty(BinOp_get_op, BinOp_set_op, cls=BinOp),
-    right=typedef.GetSetProperty(BinOp_get_right, BinOp_set_right, cls=BinOp),
+    left=typedef.GetSetProperty(BinOp_get_left, BinOp_set_left, BinOp_del_left, cls=BinOp),
+    op=typedef.GetSetProperty(BinOp_get_op, BinOp_set_op, BinOp_del_op, cls=BinOp),
+    right=typedef.GetSetProperty(BinOp_get_right, BinOp_set_right, BinOp_del_right, cls=BinOp),
     __new__=interp2app(get_AST_new(BinOp)),
     __init__=interp2app(BinOp_init),
 )
@@ -4828,6 +5194,12 @@ def UnaryOp_set_op(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 4
 
+def UnaryOp_del_op(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    UnaryOp_get_op(space, w_self)
+    w_self.deldictvalue(space, 'op')
+    w_self.initialization_state &= ~4
+
 def UnaryOp_get_operand(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'operand')
@@ -4851,6 +5223,12 @@ def UnaryOp_set_operand(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'operand')
     w_self.initialization_state |= 8
 
+def UnaryOp_del_operand(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    UnaryOp_get_operand(space, w_self)
+    w_self.deldictvalue(space, 'operand')
+    w_self.initialization_state &= ~8
+
 _UnaryOp_field_unroller = unrolling_iterable(['op', 'operand'])
 def UnaryOp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(UnaryOp, w_self)
@@ -4870,8 +5248,8 @@ UnaryOp.typedef = typedef.TypeDef("UnaryOp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['op', 'operand']),
-    op=typedef.GetSetProperty(UnaryOp_get_op, UnaryOp_set_op, cls=UnaryOp),
-    operand=typedef.GetSetProperty(UnaryOp_get_operand, UnaryOp_set_operand, cls=UnaryOp),
+    op=typedef.GetSetProperty(UnaryOp_get_op, UnaryOp_set_op, UnaryOp_del_op, cls=UnaryOp),
+    operand=typedef.GetSetProperty(UnaryOp_get_operand, UnaryOp_set_operand, UnaryOp_del_operand, cls=UnaryOp),
     __new__=interp2app(get_AST_new(UnaryOp)),
     __init__=interp2app(UnaryOp_init),
 )
@@ -4897,6 +5275,12 @@ def Lambda_set_args(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'args')
     w_self.initialization_state |= 4
 
+def Lambda_del_args(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Lambda_get_args(space, w_self)
+    w_self.deldictvalue(space, 'args')
+    w_self.initialization_state &= ~4
+
 def Lambda_get_body(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
@@ -4920,6 +5304,12 @@ def Lambda_set_body(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 8
 
+def Lambda_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Lambda_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~8
+
 _Lambda_field_unroller = unrolling_iterable(['args', 'body'])
 def Lambda_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Lambda, w_self)
@@ -4939,8 +5329,8 @@ Lambda.typedef = typedef.TypeDef("Lambda",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['args', 'body']),
-    args=typedef.GetSetProperty(Lambda_get_args, Lambda_set_args, cls=Lambda),
-    body=typedef.GetSetProperty(Lambda_get_body, Lambda_set_body, cls=Lambda),
+    args=typedef.GetSetProperty(Lambda_get_args, Lambda_set_args, Lambda_del_args, cls=Lambda),
+    body=typedef.GetSetProperty(Lambda_get_body, Lambda_set_body, Lambda_del_body, cls=Lambda),
     __new__=interp2app(get_AST_new(Lambda)),
     __init__=interp2app(Lambda_init),
 )
@@ -4968,6 +5358,12 @@ def IfExp_set_test(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
 
+def IfExp_del_test(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    IfExp_get_test(space, w_self)
+    w_self.deldictvalue(space, 'test')
+    w_self.initialization_state &= ~4
+
 def IfExp_get_body(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
@@ -4990,6 +5386,12 @@ def IfExp_set_body(space, w_self, w_new_value):
         return
     w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 8
+
+def IfExp_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    IfExp_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~8
 
 def IfExp_get_orelse(space, w_self):
     if w_self.w_dict is not None:
@@ -5014,6 +5416,12 @@ def IfExp_set_orelse(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'orelse')
     w_self.initialization_state |= 16
 
+def IfExp_del_orelse(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    IfExp_get_orelse(space, w_self)
+    w_self.deldictvalue(space, 'orelse')
+    w_self.initialization_state &= ~16
+
 _IfExp_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
 def IfExp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(IfExp, w_self)
@@ -5033,9 +5441,9 @@ IfExp.typedef = typedef.TypeDef("IfExp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['test', 'body', 'orelse']),
-    test=typedef.GetSetProperty(IfExp_get_test, IfExp_set_test, cls=IfExp),
-    body=typedef.GetSetProperty(IfExp_get_body, IfExp_set_body, cls=IfExp),
-    orelse=typedef.GetSetProperty(IfExp_get_orelse, IfExp_set_orelse, cls=IfExp),
+    test=typedef.GetSetProperty(IfExp_get_test, IfExp_set_test, IfExp_del_test, cls=IfExp),
+    body=typedef.GetSetProperty(IfExp_get_body, IfExp_set_body, IfExp_del_body, cls=IfExp),
+    orelse=typedef.GetSetProperty(IfExp_get_orelse, IfExp_set_orelse, IfExp_del_orelse, cls=IfExp),
     __new__=interp2app(get_AST_new(IfExp)),
     __init__=interp2app(IfExp_init),
 )
@@ -5056,6 +5464,12 @@ def Dict_set_keys(space, w_self, w_new_value):
     w_self.w_keys = w_new_value
     w_self.initialization_state |= 4
 
+def Dict_del_keys(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Dict_get_keys(space, w_self)
+    w_self.deldictvalue(space, 'keys')
+    w_self.initialization_state &= ~4
+
 def Dict_get_values(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'values')
@@ -5071,6 +5485,12 @@ def Dict_get_values(space, w_self):
 def Dict_set_values(space, w_self, w_new_value):
     w_self.w_values = w_new_value
     w_self.initialization_state |= 8
+
+def Dict_del_values(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Dict_get_values(space, w_self)
+    w_self.deldictvalue(space, 'values')
+    w_self.initialization_state &= ~8
 
 _Dict_field_unroller = unrolling_iterable(['keys', 'values'])
 def Dict_init(space, w_self, __args__):
@@ -5093,8 +5513,8 @@ Dict.typedef = typedef.TypeDef("Dict",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['keys', 'values']),
-    keys=typedef.GetSetProperty(Dict_get_keys, Dict_set_keys, cls=Dict),
-    values=typedef.GetSetProperty(Dict_get_values, Dict_set_values, cls=Dict),
+    keys=typedef.GetSetProperty(Dict_get_keys, Dict_set_keys, Dict_del_keys, cls=Dict),
+    values=typedef.GetSetProperty(Dict_get_values, Dict_set_values, Dict_del_values, cls=Dict),
     __new__=interp2app(get_AST_new(Dict)),
     __init__=interp2app(Dict_init),
 )
@@ -5114,6 +5534,12 @@ def Set_get_elts(space, w_self):
 def Set_set_elts(space, w_self, w_new_value):
     w_self.w_elts = w_new_value
     w_self.initialization_state |= 4
+
+def Set_del_elts(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Set_get_elts(space, w_self)
+    w_self.deldictvalue(space, 'elts')
+    w_self.initialization_state &= ~4
 
 _Set_field_unroller = unrolling_iterable(['elts'])
 def Set_init(space, w_self, __args__):
@@ -5135,7 +5561,7 @@ Set.typedef = typedef.TypeDef("Set",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['elts']),
-    elts=typedef.GetSetProperty(Set_get_elts, Set_set_elts, cls=Set),
+    elts=typedef.GetSetProperty(Set_get_elts, Set_set_elts, Set_del_elts, cls=Set),
     __new__=interp2app(get_AST_new(Set)),
     __init__=interp2app(Set_init),
 )
@@ -5163,6 +5589,12 @@ def ListComp_set_elt(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 4
 
+def ListComp_del_elt(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ListComp_get_elt(space, w_self)
+    w_self.deldictvalue(space, 'elt')
+    w_self.initialization_state &= ~4
+
 def ListComp_get_generators(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'generators')
@@ -5178,6 +5610,12 @@ def ListComp_get_generators(space, w_self):
 def ListComp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
     w_self.initialization_state |= 8
+
+def ListComp_del_generators(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ListComp_get_generators(space, w_self)
+    w_self.deldictvalue(space, 'generators')
+    w_self.initialization_state &= ~8
 
 _ListComp_field_unroller = unrolling_iterable(['elt', 'generators'])
 def ListComp_init(space, w_self, __args__):
@@ -5199,8 +5637,8 @@ ListComp.typedef = typedef.TypeDef("ListComp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['elt', 'generators']),
-    elt=typedef.GetSetProperty(ListComp_get_elt, ListComp_set_elt, cls=ListComp),
-    generators=typedef.GetSetProperty(ListComp_get_generators, ListComp_set_generators, cls=ListComp),
+    elt=typedef.GetSetProperty(ListComp_get_elt, ListComp_set_elt, ListComp_del_elt, cls=ListComp),
+    generators=typedef.GetSetProperty(ListComp_get_generators, ListComp_set_generators, ListComp_del_generators, cls=ListComp),
     __new__=interp2app(get_AST_new(ListComp)),
     __init__=interp2app(ListComp_init),
 )
@@ -5228,6 +5666,12 @@ def SetComp_set_elt(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 4
 
+def SetComp_del_elt(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    SetComp_get_elt(space, w_self)
+    w_self.deldictvalue(space, 'elt')
+    w_self.initialization_state &= ~4
+
 def SetComp_get_generators(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'generators')
@@ -5243,6 +5687,12 @@ def SetComp_get_generators(space, w_self):
 def SetComp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
     w_self.initialization_state |= 8
+
+def SetComp_del_generators(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    SetComp_get_generators(space, w_self)
+    w_self.deldictvalue(space, 'generators')
+    w_self.initialization_state &= ~8
 
 _SetComp_field_unroller = unrolling_iterable(['elt', 'generators'])
 def SetComp_init(space, w_self, __args__):
@@ -5264,8 +5714,8 @@ SetComp.typedef = typedef.TypeDef("SetComp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['elt', 'generators']),
-    elt=typedef.GetSetProperty(SetComp_get_elt, SetComp_set_elt, cls=SetComp),
-    generators=typedef.GetSetProperty(SetComp_get_generators, SetComp_set_generators, cls=SetComp),
+    elt=typedef.GetSetProperty(SetComp_get_elt, SetComp_set_elt, SetComp_del_elt, cls=SetComp),
+    generators=typedef.GetSetProperty(SetComp_get_generators, SetComp_set_generators, SetComp_del_generators, cls=SetComp),
     __new__=interp2app(get_AST_new(SetComp)),
     __init__=interp2app(SetComp_init),
 )
@@ -5293,6 +5743,12 @@ def DictComp_set_key(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'key')
     w_self.initialization_state |= 4
 
+def DictComp_del_key(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    DictComp_get_key(space, w_self)
+    w_self.deldictvalue(space, 'key')
+    w_self.initialization_state &= ~4
+
 def DictComp_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
@@ -5316,6 +5772,12 @@ def DictComp_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 8
 
+def DictComp_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    DictComp_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~8
+
 def DictComp_get_generators(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'generators')
@@ -5331,6 +5793,12 @@ def DictComp_get_generators(space, w_self):
 def DictComp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
     w_self.initialization_state |= 16
+
+def DictComp_del_generators(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    DictComp_get_generators(space, w_self)
+    w_self.deldictvalue(space, 'generators')
+    w_self.initialization_state &= ~16
 
 _DictComp_field_unroller = unrolling_iterable(['key', 'value', 'generators'])
 def DictComp_init(space, w_self, __args__):
@@ -5352,9 +5820,9 @@ DictComp.typedef = typedef.TypeDef("DictComp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['key', 'value', 'generators']),
-    key=typedef.GetSetProperty(DictComp_get_key, DictComp_set_key, cls=DictComp),
-    value=typedef.GetSetProperty(DictComp_get_value, DictComp_set_value, cls=DictComp),
-    generators=typedef.GetSetProperty(DictComp_get_generators, DictComp_set_generators, cls=DictComp),
+    key=typedef.GetSetProperty(DictComp_get_key, DictComp_set_key, DictComp_del_key, cls=DictComp),
+    value=typedef.GetSetProperty(DictComp_get_value, DictComp_set_value, DictComp_del_value, cls=DictComp),
+    generators=typedef.GetSetProperty(DictComp_get_generators, DictComp_set_generators, DictComp_del_generators, cls=DictComp),
     __new__=interp2app(get_AST_new(DictComp)),
     __init__=interp2app(DictComp_init),
 )
@@ -5382,6 +5850,12 @@ def GeneratorExp_set_elt(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 4
 
+def GeneratorExp_del_elt(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    GeneratorExp_get_elt(space, w_self)
+    w_self.deldictvalue(space, 'elt')
+    w_self.initialization_state &= ~4
+
 def GeneratorExp_get_generators(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'generators')
@@ -5397,6 +5871,12 @@ def GeneratorExp_get_generators(space, w_self):
 def GeneratorExp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
     w_self.initialization_state |= 8
+
+def GeneratorExp_del_generators(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    GeneratorExp_get_generators(space, w_self)
+    w_self.deldictvalue(space, 'generators')
+    w_self.initialization_state &= ~8
 
 _GeneratorExp_field_unroller = unrolling_iterable(['elt', 'generators'])
 def GeneratorExp_init(space, w_self, __args__):
@@ -5418,8 +5898,8 @@ GeneratorExp.typedef = typedef.TypeDef("GeneratorExp",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['elt', 'generators']),
-    elt=typedef.GetSetProperty(GeneratorExp_get_elt, GeneratorExp_set_elt, cls=GeneratorExp),
-    generators=typedef.GetSetProperty(GeneratorExp_get_generators, GeneratorExp_set_generators, cls=GeneratorExp),
+    elt=typedef.GetSetProperty(GeneratorExp_get_elt, GeneratorExp_set_elt, GeneratorExp_del_elt, cls=GeneratorExp),
+    generators=typedef.GetSetProperty(GeneratorExp_get_generators, GeneratorExp_set_generators, GeneratorExp_del_generators, cls=GeneratorExp),
     __new__=interp2app(get_AST_new(GeneratorExp)),
     __init__=interp2app(GeneratorExp_init),
 )
@@ -5447,6 +5927,12 @@ def Yield_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
+def Yield_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Yield_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~4
+
 _Yield_field_unroller = unrolling_iterable(['value'])
 def Yield_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Yield, w_self)
@@ -5466,7 +5952,7 @@ Yield.typedef = typedef.TypeDef("Yield",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value']),
-    value=typedef.GetSetProperty(Yield_get_value, Yield_set_value, cls=Yield),
+    value=typedef.GetSetProperty(Yield_get_value, Yield_set_value, Yield_del_value, cls=Yield),
     __new__=interp2app(get_AST_new(Yield)),
     __init__=interp2app(Yield_init),
 )
@@ -5494,6 +5980,12 @@ def Compare_set_left(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'left')
     w_self.initialization_state |= 4
 
+def Compare_del_left(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Compare_get_left(space, w_self)
+    w_self.deldictvalue(space, 'left')
+    w_self.initialization_state &= ~4
+
 def Compare_get_ops(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'ops')
@@ -5510,6 +6002,12 @@ def Compare_set_ops(space, w_self, w_new_value):
     w_self.w_ops = w_new_value
     w_self.initialization_state |= 8
 
+def Compare_del_ops(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Compare_get_ops(space, w_self)
+    w_self.deldictvalue(space, 'ops')
+    w_self.initialization_state &= ~8
+
 def Compare_get_comparators(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'comparators')
@@ -5525,6 +6023,12 @@ def Compare_get_comparators(space, w_self):
 def Compare_set_comparators(space, w_self, w_new_value):
     w_self.w_comparators = w_new_value
     w_self.initialization_state |= 16
+
+def Compare_del_comparators(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Compare_get_comparators(space, w_self)
+    w_self.deldictvalue(space, 'comparators')
+    w_self.initialization_state &= ~16
 
 _Compare_field_unroller = unrolling_iterable(['left', 'ops', 'comparators'])
 def Compare_init(space, w_self, __args__):
@@ -5547,9 +6051,9 @@ Compare.typedef = typedef.TypeDef("Compare",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['left', 'ops', 'comparators']),
-    left=typedef.GetSetProperty(Compare_get_left, Compare_set_left, cls=Compare),
-    ops=typedef.GetSetProperty(Compare_get_ops, Compare_set_ops, cls=Compare),
-    comparators=typedef.GetSetProperty(Compare_get_comparators, Compare_set_comparators, cls=Compare),
+    left=typedef.GetSetProperty(Compare_get_left, Compare_set_left, Compare_del_left, cls=Compare),
+    ops=typedef.GetSetProperty(Compare_get_ops, Compare_set_ops, Compare_del_ops, cls=Compare),
+    comparators=typedef.GetSetProperty(Compare_get_comparators, Compare_set_comparators, Compare_del_comparators, cls=Compare),
     __new__=interp2app(get_AST_new(Compare)),
     __init__=interp2app(Compare_init),
 )
@@ -5577,6 +6081,12 @@ def Call_set_func(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'func')
     w_self.initialization_state |= 4
 
+def Call_del_func(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Call_get_func(space, w_self)
+    w_self.deldictvalue(space, 'func')
+    w_self.initialization_state &= ~4
+
 def Call_get_args(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'args')
@@ -5593,6 +6103,12 @@ def Call_set_args(space, w_self, w_new_value):
     w_self.w_args = w_new_value
     w_self.initialization_state |= 8
 
+def Call_del_args(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Call_get_args(space, w_self)
+    w_self.deldictvalue(space, 'args')
+    w_self.initialization_state &= ~8
+
 def Call_get_keywords(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'keywords')
@@ -5608,6 +6124,12 @@ def Call_get_keywords(space, w_self):
 def Call_set_keywords(space, w_self, w_new_value):
     w_self.w_keywords = w_new_value
     w_self.initialization_state |= 16
+
+def Call_del_keywords(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Call_get_keywords(space, w_self)
+    w_self.deldictvalue(space, 'keywords')
+    w_self.initialization_state &= ~16
 
 def Call_get_starargs(space, w_self):
     if w_self.w_dict is not None:
@@ -5632,6 +6154,12 @@ def Call_set_starargs(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'starargs')
     w_self.initialization_state |= 32
 
+def Call_del_starargs(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Call_get_starargs(space, w_self)
+    w_self.deldictvalue(space, 'starargs')
+    w_self.initialization_state &= ~32
+
 def Call_get_kwargs(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwargs')
@@ -5655,6 +6183,12 @@ def Call_set_kwargs(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'kwargs')
     w_self.initialization_state |= 64
 
+def Call_del_kwargs(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Call_get_kwargs(space, w_self)
+    w_self.deldictvalue(space, 'kwargs')
+    w_self.initialization_state &= ~64
+
 _Call_field_unroller = unrolling_iterable(['func', 'args', 'keywords', 'starargs', 'kwargs'])
 def Call_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Call, w_self)
@@ -5676,11 +6210,11 @@ Call.typedef = typedef.TypeDef("Call",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['func', 'args', 'keywords', 'starargs', 'kwargs']),
-    func=typedef.GetSetProperty(Call_get_func, Call_set_func, cls=Call),
-    args=typedef.GetSetProperty(Call_get_args, Call_set_args, cls=Call),
-    keywords=typedef.GetSetProperty(Call_get_keywords, Call_set_keywords, cls=Call),
-    starargs=typedef.GetSetProperty(Call_get_starargs, Call_set_starargs, cls=Call),
-    kwargs=typedef.GetSetProperty(Call_get_kwargs, Call_set_kwargs, cls=Call),
+    func=typedef.GetSetProperty(Call_get_func, Call_set_func, Call_del_func, cls=Call),
+    args=typedef.GetSetProperty(Call_get_args, Call_set_args, Call_del_args, cls=Call),
+    keywords=typedef.GetSetProperty(Call_get_keywords, Call_set_keywords, Call_del_keywords, cls=Call),
+    starargs=typedef.GetSetProperty(Call_get_starargs, Call_set_starargs, Call_del_starargs, cls=Call),
+    kwargs=typedef.GetSetProperty(Call_get_kwargs, Call_set_kwargs, Call_del_kwargs, cls=Call),
     __new__=interp2app(get_AST_new(Call)),
     __init__=interp2app(Call_init),
 )
@@ -5706,6 +6240,12 @@ def Num_set_n(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'n')
     w_self.initialization_state |= 4
 
+def Num_del_n(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Num_get_n(space, w_self)
+    w_self.deldictvalue(space, 'n')
+    w_self.initialization_state &= ~4
+
 _Num_field_unroller = unrolling_iterable(['n'])
 def Num_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Num, w_self)
@@ -5725,7 +6265,7 @@ Num.typedef = typedef.TypeDef("Num",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['n']),
-    n=typedef.GetSetProperty(Num_get_n, Num_set_n, cls=Num),
+    n=typedef.GetSetProperty(Num_get_n, Num_set_n, Num_del_n, cls=Num),
     __new__=interp2app(get_AST_new(Num)),
     __init__=interp2app(Num_init),
 )
@@ -5751,6 +6291,12 @@ def Str_set_s(space, w_self, w_new_value):
     w_self.deldictvalue(space, 's')
     w_self.initialization_state |= 4
 
+def Str_del_s(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Str_get_s(space, w_self)
+    w_self.deldictvalue(space, 's')
+    w_self.initialization_state &= ~4
+
 _Str_field_unroller = unrolling_iterable(['s'])
 def Str_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Str, w_self)
@@ -5770,7 +6316,7 @@ Str.typedef = typedef.TypeDef("Str",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['s']),
-    s=typedef.GetSetProperty(Str_get_s, Str_set_s, cls=Str),
+    s=typedef.GetSetProperty(Str_get_s, Str_set_s, Str_del_s, cls=Str),
     __new__=interp2app(get_AST_new(Str)),
     __init__=interp2app(Str_init),
 )
@@ -5796,6 +6342,12 @@ def Bytes_set_s(space, w_self, w_new_value):
     w_self.deldictvalue(space, 's')
     w_self.initialization_state |= 4
 
+def Bytes_del_s(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Bytes_get_s(space, w_self)
+    w_self.deldictvalue(space, 's')
+    w_self.initialization_state &= ~4
+
 _Bytes_field_unroller = unrolling_iterable(['s'])
 def Bytes_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Bytes, w_self)
@@ -5815,7 +6367,7 @@ Bytes.typedef = typedef.TypeDef("Bytes",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['s']),
-    s=typedef.GetSetProperty(Bytes_get_s, Bytes_set_s, cls=Bytes),
+    s=typedef.GetSetProperty(Bytes_get_s, Bytes_set_s, Bytes_del_s, cls=Bytes),
     __new__=interp2app(get_AST_new(Bytes)),
     __init__=interp2app(Bytes_init),
 )
@@ -5860,6 +6412,12 @@ def Attribute_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
+def Attribute_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Attribute_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~4
+
 def Attribute_get_attr(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'attr')
@@ -5882,6 +6440,12 @@ def Attribute_set_attr(space, w_self, w_new_value):
         return
     w_self.deldictvalue(space, 'attr')
     w_self.initialization_state |= 8
+
+def Attribute_del_attr(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Attribute_get_attr(space, w_self)
+    w_self.deldictvalue(space, 'attr')
+    w_self.initialization_state &= ~8
 
 def Attribute_get_ctx(space, w_self):
     if w_self.w_dict is not None:
@@ -5906,6 +6470,12 @@ def Attribute_set_ctx(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 16
 
+def Attribute_del_ctx(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Attribute_get_ctx(space, w_self)
+    w_self.deldictvalue(space, 'ctx')
+    w_self.initialization_state &= ~16
+
 _Attribute_field_unroller = unrolling_iterable(['value', 'attr', 'ctx'])
 def Attribute_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Attribute, w_self)
@@ -5925,9 +6495,9 @@ Attribute.typedef = typedef.TypeDef("Attribute",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value', 'attr', 'ctx']),
-    value=typedef.GetSetProperty(Attribute_get_value, Attribute_set_value, cls=Attribute),
-    attr=typedef.GetSetProperty(Attribute_get_attr, Attribute_set_attr, cls=Attribute),
-    ctx=typedef.GetSetProperty(Attribute_get_ctx, Attribute_set_ctx, cls=Attribute),
+    value=typedef.GetSetProperty(Attribute_get_value, Attribute_set_value, Attribute_del_value, cls=Attribute),
+    attr=typedef.GetSetProperty(Attribute_get_attr, Attribute_set_attr, Attribute_del_attr, cls=Attribute),
+    ctx=typedef.GetSetProperty(Attribute_get_ctx, Attribute_set_ctx, Attribute_del_ctx, cls=Attribute),
     __new__=interp2app(get_AST_new(Attribute)),
     __init__=interp2app(Attribute_init),
 )
@@ -5955,6 +6525,12 @@ def Subscript_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
+def Subscript_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Subscript_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~4
+
 def Subscript_get_slice(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'slice')
@@ -5977,6 +6553,12 @@ def Subscript_set_slice(space, w_self, w_new_value):
         return
     w_self.deldictvalue(space, 'slice')
     w_self.initialization_state |= 8
+
+def Subscript_del_slice(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Subscript_get_slice(space, w_self)
+    w_self.deldictvalue(space, 'slice')
+    w_self.initialization_state &= ~8
 
 def Subscript_get_ctx(space, w_self):
     if w_self.w_dict is not None:
@@ -6001,6 +6583,12 @@ def Subscript_set_ctx(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 16
 
+def Subscript_del_ctx(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Subscript_get_ctx(space, w_self)
+    w_self.deldictvalue(space, 'ctx')
+    w_self.initialization_state &= ~16
+
 _Subscript_field_unroller = unrolling_iterable(['value', 'slice', 'ctx'])
 def Subscript_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Subscript, w_self)
@@ -6020,9 +6608,9 @@ Subscript.typedef = typedef.TypeDef("Subscript",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value', 'slice', 'ctx']),
-    value=typedef.GetSetProperty(Subscript_get_value, Subscript_set_value, cls=Subscript),
-    slice=typedef.GetSetProperty(Subscript_get_slice, Subscript_set_slice, cls=Subscript),
-    ctx=typedef.GetSetProperty(Subscript_get_ctx, Subscript_set_ctx, cls=Subscript),
+    value=typedef.GetSetProperty(Subscript_get_value, Subscript_set_value, Subscript_del_value, cls=Subscript),
+    slice=typedef.GetSetProperty(Subscript_get_slice, Subscript_set_slice, Subscript_del_slice, cls=Subscript),
+    ctx=typedef.GetSetProperty(Subscript_get_ctx, Subscript_set_ctx, Subscript_del_ctx, cls=Subscript),
     __new__=interp2app(get_AST_new(Subscript)),
     __init__=interp2app(Subscript_init),
 )
@@ -6050,6 +6638,12 @@ def Starred_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
+def Starred_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Starred_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~4
+
 def Starred_get_ctx(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
@@ -6073,6 +6667,12 @@ def Starred_set_ctx(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 8
 
+def Starred_del_ctx(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Starred_get_ctx(space, w_self)
+    w_self.deldictvalue(space, 'ctx')
+    w_self.initialization_state &= ~8
+
 _Starred_field_unroller = unrolling_iterable(['value', 'ctx'])
 def Starred_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Starred, w_self)
@@ -6092,8 +6692,8 @@ Starred.typedef = typedef.TypeDef("Starred",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value', 'ctx']),
-    value=typedef.GetSetProperty(Starred_get_value, Starred_set_value, cls=Starred),
-    ctx=typedef.GetSetProperty(Starred_get_ctx, Starred_set_ctx, cls=Starred),
+    value=typedef.GetSetProperty(Starred_get_value, Starred_set_value, Starred_del_value, cls=Starred),
+    ctx=typedef.GetSetProperty(Starred_get_ctx, Starred_set_ctx, Starred_del_ctx, cls=Starred),
     __new__=interp2app(get_AST_new(Starred)),
     __init__=interp2app(Starred_init),
 )
@@ -6121,6 +6721,12 @@ def Name_set_id(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'id')
     w_self.initialization_state |= 4
 
+def Name_del_id(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Name_get_id(space, w_self)
+    w_self.deldictvalue(space, 'id')
+    w_self.initialization_state &= ~4
+
 def Name_get_ctx(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
@@ -6144,6 +6750,12 @@ def Name_set_ctx(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 8
 
+def Name_del_ctx(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Name_get_ctx(space, w_self)
+    w_self.deldictvalue(space, 'ctx')
+    w_self.initialization_state &= ~8
+
 _Name_field_unroller = unrolling_iterable(['id', 'ctx'])
 def Name_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Name, w_self)
@@ -6163,8 +6775,8 @@ Name.typedef = typedef.TypeDef("Name",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['id', 'ctx']),
-    id=typedef.GetSetProperty(Name_get_id, Name_set_id, cls=Name),
-    ctx=typedef.GetSetProperty(Name_get_ctx, Name_set_ctx, cls=Name),
+    id=typedef.GetSetProperty(Name_get_id, Name_set_id, Name_del_id, cls=Name),
+    ctx=typedef.GetSetProperty(Name_get_ctx, Name_set_ctx, Name_del_ctx, cls=Name),
     __new__=interp2app(get_AST_new(Name)),
     __init__=interp2app(Name_init),
 )
@@ -6184,6 +6796,12 @@ def List_get_elts(space, w_self):
 def List_set_elts(space, w_self, w_new_value):
     w_self.w_elts = w_new_value
     w_self.initialization_state |= 4
+
+def List_del_elts(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    List_get_elts(space, w_self)
+    w_self.deldictvalue(space, 'elts')
+    w_self.initialization_state &= ~4
 
 def List_get_ctx(space, w_self):
     if w_self.w_dict is not None:
@@ -6208,6 +6826,12 @@ def List_set_ctx(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 8
 
+def List_del_ctx(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    List_get_ctx(space, w_self)
+    w_self.deldictvalue(space, 'ctx')
+    w_self.initialization_state &= ~8
+
 _List_field_unroller = unrolling_iterable(['elts', 'ctx'])
 def List_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(List, w_self)
@@ -6228,8 +6852,8 @@ List.typedef = typedef.TypeDef("List",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['elts', 'ctx']),
-    elts=typedef.GetSetProperty(List_get_elts, List_set_elts, cls=List),
-    ctx=typedef.GetSetProperty(List_get_ctx, List_set_ctx, cls=List),
+    elts=typedef.GetSetProperty(List_get_elts, List_set_elts, List_del_elts, cls=List),
+    ctx=typedef.GetSetProperty(List_get_ctx, List_set_ctx, List_del_ctx, cls=List),
     __new__=interp2app(get_AST_new(List)),
     __init__=interp2app(List_init),
 )
@@ -6249,6 +6873,12 @@ def Tuple_get_elts(space, w_self):
 def Tuple_set_elts(space, w_self, w_new_value):
     w_self.w_elts = w_new_value
     w_self.initialization_state |= 4
+
+def Tuple_del_elts(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Tuple_get_elts(space, w_self)
+    w_self.deldictvalue(space, 'elts')
+    w_self.initialization_state &= ~4
 
 def Tuple_get_ctx(space, w_self):
     if w_self.w_dict is not None:
@@ -6273,6 +6903,12 @@ def Tuple_set_ctx(space, w_self, w_new_value):
     w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 8
 
+def Tuple_del_ctx(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Tuple_get_ctx(space, w_self)
+    w_self.deldictvalue(space, 'ctx')
+    w_self.initialization_state &= ~8
+
 _Tuple_field_unroller = unrolling_iterable(['elts', 'ctx'])
 def Tuple_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Tuple, w_self)
@@ -6293,8 +6929,8 @@ Tuple.typedef = typedef.TypeDef("Tuple",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['elts', 'ctx']),
-    elts=typedef.GetSetProperty(Tuple_get_elts, Tuple_set_elts, cls=Tuple),
-    ctx=typedef.GetSetProperty(Tuple_get_ctx, Tuple_set_ctx, cls=Tuple),
+    elts=typedef.GetSetProperty(Tuple_get_elts, Tuple_set_elts, Tuple_del_elts, cls=Tuple),
+    ctx=typedef.GetSetProperty(Tuple_get_ctx, Tuple_set_ctx, Tuple_del_ctx, cls=Tuple),
     __new__=interp2app(get_AST_new(Tuple)),
     __init__=interp2app(Tuple_init),
 )
@@ -6320,6 +6956,12 @@ def Const_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
+def Const_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Const_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~4
+
 _Const_field_unroller = unrolling_iterable(['value'])
 def Const_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Const, w_self)
@@ -6339,7 +6981,7 @@ Const.typedef = typedef.TypeDef("Const",
     expr.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value']),
-    value=typedef.GetSetProperty(Const_get_value, Const_set_value, cls=Const),
+    value=typedef.GetSetProperty(Const_get_value, Const_set_value, Const_del_value, cls=Const),
     __new__=interp2app(get_AST_new(Const)),
     __init__=interp2app(Const_init),
 )
@@ -6423,6 +7065,12 @@ def Slice_set_lower(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'lower')
     w_self.initialization_state |= 1
 
+def Slice_del_lower(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Slice_get_lower(space, w_self)
+    w_self.deldictvalue(space, 'lower')
+    w_self.initialization_state &= ~1
+
 def Slice_get_upper(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'upper')
@@ -6445,6 +7093,12 @@ def Slice_set_upper(space, w_self, w_new_value):
         return
     w_self.deldictvalue(space, 'upper')
     w_self.initialization_state |= 2
+
+def Slice_del_upper(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Slice_get_upper(space, w_self)
+    w_self.deldictvalue(space, 'upper')
+    w_self.initialization_state &= ~2
 
 def Slice_get_step(space, w_self):
     if w_self.w_dict is not None:
@@ -6469,6 +7123,12 @@ def Slice_set_step(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'step')
     w_self.initialization_state |= 4
 
+def Slice_del_step(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Slice_get_step(space, w_self)
+    w_self.deldictvalue(space, 'step')
+    w_self.initialization_state &= ~4
+
 _Slice_field_unroller = unrolling_iterable(['lower', 'upper', 'step'])
 def Slice_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Slice, w_self)
@@ -6488,9 +7148,9 @@ Slice.typedef = typedef.TypeDef("Slice",
     slice.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['lower', 'upper', 'step']),
-    lower=typedef.GetSetProperty(Slice_get_lower, Slice_set_lower, cls=Slice),
-    upper=typedef.GetSetProperty(Slice_get_upper, Slice_set_upper, cls=Slice),
-    step=typedef.GetSetProperty(Slice_get_step, Slice_set_step, cls=Slice),
+    lower=typedef.GetSetProperty(Slice_get_lower, Slice_set_lower, Slice_del_lower, cls=Slice),
+    upper=typedef.GetSetProperty(Slice_get_upper, Slice_set_upper, Slice_del_upper, cls=Slice),
+    step=typedef.GetSetProperty(Slice_get_step, Slice_set_step, Slice_del_step, cls=Slice),
     __new__=interp2app(get_AST_new(Slice)),
     __init__=interp2app(Slice_init),
 )
@@ -6510,6 +7170,12 @@ def ExtSlice_get_dims(space, w_self):
 def ExtSlice_set_dims(space, w_self, w_new_value):
     w_self.w_dims = w_new_value
     w_self.initialization_state |= 1
+
+def ExtSlice_del_dims(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ExtSlice_get_dims(space, w_self)
+    w_self.deldictvalue(space, 'dims')
+    w_self.initialization_state &= ~1
 
 _ExtSlice_field_unroller = unrolling_iterable(['dims'])
 def ExtSlice_init(space, w_self, __args__):
@@ -6531,7 +7197,7 @@ ExtSlice.typedef = typedef.TypeDef("ExtSlice",
     slice.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['dims']),
-    dims=typedef.GetSetProperty(ExtSlice_get_dims, ExtSlice_set_dims, cls=ExtSlice),
+    dims=typedef.GetSetProperty(ExtSlice_get_dims, ExtSlice_set_dims, ExtSlice_del_dims, cls=ExtSlice),
     __new__=interp2app(get_AST_new(ExtSlice)),
     __init__=interp2app(ExtSlice_init),
 )
@@ -6559,6 +7225,12 @@ def Index_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
+def Index_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Index_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~1
+
 _Index_field_unroller = unrolling_iterable(['value'])
 def Index_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Index, w_self)
@@ -6578,7 +7250,7 @@ Index.typedef = typedef.TypeDef("Index",
     slice.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['value']),
-    value=typedef.GetSetProperty(Index_get_value, Index_set_value, cls=Index),
+    value=typedef.GetSetProperty(Index_get_value, Index_set_value, Index_del_value, cls=Index),
     __new__=interp2app(get_AST_new(Index)),
     __init__=interp2app(Index_init),
 )
@@ -6830,6 +7502,12 @@ def comprehension_set_target(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 1
 
+def comprehension_del_target(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    comprehension_get_target(space, w_self)
+    w_self.deldictvalue(space, 'target')
+    w_self.initialization_state &= ~1
+
 def comprehension_get_iter(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'iter')
@@ -6853,6 +7531,12 @@ def comprehension_set_iter(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'iter')
     w_self.initialization_state |= 2
 
+def comprehension_del_iter(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    comprehension_get_iter(space, w_self)
+    w_self.deldictvalue(space, 'iter')
+    w_self.initialization_state &= ~2
+
 def comprehension_get_ifs(space, w_self):
     if not w_self.initialization_state & 4:
         raise_attriberr(space, w_self, 'ifs')
@@ -6868,6 +7552,12 @@ def comprehension_get_ifs(space, w_self):
 def comprehension_set_ifs(space, w_self, w_new_value):
     w_self.w_ifs = w_new_value
     w_self.initialization_state |= 4
+
+def comprehension_del_ifs(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    comprehension_get_ifs(space, w_self)
+    w_self.deldictvalue(space, 'ifs')
+    w_self.initialization_state &= ~4
 
 _comprehension_field_unroller = unrolling_iterable(['target', 'iter', 'ifs'])
 def comprehension_init(space, w_self, __args__):
@@ -6889,9 +7579,9 @@ comprehension.typedef = typedef.TypeDef("comprehension",
     AST.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['target', 'iter', 'ifs']),
-    target=typedef.GetSetProperty(comprehension_get_target, comprehension_set_target, cls=comprehension),
-    iter=typedef.GetSetProperty(comprehension_get_iter, comprehension_set_iter, cls=comprehension),
-    ifs=typedef.GetSetProperty(comprehension_get_ifs, comprehension_set_ifs, cls=comprehension),
+    target=typedef.GetSetProperty(comprehension_get_target, comprehension_set_target, comprehension_del_target, cls=comprehension),
+    iter=typedef.GetSetProperty(comprehension_get_iter, comprehension_set_iter, comprehension_del_iter, cls=comprehension),
+    ifs=typedef.GetSetProperty(comprehension_get_ifs, comprehension_set_ifs, comprehension_del_ifs, cls=comprehension),
     __new__=interp2app(get_AST_new(comprehension)),
     __init__=interp2app(comprehension_init),
 )
@@ -6917,6 +7607,12 @@ def excepthandler_set_lineno(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= 1
 
+def excepthandler_del_lineno(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    excepthandler_get_lineno(space, w_self)
+    w_self.deldictvalue(space, 'lineno')
+    w_self.initialization_state &= ~1
+
 def excepthandler_get_col_offset(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
@@ -6938,12 +7634,18 @@ def excepthandler_set_col_offset(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= 2
 
+def excepthandler_del_col_offset(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    excepthandler_get_col_offset(space, w_self)
+    w_self.deldictvalue(space, 'col_offset')
+    w_self.initialization_state &= ~2
+
 excepthandler.typedef = typedef.TypeDef("excepthandler",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
-    lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, cls=excepthandler),
-    col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, cls=excepthandler),
+    lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, excepthandler_del_lineno, cls=excepthandler),
+    col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, excepthandler_del_col_offset, cls=excepthandler),
     __new__=interp2app(get_AST_new(excepthandler)),
 )
 
@@ -6969,6 +7671,12 @@ def ExceptHandler_set_type(space, w_self, w_new_value):
         return
     w_self.deldictvalue(space, 'type')
     w_self.initialization_state |= 4
+
+def ExceptHandler_del_type(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ExceptHandler_get_type(space, w_self)
+    w_self.deldictvalue(space, 'type')
+    w_self.initialization_state &= ~4
 
 def ExceptHandler_get_name(space, w_self):
     if w_self.w_dict is not None:
@@ -6996,6 +7704,12 @@ def ExceptHandler_set_name(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 8
 
+def ExceptHandler_del_name(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ExceptHandler_get_name(space, w_self)
+    w_self.deldictvalue(space, 'name')
+    w_self.initialization_state &= ~8
+
 def ExceptHandler_get_body(space, w_self):
     if not w_self.initialization_state & 16:
         raise_attriberr(space, w_self, 'body')
@@ -7011,6 +7725,12 @@ def ExceptHandler_get_body(space, w_self):
 def ExceptHandler_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 16
+
+def ExceptHandler_del_body(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    ExceptHandler_get_body(space, w_self)
+    w_self.deldictvalue(space, 'body')
+    w_self.initialization_state &= ~16
 
 _ExceptHandler_field_unroller = unrolling_iterable(['type', 'name', 'body'])
 def ExceptHandler_init(space, w_self, __args__):
@@ -7032,9 +7752,9 @@ ExceptHandler.typedef = typedef.TypeDef("ExceptHandler",
     excepthandler.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['type', 'name', 'body']),
-    type=typedef.GetSetProperty(ExceptHandler_get_type, ExceptHandler_set_type, cls=ExceptHandler),
-    name=typedef.GetSetProperty(ExceptHandler_get_name, ExceptHandler_set_name, cls=ExceptHandler),
-    body=typedef.GetSetProperty(ExceptHandler_get_body, ExceptHandler_set_body, cls=ExceptHandler),
+    type=typedef.GetSetProperty(ExceptHandler_get_type, ExceptHandler_set_type, ExceptHandler_del_type, cls=ExceptHandler),
+    name=typedef.GetSetProperty(ExceptHandler_get_name, ExceptHandler_set_name, ExceptHandler_del_name, cls=ExceptHandler),
+    body=typedef.GetSetProperty(ExceptHandler_get_body, ExceptHandler_set_body, ExceptHandler_del_body, cls=ExceptHandler),
     __new__=interp2app(get_AST_new(ExceptHandler)),
     __init__=interp2app(ExceptHandler_init),
 )
@@ -7054,6 +7774,12 @@ def arguments_get_args(space, w_self):
 def arguments_set_args(space, w_self, w_new_value):
     w_self.w_args = w_new_value
     w_self.initialization_state |= 1
+
+def arguments_del_args(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_args(space, w_self)
+    w_self.deldictvalue(space, 'args')
+    w_self.initialization_state &= ~1
 
 def arguments_get_vararg(space, w_self):
     if w_self.w_dict is not None:
@@ -7081,6 +7807,12 @@ def arguments_set_vararg(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'vararg')
     w_self.initialization_state |= 2
 
+def arguments_del_vararg(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_vararg(space, w_self)
+    w_self.deldictvalue(space, 'vararg')
+    w_self.initialization_state &= ~2
+
 def arguments_get_varargannotation(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'varargannotation')
@@ -7104,6 +7836,12 @@ def arguments_set_varargannotation(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'varargannotation')
     w_self.initialization_state |= 4
 
+def arguments_del_varargannotation(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_varargannotation(space, w_self)
+    w_self.deldictvalue(space, 'varargannotation')
+    w_self.initialization_state &= ~4
+
 def arguments_get_kwonlyargs(space, w_self):
     if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'kwonlyargs')
@@ -7119,6 +7857,12 @@ def arguments_get_kwonlyargs(space, w_self):
 def arguments_set_kwonlyargs(space, w_self, w_new_value):
     w_self.w_kwonlyargs = w_new_value
     w_self.initialization_state |= 8
+
+def arguments_del_kwonlyargs(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_kwonlyargs(space, w_self)
+    w_self.deldictvalue(space, 'kwonlyargs')
+    w_self.initialization_state &= ~8
 
 def arguments_get_kwarg(space, w_self):
     if w_self.w_dict is not None:
@@ -7146,6 +7890,12 @@ def arguments_set_kwarg(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'kwarg')
     w_self.initialization_state |= 16
 
+def arguments_del_kwarg(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_kwarg(space, w_self)
+    w_self.deldictvalue(space, 'kwarg')
+    w_self.initialization_state &= ~16
+
 def arguments_get_kwargannotation(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwargannotation')
@@ -7169,6 +7919,12 @@ def arguments_set_kwargannotation(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'kwargannotation')
     w_self.initialization_state |= 32
 
+def arguments_del_kwargannotation(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_kwargannotation(space, w_self)
+    w_self.deldictvalue(space, 'kwargannotation')
+    w_self.initialization_state &= ~32
+
 def arguments_get_defaults(space, w_self):
     if not w_self.initialization_state & 64:
         raise_attriberr(space, w_self, 'defaults')
@@ -7185,6 +7941,12 @@ def arguments_set_defaults(space, w_self, w_new_value):
     w_self.w_defaults = w_new_value
     w_self.initialization_state |= 64
 
+def arguments_del_defaults(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_defaults(space, w_self)
+    w_self.deldictvalue(space, 'defaults')
+    w_self.initialization_state &= ~64
+
 def arguments_get_kw_defaults(space, w_self):
     if not w_self.initialization_state & 128:
         raise_attriberr(space, w_self, 'kw_defaults')
@@ -7200,6 +7962,12 @@ def arguments_get_kw_defaults(space, w_self):
 def arguments_set_kw_defaults(space, w_self, w_new_value):
     w_self.w_kw_defaults = w_new_value
     w_self.initialization_state |= 128
+
+def arguments_del_kw_defaults(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arguments_get_kw_defaults(space, w_self)
+    w_self.deldictvalue(space, 'kw_defaults')
+    w_self.initialization_state &= ~128
 
 _arguments_field_unroller = unrolling_iterable(['args', 'vararg', 'varargannotation', 'kwonlyargs', 'kwarg', 'kwargannotation', 'defaults', 'kw_defaults'])
 def arguments_init(space, w_self, __args__):
@@ -7224,14 +7992,14 @@ arguments.typedef = typedef.TypeDef("arguments",
     AST.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['args', 'vararg', 'varargannotation', 'kwonlyargs', 'kwarg', 'kwargannotation', 'defaults', 'kw_defaults']),
-    args=typedef.GetSetProperty(arguments_get_args, arguments_set_args, cls=arguments),
-    vararg=typedef.GetSetProperty(arguments_get_vararg, arguments_set_vararg, cls=arguments),
-    varargannotation=typedef.GetSetProperty(arguments_get_varargannotation, arguments_set_varargannotation, cls=arguments),
-    kwonlyargs=typedef.GetSetProperty(arguments_get_kwonlyargs, arguments_set_kwonlyargs, cls=arguments),
-    kwarg=typedef.GetSetProperty(arguments_get_kwarg, arguments_set_kwarg, cls=arguments),
-    kwargannotation=typedef.GetSetProperty(arguments_get_kwargannotation, arguments_set_kwargannotation, cls=arguments),
-    defaults=typedef.GetSetProperty(arguments_get_defaults, arguments_set_defaults, cls=arguments),
-    kw_defaults=typedef.GetSetProperty(arguments_get_kw_defaults, arguments_set_kw_defaults, cls=arguments),
+    args=typedef.GetSetProperty(arguments_get_args, arguments_set_args, arguments_del_args, cls=arguments),
+    vararg=typedef.GetSetProperty(arguments_get_vararg, arguments_set_vararg, arguments_del_vararg, cls=arguments),
+    varargannotation=typedef.GetSetProperty(arguments_get_varargannotation, arguments_set_varargannotation, arguments_del_varargannotation, cls=arguments),
+    kwonlyargs=typedef.GetSetProperty(arguments_get_kwonlyargs, arguments_set_kwonlyargs, arguments_del_kwonlyargs, cls=arguments),
+    kwarg=typedef.GetSetProperty(arguments_get_kwarg, arguments_set_kwarg, arguments_del_kwarg, cls=arguments),
+    kwargannotation=typedef.GetSetProperty(arguments_get_kwargannotation, arguments_set_kwargannotation, arguments_del_kwargannotation, cls=arguments),
+    defaults=typedef.GetSetProperty(arguments_get_defaults, arguments_set_defaults, arguments_del_defaults, cls=arguments),
+    kw_defaults=typedef.GetSetProperty(arguments_get_kw_defaults, arguments_set_kw_defaults, arguments_del_kw_defaults, cls=arguments),
     __new__=interp2app(get_AST_new(arguments)),
     __init__=interp2app(arguments_init),
 )
@@ -7259,6 +8027,12 @@ def arg_set_arg(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'arg')
     w_self.initialization_state |= 1
 
+def arg_del_arg(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arg_get_arg(space, w_self)
+    w_self.deldictvalue(space, 'arg')
+    w_self.initialization_state &= ~1
+
 def arg_get_annotation(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'annotation')
@@ -7282,6 +8056,12 @@ def arg_set_annotation(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'annotation')
     w_self.initialization_state |= 2
 
+def arg_del_annotation(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    arg_get_annotation(space, w_self)
+    w_self.deldictvalue(space, 'annotation')
+    w_self.initialization_state &= ~2
+
 _arg_field_unroller = unrolling_iterable(['arg', 'annotation'])
 def arg_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(arg, w_self)
@@ -7301,8 +8081,8 @@ arg.typedef = typedef.TypeDef("arg",
     AST.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['arg', 'annotation']),
-    arg=typedef.GetSetProperty(arg_get_arg, arg_set_arg, cls=arg),
-    annotation=typedef.GetSetProperty(arg_get_annotation, arg_set_annotation, cls=arg),
+    arg=typedef.GetSetProperty(arg_get_arg, arg_set_arg, arg_del_arg, cls=arg),
+    annotation=typedef.GetSetProperty(arg_get_annotation, arg_set_annotation, arg_del_annotation, cls=arg),
     __new__=interp2app(get_AST_new(arg)),
     __init__=interp2app(arg_init),
 )
@@ -7330,6 +8110,12 @@ def keyword_set_arg(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'arg')
     w_self.initialization_state |= 1
 
+def keyword_del_arg(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    keyword_get_arg(space, w_self)
+    w_self.deldictvalue(space, 'arg')
+    w_self.initialization_state &= ~1
+
 def keyword_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
@@ -7353,6 +8139,12 @@ def keyword_set_value(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 2
 
+def keyword_del_value(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    keyword_get_value(space, w_self)
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state &= ~2
+
 _keyword_field_unroller = unrolling_iterable(['arg', 'value'])
 def keyword_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(keyword, w_self)
@@ -7372,8 +8164,8 @@ keyword.typedef = typedef.TypeDef("keyword",
     AST.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['arg', 'value']),
-    arg=typedef.GetSetProperty(keyword_get_arg, keyword_set_arg, cls=keyword),
-    value=typedef.GetSetProperty(keyword_get_value, keyword_set_value, cls=keyword),
+    arg=typedef.GetSetProperty(keyword_get_arg, keyword_set_arg, keyword_del_arg, cls=keyword),
+    value=typedef.GetSetProperty(keyword_get_value, keyword_set_value, keyword_del_value, cls=keyword),
     __new__=interp2app(get_AST_new(keyword)),
     __init__=interp2app(keyword_init),
 )
@@ -7401,6 +8193,12 @@ def alias_set_name(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 1
 
+def alias_del_name(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    alias_get_name(space, w_self)
+    w_self.deldictvalue(space, 'name')
+    w_self.initialization_state &= ~1
+
 def alias_get_asname(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'asname')
@@ -7427,6 +8225,12 @@ def alias_set_asname(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'asname')
     w_self.initialization_state |= 2
 
+def alias_del_asname(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    alias_get_asname(space, w_self)
+    w_self.deldictvalue(space, 'asname')
+    w_self.initialization_state &= ~2
+
 _alias_field_unroller = unrolling_iterable(['name', 'asname'])
 def alias_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(alias, w_self)
@@ -7446,8 +8250,8 @@ alias.typedef = typedef.TypeDef("alias",
     AST.typedef,
     __module__='_ast',
     _fields=_FieldsWrapper(['name', 'asname']),
-    name=typedef.GetSetProperty(alias_get_name, alias_set_name, cls=alias),
-    asname=typedef.GetSetProperty(alias_get_asname, alias_set_asname, cls=alias),
+    name=typedef.GetSetProperty(alias_get_name, alias_set_name, alias_del_name, cls=alias),
+    asname=typedef.GetSetProperty(alias_get_asname, alias_set_asname, alias_del_asname, cls=alias),
     __new__=interp2app(get_AST_new(alias)),
     __init__=interp2app(alias_init),
 )

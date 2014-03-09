@@ -522,8 +522,8 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
-        s.send(memoryview(b''))
-        s.sendall(memoryview(b''))
+        assert s.send(memoryview(b'')) == 0
+        assert s.sendall(memoryview(b'')) is None
         raises(TypeError, s.send, '')
         raises(TypeError, s.sendall, '')
         s.close()
@@ -591,7 +591,7 @@ class AppTestSocketTCP:
         cls.space = space
 
     HOST = 'localhost'
-        
+
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
         self.w_serv = space.appexec([w_HOST],
@@ -639,8 +639,8 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == b'!'
         # test that sendall() works
-        cli.sendall(b'?')
-        assert count == 1
+        count = cli.sendall(b'?')
+        assert count is None
         buf = t.recv(1)
         assert buf == b'?'
         # test send() timeout
@@ -650,7 +650,7 @@ class AppTestSocketTCP:
                 count += cli.send(b'foobar' * 70)
         except timeout:
             pass
-        t.recv(count)    
+        t.recv(count)
         # test sendall() timeout
         try:
             while 1:

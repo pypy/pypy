@@ -2,6 +2,7 @@
 Interp-level definition of frequently used functionals.
 
 """
+import sys
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt

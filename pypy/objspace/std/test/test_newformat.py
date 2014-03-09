@@ -171,9 +171,23 @@ class BaseStringFormatTests:
         raises(ValueError, '{0!r'.format, 5)
         raises(ValueError, '{0!rs}'.format, 5)
 
+    def test_format_huge_precision(self):
+        import sys
+        format_string = self.s(".{}f").format(sys.maxsize + 1)
+        raises(ValueError, "format(2.34, format_string)")
+
+    def test_format_huge_width(self):
+        import sys
+        format_string = self.s("{}f").format(sys.maxsize + 1)
+        raises(ValueError, "format(2.34, format_string)")
+
+    def test_format_huge_item_number(self):
+        import sys
+        format_string = self.s("{{{}:.6f}}").format(sys.maxsize + 1)
+        raises(ValueError, "format(2.34, format_string)")
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
-
     def setup_class(cls):
         cls.w_s = cls.space.appexec(
             [], """(): return str""")
@@ -191,9 +205,7 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
         raises(KeyError, self.s("{\u1000}").format)
 
 
-
 class AppTestBoolFormat:
-
     def test_str_format(self):
         assert format(False) == "False"
         assert format(True) == "True"
@@ -208,9 +220,7 @@ class AppTestBoolFormat:
         assert "{:g}".format(True) == "1"
 
 
-
 class BaseIntegralFormattingTest:
-
     def test_simple(self):
         assert format(self.i(2)) == "2"
         assert isinstance(format(self.i(2), ""), str)
@@ -283,7 +293,6 @@ class BaseIntegralFormattingTest:
 
 
 class AppTestIntFormatting(BaseIntegralFormattingTest):
-
     def setup_class(cls):
         cls.w_i = cls.space.appexec(
             [], """(): return int""")

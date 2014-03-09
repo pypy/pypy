@@ -1,5 +1,4 @@
 import sys
-
 import py
 
 from pypy.interpreter.error import OperationError
@@ -213,11 +212,28 @@ class _AppTestSelect:
             readend.close()
             writeend.close()
 
+    def test_poll_arguments(self):
+        import select
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
+        pollster = select.poll()
+        pollster.register(1)
+        exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
+        assert exc.value[0] == 'signed short integer is greater than maximum'
+        exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
+        assert exc.value[0] == 'signed short integer is less than minimum'
+        raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
+        raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
+        raises(OverflowError, pollster.poll, -2147483648 - 1)
+        raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
+        exc = raises(TypeError, pollster.poll, '123')
+        assert exc.value[0] == 'timeout must be an integer or None'
+
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
     spaceconfig = {
-        "usemodules": ["select", "rctime"]
+        "usemodules": ["select", "rctime", "thread"]
     }
 
     def setup_class(cls):
@@ -240,6 +256,38 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 return os.close(self.fd)
         s1, s2 = os.pipe()
         return FileAsSocket(s1), FileAsSocket(s2)
+
+    def test_poll_threaded(self):
+        import os, select, thread, time
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
+        r, w = os.pipe()
+        rfds = [os.dup(r) for _ in range(10)]
+        try:
+            pollster = select.poll()
+            for fd in rfds:
+                pollster.register(fd, select.POLLIN)
+
+            t = thread.start_new_thread(pollster.poll, ())
+            try:
+                time.sleep(0.1)
+                for i in range(5): print '',  # to release GIL untranslated
+                # trigger ufds array reallocation
+                for fd in rfds:
+                    pollster.unregister(fd)
+                pollster.register(w, select.POLLOUT)
+                exc = raises(RuntimeError, pollster.poll)
+                assert exc.value[0] == 'concurrent poll() invocation'
+            finally:
+                # and make the call to poll() from the thread return
+                os.write(w, b'spam')
+                time.sleep(0.1)
+                for i in range(5): print '',  # to release GIL untranslated
+        finally:
+            os.close(r)
+            os.close(w)
+            for fd in rfds:
+                os.close(fd)
 
 
 class AppTestSelectWithSockets(_AppTestSelect):

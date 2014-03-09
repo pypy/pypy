@@ -63,8 +63,10 @@ class AppTestPyFrame:
 
         def function():
             xyz
+            with open(self.tempfile1, 'w') as f:
+                pass
             return 3
-        
+
         import sys
         sys.settrace(tracer)
         function()
@@ -240,7 +242,7 @@ class AppTestPyFrame:
     def test_trace_ignore_hidden(self):
         import sys
         import _testing
-            
+
         l = []
         def trace(a,b,c):
             l.append((a,b,c))
@@ -290,7 +292,7 @@ class AppTestPyFrame:
             return trace
 
         def g():
-            raise Exception            
+            raise Exception
         def f():
             try:
                 g()
@@ -350,7 +352,6 @@ class AppTestPyFrame:
         assert len(l) == 2
         assert issubclass(l[0][0], Exception)
         assert issubclass(l[1][0], Exception)
-        
 
     def test_trace_generator_finalisation(self):
         '''
