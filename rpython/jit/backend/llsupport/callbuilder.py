@@ -1,5 +1,5 @@
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
-from rpython.rlib import objectmodel
+from rpython.rlib import rthread
 
 
 class AbstractCallBuilder(object):
@@ -45,7 +45,7 @@ class AbstractCallBuilder(object):
         """Emit a CALL_RELEASE_GIL, including calls to releasegil_addr
         and reacqgil_addr."""
         is_asmgcc = self.asm._is_asmgcc()
-        fastgil = objectmodel.prepare_enter_callback_from_jit(is_asmgcc)
+        fastgil = rthread.get_fastgil_addr_raw(is_asmgcc)
         self.select_call_release_gil_mode()
         self.prepare_arguments()
         self.push_gcmap_for_call_release_gil()

@@ -280,9 +280,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     source = py.code.Source(r"""
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             if aroundstate is not None:
-                after = aroundstate.after
-                if after:
-                    after()
+                aroundstate.enter_callback()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -298,12 +296,10 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
                 result = errorcode
             stackcounter.stacks_counter -= 1
             if aroundstate is not None:
-                before = aroundstate.before
-                if before:
-                    before()
+                aroundstate.leave_callback()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
-            # after the call to before().
+            # after the call to leave_calback().
             return result
     """ % locals())
     miniglobals = locals().copy()
@@ -315,12 +311,23 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
+def enter_callback_without_gil():
+    if we_are_translated():
+        from rpython.rlib import rthread
+        rthread.gil_enter_callback_without_gil()
+
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 class AroundState:
     def _cleanup_(self):
         self.before = None        # or a regular RPython function
         self.after = None         # or a regular RPython function
+        self.enter_callback = enter_callback_without_gil
+    def leave_callback():
+        before = aroundstate.before   # for now, it's the same
+        if before: before()
+    leave_callback._always_inline_ = True
+    leave_callback = staticmethod(leave_callback)
 aroundstate = AroundState()
 aroundstate._cleanup_()
 

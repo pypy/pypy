@@ -18,6 +18,11 @@ eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
     separate_module_files = [translator_c_dir / 'src' / 'thread.c'],
     include_dirs = [translator_c_dir],
+    post_include_bits = ['''
+#ifndef RPY_FASTGIL
+#  define RPyEnterCallbackWithoutGil()  /* nothing */
+#endif
+'''],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
                       'RPyThreadReleaseLock', 'RPyGilAllocate',

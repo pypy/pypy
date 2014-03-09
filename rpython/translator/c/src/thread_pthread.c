@@ -724,7 +724,7 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
         }
     }
 }
-#endif
+#endif  /* RPY_FASTGIL */
 
 void RPyGilAcquire(void)
 {

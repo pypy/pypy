@@ -583,24 +583,16 @@ def invoke_around_extcall(before, after):
     from rpython.rtyper.lltypesystem import rffi
     rffi.aroundstate.before = before
     rffi.aroundstate.after = after
+    # For now, 'aroundstate.enter_callback' does something for the non-GIL
+    # case that is also done by the full 'after' callback.  So we can simply
+    # replace it with 'after' when we get one.
+    if after is not None:
+        rffi.aroundstate.enter_callback = after
     # the 'aroundstate' contains regular function and not ll pointers to them,
     # but let's call llhelper() anyway to force their annotation
     from rpython.rtyper.annlowlevel import llhelper
     llhelper(rffi.AroundFnPtr, before)
     llhelper(rffi.AroundFnPtr, after)
-
-def _enter_callback_from_jit():
-    from rpython.rlib import rthread
-    rthread.gil_enter_callback_without_gil()    # no need for errno saving
-
-def prepare_enter_callback_from_jit(is_asmgcc):
-    from rpython.rlib import rthread
-    from rpython.rtyper.lltypesystem import rffi
-    if rffi.aroundstate.after is None:
-        rffi.aroundstate.after = _enter_callback_from_jit
-        from rpython.rtyper.annlowlevel import llhelper
-        llhelper(rffi.AroundFnPtr, _enter_callback_from_jit)
-    return rthread.get_fastgil_addr_raw(is_asmgcc)
 
 def is_in_callback():
     from rpython.rtyper.lltypesystem import rffi
