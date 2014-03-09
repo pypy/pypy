@@ -87,6 +87,23 @@ gil_release      = llexternal('RPyGilRelease', [], lltype.Void,
                               _nowrapper=True)
 gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
                               _nowrapper=True)
+gil_enter_callback_without_gil = (
+                   llexternal('RPyEnterCallbackWithoutGil', [], lltype.Void,
+                              _nowrapper=True))
+
+@specialize.memo()
+def _fetch_fastgil(rpy_fastgil_value):
+    eci = ExternalCompilationInfo(
+        pre_include_bits = ['#define RPY_FASTGIL %d' % rpy_fastgil_value])
+    return rffi.llexternal('RPyFetchFastGil', [], lltype.Signed,
+                           compilation_info=eci, sandboxsafe=True)
+
+def get_fastgil_addr_raw(is_asmgcc):
+    if is_asmgcc:   # must be constant!
+        return _fetch_fastgil(42)
+    else:
+        return _fetch_fastgil(1)
+
 
 def allocate_lock():
     return Lock(allocate_ll_lock())

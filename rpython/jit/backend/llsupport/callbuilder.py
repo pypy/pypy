@@ -1,4 +1,6 @@
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
+from rpython.rlib import objectmodel
+
 
 class AbstractCallBuilder(object):
 
@@ -42,20 +44,22 @@ class AbstractCallBuilder(object):
     def emit_call_release_gil(self):
         """Emit a CALL_RELEASE_GIL, including calls to releasegil_addr
         and reacqgil_addr."""
+        asmgcc = self.asm._is_asmgcc()
+        fastgil = objectmodel.prepare_enter_callback_from_jit(is_asmgcc)
         self.select_call_release_gil_mode()
         self.prepare_arguments()
         self.push_gcmap_for_call_release_gil()
-        self.call_releasegil_addr_and_move_real_arguments()
+        self.call_releasegil_addr_and_move_real_arguments(fastgil)
         self.emit_raw_call()
         self.restore_stack_pointer()
-        self.move_real_result_and_call_reacqgil_addr()
+        self.move_real_result_and_call_reacqgil_addr(fastgil)
         self.pop_gcmap()
         self.load_result()
 
-    def call_releasegil_addr_and_move_real_arguments(self):
+    def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         raise NotImplementedError
 
-    def move_real_result_and_call_reacqgil_addr(self):
+    def move_real_result_and_call_reacqgil_addr(self, fastgil):
         raise NotImplementedError
 
     def select_call_release_gil_mode(self):

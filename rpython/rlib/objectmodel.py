@@ -589,6 +589,19 @@ def invoke_around_extcall(before, after):
     llhelper(rffi.AroundFnPtr, before)
     llhelper(rffi.AroundFnPtr, after)
 
+def _enter_callback_from_jit():
+    from rpython.rlib import rthread
+    rthread.gil_enter_callback_without_gil()    # no need for errno saving
+
+def prepare_enter_callback_from_jit(is_asmgcc):
+    from rpython.rlib import rthread
+    from rpython.rtyper.lltypesystem import rffi
+    if rffi.aroundstate.after is None:
+        rffi.aroundstate.after = _enter_callback_from_jit
+        from rpython.rtyper.annlowlevel import llhelper
+        llhelper(rffi.AroundFnPtr, _enter_callback_from_jit)
+    return rthread.get_fastgil_addr_raw(is_asmgcc)
+
 def is_in_callback():
     from rpython.rtyper.lltypesystem import rffi
     return rffi.stackcounter.stacks_counter > 1

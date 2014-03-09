@@ -306,28 +306,28 @@ class BaseAssembler(object):
 
     @staticmethod
     @rgc.no_collect
-    def _release_gil_asmgcc(css):
-        # similar to trackgcroot.py:pypy_asm_stackwalk, first part
-        from rpython.memory.gctransform import asmgcroot
-        new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
-        next = asmgcroot.gcrootanchor.next
-        new.next = next
-        new.prev = asmgcroot.gcrootanchor
-        asmgcroot.gcrootanchor.next = new
-        next.prev = new
-        # and now release the GIL
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    @rgc.no_collect
-    def _reacquire_gil_asmgcc(css):
-        # first reacquire the GIL
-        after = rffi.aroundstate.after
-        if after:
-            after()
-        # similar to trackgcroot.py:pypy_asm_stackwalk, second part
+    def _reacquire_gil_asmgcc(css, old_rpy_fastgil):
+        # Only called if rpy_fastgil was reset to a different value
+        # by another thread or by a callback.  See description in
+        # transator/c/src/thread_pthread.c.
+        if not old_rpy_fastgil:
+            # first reacquire the GIL
+            after = rffi.aroundstate.after
+            if after:
+                after()
+        else:
+            # stole the GIL from a different thread that is also
+            # currently in an external call from the jit.  Attach
+            # the 'old_rpy_fastgil' into the chained list.
+            from rpython.memory.gctransform import asmgcroot
+            oth = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, old_rpy_fastgil)
+            next = asmgcroot.gcrootanchor.next
+            oth.next = next
+            oth.prev = asmgcroot.gcrootanchor
+            asmgcroot.gcrootanchor.next = oth
+            next.prev = oth
+        # similar to trackgcroot.py:pypy_asm_stackwalk, second part:
+        # detach the 'css' from the chained list
         from rpython.memory.gctransform import asmgcroot
         old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
         prev = old.prev
@@ -337,42 +337,29 @@ class BaseAssembler(object):
 
     @staticmethod
     @rgc.no_collect
-    def _release_gil_shadowstack():
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    @rgc.no_collect
     def _reacquire_gil_shadowstack():
+        # Simplified version of _reacquire_gil_asmgcc(): in shadowstack mode,
+        # rpy_fastgil contains only 0 or 1, and this must only be called when
+        # the old value stored in rpy_fastgil was 0.
         after = rffi.aroundstate.after
         if after:
             after()
 
-    @staticmethod
-    def _no_op():
-        pass
-
-    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
-                                                  lltype.Void))
+    _REACQGIL0_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    _REACQGIL2_FUNC = lltype.Ptr(lltype.FuncType([rffi.CCHARP, rffi.CCHARP],
+                                                 lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
         if gcrootmap is None:
-            releasegil_func = llhelper(self._NOARG_FUNC, self._no_op)
-            reacqgil_func = llhelper(self._NOARG_FUNC, self._no_op)
+            pass
         elif gcrootmap.is_shadow_stack:
-            releasegil_func = llhelper(self._NOARG_FUNC,
-                                       self._release_gil_shadowstack)
-            reacqgil_func = llhelper(self._NOARG_FUNC,
+            reacqgil_func = llhelper(self._REACQGIL0_FUNC,
                                      self._reacquire_gil_shadowstack)
+            self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
         else:
-            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
-                                       self._release_gil_asmgcc)
-            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
+            reacqgil_func = llhelper(self._REACQGIL2_FUNC,
                                      self._reacquire_gil_asmgcc)
-        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
-        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
+            self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
     def _is_asmgcc(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap

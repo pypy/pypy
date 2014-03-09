@@ -558,7 +558,7 @@ class AbstractX86CodeBuilder(object):
     # XXX: Only here for testing purposes..."as" happens the encode the
     # registers in the opposite order that we would otherwise do in a
     # register-register exchange.
-    #XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
+    XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
 
     JMP_l = insn('\xE9', relative(1))
     JMP_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
@@ -743,7 +743,7 @@ define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],
 
 define_modrm_modes('SQRTSD_x*', ['\xF2', rex_nw, '\x0F\x51', register(1,8)], regtype='XMM')
 
-#define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
+define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
 
 define_modrm_modes('ADDSD_x*', ['\xF2', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
 define_modrm_modes('ADDPD_x*', ['\x66', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')

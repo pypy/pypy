@@ -552,6 +552,14 @@ long RPyGilYieldThread(void)
     if (pending_acquires >= 0)
         assert_has_the_gil();
 #endif
+    /* Note that 'pending_acquires' is only manipulated when we hold the
+       GIL, with one exception: RPyGilAcquire() increases it by one
+       before it waits for the GIL mutex.  Thus the only race condition
+       here should be harmless: the other thread already increased
+       'pending_acquires' but is still not in the pthread_mutex_lock().
+       That's fine.  Note that we release the mutex in the
+       pthread_cond_wait() below.
+    */
     if (pending_acquires <= 0)
         return 0;
     atomic_add(&pending_acquires, 1L);
@@ -575,22 +583,67 @@ void RPyGilRelease(void)
     ASSERT_STATUS(pthread_cond_signal(&cond_gil));
 }
 
-#ifdef RPY_FASTGIL_VARNAME
+#ifdef RPY_FASTGIL
 #include <time.h>
+
+static void *rpy_fastgil = NULL;
+
+Signed RPyFetchFastGil(void)
+{
+    return (Signed)(&rpy_fastgil);
+}
 
 static inline void *atomic_xchg(void **ptr, void *value)
 {
     void *result;
-    asm volatile (
 #if defined(__amd64__)
-                  "xchgq %0, %1  /* automatically locked */"
-#elif defined(__i386__)
-                  "xchgl %0, %1  /* automatically locked */"
-#else
-#  error "RPY_FASTGIL_VARNAME: only for x86 right now"
-#endif
+    asm volatile ("xchgq %0, %1  /* automatically locked */"
                   : "r"(result) : "0"(value), "m"(*ptr) : "memory");
+#elif defined(__i386__)
+    asm volatile ("xchgl %0, %1  /* automatically locked */"
+                  : "r"(result) : "0"(value), "m"(*ptr) : "memory");
+#else
+    /* requires gcc >= 4.1 */
+    while (1) {
+        result = *ptr;
+        if (__sync_bool_compare_and_swap(ptr, result, value))
+            break;
+    }
+#endif
     return result;
+}
+
+int RPyEnterCallbackWithoutGil(void)
+{
+    /* this function must be used when entering callbacks as long as
+       we don't have a real GIL.  It only checks for a non-null value
+       in 'rpy_fastgil'.
+
+       Note: doesn't use any pthread_xx function, so is errno-safe.
+    */
+    void *fastgilvalue;
+    fastgilvalue = atomic_xchg(&rpy_fastgil, NULL);
+    if (fastgilvalue != NULL) {
+        /* yes, succeeded.  We know that the other thread is before
+           the return to JITted assembler from the C function call.
+           The JITted assembler will definitely call RPyGilAcquire()
+           then.  So we can just pretend that the GIL --- which is
+           still acquired --- is ours now.  We only need to fix
+           the asmgcc linked list.
+        */
+#if RPY_FASTGIL == 42    /* special value to mean "asmgcc" */
+        struct pypy_ASM_FRAMEDATA_HEAD0 *new =
+            (struct pypy_ASM_FRAMEDATA_HEAD0 *)fastgilvalue;
+        struct pypy_ASM_FRAMEDATA_HEAD0 *root = &pypy_g_ASM_FRAMEDATA_HEAD;
+        struct pypy_ASM_FRAMEDATA_HEAD0 *next = root->as_next;
+        new->as_next = next;
+        new->as_prev = root;
+        root->as_next = new;
+        next->as_prev = new;
+#endif
+        return 1;
+    }
+    return 0;
 }
 
 static inline timespec_add(struct timespec *t, long incr)
@@ -609,8 +662,7 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
     /* Support for the JIT, which generates calls to external C
        functions using the following very fast pattern:
 
-       * the global variable 'RPY_FASTGIL_VARNAME' (a macro naming the
-         real variable) contains normally 0
+       * the global variable 'rpy_fastgil' contains normally 0
 
        * before doing an external C call, the generated assembler sets
          this global variable to an in-stack pointer to its
@@ -651,26 +703,8 @@ static inline void _acquire_gil_or_wait_for_fastgil_to_be_nonzero(void)
     while (1) {
 
         /* try to see if we can steal the fast GIL */
-        void *fastgilvalue;
-        fastgilvalue = atomic_xchg(&RPY_FASTGIL_VARNAME, NULL);
-        if (fastgilvalue != NULL) {
-            /* yes, succeeded.  We know that the other thread is before
-               the return to JITted assembler from the C function call.
-               The JITted assembler will definitely call RPyGilAcquire()
-               then.  So we can just pretend that the GIL --- which is
-               still acquired --- is ours now.  We only need to fix
-               the asmgcc linked list.
-            */
-            struct pypy_ASM_FRAMEDATA_HEAD0 *new =
-                (struct pypy_ASM_FRAMEDATA_HEAD0 *)fastgilvalue;
-            struct pypy_ASM_FRAMEDATA_HEAD0 *root = &pypy_g_ASM_FRAMEDATA_HEAD;
-            struct pypy_ASM_FRAMEDATA_HEAD0 *next = root->as_next;
-            new->as_next = next;
-            new->as_prev = root;
-            root->as_next = new;
-            next->as_prev = new;
+        if (RPyEnterCallbackWithoutGil())
             return;
-        }
 
         /* sleep for a bit of time */
         clock_gettime(CLOCK_REALTIME, &t);
@@ -704,7 +738,7 @@ void RPyGilAcquire(void)
         return;
     }
     atomic_add(&pending_acquires, 1L);
-#ifdef RPY_FASTGIL_VARNAME
+#ifdef RPY_FASTGIL
     _acquire_gil_or_wait_for_fastgil_to_be_nonzero();
 #else
     ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
@@ -713,6 +747,3 @@ void RPyGilAcquire(void)
     assert_has_the_gil();
     _debug_print("RPyGilAcquire\n");
 }
-
-XXX even without a gil, we need to check at least for a RPY_FASTGIL_VARNAME
-that is not null, in callbacks
