@@ -598,10 +598,10 @@ static inline void *atomic_xchg(void **ptr, void *value)
     void *result;
 #if defined(__amd64__)
     asm volatile ("xchgq %0, %1  /* automatically locked */"
-                  : "r"(result) : "0"(value), "m"(*ptr) : "memory");
+                  : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
 #elif defined(__i386__)
     asm volatile ("xchgl %0, %1  /* automatically locked */"
-                  : "r"(result) : "0"(value), "m"(*ptr) : "memory");
+                  : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
 #else
     /* requires gcc >= 4.1 */
     while (1) {
@@ -646,7 +646,7 @@ int RPyEnterCallbackWithoutGil(void)
     return 0;
 }
 
-static inline timespec_add(struct timespec *t, long incr)
+static inline void timespec_add(struct timespec *t, long incr)
 {
     long nsec = t->tv_nsec + incr;
     if (nsec >= 1000000000) {
