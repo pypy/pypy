@@ -243,3 +243,8 @@ void RPyGilAcquire(void)
     EnterCriticalSection(&mutex_gil);
     InterlockedDecrement(&pending_acquires);
 }
+
+#ifdef RPY_FASTGIL
+# error "XXX implement me"
+InterlockedExchangePointer
+#endif
