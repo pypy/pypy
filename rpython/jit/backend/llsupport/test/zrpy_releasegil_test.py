@@ -27,7 +27,7 @@ class ReleaseGILTests(BaseFrameworkTests):
             glob.event += 1
 
         def before(n, x):
-            invoke_around_extcall(func, func)
+            invoke_around_extcall(func, None)
             return (n, None, None, None, None, None,
                     None, None, None, None, None, None)
         #

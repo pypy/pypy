@@ -591,8 +591,10 @@ def invoke_around_extcall(before, after):
     # the 'aroundstate' contains regular function and not ll pointers to them,
     # but let's call llhelper() anyway to force their annotation
     from rpython.rtyper.annlowlevel import llhelper
-    llhelper(rffi.AroundFnPtr, before)
-    llhelper(rffi.AroundFnPtr, after)
+    if before is not None:
+        llhelper(rffi.AroundFnPtr, before)
+    if after is not None:
+        llhelper(rffi.AroundFnPtr, after)
 
 def is_in_callback():
     from rpython.rtyper.lltypesystem import rffi
