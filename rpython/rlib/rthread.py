@@ -99,7 +99,7 @@ gil_enter_callback_without_gil = (
 @specialize.memo()
 def _fetch_fastgil(rpy_fastgil_value):
     eci = ExternalCompilationInfo(
-        pre_include_bits = ['#define RPY_FASTGIL %d' % rpy_fastgil_value])
+        compile_extra = ['-DRPY_FASTGIL=%d' % rpy_fastgil_value])
     return rffi.llexternal('RPyFetchFastGil', [], lltype.Signed,
                            compilation_info=eci, sandboxsafe=True)
 
