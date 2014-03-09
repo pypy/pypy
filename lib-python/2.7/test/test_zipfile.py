@@ -421,7 +421,7 @@ class TestsWithSourceFile(unittest.TestCase):
             zipfp.extractall()
             for fpath, fdata in SMALL_TEST_DATA:
                 outfile = os.path.join(os.getcwd(), fpath)
-                
+
                 with open(outfile, "rb") as fid:
                     self.assertEqual(fdata, fid.read())
                 os.remove(outfile)
@@ -596,8 +596,6 @@ class TestsWithSourceFile(unittest.TestCase):
     def tearDown(self):
         unlink(TESTFN)
         unlink(TESTFN2)
-        if os.path.exists(TESTFN):
-            os.remove(TESTFN)
 
 
 class TestZip64InSmallFiles(unittest.TestCase):
@@ -717,12 +715,6 @@ class TestZip64InSmallFiles(unittest.TestCase):
 
 
 class PyZipFileTests(unittest.TestCase):
-    def teardown(self):
-        if os.path.exists(TESTFN):
-            os.remove(TESTFN)
-        if os.path.exists(TESTFN2):
-            os.remove(TESTFN2)
-
     def test_write_pyfile(self):
         with zipfile.PyZipFile(TemporaryFile(), "w") as zipfp:
             fn = __file__
@@ -1168,8 +1160,6 @@ class OtherTests(unittest.TestCase):
     def tearDown(self):
         unlink(TESTFN)
         unlink(TESTFN2)
-        if os.path.exists(TESTFN):
-            os.remove(TESTFN)
 
 
 class DecryptionTests(unittest.TestCase):
@@ -1220,28 +1210,16 @@ class DecryptionTests(unittest.TestCase):
 
     def test_bad_password(self):
         self.zip.setpassword("perl")
-        try:
-            self.assertRaises(RuntimeError, self.zip.read, "test.txt")
-        finally:
-            self.zip.close()
+        self.assertRaises(RuntimeError, self.zip.read, "test.txt")
         self.zip2.setpassword("perl")
-        try:
-            self.assertRaises(RuntimeError, self.zip2.read, "zero")
-        finally:    
-            self.zip2.close()
+        self.assertRaises(RuntimeError, self.zip2.read, "zero")
 
     @skipUnless(zlib, "requires zlib")
     def test_good_password(self):
         self.zip.setpassword("python")
-        try:
-            self.assertEqual(self.zip.read("test.txt"), self.plain)
-        finally:
-            self.zip.close()
+        self.assertEqual(self.zip.read("test.txt"), self.plain)
         self.zip2.setpassword("12345")
-        try:
-            self.assertEqual(self.zip2.read("zero"), self.plain2)
-        finally:
-            self.zip2.close()
+        self.assertEqual(self.zip2.read("zero"), self.plain2)
 
 
 class TestsWithRandomBinaryFiles(unittest.TestCase):
@@ -1255,10 +1233,8 @@ class TestsWithRandomBinaryFiles(unittest.TestCase):
             fp.write(self.data)
 
     def tearDown(self):
-        if os.path.exists(TESTFN):
-            os.remove(TESTFN)
-        if os.path.exists(TESTFN2):
-            os.remove(TESTFN2)
+        unlink(TESTFN)
+        unlink(TESTFN2)
 
     def make_test_archive(self, f, compression):
         # Create the ZIP archive
@@ -1401,8 +1377,6 @@ class TestsWithMultipleOpens(unittest.TestCase):
                 zipf.read('ones')
                 with zipf.open('ones') as zopen1:
                     pass
-        for x in range(10):
-            self.assertLess(open('/dev/null').fileno(), 100)
 
     def tearDown(self):
         unlink(TESTFN2)
@@ -1433,7 +1407,7 @@ class TestWithDirectory(unittest.TestCase):
     def tearDown(self):
         rmtree(TESTFN2)
         if os.path.exists(TESTFN):
-            os.remove(TESTFN)
+            unlink(TESTFN)
 
 
 class UniversalNewlineTests(unittest.TestCase):
