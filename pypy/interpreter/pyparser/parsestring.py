@@ -74,7 +74,7 @@ def parsestr(space, encoding, s):
             v = unicodehelper.decode_utf8(space, substr)
             return space.wrap(v)
 
-    v = PyString_DecodeEscape(space, substr, 'strict', enc)
+    v = PyString_DecodeEscape(space, substr, 'strict', encoding)
     return space.wrapbytes(v)
 
 def hexbyte(val):
