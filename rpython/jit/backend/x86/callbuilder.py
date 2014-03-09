@@ -25,9 +25,6 @@ class CallBuilderX86(AbstractCallBuilder):
     # arguments, we need to decrease esp temporarily
     stack_max = PASS_ON_MY_FRAME
 
-    # set by save_result_value()
-    tmpresloc = None
-
     def __init__(self, assembler, fnloc, arglocs,
                  resloc=eax, restype=INT, ressize=WORD):
         AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
@@ -68,12 +65,10 @@ class CallBuilderX86(AbstractCallBuilder):
         if self.ressize == 0:
             return      # void result
         # use the code in load_from_mem to do the zero- or sign-extension
-        srcloc = self.tmpresloc
-        if srcloc is None:
-            if self.restype == FLOAT:
-                srcloc = xmm0
-            else:
-                srcloc = eax
+        if self.restype == FLOAT:
+            srcloc = xmm0
+        else:
+            srcloc = eax
         if self.ressize >= WORD and self.resloc is srcloc:
             return      # no need for any MOV
         if self.ressize == 1 and isinstance(srcloc, RegLoc):
@@ -139,19 +134,25 @@ class CallBuilderX86(AbstractCallBuilder):
         from rpython.jit.backend.x86.assembler import heap
         from rpython.jit.backend.x86 import rx86
         #
-        # save the result we just got (in eax/eax+edx/st(0)/xmm0)
-        self.save_result_value()
-        # call the reopenstack() function (also reacquiring the GIL)
+        # check if we need to call the reopenstack() function
+        # (to acquiring the GIL, remove the asmgcc head from
+        # the chained list, etc.)
         mc = self.mc
+        restore_edx = False
         if not self.asm._is_asmgcc():
+            css = 0
             css_value = imm(1)
-            old_value = edx
+            old_value = ecx
         else:
             from rpython.memory.gctransform import asmgcroot
             css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
             if IS_X86_32:
-                css_value = ecx
-                old_value = edx
+                assert css >= 16
+                if self.restype == 'L':    # long long result: eax/edx
+                    mc.MOV_sr(12, edx.value)
+                    restore_edx = True
+                css_value = edx
+                old_value = ecx
             elif IS_X86_64:
                 css_value = edi
                 old_value = esi
@@ -167,29 +168,39 @@ class CallBuilderX86(AbstractCallBuilder):
         mc.J_il8(rx86.Conditions['E'], 0)
         je_location = mc.get_relative_pos()
         #
+        # Yes, we need to call the reopenstack() function
+        self.save_result_value_reacq()
         if IS_X86_32:
             mc.MOV_sr(4, css_value.value)
             mc.MOV_sr(0, old_value.value)
         mc.CALL(imm(self.asm.reacqgil_addr))
+        self.restore_result_value_reacq()
         #
         # patch the JE above
         offset = mc.get_relative_pos() - je_location
         assert 0 < offset <= 127
         mc.overwrite(je_location-1, chr(offset))
         #
-        if not we_are_translated():        # for testing: now we can accesss
-            self.mc.SUB(ebp, imm(1))       # ebp again
+        if restore_edx:
+            mc.MOV_rs(edx.value, 12)   # restore this
+        #
+        if not we_are_translated():    # for testing: now we can accesss
+            mc.SUB(ebp, imm(1))        # ebp again
         #
         # Now that we required the GIL, we can reload a possibly modified ebp
         if self.asm._is_asmgcc():
             # special-case: reload ebp from the css
             from rpython.memory.gctransform import asmgcroot
             index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            self.mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
+            mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
         #else:
         #   for shadowstack, done for us by _reload_frame_if_necessary()
 
-    def save_result_value(self):
+    def save_result_value_reacq(self):
+        """Overridden in CallBuilder32 and CallBuilder64"""
+        raise NotImplementedError
+
+    def restore_result_value_reacq(self):
         """Overridden in CallBuilder32 and CallBuilder64"""
         raise NotImplementedError
 
@@ -242,51 +253,65 @@ class CallBuilder32(CallBuilderX86):
         resloc = self.resloc
         if resloc is not None and resloc.is_float():
             # a float or a long long return
-            if self.tmpresloc is None:
-                if self.restype == 'L':     # long long
-                    # move eax/edx -> xmm0
-                    self.mc.MOVD_xr(resloc.value^1, edx.value)
-                    self.mc.MOVD_xr(resloc.value,   eax.value)
-                    self.mc.PUNPCKLDQ_xx(resloc.value, resloc.value^1)
-                else:
-                    # float: we have to go via the stack
-                    self.mc.FSTPL_s(0)
-                    self.mc.MOVSD_xs(resloc.value, 0)
+            if self.restype == 'L':     # long long
+                # move eax/edx -> xmm0
+                self.mc.MOVD_xr(resloc.value^1, edx.value)
+                self.mc.MOVD_xr(resloc.value,   eax.value)
+                self.mc.PUNPCKLDQ_xx(resloc.value, resloc.value^1)
             else:
-                self.mc.MOVSD(resloc, self.tmpresloc)
+                # float: we have to go via the stack
+                self.mc.FSTPL_s(0)
+                self.mc.MOVSD_xs(resloc.value, 0)
             #
         elif self.restype == 'S':
             # singlefloat return: must convert ST(0) to a 32-bit singlefloat
             # and load it into self.resloc.  mess mess mess
-            if self.tmpresloc is None:
-                self.mc.FSTPS_s(0)
-                self.mc.MOV_rs(resloc.value, 0)
-            else:
-                self.mc.MOV(resloc, self.tmpresloc)
+            self.mc.FSTPS_s(0)
+            self.mc.MOV_rs(resloc.value, 0)
         else:
             CallBuilderX86.load_result(self)
 
-    def save_result_value(self):
+    def save_result_value_reacq(self):
         # Temporarily save the result value into [ESP+8].  We use "+8"
-        # in order to leave the two initial words free, in case it's needed
+        # in order to leave the two initial words free, in case it's needed.
+        # Also note that in this 32-bit case, a long long return value is
+        # in eax/edx, but we already saved the value of edx in
+        # move_real_result_and_call_reacqgil_addr().
         if self.ressize == 0:      # void return
             return
         if self.resloc.is_float():
             # a float or a long long return
-            self.tmpresloc = RawEspLoc(8, FLOAT)
             if self.restype == 'L':
                 self.mc.MOV_sr(8, eax.value)      # long long
-                self.mc.MOV_sr(12, edx.value)
+                #self.mc.MOV_sr(12, edx.value) -- already done
             else:
                 self.mc.FSTPL_s(8)                # float return
         else:
-            self.tmpresloc = RawEspLoc(8, INT)
             if self.restype == 'S':
                 self.mc.FSTPS_s(8)
             else:
                 assert self.restype == INT
                 assert self.ressize <= WORD
                 self.mc.MOV_sr(8, eax.value)
+
+    def restore_result_value_reacq(self):
+        # Opposite of save_result_value_reacq()
+        if self.ressize == 0:      # void return
+            return
+        if self.resloc.is_float():
+            # a float or a long long return
+            if self.restype == 'L':
+                self.mc.MOV_rs(eax.value, 8)      # long long
+                #self.mc.MOV_rs(edx.value, 12) -- will be done for us
+            else:
+                self.mc.FLDL_s(8)                 # float return
+        else:
+            if self.restype == 'S':
+                self.mc.FLDS_s(8)
+            else:
+                assert self.restype == INT
+                assert self.ressize <= WORD
+                self.mc.MOV_rs(eax.value, 8)
 
 
 class CallBuilder64(CallBuilderX86):
@@ -394,35 +419,45 @@ class CallBuilder64(CallBuilderX86):
         assert 0     # should not occur on 64-bit
 
     def load_result(self):
-        if self.restype == 'S' and self.tmpresloc is None:
+        if self.restype == 'S':
             # singlefloat return: use MOVD to load the target register
             # from the lower 32 bits of XMM0
             self.mc.MOVD(self.resloc, xmm0)
         else:
             CallBuilderX86.load_result(self)
 
-    def save_result_value(self):
+    def save_result_value_reacq(self):
         # Temporarily save the result value into [ESP].
         if self.ressize == 0:      # void return
             return
         #
         if self.restype == FLOAT:    # and not 'S'
             self.mc.MOVSD_sx(0, xmm0.value)
-            self.tmpresloc = RawEspLoc(0, FLOAT)
             return
-        #
-        if len(self.free_callee_save_gprs) == 0:
-            self.tmpresloc = RawEspLoc(0, INT)
-        else:
-            self.tmpresloc = self.free_callee_save_gprs[0]
         #
         if self.restype == 'S':
             # singlefloat return: use MOVD to store the lower 32 bits
-            # of XMM0 into the tmpresloc (register or [ESP])
-            self.mc.MOVD(self.tmpresloc, xmm0)
+            # of XMM0 into [ESP] (nb. this is actually MOVQ, so will
+            # store 64 bits instead of only 32, but that's fine)
+            self.mc.MOVD_sx(0, xmm0.value)
         else:
             assert self.restype == INT
-            self.mc.MOV(self.tmpresloc, eax)
+            self.mc.MOV_sr(0, eax.value)
+
+    def restore_result_value_reacq(self):
+        # Opposite of save_result_value_reacq()
+        if self.ressize == 0:      # void return
+            return
+        #
+        if self.restype == FLOAT:    # and not 'S'
+            self.mc.MOVSD_xs(xmm0.value, 0)
+            return
+        #
+        if self.restype == 'S':
+            self.mc.MOVD_xs(xmm0.value, 0)
+        else:
+            assert self.restype == INT
+            self.mc.MOV_rs(eax.value, 0)
 
 
 if IS_X86_32:

@@ -586,6 +586,8 @@ class AbstractX86CodeBuilder(object):
     FSTPL_b = insn('\xDD', orbyte(3<<3), stack_bp(1)) # rffi.DOUBLE ('as' wants L??)
     FSTPL_s = insn('\xDD', orbyte(3<<3), stack_sp(1)) # rffi.DOUBLE ('as' wants L??)
     FSTPS_s = insn('\xD9', orbyte(3<<3), stack_sp(1)) # lltype.SingleFloat
+    FLDL_s  = insn('\xDD', orbyte(0<<3), stack_sp(1))
+    FLDS_s  = insn('\xD9', orbyte(0<<3), stack_sp(1))
 
     # ------------------------------ Random mess -----------------------
     RDTSC = insn('\x0F\x31')
@@ -620,6 +622,8 @@ class AbstractX86CodeBuilder(object):
     MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
     MOVD_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVD_sx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), stack_sp(1))
+    MOVD_xs = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_sp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
 

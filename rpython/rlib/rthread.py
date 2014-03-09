@@ -105,9 +105,9 @@ def _fetch_fastgil(rpy_fastgil_value):
 
 def get_fastgil_addr_raw(is_asmgcc):
     if is_asmgcc:   # must be constant!
-        return _fetch_fastgil(42)
+        return _fetch_fastgil(42)()
     else:
-        return _fetch_fastgil(1)
+        return _fetch_fastgil(1)()
 
 
 def allocate_lock():
