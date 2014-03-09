@@ -588,9 +588,9 @@ void RPyGilRelease(void)
 
 static void *rpy_fastgil = NULL;
 
-Signed RPyFetchFastGil(void)
+long RPyFetchFastGil(void)
 {
-    return (Signed)(&rpy_fastgil);
+    return (long)(&rpy_fastgil);
 }
 
 static inline void *atomic_xchg(void **ptr, void *value)
