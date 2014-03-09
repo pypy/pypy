@@ -6,7 +6,14 @@ import cStringIO
 import pickletools
 import copy_reg
 
-from test.test_support import TestFailed, have_unicode, TESTFN, impl_detail
+from test.test_support import TestFailed, verbose, have_unicode, TESTFN, impl_detail
+try:
+    from test.test_support import _2G, _1M, precisionbigmemtest
+except ImportError:
+    # this import might fail when run on older Python versions by test_xpickle
+    _2G = _1M = 0
+    def precisionbigmemtest(*args, **kwargs):
+        return lambda self: None
 
 # Tests that try a number of pickle protocols should have a
 #     for proto in protocols:
@@ -502,10 +509,10 @@ class AbstractPickleTests(unittest.TestCase):
         i = C()
         i.attr = i
         for proto in protocols:
-            s = self.dumps(i, 2)
+            s = self.dumps(i, proto)
             x = self.loads(s)
             self.assertEqual(dir(x), dir(i))
-            self.assertTrue(x.attr is x)
+            self.assertIs(x.attr, x)
 
     def test_recursive_multi(self):
         l = []
@@ -531,6 +538,8 @@ class AbstractPickleTests(unittest.TestCase):
                     "'abc\"", # open quote and close quote don't match
                     "'abc'   ?", # junk after close quote
                     "'\\'", # trailing backslash
+                    "'",    # issue #17710
+                    "' ",   # issue #17710
                     # some tests of the quoting rules
                     #"'abc\"\''",
                     #"'\\\\a\'\'\'\\\'\\\\\''",
@@ -1282,3 +1291,31 @@ class AbstractPicklerUnpicklerObjectTests(unittest.TestCase):
         f.write(pickled2)
         f.seek(0)
         self.assertEqual(unpickler.load(), data2)
+
+class BigmemPickleTests(unittest.TestCase):
+
+    # Memory requirements: 1 byte per character for input strings, 1 byte
+    # for pickled data, 1 byte for unpickled strings, 1 byte for internal
+    # buffer and 1 byte of free space for resizing of internal buffer.
+
+    @precisionbigmemtest(size=_2G + 100*_1M, memuse=5)
+    def test_huge_strlist(self, size):
+        chunksize = 2**20
+        data = []
+        while size > chunksize:
+            data.append('x' * chunksize)
+            size -= chunksize
+            chunksize += 1
+        data.append('y' * size)
+
+        try:
+            for proto in protocols:
+                try:
+                    pickled = self.dumps(data, proto)
+                    res = self.loads(pickled)
+                    self.assertEqual(res, data)
+                finally:
+                    res = None
+                    pickled = None
+        finally:
+            data = None

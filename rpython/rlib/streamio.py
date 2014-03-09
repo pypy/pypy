@@ -26,16 +26,13 @@ Based on sio.py from Guido van Rossum.
 You typically take a basis stream, place zero or more filtering
 streams on top of it, and then top it off with an input-buffering and/or
 an outout-buffering stream.
-
 """
 
-#
 # File offsets are all 'r_longlong', but a single read or write cannot
 # transfer more data that fits in an RPython 'int' (because that would not
 # fit in a single string anyway).  This module needs to be careful about
 # where r_longlong values end up: as argument to seek() and truncate() and
 # return value of tell(), but not as argument to read().
-#
 
 import os, sys, errno
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -56,13 +53,11 @@ OS_MODE = {('r', False): O_RDONLY,
            }
 
 class MyNotImplementedError(Exception):
-    """
-    Catching NotImplementedError is not RPython, so we use this custom class
+    """Catching NotImplementedError is not RPython, so we use this custom class
     instead of it
     """
 
 # ____________________________________________________________
-
 
 def replace_crlf_with_lf(s):
     substrings = s.split("\r")
@@ -81,26 +76,26 @@ def replace_char_with_str(string, c, s):
 
 
 @specialize.argtype(0)
-def open_file_as_stream(path, mode="r", buffering=-1):
+def open_file_as_stream(path, mode="r", buffering=-1, signal_checker=None):
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
-    stream = open_path_helper(path, os_flags, basemode == "a")
+    stream = open_path_helper(path, os_flags, basemode == "a", signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
                                   writing, binary)
 
 def _setfd_binary(fd):
     pass
 
-def fdopen_as_stream(fd, mode, buffering=-1):
+def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
     # XXX XXX XXX you want do check whether the modes are compatible
     # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
     _setfd_binary(fd)
-    stream = DiskFile(fd)
+    stream = DiskFile(fd, signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
                                   writing, binary)
 
 @specialize.argtype(0)
-def open_path_helper(path, os_flags, append):
+def open_path_helper(path, os_flags, append, signal_checker=None):
     # XXX for now always return DiskFile
     fd = rposix.open(path, os_flags, 0666)
     if append:
@@ -109,7 +104,7 @@ def open_path_helper(path, os_flags, append):
         except OSError:
             # XXX does this pass make sense?
             pass
-    return DiskFile(fd)
+    return DiskFile(fd, signal_checker)
 
 def decode_mode(mode):
     if mode[0] == 'U':
@@ -206,7 +201,6 @@ if sys.platform == "win32":
 
 
 class Stream(object):
-
     """Base class for streams.  Provides a default implementation of
     some methods."""
 
@@ -281,11 +275,11 @@ class Stream(object):
 
 
 class DiskFile(Stream):
-
     """Standard I/O basis stream using os.open/close/read/write/lseek"""
 
-    def __init__(self, fd):
+    def __init__(self, fd, signal_checker=None):
         self.fd = fd
+        self.signal_checker = signal_checker
 
     def seek(self, offset, whence):
         os.lseek(self.fd, offset, whence)
@@ -301,6 +295,8 @@ class DiskFile(Stream):
             except OSError, e:
                 if e.errno != errno.EINTR:
                     raise
+                if self.signal_checker is not None:
+                    self.signal_checker()
                 # else try again
 
     def readline(self):
@@ -313,8 +309,9 @@ class DiskFile(Stream):
             except OSError, e:
                 if e.errno != errno.EINTR:
                     raise
-                else:
-                    continue   # try again
+                if self.signal_checker is not None:
+                    self.signal_checker()
+                continue   # try again
             if not c:
                 break
             c = c[0]
@@ -330,6 +327,8 @@ class DiskFile(Stream):
             except OSError, e:
                 if e.errno != errno.EINTR:
                     raise
+                if self.signal_checker is not None:
+                    self.signal_checker()
             else:
                 data = data[n:]
 
@@ -361,7 +360,6 @@ class DiskFile(Stream):
 # next class is not RPython
 
 class MMapFile(Stream):
-
     """Standard I/O basis stream using mmap."""
 
     def __init__(self, fd, mmapaccess):
@@ -508,7 +506,6 @@ def offset2int(offset):
     return intoffset
 
 class BufferingInputStream(Stream):
-
     """Standard buffering input stream.
 
     This, and BufferingOutputStream if needed, are typically at the top of
@@ -722,7 +719,6 @@ class BufferingInputStream(Stream):
 
 
 class BufferingOutputStream(Stream):
-
     """Standard buffering output stream.
 
     This, and BufferingInputStream if needed, are typically at the top of
@@ -780,7 +776,6 @@ class BufferingOutputStream(Stream):
 
 
 class LineBufferingOutputStream(BufferingOutputStream):
-
     """Line buffering output stream.
 
     This is typically the top of the stack.
@@ -811,12 +806,9 @@ class LineBufferingOutputStream(BufferingOutputStream):
             self.buf = [data[p:]]
             self.buflen = len(self.buf[0])
 
-
 # ____________________________________________________________
 
-
 class CRLFFilter(Stream):
-
     """Filtering stream for universal newlines.
 
     TextInputFilter is more general, but this is faster when you don't
@@ -846,7 +838,6 @@ class CRLFFilter(Stream):
                                               flush_buffers=False)
 
 class TextCRLFFilter(Stream):
-
     """Filtering stream for universal newlines.
 
     TextInputFilter is more general, but this is faster when you don't
@@ -913,9 +904,8 @@ class TextCRLFFilter(Stream):
     close1   = PassThrough("close1", flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
-    
-class TextInputFilter(Stream):
 
+class TextInputFilter(Stream):
     """Filtering input stream for universal newline translation."""
 
     def __init__(self, base):
@@ -948,7 +938,7 @@ class TextInputFilter(Stream):
         # CR separator or half of a CRLF separator.  Neither will be marked
         # as seen, since you are waiting for your next read to determine
         # what you have seen.  But there's no more to read ...
-                        
+
         if self.atcr:
             if data.startswith("\n"):
                 data = data[1:]
@@ -958,7 +948,7 @@ class TextInputFilter(Stream):
             else:
                 self.CR = True
             self.atcr = False
-            
+
         for i in range(len(data)):
             if data[i] == '\n':
                 if i > 0 and data[i-1] == '\r':
@@ -968,11 +958,11 @@ class TextInputFilter(Stream):
             elif data[i] == '\r':
                 if i < len(data)-1 and data[i+1] != '\n':
                     self.CR = True
-                    
+
         if "\r" in data:
             self.atcr = data.endswith("\r")
             data = replace_crlf_with_lf(data)
-            
+
         return data
 
     def readline(self):
@@ -1013,7 +1003,7 @@ class TextInputFilter(Stream):
         if self.atcr:
             # Must read the next byte to see if it's \n,
             # because then we must report the next position.
-            assert not self.buf 
+            assert not self.buf
             self.buf = self.do_read(1)
             pos += 1
             self.atcr = False
@@ -1050,7 +1040,6 @@ class TextInputFilter(Stream):
 
 
 class TextOutputFilter(Stream):
-
     """Filtering output stream for universal newline translation."""
 
     def __init__(self, base, linesep=os.linesep):
@@ -1105,7 +1094,6 @@ class CallbackReadFilter(Stream):
 # The following functions are _not_ RPython!
 
 class DecodingInputFilter(Stream):
-
     """Filtering input stream that decodes an encoded file."""
 
     def __init__(self, base, encoding="utf8", errors="strict"):
@@ -1152,7 +1140,6 @@ class DecodingInputFilter(Stream):
                                               flush_buffers=False)
 
 class EncodingOutputFilter(Stream):
-
     """Filtering output stream that writes to an encoded file."""
 
     def __init__(self, base, encoding="utf8", errors="strict"):

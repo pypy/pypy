@@ -3175,6 +3175,8 @@ def test_packed():
     assert alignof(BStruct) == 1
 
 def test_packed_with_bitfields():
+    if sys.platform == "win32":
+        py.test.skip("testing gcc behavior")
     BLong = new_primitive_type("long")
     BChar = new_primitive_type("char")
     BStruct = new_struct_type("struct foo")
@@ -3186,4 +3188,4 @@ def test_packed_with_bitfields():
 
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.8"
+    assert __version__ == "0.8.2"

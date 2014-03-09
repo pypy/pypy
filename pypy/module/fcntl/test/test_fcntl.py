@@ -35,7 +35,16 @@ class AppTestFcntl:
         fcntl.fcntl(F(long(f.fileno())), 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
-        raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        exc = raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        assert exc.value[0] == 'fileno() returned a non-integer'
+        exc = raises(ValueError, fcntl.fcntl, 2147483647 + 1, 1, 0)
+        assert exc.value[0] == 'file descriptor cannot be a negative integer (-1)'
+        exc = raises(ValueError, fcntl.fcntl, F(2147483647 + 1), 1, 0)
+        assert exc.value[0] == 'file descriptor cannot be a negative integer (-1)'
+        exc = raises(ValueError, fcntl.fcntl, -2147483648 - 1, 1, 0)
+        assert exc.value[0] == 'file descriptor cannot be a negative integer (-1)'
+        exc = raises(ValueError, fcntl.fcntl, F(-2147483648 - 1), 1, 0)
+        assert exc.value[0] == 'file descriptor cannot be a negative integer (-1)'
         raises(ValueError, fcntl.fcntl, -1, 1, 0)
         raises(ValueError, fcntl.fcntl, F(-1), 1, 0)
         raises(ValueError, fcntl.fcntl, F(long(-1)), 1, 0)

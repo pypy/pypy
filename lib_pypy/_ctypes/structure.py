@@ -1,10 +1,10 @@
-
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
 from _ctypes.array import Array
 from _ctypes.pointer import _Pointer
 import inspect
+
 
 def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
     # _fields_: list of (name, ctype, [optional_bitfield])
@@ -74,6 +74,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
     for name, field in fields.items():
         setattr(self, name, field)
 
+
 class Field(object):
     def __init__(self, name, offset, size, ctype, num, is_bitfield):
         self.__dict__['name'] = name
@@ -102,7 +103,6 @@ class Field(object):
             suba = obj._subarray(fieldtype, self.name)
             return fieldtype._CData_output(suba, obj, offset)
 
-
     def __set__(self, obj, value):
         fieldtype = self.ctype
         cobj = fieldtype.from_param(value)
@@ -120,9 +120,6 @@ class Field(object):
         else:
             obj._buffer.__setattr__(self.name, arg)
 
-
-
-# ________________________________________________________________
 
 def _set_shape(tp, rawfields, is_union=False):
     tp._ffistruct = _rawffi.Structure(rawfields, is_union,
@@ -145,8 +142,8 @@ def struct_setattr(self, name, value):
         return
     _CDataMeta.__setattr__(self, name, value)
 
-class StructOrUnionMeta(_CDataMeta):
 
+class StructOrUnionMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if "_abstract_" in typedict:
@@ -154,6 +151,9 @@ class StructOrUnionMeta(_CDataMeta):
         cls = cls or (object,)
         if isinstance(cls[0], StructOrUnionMeta):
             cls[0]._make_final()
+        if '_pack_' in typedict:
+            if not 0 <= typedict['_pack_'] < 2**31:
+                raise ValueError("_pack_ must be a non-negative integer")
         if '_fields_' in typedict:
             if not hasattr(typedict.get('_anonymous_', []), '__iter__'):
                 raise TypeError("Anonymous field must be iterable")
@@ -164,7 +164,6 @@ class StructOrUnionMeta(_CDataMeta):
                 res,
                 typedict['_fields_'], cls[0],
                 typedict.get('_anonymous_', None))
-
         return res
 
     def _make_final(self):
@@ -206,13 +205,14 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
         return res
-    
+
     def _CData_retval(self, resbuffer):
         res = StructOrUnion.__new__(self)
         res.__dict__['_buffer'] = resbuffer
         res.__dict__['_base'] = None
         res.__dict__['_index'] = -1
         return res
+
 
 class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
@@ -256,6 +256,7 @@ class StructOrUnion(_CData):
 
 class StructureMeta(StructOrUnionMeta):
     _is_union = False
+
 
 class Structure(StructOrUnion):
     __metaclass__ = StructureMeta

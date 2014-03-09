@@ -345,8 +345,9 @@ class AppExposeVisitor(ASDLVisitor):
         for field in fields:
             getter = "%s_get_%s" % (name, field.name)
             setter = "%s_set_%s" % (name, field.name)
-            config = (field.name, getter, setter, name)
-            self.emit("%s=typedef.GetSetProperty(%s, %s, cls=%s)," % config, 1)
+            delter = "%s_del_%s" % (name, field.name)
+            config = (field.name, getter, setter, delter, name)
+            self.emit("%s=typedef.GetSetProperty(%s, %s, %s, cls=%s)," % config, 1)
         self.emit("__new__=interp2app(get_AST_new(%s))," % (name,), 1)
         if needs_init:
             self.emit("__init__=interp2app(%s_init)," % (name,), 1)
@@ -481,6 +482,15 @@ class AppExposeVisitor(ASDLVisitor):
             else:
                 self.emit("w_self.deldictvalue(space, '%s')" %(field.name,), 1)
         self.emit("w_self.initialization_state |= %s" % (flag,), 1)
+        self.emit("")
+
+        func = "def %s_del_%s(space, w_self):" % (name, field.name)
+        self.emit(func)
+        flag = self.data.field_masks[field]
+        self.emit("# Check if the element exists, raise appropriate exceptions", 1 )
+        self.emit("%s_get_%s(space, w_self)" % (name, field.name), 1 )
+        self.emit("w_self.deldictvalue(space, '%s')" % (field.name,), 1)
+        self.emit("w_self.initialization_state &= ~%s" % (flag,), 1)
         self.emit("")
 
 
