@@ -218,13 +218,8 @@ def llexternal(name, args, result, _callable=None,
                     freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
-                if invoke_around_handlers:
-                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
-                                                             callbackholder,
-                                                             aroundstate))
-                else:
-                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
-                                                             callbackholder))
+                arg = llhelper(TARGET, _make_wrapper_for(
+                    TARGET, arg, invoke_around_handlers, callbackholder))
             else:
                 SOURCE = lltype.typeOf(arg)
                 if SOURCE != TARGET:
@@ -263,7 +258,8 @@ class CallbackHolder:
     def __init__(self):
         self.callbacks = {}
 
-def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
+def _make_wrapper_for(TP, callable, invoke_around_handlers=True,
+                      callbackholder=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -279,7 +275,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
-            if aroundstate is not None:
+            if invoke_around_handlers:
                 aroundstate.enter_callback()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
@@ -295,7 +291,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if aroundstate is not None:
+            if invoke_around_handlers:
                 aroundstate.leave_callback()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
@@ -307,6 +303,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     miniglobals['os'] = os
     miniglobals['we_are_translated'] = we_are_translated
     miniglobals['stackcounter'] = stackcounter
+    miniglobals['aroundstate'] = aroundstate
     exec source.compile() in miniglobals
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
