@@ -170,9 +170,11 @@ class CallBuilderX86(AbstractCallBuilder):
         #
         # Yes, we need to call the reopenstack() function
         self.save_result_value_reacq(restore_edx)
-        if IS_X86_32:
-            mc.MOV_sr(4, css_value.value)
-            mc.MOV_sr(0, old_value.value)
+        if self.asm._is_asmgcc():
+            if IS_X86_32:
+                mc.MOV_sr(4, old_value.value)
+                mc.MOV_sr(0, css_value.value)
+            # on X86_64, they are already in the right registers
         mc.CALL(imm(self.asm.reacqgil_addr))
         self.restore_result_value_reacq(restore_edx)
         #
