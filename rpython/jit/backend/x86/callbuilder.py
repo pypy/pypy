@@ -169,12 +169,12 @@ class CallBuilderX86(AbstractCallBuilder):
         je_location = mc.get_relative_pos()
         #
         # Yes, we need to call the reopenstack() function
-        self.save_result_value_reacq()
+        self.save_result_value_reacq(restore_edx)
         if IS_X86_32:
             mc.MOV_sr(4, css_value.value)
             mc.MOV_sr(0, old_value.value)
         mc.CALL(imm(self.asm.reacqgil_addr))
-        self.restore_result_value_reacq()
+        self.restore_result_value_reacq(restore_edx)
         #
         # patch the JE above
         offset = mc.get_relative_pos() - je_location
@@ -196,11 +196,11 @@ class CallBuilderX86(AbstractCallBuilder):
         #else:
         #   for shadowstack, done for us by _reload_frame_if_necessary()
 
-    def save_result_value_reacq(self):
+    def save_result_value_reacq(self, restore_edx):
         """Overridden in CallBuilder32 and CallBuilder64"""
         raise NotImplementedError
 
-    def restore_result_value_reacq(self):
+    def restore_result_value_reacq(self, restore_edx):
         """Overridden in CallBuilder32 and CallBuilder64"""
         raise NotImplementedError
 
@@ -271,7 +271,7 @@ class CallBuilder32(CallBuilderX86):
         else:
             CallBuilderX86.load_result(self)
 
-    def save_result_value_reacq(self):
+    def save_result_value_reacq(self, restore_edx):
         # Temporarily save the result value into [ESP+8].  We use "+8"
         # in order to leave the two initial words free, in case it's needed.
         # Also note that in this 32-bit case, a long long return value is
@@ -283,7 +283,8 @@ class CallBuilder32(CallBuilderX86):
             # a float or a long long return
             if self.restype == 'L':
                 self.mc.MOV_sr(8, eax.value)      # long long
-                #self.mc.MOV_sr(12, edx.value) -- already done
+                if not restore_edx:
+                    self.mc.MOV_sr(12, edx.value)
             else:
                 self.mc.FSTPL_s(8)                # float return
         else:
@@ -294,7 +295,7 @@ class CallBuilder32(CallBuilderX86):
                 assert self.ressize <= WORD
                 self.mc.MOV_sr(8, eax.value)
 
-    def restore_result_value_reacq(self):
+    def restore_result_value_reacq(self, restore_edx):
         # Opposite of save_result_value_reacq()
         if self.ressize == 0:      # void return
             return
@@ -302,7 +303,8 @@ class CallBuilder32(CallBuilderX86):
             # a float or a long long return
             if self.restype == 'L':
                 self.mc.MOV_rs(eax.value, 8)      # long long
-                #self.mc.MOV_rs(edx.value, 12) -- will be done for us
+                if not restore_edx:
+                    self.mc.MOV_rs(edx.value, 12)
             else:
                 self.mc.FLDL_s(8)                 # float return
         else:
@@ -426,7 +428,7 @@ class CallBuilder64(CallBuilderX86):
         else:
             CallBuilderX86.load_result(self)
 
-    def save_result_value_reacq(self):
+    def save_result_value_reacq(self, restore_edx):
         # Temporarily save the result value into [ESP].
         if self.ressize == 0:      # void return
             return
@@ -444,7 +446,7 @@ class CallBuilder64(CallBuilderX86):
             assert self.restype == INT
             self.mc.MOV_sr(0, eax.value)
 
-    def restore_result_value_reacq(self):
+    def restore_result_value_reacq(self, restore_edx):
         # Opposite of save_result_value_reacq()
         if self.ressize == 0:      # void return
             return
