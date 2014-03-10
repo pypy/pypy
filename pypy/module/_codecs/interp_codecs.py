@@ -1,7 +1,7 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import UnicodeBuilder
-from rpython.rlib.runicode import UNICHR
+from rpython.rlib.runicode import UNICHR, MAXUNICODE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -228,9 +228,15 @@ def xmlcharrefreplace_errors(space, w_exc):
         builder = UnicodeBuilder()
         pos = start
         while pos < end:
-            ch = obj[pos]
+            code = ord(obj[pos])
+            if (MAXUNICODE == 0xffff and 0xD800 <= code <= 0xDBFF and
+                       pos + 1 < end and 0xDC00 <= ord(obj[pos+1]) <= 0xDFFF):
+                code = (code & 0x03FF) << 10
+                code |= ord(obj[pos+1]) & 0x03FF
+                code += 0x10000
+                pos += 1
             builder.append(u"&#")
-            builder.append(unicode(str(ord(ch))))
+            builder.append(unicode(str(code)))
             builder.append(u";")
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
