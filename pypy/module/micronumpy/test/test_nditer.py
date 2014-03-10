@@ -138,7 +138,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, nditer, a, op_dtypes=['complex'])
             skip('nditer op_dtypes kwarg not implemented yet')
-        exc = raises(ValueError, nditer, a, op_dtypes=['complex'])
+        exc = raises(TypeError, nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
         r = []
         for x in nditer(a, op_flags=['readonly','copy'],
@@ -160,19 +160,19 @@ class AppTestNDIter(BaseNumpyAppTest):
         if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
             skip('nditer casting not implemented yet')
-        exc = raises(ValueError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
+        exc = raises(TypeError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
         assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
         r = []
         for x in nditer(a, flags=['buffered'], op_dtypes=['float32'],
                                 casting='same_kind'):
             r.append(x)
         assert r == [0., 1., 2., 3., 4., 5.]
-        exc = raises(ValueError, nditer, a, flags=['buffered'],
+        exc = raises(TypeError, nditer, a, flags=['buffered'],
                         op_dtypes=['int32'], casting='same_kind')
         assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
         r = []
         b = arange(6)
-        exc = raises(ValueError, nditer, b, flags=['buffered'], op_dtypes=['float64'],
+        exc = raises(TypeError, nditer, b, flags=['buffered'], op_dtypes=['float64'],
                                 op_flags=['readwrite'], casting='same_kind')
         assert str(exc.value).startswith("Iterator requested dtype could not be cast")
 
