@@ -799,7 +799,6 @@ def gen_forwarddecl(f, database):
     if database.with_stm:
         print >> f
         print >> f, 'extern object_t *rpy_prebuilt[];'
-        print >> f, 'extern long rpy_prebuilt_hashes[];'
         print >> f
     for node in database.globalcontainers():
         for line in node.forward_declaration():
@@ -845,6 +844,8 @@ def gen_startupcode(f, database):
     print >> f, '}'
 
 def gen_stm_prebuilt(f, database):
+    from rpython.translator.c.primitive import name_signed
+    #
     print >> f, '#include "common_header.h"'
     print >> f, '#include "structdef.h"'
     print >> f, '#include "forwarddecl.h"'
@@ -858,15 +859,21 @@ def gen_stm_prebuilt(f, database):
         print >> f, '\t(object_t *)&%s,' % node.name
     print >> f, '\tNULL'
     print >> f, '};'
-    print >> f, '/* long rpy_prebuilt_hashes[] = { ... }; */'  # XXX
+    print >> f, 'static long rpy_prebuilt_hashes[] = {'
+    for _, node in gclist:
+        h = database.gcpolicy.get_stm_prebuilt_hash(node.obj)
+        print >> f, '\t%s,' % (name_signed(h, database),)
+    print >> f, '};'
     print >> f, '''
 void pypy_stm_setup(void)
 {
     stm_setup();
 
-    object_t **pp;
-    for (pp = rpy_prebuilt; *pp; pp++) {
+    object_t **pp = rpy_prebuilt;
+    long *ph = rpy_prebuilt_hashes;
+    for ( ; *pp; pp++, ph++) {
         *pp = stm_setup_prebuilt(*pp);
+        stm_set_prebuilt_identityhash(*pp, *ph);
     }
 
     stm_register_thread_local(&stm_thread_local);

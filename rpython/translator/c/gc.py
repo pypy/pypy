@@ -468,6 +468,12 @@ class StmFrameworkGcPolicy(BasicFrameworkGcPolicy):
     def get_prebuilt_hash(self, obj):
         return None       # done differently with the stmgc
 
+    def get_stm_prebuilt_hash(self, obj):
+        h = BasicFrameworkGcPolicy.get_prebuilt_hash(self, obj)
+        if h is None:
+            h = object.__hash__(obj)   # a "random enough" number
+        return h
+
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
