@@ -55,7 +55,7 @@ stuff = "nothing"
         assert exc.msg == "coding declaration in unicode string"
         input = "\xEF\xBB\xBF# coding: latin-1\nx"
         exc = py.test.raises(SyntaxError, self.parse, input).value
-        assert exc.msg == "UTF-8 BOM with non-utf8 coding cookie"
+        assert exc.msg == "UTF-8 BOM with latin-1 coding cookie"
         input = "# coding: not-here"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "Unknown encoding: not-here"

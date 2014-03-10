@@ -358,14 +358,16 @@ def _get_inttime(space, w_seconds):
         seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
-    try:
-        seconds = ovfcheck_float_to_int(seconds)
-        t = rffi.r_time_t(seconds)
-        if rffi.cast(lltype.Signed, t) != seconds:
-            raise OverflowError
-    except OverflowError:
+    #
+    t = rffi.cast(rffi.TIME_T, seconds)
+    #
+    # Logic from CPython: How much info did we lose?  We assume that
+    # time_t is an integral type.  If we lost a second or more, the
+    # input doesn't fit in a time_t; call it an error.
+    diff = seconds - rffi.cast(lltype.Float, t)
+    if diff <= -1.0 or diff >= 1.0:
         raise OperationError(space.w_ValueError,
-                             space.wrap("time argument too large"))
+                      space.wrap("timestamp out of range for platform time_t"))
     return t
 
 def _tm_to_tuple(space, t):

@@ -1,7 +1,7 @@
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, wrap_oserror, oefmt
 from rpython.rlib import rpoll
 import errno
 
@@ -19,8 +19,9 @@ unregistering file descriptors, and then polling them for I/O events."""
 class Poll(W_Root):
     def __init__(self):
         self.fddict = {}
+        self.running = False
 
-    @unwrap_spec(events=int)
+    @unwrap_spec(events="c_short")
     def register(self, space, w_fd, events=defaultevents):
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
@@ -41,7 +42,7 @@ class Poll(W_Root):
             raise OperationError(space.w_KeyError,
                                  space.wrap(fd)) # XXX should this maybe be w_fd?
 
-    @unwrap_spec(w_timeout = WrappedDefault(None))
+    @unwrap_spec(w_timeout=WrappedDefault(None))
     def poll(self, space, w_timeout):
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
@@ -50,11 +51,15 @@ class Poll(W_Root):
             # that can be casted to integer (I think)
             try:
                 # compute the integer
-                timeout = space.int_w(space.int(w_timeout))
-            except (OverflowError, ValueError):
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("math range error"))
+                w_timeout = space.int(w_timeout)
+            except OperationError:
+                raise oefmt(space.w_TypeError,
+                    "timeout must be an integer or None")
+            timeout = space.c_int_w(w_timeout)
 
+        if self.running:
+            raise oefmt(space.w_RuntimeError, "concurrent poll() invocation")
+        self.running = True
         try:
             retval = rpoll.poll(self.fddict, timeout)
         except rpoll.PollError, e:
@@ -63,6 +68,8 @@ class Poll(W_Root):
             raise OperationError(w_errortype,
                                  space.newtuple([space.wrap(e.errno),
                                                  space.wrap(message)]))
+        finally:
+            self.running = False
 
         retval_w = []
         for fd, revents in retval:

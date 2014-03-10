@@ -9,6 +9,7 @@ import base64
 import difflib
 import unittest
 import warnings
+import textwrap
 from cStringIO import StringIO
 
 import email
@@ -948,6 +949,28 @@ From the desk of A.A.A.:
 Blah blah blah
 """)
 
+    def test_mangle_from_in_preamble_and_epilog(self):
+        s = StringIO()
+        g = Generator(s, mangle_from_=True)
+        msg = email.message_from_string(textwrap.dedent("""\
+            From: foo@bar.com
+            Mime-Version: 1.0
+            Content-Type: multipart/mixed; boundary=XXX
+
+            From somewhere unknown
+
+            --XXX
+            Content-Type: text/plain
+
+            foo
+
+            --XXX--
+
+            From somewhere unknowable
+            """))
+        g.flatten(msg)
+        self.assertEqual(len([1 for x in s.getvalue().split('\n')
+                                  if x.startswith('>From ')]), 2)
 
 
 # Test the basic MIMEAudio class
@@ -2261,6 +2284,12 @@ class TestMiscellaneous(TestEmailBase):
         t = int(time.mktime(timetup[:9]))
         eq(time.localtime(t)[:6], timetup[:6])
         eq(int(time.strftime('%Y', timetup[:9])), 2003)
+
+    def test_mktime_tz(self):
+        self.assertEqual(Utils.mktime_tz((1970, 1, 1, 0, 0, 0,
+                                          -1, -1, -1, 0)), 0)
+        self.assertEqual(Utils.mktime_tz((1970, 1, 1, 0, 0, 0,
+                                          -1, -1, -1, 1234)), -1234)
 
     def test_parsedate_y2k(self):
         """Test for parsing a date with a two-digit year.

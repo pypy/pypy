@@ -138,6 +138,15 @@ class LongLongTests:
         res = self.interp_operations(f, [1000000000])
         assert res == 12350000000000000000.0
 
+    def test_float_to_longlong(self):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        def f(x):
+            compare(r_longlong(x), 0x12, 0x34567800)
+            compare(rffi.cast(lltype.SignedLongLong, x), 0x12, 0x34567800)
+            return 1
+        res = self.interp_operations(f, [0x12345678 * 256.0])
+        assert res == 1
+
     def test_unsigned_compare_ops(self):
         def f(n1, n2):
             # n == 30002000000000

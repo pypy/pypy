@@ -1,4 +1,5 @@
 import sys
+from errno import EINTR
 
 from rpython.rlib import rpoll, rsocket
 from rpython.rlib.rarithmetic import intmask
@@ -306,6 +307,9 @@ class W_FileConnection(W_BaseConnection):
             try:
                 count = self.WRITE(data)
             except OSError, e:
+                if e.errno == EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
                 raise wrap_oserror(space, e)
             size -= count
             message = rffi.ptradd(message, count)
@@ -317,6 +321,9 @@ class W_FileConnection(W_BaseConnection):
             try:
                 data = self.READ(remaining)
             except OSError, e:
+                if e.errno == EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
                 raise wrap_oserror(space, e)
             count = len(data)
             if count == 0:
@@ -340,10 +347,8 @@ class W_FileConnection(W_BaseConnection):
 
     def do_poll(self, space, timeout):
         if not self._check_fd():
-            raise OperationError(space.w_IOError, space.wrap(
-                "handle out of range in select()"))
-
-        r, w, e = rpoll.select([self.fd], [], [], timeout)
+            raise oefmt(space.w_IOError, "handle out of range in select()")
+        r, w, e = rpoll.select([self.fd], [], [], timeout, handle_eintr=True)
         return bool(r)
 
 W_FileConnection.typedef = TypeDef(

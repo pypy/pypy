@@ -1,6 +1,7 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.runicode import UNICHR, MAXUNICODE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -227,9 +228,15 @@ def xmlcharrefreplace_errors(space, w_exc):
         builder = UnicodeBuilder()
         pos = start
         while pos < end:
-            ch = obj[pos]
+            code = ord(obj[pos])
+            if (MAXUNICODE == 0xffff and 0xD800 <= code <= 0xDBFF and
+                       pos + 1 < end and 0xDC00 <= ord(obj[pos+1]) <= 0xDFFF):
+                code = (code & 0x03FF) << 10
+                code |= ord(obj[pos+1]) & 0x03FF
+                code += 0x10000
+                pos += 1
             builder.append(u"&#")
-            builder.append(unicode(str(ord(ch))))
+            builder.append(unicode(str(code)))
             builder.append(u";")
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
@@ -525,33 +532,22 @@ class Charmap_Decode:
                     raise
                 return errorchar
 
-        # Charmap may return a unicode string
-        try:
-            x = space.unicode_w(w_ch)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            return x
-
-        # Charmap may return a number
-        try:
+        if space.isinstance_w(w_ch, space.w_unicode):
+            # Charmap may return a unicode string
+            return space.unicode_w(w_ch)
+        elif space.isinstance_w(w_ch, space.w_int):
+            # Charmap may return a number
             x = space.int_w(w_ch)
-        except OperationError:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            if 0 <= x < 65536: # Even on wide unicode builds...
-                return unichr(x)
-            else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "character mapping must be in range(65536)"))
-
-        # Charmap may return None
-        if space.is_w(w_ch, space.w_None):
+            if not 0 <= x <= 0x10FFFF:
+                raise oefmt(space.w_TypeError,
+                    "character mapping must be in range(0x110000)")
+            return UNICHR(x)
+        elif space.is_w(w_ch, space.w_None):
+            # Charmap may return None
             return errorchar
 
-        raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
+        raise oefmt(space.w_TypeError,
+            "character mapping must return integer, None or unicode")
 
 class Charmap_Encode:
     def __init__(self, space, w_mapping):
@@ -569,33 +565,22 @@ class Charmap_Encode:
                 raise
             return errorchar
 
-        # Charmap may return a string
-        try:
-            x = space.realstr_w(w_ch)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            return x
-
-        # Charmap may return a number
-        try:
+        if space.isinstance_w(w_ch, space.w_str):
+            # Charmap may return a string
+            return space.str_w(w_ch)
+        elif space.isinstance_w(w_ch, space.w_int):
+            # Charmap may return a number
             x = space.int_w(w_ch)
-        except OperationError:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            if 0 <= x < 256:
-                return chr(x)
-            else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "character mapping must be in range(256)"))
-
-        # Charmap may return None
-        if space.is_w(w_ch, space.w_None):
+            if not 0 <= x < 256:
+                raise oefmt(space.w_TypeError,
+                    "character mapping must be in range(256)")
+            return chr(x)
+        elif space.is_w(w_ch, space.w_None):
+            # Charmap may return None
             return errorchar
 
-        raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
+        raise oefmt(space.w_TypeError,
+            "character mapping must return integer, None or str")
 
 
 @unwrap_spec(string=str, errors='str_or_None')
@@ -717,5 +702,5 @@ def escape_encode(space, data, errors='strict'):
 @unwrap_spec(data=str, errors='str_or_None')
 def escape_decode(space, data, errors='strict'):
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
-    result = PyString_DecodeEscape(space, data, None)
+    result = PyString_DecodeEscape(space, data, errors, None)
     return space.newtuple([space.wrap(result), space.wrap(len(data))])

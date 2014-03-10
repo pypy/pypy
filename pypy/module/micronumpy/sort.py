@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import widen

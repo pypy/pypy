@@ -10,13 +10,6 @@ from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import gateway
 
-class SignalChecker:
-    def __init__(self, space):
-        self.space = space
-
-    def check(self):
-        self.space.getexecutioncontext().checksignals()
-
 
 # XXX Hack to seperate rpython and pypy
 def addr_as_object(addr, fd, space):
@@ -197,7 +190,7 @@ class W_RSocket(W_Root, RSocket):
 
     def connect_ex_w(self, space, w_addr):
         """connect_ex(address) -> errno
-        
+
         This is like connect(address), but returns an error code (the errno value)
         instead of raising an exception when an error occurs.
         """
@@ -213,7 +206,7 @@ class W_RSocket(W_Root, RSocket):
             return self.dup(W_RSocket)
         except SocketError, e:
             raise converted_error(space, e)
-    
+
     def fileno_w(self, space):
         """fileno() -> integer
 
@@ -272,7 +265,7 @@ class W_RSocket(W_Root, RSocket):
             return space.w_None
         return space.wrap(timeout)
 
-    @unwrap_spec(backlog=int)
+    @unwrap_spec(backlog="c_int")
     def listen_w(self, space, backlog):
         """listen(backlog)
 
@@ -350,7 +343,7 @@ class W_RSocket(W_Root, RSocket):
         to tell how much data has been sent.
         """
         try:
-            count = self.sendall(data, flags, SignalChecker(space))
+            self.sendall(data, flags, space.getexecutioncontext().checksignals)
         except SocketError, e:
             raise converted_error(space, e)
 
@@ -492,7 +485,7 @@ class W_RSocket(W_Root, RSocket):
         finally:
             lltype.free(recv_ptr, flavor='raw')
 
-    @unwrap_spec(how=int)
+    @unwrap_spec(how="c_int")
     def shutdown_w(self, space, how):
         """shutdown(flag)
 
