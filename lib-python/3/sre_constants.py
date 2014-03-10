@@ -15,9 +15,11 @@
 
 MAGIC = 20031017
 
-# max code word in this release
-
-MAXREPEAT = 65535
+try:
+    from _sre import MAXREPEAT
+except ImportError:
+    import _sre
+    MAXREPEAT = _sre.MAXREPEAT = 65535
 
 # SRE standard exception (access as sre.error)
 # should this really be here?

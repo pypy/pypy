@@ -60,6 +60,10 @@ class AppTestSrePattern:
         assert re.match(r".{%d}" % (self.s.MAXREPEAT - 1), string) is None
         assert re.match(r".{,%d}" % (self.s.MAXREPEAT - 1), string).span() == (0, 100000)
         assert re.match(r".{%d,}?" % (self.s.MAXREPEAT - 1), string) is None
+        import sys
+        if sys.version_info[:3] <= (3, 2, 3):
+            # XXX: These are fixed in 3.2.4 or so
+            return
         raises(OverflowError, re.compile, r".{%d}" % self.s.MAXREPEAT)
         raises(OverflowError, re.compile, r".{,%d}" % self.s.MAXREPEAT)
         raises(OverflowError, re.compile, r".{%d,}?" % self.s.MAXREPEAT)
