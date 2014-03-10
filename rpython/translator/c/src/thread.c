@@ -11,12 +11,10 @@
 
 
 /* More ugliness follows... */
-#ifdef RPY_FASTGIL
-# if RPY_FASTGIL == 42    /* special value to mean "asmgcc" */
-#  include "common_header.h"
-#  include "structdef.h"
-#  include "forwarddecl.h"
-# endif
+#ifdef PYPY_USE_ASMGCC
+#include "common_header.h"
+#include "structdef.h"
+#include "forwarddecl.h"
 #endif
 
 
@@ -25,4 +23,3 @@
 #else
 #include "src/thread_pthread.c"
 #endif
-

@@ -65,7 +65,6 @@ class AbstractThreadTests(AbstractGCTestClass):
 
     def test_gc_locking(self):
         import time
-        from rpython.rlib.objectmodel import invoke_around_extcall
         from rpython.rlib.debug import ll_assert
 
         class State:

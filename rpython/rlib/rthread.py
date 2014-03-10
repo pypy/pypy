@@ -18,15 +18,9 @@ eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
     separate_module_files = [translator_c_dir / 'src' / 'thread.c'],
     include_dirs = [translator_c_dir],
-    post_include_bits = ['''
-#ifndef RPY_FASTGIL
-#  define RPyEnterCallbackWithoutGil()  /* nothing */
-#endif
-'''],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
-                      'RPyThreadReleaseLock', 'RPyGilAllocate',
-                      'RPyGilYieldThread', 'RPyGilRelease', 'RPyGilAcquire',
+                      'RPyThreadReleaseLock',
                       'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
                       'RPyOpaqueDealloc_ThreadLock',
                       'RPyThreadAfterFork']
@@ -81,33 +75,6 @@ c_thread_acquirelock_NOAUTO = llexternal('RPyThreadAcquireLock',
 c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
                                          [TLOCKP], lltype.Void,
                                          _nowrapper=True)
-
-# these functions manipulate directly the GIL, whose definition does not
-# escape the C code itself
-gil_allocate     = llexternal('RPyGilAllocate', [], lltype.Signed,
-                              _nowrapper=True)
-gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
-                              _nowrapper=True)
-gil_release      = llexternal('RPyGilRelease', [], lltype.Void,
-                              _nowrapper=True)
-gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
-                              _nowrapper=True)
-gil_enter_callback_without_gil = (
-                   llexternal('RPyEnterCallbackWithoutGil', [], lltype.Void,
-                              _nowrapper=True))
-
-@specialize.memo()
-def _fetch_fastgil(rpy_fastgil_value):
-    eci = ExternalCompilationInfo(
-        compile_extra = ['-DRPY_FASTGIL=%d' % rpy_fastgil_value])
-    return rffi.llexternal('RPyFetchFastGil', [], lltype.Signed,
-                           compilation_info=eci, sandboxsafe=True)
-
-def get_fastgil_addr_raw(is_asmgcc):
-    if is_asmgcc:   # must be constant!
-        return _fetch_fastgil(42)()
-    else:
-        return _fetch_fastgil(1)()
 
 
 def allocate_lock():

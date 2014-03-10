@@ -24,9 +24,18 @@ typedef enum RPyLockStatus {
 
 #endif /* !_WIN32 */
 
-long RPyGilAllocate(void);
-long RPyGilYieldThread(void);
-void RPyGilRelease(void);
+
+void RPyGilYieldThread(void);
 void RPyGilAcquire(void);
+
+extern void *rpy_fastgil;
+
+static inline void RPyGilRelease(void) {
+    assert(rpy_fastgil == NULL);
+    rpy_fastgil = (void *)1;
+}
+static inline void *RPyFetchFastGil(void) {
+    return &rpy_fastgil;
+}
 
 #endif

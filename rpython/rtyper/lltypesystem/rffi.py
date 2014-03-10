@@ -155,12 +155,10 @@ def llexternal(name, args, result, _callable=None,
         argnames = ', '.join(['a%d' % i for i in range(len(args))])
         source = py.code.Source("""
             def call_external_function(%(argnames)s):
-                before = aroundstate.before
-                if before: before()
+                aroundstate.before()
                 # NB. it is essential that no exception checking occurs here!
                 res = funcptr(%(argnames)s)
-                after = aroundstate.after
-                if after: after()
+                aroundstate.after()
                 return res
         """ % locals())
         miniglobals = {'aroundstate': aroundstate,
@@ -308,23 +306,25 @@ def _make_wrapper_for(TP, callable, invoke_around_handlers=True,
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
-def enter_callback_without_gil():
+
+def _standard_gil_acquire():
     if we_are_translated():
-        from rpython.rlib import rthread
-        rthread.gil_enter_callback_without_gil()
+        from rpython.rlib import rgil
+        rgil.gil_acquire()
+
+def _standard_gil_release():
+    if we_are_translated():
+        from rpython.rlib import rgil
+        rgil.gil_release()
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 class AroundState:
     def _cleanup_(self):
-        self.before = None        # or a regular RPython function
-        self.after = None         # or a regular RPython function
-        self.enter_callback = enter_callback_without_gil
-    def leave_callback():
-        before = aroundstate.before   # for now, it's the same
-        if before: before()
-    leave_callback._always_inline_ = True
-    leave_callback = staticmethod(leave_callback)
+        self.before         = _standard_gil_release
+        self.after          = _standard_gil_acquire
+        self.enter_callback = _standard_gil_acquire
+        self.leave_calback  = _standard_gil_release
 aroundstate = AroundState()
 aroundstate._cleanup_()
 
