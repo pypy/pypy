@@ -43,9 +43,6 @@ class StmHeader_OpaqueNode(ContainerNode):
         #    self.obj.prebuilt_hash
 
 
-def stm_setup(funcgen, op):
-    return 'stm_setup();'
-
 def stm_register_thread_local(funcgen, op):
     return 'stm_register_thread_local(&stm_thread_local);'
 

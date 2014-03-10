@@ -9,6 +9,8 @@
 
 extern __thread struct stm_thread_local_s stm_thread_local;
 
+void pypy_stm_setup(void);   /* generated into stm_prebuilt.c */
+
 
 #if 0    /* fprinting versions */
 # define spinlock_acquire(lock, targetvalue)                            \

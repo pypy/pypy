@@ -49,13 +49,13 @@ class NodeWithDependencies(Node):
             self.normalizedtypename = self.db.gettype(self.LLTYPE,
                                                       who_asks=self)
             if not self.normalizedtypename.startswith('struct '):
-                assert self.db.with_stm()
+                assert self.db.with_stm
                 assert self.normalizedtypename.endswith('_t @')
                 self.normalizedtypename = 'struct %s @' % (
                     self.normalizedtypename[:-4],)
 
     def make_full_type_name(self):
-        if self.db.with_stm() and self.LLTYPE._gckind == 'gc':
+        if self.db.with_stm and self.LLTYPE._gckind == 'gc':
             assert self.typetag == 'struct'
             self.fulltypename = '%s_t @' % (self.name,)
             self.forward_decl = 'typedef TLPREFIX struct %s %s_t;' % (
@@ -68,7 +68,7 @@ class NodeWithDependencies(Node):
             varlength = self.varlength
         else:
             varlength = None
-        if self.db.with_stm():
+        if self.db.with_stm:
             if isinstance(T, GcStruct):
                 node = self.db.gettypedefnode(T, varlength=varlength)
                 self.dependencies.add(node)
@@ -198,7 +198,8 @@ class StructDefNode(NodeWithDependencies):
         if is_empty:
             yield '\t' + 'char _dummy; /* this struct is empty */'
         yield '};'
-        if self.varlength is not None:
+        if self.varlength is not None and not (
+                self.db.with_stm and self.STRUCT._gckind == 'gc'):
             assert self.typetag == 'struct'
             yield 'union %su {' % self.name
             yield '  struct %s a;' % self.name
@@ -301,7 +302,8 @@ class ArrayDefNode(NodeWithDependencies):
                 line = 'char _dummy; ' + line
         yield '\t' + line
         yield '};'
-        if self.varlength is not None:
+        if self.varlength is not None and not (
+                self.db.with_stm and self.ARRAY._gckind == 'gc'):
             yield 'union %su {' % self.name
             yield '  struct %s a;' % self.name
             yield '  %s;' % cdecl(self.normalizedtypename, 'b')
@@ -488,7 +490,7 @@ class ContainerNode(Node):
         __slots__ = """db obj
                        typename implementationtypename
                         name
-                        _funccodegen_owner
+                        _funccodegen_owner globalgcnum
                         globalcontainer""".split()
     eci_name = '_compilation_info'
 
@@ -499,23 +501,41 @@ class ContainerNode(Node):
         self.implementationtypename = db.gettype(
             T, varlength=self.getvarlength())
         parent, parentindex = parentlink(obj)
+        self.globalgcnum = -1
+        with_stm = self.db.with_stm and T._gckind == 'gc'
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
             self.globalcontainer = True
         elif parent is None:
-            self.name = db.namespace.uniquename('g_' + self.basename())
+            if with_stm:
+                basename = '%d_%s' % (db.prebuilt_gc_counter, self.basename())
+            else:
+                basename = 'g_' + self.basename()
+            self.name = db.namespace.uniquename(basename)
             self.globalcontainer = True
         else:
             self.globalcontainer = False
             parentnode = db.getcontainernode(parent)
             defnode = db.gettypedefnode(parentnode.getTYPE())
             self.name = defnode.access_expr(parentnode.name, parentindex)
-        if self.typename != self.implementationtypename:
+        if with_stm:
+            if self.globalcontainer:
+                self.globalgcnum = db.prebuilt_gc_counter
+                db.prebuilt_gc_counter += 1
+            else:
+                self.globalgcnum = parentnode.globalgcnum
+        elif self.typename != self.implementationtypename:
             if db.gettypedefnode(T).extra_union_for_varlength:
                 self.name += '.b'
         self._funccodegen_owner = None
 
-    def getptrname(self):
+    def getptrname(self, static=False):
+        if self.globalgcnum >= 0:
+            if static:
+                return '((%s)&%s)' % (cdecl(self.typename, '*'), self.name)
+            else:
+                return '((%s)rpy_prebuilt[%d])' % (cdecl(self.typename, '*'),
+                                                   self.globalgcnum)
         return '(&%s)' % self.name
 
     def getTYPE(self):
@@ -524,7 +544,7 @@ class ContainerNode(Node):
     def is_thread_local(self):
         T = self.getTYPE()
         return hasattr(T, "_hints") and (T._hints.get('thread_local') or (
-                  T._hints.get('stm_thread_local') and self.db.with_stm()))
+                  T._hints.get('stm_thread_local') and self.db.with_stm))
 
     def compilation_info(self):
         return getattr(self.obj, self.eci_name, None)
@@ -532,14 +552,9 @@ class ContainerNode(Node):
     def get_declaration(self):
         if self.name[-2:] == '.b':
             # xxx fish fish
-            if self.implementationtypename.startswith('struct '):
-                assert self.implementationtypename.endswith(' @')
-                uniontypename = 'union %su @'%self.implementationtypename[7:-2]
-            else:
-                assert self.implementationtypename.endswith('_t @')
-                uniontypename = 'union %su @'%self.implementationtypename[:-4]
-            if self.db.with_stm() and self.getTYPE()._gckind == 'gc':
-                uniontypename = 'TLPREFIX ' + uniontypename
+            assert self.implementationtypename.startswith('struct ')
+            assert self.implementationtypename.endswith(' @')
+            uniontypename = 'union %su @'%self.implementationtypename[7:-2]
             return uniontypename, self.name[:-2]
         else:
             return self.implementationtypename, self.name
@@ -695,10 +710,10 @@ class ArrayNode(ContainerNode):
     if USESLOTS:
         __slots__ = ()
 
-    def getptrname(self):
+    def getptrname(self, static=False):
         if barebonearray(self.getTYPE()):
             return self.name
-        return ContainerNode.getptrname(self)
+        return ContainerNode.getptrname(self, static)
 
     def basename(self):
         return 'array'
@@ -762,10 +777,10 @@ class FixedSizeArrayNode(ContainerNode):
     if USESLOTS:
         __slots__ = ()
 
-    def getptrname(self):
+    def getptrname(self, static=False):
         if not isinstance(self.obj, _subarray):   # XXX hackish
             return self.name
-        return ContainerNode.getptrname(self)
+        return ContainerNode.getptrname(self, static)
 
     def basename(self):
         T = self.getTYPE()
@@ -801,14 +816,16 @@ def generic_initializationexpr(db, value, access_expr, decoration):
     else:
         comma = ','
         if typeOf(value) == Float and not isfinite(value):
-            db.late_initializations.append(('%s' % access_expr, db.get(value)))
+            XXX   # check and reimplement me
+            db.late_initializations.append(('%s' % access_expr,
+                                            db.get(value, static=True)))
             if isinf(value):
                 name = '-+'[value > 0] + 'inf'
             else:
                 name = 'NaN'
             expr = '0.0 /* patched later with %s */' % (name,)
         else:
-            expr = db.get(value)
+            expr = db.get(value, static=True)
             if typeOf(value) is Void:
                 comma = ''
         expr += comma
@@ -843,7 +860,7 @@ class FuncNode(ContainerNode):
         self.make_funcgens()
         self.typename = db.gettype(T)  #, who_asks=self)
 
-    def getptrname(self):
+    def getptrname(self, static=False):
         return self.name
 
     def make_funcgens(self):

@@ -43,9 +43,6 @@ class StmGC(MovingGCBase):
         # Hack: MovingGCBase.setup() sets up stuff related to id(), which
         # we implement differently anyway.  So directly call GCBase.setup().
         GCBase.setup(self)
-        #
-        llop.stm_setup(lltype.Void)
-        llop.stm_register_thread_local(lltype.Void)
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         assert flags == 0

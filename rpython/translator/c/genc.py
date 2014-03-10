@@ -281,6 +281,8 @@ class CBuilder(object):
                            self.eci, defines=defines, split=self.split)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = self.eventually_copy(extra)
+        if db.with_stm:
+            self.extrafiles.append(self.targetdir.join('stm_prebuilt.c'))
         self.gen_makefile(targetdir, exe_name=exe_name,
                           headers_to_precompile=headers_to_precompile)
         return cfile
@@ -766,7 +768,7 @@ def gen_structdef(f, database):
     print >> f
     print >> f, "#ifndef _PYPY_STRUCTDEF_H"
     print >> f, "#define _PYPY_STRUCTDEF_H"
-    if database.with_stm():
+    if database.with_stm:
         print >> f
         print >> f, 'typedef TLPREFIX struct rpyobj_s {'
         print >> f, '\tstruct object_s lib;'
@@ -794,6 +796,11 @@ def gen_forwarddecl(f, database):
     print >> f
     print >> f, "#ifndef _PYPY_FORWARDDECL_H"
     print >> f, "#define _PYPY_FORWARDDECL_H"
+    if database.with_stm:
+        print >> f
+        print >> f, 'extern object_t *rpy_prebuilt[];'
+        print >> f, 'extern long rpy_prebuilt_hashes[];'
+        print >> f
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
@@ -816,6 +823,9 @@ def gen_startupcode(f, database):
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
 
+    if database.with_stm:
+        print >> f, '\tpypy_stm_setup();'
+
     # put float infinities in global constants, we should not have so many of them for now to make
     # a table+loop preferable
     for dest, value in database.late_initializations:
@@ -833,6 +843,35 @@ def gen_startupcode(f, database):
                 print >> f, '\t'+line
     print >> f, '\treturn error;'
     print >> f, '}'
+
+def gen_stm_prebuilt(f, database):
+    print >> f, '#include "common_header.h"'
+    print >> f, '#include "structdef.h"'
+    print >> f, '#include "forwarddecl.h"'
+    print >> f
+    print >> f, 'object_t *rpy_prebuilt[] = {'
+    gclist = [(node.globalgcnum, node) for node in database.globalcontainers()
+              if hasattr(node, 'globalgcnum') and node.globalgcnum >= 0]
+    gclist.sort()
+    for i, (globalgcnum, node) in enumerate(gclist):
+        assert i == globalgcnum
+        print >> f, '\t(object_t *)&%s,' % node.name
+    print >> f, '\tNULL'
+    print >> f, '};'
+    print >> f, '/* long rpy_prebuilt_hashes[] = { ... }; */'  # XXX
+    print >> f, '''
+void pypy_stm_setup(void)
+{
+    stm_setup();
+
+    object_t **pp;
+    for (pp = rpy_prebuilt; *pp; pp++) {
+        *pp = stm_setup_prebuilt(*pp);
+    }
+
+    stm_register_thread_local(&stm_thread_local);
+}
+'''
 
 def commondefs(defines):
     from rpython.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
@@ -905,6 +944,11 @@ def gen_source(database, modulename, targetdir,
         n = database.instrument_ncounter
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
+
+    if database.with_stm:
+        fc = targetdir.join('stm_prebuilt.c').open('w')
+        gen_stm_prebuilt(fc, database)
+        fc.close()
 
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files()

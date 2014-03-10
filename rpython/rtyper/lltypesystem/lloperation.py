@@ -411,7 +411,6 @@ LL_OPERATIONS = {
     #       possible GC safe-points! (also sync with stmframework.py)
     # (some ops like stm_commit_transaction don't need it because there
     #  must be no gc-var access afterwards anyway)
-    'stm_setup':              LLOp(),
     'stm_register_thread_local': LLOp(),
     'stm_unregister_thread_local': LLOp(),
     'stm_can_move':           LLOp(),

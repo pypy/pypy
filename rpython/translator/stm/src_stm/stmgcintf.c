@@ -1,3 +1,4 @@
+/************************************************************/
 /* This is not meant to be compiled stand-alone, but with all
    of PyPy's #defines and #includes prepended. */
 
@@ -14,5 +15,9 @@ inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
     pypy_stmcb_trace(obj, (void(*)(void*))visit);
 }
 
+
+/************************************************************/
 /* "include" the stmgc.c file here */
 #include "src_stm/stmgc.c"
+
+/************************************************************/

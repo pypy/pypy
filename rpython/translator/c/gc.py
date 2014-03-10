@@ -173,7 +173,7 @@ class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
         self.implementationtypename = 'void (@)(void *)'
         self.name = defnode.gcinfo.static_deallocator
 
-    def getptrname(self):
+    def getptrname(self, static=False):
         return '((void (*)(void *)) %s)' % (self.name,)
 
     def enum_dependencies(self):
@@ -279,7 +279,7 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
         self.implementationtypename = self.typename
         self.name = self.db.namespace.uniquename('g_rtti_v_'+ defnode.barename)
 
-    def getptrname(self):
+    def getptrname(self, static=False):
         return '(&%s)' % (self.name,)
 
     def enum_dependencies(self):

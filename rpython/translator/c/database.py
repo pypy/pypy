@@ -64,8 +64,8 @@ class LowLevelDatabase(object):
 
         self.instrument_ncounter = 0
 
-    def with_stm(self):
-        return self.translator.config.translation.stm
+        self.with_stm = self.translator.config.translation.stm
+        self.prebuilt_gc_counter = 0
 
     def gettypedefnode(self, T, varlength=None):
         if varlength is None:
@@ -178,7 +178,7 @@ class LowLevelDatabase(object):
                      # introduced by the GC transformer, or the type_info_table
         return node
 
-    def get(self, obj, funcgen=None):
+    def get(self, obj, funcgen=None, static=False):
         if isinstance(obj, CConstant):
             return obj.c_name  # without further checks
         T = typeOf(obj)
@@ -232,7 +232,7 @@ class LowLevelDatabase(object):
                 node = self.getcontainernode(container)
                 if node._funccodegen_owner is None:
                     node._funccodegen_owner = funcgen
-                return node.getptrname()
+                return node.getptrname(static=static)
             else:
                 return 'NULL'
                 #return '((%s) NULL)' % (cdecl(self.gettype(T), ''), )
