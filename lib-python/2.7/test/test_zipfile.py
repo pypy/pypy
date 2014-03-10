@@ -779,8 +779,6 @@ class PyZipFileTests(unittest.TestCase):
             rmtree(TESTFN2)
 
     def test_write_non_pyfile(self):
-        if os.path.exists(TESTFN):
-            os.remove(TESTFN)
         with zipfile.PyZipFile(TemporaryFile(), "w") as zipfp:
             with open(TESTFN, 'w') as fid:
                 fid.write('most definitely not a python file')
@@ -1377,6 +1375,8 @@ class TestsWithMultipleOpens(unittest.TestCase):
                 zipf.read('ones')
                 with zipf.open('ones') as zopen1:
                     pass
+        with open(os.devnull) as f:
+            self.assertLess(f.fileno(), 100)
 
     def tearDown(self):
         unlink(TESTFN2)
