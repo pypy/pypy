@@ -1738,7 +1738,10 @@ class StringType(FlexibleType):
             self._store(storage, i, offset, box, width)
 
 class UnicodeType(FlexibleType):
-    T = lltype.UniChar
+    T = lltype.Char
+
+    def get_element_size(self):
+        return 4  # always UTF-32
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
