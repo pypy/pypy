@@ -8,10 +8,20 @@
 #include "stm/atomic.h"    /* for spin_loop() and write_fence() */
 
 extern __thread struct stm_thread_local_s stm_thread_local;
+extern stm_char *pypy_stm_nursery_low_fill_mark;
 
-void pypy_stm_setup(void);   /* generated into stm_prebuilt.c */
+void pypy_stm_setup(void);
+void pypy_stm_setup_prebuilt(void);   /* generated into stm_prebuilt.c */
 long pypy_stm_enter_callback_call(void);
 void pypy_stm_leave_callback_call(long);
+
+static inline int pypy_stm_should_break_transaction(void)
+{
+    /* we should break the current transaction if we have used more than
+       some initial portion of the nursery, or if we are running inevitable */
+    return (STM_SEGMENT->nursery_current >= pypy_stm_nursery_low_fill_mark ||
+            STM_SEGMENT->jmpbuf_ptr == NULL);
+}
 
 
 #if 0    /* fprinting versions */

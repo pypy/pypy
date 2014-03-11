@@ -822,6 +822,7 @@ def gen_startupcode(f, database):
 
     if database.with_stm:
         print >> f, '\tpypy_stm_setup();'
+        print >> f, '\tpypy_stm_setup_prebuilt();'
 
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
@@ -866,12 +867,8 @@ def gen_stm_prebuilt(f, database):
         print >> f, '\t%s,' % (name_signed(h, database),)
     print >> f, '};'
     print >> f, '''
-void pypy_stm_setup(void)
+void pypy_stm_setup_prebuilt(void)
 {
-    stm_setup();
-    stm_register_thread_local(&stm_thread_local);
-
-    stm_start_inevitable_transaction(&stm_thread_local);
     object_t **pp = rpy_prebuilt;
     long *ph = rpy_prebuilt_hashes;
     for ( ; *pp; pp++, ph++) {

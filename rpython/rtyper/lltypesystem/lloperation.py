@@ -429,6 +429,7 @@ LL_OPERATIONS = {
     'stm_start_inevitable_transaction': LLOp(canmallocgc=True),
     'stm_enter_callback_call':LLOp(canmallocgc=True),
     'stm_leave_callback_call':LLOp(),
+    'stm_should_break_transaction': LLOp(sideeffects=False),
 
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),

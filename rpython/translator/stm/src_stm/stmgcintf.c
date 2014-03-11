@@ -26,6 +26,25 @@ inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
 /************************************************************/
 
 
+#define LOW_FILL_MARK   400000
+
+stm_char *pypy_stm_nursery_low_fill_mark;
+
+
+void pypy_stm_setup(void)
+{
+    stm_setup();
+    stm_register_thread_local(&stm_thread_local);
+
+    size_t low_fill_mark = LOW_FILL_MARK;
+    if (low_fill_mark > NURSERY_SIZE / 2)
+        low_fill_mark = NURSERY_SIZE / 2;
+    pypy_stm_nursery_low_fill_mark = ((stm_char *)_stm_nursery_start) +
+                                     low_fill_mark;
+
+    stm_start_inevitable_transaction(&stm_thread_local);
+}
+
 long pypy_stm_enter_callback_call(void)
 {
     long token = 0;
