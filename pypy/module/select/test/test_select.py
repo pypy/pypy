@@ -219,15 +219,15 @@ class _AppTestSelect:
         pollster = select.poll()
         pollster.register(1)
         exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
-        assert exc.value[0] == 'signed short integer is greater than maximum'
+        assert str(exc.value) == 'signed short integer is greater than maximum'
         exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
-        assert exc.value[0] == 'signed short integer is less than minimum'
+        assert str(exc.value) == 'signed short integer is less than minimum'
         raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
         raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
         exc = raises(TypeError, pollster.poll, '123')
-        assert exc.value[0] == 'timeout must be an integer or None'
+        assert str(exc.value) == 'timeout must be an integer or None'
 
 
 class AppTestSelectWithPipes(_AppTestSelect):
@@ -277,7 +277,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
                     pollster.unregister(fd)
                 pollster.register(w, select.POLLOUT)
                 exc = raises(RuntimeError, pollster.poll)
-                assert exc.value[0] == 'concurrent poll() invocation'
+                assert str(exc.value) == 'concurrent poll() invocation'
             finally:
                 # and make the call to poll() from the thread return
                 os.write(w, b'spam')

@@ -1148,6 +1148,9 @@ def getaddrinfo(host, port_or_service,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
+    if _c._MACOSX:
+        if port_or_service is None or port_or_service == '0':
+            port_or_service = '00'
     hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
     rffi.setintfield(hints, 'c_ai_family',   family)
     rffi.setintfield(hints, 'c_ai_socktype', socktype)

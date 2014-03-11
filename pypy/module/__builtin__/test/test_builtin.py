@@ -489,24 +489,24 @@ class AppTestBuiltinApp:
     def test_compile_error_message(self):
         import re
         compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        compile('\xef\xbb\xbf\n', 'dummy', 'exec')
-        compile('\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
         exc = raises(SyntaxError, compile,
-            '# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in exc.value[0]
+            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
         exc = raises(SyntaxError, compile,
-            '\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        assert 'iso-8859-15' in exc.value[0]
-        assert 'BOM' in exc.value[0]
+            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        assert 'iso-8859-15' in str(exc.value), str(exc.value)
+        assert 'BOM' in str(exc.value)
         exc = raises(SyntaxError, compile,
-            '\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in exc.value[0]
-        assert 'BOM' in exc.value[0]
+            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        assert 'BOM' in str(exc.value)
 
     def test_unicode_compile(self):
         try:
             compile(u'-', '?', 'eval')
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 1
 
     def test_unicode_encoding_compile(self):

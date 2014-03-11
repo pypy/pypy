@@ -73,6 +73,20 @@ class TestRtuple(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res is False
 
+    def test_constant_tuple_contains3(self):
+        def f(i):
+            return i in ()
+        res = self.interpret(f, [3])
+        assert res is False
+
+    def test_constant_tuple_contains4(self):
+        def f(i):
+            return i in (3,)
+        res = self.interpret(f, [3])
+        assert res is True
+        res = self.interpret(f, [4])
+        assert res is False
+
     def test_constant_unichar_tuple_contains(self):
         def f(i):
             return unichr(i) in (u'1', u'9')
