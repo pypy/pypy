@@ -21,8 +21,12 @@ class STMTransformer(object):
     def transform_after_gc(self):
         self.start_log(2)
         self.transform_threadlocalref()
-        self.transform_read_barrier()
         self.print_logs(2)
+
+    def transform_after_complete(self):
+        self.start_log(3)
+        self.transform_read_barrier()
+        self.print_logs(3)
 
     def transform_read_barrier(self):
         self.read_barrier_counts = 0
@@ -39,7 +43,6 @@ class STMTransformer(object):
             reorganize_around_jit_driver(self, graph)
 
     def transform_threadlocalref(self):
-        return #XXX XXX XXX
         transform_tlref(self.translator)
 
     def start_log(self, step):

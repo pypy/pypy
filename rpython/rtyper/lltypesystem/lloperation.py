@@ -433,6 +433,11 @@ LL_OPERATIONS = {
     'stm_leave_callback_call':LLOp(),
     'stm_should_break_transaction': LLOp(sideeffects=False),
     'stm_set_transaction_length': LLOp(),
+    'stm_threadlocalref_get': LLOp(sideeffects=False),
+    'stm_threadlocalref_set': LLOp(canmallocgc=True), # may allocate new array,
+                                                      # see threadlocalref.py
+    'stm_threadlocal_get':    LLOp(sideeffects=False),
+    'stm_threadlocal_set':    LLOp(),
 
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),

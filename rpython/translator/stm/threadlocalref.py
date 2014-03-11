@@ -1,4 +1,5 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper import llannotation
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -28,7 +29,10 @@ def transform_tlref(t):
         if not array:
             return lltype.nullptr(rclass.OBJECTPTR.TO)
         else:
-            array = llop.stm_barrier(lltype.Ptr(ARRAY), 'A2R', array)
+            llop.stm_read(lltype.Void, array)
+            # ^^^ might not actually be needed, because this array is
+            # only ever seen from the current transaction; but better
+            # safe than sorry
             return array[index]
     #
     def ll_threadlocalref_set(index, newvalue):
@@ -37,15 +41,18 @@ def transform_tlref(t):
             array = lltype.malloc(ARRAY, total) # llop may allocate!
             llop.stm_threadlocal_set(lltype.Void, array)
         else:
-            array = llop.stm_barrier(lltype.Ptr(ARRAY), 'A2W', array)
-            # invalidating other barriers after an llop.threadlocalref_set
-            # is not necessary since no other variable should contain
-            # a reference to stm_threadlocal_obj
+            llop.stm_write(lltype.Void, array)
+            # ^^^ might not actually be needed, because this array is
+            # only ever seen from the current transaction; but better
+            # safe than sorry
+        # invalidating other barriers after an llop.threadlocalref_set
+        # is not necessary since no other variable should contain
+        # a reference to stm_threadlocal_obj
         array[index] = newvalue
     #
     annhelper = annlowlevel.MixLevelHelperAnnotator(t.rtyper)
     s_Int = annmodel.SomeInteger()
-    s_Ptr = annmodel.SomePtr(rclass.OBJECTPTR)
+    s_Ptr = llannotation.SomePtr(rclass.OBJECTPTR)
     c_getter_ptr = annhelper.constfunc(ll_threadlocalref_get,
                                        [s_Int], s_Ptr)
     c_setter_ptr = annhelper.constfunc(ll_threadlocalref_set,
