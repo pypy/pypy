@@ -386,6 +386,11 @@ def set_opt_level(config, level):
     if config.translation.gcrootfinder == "asmgcc":
         assert sys.platform != "darwin"
 
+    # for now, allow stm only on 64-bit Linux
+    if config.translation.stm:
+        assert sys.platform.startswith("linux"), "'--stm' is Linux-only for now"
+        assert IS_64_BITS, "'--stm' requires a 64-bit build"
+
 # ----------------------------------------------------------------
 
 def set_platform(config):
