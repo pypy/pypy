@@ -149,9 +149,11 @@ def makePyPseudoDFA ():
     funny = group(states, operator, bracket, special)
     # ____________________________________________________________
     def makeStrPrefix ():
-        return chain(states,
-                     maybe(states, groupStr(states, "bB")),
-                     maybe(states, groupStr(states, "rR")))
+        return group(states,
+                     chain(states,
+                           maybe(states, groupStr(states, "bB")),
+                           maybe(states, groupStr(states, "rR"))),
+                     maybe(states, groupStr(states, "uU")))
     # ____________________________________________________________
     contStr = group(states,
                     chain(states,
