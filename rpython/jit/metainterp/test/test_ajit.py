@@ -3978,3 +3978,4 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return 5
         res = self.interp_operations(f, [17])
         assert res == 42
+        self.check_operations_history(guard_true=1, guard_false=0)
