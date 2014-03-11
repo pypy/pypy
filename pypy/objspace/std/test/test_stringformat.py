@@ -208,14 +208,14 @@ class AppTestStringObject:
         prec = 2**31
         format_string = "%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert exc.value[0] == 'prec too big'
+        assert str(exc.value) == 'prec too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
         import sys
         format_string = "%{}f".format(sys.maxsize + 1)
         exc = raises(ValueError, "format_string % 2.34")
-        assert exc.value[0] == 'width too big'
+        assert str(exc.value) == 'width too big'
 
 class AppTestWidthPrec:
     def test_width(self):
@@ -341,11 +341,11 @@ class AppTestUnicodeObject:
         prec = 2**31
         format_string = u"%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert exc.value[0] == 'prec too big'
+        assert str(exc.value) == 'prec too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
         import sys
         format_string = u"%{}f".format(sys.maxsize + 1)
         exc = raises(ValueError, "format_string % 2.34")
-        assert exc.value[0] == 'width too big'
+        assert str(exc.value) == 'width too big'
