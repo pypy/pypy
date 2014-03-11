@@ -53,6 +53,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             hop.genop("stm_pop_root_into", [var])
 
     def transform_generic_set(self, hop):
+        # XXX detect if we're inside a 'stm_ignored' block and... do what?
         assert self.write_barrier_ptr == "stm"
         opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]

@@ -1,16 +1,20 @@
 from rpython.translator.backendopt import graphanalyze
+from rpython.translator.stm import funcgen
 
 
 TRANSACTION_BREAK = set([
     'stm_commit_transaction',
-    'stm_begin_inevitable_transaction',
-    'stm_perform_transaction',
-    'stm_partial_commit_and_resume_other_threads', # new priv_revision
-    'jit_assembler_call',
-    'jit_stm_transaction_break_point',
+    'stm_start_inevitable_transaction',
+    #'stm_perform_transaction',
+    #'stm_partial_commit_and_resume_other_threads', # new priv_revision
+    #'jit_assembler_call',
+    #'jit_stm_transaction_break_point',
     'stm_enter_callback_call',
     'stm_leave_callback_call',
     ])
+
+for tb in TRANSACTION_BREAK:
+    assert hasattr(funcgen, tb)
 
 
 class TransactionBreakAnalyzer(graphanalyze.BoolGraphAnalyzer):

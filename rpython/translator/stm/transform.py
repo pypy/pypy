@@ -1,4 +1,5 @@
 from rpython.translator.stm.inevitable import insert_turn_inevitable
+from rpython.translator.stm.readbarrier import insert_stm_read_barrier
 from rpython.translator.stm.jitdriver import reorganize_around_jit_driver
 from rpython.translator.stm.threadlocalref import transform_tlref
 from rpython.translator.c.support import log
@@ -13,6 +14,7 @@ class STMTransformer(object):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
         self.transform_jit_driver()
+        self.transform_read_barrier()
         self.transform_turn_inevitable()
         self.print_logs()
         self.translator.stm_transformation_applied = True
@@ -20,6 +22,12 @@ class STMTransformer(object):
     def transform_after_gc(self):
         self.transform_threadlocalref()
         self.print_logs_after_gc()
+
+    def transform_read_barrier(self):
+        self.read_barrier_counts = 0
+        for graph in self.translator.graphs:
+            insert_stm_read_barrier(self, graph)
+        log("%d read barriers inserted" % (self.read_barrier_counts,))
 
     def transform_turn_inevitable(self):
         for graph in self.translator.graphs:
