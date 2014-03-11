@@ -14,6 +14,7 @@ void pypy_stm_setup(void);
 void pypy_stm_setup_prebuilt(void);   /* generated into stm_prebuilt.c */
 long pypy_stm_enter_callback_call(void);
 void pypy_stm_leave_callback_call(long);
+void pypy_stm_set_transaction_length(long);
 
 static inline int pypy_stm_should_break_transaction(void)
 {

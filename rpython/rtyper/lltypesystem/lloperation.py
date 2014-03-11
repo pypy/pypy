@@ -430,6 +430,7 @@ LL_OPERATIONS = {
     'stm_enter_callback_call':LLOp(canmallocgc=True),
     'stm_leave_callback_call':LLOp(),
     'stm_should_break_transaction': LLOp(sideeffects=False),
+    'stm_set_transaction_length': LLOp(),
 
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),
@@ -439,8 +440,6 @@ LL_OPERATIONS = {
 ##    'stm_major_collect':      LLOp(canmallocgc=True),
 ##    'stm_get_tid':            LLOp(canfold=True),
 ##    'stm_ptr_eq':             LLOp(canfold=True),
-##    'stm_should_break_transaction': LLOp(sideeffects=False),
-##    'stm_set_transaction_length': LLOp(canmallocgc=True),
 ##    'stm_change_atomic':      LLOp(),
 ##    'stm_get_atomic':         LLOp(sideeffects=False),
 ##    'stm_perform_transaction':LLOp(canmallocgc=True),

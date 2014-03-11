@@ -142,6 +142,10 @@ def stm_should_break_transaction(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = pypy_stm_should_break_transaction();' % (result,)
 
+def stm_set_transaction_length(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'pypy_stm_set_transaction_length(%s);' % (arg0,)
+
 
 ##def stm_initialize(funcgen, op):
 ##    return '''stm_initialize();
@@ -281,10 +285,6 @@ def stm_should_break_transaction(funcgen, op):
 ##    arg0 = funcgen.expr(op.args[0])
 ##    result = funcgen.expr(op.result)
 ##    return '%s = stm_id((gcptr)%s);' % (result, arg0)
-
-##def stm_set_transaction_length(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    return 'stm_set_transaction_length(%s);' % (arg0,)
 
 ##def stm_change_atomic(funcgen, op):
 ##    arg0 = funcgen.expr(op.args[0])

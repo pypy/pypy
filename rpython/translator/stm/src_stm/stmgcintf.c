@@ -31,17 +31,22 @@ inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
 stm_char *pypy_stm_nursery_low_fill_mark;
 
 
-void pypy_stm_setup(void)
+void pypy_stm_set_transaction_length(long percentage)
 {
-    stm_setup();
-    stm_register_thread_local(&stm_thread_local);
-
-    size_t low_fill_mark = LOW_FILL_MARK;
+    /* the value '100' means 'use the default'.  Other values are
+       interpreted proportionally, up to some maximum. */
+    long low_fill_mark = LOW_FILL_MARK * percentage / 100;
     if (low_fill_mark > NURSERY_SIZE / 2)
         low_fill_mark = NURSERY_SIZE / 2;
     pypy_stm_nursery_low_fill_mark = ((stm_char *)_stm_nursery_start) +
                                      low_fill_mark;
+}
 
+void pypy_stm_setup(void)
+{
+    stm_setup();
+    stm_register_thread_local(&stm_thread_local);
+    pypy_stm_set_transaction_length(100);
     stm_start_inevitable_transaction(&stm_thread_local);
 }
 
