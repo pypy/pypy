@@ -106,6 +106,9 @@ struct stm_priv_segment_info_s {
        next minor collection. */
     struct tree_s *nursery_objects_shadows;
 
+    /* Tree of 'key->callback' associations from stm_call_on_abort() */
+    struct tree_s *callbacks_on_abort;
+
     /* Start time: to know approximately for how long a transaction has
        been running, in contention management */
     uint64_t start_time;

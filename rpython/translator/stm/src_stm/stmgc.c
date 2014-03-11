@@ -11,6 +11,7 @@
 #include "stm/largemalloc.h"
 #include "stm/nursery.h"
 #include "stm/contention.h"
+#include "stm/extra.h"
 #include "stm/fprintcolor.h"
 
 #include "stm/misc.c"
@@ -26,4 +27,5 @@
 #include "stm/hash_id.c"
 #include "stm/core.c"
 #include "stm/contention.c"
+#include "stm/extra.c"
 #include "stm/fprintcolor.c"

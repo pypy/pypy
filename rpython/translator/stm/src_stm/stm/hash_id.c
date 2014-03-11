@@ -56,7 +56,7 @@ long stm_identityhash(object_t *obj)
     return id_or_identityhash(obj, true);
 }
 
-void stm_set_prebuilt_identityhash(object_t *obj, uint64_t hash)
+void stm_set_prebuilt_identityhash(object_t *obj, long hash)
 {
     struct object_s *realobj = (struct object_s *)
         REAL_ADDRESS(stm_object_pages, obj);

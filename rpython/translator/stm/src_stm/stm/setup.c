@@ -60,6 +60,7 @@ void stm_setup(void)
         pr->modified_old_objects = list_create();
         pr->young_outside_nursery = tree_create();
         pr->nursery_objects_shadows = tree_create();
+        pr->callbacks_on_abort = tree_create();
         pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * (i + 1);
         highest_overflow_number = pr->overflow_number;
     }
@@ -97,6 +98,7 @@ void stm_teardown(void)
         list_free(pr->modified_old_objects);
         tree_free(pr->young_outside_nursery);
         tree_free(pr->nursery_objects_shadows);
+        tree_free(pr->callbacks_on_abort);
     }
 
     munmap(stm_object_pages, TOTAL_MEMORY);

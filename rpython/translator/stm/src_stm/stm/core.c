@@ -181,6 +181,7 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
     assert(list_is_empty(STM_PSEGMENT->modified_old_objects));
     assert(tree_is_cleared(STM_PSEGMENT->young_outside_nursery));
     assert(tree_is_cleared(STM_PSEGMENT->nursery_objects_shadows));
+    assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_abort));
     assert(STM_PSEGMENT->objects_pointing_to_nursery == NULL);
     assert(STM_PSEGMENT->large_overflow_objects == NULL);
 
@@ -379,6 +380,8 @@ void stm_commit_transaction(void)
         STM_PSEGMENT->overflow_number_has_been_used = false;
     }
 
+    clear_callbacks_on_abort();
+
     /* send what is hopefully the correct signals */
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
         /* wake up one thread in wait_for_end_of_inevitable_transaction() */
@@ -499,6 +502,14 @@ static void abort_with_mutex(void)
 
     stm_jmpbuf_t *jmpbuf_ptr = STM_SEGMENT->jmpbuf_ptr;
 
+    /* clear memory registered on the thread-local */
+    stm_thread_local_t *tl = STM_SEGMENT->running_thread;
+    if (tl->mem_clear_on_abort)
+        memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
+
+    /* invoke the callbacks */
+    invoke_and_clear_callbacks_on_abort();
+
     if (STM_SEGMENT->nursery_end == NSE_SIGABORT)
         STM_SEGMENT->nursery_end = NURSERY_END;   /* done aborting */
 
@@ -538,6 +549,7 @@ void _stm_become_inevitable(const char *msg)
         wait_for_end_of_inevitable_transaction(true);
         STM_PSEGMENT->transaction_state = TS_INEVITABLE;
         STM_SEGMENT->jmpbuf_ptr = NULL;
+        clear_callbacks_on_abort();
     }
 
     s_mutex_unlock();

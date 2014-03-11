@@ -54,6 +54,10 @@ typedef struct stm_thread_local_s {
     object_t **shadowstack, **shadowstack_base;
     /* a generic optional thread-local object */
     object_t *thread_local_obj;
+    /* in case this thread runs a transaction that aborts,
+       the following raw region of memory is cleared. */
+    char *mem_clear_on_abort;
+    size_t mem_bytes_to_clear_on_abort;
     /* the next fields are handled automatically by the library */
     int associated_segment_num;
     struct stm_thread_local_s *prev, *next;
@@ -268,11 +272,18 @@ object_t *stm_setup_prebuilt(object_t *);
    controlled for each prebuilt object individually.  (Useful uor PyPy) */
 long stm_identityhash(object_t *obj);
 long stm_id(object_t *obj);
-void stm_set_prebuilt_identityhash(object_t *obj, uint64_t hash);
+void stm_set_prebuilt_identityhash(object_t *obj, long hash);
 
 /* Returns 1 if the object can still move (it's in the nursery), or 0
    otherwise.  After a minor collection no object can move any more. */
 long stm_can_move(object_t *);
+
+/* If the current transaction aborts later, invoke 'callback(key)'.  If
+   the current transaction commits, then the callback is forgotten.  You
+   can only register one callback per key.  You can call
+   'stm_call_on_abort(key, NULL)' to cancel an existing callback.
+   Note: 'key' must be aligned to a multiple of 8 bytes. */
+void stm_call_on_abort(void *key, void callback(void *));
 
 
 /* ==================== END ==================== */
