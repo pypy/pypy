@@ -1237,6 +1237,8 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         super(TransformerLayoutBuilder, self).__init__(GCClass, lltype2vtable)
 
     def has_finalizer(self, TYPE):
+        if self.translator.config.translation.stm:
+            return False  # XXX no finalizer support for now
         rtti = get_rtti(TYPE)
         return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',
                                             None)
