@@ -13,8 +13,9 @@
 
 #ifdef RPY_STM
 void _pypy_stm_free(void *);
-#define _OP_RAW_MALLOCED(r)         stm_call_on_abort(r, _pypy_stm_free)
-#define _OP_RAW_STM_UNREGISTER(r)   stm_call_on_abort(r, NULL)
+#define _OP_RAW_MALLOCED(r)       stm_call_on_abort(&stm_thread_local, r,   \
+                                                                _pypy_stm_free)
+#define _OP_RAW_STM_UNREGISTER(r) stm_call_on_abort(&stm_thread_local, r, NULL)
 #else
 #define _OP_RAW_MALLOCED(r)         /* nothing */
 #define _OP_RAW_STM_UNREGISTER(r)   /* nothing */
