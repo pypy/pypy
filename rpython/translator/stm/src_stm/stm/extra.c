@@ -4,9 +4,14 @@
 #endif
 
 
-void stm_call_on_abort(void *key, void callback(void *))
+void stm_call_on_abort(stm_thread_local_t *tl,
+                       void *key, void callback(void *))
 {
-    assert(_running_transaction());
+    if (!_stm_in_transaction(tl)) {
+        /* check that the current thread-local is really running a
+           transaction, and do nothing otherwise. */
+        return;
+    }
 
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
         /* ignore callbacks if we're in an inevitable transaction

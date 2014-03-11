@@ -283,7 +283,7 @@ long stm_can_move(object_t *);
    can only register one callback per key.  You can call
    'stm_call_on_abort(key, NULL)' to cancel an existing callback.
    Note: 'key' must be aligned to a multiple of 8 bytes. */
-void stm_call_on_abort(void *key, void callback(void *));
+void stm_call_on_abort(stm_thread_local_t *, void *key, void callback(void *));
 
 
 /* ==================== END ==================== */
