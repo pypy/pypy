@@ -2,7 +2,7 @@ from rpython.flowspace.model import Constant
 from rpython.translator.c.support import c_string_constant, cdecl
 from rpython.translator.c.node import Node, ContainerNode
 from rpython.translator.c.primitive import name_small_integer
-from rpython.rtyper.lltypesystem import llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory
 
 
 class StmHeaderOpaqueDefNode(Node):
@@ -52,7 +52,13 @@ def stm_register_thread_local(funcgen, op):
 def stm_unregister_thread_local(funcgen, op):
     return 'stm_unregister_thread_local(&stm_thread_local);'
 
-def stm_can_move(funcop, op):
+def stm_write(funcgen, op):
+    assert isinstance(op.args[0].concretetype, lltype.Ptr)
+    assert op.args[0].concretetype.TO._gckind == 'gc'
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_write((object_t *)%s);' % (arg0,)
+
+def stm_can_move(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)
     return '%s = stm_can_move(%s);' % (result, arg0)

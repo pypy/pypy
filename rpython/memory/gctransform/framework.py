@@ -62,10 +62,10 @@ def find_initializing_stores(collect_analyzer, graph):
                 if op.args[0] in mallocvars:
                     mallocvars[op.result] = True
             elif op.opname in ("setfield", "setarrayitem", "setinteriorfield"):
-                TYPE = op.args[-1].concretetype
-                if (op.args[0] in mallocvars and
-                    isinstance(TYPE, lltype.Ptr) and
-                    TYPE.TO._gckind == "gc"):
+                if op.args[0] in mallocvars:
+                    # Collect all assignments, even if they are not storing
+                    # a pointer.  This is needed for stmframework and doesn't
+                    # hurt in the other cases.
                     result.add(op)
             else:
                 if collect_analyzer.analyze(op):
@@ -463,7 +463,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         self.write_barrier_ptr = None
         self.write_barrier_from_array_ptr = None
-        if GCClass.needs_write_barrier:
+        if GCClass.needs_write_barrier == "stm":
+            self.write_barrier_ptr = "stm"
+        elif GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
                                            [s_gc, SomeAddress()],
                                            annmodel.s_None,
@@ -745,7 +747,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_writebarrier(self, hop):
-        if self.write_barrier_ptr is None:   # incl. in case of stm
+        if self.write_barrier_ptr is None:
             return
         op = hop.spaceop
         v_addr = op.args[0]

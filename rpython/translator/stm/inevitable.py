@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, lloperation, rclass
-from rpython.translator.stm.writebarrier import is_immutable
+from rpython.translator.stm.support import is_immutable
 from rpython.flowspace.model import SpaceOperation, Constant
 from rpython.translator.unsimplify import varoftype
 

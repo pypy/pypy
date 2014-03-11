@@ -53,8 +53,15 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             hop.genop("stm_pop_root_into", [var])
 
     def transform_generic_set(self, hop):
+        assert self.write_barrier_ptr == "stm"
         opname = hop.spaceop.opname
-        # XXX DO STUFF HERE
+        v_struct = hop.spaceop.args[0]
+        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
+                          'raw_store')
+        if (v_struct.concretetype.TO._gckind == "gc"
+                and hop.spaceop not in self.clean_sets):
+            self.write_barrier_calls += 1
+            hop.genop("stm_write", [v_struct])
         hop.rename('bare_' + opname)
 
     def gc_header_for(self, obj, needs_hash=False):

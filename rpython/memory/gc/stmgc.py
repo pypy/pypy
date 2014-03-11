@@ -21,7 +21,7 @@ class StmGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
-    needs_write_barrier = True
+    needs_write_barrier = "stm"
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True
     object_minimal_size = 16
@@ -82,6 +82,14 @@ class StmGC(MovingGCBase):
         raise NotImplementedError  # XXX
         return llop.stm_weakref_allocate(llmemory.GCREF, size,
                                          typeid16, obj)
+
+
+    def can_optimize_clean_setarrayitems(self):
+        return False
+
+    def write_barrier(self, addr_struct):
+        """Should be turned into calls to stm_write() instead"""
+        dont_see_me
 
 
     def can_move(self, obj):
