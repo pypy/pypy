@@ -104,7 +104,7 @@ before_external_call._transaction_break_ = True
 def after_external_call():
     if we_are_translated():
         # starts a new transaction if we are not atomic already
-        llop.stm_begin_inevitable_transaction(lltype.Void)
+        llop.stm_start_inevitable_transaction(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 

@@ -878,7 +878,6 @@ void pypy_stm_setup(void)
         *pp = stm_setup_prebuilt(*pp);
         stm_set_prebuilt_identityhash(*pp, *ph);
     }
-    stm_commit_transaction();
 }
 '''
 

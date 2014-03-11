@@ -122,6 +122,22 @@ def stm_pop_root_into(funcgen, op):
         return '/* %s = */ STM_POP_ROOT_RET(stm_thread_local);' % (arg0,)
     return 'STM_POP_ROOT(stm_thread_local, %s);' % (arg0,)
 
+def stm_commit_transaction(funcgen, op):
+   return '{ int e = errno; stm_commit_transaction(); errno = e; }'
+
+def stm_start_inevitable_transaction(funcgen, op):
+    return ('{ int e = errno; '
+            'stm_start_inevitable_transaction(&stm_thread_local); '
+            'errno = e; }')
+
+def stm_enter_callback_call(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = pypy_stm_enter_callback_call();' % (result,)
+
+def stm_leave_callback_call(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'pypy_stm_leave_callback_call(%s);' % (arg0,)
+
 
 ##def stm_initialize(funcgen, op):
 ##    return '''stm_initialize();
@@ -261,12 +277,6 @@ def stm_pop_root_into(funcgen, op):
 ##    arg0 = funcgen.expr(op.args[0])
 ##    result = funcgen.expr(op.result)
 ##    return '%s = stm_id((gcptr)%s);' % (result, arg0)
-
-##def stm_commit_transaction(funcgen, op):
-##    return '{ int e = errno; stm_commit_transaction(); errno = e; }'
-
-##def stm_begin_inevitable_transaction(funcgen, op):
-##    return '{ int e = errno; stm_begin_inevitable_transaction(); errno = e; }'
 
 ##def stm_should_break_transaction(funcgen, op):
 ##    result = funcgen.expr(op.result)

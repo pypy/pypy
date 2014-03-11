@@ -24,3 +24,26 @@ inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
 #include "src_stm/stmgc.c"
 
 /************************************************************/
+
+
+long pypy_stm_enter_callback_call(void)
+{
+    long token = 0;
+
+    if (stm_thread_local.shadowstack == NULL) {
+        /* first time we see this thread */
+        token = 1;
+        stm_register_thread_local(&stm_thread_local);
+    }
+    stm_start_inevitable_transaction(&stm_thread_local);
+    return token;
+}
+
+void pypy_stm_leave_callback_call(long token)
+{
+    stm_commit_transaction();
+    if (token == 1) {
+        stm_unregister_thread_local(&stm_thread_local);
+        assert(stm_thread_local.shadowstack == NULL);
+    }
+}
