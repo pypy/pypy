@@ -48,11 +48,13 @@ class TestSTMTranslated(CompiledSTMTests):
         data = data.split()
         i1 = data.index('1>>>')
         i2 = data.index('2>>>')
-        int(data[i1 + 1])
-        int(data[i1 + 2])
-        int(data[i2 + 1])
-        int(data[i2 + 2])
-        assert int(data[i1 + 1]) == prebuilt_hash
+        hash1 = int(data[i1 + 1])
+        id1   = int(data[i1 + 2])
+        hash2 = int(data[i2 + 1])
+        id2   = int(data[i2 + 2])
+        assert hash1 == prebuilt_hash
+        assert hash2 != 0
+        assert id1 != id2
 
     def test_start_thread(self):
         from rpython.rlib import rthread

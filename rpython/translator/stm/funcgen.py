@@ -91,11 +91,13 @@ def stm_collect(funcgen, op):
 
 def stm_id(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
-    return 'stm_id((object_t *)%s);' % (arg0,)
+    result = funcgen.expr(op.result)
+    return '%s = stm_id((object_t *)%s);' % (result, arg0)
 
 def stm_identityhash(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
-    return 'stm_identityhash((object_t *)%s);' % (arg0,)
+    result = funcgen.expr(op.result)
+    return '%s = stm_identityhash((object_t *)%s);' % (result, arg0)
 
 def stm_addr_get_tid(funcgen, op):
     arg0   = funcgen.expr(op.args[0])

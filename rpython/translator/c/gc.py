@@ -471,7 +471,7 @@ class StmFrameworkGcPolicy(BasicFrameworkGcPolicy):
     def get_stm_prebuilt_hash(self, obj):
         h = BasicFrameworkGcPolicy.get_prebuilt_hash(self, obj)
         if h is None:
-            h = object.__hash__(obj)   # a "random enough" number
+            h = lltype.identityhash(obj._as_ptr())
         return h
 
 
