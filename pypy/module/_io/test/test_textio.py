@@ -216,7 +216,7 @@ class AppTestTextIO:
 
     def test_flush_error_on_close(self):
         import _io
-        txt = _io.TextIOWrapper(_io.BytesIO(""), encoding="ascii")
+        txt = _io.TextIOWrapper(_io.BytesIO(b""), encoding="ascii")
         def bad_flush():
             raise IOError()
         txt.flush = bad_flush

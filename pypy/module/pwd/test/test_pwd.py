@@ -24,7 +24,7 @@ class AppTestPwd:
         assert type(pw.pw_gid) is int
         raises(TypeError, pwd.getpwuid)
         raises(TypeError, pwd.getpwuid, 3.14)
-        raises(KeyError, pwd.getpwuid, sys.maxint)
+        raises(KeyError, pwd.getpwuid, sys.maxsize)
         # -1 is allowed, cast to uid_t
         exc = raises(KeyError, pwd.getpwuid, -1)
         m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value[0])
