@@ -24,6 +24,7 @@ class StmGC(MovingGCBase):
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True
+    object_minimal_size = 16
     #gcflag_extra = GCFLAG_EXTRA
 
     HDR = stmgcintf.GCPTR.TO

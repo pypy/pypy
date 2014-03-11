@@ -297,7 +297,7 @@ class RoundedUpForAllocation(llmemory.AddressOffset):
     """
     def __init__(self, basesize, minsize):
         assert isinstance(basesize, llmemory.AddressOffset)
-        assert isinstance(minsize, llmemory.AddressOffset) or minsize == 0
+        assert isinstance(minsize, (int, llmemory.AddressOffset))
         self.basesize = basesize
         self.minsize = minsize
 
