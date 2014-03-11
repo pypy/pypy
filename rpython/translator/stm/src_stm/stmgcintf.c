@@ -4,11 +4,11 @@
 
 __thread struct stm_thread_local_s stm_thread_local;
 
-extern Signed pypy_stmcb_size(void*);
+extern Signed pypy_stmcb_size_rounded_up(void*);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
 
-inline size_t stmcb_size(struct object_s *obj) {
-    return pypy_stmcb_size(obj);
+inline ssize_t stmcb_size_rounded_up(struct object_s *obj) {
+    return pypy_stmcb_size_rounded_up(obj);
 }
 
 inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {

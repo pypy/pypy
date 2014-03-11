@@ -21,11 +21,11 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             [s_gc, s_typeid16, annmodel.SomeInteger(nonneg=True),
              s_gcref], s_gcref)
         #
-        def pypy_stmcb_size(obj):
+        def pypy_stmcb_size_rounded_up(obj):
             return gc.get_size(obj)
-        pypy_stmcb_size.c_name = "pypy_stmcb_size"
+        pypy_stmcb_size_rounded_up.c_name = "pypy_stmcb_size_rounded_up"
         self.autoregister_ptrs.append(
-            getfn(pypy_stmcb_size, [llannotation.SomeAddress()],
+            getfn(pypy_stmcb_size_rounded_up, [llannotation.SomeAddress()],
                   annmodel.SomeInteger()))
         #
         def invokecallback(root, visit_fn):
