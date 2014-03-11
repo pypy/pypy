@@ -435,19 +435,19 @@ class AppTestRange:
 
     def test_cpython_issue16029(self):
         import sys
-        M = min(sys.maxint, sys.maxsize)
-        x = xrange(0, M, M - 1)
-        assert x.__reduce__() == (xrange, (0, M, M - 1))
-        x = xrange(0, -M, 1 - M)
-        assert x.__reduce__() == (xrange, (0, -M - 1, 1 - M))
+        M = sys.maxsize
+        x = range(0, M, M - 1)
+        assert x.__reduce__() == (range, (0, M, M - 1))
+        x = range(0, -M, 1 - M)
+        assert x.__reduce__() == (range, (0, -M, 1 - M))
 
     def test_cpython_issue16030(self):
         import sys
-        M = min(sys.maxint, sys.maxsize)
-        x = xrange(0, M, M - 1)
-        assert repr(x) == 'xrange(0, %s, %s)' % (M, M - 1)
-        x = xrange(0, -M, 1 - M)
-        assert repr(x) == 'xrange(0, %s, %s)' % (-M - 1, 1 - M)
+        M = sys.maxsize
+        x = range(0, M, M - 1)
+        assert repr(x) == 'range(0, %s, %s)' % (M, M - 1), repr(x)
+        x = range(0, -M, 1 - M)
+        assert repr(x) == 'range(0, %s, %s)' % (-M, 1 - M), repr(x)
 
 
 class AppTestReversed:

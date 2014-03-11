@@ -184,14 +184,14 @@ class AppTestStringObject:
         x = MyInt(65)
         assert '%c' % x == 'A'
 
-    def test_format_retry_with_long_if_int_fails(self):
+    def test_int_fails(self):
         class IntFails(object):
             def __int__(self):
                 raise Exception
-            def __long__(self):
-                return 0L
 
-        assert "%x" % IntFails() == '0'
+        exc = raises(TypeError, "%x".__mod__, IntFails())
+        expected = "%x format: a number is required, not IntFails"
+        assert str(exc.value) == expected
 
     def test_formatting_huge_precision(self):
         prec = 2**31

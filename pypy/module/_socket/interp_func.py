@@ -272,7 +272,7 @@ def getaddrinfo(space, w_host, w_port,
     # port can be None, int or string
     if space.is_w(w_port, space.w_None):
         port = None
-    elif space.isinstance_w(w_port, space.w_int) or space.isinstance_w(w_port, space.w_long):
+    elif space.isinstance_w(w_port, space.w_int):
         port = str(space.int_w(w_port))
     elif space.isinstance_w(w_port, space.w_bytes):
         port = space.bytes_w(w_port)
