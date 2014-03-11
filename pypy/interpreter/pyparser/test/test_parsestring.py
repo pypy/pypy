@@ -62,6 +62,19 @@ class TestParsetring:
         ret = space.unwrap(w_ret)
         assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'")
 
+    def test_unicode_pep414(self):
+        space = self.space
+        for s in [u'hello world', u'hello\n world']:
+            self.parse_and_compare(repr(s), unicode(s))
+
+        self.parse_and_compare("u'''hello\\x42 world'''",
+                               u'hello\x42 world')
+        self.parse_and_compare("u'''hello\\u0842 world'''",
+                               u'hello\u0842 world')
+
+        space.raises_w(space.w_ValueError,
+                       parsestring.parsestr, space, None, "ur'foo'")
+
     def test_unicode_literals(self):
         space = self.space
         w_ret = parsestring.parsestr(space, None, repr("hello"))

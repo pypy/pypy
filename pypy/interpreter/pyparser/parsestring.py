@@ -22,13 +22,18 @@ def parsestr(space, encoding, s):
     quote = s[ps]
     rawmode = False
     unicode_literal = True
+    saw_u = False
 
     # string decoration handling
     if quote == 'b' or quote == 'B':
         ps += 1
         quote = s[ps]
         unicode_literal = False
-    if quote == 'r' or quote == 'R':
+    elif quote == 'u' or quote == 'U':
+        ps += 1
+        quote = s[ps]
+        saw_u = True
+    if not saw_u and quote == 'r' or quote == 'R':
         ps += 1
         quote = s[ps]
         rawmode = True
