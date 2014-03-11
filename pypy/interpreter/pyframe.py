@@ -180,21 +180,12 @@ class PyFrame(W_Root):
         else:
             return self.execute_frame()
 
-    def _hints_for_stm(self):
-        self = hint(self, stm_write=True)
-        #hint(self.locals_stack_w, stm_write=True) -- later
-        #hint(self.cells, stm_immutable=True)      -- later
-        self = hint(self, access_directly=True)
-        return self
-
     def execute_frame(self, w_inputvalue=None, operr=None):
         """Execute this frame.  Main entry point to the interpreter.
         The optional arguments are there to handle a generator's frame:
         w_inputvalue is for generator.send() and operr is for
         generator.throw().
         """
-        if self.space.config.translation.stm:
-            self = self._hints_for_stm()
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -238,13 +229,11 @@ class PyFrame(W_Root):
 
     # stack manipulation helpers
     def pushvalue(self, w_object):
-        hint(self, stm_assert_local=True)
         depth = self.valuestackdepth
         self.locals_stack_w[depth] = w_object
         self.valuestackdepth = depth + 1
 
     def popvalue(self):
-        hint(self, stm_assert_local=True)
         depth = self.valuestackdepth - 1
         assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
         w_object = self.locals_stack_w[depth]
@@ -258,7 +247,6 @@ class PyFrame(W_Root):
     def _new_popvalues():
         @jit.unroll_safe
         def popvalues(self, n):
-            hint(self, stm_assert_local=True)
             values_w = [None] * n
             while True:
                 n -= 1
@@ -273,7 +261,6 @@ class PyFrame(W_Root):
 
     @jit.unroll_safe
     def peekvalues(self, n):
-        hint(self, stm_assert_local=True)
         values_w = [None] * n
         base = self.valuestackdepth - n
         assert base >= self.pycode.co_nlocals
@@ -286,7 +273,6 @@ class PyFrame(W_Root):
 
     @jit.unroll_safe
     def dropvalues(self, n):
-        hint(self, stm_assert_local=True)
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
         assert finaldepth >= self.pycode.co_nlocals, (
@@ -318,7 +304,6 @@ class PyFrame(W_Root):
             self.pushvalue(w_value)
 
     def peekvalue(self, index_from_top=0):
-        hint(self, stm_assert_local=True)
         # NOTE: top of the stack is peekvalue(0).
         # Contrast this with CPython where it's PEEK(-1).
         index_from_top = hint(index_from_top, promote=True)
@@ -328,7 +313,6 @@ class PyFrame(W_Root):
         return self.locals_stack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
-        hint(self, stm_assert_local=True)
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert index >= self.pycode.co_nlocals, (
