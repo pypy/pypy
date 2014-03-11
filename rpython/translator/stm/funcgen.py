@@ -52,6 +52,12 @@ def stm_register_thread_local(funcgen, op):
 def stm_unregister_thread_local(funcgen, op):
     return 'stm_unregister_thread_local(&stm_thread_local);'
 
+def stm_read(funcgen, op):
+    assert isinstance(op.args[0].concretetype, lltype.Ptr)
+    assert op.args[0].concretetype.TO._gckind == 'gc'
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_read((object_t *)%s);' % (arg0,)
+
 def stm_write(funcgen, op):
     assert isinstance(op.args[0].concretetype, lltype.Ptr)
     assert op.args[0].concretetype.TO._gckind == 'gc'

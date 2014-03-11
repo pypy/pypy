@@ -12,22 +12,23 @@ class STMTransformer(object):
 
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
-        self.start_log()
+        self.start_log(1)
         self.transform_jit_driver()
-        self.transform_read_barrier()
         self.transform_turn_inevitable()
-        self.print_logs()
+        self.print_logs(1)
         self.translator.stm_transformation_applied = True
 
     def transform_after_gc(self):
+        self.start_log(2)
         self.transform_threadlocalref()
-        self.print_logs_after_gc()
+        self.transform_read_barrier()
+        self.print_logs(2)
 
     def transform_read_barrier(self):
         self.read_barrier_counts = 0
         for graph in self.translator.graphs:
             insert_stm_read_barrier(self, graph)
-        log("%d read barriers inserted" % (self.read_barrier_counts,))
+        log.info("%d read barriers inserted" % (self.read_barrier_counts,))
 
     def transform_turn_inevitable(self):
         for graph in self.translator.graphs:
@@ -38,13 +39,13 @@ class STMTransformer(object):
             reorganize_around_jit_driver(self, graph)
 
     def transform_threadlocalref(self):
+        return #XXX XXX XXX
         transform_tlref(self.translator)
 
-    def start_log(self):
-        log.info("Software Transactional Memory transformation")
+    def start_log(self, step):
+        log.info("Software Transactional Memory transformation, step %d"
+                 % step)
 
-    def print_logs(self):
-        log.info("Software Transactional Memory transformation applied")
-
-    def print_logs_after_gc(self):
-        log.info("Software Transactional Memory transformation-after-gc done")
+    def print_logs(self, step):
+        log.info("Software Transactional Memory transformation, step %d, "
+                 "applied" % step)

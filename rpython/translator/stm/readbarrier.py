@@ -27,5 +27,6 @@ def insert_stm_read_barrier(transformer, graph):
             if op.opname in READ_OPS and is_gc_ptr(op.args[0].concretetype):
                 v_none = varoftype(lltype.Void)
                 newops.append(SpaceOperation('stm_read', [op.args[0]], v_none))
+                transformer.read_barrier_counts += 1
             newops.append(op)
         block.operations = newops

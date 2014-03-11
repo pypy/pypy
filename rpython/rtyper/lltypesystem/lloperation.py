@@ -413,6 +413,7 @@ LL_OPERATIONS = {
     #  must be no gc-var access afterwards anyway)
     'stm_register_thread_local': LLOp(),
     'stm_unregister_thread_local': LLOp(),
+    'stm_read':               LLOp(),
     'stm_write':              LLOp(),
     'stm_can_move':           LLOp(),
     'stm_allocate_tid':       LLOp(sideeffects=False, canmallocgc=True),

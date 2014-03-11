@@ -160,9 +160,6 @@ class CBuilder(object):
                               sandbox=self.config.translation.sandbox)
         self.db = db
 
-        if self.config.translation.stm:
-            stmtransformer.transform_after_gc()
-
         # give the gc a chance to register interest in the start-up functions it
         # need (we call this for its side-effects of db.get())
         list(db.gcpolicy.gc_startup_code())
@@ -186,6 +183,9 @@ class CBuilder(object):
             db.getcontainernode(obj)
         exports.clear()
         db.complete()
+
+        if self.config.translation.stm:
+            stmtransformer.transform_after_gc()
 
         self.collect_compilation_info(db)
         return db
