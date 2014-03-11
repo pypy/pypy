@@ -3970,3 +3970,11 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return a.x
         res = self.interp_operations(f, [42])
         assert res == 0
+
+    def test_conditions_without_guards(self):
+        def f(n):
+            if (n == 1) | (n == 3) | (n == 17):
+                return 42
+            return 5
+        res = self.interp_operations(f, [17])
+        assert res == 42
