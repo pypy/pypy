@@ -8,7 +8,10 @@ extern Signed pypy_stmcb_size_rounded_up(void*);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
 
 inline ssize_t stmcb_size_rounded_up(struct object_s *obj) {
-    return pypy_stmcb_size_rounded_up(obj);
+    ssize_t result = pypy_stmcb_size_rounded_up(obj);
+    assert(result >= 16);
+    assert((result & 7) == 0);
+    return result;
 }
 
 inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {

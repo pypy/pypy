@@ -869,15 +869,16 @@ def gen_stm_prebuilt(f, database):
 void pypy_stm_setup(void)
 {
     stm_setup();
+    stm_register_thread_local(&stm_thread_local);
 
+    stm_start_inevitable_transaction(&stm_thread_local);
     object_t **pp = rpy_prebuilt;
     long *ph = rpy_prebuilt_hashes;
     for ( ; *pp; pp++, ph++) {
         *pp = stm_setup_prebuilt(*pp);
         stm_set_prebuilt_identityhash(*pp, *ph);
     }
-
-    stm_register_thread_local(&stm_thread_local);
+    stm_commit_transaction();
 }
 '''
 
