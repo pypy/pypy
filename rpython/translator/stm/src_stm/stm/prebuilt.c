@@ -4,9 +4,8 @@
 #endif
 
 
-#define GCWORD_PREBUILT_MOVED  ((object_t *) 42)
-
 static struct list_s *prebuilt_objects_to_trace;
+static struct tree_s *tree_prebuilt_objs;  /* XXX from gcpage.c */
 
 
 static void prebuilt_trace(object_t **pstaticobj_invalid)
@@ -17,17 +16,15 @@ static void prebuilt_trace(object_t **pstaticobj_invalid)
     if (obj == NULL)
         return;
 
-    /* If the object was already moved, its first word was set to
-       GCWORD_PREBUILT_MOVED.  In that case, the forwarding location,
-       i.e. where the object moved to, is stored in the second word.
-    */
-    object_t **pforwarded_array = (object_t **)objaddr;
+    /* If the object was already moved, it is stored in 'tree_prebuilt_objs'.
+     */
+    wlog_t *item;
+    TREE_FIND(*tree_prebuilt_objs, (uintptr_t)obj, item, goto not_found);
 
-    if (pforwarded_array[0] == GCWORD_PREBUILT_MOVED) {
-        *pstaticobj_invalid = pforwarded_array[1];    /* already moved */
-        return;
-    }
+    *pstaticobj_invalid = (object_t *)item->val;    /* already moved */
+    return;
 
+ not_found:;
     /* We need to make a copy of this object.  The extra "long" is for
        the prebuilt hash. */
     size_t size = stmcb_size_rounded_up(obj);
@@ -41,9 +38,8 @@ static void prebuilt_trace(object_t **pstaticobj_invalid)
     assert(nobj->stm_flags == 0);
     nobj->stm_flags = GCFLAG_WRITE_BARRIER;
 
-    /* Mark the original object */
-    pforwarded_array[0] = GCWORD_PREBUILT_MOVED;
-    pforwarded_array[1] = nobj;
+    /* Add the object to the tree */
+    tree_insert(tree_prebuilt_objs, (uintptr_t)obj, (uintptr_t)nobj);
 
     /* Done */
     *pstaticobj_invalid = nobj;
@@ -56,6 +52,9 @@ object_t *stm_setup_prebuilt(object_t *staticobj_invalid)
        type is really "object_t *", it should not actually be accessed
        via %gs.
     */
+    if (tree_prebuilt_objs == NULL)
+        tree_prebuilt_objs = tree_create();
+
     LIST_CREATE(prebuilt_objects_to_trace);
 
     object_t *obj = staticobj_invalid;

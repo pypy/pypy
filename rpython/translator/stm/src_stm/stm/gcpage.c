@@ -5,6 +5,7 @@
 
 
 static struct list_s *testing_prebuilt_objs = NULL;
+static struct tree_s *tree_prebuilt_objs = NULL;     /* XXX refactor */
 
 
 static void setup_gcpage(void)
@@ -22,6 +23,10 @@ static void teardown_gcpage(void)
     memset(small_alloc, 0, sizeof(small_alloc));
     free_uniform_pages = NULL;
     LIST_FREE(testing_prebuilt_objs);
+    if (tree_prebuilt_objs != NULL) {
+        tree_free(tree_prebuilt_objs);
+        tree_prebuilt_objs = NULL;
+    }
 }
 
 
