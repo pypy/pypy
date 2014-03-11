@@ -148,6 +148,7 @@ class JitDriverSplitter(object):
     def make_invoke_stm_function(self):
         CONTAINER = self.CONTAINER
         callback = self.callback_function
+        XXX
         perform_transaction = rstm.make_perform_transaction(callback,
                                                             self.CONTAINERP)
         irange = range(len(self.TYPES))

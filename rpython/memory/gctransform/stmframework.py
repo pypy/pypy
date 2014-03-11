@@ -72,6 +72,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         hop.genop("stm_get_root_stack_top", [], resultvar=hop.spaceop.result)
 
     def gct_weakref_create(self, hop):
+        XXX
         op = hop.spaceop
         
         type_id = self.get_type_id(WEAKREF)
@@ -104,21 +105,17 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                               resulttype=llmemory.WeakRefPtr)
         hop.cast_result(v_weakref)
 
-        
-    def _gct_with_roots_pushed(self, hop):
-        livevars = self.push_roots(hop)
-        self.default(hop)
-        self.pop_roots(hop, livevars)
+##    def _gct_with_roots_pushed(self, hop):
+##        livevars = self.push_roots(hop)
+##        self.default(hop)
+##        self.pop_roots(hop, livevars)
 
-    # sync with lloperation.py
-    gct_stm_become_inevitable                       = _gct_with_roots_pushed
-    gct_stm_set_transaction_length                  = _gct_with_roots_pushed
-    gct_stm_stop_all_other_threads                  = _gct_with_roots_pushed
-    gct_stm_partial_commit_and_resume_other_threads = _gct_with_roots_pushed
-    gct_stm_perform_transaction                     = _gct_with_roots_pushed
-    gct_stm_allocate_nonmovable_int_adr             = _gct_with_roots_pushed
-    gct_stm_inspect_abort_info                      = _gct_with_roots_pushed
-    gct_stm_threadlocalref_set                      = _gct_with_roots_pushed
+##    # sync with lloperation.py
+##    gct_stm_become_inevitable                       = _gct_with_roots_pushed
+##    gct_stm_partial_commit_and_resume_other_threads = _gct_with_roots_pushed
+##    gct_stm_perform_transaction                     = _gct_with_roots_pushed
+##    gct_stm_inspect_abort_info                      = _gct_with_roots_pushed
+##    gct_stm_threadlocalref_set                      = _gct_with_roots_pushed
 
 
 class StmRootWalker(BaseRootWalker):
