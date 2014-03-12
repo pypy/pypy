@@ -171,6 +171,16 @@ def stm_perform_transaction(funcgen, op):
     return ('pypy_stm_perform_transaction((object_t *)%s, '
             '(int(*)(object_t *, int))%s);' % (arg0, arg1))
 
+def stm_increment_atomic(funcgen, op):
+    return 'pypy_stm_increment_atomic();'
+
+def stm_decrement_atomic(funcgen, op):
+    return 'pypy_stm_decrement_atomic();'
+
+def stm_get_atomic(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = pypy_stm_get_atomic();' % (result,)
+
 
 ##def stm_initialize(funcgen, op):
 ##    return '''stm_initialize();
@@ -300,14 +310,6 @@ def stm_perform_transaction(funcgen, op):
 ##    arg0 = funcgen.expr(op.args[0])
 ##    result = funcgen.expr(op.result)
 ##    return '%s = ((struct rpyobj_s*)%s)->tid;' % (result, arg0)
-
-##def stm_change_atomic(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    return 'stm_atomic(%s);' % (arg0,)
-
-##def stm_get_atomic(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = stm_atomic(0);' % (result,)
 
 ##def stm_enter_callback_call(funcgen, op):
 ##    result = funcgen.expr(op.result)

@@ -441,6 +441,10 @@ LL_OPERATIONS = {
     'stm_threadlocal_get':    LLOp(sideeffects=False),
     'stm_threadlocal_set':    LLOp(),
 
+    'stm_increment_atomic':   LLOp(),
+    'stm_decrement_atomic':   LLOp(),
+    'stm_get_atomic':         LLOp(sideeffects=False),
+
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),
 ##    'stm_stop_all_other_threads': LLOp(canmallocgc=True),
@@ -449,9 +453,6 @@ LL_OPERATIONS = {
 ##    'stm_major_collect':      LLOp(canmallocgc=True),
 ##    'stm_get_tid':            LLOp(canfold=True),
 ##    'stm_ptr_eq':             LLOp(canfold=True),
-##    'stm_change_atomic':      LLOp(),
-##    'stm_get_atomic':         LLOp(sideeffects=False),
-##    'stm_perform_transaction':LLOp(canmallocgc=True),
 ##    'stm_abort_and_retry':    LLOp(canmallocgc=True),
 
 ##    'stm_weakref_allocate':   LLOp(sideeffects=False, canmallocgc=True),
