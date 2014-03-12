@@ -109,13 +109,13 @@ class AppTestCodecs:
         map = tuple([chr(i) for i in range(256)])
         assert charmap_decode(b'xxx\xff', 'strict', map) == ('xxx\xff', 4)
 
-        exc = raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 'a'})
+        exc = raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: b'a'})
         assert str(exc.value) == "character mapping must return integer, None or unicode"
-        raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 0x110000})
-        assert (charmap_decode("\x00\x01\x02", "strict",
+        raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: 0x110000})
+        assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
                 u"\U0010FFFFbc", 3)
-        assert (charmap_decode("\x00\x01\x02", "strict",
+        assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
                 u"\U0010FFFFbc", 3)
 
