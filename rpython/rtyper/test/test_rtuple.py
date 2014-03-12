@@ -95,6 +95,14 @@ class TestRtuple(BaseRtypingTest):
         res = self.interpret(f, [50])
         assert res is False
 
+    def test_constant_tuple_contains_bug(self):
+        def f(i):
+            return chr(i) in ('1', '2', '34')    # the '34' can never match
+        res = self.interpret(f, [ord('1')])
+        assert res is True
+        res = self.interpret(f, [ord('3')])
+        assert res is False
+
     def test_conv(self):
         def t0():
             return (3, 2, None)

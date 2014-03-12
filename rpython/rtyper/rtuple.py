@@ -290,14 +290,15 @@ class __extend__(pairtype(TupleRepr, Repr)):
         if not s_tup.is_constant():
             raise TyperError("contains() on non-const tuple")
         t = s_tup.const
-        if len(t) == 0:
-            hop.exception_cannot_occur()
-            return hop.inputconst(Bool, False)
+        s_item = hop.args_s[1]
         r_item = hop.args_r[1]
         v_arg = hop.inputarg(r_item, arg=1)
         ll_eq = r_item.get_ll_eq_function() or _ll_equal
         v_result = None
         for x in t:
+            s_const_item = hop.rtyper.annotator.bookkeeper.immutablevalue(x)
+            if not s_item.contains(s_const_item):
+                continue   # corner case, see test_constant_tuple_contains_bug
             c_tuple_item = hop.inputconst(r_item, x)
             v_equal = hop.gendirectcall(ll_eq, v_arg, c_tuple_item)
             if v_result is None:
