@@ -650,7 +650,7 @@ class AppTestPartialEvaluation:
             if not isinstance(exc, UnicodeEncodeError) \
                and not isinstance(exc, UnicodeDecodeError):
                 raise TypeError("don't know how to handle %r" % exc)
-            l = [u"<%d>" % ord(exc.object[pos]) for pos in xrange(exc.start, exc.end)]
+            l = [u"<%d>" % exc.object[pos] for pos in range(exc.start, exc.end)]
             return (u"[%s]" % u"".join(l), exc.end)
         codecs.register_error("test.handler1", handler1)
         assert b"\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
