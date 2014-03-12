@@ -429,6 +429,7 @@ LL_OPERATIONS = {
     'stm_pop_root_into':      LLOp(),
     'stm_commit_if_not_atomic':           LLOp(canmallocgc=True),
     'stm_start_inevitable_if_not_atomic': LLOp(canmallocgc=True),
+    'stm_abort_and_retry':                LLOp(canmallocgc=True),
     'stm_enter_callback_call':            LLOp(canmallocgc=True),
     'stm_leave_callback_call':            LLOp(),
     'stm_perform_transaction':            LLOp(canmallocgc=True),
@@ -445,6 +446,10 @@ LL_OPERATIONS = {
     'stm_decrement_atomic':   LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
 
+    'stm_abort_info_push':    LLOp(),
+    'stm_abort_info_pop':     LLOp(),
+    'stm_inspect_abort_info': LLOp(sideeffects=False, canmallocgc=True),
+
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),
 ##    'stm_stop_all_other_threads': LLOp(canmallocgc=True),
@@ -453,19 +458,8 @@ LL_OPERATIONS = {
 ##    'stm_major_collect':      LLOp(canmallocgc=True),
 ##    'stm_get_tid':            LLOp(canfold=True),
 ##    'stm_ptr_eq':             LLOp(canfold=True),
-##    'stm_abort_and_retry':    LLOp(canmallocgc=True),
 
 ##    'stm_weakref_allocate':   LLOp(sideeffects=False, canmallocgc=True),
-    
-##    'stm_threadlocalref_get': LLOp(sideeffects=False),
-##    'stm_threadlocalref_set': LLOp(canmallocgc=True), # may allocate new array,
-##                                                      # see threadlocalref.py
-##    'stm_threadlocal_get':    LLOp(sideeffects=False),
-##    'stm_threadlocal_set':    LLOp(),
-
-##    'stm_abort_info_push':    LLOp(),
-##    'stm_abort_info_pop':     LLOp(),
-##    'stm_inspect_abort_info': LLOp(sideeffects=False, canmallocgc=True),
 
 ##    'stm_get_adr_of_private_rev_num':LLOp(),
 ##    'stm_get_adr_of_read_barrier_cache':LLOp(),

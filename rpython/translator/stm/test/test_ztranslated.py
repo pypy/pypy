@@ -255,7 +255,10 @@ class TestSTMTranslated(CompiledSTMTests):
                 rstm.abort_and_retry()
             #
             last = rstm.charp_inspect_abort_info()
-            print rffi.charp2str(last)
+            if last:
+                print rffi.charp2str(last)
+            else:
+                print 'got abort_info=NULL!'
             print int(bool(rstm.charp_inspect_abort_info()))
             #
             rstm.abort_info_pop(2)

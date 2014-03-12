@@ -181,6 +181,22 @@ def stm_get_atomic(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = pypy_stm_get_atomic();' % (result,)
 
+def stm_abort_and_retry(funcgen, op):
+    return 'stm_abort_transaction();'
+
+def stm_abort_info_push(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return '//XXX stm_abort_info_push((gcptr)%s, %s);' % (arg0, arg1)
+
+def stm_abort_info_pop(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return '//XXX stm_abort_info_pop(%s);' % (arg0,)
+
+def stm_inspect_abort_info(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = NULL; //XXX stm_inspect_abort_info();' % (result,)
+
 
 ##def stm_initialize(funcgen, op):
 ##    return '''stm_initialize();
@@ -318,22 +334,6 @@ def stm_get_atomic(funcgen, op):
 ##def stm_leave_callback_call(funcgen, op):
 ##    arg0 = funcgen.expr(op.args[0])
 ##    return 'stm_leave_callback_call(%s);' % (arg0,)
-
-##def stm_abort_and_retry(funcgen, op):
-##    return 'stm_abort_and_retry();'
-
-##def stm_abort_info_push(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    arg1 = funcgen.expr(op.args[1])
-##    return 'stm_abort_info_push((gcptr)%s, %s);' % (arg0, arg1)
-
-##def stm_abort_info_pop(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    return 'stm_abort_info_pop(%s);' % (arg0,)
-
-##def stm_inspect_abort_info(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = stm_inspect_abort_info();' % (result,)
 
 ##def stm_minor_collect(funcgen, op):
 ##    return 'stm_minor_collect();'
