@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from rpython.rtyper.lltypesystem.rffi import CConstant
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.tool.sourcetools import valid_identifier
-from rpython.translator.c.primitive import PrimitiveName, PrimitiveType
+from rpython.translator.c.primitive import PrimitiveName, PrimitiveType, name_gcref
 from rpython.translator.c.node import StructDefNode, ArrayDefNode
 from rpython.translator.c.node import FixedSizeArrayDefNode, BareBoneArrayDefNode
 from rpython.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
@@ -183,8 +183,10 @@ class LowLevelDatabase(object):
         if isinstance(obj, CConstant):
             return obj.c_name  # without further checks
         T = typeOf(obj)
-        if isinstance(T, Primitive) or T == GCREF:
+        if isinstance(T, Primitive):
             return PrimitiveName[T](obj, self)
+        elif T == GCREF:
+            return name_gcref(obj, self, static=static)
         elif isinstance(T, Ptr):
             if (isinstance(T.TO, OpaqueType) and
                 T.TO.hints.get('c_pointer_typedef') is not None):

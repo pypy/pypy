@@ -174,7 +174,7 @@ def name_address(value, db):
     else:
         return 'NULL'
 
-def name_gcref(value, db):
+def name_gcref(value, db, static=False):
     if value:
         obj = value._obj
         if isinstance(obj, int):
@@ -184,7 +184,7 @@ def name_gcref(value, db):
         if isinstance(realobj, int):
             return _name_tagged(realobj, db)
         realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
-        return db.get(realvalue)
+        return db.get(realvalue, static=static)
     else:
         return 'NULL'
 
