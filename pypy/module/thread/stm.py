@@ -9,16 +9,30 @@ from pypy.interpreter.gateway import W_Root, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, descr_get_dict
 from rpython.rlib import rthread
 from rpython.rlib import rstm
-from rpython.rlib import rweakref
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import invoke_around_extcall, we_are_translated
+
+
+class FakeWeakKeyDictionary:
+    # Only used if we don't have weakrefs.
+    # Then thread._local instances will leak, but too bad.
+    def __init__(self):
+        self.d = {}
+    def get(self, key):
+        return self.d.get(key, None)
+    def set(self, key, value):
+        self.d[key] = value
 
 
 ec_cache = rstm.ThreadLocalReference(ExecutionContext)
 
 def initialize_execution_context(ec):
     """Called from ExecutionContext.__init__()."""
-    ec._thread_local_dicts = rweakref.RWeakKeyDictionary(STMLocal, W_Root)
+    if ec.space.config.translation.rweakref:
+        from rpython.rlib import rweakref
+        ec._thread_local_dicts = rweakref.RWeakKeyDictionary(STMLocal, W_Root)
+    else:
+        ec._thread_local_dicts = FakeWeakKeyDictionary()
     if ec.space.config.objspace.std.withmethodcache:
         from pypy.objspace.std.typeobject import MethodCache
         ec._methodcache = MethodCache(ec.space)
