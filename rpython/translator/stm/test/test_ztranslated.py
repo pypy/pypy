@@ -395,3 +395,27 @@ class TestSTMTranslated(CompiledSTMTests):
         lines = dataerr.split('\n')
         assert lines[0] == ' 0.400000'
         assert lines[1] == ' 1.200000'
+
+    def test_stm_ignored(self):
+        class X:
+            foo = 84
+        prebuilt = X()
+        prebuilt2 = X()
+        def main(argv):
+            with objectmodel.stm_ignored:
+                prebuilt.foo = 42
+            with objectmodel.stm_ignored:
+                x = prebuilt2.foo
+            print 'did not crash', x
+            return 0
+
+        t, cbuilder = self.compile(main)
+        opnames = [op.opname for op in t.graphs[0].startblock.operations]
+        assert opnames[:6] == ['stm_ignored_start',
+                               'bare_setfield',    # with no stm_write
+                               'stm_ignored_stop',
+                               'stm_ignored_start',
+                               'getfield',         # with no stm_read
+                               'stm_ignored_stop']
+        data = cbuilder.cmdexec('')
+        assert 'did not crash 84\n' in data

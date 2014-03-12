@@ -5,6 +5,7 @@ from rpython.memory.gctransform.framework import ( TYPE_ID,
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.rtyper import rmodel, llannotation
+from rpython.translator.backendopt.support import var_needsgc
 
 
 class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
@@ -52,6 +53,25 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         for var in reversed(livevars):
             hop.genop("stm_pop_root_into", [var])
 
+    def transform_block(self, *args, **kwds):
+        self.in_stm_ignored = False
+        BaseFrameworkGCTransformer.transform_block(self, *args, **kwds)
+        assert not self.in_stm_ignored, (
+            "unbalanced stm_ignore_start/stm_ignore_stop in block")
+
+    def gct_stm_ignored_start(self, hop):
+        assert not self.in_stm_ignored
+        self.in_stm_ignored = True
+        self.default(hop)
+
+    def gct_stm_ignored_stop(self, hop):
+        assert self.in_stm_ignored
+        self.in_stm_ignored = False
+        self.default(hop)
+
+    def var_needs_set_transform(self, var):
+        return True
+
     def transform_generic_set(self, hop):
         # XXX detect if we're inside a 'stm_ignored' block and... do what?
         assert self.write_barrier_ptr == "stm"
@@ -61,8 +81,13 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                           'raw_store')
         if (v_struct.concretetype.TO._gckind == "gc"
                 and hop.spaceop not in self.clean_sets):
-            self.write_barrier_calls += 1
-            hop.genop("stm_write", [v_struct])
+            if self.in_stm_ignored:
+                if var_needsgc(hop.spaceop.args[-1]):
+                    raise Exception("in stm_ignored block: write of a gc "
+                                    "pointer")
+            else:
+                self.write_barrier_calls += 1
+                hop.genop("stm_write", [v_struct])
         hop.rename('bare_' + opname)
 
     def gc_header_for(self, obj, needs_hash=False):

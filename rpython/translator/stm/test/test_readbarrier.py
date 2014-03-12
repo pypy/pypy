@@ -1,3 +1,4 @@
+from rpython.rlib.objectmodel import stm_ignored
 from rpython.translator.stm.test.transform_support import BaseTestTransform
 from rpython.rtyper.lltypesystem import lltype
 
@@ -24,3 +25,14 @@ class TestReadBarrier(BaseTestTransform):
         res = self.interpret(f1, [-5])
         assert res == 42
         assert self.read_barriers == [x1]
+
+    def test_stm_ignored_read(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 42
+        def f1():
+            with stm_ignored:
+                return x1.foo
+        res = self.interpret(f1, [])
+        assert res == 42
+        assert self.read_barriers == []

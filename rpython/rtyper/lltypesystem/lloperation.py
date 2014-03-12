@@ -450,6 +450,9 @@ LL_OPERATIONS = {
     'stm_abort_info_pop':     LLOp(),
     'stm_inspect_abort_info': LLOp(sideeffects=False, canmallocgc=True),
 
+    'stm_ignored_start':      LLOp(canrun=True),
+    'stm_ignored_stop':       LLOp(canrun=True),
+
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),
 ##    'stm_stop_all_other_threads': LLOp(canmallocgc=True),
@@ -466,9 +469,6 @@ LL_OPERATIONS = {
 ##    'stm_get_adr_of_nursery_current': LLOp(),
 ##    'stm_get_adr_of_nursery_nextlimit': LLOp(),
 ##    'stm_get_adr_of_active': LLOp(),
-
-##    'stm_ignored_start':      LLOp(canrun=True),
-##    'stm_ignored_stop':       LLOp(canrun=True),
 
     # __________ address operations __________
 

@@ -197,6 +197,12 @@ def stm_inspect_abort_info(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = NULL; //XXX stm_inspect_abort_info();' % (result,)
 
+def stm_ignored_start(funcgen, op):
+    return '/* stm_ignored_start */'
+
+def stm_ignored_stop(funcgen, op):
+    return '/* stm_ignored_stop */'
+
 
 ##def stm_initialize(funcgen, op):
 ##    return '''stm_initialize();

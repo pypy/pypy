@@ -87,19 +87,18 @@ class LLSTMFrame(LLFrame):
         self.op_stm_read(obj)      # implicitly counts as a read barrier too
 
     def op_stm_ignored_start(self):
-        xxx
         assert self.stm_ignored == False
         self.stm_ignored = True
 
     def op_stm_ignored_stop(self):
-        xxx
         assert self.stm_ignored == True
         self.stm_ignored = False
 
     def op_getfield(self, obj, field):
         if obj._TYPE.TO._gckind == 'gc':
             if obj._TYPE.TO._immutable_field(field):
-                self.gcptrs_actually_read.append(obj)
+                if not self.stm_ignored:
+                    self.gcptrs_actually_read.append(obj)
         return LLFrame.op_getfield(self, obj, field)
 
     def op_setfield(self, obj, fieldname, fieldvalue):
