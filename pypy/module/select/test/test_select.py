@@ -258,7 +258,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
         return FileAsSocket(s1), FileAsSocket(s2)
 
     def test_poll_threaded(self):
-        import os, select, thread, time
+        import os, select, _thread as thread, time
         if not hasattr(select, 'poll'):
             skip("no select.poll() on this platform")
         r, w = os.pipe()
@@ -271,7 +271,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
             t = thread.start_new_thread(pollster.poll, ())
             try:
                 time.sleep(0.1)
-                for i in range(5): print '',  # to release GIL untranslated
+                for i in range(5): print(''),  # to release GIL untranslated
                 # trigger ufds array reallocation
                 for fd in rfds:
                     pollster.unregister(fd)
@@ -282,7 +282,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 # and make the call to poll() from the thread return
                 os.write(w, b'spam')
                 time.sleep(0.1)
-                for i in range(5): print '',  # to release GIL untranslated
+                for i in range(5): print(''),  # to release GIL untranslated
         finally:
             os.close(r)
             os.close(w)
