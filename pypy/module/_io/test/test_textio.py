@@ -367,7 +367,7 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(NonbytesStream(u'a'))
         raises(TypeError, t.readline)
         t = _io.TextIOWrapper(NonbytesStream(u'a'))
-        t.read() == u'a'
+        raises(TypeError, t.read)
 
 
 class AppTestIncrementalNewlineDecoder:
