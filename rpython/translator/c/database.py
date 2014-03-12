@@ -64,7 +64,8 @@ class LowLevelDatabase(object):
 
         self.instrument_ncounter = 0
 
-        self.with_stm = self.translator.config.translation.stm
+        self.with_stm = (self.translator is not None and
+                         self.translator.config.translation.stm)
         self.prebuilt_gc_counter = 0
 
     def gettypedefnode(self, T, varlength=None):
