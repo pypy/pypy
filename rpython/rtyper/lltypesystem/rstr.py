@@ -130,6 +130,14 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
+
+        if rgc.stm_is_enabled():
+            i = 0
+            while i < length:
+                dst.chars[dststart + i] = ptrsrc[i]
+                i += 1
+            return
+
         # from here, no GC operations can happen
         dst = _get_raw_buf(SRC_TP, dst, dststart)
         adr = llmemory.cast_ptr_to_adr(ptrsrc)
