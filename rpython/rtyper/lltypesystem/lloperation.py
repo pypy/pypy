@@ -438,6 +438,7 @@ LL_OPERATIONS = {
                                                       # see threadlocalref.py
     'stm_threadlocal_get':    LLOp(sideeffects=False),
     'stm_threadlocal_set':    LLOp(),
+    'stm_perform_transaction':LLOp(canmallocgc=True),
 
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),

@@ -8,7 +8,10 @@
 
 
 #define dprintf(args)   threadcolor_printf args
-static int dprintfcolor(void);
+static inline int dprintfcolor(void)
+{
+    return 31 + STM_SEGMENT->segment_num % 6;
+}
 
 static int threadcolor_printf(const char *format, ...)
      __attribute__((format (printf, 1, 2)));

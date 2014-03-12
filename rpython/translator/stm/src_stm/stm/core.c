@@ -138,6 +138,8 @@ static void reset_transaction_read_version(void)
 
 void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
 {
+    assert(!_stm_in_transaction(tl));
+
     s_mutex_lock();
 
   retry:
@@ -467,7 +469,7 @@ static void abort_data_structures_from_segment_num(int segment_num)
     struct stm_priv_segment_info_s *pseg = get_priv_segment(segment_num);
 
     /* throw away the content of the nursery */
-    throw_away_nursery(pseg);
+    long bytes_in_nursery = throw_away_nursery(pseg);
 
     /* reset all the modified objects (incl. re-adding GCFLAG_WRITE_BARRIER) */
     reset_modified_from_other_segments(segment_num);
@@ -477,6 +479,7 @@ static void abort_data_structures_from_segment_num(int segment_num)
     stm_thread_local_t *tl = pseg->pub.running_thread;
     tl->shadowstack = pseg->shadowstack_at_start_of_transaction;
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
+    tl->last_abort__bytes_in_nursery = bytes_in_nursery;
 
     /* reset these lists to NULL too on abort */
     LIST_FREE(pseg->objects_pointing_to_nursery);

@@ -216,15 +216,15 @@ static void collect_modified_old_objects(void)
                    _collect_now(item));
 }
 
-static void throw_away_nursery(struct stm_priv_segment_info_s *pseg)
+static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 {
     /* reset the nursery by zeroing it */
-    size_t size;
+    size_t nursery_used;
     char *realnursery;
 
     realnursery = REAL_ADDRESS(pseg->pub.segment_base, _stm_nursery_start);
-    size = pseg->pub.nursery_current - (stm_char *)_stm_nursery_start;
-    memset(realnursery, 0, size);
+    nursery_used = pseg->pub.nursery_current - (stm_char *)_stm_nursery_start;
+    memset(realnursery, 0, nursery_used);
 
     pseg->pub.nursery_current = (stm_char *)_stm_nursery_start;
 
@@ -251,6 +251,7 @@ static void throw_away_nursery(struct stm_priv_segment_info_s *pseg)
     }
 
     tree_clear(pseg->nursery_objects_shadows);
+    return nursery_used;
 }
 
 #define MINOR_NOTHING_TO_DO(pseg)                                       \

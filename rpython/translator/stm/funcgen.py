@@ -134,13 +134,11 @@ def stm_pop_root_into(funcgen, op):
         return '/* %s = */ STM_POP_ROOT_RET(stm_thread_local);' % (arg0,)
     return 'STM_POP_ROOT(stm_thread_local, %s);' % (arg0,)
 
-def stm_commit_transaction(funcgen, op):
-   return '{ int e = errno; stm_commit_transaction(); errno = e; }'
+def stm_commit_if_not_atomic(funcgen, op):
+   return 'pypy_stm_commit_if_not_atomic();'
 
-def stm_start_inevitable_transaction(funcgen, op):
-    return ('{ int e = errno; '
-            'stm_start_inevitable_transaction(&stm_thread_local); '
-            'errno = e; }')
+def stm_start_inevitable_if_not_atomic(funcgen, op):
+    return 'pypy_stm_start_inevitable_if_not_atomic();'
 
 def stm_enter_callback_call(funcgen, op):
     result = funcgen.expr(op.result)
@@ -166,6 +164,12 @@ def stm_threadlocal_get(funcgen, op):
 def stm_threadlocal_set(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'stm_thread_local.thread_local_obj = (object_t *)%s;' % (arg0,)
+
+def stm_perform_transaction(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return ('pypy_stm_perform_transaction((object_t *)%s, '
+            '(int(*)(object_t *, int))%s);' % (arg0, arg1))
 
 
 ##def stm_initialize(funcgen, op):
@@ -297,16 +301,6 @@ def stm_threadlocal_set(funcgen, op):
 ##    result = funcgen.expr(op.result)
 ##    return '%s = ((struct rpyobj_s*)%s)->tid;' % (result, arg0)
 
-##def stm_hash(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    result = funcgen.expr(op.result)
-##    return '%s = stm_hash((gcptr)%s);' % (result, arg0)
-
-##def stm_id(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    result = funcgen.expr(op.result)
-##    return '%s = stm_id((gcptr)%s);' % (result, arg0)
-
 ##def stm_change_atomic(funcgen, op):
 ##    arg0 = funcgen.expr(op.args[0])
 ##    return 'stm_atomic(%s);' % (arg0,)
@@ -314,20 +308,6 @@ def stm_threadlocal_set(funcgen, op):
 ##def stm_get_atomic(funcgen, op):
 ##    result = funcgen.expr(op.result)
 ##    return '%s = stm_atomic(0);' % (result,)
-
-##def stm_threadlocal_get(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)stm_thread_local_obj;' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''))
-
-##def stm_threadlocal_set(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    return 'stm_thread_local_obj = (gcptr)%s;' % (arg0,)
-
-##def stm_perform_transaction(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    arg1 = funcgen.expr(op.args[1])
-##    return 'stm_perform_transaction((gcptr)%s, %s);' % (arg0, arg1)
 
 ##def stm_enter_callback_call(funcgen, op):
 ##    result = funcgen.expr(op.result)

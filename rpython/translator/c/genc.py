@@ -786,7 +786,8 @@ def gen_structdef(f, database):
             if node.forward_decl:
                 print >> f, node.forward_decl
         elif node.name is not None:
-            print >> f, '%s %s;' % (node.typetag, node.name)
+            if node.typetag != '':
+                print >> f, '%s %s;' % (node.typetag, node.name)
     print >> f
     for node in structdeflist:
         for line in node.definition():

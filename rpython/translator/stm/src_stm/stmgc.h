@@ -58,7 +58,10 @@ typedef struct stm_thread_local_s {
        the following raw region of memory is cleared. */
     char *mem_clear_on_abort;
     size_t mem_bytes_to_clear_on_abort;
-    /* the next fields are handled automatically by the library */
+    /* after an abort, some details about the abort are stored there.
+       (these fields are not modified on a successful commit) */
+    long last_abort__bytes_in_nursery;
+    /* the next fields are handled internally by the library */
     int associated_segment_num;
     struct stm_thread_local_s *prev, *next;
 } stm_thread_local_t;
@@ -245,6 +248,9 @@ void stm_abort_transaction(void) __attribute__((noreturn));
 static inline void stm_become_inevitable(const char* msg) {
     if (STM_SEGMENT->jmpbuf_ptr != NULL)
         _stm_become_inevitable(msg);
+}
+static inline int stm_is_inevitable(void) {
+    return (STM_SEGMENT->jmpbuf_ptr == NULL);
 }
 
 /* Forces a safe-point if needed.  Normally not needed: this is

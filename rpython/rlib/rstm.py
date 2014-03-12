@@ -66,11 +66,11 @@ def set_transaction_length(length):
 
 @dont_look_inside
 def increment_atomic():
-    llop.stm_change_atomic(lltype.Signed, +1)
+    llop.stm_increment_atomic(lltype.Void)
 
 @dont_look_inside
 def decrement_atomic():
-    llop.stm_change_atomic(lltype.Signed, -1)
+    llop.stm_decrement_atomic(lltype.Void)
 
 @dont_look_inside
 def is_atomic():
@@ -96,7 +96,7 @@ def abort_and_retry():
 def before_external_call():
     if we_are_translated():
         # this tries to commit, or becomes inevitable if atomic
-        llop.stm_commit_transaction(lltype.Void)
+        llop.stm_commit_if_not_atomic(lltype.Void)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
@@ -104,7 +104,7 @@ before_external_call._transaction_break_ = True
 def after_external_call():
     if we_are_translated():
         # starts a new transaction if we are not atomic already
-        llop.stm_start_inevitable_transaction(lltype.Void)
+        llop.stm_start_inevitable_if_not_atomic(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 

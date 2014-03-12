@@ -4,11 +4,6 @@
 /* ------------------------------------------------------------ */
 
 
-static int dprintfcolor(void)
-{
-    return 31 + STM_SEGMENT->segment_num % 6;
-}
-
 static int threadcolor_printf(const char *format, ...)
 {
     char buffer[2048];

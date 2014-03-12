@@ -12,7 +12,7 @@ static uint32_t highest_overflow_number;
 
 static void minor_collection(bool commit);
 static void check_nursery_at_transaction_start(void);
-static void throw_away_nursery(struct stm_priv_segment_info_s *pseg);
+static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg);
 static void major_do_minor_collections(void);
 
 static inline bool must_abort(void) {
