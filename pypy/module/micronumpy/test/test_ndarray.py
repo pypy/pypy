@@ -246,6 +246,12 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         return CustomIntObject(value)
 
+    def test_constants(self):
+        import numpy as np
+        assert np.CLIP is 0
+        assert np.WRAP is 1
+        assert np.RAISE is 2
+
     def test_ndarray(self):
         from numpy import ndarray, array, dtype, flatiter
 
