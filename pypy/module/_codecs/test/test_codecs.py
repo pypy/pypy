@@ -110,7 +110,7 @@ class AppTestCodecs:
         assert charmap_decode(b'xxx\xff', 'strict', map) == ('xxx\xff', 4)
 
         exc = raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 'a'})
-        assert exc.value[0] == "character mapping must return integer, None or unicode"
+        assert str(exc.value) == "character mapping must return integer, None or unicode"
         raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 0x110000})
         assert (charmap_decode("\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
@@ -671,11 +671,11 @@ class AppTestPartialEvaluation:
         assert 'xxx'.encode('charmap') == b'xxx'
 
         import codecs
-        exc = raises(TypeError, codecs.charmap_encode, '\xff', "replace",  {0xff: 300})
-        assert exc.value[0] == 'character mapping must be in range(256)'
-        exc = raises(TypeError, codecs.charmap_encode, '\xff', "replace",  {0xff: u'a'})
-        assert exc.value[0] == 'character mapping must return integer, None or str'
-        raises(UnicodeError, codecs.charmap_encode, "\xff", "replace", {0xff: None})
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
+        assert str(exc.value) == 'character mapping must be in range(256)'
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: u'a'})
+        assert str(exc.value) == 'character mapping must return integer, None or str'
+        raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
 
     def test_charmap_encode_replace(self):
         charmap = dict([(c, bytes([c, c]).upper()) for c in b"abcdefgh"])

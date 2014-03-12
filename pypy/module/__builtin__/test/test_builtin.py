@@ -496,7 +496,7 @@ class AppTestBuiltinApp:
         assert 'fake' in str(exc.value)
         exc = raises(SyntaxError, compile,
             b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        assert 'iso-8859-15' in str(exc.value), str(exc.value)
+        assert 'iso-8859-15' in str(exc.value)
         assert 'BOM' in str(exc.value)
         exc = raises(SyntaxError, compile,
             b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
