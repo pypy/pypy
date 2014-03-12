@@ -1,9 +1,12 @@
+from rpython.tool import udir
 from pypy.conftest import option
 
 
 class AppTestPyFrame:
 
     def setup_class(cls):
+        cls.w_udir = cls.space.wrap(str(udir.udir))
+        cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
         if not option.runappdirect:
             w_call_further = cls.space.appexec([], """():
                 def call_further(f):
@@ -61,9 +64,13 @@ class AppTestPyFrame:
                 f.f_lineno += 1
             return x
 
-        def function():
+        # obscure: call open beforehand, py3k's open invokes some app
+        # level code that confuses our tracing (likely due to the
+        # testing env, otherwise it's not a problem)
+        f = open(self.tempfile1, 'w')
+        def function(f=f):
             xyz
-            with open(self.tempfile1, 'w') as f:
+            with f as f:
                 pass
             return 3
 
