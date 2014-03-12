@@ -419,3 +419,17 @@ class TestSTMTranslated(CompiledSTMTests):
                                'stm_ignored_stop']
         data = cbuilder.cmdexec('')
         assert 'did not crash 84\n' in data
+
+    def test_float_inf_nan_in_struct(self):
+        mylist = [float("inf"), float("-inf"), float("nan")]
+        def main(argv):
+            print ':', mylist[int(argv[1])]
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('0')
+        assert ': inf\n' in data
+        data = cbuilder.cmdexec('1')
+        assert ': -inf\n' in data
+        data = cbuilder.cmdexec('2')
+        assert ': nan\n' in data

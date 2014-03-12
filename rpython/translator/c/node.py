@@ -816,7 +816,6 @@ def generic_initializationexpr(db, value, access_expr, decoration):
     else:
         comma = ','
         if typeOf(value) == Float and not isfinite(value):
-            XXX   # check and reimplement me
             db.late_initializations.append(('%s' % access_expr,
                                             db.get(value, static=True)))
             if isinf(value):

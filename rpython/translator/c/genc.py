@@ -824,17 +824,17 @@ def gen_startupcode(f, database):
     print >> f, 'char *RPython_StartupCode(void) {'
     print >> f, '\tchar *error = NULL;'
 
+    # put float infinities in global constants, we should not have so many of them for now to make
+    # a table+loop preferable
+    for dest, value in database.late_initializations:
+        print >> f, "\t%s = %s;" % (dest, value)
+
     if database.with_stm:
         print >> f, '\tpypy_stm_setup();'
         print >> f, '\tpypy_stm_setup_prebuilt();'
 
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
-
-    # put float infinities in global constants, we should not have so many of them for now to make
-    # a table+loop preferable
-    for dest, value in database.late_initializations:
-        print >> f, "\t%s = %s;" % (dest, value)
 
     firsttime = True
     for node in database.containerlist:
