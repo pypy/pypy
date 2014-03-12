@@ -857,6 +857,9 @@ def gen_stm_prebuilt(f, database):
     print >> f, '#include "forwarddecl.h"'
     print >> f
     print >> f, 'object_t *rpy_prebuilt[] = {'
+    # XXX should ideally only list objects that are directly referenced
+    # from C code *or* that need a custom hash.  This would reduce a lot
+    # the length of the lists.
     gclist = [(node.globalgcnum, node) for node in database.globalcontainers()
               if hasattr(node, 'globalgcnum') and node.globalgcnum >= 0]
     gclist.sort()
