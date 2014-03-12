@@ -14,12 +14,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert "copy" in dir(module.fooType)
         obj = module.new()
-        print obj.foo
+        print(obj.foo)
         assert obj.foo == 42
-        print "Obj has type", type(obj)
+        print("Obj has type", type(obj))
         assert type(obj) is module.fooType
-        print "type of obj has type", type(type(obj))
-        print "type of type of obj has type", type(type(type(obj)))
+        print("type of obj has type", type(type(obj)))
+        print("type of type of obj has type", type(type(type(obj))))
         assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
@@ -36,7 +36,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert repr(module.fooType.__call__) == "<slot wrapper '__call__' of 'foo' objects>"
         assert obj2(foo=1, bar=2) == dict(foo=1, bar=2)
 
-        print obj.foo
+        print(obj.foo)
         assert obj.foo == 42
         assert obj.int_member == obj.foo
 
@@ -592,5 +592,5 @@ class AppTestSlots(AppTestCpythonExtensionBase):
     def test_tp_new_in_subclass_of_type(self):
         skip("BROKEN")
         module = self.import_module(name='foo3')
-        print 'calling module.Type()...'
+        print('calling module.Type()...')
         module.Type("X", (object,), {})

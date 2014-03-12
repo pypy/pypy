@@ -330,12 +330,12 @@ class AppTestPartialEvaluation:
             raises(UnicodeDecodeError, decode, r"\U00110000")
             assert decode(r"\U00110000", "ignore") == (u"", 10)
             assert decode(r"\U00110000", "replace") == (u"\ufffd", 10)
-        exc = raises(UnicodeDecodeError, unicode_escape_decode, "\u1z32z3", 'strict')
-        assert str(exc.value) == "'unicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
-        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, "\u1z32z3", 'strict')
-        assert str(exc.value) == "'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
-        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, "\U1z32z3", 'strict')
-        assert str(exc.value) == "'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        exc = raises(UnicodeDecodeError, unicode_escape_decode, b"\u1z32z3", 'strict')
+        assert str(exc.value) == r"'unicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\u1z32z3", 'strict')
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\U1z32z3", 'strict')
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
 
     def test_escape_encode(self):
         assert '"'.encode('string_escape') == '"'
@@ -596,7 +596,7 @@ class AppTestPartialEvaluation:
             l = [u"<%d>" % ord(exc.object[pos]) for pos in xrange(exc.start, exc.end)]
             return (u"[%s]" % u"".join(l), exc.end)
         codecs.register_error("test.handler1", handler1)
-        assert "\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
+        assert b"\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
             u"\u3042[<92><117><51>]xxx"
 
     def test_encode_error_bad_handler(self):
@@ -649,22 +649,22 @@ class AppTestPartialEvaluation:
     def test_utf7_errors(self):
         import codecs
         tests = [
-            ('a\xffb', u'a\ufffdb'),
-            ('a+IK', u'a\ufffd'),
-            ('a+IK-b', u'a\ufffdb'),
-            ('a+IK,b', u'a\ufffdb'),
-            ('a+IKx', u'a\u20ac\ufffd'),
-            ('a+IKx-b', u'a\u20ac\ufffdb'),
-            ('a+IKwgr', u'a\u20ac\ufffd'),
-            ('a+IKwgr-b', u'a\u20ac\ufffdb'),
-            ('a+IKwgr,', u'a\u20ac\ufffd'),
-            ('a+IKwgr,-b', u'a\u20ac\ufffd-b'),
-            ('a+IKwgrB', u'a\u20ac\u20ac\ufffd'),
-            ('a+IKwgrB-b', u'a\u20ac\u20ac\ufffdb'),
-            ('a+/,+IKw-b', u'a\ufffd\u20acb'),
-            ('a+//,+IKw-b', u'a\ufffd\u20acb'),
-            ('a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
-            ('a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a\xffb', u'a\ufffdb'),
+            (b'a+IK', u'a\ufffd'),
+            (b'a+IK-b', u'a\ufffdb'),
+            (b'a+IK,b', u'a\ufffdb'),
+            (b'a+IKx', u'a\u20ac\ufffd'),
+            (b'a+IKx-b', u'a\u20ac\ufffdb'),
+            (b'a+IKwgr', u'a\u20ac\ufffd'),
+            (b'a+IKwgr-b', u'a\u20ac\ufffdb'),
+            (b'a+IKwgr,', u'a\u20ac\ufffd'),
+            (b'a+IKwgr,-b', u'a\u20ac\ufffd-b'),
+            (b'a+IKwgrB', u'a\u20ac\u20ac\ufffd'),
+            (b'a+IKwgrB-b', u'a\u20ac\u20ac\ufffdb'),
+            (b'a+/,+IKw-b', u'a\ufffd\u20acb'),
+            (b'a+//,+IKw-b', u'a\ufffd\u20acb'),
+            (b'a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
         ]
         for raw, expected in tests:
             raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)
