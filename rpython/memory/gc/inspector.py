@@ -36,6 +36,7 @@ def _do_append_rpy_roots(gc, lst):
     gc._list_rpy = None
 
 def get_rpy_roots(gc):
+    assert 0 # XXX XXX STM TEMP
     count = _do_count_rpy_roots(gc)
     extra = 16
     while True:
@@ -74,6 +75,7 @@ def _do_append_rpy_referents(gc, gcref, lst):
     gc.trace(llmemory.cast_ptr_to_adr(gcref), _append_rpy_referent, gc)
 
 def get_rpy_referents(gc, gcref):
+    assert 0 # XXX XXX STM TEMP
     count = _do_count_rpy_referents(gc, gcref)
     result = [lltype.nullptr(llmemory.GCREF.TO)] * count
     _do_append_rpy_referents(gc, gcref, result)
@@ -82,13 +84,16 @@ def get_rpy_referents(gc, gcref):
 # ----------
 
 def get_rpy_memory_usage(gc, gcref):
+    assert 0 # XXX XXX STM TEMP
     return gc.get_size_incl_hash(llmemory.cast_ptr_to_adr(gcref))
 
 def get_rpy_type_index(gc, gcref):
+    assert 0 # XXX XXX STM TEMP
     typeid = gc.get_type_id(llmemory.cast_ptr_to_adr(gcref))
     return gc.get_member_index(typeid)
 
 def is_rpy_instance(gc, gcref):
+    assert 0 # XXX XXX STM TEMP
     typeid = gc.get_type_id(llmemory.cast_ptr_to_adr(gcref))
     return gc.is_rpython_class(typeid)
 
