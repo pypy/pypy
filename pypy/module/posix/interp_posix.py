@@ -868,8 +868,8 @@ second form is used, set the access and modified times to the current time.
         args_w = space.fixedview(w_tuple)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
-        actime = space.float_w(args_w[0])
-        modtime = space.float_w(args_w[1])
+        actime = space.float_w(args_w[0], allow_conversion=False)
+        modtime = space.float_w(args_w[1], allow_conversion=False)
         dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)

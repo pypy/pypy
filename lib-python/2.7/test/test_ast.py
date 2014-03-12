@@ -18,7 +18,7 @@ def to_tuple(t):
 
 
 # These tests are compiled through "exec"
-# There should be atleast one test per statement
+# There should be at least one test per statement
 exec_tests = [
     # None
     "None",
@@ -234,6 +234,12 @@ class AST_Tests(unittest.TestCase):
     def test_from_import(self):
         im = ast.parse("from . import y").body[0]
         self.assertIsNone(im.module)
+
+    def test_non_interned_future_from_ast(self):
+        mod = ast.parse("from __future__ import division")
+        self.assertIsInstance(mod.body[0], ast.ImportFrom)
+        mod.body[0].module = " __future__ ".strip()
+        compile(mod, "<test>", "exec")
 
     def test_base_classes(self):
         self.assertTrue(issubclass(ast.For, ast.stmt))

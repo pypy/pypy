@@ -91,7 +91,7 @@ class BaseTestWithUnroll(BaseTest):
         return loop
 
     def raises(self, e, fn, *args):
-        py.test.raises(e, fn, *args)
+        return py.test.raises(e, fn, *args).value
 
 class OptimizeOptTest(BaseTestWithUnroll):
 
@@ -2824,8 +2824,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(p2, ConstPtr(myptr)) []
         jump(p2)
         """
-        self.raises(InvalidLoop, self.optimize_loop,
-                       ops, "crash!")
+        exc = self.raises(InvalidLoop, self.optimize_loop,
+                          ops, "crash!")
+        if exc:
+            assert "node" in exc.msg
 
     def test_merge_guard_class_guard_value(self):
         ops = """
@@ -4391,6 +4393,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
+
+    def test_bound_force_ge_zero(self):
+        ops = """
+        [p0]
+        i0 = arraylen_gc(p0)
+        i1 = int_force_ge_zero(i0)
+        escape(i1)
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        i0 = arraylen_gc(p0)
+        escape(i0)
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
+        escape(i0)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_addsub_const(self):
         ops = """
@@ -6128,13 +6151,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i5 = int_add(i1, i3)
         i4 = strgetitem(p1, i5)
         escape(i4)
-        jump(p1, i1, i2, i3, i5)
+        jump(p1, i1, i2, i3, i4)
         """
         expected = """
-        [p1, i1, i2, i3, i5]
-        i4 = strgetitem(p1, i5)
+        [p1, i1, i2, i3, i4]
         escape(i4)
-        jump(p1, i1, i2, i3, i5)
+        jump(p1, i1, i2, i3, i4)
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
 
@@ -6195,7 +6217,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0, i0]
-        i1 = strgetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
@@ -6211,7 +6232,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0, i0]
-        i1 = unicodegetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
@@ -7183,7 +7203,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [p9, i1, i843]
+        call(i843, descr=nonwritedescr)
+        jump(p9, i1, i843)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_loopinvariant_unicodelen(self):
         ops = """
@@ -7206,7 +7231,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [p9, i1, i843]
+        call(i843, descr=nonwritedescr)
+        jump(p9, i1, i843)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_loopinvariant_arraylen(self):
         ops = """
@@ -7332,7 +7362,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [p9, i1, i843]
+        call(i843, descr=nonwritedescr)
+        jump(p9, i1, i843)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_loopinvariant_constant_getarrayitem_pure(self):
         ops = """

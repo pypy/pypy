@@ -721,3 +721,15 @@ class AppTest_Descroperation:
                 return CannotConvertToBool()
         x = X()
         raises(MyError, "'foo' in x")
+
+    def test___cmp___fake_int(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+        class X(object):
+            def __cmp__(self, other):
+                return MyInt(0)
+
+        assert X() == 'hello'

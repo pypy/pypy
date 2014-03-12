@@ -243,6 +243,64 @@ from __future__ import generators""")
         raises(TypeError, ast.Num, 1, 2)
         raises(TypeError, ast.Num, 1, 2, lineno=0)
 
+    def test_issue1680_nonseq(self):
+
+        # Test deleting an attribute manually
+         
+        _ast = self.ast
+        mod = self.get_ast("self.attr")
+        assert isinstance(mod, _ast.Module)
+        assert len(mod.body) == 1
+        assert isinstance(mod.body[0], _ast.Expr)
+        assert isinstance(mod.body[0].value, _ast.Attribute)
+        assert isinstance(mod.body[0].value.value, _ast.Name)
+        attr = mod.body[0].value
+        assert hasattr(attr, 'value')
+        delattr(attr, 'value')
+        assert not hasattr(attr, 'value')
+
+        # Test using a node transformer to delete an attribute
+
+        tree = self.get_ast("self.attr2")
+
+        import ast
+        class RemoveSelf( ast.NodeTransformer ):
+          """NodeTransformer class to remove all references to 'self' in the ast"""
+          def visit_Name( self, node ):
+            if node.id == 'self':
+              return None
+            return node
+
+        assert hasattr(tree.body[0].value, 'value')
+        #print ast.dump( tree )
+        new_tree = RemoveSelf().visit( tree )
+        #print ast.dump( new_tree )
+        assert not hasattr(new_tree.body[0].value, 'value')
+
+        # Setting an attribute manually, then deleting it
+
+        mod = self.get_ast("class MyClass(object): pass")
+        import ast
+        assert isinstance(mod.body[0], _ast.ClassDef)
+        mod.body[0].name = 42
+        delattr(mod.body[0], 'name')
+        assert not hasattr(mod.body[0], 'name')
+
+    def test_issue1680_seq(self):
+
+        # Test deleting an attribute manually
+         
+        _ast = self.ast
+        mod = self.get_ast("self.attr")
+        assert isinstance(mod, _ast.Module)
+        assert len(mod.body) == 1
+        assert isinstance(mod.body[0], _ast.Expr)
+        assert isinstance(mod.body[0].value, _ast.Attribute)
+        assert isinstance(mod.body[0].value.value, _ast.Name)
+        assert hasattr(mod, 'body')
+        delattr(mod, 'body')
+        assert not hasattr(mod, 'body')
+
     def test_node_identity(self):
         import _ast as ast
         n1 = ast.Num(1)

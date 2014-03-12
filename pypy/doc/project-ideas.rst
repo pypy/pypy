@@ -11,7 +11,7 @@ at the `issue tracker`_, pop up on #pypy on irc.freenode.net or write to the
 `mailing list`_. This is simply for the reason that small possible projects
 tend to change very rapidly.
 
-This list is mostly for having on overview on potential projects. This list is
+This list is mostly for having an overview on potential projects. This list is
 by definition not exhaustive and we're pleased if people come up with their
 own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
@@ -71,7 +71,7 @@ CPython 3.3 will use an `optimized unicode representation`_ which switches betwe
 different ways to represent a unicode string, depending on whether the string
 fits into ASCII, has only two-byte characters or needs four-byte characters.
 
-The actual details would be rather differen in PyPy, but we would like to have
+The actual details would be rather different in PyPy, but we would like to have
 the same optimization implemented.
 
 Or maybe not.  We can also play around with the idea of using a single
@@ -142,19 +142,14 @@ to be got from them!):
 
 * `hg`
 
-Embedding PyPy
+Embedding PyPy and improving CFFI
 ----------------------------------------
 
-Note: there is a basic proof-of-concept for that as a `uwsgi pypy plugin`_
+PyPy has some basic `embedding infrastructure`_. The idea would be to improve
+upon that with cffi hacks that can automatically generate embeddable .so/.dll
+library
 
-Being able to embed PyPy, say with its own limited C API, would be
-useful.  But there is a possibly better variant: use CFFI.  With some
-minimal tools atop CFFI, it would be possible to write a pure Python
-library, and then compile automatically from it an .so/.dll file that is
-a dynamic-link library with whatever C API we want.  This gives us a
-one-size-fits-all generic way to make .so/.dll files from Python.
-
-.. _`uwsgi pypy plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
+.. _`embedding infrastructure`: embedding.html
 
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------

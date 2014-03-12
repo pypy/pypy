@@ -1,4 +1,5 @@
 import sys
+import io
 import linecache
 import time
 import socket
@@ -14,29 +15,45 @@ from idlelib import RemoteDebugger
 from idlelib import RemoteObjectBrowser
 from idlelib import StackViewer
 from idlelib import rpc
+from idlelib import PyShell
+from idlelib import IOBinding
 
 import __main__
 
 LOCALHOST = '127.0.0.1'
 
-try:
-    import warnings
-except ImportError:
-    pass
-else:
-    def idle_formatwarning_subproc(message, category, filename, lineno,
-                                   line=None):
-        """Format warnings the IDLE way"""
-        s = "\nWarning (from warnings module):\n"
-        s += '  File \"%s\", line %s\n' % (filename, lineno)
-        if line is None:
-            line = linecache.getline(filename, lineno)
-        line = line.strip()
-        if line:
-            s += "    %s\n" % line
-        s += "%s: %s\n" % (category.__name__, message)
-        return s
-    warnings.formatwarning = idle_formatwarning_subproc
+import warnings
+
+def idle_showwarning_subproc(
+        message, category, filename, lineno, file=None, line=None):
+    """Show Idle-format warning after replacing warnings.showwarning.
+
+    The only difference is the formatter called.
+    """
+    if file is None:
+        file = sys.stderr
+    try:
+        file.write(PyShell.idle_formatwarning(
+                message, category, filename, lineno, line))
+    except IOError:
+        pass # the file (probably stderr) is invalid - this warning gets lost.
+
+_warnings_showwarning = None
+
+def capture_warnings(capture):
+    "Replace warning.showwarning with idle_showwarning_subproc, or reverse."
+
+    global _warnings_showwarning
+    if capture:
+        if _warnings_showwarning is None:
+            _warnings_showwarning = warnings.showwarning
+            warnings.showwarning = idle_showwarning_subproc
+    else:
+        if _warnings_showwarning is not None:
+            warnings.showwarning = _warnings_showwarning
+            _warnings_showwarning = None
+
+capture_warnings(True)
 
 # Thread shared globals: Establish a queue between a subthread (which handles
 # the socket) and the main thread (which runs user code), plus global
@@ -75,6 +92,8 @@ def main(del_exitfunc=False):
     except:
         print>>sys.stderr, "IDLE Subprocess: no IP port passed in sys.argv."
         return
+
+    capture_warnings(True)
     sys.argv[:] = [""]
     sockthread = threading.Thread(target=manage_socket,
                                   name='SockThread',
@@ -101,6 +120,7 @@ def main(del_exitfunc=False):
                 exit_now = True
             continue
         except SystemExit:
+            capture_warnings(False)
             raise
         except:
             type, value, tb = sys.exc_info()
@@ -120,7 +140,7 @@ def manage_socket(address):
         try:
             server = MyRPCServer(address, MyHandler)
             break
-        except socket.error, err:
+        except socket.error as err:
             print>>sys.__stderr__,"IDLE Subprocess: socket error: "\
                                         + err.args[1] + ", retrying...."
     else:
@@ -216,6 +236,7 @@ def exit():
             del sys.exitfunc
         except AttributeError:
             pass
+    capture_warnings(False)
     sys.exit(0)
 
 class MyRPCServer(rpc.RPCServer):
@@ -248,19 +269,24 @@ class MyRPCServer(rpc.RPCServer):
             quitting = True
             thread.interrupt_main()
 
-
 class MyHandler(rpc.RPCHandler):
 
     def handle(self):
         """Override base method"""
         executive = Executive(self)
         self.register("exec", executive)
-        sys.stdin = self.console = self.get_remote_proxy("stdin")
-        sys.stdout = self.get_remote_proxy("stdout")
-        sys.stderr = self.get_remote_proxy("stderr")
-        from idlelib import IOBinding
-        sys.stdin.encoding = sys.stdout.encoding = \
-                             sys.stderr.encoding = IOBinding.encoding
+        self.console = self.get_remote_proxy("console")
+        sys.stdin = PyShell.PseudoInputFile(self.console, "stdin",
+                IOBinding.encoding)
+        sys.stdout = PyShell.PseudoOutputFile(self.console, "stdout",
+                IOBinding.encoding)
+        sys.stderr = PyShell.PseudoOutputFile(self.console, "stderr",
+                IOBinding.encoding)
+
+        # Keep a reference to stdin so that it won't try to exit IDLE if
+        # sys.stdin gets changed from within IDLE's shell. See issue17838.
+        self._keep_stdin = sys.stdin
+
         self.interp = self.get_remote_proxy("interp")
         rpc.RPCHandler.getresponse(self, myseq=None, wait=0.05)
 
@@ -298,11 +324,14 @@ class Executive(object):
                 exec code in self.locals
             finally:
                 interruptable = False
+        except SystemExit:
+            # Scripts that raise SystemExit should just
+            # return to the interactive prompt
+            pass
         except:
             self.usr_exc_info = sys.exc_info()
             if quitting:
                 exit()
-            # even print a user code SystemExit exception, continue
             print_exception()
             jit = self.rpchandler.console.getvar("<<toggle-jit-stack-viewer>>")
             if jit:
@@ -341,3 +370,5 @@ class Executive(object):
         sys.last_value = val
         item = StackViewer.StackTreeItem(flist, tb)
         return RemoteObjectBrowser.remote_object_tree_item(item)
+
+capture_warnings(False)  # Make sure turned off; see issue 18081

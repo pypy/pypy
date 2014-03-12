@@ -17,6 +17,43 @@ from collections import Sequence, MutableSequence
 
 TestNT = namedtuple('TestNT', 'x y z')    # type used for pickle tests
 
+py273_named_tuple_pickle = '''\
+ccopy_reg
+_reconstructor
+p0
+(ctest.test_collections
+TestNT
+p1
+c__builtin__
+tuple
+p2
+(I10
+I20
+I30
+tp3
+tp4
+Rp5
+ccollections
+OrderedDict
+p6
+((lp7
+(lp8
+S'x'
+p9
+aI10
+aa(lp10
+S'y'
+p11
+aI20
+aa(lp12
+S'z'
+p13
+aI30
+aatp14
+Rp15
+b.
+'''
+
 class TestNamedTuple(unittest.TestCase):
 
     def test_factory(self):
@@ -214,6 +251,11 @@ class TestNamedTuple(unittest.TestCase):
         self.assertEqual(T._fields, tuple(words))
         # test __getnewargs__
         self.assertEqual(t.__getnewargs__(), values)
+
+    def test_pickling_bug_18015(self):
+        # http://bugs.python.org/issue18015
+        pt = pickle.loads(py273_named_tuple_pickle)
+        self.assertEqual(pt.x, 10)
 
 class ABCTestCase(unittest.TestCase):
 

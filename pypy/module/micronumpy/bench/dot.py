@@ -1,28 +1,32 @@
+import sys
 import time
 
 try:
-    import numpypy
+    import numpypy as numpy
 except ImportError:
-    pass
+    import numpy
 
-import numpy
-
-def get_matrix():
+def get_matrix(n):
     import random
-    n = 502
     x = numpy.zeros((n,n), dtype=numpy.float64)
     for i in range(n):
         for j in range(n):
             x[i][j] = random.random()
     return x
 
-def main():
-    x = get_matrix()
-    y = get_matrix()
+def main(n, r):
+    x = get_matrix(n)
+    y = get_matrix(n)
     a = time.time()
-    #z = numpy.dot(x, y)  # uses numpy possibly-blas-lib dot
-    z = numpy.core.multiarray.dot(x, y)  # uses strictly numpy C dot
+    for _ in xrange(r):
+        #z = numpy.dot(x, y)  # uses numpy possibly-blas-lib dot
+        z = numpy.core.multiarray.dot(x, y)  # uses strictly numpy C dot
     b = time.time()
-    print '%.2f seconds' % (b-a)
+    print '%d runs, %.2f seconds' % (r, b-a)
 
-main()
+n = int(sys.argv[1])
+try:
+    r = int(sys.argv[2])
+except IndexError:
+    r = 1
+main(n, r)

@@ -643,6 +643,8 @@ if _POSIX:
             size = st[stat.ST_SIZE]
             if stat.S_ISREG(mode):
                 if map_size == 0:
+                    if size == 0:
+                        raise RValueError("cannot mmap an empty file")
                     if offset > size:
                         raise RValueError(
                             "mmap offset is greater than file size")
@@ -777,6 +779,8 @@ elif _MS_WINDOWS:
                     size = (high << 32) + low
                     size = rffi.cast(lltype.Signed, size)
                 if map_size == 0:
+                    if size == 0:
+                        raise RValueError("cannot mmap an empty file")
                     if offset > size:
                         raise RValueError(
                             "mmap offset is greater than file size")

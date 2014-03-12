@@ -68,6 +68,23 @@ def mapstar(args):
 # Code run by worker processes
 #
 
+class MaybeEncodingError(Exception):
+    """Wraps possible unpickleable errors, so they can be
+    safely sent through the socket."""
+
+    def __init__(self, exc, value):
+        self.exc = repr(exc)
+        self.value = repr(value)
+        super(MaybeEncodingError, self).__init__(self.exc, self.value)
+
+    def __str__(self):
+        return "Error sending result: '%s'. Reason: '%s'" % (self.value,
+                                                             self.exc)
+
+    def __repr__(self):
+        return "<MaybeEncodingError: %s>" % str(self)
+
+
 def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None):
     assert maxtasks is None or (type(maxtasks) == int and maxtasks > 0)
     put = outqueue.put
@@ -96,7 +113,13 @@ def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None):
             result = (True, func(*args, **kwds))
         except Exception, e:
             result = (False, e)
-        put((job, i, result))
+        try:
+            put((job, i, result))
+        except Exception as e:
+            wrapped = MaybeEncodingError(e, result[1])
+            debug("Possible encoding error while sending result: %s" % (
+                wrapped))
+            put((job, i, (False, wrapped)))
         completed += 1
     debug('worker exiting after %d tasks' % completed)
 
@@ -466,7 +489,8 @@ class Pool(object):
         # We must wait for the worker handler to exit before terminating
         # workers because we don't want workers to be restarted behind our back.
         debug('joining worker handler')
-        worker_handler.join()
+        if threading.current_thread() is not worker_handler:
+            worker_handler.join(1e100)
 
         # Terminate workers which haven't already finished.
         if pool and hasattr(pool[0], 'terminate'):
@@ -476,10 +500,12 @@ class Pool(object):
                     p.terminate()
 
         debug('joining task handler')
-        task_handler.join(1e100)
+        if threading.current_thread() is not task_handler:
+            task_handler.join(1e100)
 
         debug('joining result handler')
-        result_handler.join(1e100)
+        if threading.current_thread() is not result_handler:
+            result_handler.join(1e100)
 
         if pool and hasattr(pool[0], 'terminate'):
             debug('joining pool workers')
@@ -539,6 +565,8 @@ class ApplyResult(object):
             self._cond.release()
         del self._cache[self._job]
 
+AsyncResult = ApplyResult       # create alias -- see #17805
+
 #
 # Class whose instances are returned by `Pool.map_async()`
 #
@@ -553,6 +581,7 @@ class MapResult(ApplyResult):
         if chunksize <= 0:
             self._number_left = 0
             self._ready = True
+            del cache[self._job]
         else:
             self._number_left = length//chunksize + bool(length % chunksize)
 
