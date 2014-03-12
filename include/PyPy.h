@@ -8,15 +8,11 @@
 extern "C" {
 #endif
 
-/* You should call this first once. */
-#define pypy_init(need_threads) do { pypy_asm_stack_bottom();	\
-rpython_startup_code();\
- if (need_threads) pypy_init_threads(); } while (0)
-
-// deprecated interface
+// call this first
 void rpython_startup_code(void);
-void pypy_init_threads(void);
 
+// pypy_init_threads has to be called in case you want to use threads
+void pypy_init_threads(void);
 
 /* Initialize the home directory of PyPy.  It is necessary to call this.
 
@@ -49,6 +45,12 @@ void pypy_thread_attach(void);
    functions (which are "callbacks" from the point of view of Python).
  */
 int pypy_execute_source(char *source);
+
+/* a similar function, but inside Python code it'll register
+   a magic argument c_argument as int, which will be passed as void* from C.
+   Useful for passing pointers to arbitrary structs that contain callbacks
+   to register */
+int pypy_execute_source_ptr(char *source, void* ptr);
 
 
 #ifdef __cplusplus

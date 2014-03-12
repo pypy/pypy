@@ -447,6 +447,11 @@ BOOTSTRAP_FUNCTIONS = []
 
 def build_exported_objects():
     # Standard exceptions
+    # PyExc_BaseException, PyExc_Exception, PyExc_ValueError, PyExc_KeyError,
+    # PyExc_IndexError, PyExc_IOError, PyExc_OSError, PyExc_TypeError,
+    # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
+    # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
+    # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
     for exc_name in exceptions.Module.interpleveldefs.keys():
         GLOBALS['PyExc_' + exc_name] = (
             'PyTypeObject*',
@@ -454,40 +459,41 @@ def build_exported_objects():
 
     # Common types with their own struct
     for cpyname, pypyexpr in {
-        "Type": "space.w_type",
-        "String": "space.w_str",
-        "Unicode": "space.w_unicode",
-        "BaseString": "space.w_basestring",
-        "Dict": "space.w_dict",
-        "Tuple": "space.w_tuple",
-        "List": "space.w_list",
-        "Set": "space.w_set",
-        "FrozenSet": "space.w_frozenset",
-        "Int": "space.w_int",
-        "Bool": "space.w_bool",
-        "Float": "space.w_float",
-        "Long": "space.w_long",
-        "Complex": "space.w_complex",
-        "ByteArray": "space.w_bytearray",
-        "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
-        "Array": "space.gettypeobject(W_NDimArray.typedef)",
-        "BaseObject": "space.w_object",
-        'None': 'space.type(space.w_None)',
-        'NotImplemented': 'space.type(space.w_NotImplemented)',
-        'Cell': 'space.gettypeobject(Cell.typedef)',
-        'Module': 'space.gettypeobject(Module.typedef)',
-        'Property': 'space.gettypeobject(W_Property.typedef)',
-        'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
-        'Class': 'space.gettypeobject(W_ClassObject.typedef)',
-        'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
-        'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
-        'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
+        "PyType_Type": "space.w_type",
+        "PyString_Type": "space.w_str",
+        "PyUnicode_Type": "space.w_unicode",
+        "PyBaseString_Type": "space.w_basestring",
+        "PyDict_Type": "space.w_dict",
+        "PyTuple_Type": "space.w_tuple",
+        "PyList_Type": "space.w_list",
+        "PySet_Type": "space.w_set",
+        "PyFrozenSet_Type": "space.w_frozenset",
+        "PyInt_Type": "space.w_int",
+        "PyBool_Type": "space.w_bool",
+        "PyFloat_Type": "space.w_float",
+        "PyLong_Type": "space.w_long",
+        "PyComplex_Type": "space.w_complex",
+        "PyByteArray_Type": "space.w_bytearray",
+        "PyMemoryView_Type": "space.gettypeobject(W_MemoryView.typedef)",
+        "PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
+        "PyBaseObject_Type": "space.w_object",
+        'PyNone_Type': 'space.type(space.w_None)',
+        'PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
+        'PyCell_Type': 'space.gettypeobject(Cell.typedef)',
+        'PyModule_Type': 'space.gettypeobject(Module.typedef)',
+        'PyProperty_Type': 'space.gettypeobject(W_Property.typedef)',
+        'PySlice_Type': 'space.gettypeobject(W_SliceObject.typedef)',
+        'PyClass_Type': 'space.gettypeobject(W_ClassObject.typedef)',
+        'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
+        'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
+        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
-        GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
+        GLOBALS['%s#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
-    for cpyname in 'Method List Long Dict Tuple Class'.split():
-        FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
-                             'Py%sObject' % (cpyname, ))
+    for cpyname in '''PyMethodObject PyListObject PyLongObject
+                      PyDictObject PyTupleObject PyClassObject'''.split():
+        FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
+                             % (cpyname, ))
 build_exported_objects()
 
 def get_structtype_for_ctype(ctype):

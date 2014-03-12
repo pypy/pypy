@@ -1,7 +1,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
+from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 
 class TestUfuncCoercion(object):
@@ -763,8 +763,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert add.reduce(1) == 1
 
         assert list(maximum.reduce(zeros((2, 0)), axis=0)) == []
-        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=None)
-        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=1)
+        exc = raises(ValueError, maximum.reduce, zeros((2, 0)), axis=None)
+        assert exc.value[0] == ('zero-size array to reduction operation '
+                                'maximum which has no identity')
+        exc = raises(ValueError, maximum.reduce, zeros((2, 0)), axis=1)
+        assert exc.value[0] == ('zero-size array to reduction operation '
+                                'maximum which has no identity')
+
+        a = zeros((2, 2)) + 1
+        assert (add.reduce(a, axis=1) == [2, 2]).all()
+        exc = raises(ValueError, add.reduce, a, axis=2)
+        assert exc.value[0] == "'axis' entry is out of bounds"
 
     def test_reduce_1d(self):
         from numpypy import array, add, maximum, less, float16, complex64

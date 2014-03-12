@@ -85,3 +85,23 @@ operands are positive to kill some guards
 
 .. branch: remove-intlong-smm
 kills int/long/smalllong/bool multimethods
+
+.. branch: numpy-refactor
+Cleanup micronumpy module
+
+.. branch: int_w-refactor
+In a lot of places CPython allows objects with __int__ and __float__ instead of actual ints and floats, while until now pypy disallowed them. We fix it by making space.{int_w,float_w,etc.} accepting those objects by default, and disallowing conversions only when explicitly needed.
+
+.. branch: test-58c3d8552833
+Fix for getarrayitem_gc_pure optimization
+
+.. branch: simple-range-strategy
+Implements SimpleRangeListStrategy for case range(n) where n is a positive number.
+Makes some traces nicer by getting rid of multiplication for calculating loop counter
+and propagates that n > 0 further to get rid of guards.
+
+.. branch: popen-pclose
+Provide an exit status for popen'ed RFiles via pclose
+
+.. branch: stdlib-2.7.6
+Update stdlib to v2.7.6

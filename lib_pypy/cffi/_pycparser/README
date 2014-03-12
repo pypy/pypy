@@ -1,0 +1,12 @@
+This is a copy of pycparser.  See __init__.py for the version.
+
+Note that the following two lines have been modified in c_parser.py:
+
+
+class CParser(PLYParser):    
+    def __init__(
+            ...
+            lextab='cffi._pycparser.lextab',
+                    ^^^^^^^^^^^^^^^
+            yacctab='cffi._pycparser.yacctab',
+                     ^^^^^^^^^^^^^^^

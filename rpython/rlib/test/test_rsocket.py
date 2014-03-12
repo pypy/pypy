@@ -328,6 +328,11 @@ def test_getaddrinfo_no_reverse_lookup():
             found = True
     assert found, lst
 
+def test_getaddrinfo_osx_crash():
+    # see CPython issue17269
+    for port in [None, '0', '00']:
+        getaddrinfo('localhost', port, 0, 0, 0, AI_NUMERICSERV)
+
 def test_connect_ex():
     s = RSocket()
     err = s.connect_ex(INETAddress('0.0.0.0', 0))   # should not work

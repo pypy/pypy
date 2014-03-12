@@ -2,6 +2,7 @@
 Interp-level definition of frequently used functionals.
 
 """
+import sys
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
@@ -367,13 +368,12 @@ class W_XRange(W_Root):
         return space.wrap(obj)
 
     def descr_repr(self):
-        stop = self.start + self.len * self.step
         if self.start == 0 and self.step == 1:
-            s = "xrange(%d)" % (stop,)
+            s = "xrange(%d)" % (self._get_stop(),)
         elif self.step == 1:
-            s = "xrange(%d, %d)" % (self.start, stop)
+            s = "xrange(%d, %d)" % (self.start, self._get_stop())
         else:
-            s = "xrange(%d, %d, %d)" %(self.start, stop, self.step)
+            s = "xrange(%d, %d, %d)" %(self.start, self._get_stop(), self.step)
         return self.space.wrap(s)
 
     def descr_len(self):
@@ -402,18 +402,28 @@ class W_XRange(W_Root):
                                                     self.len, self.step))
 
     def descr_reversed(self):
-        lastitem = self.start + (self.len-1) * self.step
-        return self.space.wrap(W_XRangeIterator(self.space, lastitem,
-                                                self.len, -self.step))
+        last = self.start + (self.len - 1) * self.step
+        return self.space.wrap(W_XRangeIterator(self.space, last, self.len,
+                                                -self.step))
 
     def descr_reduce(self):
         space = self.space
         return space.newtuple(
             [space.type(self),
              space.newtuple([space.wrap(self.start),
-                             space.wrap(self.start + self.len * self.step),
+                             space.wrap(self._get_stop()),
                              space.wrap(self.step)])
              ])
+
+    def _get_stop(self):
+        if not self.len:
+            return self.start
+        step = self.step
+        last = self.start + (self.len - 1) * step
+        if step > 0:
+            return sys.maxint if last > sys.maxint - step else last + step
+        minint = -sys.maxint - 1
+        return minint if last < minint - step else last + step
 
 def _toint(space, w_obj):
     # this also supports float arguments.  CPython still does, too.

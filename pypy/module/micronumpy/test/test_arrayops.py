@@ -41,8 +41,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         a[0] = 0
         assert (b == [1, 1, 1, 0, 0]).all()
 
-
-    def test_dot(self):
+    def test_dot_basic(self):
         from numpypy import array, dot, arange
         a = array(range(5))
         assert dot(a, a) == 30.0
@@ -69,7 +68,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert b.shape == (4, 3)
         c = dot(a, b)
         assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
-                   [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
+                      [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
         c = dot(a, b[:, 2])
         assert (c == [[62, 214, 366], [518, 670, 822]]).all()
         a = arange(3*2*6).reshape((3,2,6))

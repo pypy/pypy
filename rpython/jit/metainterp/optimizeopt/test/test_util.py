@@ -321,6 +321,13 @@ class FakeMetaInterpStaticData(object):
             max_retrace_guards = 15
         jitcounter = DeterministicJitCounter()
 
+    def get_name_from_address(self, addr):
+        # hack
+        try:
+            return "".join(addr.ptr.name)[:-1] # remove \x00
+        except AttributeError:
+            return ""
+
 class Storage(compile.ResumeGuardDescr):
     "for tests."
     def __init__(self, metainterp_sd=None, original_greenkey=None):

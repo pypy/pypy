@@ -1,4 +1,4 @@
-#-*- coding: iso-8859-1 -*-
+#-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/dbapi.py: tests for DB-API compliance
 #
 # Copyright (C) 2004-2010 Gerhard Häring <gh@ghaering.de>

@@ -245,7 +245,7 @@ class W_LongObject(W_AbstractLongObject):
     def fromrarith_int(i):
         return W_LongObject(rbigint.fromrarith_int(i))
 
-    def int_w(self, space):
+    def _int_w(self, space):
         try:
             return self.num.toint()
         except OverflowError:
@@ -262,10 +262,16 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_OverflowError,
                         "long int too large to convert to unsigned int")
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         return self.num
 
-    def float_w(self, space):
+    def _bigint_w(self, space):
+        return self.num
+
+    def float_w(self, space, allow_conversion=True):
+        return self.tofloat(space)
+
+    def _float_w(self, space):
         return self.tofloat(space)
 
     def int(self, space):
@@ -537,7 +543,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
 
 def _string_to_w_long(space, w_longtype, w_source, string, base=10):
     try:
-        bigint = rbigint.fromstr2(string, base)
+        bigint = rbigint.fromstr(string, base)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     return newbigint(space, w_longtype, bigint)

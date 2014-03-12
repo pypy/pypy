@@ -1034,6 +1034,18 @@ class AppTestArray(BaseArrayTests):
         assert len(b) == 13
         assert str(b[12]) == "-0.0"
 
+    def test_getitem_only_ints(self):
+        class MyInt(object):
+          def __init__(self, x):
+            self.x = x
+
+          def __int__(self):
+            return self.x
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        raises(TypeError, "a[MyInt(0)]")
+        raises(TypeError, "a[MyInt(0):MyInt(5)]")
+
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
     spaceconfig = AppTestArray.spaceconfig.copy()
