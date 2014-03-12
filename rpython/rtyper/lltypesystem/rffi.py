@@ -4,7 +4,7 @@ from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
-from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, raw_memcopy
+from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic
@@ -679,7 +679,9 @@ def make_string_mappings(strtype):
 
     if strtype is str:
         from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
-                                                      copy_string_to_raw)
+                                                      copy_string_to_raw,
+                                                      copy_raw_to_string,
+                                                      copy_string_contents)
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
@@ -689,7 +691,9 @@ def make_string_mappings(strtype):
     else:
         from rpython.rtyper.lltypesystem.rstr import (
             UNICODE as STRTYPE,
-            copy_unicode_to_raw as copy_string_to_raw)
+            copy_unicode_to_raw as copy_string_to_raw,
+            copy_raw_to_unicode as copy_raw_to_string,
+            copy_unicode_contents as copy_string_contents)
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
@@ -803,17 +807,10 @@ def make_string_mappings(strtype):
             return hlstrtype(gc_buf)
 
         new_buf = lltype.malloc(STRTYPE, needed_size)
-        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                            itemoffsetof(STRTYPE.chars, 0))
         if gc_buf:
-            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+            copy_string_contents(gc_buf, new_buf, 0, 0, needed_size)
         else:
-            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
-        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-        raw_memcopy(src, dest,
-                    llmemory.sizeof(ll_char_type) * needed_size)
-        keepalive_until_here(gc_buf)
-        keepalive_until_here(new_buf)
+            copy_raw_to_string(raw_buf, new_buf, 0, needed_size)
         return hlstrtype(new_buf)
 
     # (char*, str) -> None

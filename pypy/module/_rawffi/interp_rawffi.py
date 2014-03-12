@@ -427,12 +427,10 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
             elif c == 'c':
                 return space.wrapbytes(func(add_arg, argdesc, ll_type))
-            elif c == 'q' or c == 'Q' or c == 'L' or c == 'u':
-                return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             else:
-                return space.wrap(intmask(func(add_arg, argdesc, ll_type)))
+                return space.wrap(func(add_arg, argdesc, ll_type))
     raise OperationError(space.w_TypeError,
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'

@@ -72,7 +72,7 @@ def print_tb(tb, limit=None, file=None):
         n = n+1
 
 def format_tb(tb, limit = None):
-    """A shorthand for 'format_list(extract_stack(f, limit))."""
+    """A shorthand for 'format_list(extract_tb(tb, limit))'."""
     return format_list(extract_tb(tb, limit))
 
 def extract_tb(tb, limit = None):
@@ -166,7 +166,7 @@ def format_exception_only(etype, value, _encoding=None):
     # >>> raise string1, string2  # deprecated
     #
     # Clear these out first because issubtype(string1, SyntaxError)
-    # would throw another exception and mask the original problem.
+    # would raise another exception and mask the original problem.
     if (isinstance(etype, BaseException) or
         isinstance(etype, types.InstanceType) or
         etype is None or type(etype) is str):

@@ -6,23 +6,26 @@ class MultiArrayModule(MixedModule):
     interpleveldefs = {
         'ndarray': 'ndarray.W_NDimArray',
         'dtype': 'descriptor.W_Dtype',
+        'flatiter': 'flatiter.W_FlatIterator',
 
+        '_reconstruct' : 'ndarray._reconstruct',
+        'scalar' : 'ctors.build_scalar',
         'array': 'ctors.array',
         'zeros': 'ctors.zeros',
         'empty': 'ctors.zeros',
         'empty_like': 'ctors.empty_like',
-        '_reconstruct' : 'ndarray._reconstruct',
-        'scalar' : 'ctors.build_scalar',
-        'dot': 'arrayops.dot',
         'fromstring': 'ctors.fromstring',
-        'flatiter': 'flatiter.W_FlatIterator',
+
         'concatenate': 'arrayops.concatenate',
-        'where': 'arrayops.where',
         'count_nonzero': 'arrayops.count_nonzero',
+        'dot': 'arrayops.dot',
+        'where': 'arrayops.where',
 
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
     }
+    for c in ['CLIP', 'WRAP', 'RAISE']:
+        interpleveldefs[c] = 'space.wrap(constants.%s)' % c
 
 
 class UMathModule(MixedModule):

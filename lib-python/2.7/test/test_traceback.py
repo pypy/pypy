@@ -1,9 +1,6 @@
 """Test cases for traceback module"""
 
-try:
-    from _testcapi import traceback_print
-except ImportError:
-    traceback_print = None
+from _testcapi import traceback_print
 from StringIO import StringIO
 import sys
 import unittest
@@ -179,8 +176,6 @@ def test():
 class TracebackFormatTests(unittest.TestCase):
 
     def test_traceback_format(self):
-        if traceback_print is None:
-            raise unittest.SkipTest('Requires _testcapi')
         try:
             raise KeyError('blah')
         except KeyError:

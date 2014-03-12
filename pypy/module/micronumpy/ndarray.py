@@ -1035,6 +1035,26 @@ class __extend__(W_NDimArray):
         value = self.get_scalar_value()
         return space.float(value)
 
+    def descr_hex(self, space):
+        if self.get_size() != 1:
+            raise oefmt(space.w_TypeError,
+                        "only length-1 arrays can be converted to Python scalars")
+        if not self.get_dtype().is_int():
+            raise oefmt(space.w_TypeError,
+                        "don't know how to convert scalar number to hex")
+        value = self.get_scalar_value()
+        return space.hex(value)
+
+    def descr_oct(self, space):
+        if self.get_size() != 1:
+            raise oefmt(space.w_TypeError,
+                        "only length-1 arrays can be converted to Python scalars")
+        if not self.get_dtype().is_int():
+            raise oefmt(space.w_TypeError,
+                        "don't know how to convert scalar number to oct")
+        value = self.get_scalar_value()
+        return space.oct(value)
+
     def descr_index(self, space):
         if self.get_size() != 1 or \
                 not self.get_dtype().is_int() or self.get_dtype().is_bool():
@@ -1226,6 +1246,8 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __str__ = interp2app(W_NDimArray.descr_str),
     __int__ = interp2app(W_NDimArray.descr_int),
     __float__ = interp2app(W_NDimArray.descr_float),
+    __hex__ = interp2app(W_NDimArray.descr_hex),
+    __oct__ = interp2app(W_NDimArray.descr_oct),
     __buffer__ = interp2app(W_NDimArray.descr_get_data),
     __index__ = interp2app(W_NDimArray.descr_index),
 

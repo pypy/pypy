@@ -132,8 +132,8 @@ class RFile(object):
 
         The actual return value may be determined with os.WEXITSTATUS.
         """
-        ll_f = self.ll_file
         res = 0
+        ll_f = self.ll_file
         if ll_f:
             # double close is allowed
             self.ll_file = lltype.nullptr(FILE)

@@ -280,7 +280,8 @@ def getaddrinfo(space, w_host, w_port,
         port = space.str_w(w_port)
     else:
         raise OperationError(space.w_TypeError,
-                             space.wrap("Int or String expected"))
+                             space.wrap(
+            "getaddrinfo() argument 2 must be integer or string"))
     try:
         lst = rsocket.getaddrinfo(host, port, family, socktype,
                                   proto, flags)

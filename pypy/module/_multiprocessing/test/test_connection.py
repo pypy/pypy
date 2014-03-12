@@ -8,7 +8,9 @@ class TestImport:
         from pypy.module._multiprocessing import interp_semaphore
 
 class AppTestBufferTooShort:
-    spaceconfig = dict(usemodules=['_multiprocessing', 'thread', 'signal'])
+    spaceconfig = {'usemodules': ['_multiprocessing', 'thread', 'signal',
+                                  'select', 'fcntl', 'struct',
+                                  'binascii']}
 
     def setup_class(cls):
         if cls.runappdirect:
@@ -98,7 +100,7 @@ class AppTestSocketConnection(BaseConnectionTest):
     spaceconfig = {
         "usemodules": [
             '_multiprocessing', 'thread', 'signal', 'struct', 'array',
-            '_socket', 'binascii',
+            '_socket', 'binascii', 'select', 'fcntl',
         ]
     }
 

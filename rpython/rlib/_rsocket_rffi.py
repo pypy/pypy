@@ -1,4 +1,3 @@
-
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
@@ -40,7 +39,7 @@ if _POSIX:
                      'net/if.h')
 
     cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
-    
+
     libraries = ()
     calling_conv = 'c'
     HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
@@ -612,11 +611,11 @@ elif WIN32:
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
     FROM_PROTOCOL_INFO = cConfig.FROM_PROTOCOL_INFO
-    WSADuplicateSocket = external('WSADuplicateSocketA', 
+    WSADuplicateSocket = external('WSADuplicateSocketA',
                                   [socketfd_type, rwin32.DWORD,
                                    lltype.Ptr(WSAPROTOCOL_INFO)],
                                   rffi.INT)
-    WSASocket = external('WSASocketA', 
+    WSASocket = external('WSASocketA',
                          [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(WSAPROTOCOL_INFO),
                           rwin32.DWORD, rwin32.DWORD],
