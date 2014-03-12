@@ -524,6 +524,11 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(p.port, 80)
         self.assertEqual(p.geturl(), url)
 
+        # Verify an illegal port is returned as None
+        url = b"HTTP://WWW.PYTHON.ORG:65536/doc/#frag"
+        p = urllib.parse.urlsplit(url)
+        self.assertEqual(p.port, None)
+
     def test_attributes_bad_port(self):
         """Check handling of non-integer ports."""
         p = urllib.parse.urlsplit("http://www.example.net:foo")
@@ -636,11 +641,20 @@ class UrlParseTestCase(unittest.TestCase):
                          ('s3', 'foo.com', '/stuff', '', '', ''))
         self.assertEqual(urllib.parse.urlparse("x-newscheme://foo.com/stuff"),
                          ('x-newscheme', 'foo.com', '/stuff', '', '', ''))
+        self.assertEqual(urllib.parse.urlparse("x-newscheme://foo.com/stuff?query#fragment"),
+                         ('x-newscheme', 'foo.com', '/stuff', '', 'query', 'fragment'))
+        self.assertEqual(urllib.parse.urlparse("x-newscheme://foo.com/stuff?query"),
+                         ('x-newscheme', 'foo.com', '/stuff', '', 'query', ''))
+
         # And for bytes...
         self.assertEqual(urllib.parse.urlparse(b"s3://foo.com/stuff"),
                          (b's3', b'foo.com', b'/stuff', b'', b'', b''))
         self.assertEqual(urllib.parse.urlparse(b"x-newscheme://foo.com/stuff"),
                          (b'x-newscheme', b'foo.com', b'/stuff', b'', b'', b''))
+        self.assertEqual(urllib.parse.urlparse(b"x-newscheme://foo.com/stuff?query#fragment"),
+                         (b'x-newscheme', b'foo.com', b'/stuff', b'', b'query', b'fragment'))
+        self.assertEqual(urllib.parse.urlparse(b"x-newscheme://foo.com/stuff?query"),
+                         (b'x-newscheme', b'foo.com', b'/stuff', b'', b'query', b''))
 
     def test_mixed_types_rejected(self):
         # Several functions that process either strings or ASCII encoded bytes
@@ -796,6 +810,42 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertRaises(TypeError, urllib.parse.quote, b'foo',
                           encoding='utf-8')
         self.assertRaises(TypeError, urllib.parse.quote, b'foo', errors='strict')
+
+    def test_issue14072(self):
+        p1 = urllib.parse.urlsplit('tel:+31-641044153')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '+31-641044153')
+        p2 = urllib.parse.urlsplit('tel:+31641044153')
+        self.assertEqual(p2.scheme, 'tel')
+        self.assertEqual(p2.path, '+31641044153')
+        # assert the behavior for urlparse
+        p1 = urllib.parse.urlparse('tel:+31-641044153')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '+31-641044153')
+        p2 = urllib.parse.urlparse('tel:+31641044153')
+        self.assertEqual(p2.scheme, 'tel')
+        self.assertEqual(p2.path, '+31641044153')
+
+    def test_telurl_params(self):
+        p1 = urllib.parse.urlparse('tel:123-4;phone-context=+1-650-516')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '123-4')
+        self.assertEqual(p1.params, 'phone-context=+1-650-516')
+
+        p1 = urllib.parse.urlparse('tel:+1-201-555-0123')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '+1-201-555-0123')
+        self.assertEqual(p1.params, '')
+
+        p1 = urllib.parse.urlparse('tel:7042;phone-context=example.com')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '7042')
+        self.assertEqual(p1.params, 'phone-context=example.com')
+
+        p1 = urllib.parse.urlparse('tel:863-1234;phone-context=+1-914-555')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '863-1234')
+        self.assertEqual(p1.params, 'phone-context=+1-914-555')
 
 
 def test_main():
