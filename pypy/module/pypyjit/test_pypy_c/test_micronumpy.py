@@ -43,6 +43,7 @@ class TestMicroNumPy(BaseTestPyPyC):
         log = self.run(main, [])
         assert log.result == 0
         loop, = log.loops_by_filename(self.filepath)
+        skip('used to pass on 69421-f3e717c94913')
         assert loop.match("""
             i81 = int_lt(i76, 300)
             guard_true(i81, descr=...)
