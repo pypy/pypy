@@ -1043,7 +1043,7 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_TypeError,
                         "don't know how to convert scalar number to hex")
         value = self.get_scalar_value()
-        return space.hex(value)
+        return space.call_method(space.builtin, 'hex', value)
 
     def descr_oct(self, space):
         if self.get_size() != 1:
@@ -1053,7 +1053,7 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_TypeError,
                         "don't know how to convert scalar number to oct")
         value = self.get_scalar_value()
-        return space.oct(value)
+        return space.call_method(space.builtin, 'oct', value)
 
     def descr_index(self, space):
         if self.get_size() != 1 or \
