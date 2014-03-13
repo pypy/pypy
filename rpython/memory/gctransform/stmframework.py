@@ -71,8 +71,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         v_struct = hop.spaceop.args[0]
         assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
                           'raw_store')
-        if (v_struct.concretetype.TO._gckind == "gc"
-                and hop.spaceop not in self.clean_sets):
+        if var_needsgc(v_struct) and hop.spaceop not in self.clean_sets:
             if self.in_stm_ignored:
                 # detect if we're inside a 'stm_ignored' block and in
                 # that case don't call stm_write().  This only works for
