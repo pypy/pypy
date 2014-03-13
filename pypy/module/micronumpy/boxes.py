@@ -87,7 +87,8 @@ class PrimitiveBox(Box):
         value[0] = self.value
 
         builder = StringBuilder()
-        builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.value)))
+        builder.append_charpsize(rffi.cast(rffi.CCHARP, value),
+                                 rffi.sizeof(lltype.typeOf(self.value)))
         ret = builder.build()
 
         lltype.free(value, flavor="raw")
@@ -117,7 +118,8 @@ class ComplexBox(Box):
         value[1] = self.imag
 
         builder = StringBuilder()
-        builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.real)) * 2)
+        builder.append_charpsize(rffi.cast(rffi.CCHARP, value),
+                                 rffi.sizeof(lltype.typeOf(self.real)) * 2)
         ret = builder.build()
 
         lltype.free(value, flavor="raw")
@@ -186,26 +188,26 @@ class W_GenericBox(W_Root):
         dtype = self.get_dtype(space)
         return space.wrap(dtype.itemtype.bool(self))
 
+    def _unaryop_impl(ufunc_name):
+        def impl(self, space, w_out=None):
+            from pypy.module.micronumpy import ufuncs
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [self, w_out])
+        return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
+
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import ufuncs
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                            [self, w_other, w_out])
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [self, w_other, w_out])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import ufuncs
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                            [w_other, self, w_out])
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
-
-    def _unaryop_impl(ufunc_name):
-        def impl(self, space, w_out=None):
-            from pypy.module.micronumpy import ufuncs
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                                    [self, w_out])
-        return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
     descr_sub = _binop_impl("subtract")
