@@ -73,7 +73,6 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         return True
 
     def transform_generic_set(self, hop):
-        # XXX detect if we're inside a 'stm_ignored' block and... do what?
         assert self.write_barrier_ptr == "stm"
         opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]
@@ -82,6 +81,9 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         if (v_struct.concretetype.TO._gckind == "gc"
                 and hop.spaceop not in self.clean_sets):
             if self.in_stm_ignored:
+                # detect if we're inside a 'stm_ignored' block and in
+                # that case don't call stm_write().  This only works for
+                # writing non-GC pointers.
                 if var_needsgc(hop.spaceop.args[-1]):
                     raise Exception("in stm_ignored block: write of a gc "
                                     "pointer")
