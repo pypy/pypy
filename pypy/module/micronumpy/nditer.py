@@ -302,8 +302,6 @@ class W_NDIter(W_Root):
             for elem in self.seq:
                 if elem is None:
                     continue
-                if isinstance(elem, W_NDimArray) and elem.is_scalar():
-                    elem = elem.get_scalar_value()
                 out_dtype = ufuncs.find_binop_result_dtype(space,
                                                 elem.get_dtype(), out_dtype)
             for i in outarg:
