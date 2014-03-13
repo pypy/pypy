@@ -949,7 +949,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
             # not untranslated-test-friendly, but good enough: we hide
             # our GC object inside an Address field.  It's not a correct
             # "void *" address, as it's in the wrong address_space, but
-            # we will force_cast it again in weakref_deref().
+            # we will force_cast it again in weakref_deref().  Note that
+            # it's done in two steps as a workaround for a clang issue(?).
+            v_instance = hop.genop("force_cast", [v_instance],
+                                   resulttype=lltype.Signed)
             opname = "force_cast"
         else:
             opname = "cast_ptr_to_adr"
@@ -968,6 +971,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                            resulttype=llmemory.Address)
         if self.translator.config.translation.stm:
             # see gct_weakref_create()
+            v_addr = hop.genop("force_cast", [v_addr],
+                               resulttype=lltype.Signed)
             hop.genop("force_cast", [v_addr],
                       resultvar=hop.spaceop.result)
         else:
