@@ -945,7 +945,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # cast_ptr_to_adr must be done after malloc, as the GC pointer
         # might have moved just now.
         v_instance, = op.args
-        v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
+        if self.translator.config.translation.stm:
+            # not untranslated-test-friendly, but good enough: we hide
+            # our GC object inside an Address field.  It's not a correct
+            # "void *" address, as it's in the wrong address_space, but
+            # we will force_cast it again in weakref_deref().
+            opname = "force_cast"
+        else:
+            opname = "cast_ptr_to_adr"
+        v_addr = hop.genop(opname, [v_instance],
                            resulttype=llmemory.Address)
         hop.genop("bare_setfield",
                   [v_result, rmodel.inputconst(lltype.Void, "weakptr"), v_addr])
@@ -958,7 +966,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         v_addr = hop.genop("direct_call",
                            [self.weakref_deref_ptr, v_wref],
                            resulttype=llmemory.Address)
-        hop.cast_result(v_addr)
+        if self.translator.config.translation.stm:
+            # see gct_weakref_create()
+            hop.genop("force_cast", [v_addr],
+                      resultvar=hop.spaceop.result)
+        else:
+            hop.cast_result(v_addr)
 
     def gct_gc_identityhash(self, hop):
         livevars = self.push_roots(hop)

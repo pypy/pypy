@@ -77,6 +77,14 @@ def stm_allocate_tid(funcgen, op):
     return ('%s = (rpygcchar_t *)stm_allocate(%s); ' % (result, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
+def stm_allocate_weakref(funcgen, op):
+    arg_size    = funcgen.expr(op.args[0])
+    arg_type_id = funcgen.expr(op.args[1])
+    result      = funcgen.expr(op.result)
+    # XXX NULL returns?
+    return ('%s = (rpygcchar_t *)stm_allocate_weakref(%s); ' % (result, arg_size) +
+            '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
+
 def stm_get_from_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF
     arg_obj = funcgen.expr(op.args[0])

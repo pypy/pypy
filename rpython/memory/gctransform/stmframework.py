@@ -15,13 +15,6 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                                       s_gc, s_typeid16)
         gc = self.gcdata.gc
         #
-        s_gcref = llannotation.SomePtr(llmemory.GCREF)
-
-        self.malloc_weakref_ptr = self._getfn(
-            GCClass.malloc_weakref.im_func,
-            [s_gc, s_typeid16, annmodel.SomeInteger(nonneg=True),
-             s_gcref], s_gcref)
-        #
         def pypy_stmcb_size_rounded_up(obj):
             return gc.get_size(obj)
         pypy_stmcb_size_rounded_up.c_name = "pypy_stmcb_size_rounded_up"
@@ -97,40 +90,6 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     def gct_gc_adr_of_root_stack_top(self, hop):
         hop.genop("stm_get_root_stack_top", [], resultvar=hop.spaceop.result)
-
-    def gct_weakref_create(self, hop):
-        XXX
-        op = hop.spaceop
-        
-        type_id = self.get_type_id(WEAKREF)
-        
-        c_type_id = rmodel.inputconst(TYPE_ID, type_id)
-        info = self.layoutbuilder.get_info(type_id)
-        c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
-        malloc_ptr = self.malloc_weakref_ptr
-        c_null = rmodel.inputconst(llmemory.Address, llmemory.NULL)
-        args = [self.c_const_gc, c_type_id, c_size, c_null]
-        # XXX: for now, set weakptr ourselves and simply pass NULL
-
-        # push and pop the current live variables *including* the argument
-        # to the weakref_create operation, which must be kept alive and
-        # moved if the GC needs to collect
-        livevars = self.push_roots(hop, keep_current_args=True)
-        v_result = hop.genop("direct_call", [malloc_ptr] + args,
-                             resulttype=llmemory.GCREF)
-        v_result = hop.genop("cast_opaque_ptr", [v_result],
-                            resulttype=WEAKREFPTR)
-        self.pop_roots(hop, livevars)
-        # cast_ptr_to_adr must be done after malloc, as the GC pointer
-        # might have moved just now.
-        v_instance, = op.args
-        v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
-                           resulttype=llmemory.Address)
-        hop.genop("bare_setfield",
-                  [v_result, rmodel.inputconst(lltype.Void, "weakptr"), v_addr])
-        v_weakref = hop.genop("cast_ptr_to_weakrefptr", [v_result],
-                              resulttype=llmemory.WeakRefPtr)
-        hop.cast_result(v_weakref)
 
 ##    def _gct_with_roots_pushed(self, hop):
 ##        livevars = self.push_roots(hop)

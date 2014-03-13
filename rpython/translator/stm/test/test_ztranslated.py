@@ -304,6 +304,22 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('a b')
         assert 'test ok\n' in data
 
+    def test_prebuilt_weakref(self):
+        import weakref
+        class Foo(object):
+            pass
+        foo = Foo(); foo.n = 42
+        wr = weakref.ref(foo)
+
+        def main(argv):
+            wr().n += 1
+            print '<', wr().n, '>'
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert '< 43 >\n' in data
+
     def test_stm_pointer_equal(self):
         class Foo:
             pass

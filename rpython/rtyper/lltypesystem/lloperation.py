@@ -417,6 +417,7 @@ LL_OPERATIONS = {
     'stm_write':              LLOp(),
     'stm_can_move':           LLOp(),
     'stm_allocate_tid':       LLOp(sideeffects=False, canmallocgc=True),
+    'stm_allocate_weakref':   LLOp(sideeffects=False, canmallocgc=True),
     'stm_get_from_obj':       LLOp(sideeffects=False),
     'stm_get_from_obj_const': LLOp(canfold=True),
     'stm_set_into_obj':       LLOp(),

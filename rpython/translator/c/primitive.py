@@ -170,7 +170,7 @@ def name_unichar(value, db):
 
 def name_address(value, db):
     if value:
-        return db.get(value.ref())
+        return '((void *)%s)' % (db.get(value.ref(), static=True),)
     else:
         return 'NULL'
 

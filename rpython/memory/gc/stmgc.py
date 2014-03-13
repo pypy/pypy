@@ -65,9 +65,10 @@ class StmGC(MovingGCBase):
         # XXX finalizers are ignored for now
         #ll_assert(not needs_finalizer, 'XXX needs_finalizer')
         #ll_assert(not is_finalizer_light, 'XXX is_finalizer_light')
-        ll_assert(not contains_weakptr, 'contains_weakptr: use malloc_weakref')
         if size < 16:
             size = 16     # minimum size (test usually constant-folded)
+        if contains_weakptr:    # check constant-folded
+            return llop.stm_allocate_weakref(llmemory.GCREF, size, typeid16)
         return llop.stm_allocate_tid(llmemory.GCREF, size, typeid16)
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
@@ -78,11 +79,6 @@ class StmGC(MovingGCBase):
         result = llop.stm_allocate_tid(llmemory.GCREF, totalsize, typeid16)
         llop.stm_set_into_obj(lltype.Void, result, offset_to_length, length)
         return result
-
-    def malloc_weakref(self, typeid16, size, obj):
-        raise NotImplementedError  # XXX
-        return llop.stm_weakref_allocate(llmemory.GCREF, size,
-                                         typeid16, obj)
 
 
     def can_optimize_clean_setarrayitems(self):
