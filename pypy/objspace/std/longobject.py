@@ -43,9 +43,6 @@ class W_AbstractLongObject(W_AbstractIntObject):
     def descr_getnewargs(self, space):
         return space.newtuple([newlong(space, self.asbigint())])
 
-    def descr_conjugate(self, space):
-        return self.int(space)
-
     def descr_bit_length(self, space):
         bigint = space.bigint_w(self)
         try:
@@ -163,8 +160,6 @@ class W_LongObject(W_AbstractLongObject):
 
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
-
-    descr_index = descr_trunc = descr_pos = int
 
     def descr_float(self, space):
         return space.newfloat(self.tofloat(space))

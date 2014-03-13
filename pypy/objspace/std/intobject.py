@@ -177,11 +177,25 @@ class W_AbstractIntObject(W_Root):
         _, w_r = space.fixedview(w_tuple, 2)
         return space.sub(self, w_r)
 
-    def _int(self, space):
-        return self.int(space)
+    def _self_unaryop(opname, doc=None):
+        @func_renamer('descr_' + opname)
+        def descr_unaryop(self, space):
+            return self.int(space)
+        descr_unaryop.__doc__ = doc
+        return descr_unaryop
 
-    descr_get_numerator = func_with_new_name(_int, 'descr_get_numerator')
-    descr_get_real = func_with_new_name(_int, 'descr_get_real')
+    descr_conjugate = _self_unaryop(
+        'conjugate', "Returns self, the complex conjugate of any int.")
+    descr_pos = _self_unaryop('pos', "x.__pos__() <==> +x")
+    descr_index = _self_unaryop('index',
+                                "x[y:z] <==> x[y.__index__():z.__index__()]")
+    descr_trunc = _self_unaryop('trunc',
+                                "Truncating an Integral returns itself.")
+    descr_floor = _self_unaryop('floor', "Flooring an Integral returns itself.")
+    descr_ceil = _self_unaryop('ceil', "Ceiling of an Integral returns itself.")
+
+    descr_get_numerator = _self_unaryop('get_numerator')
+    descr_get_real = _self_unaryop('get_real')
 
     def descr_get_denominator(self, space):
         return wrapint(space, 1)
@@ -217,8 +231,6 @@ class W_AbstractIntObject(W_Root):
     descr_repr = _abstract_unaryop('repr')
     descr_str = _abstract_unaryop('str')
 
-    descr_conjugate = _abstract_unaryop(
-        'conjugate', "Returns self, the complex conjugate of any int.")
     descr_bit_length = _abstract_unaryop('bit_length', """\
         int.bit_length() -> int
 
@@ -229,14 +241,7 @@ class W_AbstractIntObject(W_Root):
         6""")
     descr_hash = _abstract_unaryop('hash')
     descr_getnewargs = _abstract_unaryop('getnewargs', None)
-
-    descr_index = _abstract_unaryop(
-        'index', "x[y:z] <==> x[y.__index__():z.__index__()]")
-    descr_trunc = _abstract_unaryop('trunc',
-                                    "Truncating an Integral returns itself.")
     descr_float = _abstract_unaryop('float')
-
-    descr_pos = _abstract_unaryop('pos', "x.__pos__() <==> +x")
     descr_neg = _abstract_unaryop('neg', "x.__neg__() <==> -x")
     descr_abs = _abstract_unaryop('abs')
     descr_bool = _abstract_unaryop('bool', "x.__bool__() <==> x != 0")
@@ -530,14 +535,6 @@ class W_IntObject(W_AbstractIntObject):
 
         x = intmask(intmask(x) * sign)
         return wrapint(space, -2 if x == -1 else x)
-
-    def _int(self, space):
-        return self.int(space)
-
-    descr_pos = func_with_new_name(_int, 'descr_pos')
-    descr_index = func_with_new_name(_int, 'descr_index')
-    descr_trunc = func_with_new_name(_int, 'descr_trunc')
-    descr_conjugate = func_with_new_name(_int, 'descr_conjugate')
 
     def as_w_long(self, space):
         # XXX: should try smalllong
@@ -990,6 +987,8 @@ Base 0 means to interpret the base from the string as an integer literal.
     __abs__ = interpindirect2app(W_AbstractIntObject.descr_abs),
     __bool__ = interpindirect2app(W_AbstractIntObject.descr_bool),
     __invert__ = interpindirect2app(W_AbstractIntObject.descr_invert),
+    __floor__ = interpindirect2app(W_AbstractIntObject.descr_floor),
+    __ceil__ = interpindirect2app(W_AbstractIntObject.descr_ceil),
 
     __lt__ = interpindirect2app(W_AbstractIntObject.descr_lt),
     __le__ = interpindirect2app(W_AbstractIntObject.descr_le),

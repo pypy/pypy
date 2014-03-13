@@ -551,6 +551,12 @@ class AppTestInt:
         assert ns['a'] == 9007199254740991.0
         assert ns['b'] == 9007199254740991.0
 
+    def test_ceil(self):
+        assert 8 .__ceil__() == 8
+
+    def test_floor(self):
+        assert 8 .__floor__() == 8
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

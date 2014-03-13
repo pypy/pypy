@@ -79,8 +79,6 @@ class W_SmallLongObject(W_AbstractLongObject):
             return W_LongObject(self.num)
         return W_Root.int(self, space)
 
-    descr_index = descr_trunc = descr_pos = int
-
     def descr_float(self, space):
         return space.newfloat(float(self.longlong))
 
