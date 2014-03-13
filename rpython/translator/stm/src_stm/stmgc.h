@@ -283,6 +283,9 @@ void stm_collect(long level);
    static structure, but it should never be used anyway.) */
 object_t *stm_setup_prebuilt(object_t *);
 
+/* The same, if the prebuilt object is actually a weakref. */
+object_t *stm_setup_prebuilt_weakref(object_t *);
+
 /* Hash, id.  The id is just the address of the object (of the address
    where it *will* be after the next minor collection).  The hash is the
    same, mangled -- except on prebuilt objects, where it can be
