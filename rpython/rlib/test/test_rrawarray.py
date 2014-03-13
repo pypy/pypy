@@ -2,10 +2,23 @@ from rpython.rlib.rrawarray import copy_list_to_raw_array, \
                                    populate_list_from_raw_array
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.test.test_llinterp import clear_tcache
+from rpython.rlib import rgc
 
 
 
 class TestRArray(BaseRtypingTest):
+
+    def interpret_twice(self, f, args):
+        self.interpret(f, args)
+        #
+        old = rgc.stm_is_enabled
+        try:
+            rgc.stm_is_enabled = lambda: True
+            clear_tcache()
+            self.interpret(f, args)
+        finally:
+            rgc.stm_is_enabled = old
 
     def test_copy_list_to_raw_array(self):
         ARRAY = rffi.CArray(lltype.Signed)
@@ -35,7 +48,7 @@ class TestRArray(BaseRtypingTest):
             #
             lltype.free(buf, flavor='raw')
             lltype.free(buf2, flavor='raw')
-        self.interpret(fn, [])
+        self.interpret_twice(fn, [])
 
     def test_new_list_from_raw_array(self):
         INTARRAY = rffi.CArray(lltype.Signed)
@@ -62,4 +75,4 @@ class TestRArray(BaseRtypingTest):
             assert lst == [1, 2, 3, 4]
             lltype.free(buf, flavor='raw')
         #
-        self.interpret(fn, [])
+        self.interpret_twice(fn, [])
