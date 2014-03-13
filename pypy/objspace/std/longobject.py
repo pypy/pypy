@@ -304,9 +304,6 @@ class W_LongObject(W_AbstractLongObject):
         return newlong(space, z)
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
-    _div = func_with_new_name(_floordiv, '_div')
-    descr_div, descr_rdiv = _make_descr_binop(_div)
-
     def _mod(self, space, w_other):
         try:
             z = self.num.mod(w_other.asbigint())

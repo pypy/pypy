@@ -266,9 +266,6 @@ class W_SmallLongObject(W_AbstractLongObject):
         return W_SmallLongObject(z)
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
-    _div = func_with_new_name(_floordiv, '_div')
-    descr_div, descr_rdiv = _make_descr_binop(_div)
-
     def _mod(self, space, w_other):
         x = self.longlong
         y = w_other.longlong

@@ -111,22 +111,6 @@ class TestW_IntObject:
         assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x * y))
 
-    def test_div(self):
-        space = self.space
-        for i in range(10):
-            res = i//3
-            f1 = iobj.W_IntObject(i)
-            f2 = iobj.W_IntObject(3)
-            result = f1.descr_div(space, f2)
-            assert result.intval == res
-        x = -sys.maxint-1
-        y = -1
-        f1 = iobj.W_IntObject(x)
-        f2 = iobj.W_IntObject(y)
-        v = f1.descr_div(space, f2)
-        assert space.isinstance_w(v, space.w_int)
-        assert space.bigint_w(v).eq(rbigint.fromlong(x / y))
-
     def test_mod(self):
         x = 1
         y = 2

@@ -288,7 +288,6 @@ class W_AbstractIntObject(W_Root):
     descr_rshift, descr_rrshift = _abstract_binop('rshift')
 
     descr_floordiv, descr_rfloordiv = _abstract_binop('floordiv')
-    descr_div, descr_rdiv = _abstract_binop('div')
     descr_truediv, descr_rtruediv = _abstract_binop('truediv')
     descr_mod, descr_rmod = _abstract_binop('mod')
     descr_divmod, descr_rdivmod = _abstract_binop('divmod')
@@ -301,7 +300,6 @@ def _floordiv(space, x, y):
         raise oefmt(space.w_ZeroDivisionError,
                     "integer division or modulo by zero")
     return wrapint(space, z)
-_div = func_with_new_name(_floordiv, '_div')
 
 
 def _truediv(space, x, y):
@@ -760,7 +758,6 @@ class W_IntObject(W_AbstractIntObject):
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
-    descr_div, descr_rdiv = _make_descr_binop(_div)
     descr_truediv, descr_rtruediv = _make_descr_binop(_truediv)
     descr_mod, descr_rmod = _make_descr_binop(_mod)
     descr_divmod, descr_rdivmod = _make_descr_binop(
@@ -1018,8 +1015,6 @@ Base 0 means to interpret the base from the string as an integer literal.
 
     __floordiv__ = interpindirect2app(W_AbstractIntObject.descr_floordiv),
     __rfloordiv__ = interpindirect2app(W_AbstractIntObject.descr_rfloordiv),
-    __div__ = interpindirect2app(W_AbstractIntObject.descr_div),
-    __rdiv__ = interpindirect2app(W_AbstractIntObject.descr_rdiv),
     __truediv__ = interpindirect2app(W_AbstractIntObject.descr_truediv),
     __rtruediv__ = interpindirect2app(W_AbstractIntObject.descr_rtruediv),
     __mod__ = interpindirect2app(W_AbstractIntObject.descr_mod),
