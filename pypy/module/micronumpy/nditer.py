@@ -7,6 +7,7 @@ from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                              shape_agreement_multiple)
 from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
 from pypy.module.micronumpy.concrete import SliceArray
+from pypy.module.micronumpy import ufuncs
 
 
 class AbstractIterator(object):
@@ -33,6 +34,9 @@ class IteratorMixin(object):
 
     def getitem(self, space, array):
         return self.op_flags.get_it_item[self.index](space, array, self.it)
+
+    def setitem(self, space, array, val):
+        xxx
 
 class BoxIterator(IteratorMixin, AbstractIterator):
     index = 0
@@ -220,6 +224,15 @@ def get_external_loop_iter(space, order, arr, shape):
 
     return SliceIterator(arr, imp.strides, imp.backstrides, shape, order=order, backward=backward)
 
+def convert_to_array_or_none(space, w_elem):
+    '''
+    None will be passed through, all others will be converted
+    '''
+    if space.is_none(w_elem):
+        return None
+    return convert_to_array(space, w_elem)
+
+
 class IndexIterator(object):
     def __init__(self, shape, backward=False):
         self.shape = shape
@@ -267,7 +280,7 @@ class W_NDIter(W_Root):
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
-            self.seq = [convert_to_array(space, w_elem) for w_elem in w_seq_as_list]
+            self.seq = [convert_to_array_or_none(space, w_elem) for w_elem in w_seq_as_list]
         else:
             self.seq =[convert_to_array(space, w_seq)]
         parse_func_flags(space, self, w_flags)
@@ -280,6 +293,25 @@ class W_NDIter(W_Root):
                 'nditer op_dtypes kwarg not implemented yet'))
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
+        outarg = [i for i in range(len(self.seq)) if self.seq[i] is None]
+        if len(outarg) > 0:
+            # Make None operands writeonly and flagged for
+            # allocation, and everything else defaults to readonly.  To write
+            # to a provided operand, you must specify the write flag manually.
+            out_dtype = None
+            for elem in self.seq:
+                if elem is None:
+                    continue
+                if isinstance(elem, W_NDimArray) and elem.is_scalar():
+                    elem = elem.get_scalar_value()
+                out_dtype = ufuncs.find_binop_result_dtype(space,
+                                                elem.get_dtype(), out_dtype)
+            for i in outarg:
+                self.op_flags[i].get_it_item = (get_readwrite_item,
+                                                get_readwrite_slice)
+                self.op_flags[i].allocate = True
+                # XXX can we postpone allocation to later?
+                self.seq[i] = W_NDimArray.from_shape(space, iter_shape, out_dtype)
         if self.tracked_index != "":
             if self.order == "K":
                 self.order = self.seq[0].implementation.order
