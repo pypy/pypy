@@ -300,6 +300,9 @@ static void _do_minor_collection(bool commit)
 
     collect_oldrefs_to_nursery();
 
+    /* now all surviving nursery objects have been moved out */
+    stm_move_young_weakrefs();
+
     throw_away_nursery(get_priv_segment(STM_SEGMENT->segment_num));
 
     assert(MINOR_NOTHING_TO_DO(STM_PSEGMENT));

@@ -451,7 +451,11 @@ static void clean_up_segment_lists(void)
         /* 'objects_pointing_to_nursery' should be empty, but isn't
            necessarily because it also lists objects that have been
            written to but don't actually point to the nursery.  Clear
-           it up and set GCFLAG_WRITE_BARRIER again on the objects. */
+           it up and set GCFLAG_WRITE_BARRIER again on the objects.
+           This is the case for transactions where
+               MINOR_NOTHING_TO_DO() == false
+           but they still did write-barriers on objects
+        */
         lst = pseg->objects_pointing_to_nursery;
         if (lst != NULL) {
             LIST_FOREACH_R(lst, uintptr_t /*item*/,
@@ -537,6 +541,9 @@ static void major_collection_now_at_safe_point(void)
     mark_visit_from_modified_objects();
     mark_visit_from_roots();
     LIST_FREE(mark_objects_to_trace);
+
+    /* weakrefs: */
+    stm_visit_old_weakrefs();
 
     /* cleanup */
     clean_up_segment_lists();

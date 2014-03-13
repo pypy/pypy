@@ -181,6 +181,7 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
     }
 
     assert(list_is_empty(STM_PSEGMENT->modified_old_objects));
+    assert(list_is_empty(STM_PSEGMENT->young_weakrefs));
     assert(tree_is_cleared(STM_PSEGMENT->young_outside_nursery));
     assert(tree_is_cleared(STM_PSEGMENT->nursery_objects_shadows));
     assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_abort));
@@ -484,6 +485,7 @@ static void abort_data_structures_from_segment_num(int segment_num)
     /* reset these lists to NULL too on abort */
     LIST_FREE(pseg->objects_pointing_to_nursery);
     LIST_FREE(pseg->large_overflow_objects);
+    list_clear(pseg->young_weakrefs);
 }
 
 static void abort_with_mutex(void)

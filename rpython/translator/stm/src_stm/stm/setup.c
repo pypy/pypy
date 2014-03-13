@@ -58,6 +58,8 @@ void stm_setup(void)
         pr->objects_pointing_to_nursery = NULL;
         pr->large_overflow_objects = NULL;
         pr->modified_old_objects = list_create();
+        pr->young_weakrefs = list_create();
+        pr->old_weakrefs = list_create();
         pr->young_outside_nursery = tree_create();
         pr->nursery_objects_shadows = tree_create();
         pr->callbacks_on_abort = tree_create();
@@ -96,6 +98,8 @@ void stm_teardown(void)
         assert(pr->objects_pointing_to_nursery == NULL);
         assert(pr->large_overflow_objects == NULL);
         list_free(pr->modified_old_objects);
+        list_free(pr->young_weakrefs);
+        list_free(pr->old_weakrefs);
         tree_free(pr->young_outside_nursery);
         tree_free(pr->nursery_objects_shadows);
         tree_free(pr->callbacks_on_abort);
