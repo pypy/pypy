@@ -882,6 +882,14 @@ void pypy_stm_setup_prebuilt(void)
         *pp = stm_setup_prebuilt(*pp);
         stm_set_prebuilt_identityhash(*pp, *ph);
     }
+
+    object_t ***cur = (object_t ***)
+       pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_static_root_start;
+    object_t ***end = (object_t ***)
+       pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_static_root_nongcend;
+    for ( ; cur != end; cur++) {
+        **cur = stm_setup_prebuilt(**cur);
+    }
 }
 '''
 

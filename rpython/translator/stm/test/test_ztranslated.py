@@ -433,3 +433,23 @@ class TestSTMTranslated(CompiledSTMTests):
         assert ': -inf\n' in data
         data = cbuilder.cmdexec('2')
         assert ': nan\n' in data
+
+    def test_static_root_in_nongc(self):
+        class A:
+            def __init__(self, n):
+                self.n = n
+        class B:
+            def _freeze_(self):
+                return True
+        b1 = B(); b1.a = A(42)
+        b2 = B(); b2.a = A(84)
+        def dump(b):
+            print '<', b.a.n, '>'
+        def main(argv):
+            dump(b1)
+            dump(b2)
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert '< 42 >\n< 84 >\n' in data

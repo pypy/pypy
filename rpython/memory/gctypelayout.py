@@ -451,7 +451,8 @@ class TypeLayoutBuilder(object):
             return
         else:
             appendto = self.addresses_of_static_ptrs_in_nongc
-        for a in gc_pointers_inside(value, adr, mutable_only=True):
+        mutable_only = gc.ignore_immutable_static_roots
+        for a in gc_pointers_inside(value, adr, mutable_only=mutable_only):
             appendto.append(a)
 
 # ____________________________________________________________

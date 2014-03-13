@@ -23,6 +23,7 @@ class StmGC(MovingGCBase):
     inline_simple_malloc_varsize = True
     needs_write_barrier = "stm"
     prebuilt_gc_objects_are_static_roots = False
+    ignore_immutable_static_roots = False
     malloc_zero_filled = True
     object_minimal_size = 16
     #gcflag_extra = GCFLAG_EXTRA
