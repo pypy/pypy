@@ -592,7 +592,7 @@ assert not USESLOTS or '__dict__' not in dir(ContainerNode)
 class StructNode(ContainerNode):
     nodekind = 'struct'
     if USESLOTS:
-        __slots__ = ()
+        __slots__ = ('is_weakref',)
 
     def basename(self):
         T = self.getTYPE()
@@ -1029,7 +1029,9 @@ def weakrefnode_factory(db, T, obj):
     wrapper = db.gcpolicy.convert_weakref_to(ptarget)
     container = wrapper._obj
     #obj._converted_weakref = container     # hack for genllvm :-/
-    return db.getcontainernode(container, _dont_write_c_code=False)
+    node = db.getcontainernode(container, _dont_write_c_code=False)
+    node.is_weakref = True
+    return node
 
 class GroupNode(ContainerNode):
     nodekind = 'group'

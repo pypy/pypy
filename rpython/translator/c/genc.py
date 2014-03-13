@@ -873,13 +873,28 @@ def gen_stm_prebuilt(f, database):
         h = database.gcpolicy.get_stm_prebuilt_hash(node.obj)
         print >> f, '\t%s,' % (name_signed(h, database),)
     print >> f, '};'
+    print >> f
+    print >> f, 'static int weakref_indices[] = {'
+    for i, (_, node) in enumerate(gclist):
+        if getattr(node, 'is_weakref', False):
+            print >> f, '\t%d,' % (i,)
+    print >> f, '\t-1'
+    print >> f, '};'
     print >> f, '''
 void pypy_stm_setup_prebuilt(void)
 {
     object_t **pp = rpy_prebuilt;
     long *ph = rpy_prebuilt_hashes;
-    for ( ; *pp; pp++, ph++) {
-        *pp = stm_setup_prebuilt(*pp);
+    int i = 0;
+    int *wri = weakref_indices;
+    for ( ; *pp; pp++, ph++, i++) {
+        if (i == *wri) {
+            *pp = stm_setup_prebuilt_weakref(*pp);
+            wri++;
+        }
+        else {
+            *pp = stm_setup_prebuilt(*pp);
+        }
         stm_set_prebuilt_identityhash(*pp, *ph);
     }
 
