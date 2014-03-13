@@ -170,7 +170,12 @@ def name_unichar(value, db):
 
 def name_address(value, db):
     if value:
-        return '((void *)%s)' % (db.get(value.ref(), static=True),)
+        res = db.get(value.ref(), static=True)
+        if res == db.get(value.ref(), static=False):
+            return res      # common case
+        else:
+            # mess with stm address spaces
+            return '((void *)(long)%s)' % (res,)
     else:
         return 'NULL'
 
