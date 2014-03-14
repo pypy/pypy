@@ -778,7 +778,7 @@ class Connection(object):
                 try:
                     ret = callback(text1, text2)
                     assert isinstance(ret, (int, long))
-                    return cmp(ret, 0)
+                    return (ret > 0) - (ret < 0)
                 except Exception:
                     return 0
 
