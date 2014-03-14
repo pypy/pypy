@@ -38,6 +38,7 @@ except ImportError:
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
+    cmp = lambda x, y: (x > y) - (x < y)
     long = int
     xrange = range
     basestring = unicode = str
@@ -778,7 +779,7 @@ class Connection(object):
                 try:
                     ret = callback(text1, text2)
                     assert isinstance(ret, (int, long))
-                    return (ret > 0) - (ret < 0)
+                    return cmp(ret, 0)
                 except Exception:
                     return 0
 
