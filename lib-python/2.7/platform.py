@@ -228,7 +228,7 @@ def _dist_try_harder(distname,version,id):
                 return 'OpenLinux',pkg[1],id
 
     if os.path.isdir('/usr/lib/setup'):
-        # Check for slackware verson tag file (thanks to Greg Andruk)
+        # Check for slackware version tag file (thanks to Greg Andruk)
         verfiles = os.listdir('/usr/lib/setup')
         for n in range(len(verfiles)-1, -1, -1):
             if verfiles[n][:14] != 'slack-version-':
@@ -280,7 +280,7 @@ def _parse_release_file(firstline):
     if m is not None:
         return tuple(m.groups())
 
-    # Unkown format... take the first two words
+    # Unknown format... take the first two words
     l = string.split(string.strip(firstline))
     if l:
         version = l[0]
@@ -673,8 +673,13 @@ def win32_ver(release='',version='',csd='',ptype=''):
                     release = '7'
                 else:
                     release = '2008ServerR2'
+            elif min == 2:
+                if product_type == VER_NT_WORKSTATION:
+                    release = '8'
+                else:
+                    release = '2012Server'
             else:
-                release = 'post2008Server'
+                release = 'post2012Server'
 
     else:
         if not release:
@@ -795,7 +800,7 @@ def mac_ver(release='',versioninfo=('','',''),machine=''):
         versioninfo, machine) with versioninfo being a tuple (version,
         dev_stage, non_release_version).
 
-        Entries which cannot be determined are set to the paramter values
+        Entries which cannot be determined are set to the parameter values
         which default to ''. All tuple entries are strings.
     """
 
@@ -1020,16 +1025,38 @@ def _syscmd_file(target,default=''):
         case the command should fail.
 
     """
+
+    # We do the import here to avoid a bootstrap issue.
+    # See c73b90b6dadd changeset.
+    #
+    # [..]
+    # ranlib libpython2.7.a
+    # gcc   -o python \
+    #        Modules/python.o \
+    #        libpython2.7.a -lsocket -lnsl -ldl    -lm
+    # Traceback (most recent call last):
+    #  File "./setup.py", line 8, in <module>
+    #    from platform import machine as platform_machine
+    #  File "[..]/build/Lib/platform.py", line 116, in <module>
+    #    import sys,string,os,re,subprocess
+    #  File "[..]/build/Lib/subprocess.py", line 429, in <module>
+    #    import select
+    # ImportError: No module named select
+
+    import subprocess
+
     if sys.platform in ('dos','win32','win16','os2'):
         # XXX Others too ?
         return default
-    target = _follow_symlinks(target).replace('"', '\\"')
+    target = _follow_symlinks(target)
     try:
-        f = os.popen('file "%s" 2> %s' % (target, DEV_NULL))
+        proc = subprocess.Popen(['file', target],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
     except (AttributeError,os.error):
         return default
-    output = string.strip(f.read())
-    rc = f.close()
+    output = proc.communicate()[0]
+    rc = proc.wait()
     if not output or rc:
         return default
     else:
@@ -1344,6 +1371,14 @@ _ironpython_sys_version_parser = re.compile(
     '(?: \(([\d\.]+)\))?'
     ' on (.NET [\d\.]+)')
 
+# IronPython covering 2.6 and 2.7
+_ironpython26_sys_version_parser = re.compile(
+    r'([\d.]+)\s*'
+    '\(IronPython\s*'
+    '[\d.]+\s*'
+    '\(([\d.]+)\) on ([\w.]+ [\d.]+(?: \(\d+-bit\))?)\)'
+)
+
 _pypy_sys_version_parser = re.compile(
     r'([\w.+]+)\s*'
     '\(#?([^,]+),\s*([\w ]+),\s*([\w :]+)\)\s*'
@@ -1381,19 +1416,24 @@ def _sys_version(sys_version=None):
         return result
 
     # Parse it
-    if sys_version[:10] == 'IronPython':
+    if 'IronPython' in sys_version:
         # IronPython
         name = 'IronPython'
-        match = _ironpython_sys_version_parser.match(sys_version)
+        if sys_version.startswith('IronPython'):
+            match = _ironpython_sys_version_parser.match(sys_version)
+        else:
+            match = _ironpython26_sys_version_parser.match(sys_version)
+
         if match is None:
             raise ValueError(
                 'failed to parse IronPython sys.version: %s' %
                 repr(sys_version))
+
         version, alt_version, compiler = match.groups()
         buildno = ''
         builddate = ''
 
-    elif sys.platform[:4] == 'java':
+    elif sys.platform.startswith('java'):
         # Jython
         name = 'Jython'
         match = _sys_version_parser.match(sys_version)

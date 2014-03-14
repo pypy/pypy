@@ -5,6 +5,7 @@ simplified - instead of a polling object there is only a poll()
 function that directly takes a dictionary as argument.
 """
 
+from errno import EINTR
 from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -71,9 +72,9 @@ if hasattr(_c, 'poll'):
             lltype.free(pollfds, flavor='raw')
         return retval
 
-def select(inl, outl, excl, timeout=-1.0):
+def select(inl, outl, excl, timeout=-1.0, handle_eintr=False):
     nfds = 0
-    if inl: 
+    if inl:
         ll_inl = lltype.malloc(_c.fd_set.TO, flavor='raw')
         _c.FD_ZERO(ll_inl)
         for i in inl:
@@ -82,7 +83,7 @@ def select(inl, outl, excl, timeout=-1.0):
                 nfds = i
     else:
         ll_inl = lltype.nullptr(_c.fd_set.TO)
-    if outl: 
+    if outl:
         ll_outl = lltype.malloc(_c.fd_set.TO, flavor='raw')
         _c.FD_ZERO(ll_outl)
         for i in outl:
@@ -91,7 +92,7 @@ def select(inl, outl, excl, timeout=-1.0):
                 nfds = i
     else:
         ll_outl = lltype.nullptr(_c.fd_set.TO)
-    if excl: 
+    if excl:
         ll_excl = lltype.malloc(_c.fd_set.TO, flavor='raw')
         _c.FD_ZERO(ll_excl)
         for i in excl:
@@ -100,15 +101,23 @@ def select(inl, outl, excl, timeout=-1.0):
                 nfds = i
     else:
         ll_excl = lltype.nullptr(_c.fd_set.TO)
-    if timeout != -1.0:
-        ll_timeval = rffi.make(_c.timeval)
-        rffi.setintfield(ll_timeval, 'c_tv_sec', int(timeout))
-        rffi.setintfield(ll_timeval, 'c_tv_usec', int((timeout-int(timeout))
-                                                  * 1000000))
-    else:
+
+    if timeout < 0:
         ll_timeval = lltype.nullptr(_c.timeval)
-    try:
+        while True:
+            res = _c.select(nfds + 1, ll_inl, ll_outl, ll_excl, ll_timeval)
+            if not handle_eintr or res >= 0 or _c.geterrno() != EINTR:
+                break
+    else:
+        sec = int(timeout)
+        usec = int((timeout - sec) * 10**6)
+        ll_timeval = rffi.make(_c.timeval)
+        rffi.setintfield(ll_timeval, 'c_tv_sec', sec)
+        rffi.setintfield(ll_timeval, 'c_tv_usec', usec)
         res = _c.select(nfds + 1, ll_inl, ll_outl, ll_excl, ll_timeval)
+        if handle_eintr and res < 0 and _c.geterrno() == EINTR:
+            res = 0  # interrupted, act as timed out
+    try:
         if res == -1:
             raise SelectError(_c.geterrno())
         if res == 0:

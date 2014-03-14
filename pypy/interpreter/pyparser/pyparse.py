@@ -108,7 +108,7 @@ class PythonParser(parser.Parser):
             # If an encoding is explicitly given check that it is utf-8.
             decl_enc = _check_for_encoding(textsrc)
             if decl_enc and decl_enc != "utf-8":
-                raise error.SyntaxError("UTF-8 BOM with non-utf8 coding cookie",
+                raise error.SyntaxError("UTF-8 BOM with %s coding cookie" % decl_enc,
                                         filename=compile_info.filename)
         elif compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
             enc = 'utf-8'

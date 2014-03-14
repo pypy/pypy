@@ -5,12 +5,18 @@ import os
 
 import ctypes
 
+signed_int_types = (c_byte, c_short, c_int, c_long, c_longlong)
+unsigned_int_types = (c_ubyte, c_ushort, c_uint, c_ulong, c_ulonglong)
+int_types = unsigned_int_types + signed_int_types
+
+
 def setup_module(mod):
     import conftest
     _ctypes_test = str(conftest.sofile)
     func = CDLL(_ctypes_test).unpack_bitfields
     func.argtypes = POINTER(BITS), c_char
     mod.func = func
+
 
 class BITS(Structure):
     _fields_ = [("A", c_int, 1),
@@ -32,9 +38,7 @@ class BITS(Structure):
                 ("S", c_short, 7)]
 
 
-
 class TestC:
-
     def test_ints(self):
         for i in range(512):
             for name in "ABCDEFGHI":
@@ -49,12 +53,8 @@ class TestC:
                 setattr(b, name, i)
                 assert (name, i, getattr(b, name)) == (name, i, func(byref(b), name))
 
-signed_int_types = (c_byte, c_short, c_int, c_long, c_longlong)
-unsigned_int_types = (c_ubyte, c_ushort, c_uint, c_ulong, c_ulonglong)
-int_types = unsigned_int_types + signed_int_types
 
 class TestBitField:
-
     def test_longlong(self):
         class X(Structure):
             _fields_ = [("a", c_longlong, 1),
@@ -98,7 +98,6 @@ class TestBitField:
             x.a, x.b = 0, -1
             assert (c_typ, x.a, x.b, x.c) == (c_typ, 0, -1, 0)
 
-
     def test_unsigned(self):
         for c_typ in unsigned_int_types:
             class X(Structure):
@@ -113,7 +112,6 @@ class TestBitField:
             assert (c_typ, x.a, x.b, x.c) == (c_typ, 7, 0, 0)
             x.a, x.b = 0, -1
             assert (c_typ, x.a, x.b, x.c) == (c_typ, 0, 7, 0)
-
 
     def fail_fields(self, *fields):
         return self.get_except(type(Structure), "X", (),
@@ -194,7 +192,6 @@ class TestBitField:
         assert X.b.offset == sizeof(c_short)*1
         assert X.c.offset == sizeof(c_short)*2
 
-
     def get_except(self, func, *args, **kw):
         try:
             func(*args, **kw)
@@ -244,7 +241,6 @@ class TestBitField:
             pass
         A._fields_ = [("a", POINTER(A)),
                       ("b", c_ubyte, 4)]
-
 
     def test_set_fields_cycle_fails(self):
         class A(Structure):

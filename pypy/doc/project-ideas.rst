@@ -145,18 +145,11 @@ to be got from them!):
 Embedding PyPy and improving CFFI
 ----------------------------------------
 
-Note: there is a basic proof-of-concept for that as a `uwsgi pypy plugin`_
+PyPy has some basic `embedding infrastructure`_. The idea would be to improve
+upon that with cffi hacks that can automatically generate embeddable .so/.dll
+library
 
-Being able to embed PyPy, say with its own limited C API, would be
-useful.  But there is a possibly better variant: use CFFI.  With some
-minimal tools atop CFFI, it would be possible to write a pure Python
-library, and then compile automatically from it an .so/.dll file that is
-a dynamic-link library with whatever C API we want.  This gives us a
-one-size-fits-all generic way to make .so/.dll files from Python.
-
-This would fit well in a "redesign CFFI" work.
-
-.. _`uwsgi pypy plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
+.. _`embedding infrastructure`: embedding.html
 
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------

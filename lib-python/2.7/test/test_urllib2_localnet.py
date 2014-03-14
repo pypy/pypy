@@ -5,7 +5,9 @@ import urllib2
 import BaseHTTPServer
 import unittest
 import hashlib
+
 from test import test_support
+
 mimetools = test_support.import_module('mimetools', deprecated=True)
 threading = test_support.import_module('threading')
 
@@ -346,6 +348,12 @@ class TestUrlopen(BaseTestCase):
     for transparent redirection have been written.
     """
 
+    def setUp(self):
+        proxy_handler = urllib2.ProxyHandler({})
+        opener = urllib2.build_opener(proxy_handler)
+        urllib2.install_opener(opener)
+        super(TestUrlopen, self).setUp()
+
     def start_server(self, responses):
         handler = GetRequestHandler(responses)
 
@@ -481,6 +489,11 @@ class TestUrlopen(BaseTestCase):
     def test_bad_address(self):
         # Make sure proper exception is raised when connecting to a bogus
         # address.
+
+        # as indicated by the comment below, this might fail with some ISP,
+        # so we run the test only when -unetwork/-uall is specified to
+        # mitigate the problem a bit (see #17564)
+        test_support.requires('network')
         self.assertRaises(IOError,
                           # Given that both VeriSign and various ISPs have in
                           # the past or are presently hijacking various invalid

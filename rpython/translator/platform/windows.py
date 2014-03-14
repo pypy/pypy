@@ -113,8 +113,6 @@ class MsvcPlatform(Platform):
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
             self.c_environ.update(msvc_compiler_environ)
-            # XXX passing an environment to subprocess is not enough. Why?
-            os.environ.update(msvc_compiler_environ)
 
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',

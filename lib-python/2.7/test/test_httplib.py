@@ -90,6 +90,34 @@ class HeaderTests(TestCase):
                 conn.request('POST', '/', body, headers)
                 self.assertEqual(conn._buffer.count[header.lower()], 1)
 
+    def test_content_length_0(self):
+
+        class ContentLengthChecker(list):
+            def __init__(self):
+                list.__init__(self)
+                self.content_length = None
+            def append(self, item):
+                kv = item.split(':', 1)
+                if len(kv) > 1 and kv[0].lower() == 'content-length':
+                    self.content_length = kv[1].strip()
+                list.append(self, item)
+
+        # POST with empty body
+        conn = httplib.HTTPConnection('example.com')
+        conn.sock = FakeSocket(None)
+        conn._buffer = ContentLengthChecker()
+        conn.request('POST', '/', '')
+        self.assertEqual(conn._buffer.content_length, '0',
+                        'Header Content-Length not set')
+
+        # PUT request with empty body
+        conn = httplib.HTTPConnection('example.com')
+        conn.sock = FakeSocket(None)
+        conn._buffer = ContentLengthChecker()
+        conn.request('PUT', '/', '')
+        self.assertEqual(conn._buffer.content_length, '0',
+                        'Header Content-Length not set')
+
     def test_putheader(self):
         conn = httplib.HTTPConnection('example.com')
         conn.sock = FakeSocket(None)
@@ -138,7 +166,7 @@ class BasicTest(TestCase):
         self.assertEqual(repr(exc), '''BadStatusLine("\'\'",)''')
 
     def test_partial_reads(self):
-        # if we have a lenght, the system knows when to close itself
+        # if we have a length, the system knows when to close itself
         # same behaviour than when we read the whole thing with read()
         body = "HTTP/1.1 200 Ok\r\nContent-Length: 4\r\n\r\nText"
         sock = FakeSocket(body)
@@ -147,6 +175,32 @@ class BasicTest(TestCase):
         self.assertEqual(resp.read(2), 'Te')
         self.assertFalse(resp.isclosed())
         self.assertEqual(resp.read(2), 'xt')
+        self.assertTrue(resp.isclosed())
+
+    def test_partial_reads_no_content_length(self):
+        # when no length is present, the socket should be gracefully closed when
+        # all data was read
+        body = "HTTP/1.1 200 Ok\r\n\r\nText"
+        sock = FakeSocket(body)
+        resp = httplib.HTTPResponse(sock)
+        resp.begin()
+        self.assertEqual(resp.read(2), 'Te')
+        self.assertFalse(resp.isclosed())
+        self.assertEqual(resp.read(2), 'xt')
+        self.assertEqual(resp.read(1), '')
+        self.assertTrue(resp.isclosed())
+
+    def test_partial_reads_incomplete_body(self):
+        # if the server shuts down the connection before the whole
+        # content-length is delivered, the socket is gracefully closed
+        body = "HTTP/1.1 200 Ok\r\nContent-Length: 10\r\n\r\nText"
+        sock = FakeSocket(body)
+        resp = httplib.HTTPResponse(sock)
+        resp.begin()
+        self.assertEqual(resp.read(2), 'Te')
+        self.assertFalse(resp.isclosed())
+        self.assertEqual(resp.read(2), 'xt')
+        self.assertEqual(resp.read(1), '')
         self.assertTrue(resp.isclosed())
 
     def test_host_port(self):
@@ -279,7 +333,7 @@ class BasicTest(TestCase):
         resp = httplib.HTTPResponse(sock, method="GET")
         resp.begin()
         self.assertEqual(resp.read(), 'Hello\r\n')
-        resp.close()
+        self.assertTrue(resp.isclosed())
 
     def test_incomplete_read(self):
         sock = FakeSocket('HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nHello\r\n')
@@ -293,10 +347,9 @@ class BasicTest(TestCase):
                              "IncompleteRead(7 bytes read, 3 more expected)")
             self.assertEqual(str(i),
                              "IncompleteRead(7 bytes read, 3 more expected)")
+            self.assertTrue(resp.isclosed())
         else:
             self.fail('IncompleteRead expected')
-        finally:
-            resp.close()
 
     def test_epipe(self):
         sock = EPipeSocket(
@@ -349,6 +402,14 @@ class BasicTest(TestCase):
         resp.begin()
         self.assertRaises(httplib.LineTooLong, resp.read)
 
+    def test_early_eof(self):
+        # Test httpresponse with no \r\n termination,
+        body = "HTTP/1.1 200 Ok"
+        sock = FakeSocket(body)
+        resp = httplib.HTTPResponse(sock)
+        resp.begin()
+        self.assertEqual(resp.read(), '')
+        self.assertTrue(resp.isclosed())
 
 class OfflineTest(TestCase):
     def test_responses(self):

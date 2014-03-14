@@ -432,7 +432,11 @@ def compute_unique_id(x):
     costly depending on the garbage collector.  To remind you of this
     fact, we don't support id(x) directly.
     """
-    return id(x)      # XXX need to return r_longlong on some platforms
+    # The assumption with RPython is that a regular integer is wide enough
+    # to store a pointer.  The following intmask() should not loose any
+    # information.
+    from rpython.rlib.rarithmetic import intmask
+    return intmask(id(x))
 
 def current_object_addr_as_int(x):
     """A cheap version of id(x).

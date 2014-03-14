@@ -41,6 +41,7 @@ tkinter = _tkinter # b/w compat for export
 TclError = _tkinter.TclError
 from types import *
 from Tkconstants import *
+import re
 
 wantobjects = 1
 
@@ -57,6 +58,37 @@ except AttributeError: _tkinter.createfilehandler = None
 try: _tkinter.deletefilehandler
 except AttributeError: _tkinter.deletefilehandler = None
 
+
+_magic_re = re.compile(r'([\\{}])')
+_space_re = re.compile(r'([\s])')
+
+def _join(value):
+    """Internal function."""
+    return ' '.join(map(_stringify, value))
+
+def _stringify(value):
+    """Internal function."""
+    if isinstance(value, (list, tuple)):
+        if len(value) == 1:
+            value = _stringify(value[0])
+            if value[0] == '{':
+                value = '{%s}' % value
+        else:
+            value = '{%s}' % _join(value)
+    else:
+        if isinstance(value, basestring):
+            value = unicode(value)
+        else:
+            value = str(value)
+        if not value:
+            value = '{}'
+        elif _magic_re.search(value):
+            # add '\' before special characters and spaces
+            value = _magic_re.sub(r'\\\1', value)
+            value = _space_re.sub(r'\\\1', value)
+        elif value[0] == '"' or _space_re.search(value):
+            value = '{%s}' % value
+    return value
 
 def _flatten(tuple):
     """Internal function."""
@@ -154,8 +186,12 @@ def _tkerror(err):
     """Internal function."""
     pass
 
-def _exit(code='0'):
-    """Internal function. Calling it will throw the exception SystemExit."""
+def _exit(code=0):
+    """Internal function. Calling it will raise the exception SystemExit."""
+    try:
+        code = int(code)
+    except ValueError:
+        pass
     raise SystemExit, code
 
 _varnum = 0
@@ -534,12 +570,19 @@ class Misc:
 
         The type keyword specifies the form in which the data is
         to be returned and should be an atom name such as STRING
-        or FILE_NAME.  Type defaults to STRING.
+        or FILE_NAME.  Type defaults to STRING, except on X11, where the default
+        is to try UTF8_STRING and fall back to STRING.
 
         This command is equivalent to:
 
         selection_get(CLIPBOARD)
         """
+        if 'type' not in kw and self._windowingsystem == 'x11':
+            try:
+                kw['type'] = 'UTF8_STRING'
+                return self.tk.call(('clipboard', 'get') + self._options(kw))
+            except TclError:
+                del kw['type']
         return self.tk.call(('clipboard', 'get') + self._options(kw))
 
     def clipboard_clear(self, **kw):
@@ -621,8 +664,16 @@ class Misc:
         A keyword parameter selection specifies the name of
         the selection and defaults to PRIMARY.  A keyword
         parameter displayof specifies a widget on the display
-        to use."""
+        to use. A keyword parameter type specifies the form of data to be
+        fetched, defaulting to STRING except on X11, where UTF8_STRING is tried
+        before STRING."""
         if 'displayof' not in kw: kw['displayof'] = self._w
+        if 'type' not in kw and self._windowingsystem == 'x11':
+            try:
+                kw['type'] = 'UTF8_STRING'
+                return self.tk.call(('selection', 'get') + self._options(kw))
+            except TclError:
+                del kw['type']
         return self.tk.call(('selection', 'get') + self._options(kw))
     def selection_handle(self, command, **kw):
         """Specify a function COMMAND to call if the X
@@ -1037,6 +1088,15 @@ class Misc:
         if displayof is None:
             return ('-displayof', self._w)
         return ()
+    @property
+    def _windowingsystem(self):
+        """Internal function."""
+        try:
+            return self._root()._windowingsystem_cached
+        except AttributeError:
+            ws = self._root()._windowingsystem_cached = \
+                        self.tk.call('tk', 'windowingsystem')
+            return ws
     def _options(self, cnf, kw = None):
         """Internal function."""
         if kw:
@@ -1058,7 +1118,7 @@ class Misc:
                             nv.append('%d' % item)
                         else:
                             # format it to proper Tcl code if it contains space
-                            nv.append(('{%s}' if ' ' in item else '%s') % item)
+                            nv.append(_stringify(item))
                     else:
                         v = ' '.join(nv)
                 res = res + ('-'+k, v)
@@ -1287,7 +1347,7 @@ class Misc:
                 value = words[i+1]
                 if not value:
                     value = None
-                elif '.' in value:
+                elif '.' in str(value):
                     value = getdouble(value)
                 else:
                     value = getint(value)
@@ -1676,7 +1736,7 @@ class Tk(Misc, Wm):
         # ensure that self.tk is always _something_.
         self.tk = None
         if baseName is None:
-            import sys, os
+            import os
             baseName = os.path.basename(sys.argv[0])
             baseName, ext = os.path.splitext(baseName)
             if ext not in ('.py', '.pyc', '.pyo'):
@@ -1685,7 +1745,9 @@ class Tk(Misc, Wm):
         self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
         if useTk:
             self._loadtk()
-        self.readprofile(baseName, className)
+        if not sys.flags.ignore_environment:
+            # Issue #16248: Honor the -E flag to avoid code injection.
+            self.readprofile(baseName, className)
     def loadtk(self):
         if not self._tkloaded:
             self.tk.loadtk()
@@ -1818,7 +1880,7 @@ class Pack:
         for i in range(0, len(words), 2):
             key = words[i][1:]
             value = words[i+1]
-            if value[:1] == '.':
+            if str(value)[:1] == '.':
                 value = self._nametowidget(value)
             dict[key] = value
         return dict
@@ -1869,7 +1931,7 @@ class Place:
         for i in range(0, len(words), 2):
             key = words[i][1:]
             value = words[i+1]
-            if value[:1] == '.':
+            if str(value)[:1] == '.':
                 value = self._nametowidget(value)
             dict[key] = value
         return dict
@@ -1918,7 +1980,7 @@ class Grid:
         for i in range(0, len(words), 2):
             key = words[i][1:]
             value = words[i+1]
-            if value[:1] == '.':
+            if str(value)[:1] == '.':
                 value = self._nametowidget(value)
             dict[key] = value
         return dict
