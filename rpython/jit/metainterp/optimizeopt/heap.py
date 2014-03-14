@@ -1,5 +1,6 @@
 import os
 
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
@@ -168,6 +169,7 @@ class OptHeap(Optimization):
         self.cached_fields = {}
         # cached array items:  {array descr: {index: CachedField}}
         self.cached_arrayitems = {}
+        self.cached_dict_reads = {}
         #
         self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
@@ -276,6 +278,20 @@ class OptHeap(Optimization):
                     return
         self.force_all_lazy_setfields_and_arrayitems()
         self.clean_caches()
+
+    def optimize_CALL(self, op):
+        # dispatch based on 'oopspecindex' to a method that handles
+        # specifically the given oopspec call.  For non-oopspec calls,
+        # oopspecindex is just zero.
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_DICT_LOOKUP:
+            if self._optimize_CALL_DICT_LOOKUP(op):
+                return
+        self.emit_operation(op)
+
+    def _optimize_CALL_DICT_LOOKUP(self, op):
+        xxx
 
     def force_from_effectinfo(self, effectinfo):
         # XXX we can get the wrong complexity here, if the lists

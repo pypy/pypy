@@ -21,6 +21,7 @@ class EffectInfo(object):
     OS_ARRAYCOPY                = 1    # "list.ll_arraycopy"
     OS_STR2UNICODE              = 2    # "str.str2unicode"
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
+    OS_DICT_LOOKUP              = 4    # ll_dict_lookup
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
@@ -88,7 +89,7 @@ class EffectInfo(object):
     # for debugging:
     _OS_CANRAISE = set([
         OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,
-        OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY,
+        OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY, OS_DICT_LOOKUP,
     ])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,

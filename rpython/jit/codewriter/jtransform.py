@@ -403,6 +403,8 @@ class Transformer(object):
             prepare = self._handle_math_sqrt_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
+        elif oopspec_name == 'dict.lookup':
+            prepare = self._handle_dict_lookup_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -1847,6 +1849,10 @@ class Transformer(object):
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+
+    def _handle_dict_lookup_call(self, op, oopspec_name, args):
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_DICT_LOOKUP,
+                                         EffectInfo.EF_CAN_RAISE)
 
     def _handle_rgc_call(self, op, oopspec_name, args):
         if oopspec_name == 'rgc.ll_shrink_array':

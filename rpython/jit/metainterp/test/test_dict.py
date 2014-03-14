@@ -193,6 +193,21 @@ class DictTests:
         self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
                                 'jump': 1})
 
+    def test_dict_two_lookups(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        d = {'a': 3, 'b': 4}
+        indexes = ['a', 'b']
+
+        def f(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                s += d[indexes[n & 1]]
+                s += d[indexes[n & 1]]
+                n -= 1
+            return s
+
+        self.meta_interp(f, [10])
 
 class TestLLtype(DictTests, LLJitMixin):
     pass
