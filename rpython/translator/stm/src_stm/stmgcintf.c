@@ -106,6 +106,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         if (pypy_stm_ready_atomic == 1) {
             stm_commit_transaction();
             STM_START_TRANSACTION(&stm_thread_local, jmpbuf);
+            pypy_stm_ready_atomic = 1; /* reset after abort */
         }
 
         /* After setjmp(), the local variables v_* are preserved because they
