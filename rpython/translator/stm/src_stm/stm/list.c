@@ -76,7 +76,7 @@ static void _tree_compress(struct tree_s *tree)
 
 static wlog_t *_tree_find(char *entry, uintptr_t addr)
 {
-    uintptr_t key = addr;
+    uintptr_t key = TREE_HASH(addr);
     while (((long)entry) & 1) {
         /* points to a further level */
         key >>= TREE_BITS;
@@ -123,10 +123,9 @@ static char *_tree_grab(struct tree_s *tree, long size)
 static void tree_insert(struct tree_s *tree, uintptr_t addr, uintptr_t val)
 {
     assert(addr != 0);    /* the NULL key is reserved */
-    assert(!(addr & (sizeof(void *) - 1)));    /* the key must be aligned */
  retry:;
     wlog_t *wlog;
-    uintptr_t key = addr;
+    uintptr_t key = TREE_HASH(addr);
     int shift = 0;
     char *p = (char *)(tree->toplevel.items);
     char *entry;
@@ -156,7 +155,7 @@ static void tree_insert(struct tree_s *tree, uintptr_t addr, uintptr_t val)
                 _tree_grab(tree, sizeof(wlog_node_t));
             if (node == NULL) goto retry;
             _tree_clear_node(node);
-            uintptr_t key1 = wlog1->addr;
+            uintptr_t key1 = TREE_HASH(wlog1->addr);
             char *p1 = (char *)(node->items);
             *(wlog_t **)(p1 + ((key1 >> shift) & TREE_MASK)) = wlog1;
             *(char **)p = ((char *)node) + 1;

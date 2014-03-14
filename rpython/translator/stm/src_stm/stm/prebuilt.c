@@ -17,13 +17,11 @@ static void prebuilt_trace(object_t **pstaticobj_invalid)
         return;
 
     /* If the object was already moved, it is stored in 'tree_prebuilt_objs'.
-       For now we use this dictionary, with keys being equal to the double
-       of the numeric address of the prebuilt object.  We double them in
-       order to support addresses that are only 4-byte-aligned in the
-       static data.
+       For now we use this dictionary, with keys being equal to the numeric
+       address of the prebuilt object.
      */
     wlog_t *item;
-    TREE_FIND(*tree_prebuilt_objs, 2 * (uintptr_t)obj, item, goto not_found);
+    TREE_FIND(*tree_prebuilt_objs, (uintptr_t)obj, item, goto not_found);
 
     *pstaticobj_invalid = (object_t *)item->val;    /* already moved */
     return;
@@ -43,7 +41,7 @@ static void prebuilt_trace(object_t **pstaticobj_invalid)
     nobj->stm_flags = GCFLAG_WRITE_BARRIER;
 
     /* Add the object to the tree */
-    tree_insert(tree_prebuilt_objs, 2 * (uintptr_t)obj, (uintptr_t)nobj);
+    tree_insert(tree_prebuilt_objs, (uintptr_t)obj, (uintptr_t)nobj);
 
     /* Done */
     *pstaticobj_invalid = nobj;

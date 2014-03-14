@@ -83,17 +83,19 @@ static inline void list_set_item(struct list_s *lst, uintptr_t index,
    supporting very high performance in TREE_FIND in the common case where
    there are no or few elements in the tree, but scaling correctly
    if the number of items becomes large (logarithmically, rather
-   than almost-constant-time with hash maps, but with low constants). */
+   than almost-constant-time with hash maps, but with low constants).
+   The value 0 cannot be used as a key.
+*/
 
 #define TREE_BITS   4
 #define TREE_ARITY  (1 << TREE_BITS)
 
-#define TREE_DEPTH_MAX   ((sizeof(void*)*8 - 2 + TREE_BITS-1) / TREE_BITS)
-/* sizeof(void*) = total number of bits
-   2 = bits that we ignore anyway (2 or 3, conservatively 2)
+#define TREE_DEPTH_MAX   ((sizeof(void*)*8 + TREE_BITS-1) / TREE_BITS)
+/* sizeof(void*)*8 = total number of bits
    (x + TREE_BITS-1) / TREE_BITS = divide by TREE_BITS, rounding up
 */
 
+#define TREE_HASH(key)  ((key) ^ ((key) << 4))
 #define TREE_MASK   ((TREE_ARITY - 1) * sizeof(void*))
 
 typedef struct {
@@ -175,7 +177,7 @@ static inline bool tree_is_cleared(struct tree_s *tree) {
 
 #define TREE_FIND(tree, addr1, result, goto_not_found)          \
 {                                                               \
-  uintptr_t _key = (addr1);                                     \
+  uintptr_t _key = TREE_HASH(addr1);                            \
   char *_p = (char *)((tree).toplevel.items);                   \
   char *_entry = *(char **)(_p + (_key & TREE_MASK));           \
   if (_entry == NULL)                                           \
