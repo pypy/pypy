@@ -61,10 +61,13 @@ def insert_stm_read_barrier(transformer, graph):
                 op.args[0].concretetype.TO._hints.get('typeptr')):
                 # typeptr is always immutable
                 pass
-            elif ((op.opname in ('getarraysize', 'getinteriorarraysize', 'weakref_deref') and
+            elif ((op.opname in ('getarraysize', 'getinteriorarraysize') and
                   is_gc_ptr(op.args[0].concretetype)) or
                   (is_getter and is_immutable(op))):
                 # immutable getters
+                # 'weakref_deref': kind of immutable, but the GC has to see
+                #     which transactions read from a dying weakref, so we
+                #     need the barrier nonetheless...
                 pass
             elif is_getter:
                 if not stm_ignored:
