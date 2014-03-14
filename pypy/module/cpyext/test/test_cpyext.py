@@ -64,6 +64,8 @@ def compile_extension_module(space, modname, **kwds):
         kwds["libraries"] = [api_library]
         # '%s' undefined; assuming extern returning int
         kwds["compile_extra"] = ["/we4013"]
+        # prevent linking with python27.lib
+        kwds["compile_extra"].append("/DPy_BUILD_CORE")
     elif sys.platform == 'darwin':
         kwds["link_files"] = [str(api_library + '.dylib')]
     else:
