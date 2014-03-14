@@ -248,6 +248,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_constants(self):
         import numpy as np
+        assert np.MAXDIMS is 32
         assert np.CLIP is 0
         assert np.WRAP is 1
         assert np.RAISE is 2

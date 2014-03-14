@@ -58,10 +58,10 @@ class W_NDimArray(W_Root):
         elif owning:
             # Will free storage when GCd
             impl = concrete.ConcreteArray(shape, dtype, order, strides,
-                                                backstrides, storage=storage)
+                                          backstrides, storage=storage)
         else:
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
-                                                backstrides, storage)
+                                                   backstrides, storage)
         if w_subtype:
             w_ret = space.allocate_instance(W_NDimArray, w_subtype)
             W_NDimArray.__init__(w_ret, impl)

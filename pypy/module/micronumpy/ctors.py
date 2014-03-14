@@ -5,7 +5,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import descriptor, loop, ufuncs
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.converters import shape_converter
-from pypy.module.micronumpy.strides import find_shape_and_elems
 
 
 def build_scalar(space, w_dtype, w_state):
@@ -27,6 +26,8 @@ def build_scalar(space, w_dtype, w_state):
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
+    from pypy.module.micronumpy import strides
+
     # for anything that isn't already an array, try __array__ method first
     if not isinstance(w_object, W_NDimArray):
         w___array__ = space.lookup(w_object, "__array__")
@@ -68,12 +69,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         return w_ret
 
     # not an array or incorrect dtype
-    shape, elems_w = find_shape_and_elems(space, w_object, dtype)
+    shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
-        for w_elem in elems_w:
-            if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-                w_elem = w_elem.get_scalar_value()
-            dtype = ufuncs.find_dtype_for_scalar(space, w_elem, dtype)
+        dtype = strides.find_dtype_for_seq(space, elems_w, dtype)
         if dtype is None:
             dtype = descriptor.get_dtype_cache(space).w_float64dtype
         elif dtype.is_str_or_unicode() and dtype.elsize < 1:
@@ -83,10 +81,10 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
-    arr_iter = w_arr.create_iter()
-    for w_elem in elems_w:
-        arr_iter.setitem(dtype.coerce(space, w_elem))
-        arr_iter.next()
+    if len(elems_w) == 1:
+        w_arr.set_scalar_value(dtype.coerce(space, elems_w[0]))
+    else:
+        loop.assign(space, w_arr, elems_w)
     return w_arr
 
 
