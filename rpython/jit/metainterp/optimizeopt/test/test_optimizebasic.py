@@ -1660,6 +1660,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_setfield_int_eq_result(self):
+        # test that the setfield_gc does not end up before int_eq 
+        ops = """
+        [p1, i1, i2]
+        i3 = int_eq(i1, i2)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i1, i2)
+        """
+        self.optimize_loop(ops, ops)
+
     def test_duplicate_setfield_aliasing(self):
         # a case where aliasing issues (and not enough cleverness) mean
         # that we fail to remove any setfield_gc
@@ -5434,23 +5444,5 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
         
-    def test_hippyvm_unroll_bug(self):
-        ops = """
-        [p0, i1, i2]
-        i3 = int_add(i1, 1)
-        i4 = int_eq(i3, i2)
-        setfield_gc(p0, i4, descr=valuedescr)
-        jump(p0, i3, i2)
-        """
-        expected = """
-        [p0, i1, i2]
-        i3 = int_add(i1, 1)
-        i4 = int_eq(i3, i2)
-        setfield_gc(p0, i4, descr=valuedescr)
-        jump(p0, i3, i2)
-        """
-        self.optimize_loop(ops, expected)
-
-
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

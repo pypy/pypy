@@ -8261,14 +8261,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p0, i4, descr=valuedescr)
         jump(p0, i3, i2)
         """
-        expected = """
-        [p0, i1, i2]
-        i3 = int_add(i1, 1)
-        i4 = int_eq(i3, i2)
-        setfield_gc(p0, i4, descr=valuedescr)
-        jump(p0, i3, i2)
-        """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, ops)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
