@@ -16,11 +16,14 @@ void pypy_stm_setup(void);
 void pypy_stm_setup_prebuilt(void);   /* generated into stm_prebuilt.c */
 
 static inline void pypy_stm_commit_if_not_atomic(void) {
+    int e = errno;
     if (pypy_stm_ready_atomic == 1) {
-        int e = errno;
         stm_commit_transaction();
-        errno = e;
     }
+    else {
+        _stm_become_inevitable("commit_if_not_atomic in atomic");
+    }
+    errno = e;
 }
 static inline void pypy_stm_start_inevitable_if_not_atomic(void) {
     if (pypy_stm_ready_atomic == 1) {
