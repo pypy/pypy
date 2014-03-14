@@ -52,7 +52,7 @@ static inline int pypy_stm_should_break_transaction(void)
        (in which case pypy_stm_nursery_low_fill_mark is set to 0)
     */
     uintptr_t current = (uintptr_t)STM_SEGMENT->nursery_current;
-    return current >= pypy_stm_nursery_low_fill_mark;
+    return current > pypy_stm_nursery_low_fill_mark;
 }
 
 
