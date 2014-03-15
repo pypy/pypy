@@ -895,17 +895,35 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual('{foo._x}'.format_map({'foo': C(20)}), '20')
 
         # test various errors
-        self.assertRaises(TypeError, '{'.format_map)
-        self.assertRaises(TypeError, '}'.format_map)
-        self.assertRaises(TypeError, 'a{'.format_map)
-        self.assertRaises(TypeError, 'a}'.format_map)
-        self.assertRaises(TypeError, '{a'.format_map)
-        self.assertRaises(TypeError, '}a'.format_map)
+        self.assertRaises(TypeError, ''.format_map)
+        self.assertRaises(TypeError, 'a'.format_map)
+
+        self.assertRaises(ValueError, '{'.format_map, {})
+        self.assertRaises(ValueError, '}'.format_map, {})
+        self.assertRaises(ValueError, 'a{'.format_map, {})
+        self.assertRaises(ValueError, 'a}'.format_map, {})
+        self.assertRaises(ValueError, '{a'.format_map, {})
+        self.assertRaises(ValueError, '}a'.format_map, {})
 
         # issue #12579: can't supply positional params to format_map
         self.assertRaises(ValueError, '{}'.format_map, {'a' : 2})
         self.assertRaises(ValueError, '{}'.format_map, 'a')
         self.assertRaises(ValueError, '{a} {}'.format_map, {"a" : 2, "b" : 1})
+
+    def test_format_huge_precision(self):
+        format_string = ".{}f".format(sys.maxsize + 1)
+        with self.assertRaises(ValueError):
+            result = format(2.34, format_string)
+
+    def test_format_huge_width(self):
+        format_string = "{}f".format(sys.maxsize + 1)
+        with self.assertRaises(ValueError):
+            result = format(2.34, format_string)
+
+    def test_format_huge_item_number(self):
+        format_string = "{{{}:.6f}}".format(sys.maxsize + 1)
+        with self.assertRaises(ValueError):
+            result = format_string.format(2.34)
 
     def test_format_auto_numbering(self):
         class C:
@@ -991,6 +1009,18 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual('%f' % INF, 'inf')
         self.assertEqual('%F' % INF, 'INF')
 
+    @support.cpython_only
+    def test_formatting_huge_precision(self):
+        from _testcapi import INT_MAX
+        format_string = "%.{}f".format(INT_MAX + 1)
+        with self.assertRaises(ValueError):
+            result = format_string % 2.34
+
+    def test_formatting_huge_width(self):
+        format_string = "%{}f".format(sys.maxsize + 1)
+        with self.assertRaises(ValueError):
+            result = format_string % 2.34
+
     def test_startswith_endswith_errors(self):
         for meth in ('foo'.startswith, 'foo'.endswith):
             with self.assertRaises(TypeError) as cm:
@@ -1073,6 +1103,26 @@ class UnicodeTest(string_tests.CommonTest,
             )
 
         self.assertRaises(TypeError, str, 42, 42, 42)
+
+    def test_constructor_keyword_args(self):
+        """Pass various keyword argument combinations to the constructor."""
+        # The object argument can be passed as a keyword.
+        self.assertEqual(str(object='foo'), 'foo')
+        self.assertEqual(str(object=b'foo', encoding='utf-8'), 'foo')
+        # The errors argument without encoding triggers "decode" mode.
+        self.assertEqual(str(b'foo', errors='strict'), 'foo')  # not "b'foo'"
+        self.assertEqual(str(object=b'foo', errors='strict'), 'foo')
+
+    def test_constructor_defaults(self):
+        """Check the constructor argument defaults."""
+        # The object argument defaults to '' or b''.
+        self.assertEqual(str(), '')
+        self.assertEqual(str(errors='strict'), '')
+        utf8_cent = '¢'.encode('utf-8')
+        # The encoding argument defaults to utf-8.
+        self.assertEqual(str(utf8_cent, errors='strict'), '¢')
+        # The errors argument defaults to strict.
+        self.assertRaises(UnicodeDecodeError, str, utf8_cent, encoding='ascii')
 
     def test_codecs_utf7(self):
         utfTests = [

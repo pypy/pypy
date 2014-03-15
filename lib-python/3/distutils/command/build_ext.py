@@ -682,13 +682,13 @@ class build_ext(Command):
         # CPython too.  The point is that on PyPy with cpyext, the
         # config var 'SO' is just ".so" but we want to return
         # ".pypy-VERSION.so" instead.
-        so_ext = _get_c_extension_suffix()
-        if so_ext is None:
-            so_ext = get_config_var('SO')     # fall-back
+        ext_suffix = _get_c_extension_suffix()
+        if ext_suffix is None:
+            ext_suffix = get_config_var('EXT_SUFFIX')     # fall-back
         # extensions in debug_mode are named 'module_d.pyd' under windows
         if os.name == 'nt' and self.debug:
-            so_ext = '_d.pyd'
-        return os.path.join(*ext_path) + so_ext
+            ext_suffix = '_d.pyd'
+        return os.path.join(*ext_path) + ext_suffix
 
     def get_export_symbols(self, ext):
         """Return the list of symbols that a shared extension has to

@@ -6,6 +6,7 @@ import warnings
 import zipfile
 from os.path import join
 from textwrap import dedent
+from test.support import captured_stdout, check_warnings, run_unittest
 
 try:
     import zlib
@@ -13,7 +14,6 @@ try:
 except ImportError:
     ZLIB_SUPPORT = False
 
-from test.support import captured_stdout, check_warnings, run_unittest
 
 from distutils.command.sdist import sdist, show_formats
 from distutils.core import Distribution
@@ -83,9 +83,8 @@ class SDistTestCase(PyPIRCCommandTestCase):
 
     @unittest.skipUnless(ZLIB_SUPPORT, 'Need zlib support to run')
     def test_prune_file_list(self):
-        # this test creates a package with some vcs dirs in it
-        # and launch sdist to make sure they get pruned
-        # on all systems
+        # this test creates a project with some VCS dirs and an NFS rename
+        # file, then launches sdist to check they get pruned on all systems
 
         # creating VCS directories with some files in them
         os.mkdir(join(self.tmp_dir, 'somecode', '.svn'))
@@ -98,6 +97,8 @@ class SDistTestCase(PyPIRCCommandTestCase):
         os.mkdir(join(self.tmp_dir, 'somecode', '.git'))
         self.write_file((self.tmp_dir, 'somecode', '.git',
                          'ok'), 'xxx')
+
+        self.write_file((self.tmp_dir, 'somecode', '.nfs0001'), 'xxx')
 
         # now building a sdist
         dist, cmd = self.get_cmd()
@@ -326,6 +327,7 @@ class SDistTestCase(PyPIRCCommandTestCase):
         # filling data_files by pointing files in package_data
         dist.package_data = {'somecode': ['*.txt']}
         self.write_file((self.tmp_dir, 'somecode', 'doc.txt'), '#')
+        cmd.formats = ['gztar']
         cmd.ensure_finalized()
         cmd.run()
 

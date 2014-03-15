@@ -199,12 +199,6 @@ class AST_Tests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             x.vararg
 
-        with self.assertRaises(AttributeError):
-            x.foobar = 21
-
-        with self.assertRaises(AttributeError):
-            ast.AST(lineno=2)
-
         with self.assertRaises(TypeError):
             # "_ast.AST constructor takes 0 positional arguments"
             ast.AST(2)
@@ -227,6 +221,12 @@ class AST_Tests(unittest.TestCase):
     def test_from_import(self):
         im = ast.parse("from . import y").body[0]
         self.assertIsNone(im.module)
+
+    def test_non_interned_future_from_ast(self):
+        mod = ast.parse("from __future__ import division")
+        self.assertIsInstance(mod.body[0], ast.ImportFrom)
+        mod.body[0].module = " __future__ ".strip()
+        compile(mod, "<test>", "exec")
 
     def test_base_classes(self):
         self.assertTrue(issubclass(ast.For, ast.stmt))
@@ -392,6 +392,12 @@ class ASTHelpers_Test(unittest.TestCase):
         a = ast.parse('foo(1 + 1)')
         b = compile('foo(1 + 1)', '<unknown>', 'exec', ast.PyCF_ONLY_AST)
         self.assertEqual(ast.dump(a), ast.dump(b))
+
+    def test_parse_in_error(self):
+        try:
+            1/0
+        except Exception:
+            self.assertRaises(SyntaxError, ast.parse, r"'\U'")
 
     def test_dump(self):
         node = ast.parse('spam(eggs, "and cheese")')

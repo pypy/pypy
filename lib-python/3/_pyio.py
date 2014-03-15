@@ -298,7 +298,7 @@ class IOBase(metaclass=abc.ABCMeta):
     def seek(self, pos, whence=0):
         """Change stream position.
 
-        Change the stream position to byte offset offset. offset is
+        Change the stream position to byte offset pos. Argument pos is
         interpreted relative to the position indicated by whence.  Values
         for whence are ints:
 
@@ -889,12 +889,18 @@ class BytesIO(BufferedIOBase):
         return pos
 
     def readable(self):
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
         return True
 
     def writable(self):
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
         return True
 
     def seekable(self):
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
         return True
 
 
@@ -1567,6 +1573,8 @@ class TextIOWrapper(TextIOBase):
         return self._buffer
 
     def seekable(self):
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
         return self._seekable
 
     def readable(self):
