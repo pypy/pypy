@@ -1,3 +1,32 @@
+
+1b664888133d (March 15, 2014): the overhead of a non-JIT STM, when
+compared with a non-JIT plain PyPy, is measured to be 54% in a
+single-threaded trivial benchmark.  A tentative break-down of this figure:
+
+* 15% are from stm_write() on writing non-GC pointers into GC objects
+
+* 7% are from stm_write() on writing a constant GC pointer (likely null)
+  (in a regular pypy, this doesn't emit a write_barrier)
+
+* 14% are from stm_read()
+
+* 3% (in this benchmark) is just a slower startup time
+
+* 6% where removed soon afterwards by ddbc16971682
+
+* the rest: ~9% from unknown other places (may include accessing
+  prebuilt GC objects, which requires an indirection)
+
+
+
+
+
+===============================================================================
+===========    the rest is from stmgc-c4    ===================================
+===============================================================================
+
+
+
 ------------------------------------------------------------
 
 POSSIBLE BUG:
