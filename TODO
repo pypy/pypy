@@ -17,6 +17,9 @@ single-threaded trivial benchmark.  A tentative break-down of this figure:
 * the rest: ~9% from unknown other places (may include accessing
   prebuilt GC objects, which requires an indirection)
 
+UPDATE: with ddbc16971682 the figure seems to be: only 38% slower.
+Assuming that all other points stayed at the same overhead, it would
+perfectly explain the slow-down.
 
 
 
