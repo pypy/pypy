@@ -21,6 +21,14 @@ UPDATE: with ddbc16971682 the figure seems to be: only 38% slower.
 Assuming that all other points stayed at the same overhead, it would
 perfectly explain the slow-down.
 
+------------------------------------------------------------
+
+clang doesn't optimize multiple stm_write() in a row (unlike GCC).
+Optimize them manually...
+
+------------------------------------------------------------
+
+
 
 
 
