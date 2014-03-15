@@ -93,6 +93,11 @@ class CachedField(object):
             # possible aliasing).
             self.clear()
             self._lazy_setfield = None
+            if optheap.postponed_op:
+                for a in op.getarglist():
+                    if a is optheap.postponed_op.result:
+                        optheap.emit_postponed_op()
+                        break
             optheap.next_optimization.propagate_forward(op)
             if not can_cache:
                 return
@@ -179,6 +184,9 @@ class OptHeap(Optimization):
 
     def flush(self):
         self.force_all_lazy_setfields_and_arrayitems()
+        self.emit_postponed_op()
+
+    def emit_postponed_op(self):
         if self.postponed_op:
             postponed_op = self.postponed_op
             self.postponed_op = None
@@ -227,10 +235,7 @@ class OptHeap(Optimization):
 
     def emit_operation(self, op):
         self.emitting_operation(op)
-        if self.postponed_op:
-            postponed_op = self.postponed_op
-            self.postponed_op = None
-            self.next_optimization.propagate_forward(postponed_op)
+        self.emit_postponed_op()
         if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
             or op.is_ovf()):
             self.postponed_op = op
