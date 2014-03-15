@@ -433,7 +433,7 @@ def main(entry_point = entry_point, iterations = 10):
 
 if __name__ == '__main__':
     import sys
-    max_num_threads = 5
+    max_num_threads = 2
     if len(sys.argv) > 1:
         iterations = int(sys.argv[1])
         if len(sys.argv) > 2:

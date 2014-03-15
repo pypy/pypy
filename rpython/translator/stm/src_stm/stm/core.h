@@ -151,7 +151,7 @@ struct stm_priv_segment_info_s {
 
     /* In case of abort, we restore the 'shadowstack' field and the
        'thread_local_obj' field. */
-    object_t **shadowstack_at_start_of_transaction;
+    struct stm_shadowentry_s *shadowstack_at_start_of_transaction;
     object_t *threadlocal_at_start_of_transaction;
 
     /* For debugging */

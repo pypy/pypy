@@ -398,11 +398,11 @@ static void mark_visit_from_roots(void)
 
             if (must_be_zero == (segment_base == get_segment_base(0))) {
 
-                object_t **current = tl->shadowstack;
-                object_t **base = tl->shadowstack_base;
+                struct stm_shadowentry_s *current = tl->shadowstack;
+                struct stm_shadowentry_s *base = tl->shadowstack_base;
                 while (current-- != base) {
-                    assert(*current != (object_t *)-1);
-                    mark_visit_object(*current, segment_base);
+                    assert(current->ss != (object_t *)-1);
+                    mark_visit_object(current->ss, segment_base);
                 }
                 mark_visit_object(tl->thread_local_obj, segment_base);
             }

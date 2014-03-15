@@ -119,7 +119,8 @@ void stm_teardown(void)
 
 void _init_shadow_stack(stm_thread_local_t *tl)
 {
-    object_t **s = (object_t **)malloc(SHADOW_STACK_SIZE * sizeof(object_t *));
+    struct stm_shadowentry_s *s = (struct stm_shadowentry_s *)
+        malloc(SHADOW_STACK_SIZE * sizeof(struct stm_shadowentry_s));
     assert(s);
     tl->shadowstack = s;
     tl->shadowstack_base = s;

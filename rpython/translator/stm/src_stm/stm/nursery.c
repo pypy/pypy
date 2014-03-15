@@ -159,11 +159,11 @@ static void minor_trace_if_young(object_t **pobj)
 static void collect_roots_in_nursery(void)
 {
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
-    object_t **current = tl->shadowstack;
-    object_t **base = tl->shadowstack_base;
+    struct stm_shadowentry_s *current = tl->shadowstack;
+    struct stm_shadowentry_s *base = tl->shadowstack_base;
     while (current-- != base) {
-        assert(*current != (object_t *)-1);
-        minor_trace_if_young(current);
+        assert(current->ss != (object_t *)-1);
+        minor_trace_if_young(&current->ss);
     }
     minor_trace_if_young(&tl->thread_local_obj);
 }
