@@ -205,7 +205,7 @@ struct stm_priv_segment_info_s *get_priv_segment(long segment_num) {
 }
 
 static bool _is_tl_registered(stm_thread_local_t *tl);
-static bool _running_transaction(void);
+static bool _seems_to_be_running_transaction(void);
 
 static void teardown_core(void);
 static void abort_with_mutex(void) __attribute__((noreturn));

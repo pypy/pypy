@@ -12,7 +12,7 @@ static void teardown_core(void)
 
 void _stm_write_slowpath(object_t *obj)
 {
-    assert(_running_transaction());
+    assert(_seems_to_be_running_transaction());
     assert(!_is_young(obj));
 
     /* is this an object from the same transaction, outside the nursery? */

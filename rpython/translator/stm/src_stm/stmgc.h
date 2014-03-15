@@ -148,6 +148,7 @@ struct object_s {
    stm_write() is called, or immediately after getting the object from
    stm_allocate(), as long as the rules above are respected.
 */
+__attribute__((always_inline))
 static inline void stm_read(object_t *obj)
 {
     ((stm_read_marker_t *)(((uintptr_t)obj) >> 4))->rm =
@@ -159,6 +160,7 @@ static inline void stm_read(object_t *obj)
    the next one, then stm_write() needs to be called again.  It is not
    necessary to call it immediately after stm_allocate().
 */
+__attribute__((always_inline))
 static inline void stm_write(object_t *obj)
 {
     if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0))
@@ -178,6 +180,7 @@ extern void stmcb_trace(struct object_s *, void (object_t **));
    of 8 and at least 16.  In the fast-path, this is inlined to just
    a few assembler instructions.
 */
+__attribute__((always_inline))
 static inline object_t *stm_allocate(ssize_t size_rounded_up)
 {
     OPT_ASSERT(size_rounded_up >= 16);

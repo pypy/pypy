@@ -173,8 +173,14 @@ static void contention_management(uint8_t other_segment_num,
                kind!  The shadowstack may not be correct here.  It
                should not end in a deadlock, because the target thread
                is, in principle, guaranteed to call abort_with_mutex()
-               very soon.
+               very soon.  Just to be on the safe side, make it really
+               impossible for the target thread to later enter the same
+               cond_wait(C_ABORTED) (and thus wait, possibly for us,
+               ending in a deadlock): check again must_abort() first.
             */
+            if (must_abort())
+                abort_with_mutex();
+
             dprintf(("contention: wait C_ABORTED...\n"));
             cond_wait(C_ABORTED);
             dprintf(("contention: done\n"));
