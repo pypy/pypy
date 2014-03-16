@@ -788,6 +788,8 @@ class OptVirtualize(optimizer.Optimization):
         value.ensure_nonnull()
         self.emit_operation(op)
 
+    optimize_RAW_LOAD = optimize_GETARRAYITEM_RAW
+
     def optimize_SETARRAYITEM_RAW(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
@@ -804,6 +806,8 @@ class OptVirtualize(optimizer.Optimization):
                 return
         value.ensure_nonnull()
         self.emit_operation(op)
+
+    optimize_RAW_STORE = optimize_SETARRAYITEM_RAW
 
     def optimize_GETINTERIORFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
