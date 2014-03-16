@@ -1,3 +1,4 @@
+import pytest
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
@@ -45,6 +46,10 @@ class RawMemTests(object):
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
+        pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
+        self.metainterp.staticdata.stats.check_resops(
+            {'guard_no_exception': 1, 'finish': 1},
+            omit_finish=False)
 
     def test_raw_storage_float(self):
         def f():
@@ -58,6 +63,10 @@ class RawMemTests(object):
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
+        pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
+        self.metainterp.staticdata.stats.check_resops(
+            {'guard_no_exception': 1, 'finish': 1},
+            omit_finish=False)
 
     def test_raw_storage_byte(self):
         def f():
@@ -71,6 +80,10 @@ class RawMemTests(object):
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
+        pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
+        self.metainterp.staticdata.stats.check_resops(
+            {'guard_no_exception': 1, 'finish': 1},
+            omit_finish=False)
 
 
 class TestRawMem(RawMemTests, LLJitMixin):
