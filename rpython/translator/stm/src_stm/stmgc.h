@@ -88,7 +88,7 @@ char *_stm_real_address(object_t *o);
 #include <stdbool.h>
 bool _stm_was_read(object_t *obj);
 bool _stm_was_written(object_t *obj);
-uint8_t _stm_get_page_flag(uintptr_t index);
+uintptr_t _stm_get_private_page(uintptr_t pagenum);
 bool _stm_in_transaction(stm_thread_local_t *tl);
 char *_stm_get_segment_base(long index);
 void _stm_test_switch(stm_thread_local_t *tl);
@@ -108,6 +108,8 @@ long _stm_count_objects_pointing_to_nursery(void);
 object_t *_stm_enum_modified_old_objects(long index);
 object_t *_stm_enum_objects_pointing_to_nursery(long index);
 uint64_t _stm_total_allocated(void);
+void _stm_mutex_pages_lock(void);
+void _stm_mutex_pages_unlock(void);
 #endif
 
 #define _STM_GCFLAG_WRITE_BARRIER      0x01
@@ -127,6 +129,12 @@ uint64_t _stm_total_allocated(void);
 
 
 /* ==================== PUBLIC API ==================== */
+
+/* Number of segments (i.e. how many threads can be executed in
+   parallel, in maximum).
+*/
+#define STM_NB_SEGMENTS    4
+
 
 /* Structure of objects
    --------------------

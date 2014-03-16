@@ -16,7 +16,7 @@
 #define GC_MAJOR_COLLECT       1.82
 
 /* re-share pages after major collections (1 or 0) */
-#define RESHARE_PAGES 0
+#define RESHARE_PAGES 1
 
 
 

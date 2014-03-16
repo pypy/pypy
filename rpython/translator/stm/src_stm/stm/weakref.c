@@ -33,23 +33,18 @@ static void _set_weakref_in_all_segments(object_t *weakref, object_t *value)
     ssize_t size = 16;
 
     stm_char *point_to_loc = (stm_char*)WEAKREF_PTR(weakref, size);
-    if (flag_page_private[(uintptr_t)point_to_loc / 4096UL] == PRIVATE_PAGE) {
-        long i;
-        for (i = 0; i < NB_SEGMENTS; i++) {
-            char *base = get_segment_base(i);   /* two different segments */
 
-            object_t ** ref_loc = (object_t **)REAL_ADDRESS(base, point_to_loc);
-            *ref_loc = value;
-        }
-    }
-    else {
-        *WEAKREF_PTR(weakref, size) = value;
+    long i;
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        char *base = get_segment_base(i);
+        object_t ** ref_loc = (object_t **)REAL_ADDRESS(base, point_to_loc);
+        *ref_loc = value;
     }
 }
 
 /***** Minor collection *****/
 
-static void stm_move_young_weakrefs()
+static void stm_move_young_weakrefs(void)
 {
     /* The code relies on the fact that no weakref can be an old object
        weakly pointing to a young object.  Indeed, weakrefs are immutable
@@ -116,7 +111,7 @@ static void stm_move_young_weakrefs()
 static void stm_visit_old_weakrefs(void)
 {
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
         struct list_s *lst;
 

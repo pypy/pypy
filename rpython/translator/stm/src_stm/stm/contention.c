@@ -236,7 +236,7 @@ static void write_write_contention_management(uintptr_t lock_idx)
     uint8_t prev_owner = ((volatile uint8_t *)write_locks)[lock_idx];
     if (prev_owner != 0 && prev_owner != STM_PSEGMENT->write_lock_num) {
 
-        uint8_t other_segment_num = prev_owner - 1;
+        uint8_t other_segment_num = prev_owner;
         assert(get_priv_segment(other_segment_num)->write_lock_num ==
                prev_owner);
 

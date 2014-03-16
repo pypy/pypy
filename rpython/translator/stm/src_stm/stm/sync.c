@@ -31,7 +31,7 @@ static union {
         pthread_mutex_t global_mutex;
         pthread_cond_t cond[_C_TOTAL];
         /* some additional pieces of global state follow */
-        uint8_t in_use[NB_SEGMENTS];   /* 1 if running a pthread */
+        uint8_t in_use1[NB_SEGMENTS];   /* 1 if running a pthread */
         uint64_t global_time;
     };
     char reserved[192];
@@ -61,7 +61,7 @@ static void teardown_sync(void)
             stm_fatalerror("cond destroy: %m\n");
     }
 
-    memset(&sync_ctl, 0, sizeof(sync_ctl.in_use));
+    memset(&sync_ctl, 0, sizeof(sync_ctl));
 }
 
 #ifndef NDEBUG
@@ -125,12 +125,12 @@ static void wait_for_end_of_inevitable_transaction(bool can_abort)
 {
     long i;
  restart:
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         if (get_priv_segment(i)->transaction_state == TS_INEVITABLE) {
             if (can_abort) {
                 /* handle this case like a contention: it will either
                    abort us (not the other thread, which is inevitable),
-                   or for a while.  If we go past this call, then we
+                   or wait for a while.  If we go past this call, then we
                    waited; in this case we have to re-check if no other
                    thread is inevitable. */
                 inevitable_contention_management(i);
@@ -153,7 +153,7 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     assert(_is_tl_registered(tl));
 
     int num = tl->associated_segment_num;
-    if (sync_ctl.in_use[num] == 0) {
+    if (sync_ctl.in_use1[num - 1] == 0) {
         /* fast-path: we can get the same segment number than the one
            we had before.  The value stored in GS is still valid. */
 #ifdef STM_TESTS
@@ -166,10 +166,10 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     }
     /* Look for the next free segment.  If there is none, wait for
        the condition variable. */
-    int i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
-        num = (num + 1) % NB_SEGMENTS;
-        if (sync_ctl.in_use[num] == 0) {
+    int retries;
+    for (retries = 0; retries < NB_SEGMENTS; retries++) {
+        num = (num % NB_SEGMENTS) + 1;
+        if (sync_ctl.in_use1[num - 1] == 0) {
             /* we're getting 'num', a different number. */
             dprintf(("acquired different segment: %d->%d\n", tl->associated_segment_num, num));
             tl->associated_segment_num = num;
@@ -185,7 +185,7 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     return false;
 
  got_num:
-    sync_ctl.in_use[num] = 1;
+    sync_ctl.in_use1[num - 1] = 1;
     assert(STM_SEGMENT->segment_num == num);
     assert(STM_SEGMENT->running_thread == NULL);
     STM_SEGMENT->running_thread = tl;
@@ -209,8 +209,8 @@ static void release_thread_segment(stm_thread_local_t *tl)
     assert(STM_SEGMENT->running_thread == tl);
     STM_SEGMENT->running_thread = NULL;
 
-    assert(sync_ctl.in_use[tl->associated_segment_num] == 1);
-    sync_ctl.in_use[tl->associated_segment_num] = 0;
+    assert(sync_ctl.in_use1[tl->associated_segment_num - 1] == 1);
+    sync_ctl.in_use1[tl->associated_segment_num - 1] = 0;
 }
 
 __attribute__((unused))
@@ -222,7 +222,7 @@ static bool _seems_to_be_running_transaction(void)
 bool _stm_in_transaction(stm_thread_local_t *tl)
 {
     int num = tl->associated_segment_num;
-    assert(num < NB_SEGMENTS);
+    assert(1 <= num && num <= NB_SEGMENTS);
     return get_segment(num)->running_thread == tl;
 }
 
@@ -261,12 +261,15 @@ static void signal_everybody_to_pause_running(void)
 {
     assert(_safe_points_requested == false);
     assert((_safe_points_requested = true, 1));
+    assert(_has_mutex());
 
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         if (get_segment(i)->nursery_end == NURSERY_END)
             get_segment(i)->nursery_end = NSE_SIGPAUSE;
     }
+    assert(!pause_signalled);
+    pause_signalled = true;
 }
 
 static inline long count_other_threads_sp_running(void)
@@ -277,7 +280,7 @@ static inline long count_other_threads_sp_running(void)
     long result = 0;
     int my_num = STM_SEGMENT->segment_num;
 
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         if (i != my_num && get_priv_segment(i)->safe_point == SP_RUNNING) {
             assert(get_segment(i)->nursery_end <= _STM_NSE_SIGNAL_MAX);
             result++;
@@ -288,11 +291,13 @@ static inline long count_other_threads_sp_running(void)
 
 static void remove_requests_for_safe_point(void)
 {
+    assert(pause_signalled);
+    pause_signalled = false;
     assert(_safe_points_requested == true);
     assert((_safe_points_requested = false, 1));
 
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         assert(get_segment(i)->nursery_end != NURSERY_END);
         if (get_segment(i)->nursery_end == NSE_SIGPAUSE)
             get_segment(i)->nursery_end = NURSERY_END;

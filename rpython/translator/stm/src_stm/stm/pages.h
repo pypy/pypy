@@ -1,49 +1,62 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 
-enum /* flag_page_private */ {
-    /* The page is not in use.  Assume that each segment sees its own copy. */
-    FREE_PAGE=0,
+/* This handles pages of objects outside the nursery.  Every page
+   has a "shared copy" and zero or more "private copies".
 
-    /* The page is shared by all segments.  Each segment sees the same
-       physical page (the one that is within the segment 0 mmap address). */
-    SHARED_PAGE,
+   The shared copy of a page is stored in the mmap at the file offset
+   corresponding to the segment 0 offset.  Initially, accessing a page
+   from segment N remaps to segment 0.  If the page is turned private,
+   then we "un-remap" it to its initial location.  The 'pages_privatized'
+   global array records if a page is currently mapped to segment 0
+   (shared page) or to its natural location (private page).
 
-    /* For only one range of pages at a time, around the call to
-       remap_file_pages() that un-shares the pages (SHARED -> PRIVATE). */
-    REMAPPING_PAGE,
+   Note that this page manipulation logic uses remap_file_pages() to
+   fully hide its execution cost behind the CPU's memory management unit.
+   It should not be confused with the logic of tracking which objects
+   are old-and-committed, old-but-modified, overflow objects, and so on
+   (which works at the object granularity, not the page granularity).
+*/
 
-    /* Page is private for each segment. */
-    PRIVATE_PAGE,
+#define PAGE_FLAG_START   END_NURSERY_PAGE
+#define PAGE_FLAG_END     NB_PAGES
 
-    /* gcpage.c: page contains objects that have been traced in the
-       segment > 0 */
-    SEGMENT1_PAGE,
+struct page_shared_s {
+#if NB_SEGMENTS <= 8
+    uint8_t by_segment;
+#elif NB_SEGMENTS <= 16
+    uint16_t by_segment;
+#elif NB_SEGMENTS <= 32
+    uint32_t by_segment;
+#elif NB_SEGMENTS <= 64
+    uint64_t by_segment;
+#else
+#   error "NB_SEGMENTS > 64 not supported right now"
+#endif
 };
 
-static uint8_t flag_page_private[NB_PAGES];
+static struct page_shared_s pages_privatized[PAGE_FLAG_END - PAGE_FLAG_START];
 
-static void _pages_privatize(uintptr_t pagenum, uintptr_t count, bool full);
 static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count);
-//static void pages_make_shared_again(uintptr_t pagenum, uintptr_t count);
+static void page_privatize(uintptr_t pagenum);
+static void page_reshare(uintptr_t pagenum);
 
 static void mutex_pages_lock(void);
 static void mutex_pages_unlock(void);
+static bool _has_mutex_pages(void) __attribute__((unused));
 static uint64_t increment_total_allocated(ssize_t add_or_remove);
 static bool is_major_collection_requested(void);
 static void force_major_collection_request(void);
 static void reset_major_collection_requested(void);
 
-inline static void pages_privatize(uintptr_t pagenum, uintptr_t count,
-                                   bool full) {
-    /* This is written a bit carefully so that a call with a constant
-       count == 1 will turn this loop into just one "if". */
-    while (flag_page_private[pagenum] == PRIVATE_PAGE) {
-        if (!--count) {
-            return;
-        }
-        pagenum++;
-    }
-    _pages_privatize(pagenum, count, full);
+static inline bool is_private_page(long segnum, uintptr_t pagenum)
+{
+    assert(pagenum >= PAGE_FLAG_START);
+    uint64_t bitmask = 1UL << (segnum - 1);
+    return (pages_privatized[pagenum - PAGE_FLAG_START].by_segment & bitmask);
 }
 
-/* static bool is_fully_in_shared_pages(object_t *obj); */
+static inline void page_check_and_reshare(uintptr_t pagenum)
+{
+    if (pages_privatized[pagenum - PAGE_FLAG_START].by_segment != 0)
+        page_reshare(pagenum);
+}

@@ -42,9 +42,10 @@ bool _stm_was_written(object_t *obj)
 }
 
 #ifdef STM_TESTS
-uint8_t _stm_get_page_flag(uintptr_t index)
+uintptr_t _stm_get_private_page(uintptr_t pagenum)
 {
-    return flag_page_private[index];
+    /* xxx returns 0 or 1 now */
+    return is_private_page(STM_SEGMENT->segment_num, pagenum);
 }
 
 long _stm_count_modified_old_objects(void)
@@ -79,5 +80,15 @@ uint64_t _stm_total_allocated(void)
     uint64_t result = increment_total_allocated(0);
     mutex_pages_unlock();
     return result;
+}
+
+void _stm_mutex_pages_lock(void)
+{
+    mutex_pages_lock();
+}
+
+void _stm_mutex_pages_unlock(void)
+{
+    mutex_pages_unlock();
 }
 #endif

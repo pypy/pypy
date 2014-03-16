@@ -193,128 +193,120 @@ static inline bool mark_visited_test_and_clear(object_t *obj)
 
 /************************************************************/
 
-
-static inline void mark_single_flag_private(uintptr_t pagenum)
+static uintptr_t object_last_page(object_t *obj)
 {
-    if (flag_page_private[pagenum] == PRIVATE_PAGE) {
-        assert(pagenum >= END_NURSERY_PAGE);
-        assert(pagenum < NB_PAGES);
-        flag_page_private[pagenum] = SEGMENT1_PAGE;
+    uintptr_t lastbyte;
+    struct object_s *realobj =
+        (struct object_s *)REAL_ADDRESS(stm_object_pages, obj);
+
+    if (realobj->stm_flags & GCFLAG_SMALL_UNIFORM) {
+        lastbyte = (uintptr_t)obj;
     }
     else {
-        assert(flag_page_private[pagenum] == SHARED_PAGE ||
-               flag_page_private[pagenum] == SEGMENT1_PAGE);
-    }
-}
-
-static inline void mark_flag_page_private(object_t *obj, char *segment_base)
-{
-    uintptr_t first_page = ((uintptr_t)obj) / 4096UL;
-
-    if (LIKELY((obj->stm_flags & GCFLAG_SMALL_UNIFORM) != 0)) {
-        mark_single_flag_private(first_page);
-    }
-    else {
-        char *realobj;
-        size_t obj_size;
-        uintptr_t end_page;
-
         /* get the size of the object */
-        realobj = REAL_ADDRESS(segment_base, obj);
-        obj_size = stmcb_size_rounded_up((struct object_s *)realobj);
+        size_t obj_size = stmcb_size_rounded_up(realobj);
 
-        /* that's the page *following* the last page with the object */
-        end_page = (((uintptr_t)obj) + obj_size + 4095) / 4096UL;
-
-        while (first_page < end_page)
-            mark_single_flag_private(first_page++);
+        /* that's the last byte within the object */
+        lastbyte = ((uintptr_t)obj) + obj_size - 1;
     }
+    return lastbyte / 4096UL;
 }
 
-static void major_reshare_pages_range(uintptr_t first_page, uintptr_t end_page)
+/* A macro that expands to: run the 'expression' for every page that
+   touches objects in the 'modified_old_objects' list.
+*/
+#define BITOP(expression)                                       \
+    LIST_FOREACH_R(                                             \
+        get_priv_segment(segment_num)->modified_old_objects,    \
+        object_t * /* item */,                                  \
+        ({                                                      \
+            struct page_shared_s *ps;                           \
+            uintptr_t pagenum = ((uintptr_t)item) / 4096UL;     \
+            uintptr_t count = object_last_page(item) - pagenum; \
+            ps = &pages_privatized[pagenum - PAGE_FLAG_START];  \
+            do {                                                \
+                expression;                                     \
+                ps++;                                           \
+            } while (count--);                                  \
+        }));
+
+static void major_hide_private_bits_for_modified_objects(long segment_num)
 {
-    uintptr_t i;
-    for (i = first_page; i < end_page; i++) {
-
-        switch (flag_page_private[i]) {
-
-        case SEGMENT1_PAGE:
-            /* this page stays private after major collection */
-            flag_page_private[i] = PRIVATE_PAGE;
-            break;
-
-        case PRIVATE_PAGE:;
-            /* this page becomes shared again.  No object in it was
-               traced belonging to a segment other than 0.
-
-               XXX This is maybe a too-strict condition, but the more
-               general condition "all traced objects belong to the same
-               segment" has problems with large objects in segments > 0.
-               More precisely: we'd need to keep in the shared page the
-               content of the objects (from segment > 0), but also the
-               largemalloc's chunk data (stored in segment 0).
-            */
-#if NB_SEGMENTS != 2
-#  error "limited to NB_SEGMENTS == 2"
+    uint64_t negativebitmask = ~(1 << (segment_num - 1));
+#ifndef NDEBUG
+    BITOP(assert((ps->by_segment & negativebitmask) != ps->by_segment));
 #endif
-            char *ppage0 = get_segment_base(0) + i * 4096;
-            char *ppage1 = get_segment_base(1) + i * 4096;
-
-            /* two cases for mapping pages to file-pages (fpages):
-                - (0->0, 1->1)
-                - (0->1, 1->0)
-               Distinguish which case it is by hacking a lot */
-
-            // 0->0,1->1 or 0->1,1->0
-            /* map page 1 to fpage 0: */
-            d_remap_file_pages(ppage1, 4096, i);
-            // 0->0,1->0 or 0->1,1->0
-
-            char oldvalue0 = *ppage0;
-            char oldvalue1 = *ppage1;
-            asm("":::"memory");
-            *ppage0 = 1 + oldvalue1;
-            asm("":::"memory");
-            char newvalue1 = *ppage1;
-            asm("":::"memory");
-            *ppage0 = oldvalue0;
-            /* if we are in 0->0,1->0, old and new are different:
-               In this case we are done. We keep the largemalloc
-               data structure and objects of ppage0/fpage0 */
-            if (oldvalue1 == newvalue1) {
-                // 0->1,1->0
-                /* ppage0/fpage1 has the data structure that we want
-                   in ppage1/fpage0, so we copy it */
-                pagecopy(ppage1, ppage0);   // copy from page0 to page1,
-                //         i.e. from the underlying memory seg1 to seg0
-                d_remap_file_pages(ppage0, 4096, i);
-                // 0->0,1->0
-            }
-            flag_page_private[i] = SHARED_PAGE;
-
-            increment_total_allocated(-4096 * (NB_SEGMENTS-1));
-            break;
-
-        case SHARED_PAGE:
-            break;     /* stay shared */
-
-        default:
-            assert(!"unexpected flag_page_private");
-        }
-    }
+    BITOP(ps->by_segment &= negativebitmask);
 }
+
+static void major_restore_private_bits_for_modified_objects(long segment_num)
+{
+    uint64_t positivebitmask = 1 << (segment_num - 1);
+    BITOP(ps->by_segment |= positivebitmask);
+}
+
+#undef BITOP
 
 static void major_reshare_pages(void)
 {
     /* re-share pages if possible.  Each re-sharing decreases
        total_allocated by 4096. */
-    major_reshare_pages_range(
-        END_NURSERY_PAGE,       /* not the nursery! */
-        (uninitialized_page_start - stm_object_pages) / 4096UL);
-    major_reshare_pages_range(
-        (uninitialized_page_stop - stm_object_pages) / 4096UL,
-        NB_PAGES);
+
+    long i;
+    mutex_pages_lock();
+
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        /* The 'modified_old_objects' list gives the list of objects
+           whose pages need to remain private.  We temporarily remove
+           these bits from 'pages_privatized', so that these pages will
+           be skipped by the loop below (and by copy_object_to_shared()).
+        */
+        major_hide_private_bits_for_modified_objects(i);
+
+        /* For each segment, push the current overflow objects from
+           private pages to the corresponding shared pages, if
+           necessary.  The pages that we will re-share must contain this
+           data; otherwise, it would exist only in the private pages,
+           and get lost in the loop below.
+        */
+        struct list_s *lst = get_priv_segment(i)->large_overflow_objects;
+        if (lst != NULL) {
+            LIST_FOREACH_R(lst, object_t *, copy_object_to_shared(item, i));
+        }
+    }
+
+    /* Now loop over all pages that are still in 'pages_privatized',
+       and re-share them.
+     */
+    uintptr_t pagenum, endpagenum;
+    pagenum = END_NURSERY_PAGE;   /* starts after the nursery */
+    endpagenum = (uninitialized_page_start - stm_object_pages) / 4096UL;
+
+    while (1) {
+        if (UNLIKELY(pagenum == endpagenum)) {
+            /* we reach this point usually twice, because there are
+               more pages after 'uninitialized_page_stop' */
+            if (endpagenum == NB_PAGES)
+                break;   /* done */
+            pagenum = (uninitialized_page_stop - stm_object_pages) / 4096UL;
+            endpagenum = NB_PAGES;
+            if (pagenum == endpagenum)
+                break;   /* no pages in the 2nd section, so done too */
+        }
+
+        page_check_and_reshare(pagenum);
+        pagenum++;
+    }
+
+    /* Done.  Now 'pages_privatized' should be entirely zeroes.  Restore
+       the previously-hidden bits
+    */
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        major_restore_private_bits_for_modified_objects(i);
+    }
+    mutex_pages_unlock();
 }
+
 
 /************************************************************/
 
@@ -323,11 +315,6 @@ static inline void mark_record_trace(object_t **pobj)
 {
     /* takes a normal pointer to a thread-local pointer to an object */
     object_t *obj = *pobj;
-
-    if (obj == NULL || mark_visited_test_and_set(obj))
-        return;    /* already visited this object */
-
-    LIST_APPEND(mark_objects_to_trace, obj);
 
     /* Note: this obj might be visited already, but from a different
        segment.  We ignore this case and skip re-visiting the object
@@ -339,6 +326,10 @@ static inline void mark_record_trace(object_t **pobj)
        segments and only needs visiting once.  (It may actually be in a
        shared page, or maybe not.)
     */
+    if (obj == NULL || mark_visited_test_and_set(obj))
+        return;    /* already visited this object */
+
+    LIST_APPEND(mark_objects_to_trace, obj);
 }
 
 static void mark_trace(object_t *obj, char *segment_base)
@@ -346,13 +337,6 @@ static void mark_trace(object_t *obj, char *segment_base)
     assert(list_is_empty(mark_objects_to_trace));
 
     while (1) {
-
-        /* first, if we're not seeing segment 0, we must change the
-           flags in flag_page_private[] from PRIVATE_PAGE to
-           SEGMENT1_PAGE, which will mean "can't re-share" */
-        if (segment_base != stm_object_pages && RESHARE_PAGES)
-            mark_flag_page_private(obj, segment_base);
-
         /* trace into the object (the version from 'segment_base') */
         struct object_s *realobj =
             (struct object_s *)REAL_ADDRESS(segment_base, obj);
@@ -374,45 +358,33 @@ static inline void mark_visit_object(object_t *obj, char *segment_base)
 
 static void mark_visit_from_roots(void)
 {
-
     if (testing_prebuilt_objs != NULL) {
         LIST_FOREACH_R(testing_prebuilt_objs, object_t * /*item*/,
-                       mark_visit_object(item, get_segment_base(0)));
+                       mark_visit_object(item, stm_object_pages));
     }
 
-    /* Do the following twice, so that we trace first the objects from
-       segment 0, and then all others.  XXX This is a hack to make it
-       more likely that we'll be able to re-share pages. */
+    stm_thread_local_t *tl = stm_all_thread_locals;
+    do {
+        /* If 'tl' is currently running, its 'associated_segment_num'
+           field is the segment number that contains the correct
+           version of its overflowed objects.  If not, then the
+           field is still some correct segment number, and it doesn't
+           matter which one we pick. */
+        char *segment_base = get_segment_base(tl->associated_segment_num);
 
-    int must_be_zero;
-    for (must_be_zero = 1; must_be_zero >= 0; must_be_zero--) {
+        struct stm_shadowentry_s *current = tl->shadowstack;
+        struct stm_shadowentry_s *base = tl->shadowstack_base;
+        while (current-- != base) {
+            assert(current->ss != (object_t *)-1);
+            mark_visit_object(current->ss, segment_base);
+        }
+        mark_visit_object(tl->thread_local_obj, segment_base);
 
-        stm_thread_local_t *tl = stm_all_thread_locals;
-        do {
-            /* If 'tl' is currently running, its 'associated_segment_num'
-               field is the segment number that contains the correct
-               version of its overflowed objects.  If not, then the
-               field is still some correct segment number, and it doesn't
-               matter which one we pick. */
-            char *segment_base = get_segment_base(tl->associated_segment_num);
-
-            if (must_be_zero == (segment_base == get_segment_base(0))) {
-
-                struct stm_shadowentry_s *current = tl->shadowstack;
-                struct stm_shadowentry_s *base = tl->shadowstack_base;
-                while (current-- != base) {
-                    assert(current->ss != (object_t *)-1);
-                    mark_visit_object(current->ss, segment_base);
-                }
-                mark_visit_object(tl->thread_local_obj, segment_base);
-            }
-
-            tl = tl->next;
-        } while (tl != stm_all_thread_locals);
-    }
+        tl = tl->next;
+    } while (tl != stm_all_thread_locals);
 
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         if (get_priv_segment(i)->transaction_state != TS_NONE)
             mark_visit_object(
                 get_priv_segment(i)->threadlocal_at_start_of_transaction,
@@ -423,20 +395,21 @@ static void mark_visit_from_roots(void)
 static void mark_visit_from_modified_objects(void)
 {
     /* The modified objects are the ones that may exist in two different
-       versions: one in the segment that modified it, and another in
-       all other segments. */
+       versions: one in the segment that modified it, and another in all
+       other segments.  (It can also be more than two if we don't have
+       eager write locking.)
+    */
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
-        char *base1 = get_segment_base(i);   /* two different segments */
-        char *base2 = get_segment_base(!i);
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        char *base = get_segment_base(i);
 
         LIST_FOREACH_R(
             get_priv_segment(i)->modified_old_objects,
             object_t * /*item*/,
             ({
                 mark_visited_test_and_set(item);
-                mark_trace(item, base1);
-                mark_trace(item, base2);
+                mark_trace(item, stm_object_pages);  /* shared version */
+                mark_trace(item, base);              /* private version */
             }));
     }
 }
@@ -444,7 +417,7 @@ static void mark_visit_from_modified_objects(void)
 static void clean_up_segment_lists(void)
 {
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
         struct list_s *lst;
 
@@ -490,7 +463,9 @@ static inline bool largemalloc_keep_object_at(char *data)
 
 static void sweep_large_objects(void)
 {
+    mutex_pages_lock();
     _stm_largemalloc_sweep();
+    mutex_pages_unlock();
 }
 
 static void clean_write_locks(void)
@@ -506,11 +481,11 @@ static void clean_write_locks(void)
     memset(write_locks + lock2_idx, 0, sizeof(write_locks) - lock2_idx);
 }
 
-static void major_set_write_locks(void)
+static void major_restore_write_locks(void)
 {
     /* restore the write locks on the modified objects */
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
 
         LIST_FOREACH_R(
@@ -536,6 +511,10 @@ static void major_collection_now_at_safe_point(void)
     dprintf((" | used before collection: %ld\n",
              (long)pages_ctl.total_allocated));
 
+    /* reshare pages */
+    if (RESHARE_PAGES)
+        major_reshare_pages();
+
     /* marking */
     LIST_CREATE(mark_objects_to_trace);
     mark_visit_from_modified_objects();
@@ -549,15 +528,11 @@ static void major_collection_now_at_safe_point(void)
     clean_up_segment_lists();
 
     /* sweeping */
-    mutex_pages_lock();
-    if (RESHARE_PAGES)
-        major_reshare_pages();
     sweep_large_objects();
     //sweep_uniform_pages();
-    mutex_pages_unlock();
 
     clean_write_locks();
-    major_set_write_locks();
+    major_restore_write_locks();
 
     dprintf((" | used after collection:  %ld\n",
              (long)pages_ctl.total_allocated));

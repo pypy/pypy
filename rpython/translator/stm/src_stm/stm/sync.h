@@ -31,3 +31,5 @@ static void release_thread_segment(stm_thread_local_t *tl);
 
 static void wait_for_end_of_inevitable_transaction(bool can_abort);
 static void synchronize_all_threads(void);
+
+static bool pause_signalled;

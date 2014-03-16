@@ -26,6 +26,7 @@ static void setup_pages(void)
 static void teardown_pages(void)
 {
     memset(&pages_ctl, 0, sizeof(pages_ctl));
+    memset(pages_privatized, 0, sizeof(pages_privatized));
 }
 
 static void mutex_pages_lock(void)
@@ -40,7 +41,6 @@ static void mutex_pages_unlock(void)
     __sync_lock_release(&pages_ctl.mutex_pages);
 }
 
-__attribute__((unused))
 static bool _has_mutex_pages(void)
 {
     return pages_ctl.mutex_pages != 0;
@@ -48,6 +48,7 @@ static bool _has_mutex_pages(void)
 
 static uint64_t increment_total_allocated(ssize_t add_or_remove)
 {
+    assert(_has_mutex_pages());
     pages_ctl.total_allocated += add_or_remove;
 
     if (pages_ctl.total_allocated >= pages_ctl.total_allocated_bound)
@@ -103,99 +104,63 @@ static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count)
        segment 0. */
     uintptr_t i;
     assert(_has_mutex_pages());
-    for (i = 1; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         char *segment_base = get_segment_base(i);
         d_remap_file_pages(segment_base + pagenum * 4096UL,
                            count * 4096UL, pagenum);
     }
-    for (i = 0; i < count; i++)
-        flag_page_private[pagenum + i] = SHARED_PAGE;
 }
 
-#if 0
-static void pages_make_shared_again(uintptr_t pagenum, uintptr_t count)
+static void page_privatize(uintptr_t pagenum)
 {
-    /* Same as pages_initialize_shared(), but tries hard to minimize the
-       total number of pages that remap_file_pages() must handle, by
-       fragmenting calls as much as possible (the overhead of one system
-       call appears smaller as the overhead per page). */
-    uintptr_t start, i = 0;
-    while (i < count) {
-        if (flag_page_private[pagenum + (i++)] == SHARED_PAGE)
-            continue;
-        start = i;    /* first index of a private page */
-        while (1) {
-            i++;
-            if (i == count || flag_page_private[pagenum + i] == SHARED_PAGE)
-                break;
-        }
-        pages_initialize_shared(pagenum + start, i - start);
-    }
-}
-#endif
-
-static void privatize_range(uintptr_t pagenum, uintptr_t count, bool full)
-{
-    ssize_t pgoff1 = pagenum;
-    ssize_t pgoff2 = pagenum + NB_PAGES;
-    ssize_t localpgoff = pgoff1 + NB_PAGES * STM_SEGMENT->segment_num;
-    ssize_t otherpgoff = pgoff1 + NB_PAGES * (1 - STM_SEGMENT->segment_num);
-
-    void *localpg = stm_object_pages + localpgoff * 4096UL;
-    void *otherpg = stm_object_pages + otherpgoff * 4096UL;
-
-    memset(flag_page_private + pagenum, REMAPPING_PAGE, count);
-    d_remap_file_pages(localpg, count * 4096, pgoff2);
-    uintptr_t i;
-    if (full) {
-        for (i = 0; i < count; i++) {
-            pagecopy(localpg + 4096 * i, otherpg + 4096 * i);
-        }
-    }
-    else {
-        pagecopy(localpg, otherpg);
-        if (count > 1)
-            pagecopy(localpg + 4096 * (count-1), otherpg + 4096 * (count-1));
-    }
-    write_fence();
-    memset(flag_page_private + pagenum, PRIVATE_PAGE, count);
-    increment_total_allocated(4096 * count);
-}
-
-static void _pages_privatize(uintptr_t pagenum, uintptr_t count, bool full)
-{
-    /* narrow the range of pages to privatize from the end: */
-    while (flag_page_private[pagenum + count - 1] == PRIVATE_PAGE) {
-        if (!--count)
-            return;
+    if (is_private_page(STM_SEGMENT->segment_num, pagenum)) {
+        /* the page is already privatized */
+        return;
     }
 
+    /* lock, to prevent concurrent threads from looking up this thread's
+       'pages_privatized' bits in parallel */
     mutex_pages_lock();
 
-    uintptr_t page_start_range = pagenum;
-    uintptr_t pagestop = pagenum + count;
+    /* "unmaps" the page to make the address space location correspond
+       again to its underlying file offset (XXX later we should again
+       attempt to group together many calls to d_remap_file_pages() in
+       succession) */
+    uintptr_t pagenum_in_file = NB_PAGES * STM_SEGMENT->segment_num + pagenum;
+    char *new_page = stm_object_pages + pagenum_in_file * 4096UL;
+    d_remap_file_pages(new_page, 4096, pagenum_in_file);
+    increment_total_allocated(4096);
 
-    for (; pagenum < pagestop; pagenum++) {
-        uint8_t prev = flag_page_private[pagenum];
-        if (prev == PRIVATE_PAGE) {
-            if (pagenum > page_start_range) {
-                privatize_range(page_start_range,
-                                pagenum - page_start_range, full);
-            }
-            page_start_range = pagenum + 1;
-        }
-        else {
-            assert(prev == SHARED_PAGE);
-        }
-    }
+    /* copy the content from the shared (segment 0) source */
+    pagecopy(new_page, stm_object_pages + pagenum * 4096UL);
 
-    if (pagenum > page_start_range) {
-        privatize_range(page_start_range,
-                        pagenum - page_start_range, full);
-    }
+    /* add this thread's 'pages_privatized' bit */
+    uint64_t bitmask = 1UL << (STM_SEGMENT->segment_num - 1);
+    pages_privatized[pagenum - PAGE_FLAG_START].by_segment |= bitmask;
 
     mutex_pages_unlock();
 }
+
+static void page_reshare(uintptr_t pagenum)
+{
+    struct page_shared_s ps = pages_privatized[pagenum - PAGE_FLAG_START];
+    pages_privatized[pagenum - PAGE_FLAG_START].by_segment = 0;
+
+    long j, total = 0;
+    for (j = 0; j < NB_SEGMENTS; j++) {
+        if (ps.by_segment & (1 << j)) {
+            /* Page 'pagenum' is private in segment 'j + 1'. Reshare */
+            char *segment_base = stm_object_pages + NB_PAGES * 4096UL * (j+1);
+
+            madvise(segment_base + pagenum * 4096UL, 4096, MADV_DONTNEED);
+            d_remap_file_pages(segment_base + pagenum * 4096UL,
+                               4096, pagenum);
+            total -= 4096;
+        }
+    }
+    increment_total_allocated(total);
+}
+
 
 #if 0
 static bool is_fully_in_shared_pages(object_t *obj)

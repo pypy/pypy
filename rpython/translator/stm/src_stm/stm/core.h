@@ -16,12 +16,12 @@
 
 
 #define NB_PAGES            (1500*256)    // 1500MB
-#define NB_SEGMENTS         2
+#define NB_SEGMENTS         STM_NB_SEGMENTS
 #define NB_SEGMENTS_MAX     240    /* don't increase NB_SEGMENTS past this */
 #define MAP_PAGES_FLAGS     (MAP_SHARED | MAP_ANONYMOUS | MAP_NORESERVE)
 #define NB_NURSERY_PAGES    (STM_GC_NURSERY/4)
 
-#define TOTAL_MEMORY          (NB_PAGES * 4096UL * NB_SEGMENTS)
+#define TOTAL_MEMORY          (NB_PAGES * 4096UL * (1 + NB_SEGMENTS))
 #define READMARKER_END        ((NB_PAGES * 4096UL) >> 4)
 #define FIRST_OBJECT_PAGE     ((READMARKER_END + 4095) / 4096UL)
 #define FIRST_NURSERY_PAGE    FIRST_OBJECT_PAGE
@@ -179,10 +179,6 @@ enum /* transaction_state */ {
 static char *stm_object_pages;
 static stm_thread_local_t *stm_all_thread_locals = NULL;
 
-#ifdef STM_TESTS
-static char *stm_other_pages;
-#endif
-
 static uint8_t write_locks[WRITELOCK_END - WRITELOCK_START];
 
 
@@ -229,4 +225,5 @@ static inline void _duck(void) {
     asm("/* workaround for llvm bug */");
 }
 
-static void synchronize_overflow_object_now(object_t *obj);
+static void copy_object_to_shared(object_t *obj, int source_segment_num);
+static void synchronize_object_now(object_t *obj);

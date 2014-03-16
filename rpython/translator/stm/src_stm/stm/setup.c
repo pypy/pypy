@@ -27,12 +27,15 @@ void stm_setup(void)
     if (stm_object_pages == MAP_FAILED)
         stm_fatalerror("initial stm_object_pages mmap() failed: %m\n");
 
+    /* The segment 0 is not used to run transactions, but to contain the
+       shared copy of the pages.  We mprotect all pages before so that
+       accesses fail, up to and including the pages corresponding to the
+       nurseries of the other segments. */
+    mprotect(stm_object_pages, END_NURSERY_PAGE * 4096UL, PROT_NONE);
+
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         char *segment_base = get_segment_base(i);
-#ifdef STM_TESTS
-        stm_other_pages = segment_base;
-#endif
 
         /* In each segment, the first page is where TLPREFIX'ed
            NULL accesses land.  We mprotect it so that accesses fail. */
@@ -40,7 +43,7 @@ void stm_setup(void)
 
         /* Fill the TLS page (page 1) with 0xDC, for debugging */
         memset(REAL_ADDRESS(segment_base, 4096), 0xDC, 4096);
-        /* Make a "hole" at STM_PSEGMENT */
+        /* Make a "hole" at STM_PSEGMENT (which includes STM_SEGMENT) */
         memset(REAL_ADDRESS(segment_base, STM_PSEGMENT), 0,
                sizeof(*STM_PSEGMENT));
 
@@ -50,9 +53,10 @@ void stm_setup(void)
                      (FIRST_READMARKER_PAGE - 2) * 4096UL,
                      PROT_NONE);
 
+        /* Initialize STM_PSEGMENT */
         struct stm_priv_segment_info_s *pr = get_priv_segment(i);
-        assert(i + 1 < 255);   /* 255 is WL_VISITED in gcpage.c */
-        pr->write_lock_num = i + 1;
+        assert(1 <= i && i < 255);   /* 255 is WL_VISITED in gcpage.c */
+        pr->write_lock_num = i;
         pr->pub.segment_num = i;
         pr->pub.segment_base = segment_base;
         pr->objects_pointing_to_nursery = NULL;
@@ -63,7 +67,7 @@ void stm_setup(void)
         pr->young_outside_nursery = tree_create();
         pr->nursery_objects_shadows = tree_create();
         pr->callbacks_on_abort = tree_create();
-        pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * (i + 1);
+        pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * i;
         highest_overflow_number = pr->overflow_number;
     }
 
@@ -74,10 +78,6 @@ void stm_setup(void)
        STM_SEGMENT->transaction_read_version never contains zero,
        so a null read marker means "not read" whatever the
        current transaction_read_version is.
-
-       The creation markers are initially zero, which is correct:
-       it means "objects of this line of 256 bytes have not been
-       allocated by the current transaction."
     */
 
     setup_sync();
@@ -93,7 +93,7 @@ void stm_teardown(void)
     assert(!_has_mutex());
 
     long i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
+    for (i = 1; i <= NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pr = get_priv_segment(i);
         assert(pr->objects_pointing_to_nursery == NULL);
         assert(pr->large_overflow_objects == NULL);
@@ -107,8 +107,6 @@ void stm_teardown(void)
 
     munmap(stm_object_pages, TOTAL_MEMORY);
     stm_object_pages = NULL;
-
-    memset(flag_page_private, 0, sizeof(flag_page_private));
 
     teardown_core();
     teardown_sync();
@@ -147,14 +145,14 @@ void stm_register_thread_local(stm_thread_local_t *tl)
         tl->prev = stm_all_thread_locals->prev;
         stm_all_thread_locals->prev->next = tl;
         stm_all_thread_locals->prev = tl;
-        num = tl->prev->associated_segment_num + 1;
+        num = tl->prev->associated_segment_num;
     }
     tl->thread_local_obj = NULL;
 
     /* assign numbers consecutively, but that's for tests; we could also
        assign the same number to all of them and they would get their own
        numbers automatically. */
-    num = num % NB_SEGMENTS;
+    num = (num % NB_SEGMENTS) + 1;
     tl->associated_segment_num = num;
     _init_shadow_stack(tl);
     set_gs_register(get_segment_base(num));
