@@ -779,11 +779,12 @@ class OptVirtualize(optimizer.Optimization):
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
-                    self.make_equal_to(op.result, itemvalue)
                 except InvalidRawOperation:
                     box = value.force_box(self)
                     op.setarg(0, box)
                     self.emit_operation(op)
+                else:
+                    self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)
@@ -820,11 +821,12 @@ class OptVirtualize(optimizer.Optimization):
                 offset, itemsize, descr = self._unpack_raw_load_store_op(op, offsetbox)
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
-                    self.make_equal_to(op.result, itemvalue)
                 except InvalidRawOperation:
                     box = value.force_box(self)
                     op.setarg(0, box)
                     self.emit_operation(op)
+                else:
+                    self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)
