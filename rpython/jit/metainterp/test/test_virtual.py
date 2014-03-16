@@ -1150,7 +1150,8 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [10])
         assert res == 55
         self.check_trace_count(1)
-        self.check_resops(setarrayitem_raw=0, getarrayitem_raw=0)
+        self.check_resops(getarrayitem_raw=0, setarrayitem_raw=0,
+                          raw_load=0, raw_store=0)
 
     def test_raw_malloc_resume(self):
         mydriver = JitDriver(greens=[], reds = 'auto')
@@ -1171,8 +1172,9 @@ class VirtualMiscTests:
         assert f(10) == 4000+55
         res = self.meta_interp(f, [10])
         assert res == 4000+55
-        # the getarrayitem_raw is in the bridge
-        self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
+        self.check_trace_count(2)
+        self.check_resops(getarrayitem_raw=0, setarrayitem_raw=0,
+                          raw_load=0, raw_store=0)
 
     def test_raw_malloc_no_virtualstate(self):
         mydriver = JitDriver(greens=[], reds = 'auto')
