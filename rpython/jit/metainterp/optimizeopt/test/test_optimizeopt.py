@@ -1894,6 +1894,40 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_raw_store_raw_load(self):
+        ops = """
+        [i1]
+        i0 = call('malloc', 10, descr=raw_malloc_descr)
+        raw_store(i0, 0, i1, descr=rawarraydescr)
+        i2 = raw_load(i0, 0, descr=rawarraydescr)
+        i3 = int_add(i1, i2)
+        call('free', i0, descr=raw_free_descr)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(i1, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_store_getarrayitem_raw(self):
+        ops = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        raw_store(i0, 8, f1, descr=rawarraydescr_float)
+        f2 = getarrayitem_raw(i0, 1, descr=rawarraydescr_float)
+        f3 = float_add(f1, f2)
+        call('free', i0, descr=raw_free_descr)
+        jump(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_add(f1, f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getfield_1(self):
         ops = """
         [p1, p2]
