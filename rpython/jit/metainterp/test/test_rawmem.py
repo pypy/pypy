@@ -85,6 +85,23 @@ class RawMemTests(object):
             {'guard_no_exception': 1, 'finish': 1},
             omit_finish=False)
 
+    def test_raw_storage_options(self):
+        def f():
+            p = alloc_raw_storage(15, track_allocation=False, zero=True)
+            raw_storage_setitem(p, 3, 24)
+            res = raw_storage_getitem(lltype.Signed, p, 3)
+            free_raw_storage(p, track_allocation=False)
+            return res
+        res = self.interp_operations(f, [])
+        assert res == 24
+        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+                                       'raw_store': 1, 'raw_load': 1,
+                                       'finish': 1})
+        pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
+        self.metainterp.staticdata.stats.check_resops(
+            {'guard_no_exception': 1, 'finish': 1},
+            omit_finish=False)
+
 
 class TestRawMem(RawMemTests, LLJitMixin):
 
