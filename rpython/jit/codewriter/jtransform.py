@@ -547,20 +547,18 @@ class Transformer(object):
         track_allocation = d.pop('track_allocation', True)
         if d:
             raise UnsupportedMallocFlags(d)
-        TYPE = op.args[0].value
         if zero:
             name += '_zero'
         if add_memory_pressure:
             name += '_add_memory_pressure'
         if not track_allocation:
             name += '_no_track_allocation'
+        TYPE = op.args[0].value
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
-        if name == 'raw_malloc_varsize':
-            ITEMTYPE = op.args[0].value.OF
-            if ITEMTYPE == lltype.Char:
-                return self._handle_oopspec_call(op1, args,
-                                                 EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
-                                                 EffectInfo.EF_CAN_RAISE)
+        if name == 'raw_malloc_varsize' and TYPE.OF == lltype.Char:
+            return self._handle_oopspec_call(op1, args,
+                                             EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
+                                             EffectInfo.EF_CAN_RAISE)
         return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):

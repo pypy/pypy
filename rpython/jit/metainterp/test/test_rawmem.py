@@ -1,7 +1,8 @@
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
-                                  free_raw_storage, raw_storage_getitem)
+                                     free_raw_storage, raw_storage_getitem)
+
 
 class RawMemTests(object):
     def test_cast_void_ptr(self):
