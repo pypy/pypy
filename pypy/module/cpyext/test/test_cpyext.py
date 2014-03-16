@@ -64,8 +64,10 @@ def compile_extension_module(space, modname, **kwds):
         kwds["libraries"] = [api_library]
         # '%s' undefined; assuming extern returning int
         kwds["compile_extra"] = ["/we4013"]
-        # prevent linking with python27.lib
-        kwds["link_extra"]=["/NODEFAULTLIB:Python27.lib"]
+        # prevent linking with PythonXX.lib
+        w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
+        kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
+                              (space.int_w(w_maj), space.int_w(w_min))]
     elif sys.platform == 'darwin':
         kwds["link_files"] = [str(api_library + '.dylib')]
     else:
