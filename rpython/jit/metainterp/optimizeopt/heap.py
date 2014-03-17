@@ -1,6 +1,7 @@
 import os
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
@@ -169,6 +170,7 @@ class OptHeap(Optimization):
         self.cached_fields = {}
         # cached array items:  {array descr: {index: CachedField}}
         self.cached_arrayitems = {}
+        # cached dict items: {dict descr: {(optval, index): box-or-const}}
         self.cached_dict_reads = {}
         #
         self._lazy_setfields_and_arrayitems = []
@@ -177,9 +179,11 @@ class OptHeap(Optimization):
         self.postponed_op = None
 
     def force_at_end_of_preamble(self):
+        self.cached_dict_reads.clear()
         self.force_all_lazy_setfields_and_arrayitems()
 
     def flush(self):
+        self.cached_dict_reads.clear()
         self.force_all_lazy_setfields_and_arrayitems()
         if self.postponed_op:
             postponed_op = self.postponed_op
@@ -208,6 +212,7 @@ class OptHeap(Optimization):
         del self._lazy_setfields_and_arrayitems[:]
         self.cached_fields.clear()
         self.cached_arrayitems.clear()
+        self.cached_dict_reads.clear()
 
     def field_cache(self, descr):
         try:
@@ -291,7 +296,22 @@ class OptHeap(Optimization):
         self.emit_operation(op)
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
-        xxx
+        args = self.optimizer.make_args_key(op)
+        descr = op.getdescr()
+        res_v = self.getvalue(op.result)
+        if descr in self.cached_dict_reads:
+            d = self.cached_dict_reads[descr]
+        else:
+            d = args_dict()
+        try:
+            res_v = d[args]
+            self.optimizer.make_equal_to(op.result, res_v, True)
+            res = True
+        except KeyError:
+            d[args] = res_v
+            res = False
+        self.cached_dict_reads[descr] = d
+        return res
 
     def force_from_effectinfo(self, effectinfo):
         # XXX we can get the wrong complexity here, if the lists
