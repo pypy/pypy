@@ -705,6 +705,7 @@ class OptVirtualize(optimizer.Optimization):
             return
         size = sizebox.value
         self.make_virtual_raw_memory(size, op.result, op)
+        self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
         value = self.getvalue(op.getarg(1))

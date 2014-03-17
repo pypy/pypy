@@ -47,9 +47,7 @@ class RawMemTests(object):
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
         pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
-        self.metainterp.staticdata.stats.check_resops(
-            {'guard_no_exception': 1, 'finish': 1},
-            omit_finish=False)
+        self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
     def test_raw_storage_float(self):
         def f():
@@ -64,9 +62,7 @@ class RawMemTests(object):
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
         pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
-        self.metainterp.staticdata.stats.check_resops(
-            {'guard_no_exception': 1, 'finish': 1},
-            omit_finish=False)
+        self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
     def test_raw_storage_byte(self):
         def f():
@@ -81,9 +77,7 @@ class RawMemTests(object):
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
         pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
-        self.metainterp.staticdata.stats.check_resops(
-            {'guard_no_exception': 1, 'finish': 1},
-            omit_finish=False)
+        self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
     def test_raw_storage_options(self):
         def f():
@@ -98,9 +92,7 @@ class RawMemTests(object):
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
         pytest.skip("XXX alloc_raw_storage doesn't generate virtualizable raw buffer")
-        self.metainterp.staticdata.stats.check_resops(
-            {'guard_no_exception': 1, 'finish': 1},
-            omit_finish=False)
+        self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
 
 class TestRawMem(RawMemTests, LLJitMixin):
