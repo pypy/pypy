@@ -699,12 +699,11 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def do_RAW_MALLOC_VARSIZE_CHAR(self, op):
-        sizebox = op.getarg(1)
-        if not isinstance(sizebox, ConstInt):
+        sizebox = self.get_constant_box(op.getarg(1))
+        if sizebox is None:
             self.emit_operation(op)
             return
-        size = sizebox.value
-        self.make_virtual_raw_memory(size, op.result, op)
+        self.make_virtual_raw_memory(sizebox.getint(), op.result, op)
         self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
