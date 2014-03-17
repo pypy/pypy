@@ -547,20 +547,18 @@ class Transformer(object):
         track_allocation = d.pop('track_allocation', True)
         if d:
             raise UnsupportedMallocFlags(d)
-        TYPE = op.args[0].value
         if zero:
             name += '_zero'
         if add_memory_pressure:
             name += '_add_memory_pressure'
         if not track_allocation:
             name += '_no_track_allocation'
+        TYPE = op.args[0].value
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
-        if name == 'raw_malloc_varsize':
-            ITEMTYPE = op.args[0].value.OF
-            if ITEMTYPE == lltype.Char:
-                return self._handle_oopspec_call(op1, args,
-                                                 EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
-                                                 EffectInfo.EF_CAN_RAISE)
+        if name.startswith('raw_malloc_varsize') and TYPE.OF == lltype.Char:
+            return self._handle_oopspec_call(op1, args,
+                                             EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
+                                             EffectInfo.EF_CAN_RAISE)
         return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):
@@ -591,7 +589,7 @@ class Transformer(object):
             name += '_no_track_allocation'
         op1 = self.prepare_builtin_call(op, name, [op.args[0]], (STRUCT,),
                                         STRUCT)
-        if name == 'raw_free':
+        if name.startswith('raw_free'):
             return self._handle_oopspec_call(op1, [op.args[0]],
                                              EffectInfo.OS_RAW_FREE,
                                              EffectInfo.EF_CANNOT_RAISE)
@@ -837,8 +835,8 @@ class Transformer(object):
                     RESULT = lltype.Ptr(STRUCT)
                     assert RESULT == op.result.concretetype
                     return self._do_builtin_call(op, 'alloc_with_del', [],
-                                                 extra = (RESULT, vtable),
-                                                 extrakey = STRUCT)
+                                                 extra=(RESULT, vtable),
+                                                 extrakey=STRUCT)
             heaptracker.register_known_gctype(self.cpu, vtable, STRUCT)
             opname = 'new_with_vtable'
         else:
@@ -1237,7 +1235,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                                                EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
@@ -1269,7 +1267,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "ullong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                                                EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 return op2
         ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 

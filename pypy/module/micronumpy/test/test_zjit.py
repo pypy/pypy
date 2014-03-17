@@ -526,7 +526,7 @@ class TestNumpyJit(LLJitMixin):
                            'guard_class': 4,
                            'guard_false': 2,
                            'guard_no_exception': 3,
-                           'guard_nonnull': 8,
+                           'guard_nonnull': 12,
                            'guard_nonnull_class': 4,
                            'guard_not_invalidated': 2,
                            'guard_true': 9,

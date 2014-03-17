@@ -105,3 +105,6 @@ Provide an exit status for popen'ed RFiles via pclose
 
 .. branch: stdlib-2.7.6
 Update stdlib to v2.7.6
+
+.. branch: virtual-raw-store-load
+Support for virtualizing raw_store/raw_load operations
