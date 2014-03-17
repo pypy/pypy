@@ -177,6 +177,7 @@ class OptHeap(Optimization):
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
         self.postponed_op = None
+        self.remove_next_guard = False
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()
@@ -306,12 +307,21 @@ class OptHeap(Optimization):
         try:
             res_v = d[args]
             self.optimizer.make_equal_to(op.result, res_v, True)
+            self.remove_next_guard = True
             res = True
         except KeyError:
             d[args] = res_v
             res = False
         self.cached_dict_reads[descr] = d
         return res
+
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.remove_next_guard:
+            self.remove_next_guard = False
+            return
+        self.emit_operation(op)
+
+    optimize_GUARD_EXCEPTION = optimize_GUARD_NO_EXCEPTION
 
     def force_from_effectinfo(self, effectinfo):
         # XXX we can get the wrong complexity here, if the lists

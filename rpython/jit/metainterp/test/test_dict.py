@@ -208,6 +208,8 @@ class DictTests:
             return s
 
         self.meta_interp(f, [10])
+        self.check_simple_loop(call=1, getinteriorfield_gc=1,
+                               guard_no_exception=1)
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

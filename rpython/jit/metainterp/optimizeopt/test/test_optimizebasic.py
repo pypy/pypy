@@ -5434,6 +5434,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_consecutive_getinteriorfields(self):
+        py.test.skip("we want this to pass")
+        ops = """
+        [p0, i0]
+        i1 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        i2 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        jump(i1, i2)
+        """
+        expected = """
+        [p0, i0]
+        i1 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        jump(i1, i1)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
