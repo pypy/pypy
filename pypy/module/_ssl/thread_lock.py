@@ -1,6 +1,7 @@
 from rpython.rlib.ropenssl import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import sys
 
 # CRYPTO_set_locking_callback:
 #
@@ -64,11 +65,17 @@ int _PyPy_SSL_SetupThreads(void)
 
 from rpython.rlib import rthread
 
+libraries = []
+if sys.platform == 'win32':
+    # XXX Not needed for mingw32...
+    libraries = ['libeay32', 'user32', 'advapi32', 'gdi32']
+
 eci = rthread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
     post_include_bits=[
         "int _PyPy_SSL_SetupThreads(void);"],
     export_symbols=['_PyPy_SSL_SetupThreads'],
+    libraries = libraries,
 ))
 
 _PyPy_SSL_SetupThreads = rffi.llexternal('_PyPy_SSL_SetupThreads',
