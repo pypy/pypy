@@ -1,7 +1,7 @@
 import itertools
 
 import py
-from rpython.rlib.objectmodel import r_dict, compute_identity_hash
+from rpython.rlib.objectmodel import r_dict, compute_identity_hash, specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.jit.metainterp import resoperation
@@ -118,12 +118,9 @@ def args_hash(args):
         res = intmask((1000003 * res) ^ y)
     return res
 
+@specialize.call_location()
 def args_dict():
     return r_dict(args_eq, args_hash)
-
-def args_dict_box():
-    return r_dict(args_eq, args_hash)
-
 
 # ____________________________________________________________
 
@@ -183,4 +180,3 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
                         assert False
     assert len(oplist1) == len(oplist2)
     return True
-

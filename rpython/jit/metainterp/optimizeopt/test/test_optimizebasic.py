@@ -1661,7 +1661,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, ops)
 
     def test_setfield_int_eq_result(self):
-        # test that the setfield_gc does not end up before int_eq 
+        # test that the setfield_gc does not end up before int_eq
         ops = """
         [p1, i1, i2]
         i3 = int_eq(i1, i2)
@@ -5443,6 +5443,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i0)
         """
         self.optimize_loop(ops, expected)
-        
+
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

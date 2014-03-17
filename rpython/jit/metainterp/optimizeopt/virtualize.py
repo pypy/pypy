@@ -648,7 +648,6 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
-
         if value.is_virtual():
             fieldvalue = self.getvalue(op.getarg(1))
             value.setfield(op.getdescr(), fieldvalue)
