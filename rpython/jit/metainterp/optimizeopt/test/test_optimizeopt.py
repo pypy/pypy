@@ -1983,6 +1983,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_setarrayitem_raw_raw_load(self):
+        ops = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        guard_no_exception() []
+        setarrayitem_raw(i0, 1, f1, descr=rawarraydescr_float)
+        f2 = raw_load(i0, 8, descr=rawarraydescr_float)
+        f3 = float_add(f1, f2)
+        call('free', i0, descr=raw_free_descr)
+        jump(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_add(f1, f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getfield_1(self):
         ops = """
         [p1, p2]
