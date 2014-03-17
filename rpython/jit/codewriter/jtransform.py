@@ -555,7 +555,7 @@ class Transformer(object):
             name += '_no_track_allocation'
         TYPE = op.args[0].value
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
-        if name == 'raw_malloc_varsize' and TYPE.OF == lltype.Char:
+        if name.startswith('raw_malloc_varsize') and TYPE.OF == lltype.Char:
             return self._handle_oopspec_call(op1, args,
                                              EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
                                              EffectInfo.EF_CAN_RAISE)
@@ -589,7 +589,7 @@ class Transformer(object):
             name += '_no_track_allocation'
         op1 = self.prepare_builtin_call(op, name, [op.args[0]], (STRUCT,),
                                         STRUCT)
-        if name == 'raw_free':
+        if name.startswith('raw_free'):
             return self._handle_oopspec_call(op1, [op.args[0]],
                                              EffectInfo.OS_RAW_FREE,
                                              EffectInfo.EF_CANNOT_RAISE)
