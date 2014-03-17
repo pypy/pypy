@@ -4,7 +4,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
@@ -182,7 +182,6 @@ class OptHeap(Optimization):
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
         self.postponed_op = None
-        self.remove_next_guard = False
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()
@@ -312,16 +311,14 @@ class OptHeap(Optimization):
             res_v = d[args]
         except KeyError:
             d[args] = self.getvalue(op.result)
-            res = False
+            return False
         else:
             self.make_equal_to(op.result, res_v)
-            self.remove_next_guard = True
-            res = True
-        return res
+            self.last_emitted_operation = REMOVED
+            return True
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
-        if self.remove_next_guard:
-            self.remove_next_guard = False
+        if self.last_emitted_operation is REMOVED:
             return
         self.emit_operation(op)
 
