@@ -674,11 +674,6 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_NEW_ARRAY(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
-            # if the original 'op' did not have a ConstInt as argument,
-            # build a new one with the ConstInt argument
-            if not isinstance(op.getarg(0), ConstInt):
-                op = ResOperation(rop.NEW_ARRAY, [sizebox], op.result,
-                                  descr=op.getdescr())
             self.make_varray(op.getdescr(), sizebox.getint(), op.result, op)
         else:
             self.getvalue(op.result).ensure_nonnull()
