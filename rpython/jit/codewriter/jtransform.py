@@ -835,8 +835,8 @@ class Transformer(object):
                     RESULT = lltype.Ptr(STRUCT)
                     assert RESULT == op.result.concretetype
                     return self._do_builtin_call(op, 'alloc_with_del', [],
-                                                 extra = (RESULT, vtable),
-                                                 extrakey = STRUCT)
+                                                 extra=(RESULT, vtable),
+                                                 extrakey=STRUCT)
             heaptracker.register_known_gctype(self.cpu, vtable, STRUCT)
             opname = 'new_with_vtable'
         else:
@@ -1235,7 +1235,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                                                EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
@@ -1267,7 +1267,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "ullong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                                                EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 return op2
         ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
