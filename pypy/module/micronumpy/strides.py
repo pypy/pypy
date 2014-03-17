@@ -181,6 +181,10 @@ def find_shape_and_elems(space, w_iterable, dtype):
         return [], [w_iterable]
     if isinstance(w_iterable, W_NDimArray) and w_iterable.is_scalar():
         return [], [w_iterable]
+    return _find_shape_and_elems(space, w_iterable, is_rec_type)
+
+
+def _find_shape_and_elems(space, w_iterable, is_rec_type):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
     while True:
@@ -208,6 +212,25 @@ def find_shape_and_elems(space, w_iterable, dtype):
             new_batch += space.listview(w_elem)
         shape.append(size)
         batch = new_batch
+
+
+def find_dtype_for_seq(space, elems_w, dtype):
+    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    if len(elems_w) == 1:
+        w_elem = elems_w[0]
+        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
+            w_elem = w_elem.get_scalar_value()
+        return find_dtype_for_scalar(space, w_elem, dtype)
+    return _find_dtype_for_seq(space, elems_w, dtype)
+
+
+def _find_dtype_for_seq(space, elems_w, dtype):
+    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    for w_elem in elems_w:
+        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
+            w_elem = w_elem.get_scalar_value()
+        dtype = find_dtype_for_scalar(space, w_elem, dtype)
+    return dtype
 
 
 def to_coords(space, shape, size, order, w_item_or_slice):

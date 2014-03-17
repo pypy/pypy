@@ -213,7 +213,7 @@ def PyGILState_Ensure(space):
     if rffi.aroundstate.after:
         # After external call is before entering Python
         rffi.aroundstate.after()
-    return 0
+    return lltype.nullptr(PyGILState_STATE.TO)
 
 @cpython_api([PyGILState_STATE], lltype.Void)
 def PyGILState_Release(space, state):

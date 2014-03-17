@@ -246,6 +246,13 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         return CustomIntObject(value)
 
+    def test_constants(self):
+        import numpy as np
+        assert np.MAXDIMS is 32
+        assert np.CLIP is 0
+        assert np.WRAP is 1
+        assert np.RAISE is 2
+
     def test_ndarray(self):
         from numpy import ndarray, array, dtype, flatiter
 
@@ -2275,6 +2282,30 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert float(np.array(1.5)) == 1.5
         exc = raises(TypeError, "float(np.array([1.5, 2.5]))")
         assert exc.value[0] == 'only length-1 arrays can be converted to Python scalars'
+
+    def test__hex__(self):
+        import numpy as np
+        assert hex(np.array(True)) == '0x1'
+        assert hex(np.array(15)) == '0xf'
+        assert hex(np.array([15])) == '0xf'
+        exc = raises(TypeError, "hex(np.array(1.5))")
+        assert str(exc.value) == "don't know how to convert scalar number to hex"
+        exc = raises(TypeError, "hex(np.array('15'))")
+        assert str(exc.value) == "don't know how to convert scalar number to hex"
+        exc = raises(TypeError, "hex(np.array([1, 2]))")
+        assert str(exc.value) == "only length-1 arrays can be converted to Python scalars"
+
+    def test__oct__(self):
+        import numpy as np
+        assert oct(np.array(True)) == '01'
+        assert oct(np.array(15)) == '017'
+        assert oct(np.array([15])) == '017'
+        exc = raises(TypeError, "oct(np.array(1.5))")
+        assert str(exc.value) == "don't know how to convert scalar number to oct"
+        exc = raises(TypeError, "oct(np.array('15'))")
+        assert str(exc.value) == "don't know how to convert scalar number to oct"
+        exc = raises(TypeError, "oct(np.array([1, 2]))")
+        assert str(exc.value) == "only length-1 arrays can be converted to Python scalars"
 
     def test__reduce__(self):
         from numpypy import array, dtype

@@ -226,6 +226,8 @@ class LLtypeMixin(object):
                                                   hints={'nolength': True}))
     rawarraydescr_char = cpu.arraydescrof(lltype.Array(lltype.Char,
                                                        hints={'nolength': True}))
+    rawarraydescr_float = cpu.arraydescrof(lltype.Array(lltype.Float,
+                                                        hints={'nolength': True}))
 
     fc_array = lltype.GcArray(
         lltype.Struct(
