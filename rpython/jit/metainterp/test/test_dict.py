@@ -208,6 +208,27 @@ class DictTests:
             return s
 
         self.meta_interp(f, [10])
+        # XXX should be one getinteriorfield_gc
+        self.check_simple_loop(call=1, getinteriorfield_gc=2,
+                               guard_no_exception=1)
+
+    def test_dict_insert_invalidates_caches(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        d = {'a': 3, 'b': 4}
+        indexes = ['a', 'b']
+
+        def f(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                d['aa'] = 13 # this will invalidate the index
+                s += d[index]
+                n -= 1
+            return s
+
+        self.meta_interp(f, [10])
         self.check_simple_loop(call=1, getinteriorfield_gc=1,
                                guard_no_exception=1)
 
