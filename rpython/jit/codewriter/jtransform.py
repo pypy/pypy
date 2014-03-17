@@ -1684,9 +1684,11 @@ class Transformer(object):
     # ----------
     # Strings and Unicodes.
 
-    def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
+    def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None,
+                             extradescr=None):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
-                                                  extraeffect)
+                                                  extraeffect,
+                                                  extradescr=extradescr)
         if extraeffect is not None:
             assert (is_test_calldescr(calldescr)      # for tests
                     or calldescr.get_extra_info().extraeffect == extraeffect)
@@ -1851,8 +1853,11 @@ class Transformer(object):
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
 
     def _handle_dict_lookup_call(self, op, oopspec_name, args):
+        extradescr = self.cpu.fielddescrof(op.args[1].concretetype.TO,
+                                           'entries')
         return self._handle_oopspec_call(op, args, EffectInfo.OS_DICT_LOOKUP,
-                                         EffectInfo.EF_CAN_RAISE)
+                                         EffectInfo.EF_CAN_RAISE,
+                                         extradescr=extradescr)
 
     def _handle_rgc_call(self, op, oopspec_name, args):
         if oopspec_name == 'rgc.ll_shrink_array':

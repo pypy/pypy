@@ -298,7 +298,7 @@ class OptHeap(Optimization):
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
         args = self.optimizer.make_args_key(op)
-        descr = op.getdescr()
+        descr = op.getdescr().extrainfo.extradescr
         res_v = self.getvalue(op.result)
         if descr in self.cached_dict_reads:
             d = self.cached_dict_reads[descr]
@@ -331,6 +331,10 @@ class OptHeap(Optimization):
         for arraydescr in effectinfo.readonly_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr)
         for fielddescr in effectinfo.write_descrs_fields:
+            try:
+                del self.cached_dict_reads[fielddescr]
+            except KeyError:
+                pass
             self.force_lazy_setfield(fielddescr, can_cache=False)
         for arraydescr in effectinfo.write_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr, can_cache=False)

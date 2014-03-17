@@ -97,7 +97,8 @@ class EffectInfo(object):
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
-                call_release_gil_target=llmemory.NULL):
+                call_release_gil_target=llmemory.NULL,
+                extradescr=None):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
                frozenset_or_none(write_descrs_fields),
@@ -133,6 +134,7 @@ class EffectInfo(object):
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
+        result.extradescr = extradescr
         result.call_release_gil_target = call_release_gil_target
         if result.check_can_raise():
             assert oopspecindex in cls._OS_CANRAISE
@@ -173,7 +175,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False,
-                                 call_release_gil_target=llmemory.NULL):
+                                 call_release_gil_target=llmemory.NULL,
+                                 extradescr=None):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
@@ -222,7 +225,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       extraeffect,
                       oopspecindex,
                       can_invalidate,
-                      call_release_gil_target)
+                      call_release_gil_target,
+                      extradescr)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
