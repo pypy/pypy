@@ -676,7 +676,6 @@ class OptVirtualize(optimizer.Optimization):
         if sizebox is not None:
             self.make_varray(op.getdescr(), sizebox.getint(), op.result, op)
         else:
-            self.getvalue(op.result).ensure_nonnull()
             self.emit_operation(op)
 
     def optimize_CALL(self, op):

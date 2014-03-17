@@ -605,9 +605,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = ptr_eq(p0, NULL)
         guard_false(i1) []
         i2 = ptr_ne(NULL, p0)
-        guard_true(i0) []
+        guard_true(i2) []
         i3 = ptr_eq(NULL, p0)
-        guard_false(i1) []
+        guard_false(i3) []
         guard_nonnull(p0) []
         jump(p0)
         """
@@ -621,6 +621,30 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_nonnull_2(self):
+        ops = """
+        []
+        p0 = new_array(5, descr=arraydescr)     # forces p0 != NULL
+        i0 = ptr_ne(p0, NULL)
+        guard_true(i0) []
+        i1 = ptr_eq(p0, NULL)
+        guard_false(i1) []
+        i2 = ptr_ne(NULL, p0)
+        guard_true(i2) []
+        i3 = ptr_eq(NULL, p0)
+        guard_false(i3) []
+        guard_nonnull(p0) []
+        escape(p0)
+        jump()
+        """
+        expected = """
+        []
+        p0 = new_array(5, descr=arraydescr)
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     def test_const_guard_value(self):
         ops = """
