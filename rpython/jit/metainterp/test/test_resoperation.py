@@ -1,6 +1,7 @@
 import py
+import re
 from rpython.jit.metainterp import resoperation as rop
-from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import AbstractDescr, AbstractFailDescr
 
 def test_arity_mixins():
     cases = [
@@ -55,12 +56,18 @@ def test_instantiate():
     op = rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c')
     assert op.getarglist() == ['a', 'b']
     assert op.result == 'c'
+    assert repr(op) == "c = int_add(a, b)"
 
     mydescr = AbstractDescr()
     op = rop.ResOperation(rop.rop.CALL, ['a', 'b'], 'c', descr=mydescr)
     assert op.getarglist() == ['a', 'b']
     assert op.result == 'c'
     assert op.getdescr() is mydescr
+    assert re.match("c = call\(a, b, descr=<.+>\)$", repr(op))
+
+    mydescr = AbstractFailDescr()
+    op = rop.ResOperation(rop.rop.GUARD_NO_EXCEPTION, [], None, descr=mydescr)
+    assert re.match("guard_no_exception\(descr=<.+>\)$", repr(op))
 
 def test_can_malloc():
     mydescr = AbstractDescr()
