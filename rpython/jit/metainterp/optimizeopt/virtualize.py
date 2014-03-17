@@ -432,22 +432,13 @@ class VRawBufferValue(AbstractVArrayValue):
         optforce.emit_operation(self.source_op)
         self.box = self.source_op.result
         for i in range(len(self.buffer.offsets)):
-            # get a pointer to self.box+offset
-            offset = self.buffer.offsets[i]
-            if offset == 0:
-                arraybox = self.box
-            else:
-                arraybox = BoxInt()
-                op = ResOperation(rop.INT_ADD,
-                                  [self.box, ConstInt(offset)], arraybox)
-                optforce.emit_operation(op)
-            #
             # write the value
+            offset = self.buffer.offsets[i]
             descr = self.buffer.descrs[i]
             itemvalue = self.buffer.values[i]
             itembox = itemvalue.force_box(optforce)
-            op = ResOperation(rop.SETARRAYITEM_RAW,
-                              [arraybox, ConstInt(0), itembox], None,
+            op = ResOperation(rop.RAW_STORE,
+                              [self.box, ConstInt(offset), itembox], None,
                               descr=descr)
             optforce.emit_operation(op)
 

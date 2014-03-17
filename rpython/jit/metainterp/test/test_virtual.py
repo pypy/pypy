@@ -1196,7 +1196,7 @@ class VirtualMiscTests:
         assert res == 45
         # make sure that the raw buffer is *not* virtualized because we do not
         # support virtualstate
-        self.check_resops(getarrayitem_raw=2, setarrayitem_raw=2)
+        self.check_resops(getarrayitem_raw=2, raw_store=2)
 
     def test_raw_malloc_only_chars(self):
         mydriver = JitDriver(greens=[], reds = 'auto')
