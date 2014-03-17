@@ -85,14 +85,6 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = needed
 
     @staticmethod
-    @enforceargs(None, lltype.Char)
-    def ll_append_char(ll_builder, char):
-        if ll_builder.used == ll_builder.allocated:
-            ll_builder.grow(ll_builder, 1)
-        ll_builder.buf.chars[ll_builder.used] = char
-        ll_builder.used += 1
-
-    @staticmethod
     def ll_append_slice(ll_builder, ll_str, start, end):
         needed = end - start
         used = ll_builder.used
@@ -114,6 +106,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = used
 
     @staticmethod
+    @enforceargs(None, None, int)
     def ll_append_charpsize(ll_builder, charp, size):
         used = ll_builder.used
         if used + size > ll_builder.allocated:
@@ -139,6 +132,14 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder != nullptr(cls.lowleveltype.TO)
 
 class StringBuilderRepr(BaseStringBuilderRepr):
+    @staticmethod
+    @enforceargs(None, lltype.Char)
+    def ll_append_char(ll_builder, char):
+        if ll_builder.used == ll_builder.allocated:
+            ll_builder.grow(ll_builder, 1)
+        ll_builder.buf.chars[ll_builder.used] = char
+        ll_builder.used += 1
+
     lowleveltype = lltype.Ptr(STRINGBUILDER)
     basetp = STR
     mallocfn = staticmethod(rstr.mallocstr)
@@ -149,6 +150,15 @@ class StringBuilderRepr(BaseStringBuilderRepr):
     )
 
 class UnicodeBuilderRepr(BaseStringBuilderRepr):
+
+    @staticmethod
+    @enforceargs(None, lltype.UniChar)
+    def ll_append_char(ll_builder, char):
+        if ll_builder.used == ll_builder.allocated:
+            ll_builder.grow(ll_builder, 1)
+        ll_builder.buf.chars[ll_builder.used] = char
+        ll_builder.used += 1
+
     lowleveltype = lltype.Ptr(UNICODEBUILDER)
     basetp = UNICODE
     mallocfn = staticmethod(rstr.mallocunicode)

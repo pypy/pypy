@@ -4,7 +4,7 @@ from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    _hash_string, keepalive_until_here, specialize)
+    _hash_string, keepalive_until_here, specialize, enforceargs)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -108,6 +108,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
     @jit.dont_look_inside
+    @enforceargs(None, None, None, int)
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
