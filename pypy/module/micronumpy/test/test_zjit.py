@@ -480,23 +480,19 @@ class TestNumpyJit(LLJitMixin):
     def test_flat_setitem(self):
         result = self.run("flat_setitem")
         assert result == 1.0
-        py.test.skip("don't run for now")
         self.check_trace_count(1)
-        # XXX not ideal, but hey, let's ignore it for now
-        self.check_simple_loop({'raw_load': 1,
-                                'raw_store': 1,
-                                'int_lt': 1,
-                                'int_gt': 1,
-                                'int_add': 4,
-                                'guard_true': 2,
-                                'arraylen_gc': 2,
-                                'jump': 1,
-                                'int_sub': 1,
-                                # XXX bad part
-                                'int_and': 1,
-                                'int_mod': 1,
-                                'int_rshift': 1,
-                                })
+        self.check_simple_loop({
+            'call': 2,
+            'getfield_gc': 2,
+            'guard_no_exception': 2,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_gt': 1,
+            'int_sub': 1,
+            'jump': 1,
+            'raw_load': 1,
+            'raw_store': 1,
+        })
 
     def define_dot():
         return """
@@ -509,6 +505,7 @@ class TestNumpyJit(LLJitMixin):
     def test_dot(self):
         result = self.run("dot")
         assert result == 184
+        self.check_trace_count(3)
         self.check_simple_loop({'float_add': 1,
                                 'float_mul': 1,
                                 'guard_not_invalidated': 1,
