@@ -207,14 +207,13 @@ class Test__ffi(BaseTestPyPyC):
             ...
         """)
         ops = loop.ops_by_id('cfficall')
-        assert 'raw_malloc' not in str(ops)
-        assert 'raw_free' not in str(ops)
-        assert 'getarrayitem_raw' not in log.opnames(ops)
-        assert 'setarrayitem_raw' not in log.opnames(ops)
+        for name in ['raw_malloc', 'raw_free']:
+            assert name not in str(ops)
+        for name in ['raw_load', 'raw_store', 'getarrayitem_raw', 'setarrayitem_raw']:
+            assert name not in log.opnames(ops)
         # so far just check that call_release_gil() is produced.
         # later, also check that the arguments to call_release_gil()
         # are constants
-        # are constants, and that the numerous raw_mallocs are removed
 
     def test_cffi_call_guard_not_forced_fails(self):
         # this is the test_pypy_c equivalent of
