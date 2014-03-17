@@ -79,6 +79,8 @@ class AppTestWinpipeConnection(BaseConnectionTest):
             'itertools', '_socket', 'binascii',
         ]
     }
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_rawffi')
 
     def setup_class(cls):
         if sys.platform != "win32":
@@ -90,7 +92,6 @@ class AppTestWinpipeConnection(BaseConnectionTest):
             # just for multiprocessing to import correctly on Windows
             w_modules = space.sys.get('modules')
             space.setitem(w_modules, space.wrap('msvcrt'), space.sys)
-            space.setitem(w_modules, space.wrap('_subprocess'), space.sys)
         else:
             import _multiprocessing
 
