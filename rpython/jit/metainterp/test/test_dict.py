@@ -212,7 +212,6 @@ class DictTests:
         self.check_simple_loop(call=1, getinteriorfield_gc=2,
                                guard_no_exception=1)
 
-
     def test_ordered_dict_two_lookups(self):
         driver = JitDriver(greens = [], reds = 'auto')
         d = OrderedDict()
@@ -272,6 +271,7 @@ class DictTests:
         res = self.meta_interp(f, [10])
         assert res == f(10)
         self.check_simple_loop(call=3)
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

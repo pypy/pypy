@@ -302,13 +302,12 @@ class OptHeap(Optimization):
         self.emit_operation(op)
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
-        args = self.optimizer.make_args_key(op)
         descr = op.getdescr().get_extra_info().extradescr
         if descr in self.cached_dict_reads:
             d = self.cached_dict_reads[descr]
         else:
-            d = args_dict()
-            self.cached_dict_reads[descr] = d
+            d = self.cached_dict_reads[descr] = args_dict()
+        args = self.optimizer.make_args_key(op)
         try:
             res_v = d[args]
         except KeyError:

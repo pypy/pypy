@@ -4,7 +4,7 @@ from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    _hash_string, keepalive_until_here, specialize, enforceargs)
+    _hash_string, keepalive_until_here, specialize)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -121,10 +121,9 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         llmemory.raw_memcopy(srcbuf, dst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(dst)
+    copy_raw_to_string._always_inline_ = True
     copy_raw_to_string = func_with_new_name(copy_raw_to_string,
                                               'copy_raw_to_%s' % name)
-    copy_raw_to_string._always_inline_ = True
-    copy_raw_to_string._annenforceargs_ = (None, None, int, int)
 
     return copy_string_to_raw, copy_raw_to_string, copy_string_contents
 
