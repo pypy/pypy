@@ -1,7 +1,7 @@
-from rpython.rlib.ropenssl import *
+from rpython.rlib import rthread
+from rpython.rlib.ropenssl import libraries
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import sys
 
 # CRYPTO_set_locking_callback:
 #
@@ -23,7 +23,6 @@ import sys
 # without caring about the GIL.
 
 separate_module_source = """
-
 #include <openssl/crypto.h>
 
 static unsigned int _ssl_locks_count = 0;
@@ -62,13 +61,6 @@ int _PyPy_SSL_SetupThreads(void)
     return 1;
 }
 """
-
-from rpython.rlib import rthread
-
-libraries = []
-if sys.platform == 'win32':
-    # XXX Not needed for mingw32...
-    libraries = ['libeay32', 'user32', 'advapi32', 'gdi32']
 
 eci = rthread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
