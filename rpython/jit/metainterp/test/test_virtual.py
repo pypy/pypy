@@ -707,7 +707,7 @@ class VirtualTests:
             return node[0] + node[1]
         assert self.meta_interp(f, [40]) == f(40)
 
-    def FIXME_why_does_this_force(self):
+    def test_this_doesnt_force1(self):
         mydriver = JitDriver(reds=['i', 'j'], greens=[])
         def f():
             i = self._new()
@@ -722,8 +722,9 @@ class VirtualTests:
                 j = nxt
             return i.value + j.value
         assert self.meta_interp(f, []) == 20
+        self.check_resops(new_with_vtable=0, new=0)
 
-    def FIXME_why_does_this_force2(self):
+    def test_this_doesnt_force2(self):
         mydriver = JitDriver(reds=['i', 'j'], greens=[])
         def f():
             i = self._new()
@@ -742,6 +743,7 @@ class VirtualTests:
                 i = j
             return i.value + j.value
         assert self.meta_interp(f, []) == 20
+        self.check_resops(new_with_vtable=0, new=0)
 
     def test_virtual_skipped_by_bridge(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'm', 'i', 'x'])
