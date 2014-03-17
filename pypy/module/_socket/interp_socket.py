@@ -539,7 +539,6 @@ def newsocket(space, w_subtype, family=AF_INET,
     sock = space.allocate_instance(W_RSocket, w_subtype)
     try:
         W_RSocket.__init__(sock, family, type, proto)
-        sock = W_RSocket(family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)

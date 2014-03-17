@@ -399,7 +399,7 @@ class AppTestSocket:
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
         s.close()
-    
+
     def test_socket_connect_ex(self):
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
@@ -473,6 +473,13 @@ class AppTestSocket:
     def test_newsocket(self):
         import socket
         s = socket.socket()
+
+    def test_subclass(self):
+        from _socket import socket
+        class MySock(socket):
+            blah = 123
+        s = MySock()
+        assert s.blah == 123
 
     def test_getsetsockopt(self):
         import _socket as socket
