@@ -341,7 +341,7 @@ class Test__ffi(BaseTestPyPyC):
         guard_value(p166, ConstPtr(ptr72), descr=...)
         p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
         guard_no_exception(descr=...)
-        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4>)
+        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4 OS=110>)
         setfield_gc(p167, 0, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
         setfield_gc(p167, ConstPtr(ptr86), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
         guard_no_exception(descr=...)
