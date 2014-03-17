@@ -425,8 +425,13 @@ class AppTestSocket:
     def test_bigport(self):
         import _socket
         s = _socket.socket()
-        raises(ValueError, s.connect, ("localhost", 1000000))
-        raises(ValueError, s.connect, ("localhost", -1))
+        exc = raises(OverflowError, s.connect, ("localhost", -1))
+        assert "port must be 0-65535." in str(exc.value)
+        exc = raises(OverflowError, s.connect, ("localhost", 1000000))
+        assert "port must be 0-65535." in str(exc.value)
+        s = _socket.socket(_socket.AF_INET6)
+        exc = raises(OverflowError, s.connect, ("::1", 1234, 1048576))
+        assert "flowinfo must be 0-1048575." in str(exc.value)
 
     def test_NtoH(self):
         import sys

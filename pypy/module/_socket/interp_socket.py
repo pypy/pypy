@@ -65,10 +65,7 @@ def fill_from_object(addr, space, w_address):
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
-        if flowinfo < 0 or flowinfo > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "flowinfo must be 0-1048575."))
-        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
+        flowinfo = make_unsigned_flowinfo(space, flowinfo)
         a = addr.lock(_c.sockaddr_in6)
         rffi.setintfield(a, 'c_sin6_port', rsocket.htons(port))
         rffi.setintfield(a, 'c_sin6_flowinfo', rsocket.htonl(flowinfo))
@@ -97,10 +94,7 @@ def addr_from_object(family, space, w_address):
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
-        if flowinfo < 0 or flowinfo > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "flowinfo must be 0-1048575."))
-        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
+        flowinfo = make_unsigned_flowinfo(space, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
         return rsocket.UNIXAddress(space.str_w(w_address))
@@ -112,9 +106,15 @@ def addr_from_object(family, space, w_address):
 # XXX Hack to seperate rpython and pypy
 def make_ushort_port(space, port):
     if port < 0 or port > 0xffff:
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_OverflowError, space.wrap(
             "port must be 0-65535."))
     return rffi.cast(rffi.USHORT, port)
+
+def make_unsigned_flowinfo(space, flowinfo):
+    if flowinfo < 0 or flowinfo > 0xfffff:
+        raise OperationError(space.w_OverflowError, space.wrap(
+            "flowinfo must be 0-1048575."))
+    return rffi.cast(lltype.Unsigned, flowinfo)
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
