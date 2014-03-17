@@ -212,6 +212,28 @@ class DictTests:
         self.check_simple_loop(call=1, getinteriorfield_gc=2,
                                guard_no_exception=1)
 
+
+    def test_ordered_dict_two_lookups(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        d = OrderedDict()
+        d['a'] = 3
+        d['b'] = 4
+        indexes = ['a', 'b']
+
+        def f(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                s += d[indexes[n & 1]]
+                s += d[indexes[n & 1]]
+                n -= 1
+            return s
+
+        self.meta_interp(f, [10])
+        # XXX should be one getinteriorfield_gc
+        self.check_simple_loop(call=1, getinteriorfield_gc=2,
+                               guard_no_exception=1)
+
     def test_dict_insert_invalidates_caches(self):
         driver = JitDriver(greens = [], reds = 'auto')
         indexes = ['aa', 'b', 'cc']

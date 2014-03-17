@@ -403,7 +403,8 @@ class Transformer(object):
             prepare = self._handle_math_sqrt_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
-        elif oopspec_name == 'dict.lookup':
+        elif oopspec_name.endswith('dict.lookup'):
+            # also ordereddict.lookup
             prepare = self._handle_dict_lookup_call
         else:
             prepare = self.prepare_builtin_call

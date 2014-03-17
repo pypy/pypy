@@ -85,6 +85,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = needed
 
     @staticmethod
+    @enforceargs(None, lltype.Char)
     def ll_append_char(ll_builder, char):
         if ll_builder.used == ll_builder.allocated:
             ll_builder.grow(ll_builder, 1)
