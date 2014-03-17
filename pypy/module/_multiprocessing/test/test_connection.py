@@ -9,8 +9,12 @@ class TestImport:
 
 class AppTestBufferTooShort:
     spaceconfig = {'usemodules': ['_multiprocessing', 'thread', 'signal',
-                                  'itertools', 'select', 'fcntl', 'struct',
-                                  'binascii']}
+                                  'itertools', 'select', 'struct', 'binascii']}
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_rawffi')
+    else:
+        spaceconfig['usemodules'].append('fcntl')
+
 
     def setup_class(cls):
         if cls.runappdirect:
@@ -100,9 +104,12 @@ class AppTestSocketConnection(BaseConnectionTest):
     spaceconfig = {
         "usemodules": [
             '_multiprocessing', 'thread', 'signal', 'struct', 'array',
-            'itertools', '_socket', 'binascii', 'select', 'fcntl',
-        ]
+            'itertools', '_socket', 'binascii', 'select' ]
     }
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_rawffi')
+    else:
+        spaceconfig['usemodules'].append('fcntl')
 
     def setup_class(cls):
         cls.w_connections = cls.space.newlist([])
