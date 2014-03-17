@@ -582,10 +582,10 @@ class AppTestSocket:
 
 
 class AppTestSocketTCP:
+    HOST = 'localhost'
+
     def setup_class(cls):
         cls.space = space
-
-    HOST = 'localhost'
 
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
@@ -596,6 +596,7 @@ class AppTestSocketTCP:
             serv.listen(1)
             return serv
             ''')
+
     def teardown_method(self, method):
         if hasattr(self, 'w_serv'):
             space.appexec([self.w_serv], '(serv): serv.close()')
@@ -616,7 +617,7 @@ class AppTestSocketTCP:
         raises(error, raise_error)
 
     def test_recv_send_timeout(self):
-        from _socket import socket, timeout
+        from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
         cli.connect(self.serv.getsockname())
         t, addr = self.serv.accept()
@@ -636,6 +637,9 @@ class AppTestSocketTCP:
         assert count is None
         buf = t.recv(1)
         assert buf == '?'
+        # speed up filling the buffers
+        t.setsockopt(SOL_SOCKET, SO_RCVBUF, 4096)
+        cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
         # test send() timeout
         count = 0
         try:
@@ -663,7 +667,7 @@ class AppTestSocketTCP:
         conn, addr = self.serv.accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' '*1024)
+        buf = array.array('c', ' ' * 1024)
         nbytes = cli.recv_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]
@@ -678,7 +682,7 @@ class AppTestSocketTCP:
         conn, addr = self.serv.accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' '*1024)
+        buf = array.array('c', ' ' * 1024)
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]
@@ -688,6 +692,7 @@ class AppTestSocketTCP:
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
+
 
 class AppTestErrno:
     def setup_class(cls):
