@@ -299,20 +299,20 @@ class OptHeap(Optimization):
     def _optimize_CALL_DICT_LOOKUP(self, op):
         args = self.optimizer.make_args_key(op)
         descr = op.getdescr().get_extra_info().extradescr
-        res_v = self.getvalue(op.result)
         if descr in self.cached_dict_reads:
             d = self.cached_dict_reads[descr]
         else:
             d = args_dict_value()
+            self.cached_dict_reads[descr] = d
         try:
             res_v = d[args]
+        except KeyError:
+            d[args] = self.getvalue(op.result)
+            res = False
+        else:
             self.make_equal_to(op.result, res_v)
             self.remove_next_guard = True
             res = True
-        except KeyError:
-            d[args] = res_v
-            res = False
-        self.cached_dict_reads[descr] = d
         return res
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
