@@ -536,12 +536,9 @@ def makefile(self, mode="r", buffersize=-1):
 @unwrap_spec(family=int, type=int, proto=int)
 def newsocket(space, w_subtype, family=AF_INET,
               type=SOCK_STREAM, proto=0):
-    # XXX If we want to support subclassing the socket type we will need
-    # something along these lines. But allocate_instance is only defined
-    # on the standard object space, so this is not really correct.
-    #sock = space.allocate_instance(W_RSocket, w_subtype)
-    #Socket.__init__(sock, space, fd, family, type, proto)
+    sock = space.allocate_instance(W_RSocket, w_subtype)
     try:
+        W_RSocket.__init__(sock, family, type, proto)
         sock = W_RSocket(family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
