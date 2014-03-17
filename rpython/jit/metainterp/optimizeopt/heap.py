@@ -1,7 +1,7 @@
 import os
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.optimizeopt.util import args_dict
+from rpython.jit.metainterp.optimizeopt.util import args_dict_value
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
@@ -303,7 +303,7 @@ class OptHeap(Optimization):
         if descr in self.cached_dict_reads:
             d = self.cached_dict_reads[descr]
         else:
-            d = args_dict()
+            d = args_dict_value()
         try:
             res_v = d[args]
             self.make_equal_to(op.result, res_v)

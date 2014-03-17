@@ -92,6 +92,7 @@ def descrlist_dict():
 
 # ____________________________________________________________
 
+def _new_args_dict():
 def args_eq(args1, args2):
     make_sure_not_resized(args1)
     make_sure_not_resized(args2)
@@ -122,6 +123,9 @@ def args_dict():
     return r_dict(args_eq, args_hash)
 
 def args_dict_box():
+    return r_dict(args_eq, args_hash)
+
+def args_dict_value():
     return r_dict(args_eq, args_hash)
 
 
