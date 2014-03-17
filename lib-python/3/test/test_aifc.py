@@ -72,7 +72,7 @@ class AIFCTest(unittest.TestCase):
         self.assertEqual(f.getparams(), fout.getparams())
         self.assertEqual(f.readframes(5), fout.readframes(5))
 
-    @impl_detail("PyPy has no audioop module yet", pypy=False)
+    @impl_detail("PyPy has no audioop.lin2ulaw yet", pypy=False)
     def test_compress(self):
         f = self.f = aifc.open(self.sndfilepath)
         fout = self.fout = aifc.open(TESTFN, 'wb')
