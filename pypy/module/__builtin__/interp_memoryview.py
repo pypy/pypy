@@ -42,7 +42,6 @@ class W_Buffer(W_Root):
     def buffer_w(self, space):
         return self.buf
 
-    @staticmethod
     @unwrap_spec(offset=int, size=int)
     def descr_new(space, w_subtype, w_object, offset=0, size=-1):
         if space.isinstance_w(w_object, space.w_unicode):
@@ -145,7 +144,7 @@ The buffer will reference a slice of the target object from the
 start of the object (or at the specified offset). The slice will
 extend to the end of the target object (or with the specified size).
 """,
-    __new__ = interp2app(W_Buffer.descr_new),
+    __new__ = interp2app(W_Buffer.descr_new.im_func),
     __len__ = interp2app(W_Buffer.descr_len),
     __getitem__ = interp2app(W_Buffer.descr_getitem),
     __setitem__ = interp2app(W_Buffer.descr_setitem),
@@ -176,7 +175,6 @@ class W_MemoryView(W_Root):
     def buffer_w(self, space):
         return self.buf
 
-    @staticmethod
     def descr_new(space, w_subtype, w_object):
         w_memoryview = W_MemoryView(space.buffer_w(w_object))
         return w_memoryview
@@ -298,7 +296,7 @@ W_MemoryView.typedef = TypeDef(
     __doc__ = """\
 Create a new memoryview object which references the given object.
 """,
-    __new__ = interp2app(W_MemoryView.descr_new),
+    __new__     = interp2app(W_MemoryView.descr_new.im_func),
     __eq__      = interp2app(W_MemoryView.descr_eq),
     __ge__      = interp2app(W_MemoryView.descr_ge),
     __getitem__ = interp2app(W_MemoryView.descr_getitem),
