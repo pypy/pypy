@@ -292,6 +292,11 @@ class FakeObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
+    def buffer_w(self, w_obj):
+        from pypy.interpreter.buffer import Buffer
+        is_root(w_obj)
+        return Buffer()
+
     def unicode_from_object(self, w_obj):
         return w_some_obj()
 

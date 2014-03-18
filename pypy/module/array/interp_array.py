@@ -132,6 +132,9 @@ class W_ArrayBase(W_Root):
         self.len = 0
         self.allocated = 0
 
+    def buffer_w(self, space):
+        return ArrayBuffer(self)
+
     def descr_append(self, space, w_x):
         """ append(x)
 
@@ -462,9 +465,6 @@ class W_ArrayBase(W_Root):
 
     # Misc methods
 
-    def descr_buffer(self, space):
-        return space.wrap(ArrayBuffer(self))
-
     def descr_repr(self, space):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -508,7 +508,6 @@ W_ArrayBase.typedef = TypeDef(
     __radd__ = interp2app(W_ArrayBase.descr_radd),
     __rmul__ = interp2app(W_ArrayBase.descr_rmul),
 
-    __buffer__ = interp2app(W_ArrayBase.descr_buffer),
     __repr__ = interp2app(W_ArrayBase.descr_repr),
 
     itemsize = GetSetProperty(descr_itemsize),

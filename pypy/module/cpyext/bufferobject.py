@@ -3,8 +3,9 @@ from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, cpython_struct, bootstrap_function,
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
-from pypy.interpreter.buffer import Buffer, StringBuffer, SubBuffer
+from pypy.interpreter.buffer import StringBuffer, SubBuffer
 from pypy.interpreter.error import OperationError
+from pypy.module.__builtin__.interp_memoryview import W_Buffer
 from pypy.module.array.interp_array import ArrayBuffer
 
 
@@ -24,7 +25,7 @@ cpython_struct("PyBufferObject", PyBufferObjectFields, PyBufferObjectStruct)
 @bootstrap_function
 def init_bufferobject(space):
     "Type description of PyBufferObject"
-    make_typedescr(space.gettypefor(Buffer).instancetypedef,
+    make_typedescr(space.gettypefor(W_Buffer).instancetypedef,
                    basestruct=PyBufferObject.TO,
                    attach=buffer_attach,
                    dealloc=buffer_dealloc,
@@ -39,23 +40,26 @@ def buffer_attach(space, py_obj, w_obj):
     rffi.setintfield(py_buf, 'c_b_readonly', 1)
     rffi.setintfield(py_buf, 'c_b_hash', -1)
 
-    if isinstance(w_obj, SubBuffer):
-        py_buf.c_b_offset = w_obj.offset
-        w_obj = w_obj.buffer
+    assert isinstance(w_obj, W_Buffer)
+    buf = w_obj.buf
 
-    # If w_obj already allocated a fixed buffer, use it, and keep a
-    # reference to w_obj.
+    if isinstance(buf, SubBuffer):
+        py_buf.c_b_offset = buf.offset
+        buf = buf.buffer
+
+    # If buf already allocated a fixed buffer, use it, and keep a
+    # reference to buf.
     # Otherwise, b_base stays NULL, and we own the b_ptr.
 
-    if isinstance(w_obj, StringBuffer):
+    if isinstance(buf, StringBuffer):
         py_buf.c_b_base = lltype.nullptr(PyObject.TO)
-        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(w_obj.value))
-        py_buf.c_b_size = w_obj.getlength()
-    elif isinstance(w_obj, ArrayBuffer):
-        w_base = w_obj.array
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(buf.value))
+        py_buf.c_b_size = buf.getlength()
+    elif isinstance(buf, ArrayBuffer):
+        w_base = buf.array
         py_buf.c_b_base = make_ref(space, w_base)
-        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, w_obj.array._charbuf_start())
-        py_buf.c_b_size = w_obj.getlength()
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.array._charbuf_start())
+        py_buf.c_b_size = buf.getlength()
     else:
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "buffer flavor not supported"))

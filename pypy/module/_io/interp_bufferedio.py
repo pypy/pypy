@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.buffer import RWBuffer
+from pypy.module.__builtin__.interp_memoryview import W_Buffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -511,7 +512,7 @@ class BufferedMixin:
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
-        w_buf = space.wrap(RawBuffer(buffer, start, length))
+        w_buf = W_Buffer(RawBuffer(buffer, start, length))
         while True:
             try:
                 w_size = space.call_method(self.w_raw, "readinto", w_buf)

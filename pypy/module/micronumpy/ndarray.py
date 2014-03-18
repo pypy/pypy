@@ -7,6 +7,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
+from pypy.module.__builtin__.interp_memoryview import W_Buffer
 from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops, loop, \
     support, constants as NPY
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -602,8 +603,11 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ctypes not implemented yet"))
 
-    def descr_get_data(self, space):
+    def buffer_w(self, space):
         return self.implementation.get_buffer(space)
+
+    def descr_get_data(self, space):
+        return W_Buffer(self.buffer_w(space))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -1259,7 +1263,6 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __float__ = interp2app(W_NDimArray.descr_float),
     __hex__ = interp2app(W_NDimArray.descr_hex),
     __oct__ = interp2app(W_NDimArray.descr_oct),
-    __buffer__ = interp2app(W_NDimArray.descr_get_data),
     __index__ = interp2app(W_NDimArray.descr_index),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),

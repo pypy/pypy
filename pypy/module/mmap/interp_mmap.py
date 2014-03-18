@@ -17,6 +17,10 @@ class W_MMap(W_Root):
         self.space = space
         self.mmap = mmap_obj
 
+    def buffer_w(self, space):
+        self.check_valid()
+        return MMapBuffer(self.space, self.mmap)
+
     def close(self):
         self.mmap.close()
 
@@ -196,10 +200,6 @@ class W_MMap(W_Root):
                     self.mmap.setitem(start, value[i])
                     start += step
 
-    def descr_buffer(self):
-        self.check_valid()
-        return self.space.wrap(MMapBuffer(self.space, self.mmap))
-
 if rmmap._POSIX:
 
     @unwrap_spec(fileno=int, length=int, flags=int,
@@ -256,7 +256,6 @@ W_MMap.typedef = TypeDef("mmap",
     __len__ = interp2app(W_MMap.__len__),
     __getitem__ = interp2app(W_MMap.descr_getitem),
     __setitem__ = interp2app(W_MMap.descr_setitem),
-    __buffer__ = interp2app(W_MMap.descr_buffer),
 )
 
 constants = rmmap.constants
