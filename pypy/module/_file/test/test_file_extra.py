@@ -200,6 +200,10 @@ class BaseROTests:
         assert f.closed == True
 
     def test_repr(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names and \
+                sys.version_info < (2, 7, 4):
+            skip("see cpython issue14161")
         assert repr(self.file).startswith(
             "<open file %r, mode '%s' at 0x" %
             (self.expected_filename, self.expected_mode))
