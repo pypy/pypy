@@ -330,7 +330,7 @@ class ExtractError(TarError):
     """General exception for extract errors."""
     pass
 class ReadError(TarError):
-    """Exception for unreadble tar archives."""
+    """Exception for unreadable tar archives."""
     pass
 class CompressionError(TarError):
     """Exception for unavailable compression methods."""
@@ -1984,9 +1984,8 @@ class TarFile(object):
 
         # Append the tar header and data to the archive.
         if tarinfo.isreg():
-            f = bltn_open(name, "rb")
-            self.addfile(tarinfo, f)
-            f.close()
+            with bltn_open(name, "rb") as f:
+                self.addfile(tarinfo, f)
 
         elif tarinfo.isdir():
             self.addfile(tarinfo)
@@ -2194,10 +2193,11 @@ class TarFile(object):
         """Make a file called targetpath.
         """
         source = self.extractfile(tarinfo)
-        target = bltn_open(targetpath, "wb")
-        copyfileobj(source, target)
-        source.close()
-        target.close()
+        try:
+            with bltn_open(targetpath, "wb") as target:
+                copyfileobj(source, target)
+        finally:
+            source.close()
 
     def makeunknown(self, tarinfo, targetpath):
         """Make a file from a TarInfo object with an unknown type
@@ -2394,7 +2394,7 @@ class TarFile(object):
         """
         if tarinfo.issym():
             # Always search the entire archive.
-            linkname = os.path.dirname(tarinfo.name) + "/" + tarinfo.linkname
+            linkname = "/".join(filter(None, (os.path.dirname(tarinfo.name), tarinfo.linkname)))
             limit = None
         else:
             # Search the archive before the link, because a hard link is
@@ -2459,16 +2459,18 @@ class TarIter:
         # Fix for SF #1100429: Under rare circumstances it can
         # happen that getmembers() is called during iteration,
         # which will cause TarIter to stop prematurely.
-        if not self.tarfile._loaded:
+
+        if self.index == 0 and self.tarfile.firstmember is not None:
+            tarinfo = self.tarfile.next()
+        elif self.index < len(self.tarfile.members):
+            tarinfo = self.tarfile.members[self.index]
+        elif not self.tarfile._loaded:
             tarinfo = self.tarfile.next()
             if not tarinfo:
                 self.tarfile._loaded = True
                 raise StopIteration
         else:
-            try:
-                tarinfo = self.tarfile.members[self.index]
-            except IndexError:
-                raise StopIteration
+            raise StopIteration
         self.index += 1
         return tarinfo
 

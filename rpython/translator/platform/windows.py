@@ -113,8 +113,6 @@ class MsvcPlatform(Platform):
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
             self.c_environ.update(msvc_compiler_environ)
-            # XXX passing an environment to subprocess is not enough. Why?
-            os.environ.update(msvc_compiler_environ)
 
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
@@ -249,7 +247,8 @@ class MsvcPlatform(Platform):
 
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -313,49 +312,78 @@ class MsvcPlatform(Platform):
             ('CC_LINK', self.link),
             ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
+            ('MAKE', 'nmake.exe'),
             ('_WIN32', '1'),
             ]
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
-        for args in definitions:
-            m.definition(*args)
-
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('.c.obj', '', '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'),
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
+
+        if len(headers_to_precompile)>0:
+            stdafx_h = path.join('stdafx.h')
+            txt  = '#ifndef PYPY_STDAFX_H\n'
+            txt += '#define PYPY_STDAFX_H\n'
+            txt += '\n'.join(['#include "' + m.pathrel(c) + '"' for c in headers_to_precompile])
+            txt += '\n#endif\n'
+            stdafx_h.write(txt)
+            stdafx_c = path.join('stdafx.c')
+            stdafx_c.write('#include "stdafx.h"\n')
+            definitions.append(('CREATE_PCH', '/Ycstdafx.h /Fpstdafx.pch /FIstdafx.h'))
+            definitions.append(('USE_PCH', '/Yustdafx.h /Fpstdafx.pch /FIstdafx.h'))
+            rules.append(('$(OBJECTS)', 'stdafx.pch', []))
+            rules.append(('stdafx.pch', 'stdafx.h', 
+               '$(CC) stdafx.c /c /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+               '$(CREATE_PCH) $(INCLUDEDIRS)'))
+            rules.append(('.c.obj', '', 
+                    '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
+                    '/Fo$@ /c $< $(INCLUDEDIRS)'))
+            #Do not use precompiled headers for some files
+            #rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
+            #        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
+            # nmake cannot handle wildcard target specifications, so we must
+            # create a rule for compiling each file from eci since they cannot use
+            # precompiled headers :(
+            no_precompile = []
+            for f in list(no_precompile_cfiles):
+                f = m.pathrel(py.path.local(f))
+                if f not in no_precompile and f.endswith('.c'):
+                    no_precompile.append(f)
+                    target = f[:-1] + 'obj'
+                    rules.append((target, f,
+                        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                        '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
+
+        else:
+            rules.append(('.c.obj', '', 
+                          '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                          '/Fo$@ /c $< $(INCLUDEDIRS)'))
+
+
+        for args in definitions:
+            m.definition(*args)
 
         for rule in rules:
             m.rule(*rule)
         
-        objects = ' $(OBJECTS)'
-        create_obj_response_file = []
-        if len(' '.join(rel_ofiles)) > 4000:
-            # cmd.exe has a limit of ~4000 characters before a command line is too long.
-            # Use a response file instead, at the cost of making the Makefile very ugly.
-            for i in range(len(rel_ofiles) - 1):
-                create_obj_response_file.append('echo %s >> obj_names.rsp' % \
-                                                rel_ofiles[i])
-            # use cmd /c for the last one so that the file is flushed 
-            create_obj_response_file.append('cmd /c echo %s >> obj_names.rsp' % \
-                                            rel_ofiles[-1])
-            objects = ' @obj_names.rsp'
         if self.version < 80:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                    create_obj_response_file + [\
-                   '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' /out:$@ $(LIBDIRS) $(LIBS)',
+                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
+                      ' $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
                    ])
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                    create_obj_response_file + [\
-                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
+                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
+                      ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
+                      ' /MANIFESTFILE:$*.manifest @<<\n$(OBJECTS)\n<<',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
         m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
-                create_obj_response_file + [\
-               '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
+                [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
                 ])
 
         if shared:
@@ -371,7 +399,7 @@ class MsvcPlatform(Platform):
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo /DEBUG main.obj $(SHARED_IMPORT_LIB) /out:$@'
+                   ['$(CC_LINK) /nologo /DEBUG main.obj debugmode_$(SHARED_IMPORT_LIB) /out:$@'
                     ])
 
         return m
@@ -392,6 +420,25 @@ class MsvcPlatform(Platform):
 
         self._handle_error(returncode, stdout, stderr, path.join('make'))
 
+class WinDefinition(posix.Definition):
+    def write(self, f):
+        def write_list(prefix, lst):
+            lst = lst or ['']
+            for i, fn in enumerate(lst):
+                print >> f, prefix, fn,
+                if i < len(lst)-1:
+                    print >> f, '\\'
+                else:
+                    print >> f
+                prefix = ' ' * len(prefix)
+        name, value = self.name, self.value
+        if isinstance(value, str):
+            f.write('%s = %s\n' % (name, value))
+        else:
+            write_list('%s =' % (name,), value)
+        f.write('\n')
+
+
 class NMakefile(posix.GnuMakefile):
     def write(self, out=None):
         # nmake expands macros when it parses rules.
@@ -410,6 +457,14 @@ class NMakefile(posix.GnuMakefile):
         if out is None:
             f.close()
 
+    def definition(self, name, value):
+        defs = self.defs
+        defn = WinDefinition(name, value)
+        if name in defs:
+            self.lines[defs[name]] = defn
+        else:
+            defs[name] = len(self.lines)
+            self.lines.append(defn)
 
 class MingwPlatform(posix.BasePosix):
     name = 'mingw32'

@@ -4,30 +4,33 @@ from pypy.interpreter.mixedmodule import MixedModule
 class MultiArrayModule(MixedModule):
     appleveldefs = {'arange': 'app_numpy.arange'}
     interpleveldefs = {
-        'ndarray': 'interp_numarray.W_NDimArray',
-        'dtype': 'interp_dtype.W_Dtype',
+        'ndarray': 'ndarray.W_NDimArray',
+        'dtype': 'descriptor.W_Dtype',
+        'flatiter': 'flatiter.W_FlatIterator',
 
-        'array': 'interp_numarray.array',
-        'zeros': 'interp_numarray.zeros',
-        'empty': 'interp_numarray.zeros',
-        'empty_like': 'interp_numarray.empty_like',
-        '_reconstruct' : 'interp_numarray._reconstruct',
-        'scalar' : 'interp_numarray.build_scalar',
-        'dot': 'interp_arrayops.dot',
-        'fromstring': 'interp_support.fromstring',
-        'flatiter': 'interp_flatiter.W_FlatIterator',
-        'concatenate': 'interp_arrayops.concatenate',
-        'where': 'interp_arrayops.where',
-        'count_nonzero': 'interp_arrayops.count_nonzero',
+        '_reconstruct' : 'ndarray._reconstruct',
+        'scalar' : 'ctors.build_scalar',
+        'array': 'ctors.array',
+        'zeros': 'ctors.zeros',
+        'empty': 'ctors.zeros',
+        'empty_like': 'ctors.empty_like',
+        'fromstring': 'ctors.fromstring',
+
+        'concatenate': 'arrayops.concatenate',
+        'count_nonzero': 'arrayops.count_nonzero',
+        'dot': 'arrayops.dot',
+        'where': 'arrayops.where',
 
         'set_string_function': 'appbridge.set_string_function',
-        'typeinfo': 'interp_dtype.get_dtype_cache(space).w_typeinfo',
+        'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
     }
+    for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
+        interpleveldefs[c] = 'space.wrap(constants.%s)' % c
 
 
 class UMathModule(MixedModule):
     appleveldefs = {}
-    interpleveldefs = {}
+    interpleveldefs = {'FLOATING_POINT_SUPPORT': 'space.wrap(1)'}
     # ufuncs
     for exposed, impl in [
         ("absolute", "absolute"),
@@ -107,7 +110,7 @@ class UMathModule(MixedModule):
         ('real', 'real'),
         ('imag', 'imag'),
     ]:
-        interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
+        interpleveldefs[exposed] = "ufuncs.get(space).%s" % impl
 
 
 class Module(MixedModule):

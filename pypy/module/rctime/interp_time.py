@@ -1,6 +1,6 @@
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask
@@ -358,14 +358,16 @@ def _get_inttime(space, w_seconds):
         seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
-    try:
-        seconds = ovfcheck_float_to_int(seconds)
-        t = rffi.r_time_t(seconds)
-        if rffi.cast(lltype.Signed, t) != seconds:
-            raise OverflowError
-    except OverflowError:
+    #
+    t = rffi.cast(rffi.TIME_T, seconds)
+    #
+    # Logic from CPython: How much info did we lose?  We assume that
+    # time_t is an integral type.  If we lost a second or more, the
+    # input doesn't fit in a time_t; call it an error.
+    diff = seconds - rffi.cast(lltype.Float, t)
+    if diff <= -1.0 or diff >= 1.0:
         raise OperationError(space.w_ValueError,
-                             space.wrap("time argument too large"))
+                      space.wrap("timestamp out of range for platform time_t"))
     return t
 
 def _tm_to_tuple(space, t):
@@ -402,9 +404,9 @@ def _gettmarg(space, w_tup, allowNone=True):
 
     tup_w = space.fixedview(w_tup)
     if len(tup_w) != 9:
-        raise operationerrfmt(space.w_TypeError,
-                              "argument must be sequence of "
-                              "length 9, not %d", len(tup_w))
+        raise oefmt(space.w_TypeError,
+                    "argument must be sequence of length 9, not %d",
+                    len(tup_w))
 
     y = space.int_w(tup_w[0])
     tm_mon = space.int_w(tup_w[1])

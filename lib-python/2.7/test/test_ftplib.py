@@ -17,7 +17,7 @@ except ImportError:
 
 from unittest import TestCase
 from test import test_support
-from test.test_support import HOST
+from test.test_support import HOST, HOSTv6
 threading = test_support.import_module('threading')
 
 
@@ -65,6 +65,7 @@ class DummyFTPHandler(asynchat.async_chat):
         self.last_received_data = ''
         self.next_response = ''
         self.rest = None
+        self.next_retr_data = RETR_DATA
         self.push('220 welcome')
 
     def collect_incoming_data(self, data):
@@ -189,7 +190,7 @@ class DummyFTPHandler(asynchat.async_chat):
             offset = int(self.rest)
         else:
             offset = 0
-        self.dtp.push(RETR_DATA[offset:])
+        self.dtp.push(self.next_retr_data[offset:])
         self.dtp.close_when_done()
         self.rest = None
 
@@ -202,6 +203,11 @@ class DummyFTPHandler(asynchat.async_chat):
         self.push('125 nlst ok')
         self.dtp.push(NLST_DATA)
         self.dtp.close_when_done()
+
+    def cmd_setlongretr(self, arg):
+        # For testing. Next RETR will return long line.
+        self.next_retr_data = 'x' * int(arg)
+        self.push('125 setlongretr ok')
 
 
 class DummyFTPServer(asyncore.dispatcher, threading.Thread):
@@ -474,6 +480,14 @@ class TestFTPClass(TestCase):
     def test_rmd(self):
         self.client.rmd('foo')
 
+    def test_cwd(self):
+        dir = self.client.cwd('/foo')
+        self.assertEqual(dir, '250 cwd ok')
+
+    def test_mkd(self):
+        dir = self.client.mkd('/foo')
+        self.assertEqual(dir, '/foo')
+
     def test_pwd(self):
         dir = self.client.pwd()
         self.assertEqual(dir, 'pwd ok')
@@ -550,11 +564,25 @@ class TestFTPClass(TestCase):
         # IPv4 is in use, just make sure send_epsv has not been used
         self.assertEqual(self.server.handler.last_received_cmd, 'pasv')
 
+    def test_line_too_long(self):
+        self.assertRaises(ftplib.Error, self.client.sendcmd,
+                          'x' * self.client.maxline * 2)
+
+    def test_retrlines_too_long(self):
+        self.client.sendcmd('SETLONGRETR %d' % (self.client.maxline * 2))
+        received = []
+        self.assertRaises(ftplib.Error,
+                          self.client.retrlines, 'retr', received.append)
+
+    def test_storlines_too_long(self):
+        f = StringIO.StringIO('x' * self.client.maxline * 2)
+        self.assertRaises(ftplib.Error, self.client.storlines, 'stor', f)
+
 
 class TestIPv6Environment(TestCase):
 
     def setUp(self):
-        self.server = DummyFTPServer((HOST, 0), af=socket.AF_INET6)
+        self.server = DummyFTPServer((HOSTv6, 0), af=socket.AF_INET6)
         self.server.start()
         self.client = ftplib.FTP()
         self.client.connect(self.server.host, self.server.port)
@@ -705,7 +733,7 @@ class TestTimeouts(TestCase):
         self.assertTrue(socket.getdefaulttimeout() is None)
         socket.setdefaulttimeout(30)
         try:
-            ftp = ftplib.FTP("localhost")
+            ftp = ftplib.FTP(HOST)
         finally:
             socket.setdefaulttimeout(None)
         self.assertEqual(ftp.sock.gettimeout(), 30)
@@ -717,7 +745,7 @@ class TestTimeouts(TestCase):
         self.assertTrue(socket.getdefaulttimeout() is None)
         socket.setdefaulttimeout(30)
         try:
-            ftp = ftplib.FTP("localhost", timeout=None)
+            ftp = ftplib.FTP(HOST, timeout=None)
         finally:
             socket.setdefaulttimeout(None)
         self.assertTrue(ftp.sock.gettimeout() is None)

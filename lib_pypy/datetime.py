@@ -66,7 +66,7 @@ def _days_in_month(year, month):
     return _DAYS_IN_MONTH[month]
 
 def _days_before_month(year, month):
-    "year, month -> number of days in year preceeding first day of month."
+    "year, month -> number of days in year preceding first day of month."
     assert 1 <= month <= 12, 'month must be in 1..12'
     return _DAYS_BEFORE_MONTH[month] + (month > 2 and _is_leap(year))
 
@@ -251,7 +251,7 @@ def _check_tzname(name):
 def _check_utc_offset(name, offset):
     assert name in ("utcoffset", "dst")
     if offset is None:
-        return None
+        return
     if not isinstance(offset, timedelta):
         raise TypeError("tzinfo.%s() must return None "
                         "or timedelta, not '%s'" % (name, type(offset)))
@@ -431,7 +431,7 @@ class timedelta(object):
     Representation: (days, seconds, microseconds).  Why?  Because I
     felt like it.
     """
-    __slots__ = '_days', '_seconds', '_microseconds'
+    __slots__ = '_days', '_seconds', '_microseconds', '_hashcode'
 
     def __new__(cls, days=0, seconds=0, microseconds=0,
                 milliseconds=0, minutes=0, hours=0, weeks=0):
@@ -497,8 +497,7 @@ class timedelta(object):
         # secondsfrac isn't referenced again
 
         if isinstance(microseconds, float):
-            microseconds += usdouble
-            microseconds = _round(microseconds)
+            microseconds = _round(microseconds + usdouble)
             seconds, microseconds = divmod(microseconds, 1000000)
             days, seconds = divmod(seconds, 24*3600)
             d += days
@@ -510,8 +509,7 @@ class timedelta(object):
             days, seconds = divmod(seconds, 24*3600)
             d += days
             s += int(seconds)
-            microseconds += usdouble
-            microseconds = _round(microseconds)
+            microseconds = _round(microseconds + usdouble)
         assert isinstance(s, int)
         assert isinstance(microseconds, int)
         assert abs(s) <= 3 * 24 * 3600
@@ -527,14 +525,14 @@ class timedelta(object):
         assert isinstance(s, int) and 0 <= s < 24*3600
         assert isinstance(us, int) and 0 <= us < 1000000
 
-        self = object.__new__(cls)
-
-        self._days = d
-        self._seconds = s
-        self._microseconds = us
         if abs(d) > 999999999:
             raise OverflowError("timedelta # of days is too large: %d" % d)
 
+        self = object.__new__(cls)
+        self._days = d
+        self._seconds = s
+        self._microseconds = us
+        self._hashcode = -1
         return self
 
     def __repr__(self):
@@ -689,7 +687,9 @@ class timedelta(object):
         return _cmp(self._getstate(), other._getstate())
 
     def __hash__(self):
-        return hash(self._getstate())
+        if self._hashcode == -1:
+            self._hashcode = hash(self._getstate())
+        return self._hashcode
 
     def __nonzero__(self):
         return (self._days != 0 or
@@ -737,7 +737,7 @@ class date(object):
     Properties (readonly):
     year, month, day
     """
-    __slots__ = '_year', '_month', '_day'
+    __slots__ = '_year', '_month', '_day', '_hashcode'
 
     def __new__(cls, year, month=None, day=None):
         """Constructor.
@@ -751,12 +751,14 @@ class date(object):
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(year)
+            self._hashcode = -1
             return self
         year, month, day = _check_date_fields(year, month, day)
         self = object.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
+        self._hashcode = -1
         return self
 
     # Additional constructors
@@ -938,7 +940,9 @@ class date(object):
 
     def __hash__(self):
         "Hash."
-        return hash(self._getstate())
+        if self._hashcode == -1:
+            self._hashcode = hash(self._getstate())
+        return self._hashcode
 
     # Computations
 
@@ -1124,7 +1128,7 @@ class time(object):
     Properties (readonly):
     hour, minute, second, microsecond, tzinfo
     """
-    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo'
+    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo', '_hashcode'
 
     def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None):
         """Constructor.
@@ -1139,8 +1143,10 @@ class time(object):
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(hour, minute or None)
+            self._hashcode = -1
             return self
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(
+            hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = object.__new__(cls)
         self._hour = hour
@@ -1148,6 +1154,7 @@ class time(object):
         self._second = second
         self._microsecond = microsecond
         self._tzinfo = tzinfo
+        self._hashcode = -1
         return self
 
     # Read-only field accessors
@@ -1243,13 +1250,17 @@ class time(object):
 
     def __hash__(self):
         """Hash."""
-        tzoff = self._utcoffset()
-        if not tzoff:  # zero or None
-            return hash(self._getstate()[0])
-        h, m = divmod(self.hour * 60 + self.minute - tzoff, 60)
-        if 0 <= h < 24:
-            return hash(time(h, m, self.second, self.microsecond))
-        return hash((h, m, self.second, self.microsecond))
+        if self._hashcode == -1:
+            tzoff = self._utcoffset()
+            if not tzoff:  # zero or None
+                self._hashcode = hash(self._getstate()[0])
+            else:
+                h, m = divmod(self.hour * 60 + self.minute - tzoff, 60)
+                if 0 <= h < 24:
+                    self._hashcode = hash(time(h, m, self.second, self.microsecond))
+                else:
+                    self._hashcode = hash((h, m, self.second, self.microsecond))
+        return self._hashcode
 
     # Conversion to string
 
@@ -1409,14 +1420,13 @@ class time(object):
             return (basestate, self._tzinfo)
 
     def __setstate(self, string, tzinfo):
+        if tzinfo is not None and not isinstance(tzinfo, _tzinfo_class):
+            raise TypeError("bad tzinfo state arg")
         self._hour, self._minute, self._second, us1, us2, us3 = (
             ord(string[0]), ord(string[1]), ord(string[2]),
             ord(string[3]), ord(string[4]), ord(string[5]))
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
-        if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
-            self._tzinfo = tzinfo
-        else:
-            raise TypeError("bad tzinfo state arg")
+        self._tzinfo = tzinfo
 
     def __reduce__(self):
         return (time, self._getstate())
@@ -1440,11 +1450,13 @@ class datetime(date):
         if isinstance(year, bytes) and len(year) == 10 and \
                 1 <= ord(year[2]) <= 12:
             # Pickle support
-            self = date.__new__(cls, year[:4])
+            self = object.__new__(cls)
             self.__setstate(year, month)
+            self._hashcode = -1
             return self
         year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(
+            hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = object.__new__(cls)
         self._year = year
@@ -1455,6 +1467,7 @@ class datetime(date):
         self._second = second
         self._microsecond = microsecond
         self._tzinfo = tzinfo
+        self._hashcode = -1
         return self
 
     # Read-only field accessors
@@ -1876,12 +1889,15 @@ class datetime(date):
         return base + timedelta(minutes = otoff-myoff)
 
     def __hash__(self):
-        tzoff = self._utcoffset()
-        if tzoff is None:
-            return hash(self._getstate()[0])
-        days = _ymd2ord(self.year, self.month, self.day)
-        seconds = self.hour * 3600 + (self.minute - tzoff) * 60 + self.second
-        return hash(timedelta(days, seconds, self.microsecond))
+        if self._hashcode == -1:
+            tzoff = self._utcoffset()
+            if tzoff is None:
+                self._hashcode = hash(self._getstate()[0])
+            else:
+                days = _ymd2ord(self.year, self.month, self.day)
+                seconds = self.hour * 3600 + (self.minute - tzoff) * 60 + self.second
+                self._hashcode = hash(timedelta(days, seconds, self.microsecond))
+        return self._hashcode
 
     # Pickle support.
 
@@ -1898,6 +1914,8 @@ class datetime(date):
             return (basestate, self._tzinfo)
 
     def __setstate(self, string, tzinfo):
+        if tzinfo is not None and not isinstance(tzinfo, _tzinfo_class):
+            raise TypeError("bad tzinfo state arg")
         (yhi, ylo, self._month, self._day, self._hour,
             self._minute, self._second, us1, us2, us3) = (ord(string[0]),
                 ord(string[1]), ord(string[2]), ord(string[3]),
@@ -1905,10 +1923,7 @@ class datetime(date):
                 ord(string[7]), ord(string[8]), ord(string[9]))
         self._year = yhi * 256 + ylo
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
-        if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
-            self._tzinfo = tzinfo
-        else:
-            raise TypeError("bad tzinfo state arg")
+        self._tzinfo = tzinfo
 
     def __reduce__(self):
         return (self.__class__, self._getstate())

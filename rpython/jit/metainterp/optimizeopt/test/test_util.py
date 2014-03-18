@@ -1,6 +1,6 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
@@ -92,6 +92,7 @@ class LLtypeMixin(object):
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
                                         ('floatval', lltype.Float),
+                                        ('charval', lltype.Char),
                                         ('next', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
@@ -108,6 +109,7 @@ class LLtypeMixin(object):
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
+    chardescr = cpu.fielddescrof(NODE, 'charval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
@@ -204,6 +206,10 @@ class LLtypeMixin(object):
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_FREE))
 
+    chararray = lltype.GcArray(lltype.Char)
+    chararraydescr = cpu.arraydescrof(chararray)
+    u2array = lltype.GcArray(rffi.USHORT)
+    u2arraydescr = cpu.arraydescrof(u2array)
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(
@@ -220,7 +226,15 @@ class LLtypeMixin(object):
                                                   hints={'nolength': True}))
     rawarraydescr_char = cpu.arraydescrof(lltype.Array(lltype.Char,
                                                        hints={'nolength': True}))
+    rawarraydescr_float = cpu.arraydescrof(lltype.Array(lltype.Float,
+                                                        hints={'nolength': True}))
 
+    fc_array = lltype.GcArray(
+        lltype.Struct(
+            "floatchar", ("float", lltype.Float), ("char", lltype.Char)))
+    fc_array_descr = cpu.arraydescrof(fc_array)
+    fc_array_floatdescr = cpu.interiorfielddescrof(fc_array, "float")
+    fc_array_chardescr = cpu.interiorfielddescrof(fc_array, "char")
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
@@ -308,6 +322,13 @@ class FakeMetaInterpStaticData(object):
             retrace_limit = 5
             max_retrace_guards = 15
         jitcounter = DeterministicJitCounter()
+
+    def get_name_from_address(self, addr):
+        # hack
+        try:
+            return "".join(addr.ptr.name)[:-1] # remove \x00
+        except AttributeError:
+            return ""
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."

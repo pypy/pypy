@@ -200,13 +200,17 @@ class BaseROTests:
         assert f.closed == True
 
     def test_repr(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names and \
+                sys.version_info < (2, 7, 4):
+            skip("see cpython issue14161")
         assert repr(self.file).startswith(
-            "<open file '%s', mode '%s' at 0x" % (
-                self.expected_filename, self.expected_mode))
+            "<open file %r, mode '%s' at 0x" %
+            (self.expected_filename, self.expected_mode))
         self.file.close()
         assert repr(self.file).startswith(
-            "<closed file '%s', mode '%s' at 0x" % (
-                self.expected_filename, self.expected_mode))
+            "<closed file %r, mode '%s' at 0x" %
+            (self.expected_filename, self.expected_mode))
 
 # ____________________________________________________________
 #
@@ -217,9 +221,7 @@ class AppTestFile(BaseROTests):
     expected_filename = str(udir.join('sample'))
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {
-        "usemodules": ["binascii", "rctime"],
-    }
+    spaceconfig = {"usemodules": ["binascii", "rctime"]}
 
     def setup_method(self, method):
         space = self.space
@@ -279,9 +281,7 @@ class AppTestFdOpen(BaseROTests):
     expected_filename = '<fdopen>'
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {
-        "usemodules": ["binascii", "rctime"],
-    }
+    spaceconfig = {"usemodules": ["binascii", "rctime"]}
 
     def setup_method(self, method):
         space = self.space
@@ -359,9 +359,7 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = {
-        "usemodules": ['array', '_socket', 'binascii', 'rctime'],
-    }
+    spaceconfig = {"usemodules": ['array', '_socket', 'binascii', 'rctime']}
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -607,10 +605,16 @@ class AppTestAFewExtra:
         assert file.closed.__doc__ == 'True if the file is closed'
 
     def test_repr_unicode_filename(self):
-        f = open(unicode(self.temptestfile), 'w')
-        assert repr(f).startswith("<open file " + 
-                                  repr(unicode(self.temptestfile)))
-        f.close()
+        with open(unicode(self.temptestfile), 'w') as f:
+            assert repr(f).startswith("<open file " +
+                                      repr(unicode(self.temptestfile)))
+
+    def test_repr_escape_filename(self):
+        import sys
+        fname = 'xx\rxx\nxx\'xx"xx' if sys.platform != "win32" else "xx'xx"
+        fname = self.temptestfile + fname
+        with open(fname, 'w') as f:
+            assert repr(f).startswith("<open file %r, mode 'w' at" % fname)
 
     @py.test.mark.skipif("os.name != 'posix'")
     def test_EAGAIN(self):

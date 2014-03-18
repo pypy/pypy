@@ -81,6 +81,7 @@ class Module(MixedModule):
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
         'set_debug'                 : 'interp_magic.set_debug',
+        'locals_to_fast'            : 'interp_magic.locals_to_fast',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

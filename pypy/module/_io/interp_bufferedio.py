@@ -1,8 +1,9 @@
 from __future__ import with_statement
+
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
 from pypy.module.__builtin__.interp_memoryview import W_Buffer
 from rpython.rlib.rstring import StringBuilder
@@ -10,25 +11,12 @@ from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
 from rpython.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
-    W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
+    W_IOBase, DEFAULT_BUFFER_SIZE, convert_size, trap_eintr,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
 from rpython.rlib import rthread
-import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
-
-def trap_eintr(space, error):
-    # Return True if an EnvironmentError with errno == EINTR is set
-    if not error.match(space, space.w_EnvironmentError):
-        return False
-    try:
-        w_value = error.get_w_value(space)
-        w_errno = space.getattr(w_value, space.wrap("errno"))
-        return space.is_true(
-            space.eq(w_errno, space.wrap(errno.EINTR)))
-    except OperationError:
-        return False
 
 
 def make_write_blocking_error(space, written):
@@ -58,7 +46,7 @@ class TryLock(object):
                 raise self.operr
             self.lock.acquire(True)
         self.owner = rthread.get_ident()
-    
+
     def __exit__(self,*args):
         self.owner = 0
         self.lock.release()
@@ -258,8 +246,8 @@ class BufferedMixin:
     def seek_w(self, space, pos, whence=0):
         self._check_init(space)
         if whence not in (0, 1, 2):
-            raise operationerrfmt(space.w_ValueError,
-                "whence must be between 0 and 2, not %d", whence)
+            raise oefmt(space.w_ValueError,
+                        "whence must be between 0 and 2, not %d", whence)
         self._check_closed(space, "seek of closed file")
         if whence != 2 and self.readable:
             # Check if seeking leaves us inside the current buffer, so as to
@@ -312,9 +300,11 @@ class BufferedMixin:
         with self.lock:
             if self._closed(space):
                 return
-        space.call_method(self, "flush")
-        with self.lock:
-            space.call_method(self.w_raw, "close")
+        try:
+            space.call_method(self, "flush")
+        finally:
+            with self.lock:
+                space.call_method(self.w_raw, "close")
 
     def simple_flush_w(self, space):
         self._check_init(space)

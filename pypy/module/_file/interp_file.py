@@ -3,15 +3,17 @@ import os
 import stat
 import errno
 from rpython.rlib import streamio
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
+
 
 class W_File(W_AbstractStream):
     """An interp-level file object.  This implements the same interface than
@@ -79,8 +81,7 @@ class W_File(W_AbstractStream):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
             ('U' in mode and ('w' in mode or 'a' in mode))):
             space = self.space
-            raise operationerrfmt(space.w_ValueError,
-                                  "invalid mode: '%s'", mode)
+            raise oefmt(space.w_ValueError, "invalid mode: '%s'", mode)
 
     def check_closed(self):
         if self.stream is None:
@@ -115,7 +116,7 @@ class W_File(W_AbstractStream):
         self.w_name = w_name
         self.check_mode_ok(mode)
         stream = dispatch_filename(streamio.open_file_as_stream)(
-            self.space, w_name, mode, buffering)
+            self.space, w_name, mode, buffering, signal_checker(self.space))
         fd = stream.try_to_find_file_descriptor()
         self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
@@ -134,7 +135,8 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.w_name = self.space.wrap('<fdopen>')
         self.check_mode_ok(mode)
-        stream = streamio.fdopen_as_stream(fd, mode, buffering)
+        stream = streamio.fdopen_as_stream(fd, mode, buffering,
+                                           signal_checker(self.space))
         self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):
@@ -182,7 +184,7 @@ class W_File(W_AbstractStream):
                     data = stream.read(n)
                 except OSError, e:
                     # a special-case only for read() (similar to CPython, which
-                    # also looses partial data with other methods): if we get
+                    # also loses partial data with other methods): if we get
                     # EAGAIN after already some data was received, return it.
                     if is_wouldblock_error(e):
                         got = result.build()
@@ -441,8 +443,6 @@ optimizations previously implemented in the xreadlines module.""")
         w_name = self.w_name
         if w_name is None:
             return '?'
-        elif space.isinstance_w(w_name, space.w_str):
-            return "'%s'" % space.str_w(w_name)
         else:
             return space.str_w(space.repr(w_name))
 
@@ -578,6 +578,12 @@ class FileState:
 
 def getopenstreams(space):
     return space.fromcache(FileState).openstreams
+
+@specialize.memo()
+def signal_checker(space):
+    def checksignals():
+        space.getexecutioncontext().checksignals()
+    return checksignals
 
 MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
 MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)

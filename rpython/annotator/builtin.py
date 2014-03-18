@@ -4,13 +4,12 @@ Built-in functions.
 import sys
 
 from rpython.annotator.model import (
-    SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple, s_Bool,
+    SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple,
     SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
-    SomeOrderedDict,
-    SomeByteArray, annotation_to_lltype, lltype_to_annotation,
-    ll_to_annotation, add_knowntypedata, s_ImpossibleValue,)
-from rpython.rtyper.llannotation import SomeAddress
+    SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
+from rpython.rtyper.llannotation import (
+    SomeAddress, annotation_to_lltype, lltype_to_annotation, ll_to_annotation)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import description
 from rpython.flowspace.model import Constant

@@ -12,13 +12,13 @@ from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
+for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
@@ -622,8 +622,8 @@ class PyFrame(W_Root):
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
-            raise operationerrfmt(space.w_ValueError,
-                  "line %d comes before the current code.", new_lineno)
+            raise oefmt(space.w_ValueError,
+                        "line %d comes before the current code.", new_lineno)
         elif new_lineno == line:
             new_lasti = 0
         else:
@@ -639,8 +639,8 @@ class PyFrame(W_Root):
                     break
 
         if new_lasti == -1:
-            raise operationerrfmt(space.w_ValueError,
-                  "line %d comes after the current code.", new_lineno)
+            raise oefmt(space.w_ValueError,
+                        "line %d comes after the current code.", new_lineno)
 
         # Don't jump to a line with an except in it.
         code = self.pycode.co_code
@@ -655,18 +655,18 @@ class PyFrame(W_Root):
         addr = 0
         while addr < len(code):
             op = ord(code[addr])
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 blockstack.append([addr, False])
             elif op == POP_BLOCK:
                 setup_op = ord(code[blockstack[-1][0]])
-                if setup_op == SETUP_FINALLY:
+                if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                     blockstack[-1][1] = True
                 else:
                     blockstack.pop()
             elif op == END_FINALLY:
                 if len(blockstack) > 0:
                     setup_op = ord(code[blockstack[-1][0]])
-                    if setup_op == SETUP_FINALLY:
+                    if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                         blockstack.pop()
 
             if addr == new_lasti or addr == self.last_instr:
@@ -687,9 +687,9 @@ class PyFrame(W_Root):
         assert len(blockstack) == 0
 
         if new_lasti_setup_addr != f_lasti_setup_addr:
-            raise operationerrfmt(space.w_ValueError,
-                  "can't jump into or out of a 'finally' block %d -> %d",
-                  f_lasti_setup_addr, new_lasti_setup_addr)
+            raise oefmt(space.w_ValueError,
+                        "can't jump into or out of a 'finally' block %d -> %d",
+                        f_lasti_setup_addr, new_lasti_setup_addr)
 
         if new_lasti < self.last_instr:
             min_addr = new_lasti
@@ -703,7 +703,7 @@ class PyFrame(W_Root):
         while addr < max_addr:
             op = ord(code[addr])
 
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 delta_iblock += 1
             elif op == POP_BLOCK:
                 delta_iblock -= 1

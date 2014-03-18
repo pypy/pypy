@@ -1,6 +1,6 @@
-import re, random
+import re, random, py
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rpy import get_code
+from rpython.rlib.rsre.rpy import get_code, VERSION
 
 
 def get_code_and_re(regexp):
@@ -239,6 +239,9 @@ class TestMatch:
         assert rsre_core.match(r, "x")
 
     def test_match_bug3(self):
+        if VERSION == "2.7.5":
+            py.test.skip("pattern fails to compile with exactly 2.7.5 "
+                         "(works on 2.7.3 and on 2.7.trunk though)")
         r = get_code(r'([ax]*?x*)?$')
         assert rsre_core.match(r, "aaxaa")
 
@@ -257,3 +260,10 @@ class TestMatch:
                     assert res is not None
                 else:
                     assert res is None
+
+    def test_simple_match_1(self):
+        r = get_code(r"ab*bbbbbbbc")
+        print r
+        match = rsre_core.match(r, "abbbbbbbbbcdef")
+        assert match
+        assert match.match_end == 11

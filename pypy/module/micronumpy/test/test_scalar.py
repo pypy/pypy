@@ -24,12 +24,18 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.dtype(c).type(sys.maxint) == sys.maxint
         for c in ['L', 'Q']:
             assert np.dtype(c).type(sys.maxint + 42) == sys.maxint + 42
+        assert np.float32(np.array([True, False])).dtype == np.float32
+        assert type(np.float32(np.array([True]))) is np.ndarray
+        assert type(np.float32(1.0)) is np.float32
+        a = np.array([True, False])
+        assert np.bool_(a) is a
 
     def test_builtin(self):
         import numpy as np
         assert int(np.str_('12')) == 12
         exc = raises(ValueError, "int(np.str_('abc'))")
         assert exc.value.message.startswith('invalid literal for int()')
+        assert int(np.uint64((2<<63) - 1)) == (2<<63) - 1
         assert oct(np.int32(11)) == '013'
         assert oct(np.float32(11.6)) == '013'
         assert oct(np.complex64(11-12j)) == '013'
@@ -102,6 +108,16 @@ class AppTestScalar(BaseNumpyAppTest):
         assert b == a
         assert b is not a
 
+    def test_methods(self):
+        import numpy as np
+        for a in [np.int32(2), np.float64(2.0), np.complex64(42)]:
+            for op in ['min', 'max', 'sum', 'prod']:
+                assert getattr(a, op)() == a
+            for op in ['argmin', 'argmax']:
+                b = getattr(a, op)()
+                assert type(b) is np.int_
+                assert b == 0
+
     def test_buffer(self):
         import numpy as np
         a = np.int32(123)
@@ -110,6 +126,13 @@ class AppTestScalar(BaseNumpyAppTest):
         a = np.string_('abc')
         b = buffer(a)
         assert str(b) == a
+
+    def test_byteswap(self):
+        import numpy as np
+        assert np.int64(123).byteswap() == 8863084066665136128
+        a = np.complex64(1+2j).byteswap()
+        assert repr(a.real).startswith('4.60060')
+        assert repr(a.imag).startswith('8.96831')
 
     def test_squeeze(self):
         import numpy as np
@@ -148,6 +171,18 @@ class AppTestScalar(BaseNumpyAppTest):
             assert b == v
         raises(IndexError, "v['blah']")
 
+    def test_realimag(self):
+        import numpy as np
+        a = np.int64(2)
+        assert a.real == 2
+        assert a.imag == 0
+        a = np.float64(2.5)
+        assert a.real == 2.5
+        assert a.imag == 0.0
+        a = np.complex64(2.5-1.5j)
+        assert a.real == 2.5
+        assert a.imag == -1.5
+
     def test_view(self):
         import numpy as np
         import sys
@@ -185,6 +220,22 @@ class AppTestScalar(BaseNumpyAppTest):
         import numpy as np
         raises(AttributeError, 'np.float32(1.5).as_integer_ratio()')
         assert np.float64(1.5).as_integer_ratio() == (3, 2)
+
+    def test_tostring(self):
+        import numpy as np
+        assert np.int64(123).tostring() == np.array(123, dtype='i8').tostring()
+        assert np.int64(123).tostring('C') == np.array(123, dtype='i8').tostring()
+        assert np.float64(1.5).tostring() == np.array(1.5, dtype=float).tostring()
+        exc = raises(TypeError, 'np.int64(123).tostring("Z")')
+        assert exc.value[0] == 'order not understood'
+
+    def test_reshape(self):
+        import numpy as np
+        assert np.int64(123).reshape((1,)) == 123
+        assert np.int64(123).reshape(1).shape == (1,)
+        assert np.int64(123).reshape((1,)).shape == (1,)
+        exc = raises(ValueError, "np.int64(123).reshape((2,))")
+        assert exc.value[0] == 'total size of new array must be unchanged'
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np

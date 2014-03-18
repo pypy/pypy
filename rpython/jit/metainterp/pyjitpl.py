@@ -11,7 +11,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, Box, TargetToken)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
-from rpython.jit.metainterp.optimizeopt.util import args_dict_box
+from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_not_resized
@@ -594,11 +594,9 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            # XXX pypy with the following check fails on micronumpy,
-            # XXX investigate
-            #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-            #                          rop.GETFIELD_GC, fielddescr, box)
-            #assert resbox.constbox().same_constant(tobox.constbox())
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC, fielddescr, box)
+            assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -741,6 +739,7 @@ class MIFrame(object):
 
     def emit_force_virtualizable(self, fielddescr, box):
         vinfo = fielddescr.get_vinfo()
+        assert vinfo is not None
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
         tokenbox = mi.execute_and_record(rop.GETFIELD_GC, token_descr, box)
@@ -1657,7 +1656,7 @@ class MetaInterp(object):
         self.forced_virtualizable = None
         self.partial_trace = None
         self.retracing_from = -1
-        self.call_pure_results = args_dict_box()
+        self.call_pure_results = args_dict()
         self.heapcache = HeapCache()
 
         self.call_ids = []
@@ -1785,16 +1784,14 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        metainterp_sd = self.staticdata
         if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
-            resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
+            resumedescr = compile.ResumeGuardForcedDescr(self.staticdata,
                                                          self.jitdriver_sd)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
             resumedescr = compile.ResumeGuardNotInvalidated()
         else:
             resumedescr = compile.ResumeGuardDescr()
-        guard_op = self.history.record(opnum, moreargs, None,
-                                             descr=resumedescr)
+        guard_op = self.history.record(opnum, moreargs, None, descr=resumedescr)
         self.capture_resumedata(resumedescr, resumepc)
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count

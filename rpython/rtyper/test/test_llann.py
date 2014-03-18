@@ -1,7 +1,7 @@
 import py
 
 from rpython.annotator import model as annmodel
-from rpython.rtyper.llannotation import SomePtr
+from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 from rpython.conftest import option
 from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
     MixLevelHelperAnnotator, PseudoHighLevelCallable, llhelper,
@@ -202,7 +202,7 @@ class TestLowLevelAnnotateTestCase:
                     assert a.binding(vT) == a.bookkeeper.immutablevalue(T)
                     assert a.binding(vi).knowntype == int
                     assert a.binding(vp).ll_ptrtype.TO == T
-                    assert a.binding(rv) == annmodel.lltype_to_annotation(T.OF)
+                    assert a.binding(rv) == lltype_to_annotation(T.OF)
                 elif func is ll_make:
                     vT, vn = args
                     assert a.binding(vT) == a.bookkeeper.immutablevalue(T)
@@ -281,7 +281,7 @@ class TestLowLevelAnnotateTestCase:
                     vp, vi = args
                     assert a.binding(vi).knowntype == int
                     assert a.binding(vp).ll_ptrtype == T
-                    assert a.binding(rv) == annmodel.lltype_to_annotation(
+                    assert a.binding(rv) == lltype_to_annotation(
                         T.TO.OF)
                 else:
                     assert False, func
@@ -368,7 +368,6 @@ class TestLowLevelAnnotateTestCase:
         assert s.unsigned == True
 
     def test_pbctype(self):
-        py.test.skip("annotation crash")
         TYPE = Void
         TYPE2 = Signed
         def g(lst):

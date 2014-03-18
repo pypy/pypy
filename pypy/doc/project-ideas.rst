@@ -11,7 +11,7 @@ at the `issue tracker`_, pop up on #pypy on irc.freenode.net or write to the
 `mailing list`_. This is simply for the reason that small possible projects
 tend to change very rapidly.
 
-This list is mostly for having on overview on potential projects. This list is
+This list is mostly for having an overview on potential projects. This list is
 by definition not exhaustive and we're pleased if people come up with their
 own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
@@ -71,7 +71,7 @@ CPython 3.3 will use an `optimized unicode representation`_ which switches betwe
 different ways to represent a unicode string, depending on whether the string
 fits into ASCII, has only two-byte characters or needs four-byte characters.
 
-The actual details would be rather differen in PyPy, but we would like to have
+The actual details would be rather different in PyPy, but we would like to have
 the same optimization implemented.
 
 Or maybe not.  We can also play around with the idea of using a single
@@ -142,34 +142,14 @@ to be got from them!):
 
 * `hg`
 
-Experiment (again) with LLVM backend for RPython compilation
-------------------------------------------------------------
-
-We already tried working with LLVM and at the time, LLVM was not mature enough
-for our needs. It's possible that this has changed, reviving the LLVM backend
-(or writing new from scratch) for static compilation would be a good project.
-
-(On the other hand, just generating C code and using clang might be enough.
-The issue with that is the so-called "asmgcc GC root finder", which has tons
-of issues of this own.  In my opinion (arigo), it would be definitely a
-better project to try to optimize the alternative, the "shadowstack" GC root
-finder, which is nicely portable.  So far it gives a pypy that is around
-7% slower.)
-
-Embedding PyPy
+Embedding PyPy and improving CFFI
 ----------------------------------------
 
-Note: there is a basic proof-of-concept for that as a `uwsgi pypy plugin`_
+PyPy has some basic `embedding infrastructure`_. The idea would be to improve
+upon that with cffi hacks that can automatically generate embeddable .so/.dll
+library
 
-Being able to embed PyPy, say with its own limited C API, would be
-useful.  But here is the most interesting variant, straight from
-EuroPython live discussion :-)  We can have a generic "libpypy.so" that
-can be used as a placeholder dynamic library, and when it gets loaded,
-it runs a .py module that installs (via ctypes) the interface it wants
-exported.  This would give us a one-size-fits-all generic .so file to be
-imported by any application that wants to load .so files :-)
-
-.. _`uwsgi pypy plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
+.. _`embedding infrastructure`: embedding.html
 
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------

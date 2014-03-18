@@ -338,9 +338,10 @@ class Entry(ExtRegistryEntry):
     _about_ = newlist_hint
 
     def compute_result_annotation(self, s_sizehint):
-        from rpython.annotator.model import SomeInteger
+        from rpython.annotator.model import SomeInteger, AnnotatorError
 
-        assert isinstance(s_sizehint, SomeInteger)
+        if not isinstance(s_sizehint, SomeInteger):
+            raise AnnotatorError("newlist_hint() argument must be an int")
         s_l = self.bookkeeper.newlist()
         s_l.listdef.listitem.resize()
         return s_l
@@ -365,8 +366,13 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_l, s_sizehint):
         from rpython.annotator import model as annmodel
-        assert isinstance(s_l, annmodel.SomeList)
-        assert isinstance(s_sizehint, annmodel.SomeInteger)
+        if annmodel.s_None.contains(s_l):
+            return   # first argument is only None so far, but we
+                     # expect a generalization later
+        if not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        if not isinstance(s_sizehint, annmodel.SomeInteger):
+            raise annmodel.AnnotatorError("Second argument must be an integer")
         s_l.listdef.listitem.resize()
 
     def specialize_call(self, hop):
@@ -426,7 +432,11 @@ def compute_unique_id(x):
     costly depending on the garbage collector.  To remind you of this
     fact, we don't support id(x) directly.
     """
-    return id(x)      # XXX need to return r_longlong on some platforms
+    # The assumption with RPython is that a regular integer is wide enough
+    # to store a pointer.  The following intmask() should not loose any
+    # information.
+    from rpython.rlib.rarithmetic import intmask
+    return intmask(id(x))
 
 def current_object_addr_as_int(x):
     """A cheap version of id(x).

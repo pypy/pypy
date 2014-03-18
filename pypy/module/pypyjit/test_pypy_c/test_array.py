@@ -67,26 +67,46 @@ class TestArray(BaseTestPyPyC):
         log = self.run(main, [])
         assert log.result == 73574560
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i13 = int_lt(i8, 307200)
-            guard_true(i13, descr=...)
-            guard_not_invalidated(descr=...)
-        # the bound check guard on img has been killed (thanks to the asserts)
-            i14 = getarrayitem_raw(i10, i8, descr=<ArrayS .>)
-            i15 = int_add_ovf(i9, i14)
-            guard_no_overflow(descr=...)
-            i17 = int_sub(i8, 640)
-        # the bound check guard on intimg has been killed (thanks to the asserts)
-            i18 = getarrayitem_raw(i11, i17, descr=<ArrayS .>)
-            i19 = int_add_ovf(i18, i15)
-            guard_no_overflow(descr=...)
-        # on 64bit, there is a guard checking that i19 actually fits into 32bit
-            ...
-            setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
-            i28 = int_add(i8, 1)
-            --TICK--
-            jump(..., descr=...)
-        """)
+
+        if sys.maxint == 2 ** 31 - 1:
+            assert loop.match("""
+                i13 = int_lt(i8, 307200)
+                guard_true(i13, descr=...)
+                guard_not_invalidated(descr=...)
+            # the bound check guard on img has been killed (thanks to the asserts)
+                i14 = getarrayitem_raw(i10, i8, descr=<ArrayS .>)
+                i15 = int_add_ovf(i9, i14)
+                guard_no_overflow(descr=...)
+                i17 = int_sub(i8, 640)
+            # the bound check guard on intimg has been killed (thanks to the asserts)
+                i18 = getarrayitem_raw(i11, i17, descr=<ArrayS .>)
+                i19 = int_add_ovf(i18, i15)
+                guard_no_overflow(descr=...)
+                setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
+                i28 = int_add(i8, 1)
+                --TICK--
+                jump(..., descr=...)
+            """)
+        elif sys.maxint == 2 ** 63 - 1:
+            assert loop.match("""
+                i13 = int_lt(i8, 307200)
+                guard_true(i13, descr=...)
+                guard_not_invalidated(descr=...)
+            # the bound check guard on img has been killed (thanks to the asserts)
+                i14 = getarrayitem_raw(i10, i8, descr=<ArrayS .>)
+                i15 = int_add(i9, i14)
+                i17 = int_sub(i8, 640)
+            # the bound check guard on intimg has been killed (thanks to the asserts)
+                i18 = getarrayitem_raw(i11, i17, descr=<ArrayS .>)
+                i19 = int_add(i18, i15)
+            # on 64bit, there is a guard checking that i19 actually fits into 32bit
+                ...
+                setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
+                i28 = int_add(i8, 1)
+                --TICK--
+                jump(..., descr=...)
+            """)
+
 
     def test_array_of_doubles(self):
         def main():

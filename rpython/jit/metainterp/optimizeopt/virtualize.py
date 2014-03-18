@@ -432,22 +432,13 @@ class VRawBufferValue(AbstractVArrayValue):
         optforce.emit_operation(self.source_op)
         self.box = self.source_op.result
         for i in range(len(self.buffer.offsets)):
-            # get a pointer to self.box+offset
-            offset = self.buffer.offsets[i]
-            if offset == 0:
-                arraybox = self.box
-            else:
-                arraybox = BoxInt()
-                op = ResOperation(rop.INT_ADD,
-                                  [self.box, ConstInt(offset)], arraybox)
-                optforce.emit_operation(op)
-            #
             # write the value
+            offset = self.buffer.offsets[i]
             descr = self.buffer.descrs[i]
             itemvalue = self.buffer.values[i]
             itembox = itemvalue.force_box(optforce)
-            op = ResOperation(rop.SETARRAYITEM_RAW,
-                              [arraybox, ConstInt(0), itembox], None,
+            op = ResOperation(rop.RAW_STORE,
+                              [self.box, ConstInt(offset), itembox], None,
                               descr=descr)
             optforce.emit_operation(op)
 
@@ -657,7 +648,6 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
-
         if value.is_virtual():
             fieldvalue = self.getvalue(op.getarg(1))
             value.setfield(op.getdescr(), fieldvalue)
@@ -674,14 +664,8 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_NEW_ARRAY(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
-            # if the original 'op' did not have a ConstInt as argument,
-            # build a new one with the ConstInt argument
-            if not isinstance(op.getarg(0), ConstInt):
-                op = ResOperation(rop.NEW_ARRAY, [sizebox], op.result,
-                                  descr=op.getdescr())
             self.make_varray(op.getdescr(), sizebox.getint(), op.result, op)
         else:
-            self.getvalue(op.result).ensure_nonnull()
             self.emit_operation(op)
 
     def optimize_CALL(self, op):
@@ -699,12 +683,12 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def do_RAW_MALLOC_VARSIZE_CHAR(self, op):
-        sizebox = op.getarg(1)
-        if not isinstance(sizebox, ConstInt):
+        sizebox = self.get_constant_box(op.getarg(1))
+        if sizebox is None:
             self.emit_operation(op)
             return
-        size = sizebox.value
-        self.make_virtual_raw_memory(size, op.result, op)
+        self.make_virtual_raw_memory(sizebox.getint(), op.result, op)
+        self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
         value = self.getvalue(op.getarg(1))
@@ -779,11 +763,12 @@ class OptVirtualize(optimizer.Optimization):
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
-                    self.make_equal_to(op.result, itemvalue)
                 except InvalidRawOperation:
                     box = value.force_box(self)
                     op.setarg(0, box)
                     self.emit_operation(op)
+                else:
+                    self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)
@@ -794,6 +779,48 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
+                itemvalue = self.getvalue(op.getarg(2))
+                try:
+                    value.setitem_raw(offset, itemsize, descr, itemvalue)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def _unpack_raw_load_store_op(self, op, offsetbox):
+        offset = offsetbox.getint()
+        cpu = self.optimizer.cpu
+        descr = op.getdescr()
+        itemsize = cpu.unpack_arraydescr_size(descr)[1]
+        return offset, itemsize, descr
+
+    def optimize_RAW_LOAD(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            offsetbox = self.get_constant_box(op.getarg(1))
+            if offsetbox is not None:
+                offset, itemsize, descr = self._unpack_raw_load_store_op(op, offsetbox)
+                try:
+                    itemvalue = value.getitem_raw(offset, itemsize, descr)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
+                else:
+                    self.make_equal_to(op.result, itemvalue)
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def optimize_RAW_STORE(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            offsetbox = self.get_constant_box(op.getarg(1))
+            if offsetbox is not None:
+                offset, itemsize, descr = self._unpack_raw_load_store_op(op, offsetbox)
                 itemvalue = self.getvalue(op.getarg(2))
                 try:
                     value.setitem_raw(offset, itemsize, descr, itemvalue)

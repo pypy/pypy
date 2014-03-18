@@ -226,6 +226,9 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
+    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
+                        "(_socket, host, port): return _socket.getaddrinfo(host, long(port))")
+    assert space.unwrap(w_l) == info
     py.test.skip("Unicode conversion is too slow")
     w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
@@ -396,7 +399,7 @@ class AppTestSocket:
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
         s.close()
-    
+
     def test_socket_connect_ex(self):
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
@@ -422,8 +425,13 @@ class AppTestSocket:
     def test_bigport(self):
         import _socket
         s = _socket.socket()
-        raises(ValueError, s.connect, ("localhost", 1000000))
-        raises(ValueError, s.connect, ("localhost", -1))
+        exc = raises(OverflowError, s.connect, ("localhost", -1))
+        assert "port must be 0-65535." in str(exc.value)
+        exc = raises(OverflowError, s.connect, ("localhost", 1000000))
+        assert "port must be 0-65535." in str(exc.value)
+        s = _socket.socket(_socket.AF_INET6)
+        exc = raises(OverflowError, s.connect, ("::1", 1234, 1048576))
+        assert "flowinfo must be 0-1048575." in str(exc.value)
 
     def test_NtoH(self):
         import sys
@@ -470,6 +478,13 @@ class AppTestSocket:
     def test_newsocket(self):
         import socket
         s = socket.socket()
+
+    def test_subclass(self):
+        from _socket import socket
+        class MySock(socket):
+            blah = 123
+        s = MySock()
+        assert s.blah == 123
 
     def test_getsetsockopt(self):
         import _socket as socket
@@ -530,10 +545,10 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
-        s.send(buffer(''))
-        s.sendall(buffer(''))
-        s.send(u'')
-        s.sendall(u'')
+        assert s.send(buffer('')) == 0
+        assert s.sendall(buffer('')) is None
+        assert s.send(u'') == 0
+        assert s.sendall(u'') is None
         raises(UnicodeEncodeError, s.send, u'\xe9')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
@@ -572,11 +587,11 @@ class AppTestSocket:
 
 
 class AppTestSocketTCP:
+    HOST = 'localhost'
+
     def setup_class(cls):
         cls.space = space
 
-    HOST = 'localhost'
-        
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
         self.w_serv = space.appexec([w_socket, w_HOST],
@@ -586,6 +601,7 @@ class AppTestSocketTCP:
             serv.listen(1)
             return serv
             ''')
+
     def teardown_method(self, method):
         if hasattr(self, 'w_serv'):
             space.appexec([self.w_serv], '(serv): serv.close()')
@@ -606,7 +622,7 @@ class AppTestSocketTCP:
         raises(error, raise_error)
 
     def test_recv_send_timeout(self):
-        from _socket import socket, timeout
+        from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
         cli.connect(self.serv.getsockname())
         t, addr = self.serv.accept()
@@ -622,10 +638,13 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == '!'
         # test that sendall() works
-        cli.sendall('?')
-        assert count == 1
+        count = cli.sendall('?')
+        assert count is None
         buf = t.recv(1)
         assert buf == '?'
+        # speed up filling the buffers
+        t.setsockopt(SOL_SOCKET, SO_RCVBUF, 4096)
+        cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
         # test send() timeout
         count = 0
         try:
@@ -633,7 +652,7 @@ class AppTestSocketTCP:
                 count += cli.send('foobar' * 70)
         except timeout:
             pass
-        t.recv(count)    
+        t.recv(count)
         # test sendall() timeout
         try:
             while 1:
@@ -653,7 +672,7 @@ class AppTestSocketTCP:
         conn, addr = self.serv.accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' '*1024)
+        buf = array.array('c', ' ' * 1024)
         nbytes = cli.recv_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]
@@ -668,7 +687,7 @@ class AppTestSocketTCP:
         conn, addr = self.serv.accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' '*1024)
+        buf = array.array('c', ' ' * 1024)
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]
@@ -678,6 +697,7 @@ class AppTestSocketTCP:
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
+
 
 class AppTestErrno:
     def setup_class(cls):

@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
 
@@ -14,6 +14,8 @@ class W_CType(W_Root):
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
+    # XXX this could be improved with an elidable method get_size()
+    # that raises in case it's still -1...
 
     cast_anything = False
     is_primitive_integer = False
@@ -54,34 +56,31 @@ class W_CType(W_Root):
 
     def newp(self, w_init):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "expected a pointer or array ctype, got '%s'",
-                              self.name)
+        raise oefmt(space.w_TypeError,
+                    "expected a pointer or array ctype, got '%s'", self.name)
 
     def cast(self, w_ob):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "cannot cast to '%s'", self.name)
+        raise oefmt(space.w_TypeError, "cannot cast to '%s'", self.name)
 
     def cast_to_int(self, cdata):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "int() not supported on cdata '%s'", self.name)
+        raise oefmt(space.w_TypeError, "int() not supported on cdata '%s'",
+                    self.name)
 
     def float(self, cdata):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "float() not supported on cdata '%s'", self.name)
+        raise oefmt(space.w_TypeError, "float() not supported on cdata '%s'",
+                    self.name)
 
     def convert_to_object(self, cdata):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "cannot return a cdata '%s'", self.name)
+        raise oefmt(space.w_TypeError, "cannot return a cdata '%s'", self.name)
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "cannot initialize cdata '%s'", self.name)
+        raise oefmt(space.w_TypeError, "cannot initialize cdata '%s'",
+                    self.name)
 
     def convert_argument_from_object(self, cdata, w_ob):
         self.convert_from_object(cdata, w_ob)
@@ -90,20 +89,18 @@ class W_CType(W_Root):
     def _convert_error(self, expected, w_got):
         space = self.space
         if isinstance(w_got, cdataobj.W_CData):
-            return operationerrfmt(space.w_TypeError,
-                                   "initializer for ctype '%s' must be a %s, "
-                                   "not cdata '%s'", self.name, expected,
-                                   w_got.ctype.name)
+            return oefmt(space.w_TypeError,
+                         "initializer for ctype '%s' must be a %s, not cdata "
+                         "'%s'", self.name, expected, w_got.ctype.name)
         else:
-            return operationerrfmt(space.w_TypeError,
-                                   "initializer for ctype '%s' must be a %s, "
-                                   "not %T", self.name, expected, w_got)
+            return oefmt(space.w_TypeError,
+                         "initializer for ctype '%s' must be a %s, not %T",
+                         self.name, expected, w_got)
 
     def _cannot_index(self):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "cdata of type '%s' cannot be indexed",
-                              self.name)
+        raise oefmt(space.w_TypeError, "cdata of type '%s' cannot be indexed",
+                    self.name)
 
     def _check_subscript_index(self, w_cdata, i):
         raise self._cannot_index()
@@ -113,15 +110,13 @@ class W_CType(W_Root):
 
     def string(self, cdataobj, maxlen):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "string(): unexpected cdata '%s' argument",
-                              self.name)
+        raise oefmt(space.w_TypeError,
+                    "string(): unexpected cdata '%s' argument", self.name)
 
     def add(self, cdata, i):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "cannot add a cdata '%s' and a number",
-                              self.name)
+        raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",
+                    self.name)
 
     def insert_name(self, extra, extra_position):
         name = '%s%s%s' % (self.name[:self.name_position],
@@ -144,9 +139,8 @@ class W_CType(W_Root):
 
     def _alignof(self):
         space = self.space
-        raise operationerrfmt(space.w_ValueError,
-                              "ctype '%s' is of unknown alignment",
-                              self.name)
+        raise oefmt(space.w_ValueError, "ctype '%s' is of unknown alignment",
+                    self.name)
 
     def typeoffsetof(self, fieldname):
         space = self.space
@@ -163,14 +157,12 @@ class W_CType(W_Root):
 
     def call(self, funcaddr, args_w):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "cdata '%s' is not callable", self.name)
+        raise oefmt(space.w_TypeError, "cdata '%s' is not callable", self.name)
 
     def iter(self, cdata):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
-                              "cdata '%s' does not support iteration",
-                              self.name)
+        raise oefmt(space.w_TypeError,
+                    "cdata '%s' does not support iteration", self.name)
 
     def unpackiterable_int(self, cdata):
         return None
@@ -180,9 +172,8 @@ class W_CType(W_Root):
 
     def getcfield(self, attr):
         space = self.space
-        raise operationerrfmt(space.w_AttributeError,
-                              "cdata '%s' has no attribute '%s'",
-                              self.name, attr)
+        raise oefmt(space.w_AttributeError,
+                    "cdata '%s' has no attribute '%s'", self.name, attr)
 
     def copy_and_convert_to_object(self, cdata):
         return self.convert_to_object(cdata)
@@ -202,9 +193,8 @@ class W_CType(W_Root):
             return space.wrap(self.kind)      # class attribute
         if attrchar == 'c':     # cname
             return space.wrap(self.name)
-        raise operationerrfmt(space.w_AttributeError,
-                              "ctype '%s' has no such attribute",
-                              self.name)
+        raise oefmt(space.w_AttributeError,
+                    "ctype '%s' has no such attribute", self.name)
 
     def fget_kind(self, space):     return self._fget('k')
     def fget_cname(self, space):    return self._fget('c')

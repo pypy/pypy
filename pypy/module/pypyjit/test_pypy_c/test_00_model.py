@@ -3,17 +3,17 @@ import sys, os
 import types
 import subprocess
 import py
-from lib_pypy import disassembler
+from rpython.tool import disassembler
 from rpython.tool.udir import udir
 from rpython.tool import logparser
 from rpython.jit.tool.jitoutput import parse_prof
-from pypy.module.pypyjit.test_pypy_c.model import (Log, find_ids_range,
-                                                   find_ids,
-                                                   OpMatcher, InvalidMatch)
+from pypy.module.pypyjit.test_pypy_c.model import \
+    Log, find_ids_range, find_ids, OpMatcher, InvalidMatch
+
 
 class BaseTestPyPyC(object):
     log_string = 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary'
-    
+
     def setup_class(cls):
         if '__pypy__' not in sys.builtin_module_names:
             py.test.skip("must run this test with pypy")
@@ -98,7 +98,6 @@ class BaseTestPyPyC(object):
 
 
 class TestLog(object):
-
     def test_find_ids_range(self):
         def f():
             a = 0 # ID: myline
@@ -127,9 +126,8 @@ class TestLog(object):
 
 
 class TestOpMatcher_(object):
-
     def match(self, src1, src2, **kwds):
-        from pypy.tool.jitlogparser.parser import SimpleParser
+        from rpython.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
         matcher = OpMatcher(loop.operations)
         try:
@@ -347,7 +345,6 @@ class TestOpMatcher_(object):
 
 
 class TestRunPyPyC(BaseTestPyPyC):
-
     def test_run_function(self):
         def f(a, b):
             return a+b
@@ -385,7 +382,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert len(loops) == 1
         assert loops[0].filename == self.filepath
         assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
-        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) == 0        
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) == 0
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         assert len(loops) == 1
@@ -454,7 +451,6 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         ops = loop.ops_by_id('foo', opcode='INPLACE_SUBTRACT')
         assert log.opnames(ops) == ['int_sub_ovf', 'guard_no_overflow']
-        
 
     def test_inlined_function(self):
         def f():

@@ -119,10 +119,11 @@ class AbstractResOp(object):
         descr = self.getdescr()
         if descr is None or we_are_translated():
             return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                 ', '.join([str(a) for a in args]))
+                                   ', '.join([str(a) for a in args]))
         else:
-            return '%s%s%s(%s, descr=%r)' % (prefix, sres, self.getopname(),
-                                             ', '.join([str(a) for a in args]), descr)
+            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
+                                   ', '.join([str(a) for a in args] +
+                                             ['descr=%r' % descr]))
 
     def getopname(self):
         try:

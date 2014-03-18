@@ -103,8 +103,7 @@ with PyPy see the `compatibility wiki`_.
 
 .. _`extension modules`: cpython_differences.html#extension-modules
 .. _`cpython differences`: cpython_differences.html
-.. _`compatibility wiki`:
-.. https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 
 ---------------------------------
@@ -188,7 +187,7 @@ Couldn't the JIT dump and reload already-compiled machine code?
 
 No, we found no way of doing that.  The JIT generates machine code
 containing a large number of constant addresses --- constant at the time
-the machine code is written.  The vast majority is probably not at all
+the machine code is generated.  The vast majority is probably not at all
 constants that you find in the executable, with a nice link name.  E.g.
 the addresses of Python classes are used all the time, but Python
 classes don't come statically from the executable; they are created anew
@@ -213,12 +212,16 @@ translation to various languages, stackless features,
 garbage collection, implementation of various things like arbitrarily long
 integers, etc. 
 
-Currently, we have preliminary versions of a JavaScript interpreter
-(Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
-(Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
+Currently, we have `Topaz`_, a Ruby interpreter; `Hippy`_, a PHP
+interpreter; preliminary versions of a `JavaScript interpreter`_
+(Leonardo Santagada as his Summer of PyPy project); a `Prolog interpreter`_
+(Carl Friedrich Bolz as his Bachelor thesis); and a `SmallTalk interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
+.. _`Topaz`: http://topazruby.com/
+.. _`Hippy`: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
+.. _`JavaScript interpreter`: https://bitbucket.org/pypy/lang-js/
 .. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _`PyPy bitbucket page`: https://bitbucket.org/pypy/
@@ -244,7 +247,7 @@ most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
 .. _`contact us`: index.html
-.. _`mailing list`: http://python.org/mailman/listinfo/pypy-dev
+.. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 
 -------------------------------------------------------------
 OSError: ... cannot restore segment prot after reloc... Help?
