@@ -11,7 +11,10 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rposix
 from rpython.rlib.rstring import StringBuilder
 
-eci = ExternalCompilationInfo(includes=['stdio.h', 'unistd.h', 'sys/types.h'])
+includes = ['stdio.h', 'sys/types.h']
+if os.name == "posix":
+    includes += ['unistd.h']
+eci = ExternalCompilationInfo(includes=includes)
 
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
