@@ -1,8 +1,8 @@
 import os
-import py
+import pytest
 
 if os.name != 'posix':
-    py.test.skip('pwd module only available on unix')
+    pytest.skip('pwd module only available on unix')
 
 class AppTestPwd:
     spaceconfig = dict(usemodules=['pwd'])
