@@ -20,4 +20,4 @@ def PyMemoryView_FromBuffer(space, view):
         raise OperationError(space.w_ValueError, space.wrap(msg))
     w_obj = from_ref(space, view.c_obj)
     buf = CBuffer(space, view.c_buf, view.c_len, w_obj)
-    return space.wrap(W_MemoryView(space.wrap(buf)))
+    return space.wrap(W_MemoryView(buf))

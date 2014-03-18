@@ -60,7 +60,7 @@ class FakeLink:
 class FakeResidualCallControl:
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op, **kwds):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         return 'calldescr'
     def calldescr_canraise(self, calldescr):
         return True

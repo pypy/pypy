@@ -391,7 +391,7 @@ class AppTestSocket:
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
         s.close()
-    
+
     def test_socket_connect_ex(self):
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
@@ -417,8 +417,13 @@ class AppTestSocket:
     def test_bigport(self):
         import _socket
         s = _socket.socket()
-        raises(ValueError, s.connect, ("localhost", 1000000))
-        raises(ValueError, s.connect, ("localhost", -1))
+        exc = raises(OverflowError, s.connect, ("localhost", -1))
+        assert "port must be 0-65535." in str(exc.value)
+        exc = raises(OverflowError, s.connect, ("localhost", 1000000))
+        assert "port must be 0-65535." in str(exc.value)
+        s = _socket.socket(_socket.AF_INET6)
+        exc = raises(OverflowError, s.connect, ("::1", 1234, 1048576))
+        assert "flowinfo must be 0-1048575." in str(exc.value)
 
     def test_NtoH(self):
         import sys
@@ -465,6 +470,13 @@ class AppTestSocket:
     def test_newsocket(self):
         import socket
         s = socket.socket()
+
+    def test_subclass(self):
+        from _socket import socket
+        class MySock(socket):
+            blah = 123
+        s = MySock()
+        assert s.blah == 123
 
     def test_getsetsockopt(self):
         import _socket as socket
@@ -587,10 +599,10 @@ class AppTestSocket:
 
 
 class AppTestSocketTCP:
+    HOST = 'localhost'
+
     def setup_class(cls):
         cls.space = space
-
-    HOST = 'localhost'
 
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
@@ -602,6 +614,7 @@ class AppTestSocketTCP:
             serv.listen(1)
             return serv
             ''')
+
     def teardown_method(self, method):
         if hasattr(self, 'w_serv'):
             space.appexec([self.w_serv], '(serv): serv.close()')
@@ -622,7 +635,7 @@ class AppTestSocketTCP:
         raises(error, raise_error)
 
     def test_recv_send_timeout(self):
-        from _socket import socket, timeout
+        from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
@@ -643,6 +656,9 @@ class AppTestSocketTCP:
         assert count is None
         buf = t.recv(1)
         assert buf == b'?'
+        # speed up filling the buffers
+        t.setsockopt(SOL_SOCKET, SO_RCVBUF, 4096)
+        cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
         # test send() timeout
         count = 0
         try:
@@ -671,7 +687,7 @@ class AppTestSocketTCP:
         conn = socket.socket(fileno=fileno)
         buf = memoryview(MSG)
         conn.send(buf)
-        buf = array.array('b', b' '*1024)
+        buf = array.array('b', b' ' * 1024)
         nbytes = cli.recv_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tobytes()[:len(MSG)]
@@ -687,7 +703,7 @@ class AppTestSocketTCP:
         conn = socket.socket(fileno=fileno)
         buf = memoryview(MSG)
         conn.send(buf)
-        buf = array.array('b', b' '*1024)
+        buf = array.array('b', b' ' * 1024)
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tobytes()[:len(MSG)]
@@ -697,6 +713,7 @@ class AppTestSocketTCP:
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
+
 
 class AppTestErrno:
     def setup_class(cls):

@@ -232,7 +232,6 @@ class AppTestImport(BaseImportTest):
         import _warnings
         def simplefilter(action, category):
             _warnings.filters.insert(0, (action, None, category, None, 0))
-            
         simplefilter('error', ImportWarning)
         try:
             raises(ImportWarning, imp)
@@ -467,7 +466,7 @@ class AppTestImport(BaseImportTest):
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
         assert relative_c.inpackage == 1
-    
+
     def test_future_relative_import_level_2(self):
         from pkg.pkg1 import relative_d
         assert relative_d.inpackage == 1
@@ -751,10 +750,7 @@ class AppTestImport(BaseImportTest):
         import imp
         import pkg
         import os
-
-        info = ('.py', 'r', imp.PY_SOURCE)
         pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
-        
         module = imp.load_module('a', open(pathname),
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
@@ -1284,7 +1280,7 @@ class AppTestImportHooks(object):
             def load_module(self, name):
                 sys.modules[name] = sys
                 return sys
-        
+
         def importer_for_path(path):
             if path == "xxx":
                 return Importer()

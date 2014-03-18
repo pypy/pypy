@@ -105,3 +105,12 @@ Provide an exit status for popen'ed RFiles via pclose
 
 .. branch: stdlib-2.7.6
 Update stdlib to v2.7.6
+
+.. branch: virtual-raw-store-load
+Support for virtualizing raw_store/raw_load operations
+
+.. branch: refactor-buffer-api
+Separate the interp-level buffer API from the buffer type exposed to
+app-level.  The `Buffer` class is now used by `W_MemoryView` and
+`W_Buffer`, which is not present in Python 3.  Previously `W_Buffer` was
+an alias to `Buffer`, which was wrappable itself.

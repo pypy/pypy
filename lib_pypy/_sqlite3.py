@@ -38,6 +38,7 @@ except ImportError:
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
+    cmp = lambda x, y: (x > y) - (x < y)
     long = int
     xrange = range
     basestring = unicode = str

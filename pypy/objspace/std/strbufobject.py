@@ -2,10 +2,11 @@ import inspect
 
 import py
 
-from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.bytesobject import (W_AbstractBytesObject,
+    W_BytesObject, StringBuffer)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.rstring import StringBuilder
+
 
 class W_StringBufferObject(W_AbstractBytesObject):
     w_str = None
@@ -34,6 +35,9 @@ class W_StringBufferObject(W_AbstractBytesObject):
 
     def bytes_w(self, space):
         return self.force()
+
+    def buffer_w(self, space):
+        return StringBuffer(self.force())
 
     def descr_len(self, space):
         return space.wrap(self.length)
