@@ -4,11 +4,9 @@
 
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.__builtin__.interp_memoryview import W_Buffer
 
 
 class ByteBuffer(RWBuffer):
-
     def __init__(self, len):
         self.data = ['\x00'] * len
 
@@ -24,4 +22,4 @@ class ByteBuffer(RWBuffer):
 
 @unwrap_spec(length=int)
 def bytebuffer(space, length):
-    return W_Buffer(ByteBuffer(length))
+    return space.newbuffer(ByteBuffer(length))

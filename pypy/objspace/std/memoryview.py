@@ -37,6 +37,7 @@ class W_Buffer(W_Root):
     """
 
     def __init__(self, buf):
+        assert isinstance(buf, buffer.Buffer)
         self.buf = buf
 
     def buffer_w(self, space):
@@ -44,7 +45,7 @@ class W_Buffer(W_Root):
 
     @staticmethod
     @unwrap_spec(offset=int, size=int)
-    def descr_new(space, w_subtype, w_object, offset=0, size=-1):
+    def descr_new_buffer(space, w_subtype, w_object, offset=0, size=-1):
         if space.isinstance_w(w_object, space.w_unicode):
             # unicode objects support the old buffer interface
             # but not the new buffer interface (change in python 2.7)
@@ -145,7 +146,7 @@ The buffer will reference a slice of the target object from the
 start of the object (or at the specified offset). The slice will
 extend to the end of the target object (or with the specified size).
 """,
-    __new__ = interp2app(W_Buffer.descr_new),
+    __new__ = interp2app(W_Buffer.descr_new_buffer),
     __len__ = interp2app(W_Buffer.descr_len),
     __getitem__ = interp2app(W_Buffer.descr_getitem),
     __setitem__ = interp2app(W_Buffer.descr_setitem),
@@ -171,6 +172,7 @@ class W_MemoryView(W_Root):
     """
 
     def __init__(self, buf):
+        assert isinstance(buf, buffer.Buffer)
         self.buf = buf
 
     def buffer_w(self, space):
@@ -185,9 +187,8 @@ class W_MemoryView(W_Root):
         return self.buf
 
     @staticmethod
-    def descr_new(space, w_subtype, w_object):
-        w_memoryview = W_MemoryView(space.buffer_w(w_object))
-        return w_memoryview
+    def descr_new_memoryview(space, w_subtype, w_object):
+        return W_MemoryView(space.buffer_w(w_object))
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -328,7 +329,7 @@ W_MemoryView.typedef = TypeDef(
     __doc__ = """\
 Create a new memoryview object which references the given object.
 """,
-    __new__ = interp2app(W_MemoryView.descr_new),
+    __new__     = interp2app(W_MemoryView.descr_new_memoryview),
     __eq__      = interp2app(W_MemoryView.descr_eq),
     __getitem__ = interp2app(W_MemoryView.descr_getitem),
     __len__     = interp2app(W_MemoryView.descr_len),

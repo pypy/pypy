@@ -169,6 +169,7 @@ if WIN32:
         cfile = udir.join('dosmaperr.c')
         cfile.write(r'''
                 #include <errno.h>
+                #include <WinError.h>
                 #include  <stdio.h>
                 #ifdef __GNUC__
                 #define _dosmaperr mingw_dosmaperr
