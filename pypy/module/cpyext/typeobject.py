@@ -509,7 +509,7 @@ def type_attach(space, py_obj, w_type):
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)
-    if space.is_w(w_type, space.gettypefor(W_Buffer)):
+    if space.is_w(w_type, space.w_buffer):
         setup_buffer_buffer_procs(space, pto)
 
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,

@@ -198,8 +198,7 @@ class W_Root(object):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self)
-            from pypy.module.__builtin__.interp_memoryview import W_Buffer
-            if isinstance(w_result, W_Buffer):
+            if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buf
         self._typed_unwrap_error(space, "buffer")
 

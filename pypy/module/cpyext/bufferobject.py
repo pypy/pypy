@@ -25,7 +25,7 @@ cpython_struct("PyBufferObject", PyBufferObjectFields, PyBufferObjectStruct)
 @bootstrap_function
 def init_bufferobject(space):
     "Type description of PyBufferObject"
-    make_typedescr(space.gettypefor(W_Buffer).instancetypedef,
+    make_typedescr(space.w_buffer.instancetypedef,
                    basestruct=PyBufferObject.TO,
                    attach=buffer_attach,
                    dealloc=buffer_dealloc,
