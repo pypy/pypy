@@ -32,7 +32,7 @@ def _buffer_setitem(space, buf, w_index, newstring):
 
 
 class W_Buffer(W_Root):
-    """Implement the built-in 'buffer' type as a thin wrapper around
+    """Implement the built-in 'buffer' type as a wrapper around
     an interp-level buffer.
     """
 
@@ -166,7 +166,7 @@ W_Buffer.typedef.acceptable_as_base_class = False
 
 
 class W_MemoryView(W_Root):
-    """Implement the built-in 'memoryview' type as a thin wrapper around
+    """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
 
