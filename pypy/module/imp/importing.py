@@ -574,6 +574,7 @@ def load_c_extension(space, filename, modulename):
 def load_module(space, w_modulename, find_info, reuse=False):
     if find_info is None:
         return
+
     if find_info.w_loader:
         return space.call_method(find_info.w_loader, "load_module", w_modulename)
 
