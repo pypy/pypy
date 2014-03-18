@@ -7,8 +7,7 @@ from rpython.rlib.objectmodel import import_from_mixin
 
 class Buffer(object):
     """Abstract base class for buffers."""
-
-    __slots__ = ()     # no extra slot here
+    __slots__ = []
 
     def getlength(self):
         raise NotImplementedError
@@ -29,14 +28,13 @@ class Buffer(object):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
-
     def is_writable(self):
         return False
 
+
 class RWBuffer(Buffer):
     """Abstract base class for read-write buffers."""
-
-    __slots__ = ()     # no extra slot here
+    __slots__ = []
 
     def is_writable(self):
         return True
@@ -51,10 +49,8 @@ class RWBuffer(Buffer):
             self.setitem(start + i, string[i])
 
 
-
-# ____________________________________________________________
-
 class StringBuffer(Buffer):
+    __slots__ = ['value']
 
     def __init__(self, value):
         self.value = value
@@ -76,42 +72,11 @@ class StringBuffer(Buffer):
             return self.value[start:stop]
         return "".join([self.value[start + i*step] for i in xrange(size)])
 
-
-class StringLikeBuffer(Buffer):
-    """For app-level objects that already have a string-like interface
-    with __len__ and a __getitem__ that returns characters or (with
-    slicing) substrings."""
-    # XXX this is inefficient, it should only be used temporarily
-
-    def __init__(self, space, w_obj):
-        self.space = space
-        self.w_obj = w_obj
-
-    def getlength(self):
-        space = self.space
-        return space.len_w(self.w_obj)
-
-    def getitem(self, index):
-        space = self.space
-        s = space.str_w(space.getitem(self.w_obj, space.wrap(index)))
-        if len(s) != 1:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("character expected, got string"))
-        char = s[0]   # annotator hint
-        return char
-
-    def getslice(self, start, stop, step, size):
-        space = self.space
-        if step != 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "buffer object does not support slicing with a step"))
-        s = space.str_w(space.getslice(self.w_obj, space.wrap(start),
-                                                   space.wrap(stop)))
-        return s
-
 # ____________________________________________________________
 
 class SubBufferMixin(object):
+    _attrs_ = ['buffer', 'offset', 'size']
+
     def __init__(self, buffer, offset, size):
         self.buffer = buffer
         self.offset = offset
@@ -135,8 +100,10 @@ class SubBufferMixin(object):
                           # out of bounds
         return self.buffer.getslice(self.offset + start, self.offset + stop, step, size)
 
+
 class SubBuffer(Buffer):
     import_from_mixin(SubBufferMixin)
+
 
 class RWSubBuffer(RWBuffer):
     import_from_mixin(SubBufferMixin)
