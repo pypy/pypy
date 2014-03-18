@@ -1,40 +1,36 @@
 import os
-import sys
 
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rstring import rsplit
 from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import rffi, lltype
+
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import GetSetProperty
+from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
+from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER,
-    build_type_checkers, PyObjectFields)
-from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, RefcountState, borrow_from)
-from pypy.interpreter.module import Module
-from pypy.module.cpyext import structmemberdefs
-from pypy.module.cpyext.modsupport import convert_method_defs
-from pypy.module.cpyext.state import State
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers)
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
-from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
+from pypy.module.cpyext.modsupport import convert_method_defs
+from pypy.module.cpyext.pyobject import (
+    PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
+    track_reference, RefcountState, borrow_from, Py_DecRef)
+from pypy.module.cpyext.slotdefs import (
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
+from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
-from pypy.module.cpyext.slotdefs import (
-    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
-from pypy.module.__builtin__.interp_memoryview import W_Buffer
-from pypy.interpreter.error import OperationError
-from rpython.rlib.rstring import rsplit
-from rpython.rlib.objectmodel import specialize
-from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
-from pypy.module.__builtin__.interp_classobj import W_ClassObject
-from rpython.rlib import jit
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
+
 
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
@@ -471,7 +467,6 @@ def type_dealloc(space, obj):
 
 
 def type_alloc(space, w_metatype):
-    size = rffi.sizeof(PyHeapTypeObject)
     metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
     # Don't increase refcount for non-heaptypes
     if metatype:
