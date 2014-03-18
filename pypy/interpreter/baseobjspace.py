@@ -195,11 +195,6 @@ class W_Root(object):
         return None
 
     def buffer_w(self, space):
-        w_impl = space.lookup(self, '__buffer__')
-        if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
-            if space.isinstance_w(w_result, space.w_buffer):
-                return w_result.buf
         self._typed_unwrap_error(space, "buffer")
 
     def str_w(self, space):
