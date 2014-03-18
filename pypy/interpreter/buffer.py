@@ -71,8 +71,8 @@ class StringBuffer(Buffer):
             assert 0 <= start <= stop
             return self.value[start:stop]
         return "".join([self.value[start + i*step] for i in xrange(size)])
-
 # ____________________________________________________________
+
 
 class SubBufferMixin(object):
     _attrs_ = ['buffer', 'offset', 'size']
@@ -98,7 +98,8 @@ class SubBufferMixin(object):
         if start == stop:
             return ''     # otherwise, adding self.offset might make them
                           # out of bounds
-        return self.buffer.getslice(self.offset + start, self.offset + stop, step, size)
+        return self.buffer.getslice(self.offset + start, self.offset + stop,
+                                    step, size)
 
 
 class SubBuffer(Buffer):
