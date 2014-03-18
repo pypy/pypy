@@ -178,17 +178,9 @@ class AppTestPosix:
         import sys
         import errno
         for fn in [self.posix.stat, self.posix.lstat]:
-            try:
-                fn("nonexistentdir/nonexistentfile")
-            except OSError, e:
-                assert e.errno == errno.ENOENT
-                assert e.filename == "nonexistentdir/nonexistentfile"
-                # On Windows, when the parent directory does not exist,
-                # the winerror is 3 (cannot find the path specified)
-                # instead of 2 (cannot find the file specified)
-                if sys.platform == 'win32':
-                    assert isinstance(e, WindowsError)
-                    assert e.winerror == 3
+            exc = raises(OSError, fn, "nonexistentdir/nonexistentfile")
+            assert exc.value.errno == errno.ENOENT
+            assert exc.value.filename == "nonexistentdir/nonexistentfile"
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):
