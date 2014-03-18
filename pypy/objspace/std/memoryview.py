@@ -37,6 +37,7 @@ class W_Buffer(W_Root):
     """
 
     def __init__(self, buf):
+        assert isinstance(buf, buffer.Buffer)
         self.buf = buf
 
     def buffer_w(self, space):
@@ -171,6 +172,7 @@ class W_MemoryView(W_Root):
     """
 
     def __init__(self, buf):
+        assert isinstance(buf, buffer.Buffer)
         self.buf = buf
 
     def buffer_w(self, space):

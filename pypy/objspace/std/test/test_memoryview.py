@@ -1,6 +1,3 @@
-"""Tests some behaviour of the buffer type that is not tested in
-lib-python/2.5.2/test/test_types.py where the stdlib buffer tests live."""
-
 class AppTestBuffer:
     spaceconfig = dict(usemodules=['array'])
 

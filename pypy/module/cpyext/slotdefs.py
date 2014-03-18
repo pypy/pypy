@@ -14,7 +14,6 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
-from pypy.module.__builtin__.interp_memoryview import W_Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.argument import Arguments
@@ -250,7 +249,7 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        return W_Buffer(CPyBuffer(ptr[0], size, w_self))
+        return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):

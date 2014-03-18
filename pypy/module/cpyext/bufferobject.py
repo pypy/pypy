@@ -1,12 +1,12 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.interpreter.buffer import StringBuffer, SubBuffer
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, cpython_struct, bootstrap_function,
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
-from pypy.interpreter.buffer import StringBuffer, SubBuffer
-from pypy.interpreter.error import OperationError
-from pypy.module.__builtin__.interp_memoryview import W_Buffer
 from pypy.module.array.interp_array import ArrayBuffer
+from pypy.objspace.std.memoryview import W_Buffer
 
 
 PyBufferObjectStruct = lltype.ForwardReference()
