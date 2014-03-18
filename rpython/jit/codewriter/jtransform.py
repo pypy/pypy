@@ -1855,7 +1855,6 @@ class Transformer(object):
         extradescr = self.cpu.fielddescrof(op.args[1].concretetype.TO,
                                            'entries')
         return self._handle_oopspec_call(op, args, EffectInfo.OS_DICT_LOOKUP,
-                                         EffectInfo.EF_CAN_RAISE,
                                          extradescr=extradescr)
 
     def _handle_rgc_call(self, op, oopspec_name, args):
