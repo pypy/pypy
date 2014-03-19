@@ -183,10 +183,10 @@ class LLtypeMixin(object):
     nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                     EffectInfo([], [], [], [], [], []))
     writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], [], [], []))
+                                  EffectInfo([], [], [], [adescr], [], []))
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], [arraydescr],
-                                             [], []))
+                                  EffectInfo([], [], [], [adescr], [arraydescr],
+                                             []))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                  EffectInfo([adescr], [], [], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -194,7 +194,7 @@ class LLtypeMixin(object):
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [arraydescr], [], [arraydescr], [], [],
+             EffectInfo([], [arraydescr], [], [], [arraydescr], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
