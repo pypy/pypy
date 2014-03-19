@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Variable
+from rpython.flowspace.model import Variable, Constant
 from rpython.translator.backendopt import graphanalyze
 
 top_set = object()
@@ -37,6 +37,12 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
             return top_set
         return result1.union(result2)
 
+    def _getinteriorname(self, op):
+        if (isinstance(op.args[1], Constant) and
+            isinstance(op.args[1].value, str)):
+            return op.args[1].value
+        return op.args[2].value
+
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname == "setfield":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
@@ -47,8 +53,8 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
                 return self._array_result(op.args[0].concretetype)
         elif op.opname == "setinteriorfield":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
-                return self._interiorfield_result(op.args[0].concretetype,
-                                                  op.args[2].value)
+                name = self._getinteriorname(op)
+                return self._interiorfield_result(op.args[0].concretetype, name)
         return empty_set
 
     def _array_result(self, TYPE):
@@ -107,7 +113,7 @@ class ReadWriteAnalyzer(WriteAnalyzer):
             return frozenset([
                 ("readarray", op.args[0].concretetype)])
         elif op.opname == "getinteriorfield":
-            return frozenset([
-                ("readinteriorfield", op.args[0].concretetype,
-                 op.args[2].value)])
+            name = self._getinteriorname(op)
+            return frozenset([("readinteriorfield", op.args[0].concretetype,
+                            name)])
         return WriteAnalyzer.analyze_simple_operation(self, op, graphinfo)

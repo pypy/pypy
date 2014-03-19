@@ -177,6 +177,8 @@ class OptHeap(Optimization):
         self.cached_arrayitems = {}
         # cached dict items: {dict descr: {(optval, index): box-or-const}}
         self.cached_dict_reads = {}
+        # cache of corresponding array descrs
+        self.corresponding_array_descrs = {}
         #
         self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
@@ -185,10 +187,12 @@ class OptHeap(Optimization):
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()
+        self.corresponding_array_descrs.clear()
         self.force_all_lazy_setfields_and_arrayitems()
 
     def flush(self):
         self.cached_dict_reads.clear()
+        self.corresponding_array_descrs.clear()
         self.force_all_lazy_setfields_and_arrayitems()
         self.emit_postponed_op()
 
@@ -301,11 +305,14 @@ class OptHeap(Optimization):
         self.emit_operation(op)
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
-        descr = op.getdescr().get_extra_info().extradescr
-        if descr in self.cached_dict_reads:
-            d = self.cached_dict_reads[descr]
+        descrs = op.getdescr().get_extra_info().extradescrs
+        descr1 = descrs[0]
+        descr2 = descrs[1]
+        if descr1 in self.cached_dict_reads:
+            d = self.cached_dict_reads[descr1]
         else:
-            d = self.cached_dict_reads[descr] = args_dict()
+            d = self.cached_dict_reads[descr1] = args_dict()
+            self.corresponding_array_descrs[descr2] = descr1
         args = self.optimizer.make_args_key(op)
         try:
             res_v = d[args]
@@ -339,6 +346,13 @@ class OptHeap(Optimization):
             self.force_lazy_setfield(fielddescr, can_cache=False)
         for arraydescr in effectinfo.write_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr, can_cache=False)
+        for descr in effectinfo.write_descrs_interiorfields:
+            if descr in self.corresponding_array_descrs:
+                dictdescr = self.corresponding_array_descrs.pop(descr)
+                try:
+                    del self.cached_dict_reads[dictdescr]
+                except KeyError:
+                    pass # someone did it already
         if effectinfo.check_forces_virtual_or_virtualizable():
             vrefinfo = self.optimizer.metainterp_sd.virtualref_info
             self.force_lazy_setfield(vrefinfo.descr_forced)

@@ -1852,10 +1852,12 @@ class Transformer(object):
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
 
     def _handle_dict_lookup_call(self, op, oopspec_name, args):
-        extradescr = self.cpu.fielddescrof(op.args[1].concretetype.TO,
-                                           'entries')
+        extradescr1 = self.cpu.fielddescrof(op.args[1].concretetype.TO,
+                                            'entries')
+        extradescr2 = self.cpu.interiorfielddescrof(
+            op.args[1].concretetype.TO.entries.TO, 'key')
         return self._handle_oopspec_call(op, args, EffectInfo.OS_DICT_LOOKUP,
-                                         extradescr=extradescr)
+                                         extradescr=[extradescr1, extradescr2])
 
     def _handle_rgc_call(self, op, oopspec_name, args):
         if oopspec_name == 'rgc.ll_shrink_array':

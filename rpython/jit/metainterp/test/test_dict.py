@@ -253,6 +253,28 @@ class DictTests:
         assert res == f(10)
         self.check_simple_loop(call=5)
 
+    def test_dict_array_write_invalidates_caches(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        indexes = ['aa', 'b', 'cc']
+
+        def f(n):
+            d = {'aa': 3, 'b': 4, 'cc': 5}
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                del d['cc']
+                s += d[index]
+                d['cc'] = 3
+                n -= 1
+            return s
+
+        exp = f(10)
+        res = self.meta_interp(f, [10])
+        assert res == exp
+        self.check_simple_loop(call=7)
+
     def test_dict_double_lookup_2(self):
         driver = JitDriver(greens = [], reds = 'auto')
         indexes = ['aa', 'b', 'cc']
