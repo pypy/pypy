@@ -37,6 +37,7 @@ def main(stmgc_dir):
         path.chmod(0444)
     #
     stmgc_dest.join('revision').write('%s\n' % rev)
+    print rev
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
