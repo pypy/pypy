@@ -40,16 +40,19 @@ def w_array(space, w_cls, typecode, __args__):
 
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
-                if space.lookup(w_initializer, '__buffer__') is not None:
-                    if isinstance(w_initializer, W_ArrayBase):
-                        a.extend(w_initializer, True)
-                    else:
-                        a.descr_frombytes(space,
-                                          space.bufferstr_w(w_initializer))
+                if isinstance(w_initializer, W_ArrayBase):
+                    a.extend(w_initializer, True)
                 elif space.type(w_initializer) is space.w_list:
                     a.descr_fromlist(space, w_initializer)
                 else:
-                    a.extend(w_initializer, True)
+                    try:
+                        buf = space.bufferstr_w(w_initializer)
+                    except OperationError as e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                        a.extend(w_initializer, True)
+                    else:
+                        a.descr_frombytes(space, buf)
             break
     else:
         msg = 'bad typecode (must be b, B, u, h, H, i, I, l, L, f or d)'
