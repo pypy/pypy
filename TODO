@@ -28,7 +28,9 @@ Optimize them manually...
 
 ------------------------------------------------------------
 
-os.fork()!
+reintroduce 'stm_ignored', disabled in 4294a7789103 for causing
+a rare bug in ll_strhash() shown by http://bpaste.net/show/190868/
+failing after a few minutes (or just running translate.py)
 
 ------------------------------------------------------------
 
