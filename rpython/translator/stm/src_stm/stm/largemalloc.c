@@ -274,8 +274,10 @@ void _stm_large_free(char *data)
         /* unlink the following chunk */
         mscan->d.next->prev = mscan->d.prev;
         mscan->d.prev->next = mscan->d.next;
-        assert((mscan->prev_size = (size_t)-258, 1));  /* 0xfffffffffffffefe */
-        assert((mscan->size = (size_t)-515, 1));       /* 0xfffffffffffffdfd */
+#ifndef NDEBUG
+        mscan->prev_size = (size_t)-258;  /* 0xfffffffffffffefe */
+        mscan->size = (size_t)-515;       /* 0xfffffffffffffdfd */
+#endif
 
         /* merge the two chunks */
         assert(fsize == fscan->prev_size);

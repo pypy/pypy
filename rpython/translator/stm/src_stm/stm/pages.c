@@ -94,7 +94,7 @@ static void d_remap_file_pages(char *addr, size_t size, ssize_t pgoff)
 
     int res = remap_file_pages(addr, size, 0, pgoff, 0);
     if (UNLIKELY(res < 0))
-        stm_fatalerror("remap_file_pages: %m\n");
+        stm_fatalerror("remap_file_pages: %m");
 }
 
 static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count)
@@ -104,6 +104,8 @@ static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count)
        segment 0. */
     uintptr_t i;
     assert(_has_mutex_pages());
+    if (count == 0)
+        return;
     for (i = 1; i <= NB_SEGMENTS; i++) {
         char *segment_base = get_segment_base(i);
         d_remap_file_pages(segment_base + pagenum * 4096UL,
@@ -141,6 +143,13 @@ static void page_privatize(uintptr_t pagenum)
     mutex_pages_unlock();
 }
 
+static void _page_do_reshare(long segnum, uintptr_t pagenum)
+{
+    char *segment_base = get_segment_base(segnum);
+    d_remap_file_pages(segment_base + pagenum * 4096UL,
+                       4096, pagenum);
+}
+
 static void page_reshare(uintptr_t pagenum)
 {
     struct page_shared_s ps = pages_privatized[pagenum - PAGE_FLAG_START];
@@ -150,7 +159,7 @@ static void page_reshare(uintptr_t pagenum)
     for (j = 0; j < NB_SEGMENTS; j++) {
         if (ps.by_segment & (1 << j)) {
             /* Page 'pagenum' is private in segment 'j + 1'. Reshare */
-            char *segment_base = stm_object_pages + NB_PAGES * 4096UL * (j+1);
+            char *segment_base = get_segment_base(j + 1);
 
             madvise(segment_base + pagenum * 4096UL, 4096, MADV_DONTNEED);
             d_remap_file_pages(segment_base + pagenum * 4096UL,

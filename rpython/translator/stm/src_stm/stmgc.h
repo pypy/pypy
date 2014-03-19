@@ -70,6 +70,7 @@ typedef struct stm_thread_local_s {
     /* the next fields are handled internally by the library */
     int associated_segment_num;
     struct stm_thread_local_s *prev, *next;
+    void *creating_pthread[2];
 } stm_thread_local_t;
 
 /* this should use llvm's coldcc calling convention,
@@ -130,8 +131,10 @@ void _stm_mutex_pages_unlock(void);
 
 /* ==================== PUBLIC API ==================== */
 
-/* Number of segments (i.e. how many threads can be executed in
-   parallel, in maximum).
+/* Number of segments (i.e. how many transactions can be executed in
+   parallel, in maximum).  If you try to start transactions in more
+   threads than the number of segments, it will block, waiting for the
+   next segment to become free.
 */
 #define STM_NB_SEGMENTS    4
 

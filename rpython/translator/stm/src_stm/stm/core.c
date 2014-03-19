@@ -158,7 +158,7 @@ static void reset_transaction_read_version(void)
              MAP_FIXED | MAP_PAGES_FLAGS, -1, 0) != readmarkers) {
         /* fall-back */
 #if STM_TESTS
-        stm_fatalerror("reset_transaction_read_version: %m\n");
+        stm_fatalerror("reset_transaction_read_version: %m");
 #endif
         memset(readmarkers, 0, NB_READMARKER_PAGES * 4096UL);
     }
@@ -273,7 +273,7 @@ static void copy_object_to_shared(object_t *obj, int source_segment_num)
     assert(_has_mutex_pages());
     assert(!_is_young(obj));
 
-    char *segment_base = get_segment(source_segment_num)->segment_base;
+    char *segment_base = get_segment_base(source_segment_num);
     uintptr_t start = (uintptr_t)obj;
     uintptr_t first_page = start / 4096UL;
     struct object_s *realobj = (struct object_s *)
@@ -519,19 +519,17 @@ void stm_abort_transaction(void)
 static void
 reset_modified_from_other_segments(int segment_num)
 {
-    /* pull the right versions from other threads in order
+    /* pull the right versions from segment 0 in order
        to reset our pages as part of an abort.
 
        Note that this function is also sometimes called from
        contention.c to clean up the state of a different thread,
        when we would really like it to be aborted now and it is
        suspended at a safe-point.
-
     */
     struct stm_priv_segment_info_s *pseg = get_priv_segment(segment_num);
-    long remote_num = !segment_num;
     char *local_base = get_segment_base(segment_num);
-    char *remote_base = get_segment_base(remote_num);
+    char *remote_base = get_segment_base(0);
 
     LIST_FOREACH_R(
         pseg->modified_old_objects,

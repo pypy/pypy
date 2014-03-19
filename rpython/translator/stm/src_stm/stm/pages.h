@@ -39,7 +39,9 @@ static struct page_shared_s pages_privatized[PAGE_FLAG_END - PAGE_FLAG_START];
 static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count);
 static void page_privatize(uintptr_t pagenum);
 static void page_reshare(uintptr_t pagenum);
+static void _page_do_reshare(long segnum, uintptr_t pagenum);
 
+/* Note: don't ever do "mutex_pages_lock(); mutex_lock()" in that order */
 static void mutex_pages_lock(void);
 static void mutex_pages_unlock(void);
 static bool _has_mutex_pages(void) __attribute__((unused));

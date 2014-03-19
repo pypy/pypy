@@ -61,7 +61,7 @@ static void grab_more_free_pages_for_small_allocations(void)
     return;
 
  out_of_memory:
-    stm_fatalerror("out of memory!\n");   /* XXX */
+    stm_fatalerror("out of memory!");   /* XXX */
 }
 
 static char *_allocate_small_slowpath(uint64_t size)
@@ -86,7 +86,7 @@ static char *allocate_outside_nursery_large(uint64_t size)
     /* Allocate the object with largemalloc.c from the lower addresses. */
     char *addr = _stm_large_malloc(size);
     if (addr == NULL)
-        stm_fatalerror("not enough memory!\n");
+        stm_fatalerror("not enough memory!");
 
     if (addr + size > uninitialized_page_start) {
         uintptr_t npages;
@@ -94,7 +94,7 @@ static char *allocate_outside_nursery_large(uint64_t size)
         npages += GCPAGE_NUM_PAGES;
         if (uninitialized_page_stop - uninitialized_page_start <
                 npages * 4096UL) {
-            stm_fatalerror("out of memory!\n");   /* XXX */
+            stm_fatalerror("out of memory!");   /* XXX */
         }
         setup_N_pages(uninitialized_page_start, npages);
         uninitialized_page_start += npages * 4096UL;

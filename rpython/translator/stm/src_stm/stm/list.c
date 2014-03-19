@@ -13,7 +13,7 @@ static struct list_s *list_create(void)
     uintptr_t initial_allocation = 32;
     struct list_s *lst = malloc(LIST_SETSIZE(initial_allocation));
     if (lst == NULL)
-        stm_fatalerror("out of memory in list_create\n");   /* XXX */
+        stm_fatalerror("out of memory in list_create");   /* XXX */
 
     lst->count = 0;
     lst->last_allocated = initial_allocation - 1;
@@ -25,7 +25,7 @@ static struct list_s *_list_grow(struct list_s *lst, uintptr_t nalloc)
     nalloc = LIST_OVERCNT(nalloc);
     lst = realloc(lst, LIST_SETSIZE(nalloc));
     if (lst == NULL)
-        stm_fatalerror("out of memory in _list_grow\n");   /* XXX */
+        stm_fatalerror("out of memory in _list_grow");   /* XXX */
 
     lst->last_allocated = nalloc - 1;
     return lst;
@@ -94,7 +94,7 @@ static void _tree_grow(struct tree_s *tree, long extra)
     //fprintf(stderr, "growth: %ld\n", newalloc);
     char *newitems = malloc(newalloc);
     if (newitems == NULL) {
-        stm_fatalerror("out of memory!\n");   /* XXX */
+        stm_fatalerror("out of memory!");   /* XXX */
     }
     newtree.raw_start = newitems;
     newtree.raw_current = newitems;

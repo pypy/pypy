@@ -33,10 +33,6 @@ static void setup_nursery(void)
     }
 }
 
-static void teardown_nursery(void)
-{
-}
-
 static inline bool _is_in_nursery(object_t *obj)
 {
     assert((uintptr_t)obj >= NURSERY_START);

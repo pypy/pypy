@@ -41,24 +41,24 @@ static union {
 static void setup_sync(void)
 {
     if (pthread_mutex_init(&sync_ctl.global_mutex, NULL) != 0)
-        stm_fatalerror("mutex initialization: %m\n");
+        stm_fatalerror("mutex initialization: %m");
 
     long i;
     for (i = 0; i < _C_TOTAL; i++) {
         if (pthread_cond_init(&sync_ctl.cond[i], NULL) != 0)
-            stm_fatalerror("cond initialization: %m\n");
+            stm_fatalerror("cond initialization: %m");
     }
 }
 
 static void teardown_sync(void)
 {
     if (pthread_mutex_destroy(&sync_ctl.global_mutex) != 0)
-        stm_fatalerror("mutex destroy: %m\n");
+        stm_fatalerror("mutex destroy: %m");
 
     long i;
     for (i = 0; i < _C_TOTAL; i++) {
         if (pthread_cond_destroy(&sync_ctl.cond[i]) != 0)
-            stm_fatalerror("cond destroy: %m\n");
+            stm_fatalerror("cond destroy: %m");
     }
 
     memset(&sync_ctl, 0, sizeof(sync_ctl));
@@ -75,14 +75,14 @@ static inline bool _has_mutex(void)
 static void set_gs_register(char *value)
 {
     if (UNLIKELY(syscall(SYS_arch_prctl, ARCH_SET_GS, (uint64_t)value) != 0))
-        stm_fatalerror("syscall(arch_prctl, ARCH_SET_GS): %m\n");
+        stm_fatalerror("syscall(arch_prctl, ARCH_SET_GS): %m");
 }
 
 static inline void s_mutex_lock(void)
 {
     assert(!_has_mutex_here);
     if (UNLIKELY(pthread_mutex_lock(&sync_ctl.global_mutex) != 0))
-        stm_fatalerror("pthread_mutex_lock: %m\n");
+        stm_fatalerror("pthread_mutex_lock: %m");
     assert((_has_mutex_here = true, 1));
 }
 
@@ -90,32 +90,32 @@ static inline void s_mutex_unlock(void)
 {
     assert(_has_mutex_here);
     if (UNLIKELY(pthread_mutex_unlock(&sync_ctl.global_mutex) != 0))
-        stm_fatalerror("pthread_mutex_unlock: %m\n");
+        stm_fatalerror("pthread_mutex_unlock: %m");
     assert((_has_mutex_here = false, 1));
 }
 
 static inline void cond_wait(enum cond_type_e ctype)
 {
 #ifdef STM_NO_COND_WAIT
-    stm_fatalerror("*** cond_wait/%d called!\n", (int)ctype);
+    stm_fatalerror("*** cond_wait/%d called!", (int)ctype);
 #endif
 
     assert(_has_mutex_here);
     if (UNLIKELY(pthread_cond_wait(&sync_ctl.cond[ctype],
                                    &sync_ctl.global_mutex) != 0))
-        stm_fatalerror("pthread_cond_wait/%d: %m\n", (int)ctype);
+        stm_fatalerror("pthread_cond_wait/%d: %m", (int)ctype);
 }
 
 static inline void cond_signal(enum cond_type_e ctype)
 {
     if (UNLIKELY(pthread_cond_signal(&sync_ctl.cond[ctype]) != 0))
-        stm_fatalerror("pthread_cond_signal/%d: %m\n", (int)ctype);
+        stm_fatalerror("pthread_cond_signal/%d: %m", (int)ctype);
 }
 
 static inline void cond_broadcast(enum cond_type_e ctype)
 {
     if (UNLIKELY(pthread_cond_broadcast(&sync_ctl.cond[ctype]) != 0))
-        stm_fatalerror("pthread_cond_broadcast/%d: %m\n", (int)ctype);
+        stm_fatalerror("pthread_cond_broadcast/%d: %m", (int)ctype);
 }
 
 /************************************************************/

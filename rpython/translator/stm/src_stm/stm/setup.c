@@ -4,6 +4,17 @@
 #endif
 
 
+static char *setup_mmap(char *reason)
+{
+    char *result = mmap(NULL, TOTAL_MEMORY,
+                        PROT_READ | PROT_WRITE,
+                        MAP_PAGES_FLAGS, -1, 0);
+    if (result == MAP_FAILED)
+        stm_fatalerror("%s failed: %m\n", reason);
+
+    return result;
+}
+
 void stm_setup(void)
 {
     /* Check that some values are acceptable */
@@ -21,13 +32,9 @@ void stm_setup(void)
            (FIRST_READMARKER_PAGE * 4096UL));
     assert(_STM_FAST_ALLOC <= NB_NURSERY_PAGES * 4096);
 
-    stm_object_pages = mmap(NULL, TOTAL_MEMORY,
-                            PROT_READ | PROT_WRITE,
-                            MAP_PAGES_FLAGS, -1, 0);
-    if (stm_object_pages == MAP_FAILED)
-        stm_fatalerror("initial stm_object_pages mmap() failed: %m\n");
+    stm_object_pages = setup_mmap("initial stm_object_pages mmap()");
 
-    /* The segment 0 is not used to run transactions, but to contain the
+    /* The segment 0 is not used to run transactions, but contains the
        shared copy of the pages.  We mprotect all pages before so that
        accesses fail, up to and including the pages corresponding to the
        nurseries of the other segments. */
@@ -84,6 +91,7 @@ void stm_setup(void)
     setup_nursery();
     setup_gcpage();
     setup_pages();
+    setup_forksupport();
 }
 
 void stm_teardown(void)
@@ -111,11 +119,10 @@ void stm_teardown(void)
     teardown_core();
     teardown_sync();
     teardown_gcpage();
-    teardown_nursery();
     teardown_pages();
 }
 
-void _init_shadow_stack(stm_thread_local_t *tl)
+static void _init_shadow_stack(stm_thread_local_t *tl)
 {
     struct stm_shadowentry_s *s = (struct stm_shadowentry_s *)
         malloc(SHADOW_STACK_SIZE * sizeof(struct stm_shadowentry_s));
@@ -124,13 +131,18 @@ void _init_shadow_stack(stm_thread_local_t *tl)
     tl->shadowstack_base = s;
 }
 
-void _done_shadow_stack(stm_thread_local_t *tl)
+static void _done_shadow_stack(stm_thread_local_t *tl)
 {
     free(tl->shadowstack_base);
     tl->shadowstack = NULL;
     tl->shadowstack_base = NULL;
 }
 
+static pthread_t *_get_cpth(stm_thread_local_t *tl)
+{
+    assert(sizeof(pthread_t) <= sizeof(tl->creating_pthread));
+    return (pthread_t *)(tl->creating_pthread);
+}
 
 void stm_register_thread_local(stm_thread_local_t *tl)
 {
@@ -154,6 +166,7 @@ void stm_register_thread_local(stm_thread_local_t *tl)
        numbers automatically. */
     num = (num % NB_SEGMENTS) + 1;
     tl->associated_segment_num = num;
+    *_get_cpth(tl) = pthread_self();
     _init_shadow_stack(tl);
     set_gs_register(get_segment_base(num));
     s_mutex_unlock();
@@ -162,6 +175,7 @@ void stm_register_thread_local(stm_thread_local_t *tl)
 void stm_unregister_thread_local(stm_thread_local_t *tl)
 {
     s_mutex_lock();
+    assert(tl->prev != NULL);
     assert(tl->next != NULL);
     _done_shadow_stack(tl);
     if (tl == stm_all_thread_locals) {
