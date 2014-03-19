@@ -194,13 +194,37 @@ class W_Root(object):
     def immutable_unique_id(self, space):
         return None
 
-    def buffer_w(self, space):
+    def buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
-                return w_result.buffer_w(space)
-        self._typed_unwrap_error(space, "buffer")
+                return w_result.buffer_w(space, flags)
+        raise oefmt(space.w_TypeError, "'%T' does not have the buffer interface", self)
+
+    def readbuf_w(self, space):
+        w_impl = space.lookup(self, '__buffer__')
+        if w_impl is not None:
+            w_result = space.get_and_call_function(w_impl, self)
+            if space.isinstance_w(w_result, space.w_buffer):
+                return w_result.readbuf_w(space)
+        self._typed_unwrap_error(space, "readable buffer")
+
+    def writebuf_w(self, space):
+        w_impl = space.lookup(self, '__buffer__')
+        if w_impl is not None:
+            w_result = space.get_and_call_function(w_impl, self)
+            if space.isinstance_w(w_result, space.w_buffer):
+                return w_result.writebuf_w(space)
+        self._typed_unwrap_error(space, "writeable buffer")
+
+    def charbuf_w(self, space):
+        w_impl = space.lookup(self, '__buffer__')
+        if w_impl is not None:
+            w_result = space.get_and_call_function(w_impl, self)
+            if space.isinstance_w(w_result, space.w_buffer):
+                return w_result.charbuf_w(space)
+        self._typed_unwrap_error(space, "character buffer")
 
     def str_w(self, space):
         self._typed_unwrap_error(space, "string")
@@ -1321,17 +1345,21 @@ class ObjSpace(object):
                                  self.wrap('cannot convert negative integer '
                                            'to unsigned int'))
 
-    def buffer_w(self, w_obj):
-        return w_obj.buffer_w(self)
+    def buffer_w(self, w_obj, flags):
+        # New buffer interface, returns a buffer based on flags
+        return w_obj.buffer_w(self, flags)
 
-    def rwbuffer_w(self, w_obj):
-        # returns a RWBuffer instance
-        from pypy.interpreter.buffer import RWBuffer
-        buffer = self.buffer_w(w_obj)
-        if not isinstance(buffer, RWBuffer):
-            raise OperationError(self.w_TypeError,
-                                 self.wrap('read-write buffer expected'))
-        return buffer
+    def readbuf_w(self, w_obj):
+        # Old buffer interface, returns a readonly buffer
+        return w_obj.readbuf_w(self)
+
+    def writebuf_w(self, w_obj):
+        # Old buffer interface, returns a writeable buffer
+        return w_obj.writebuf_w(self)
+
+    def charbuf_w(self, w_obj):
+        # Old buffer interface, returns a character buffer
+        return w_obj.charbuf_w(self)
 
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
@@ -1347,8 +1375,7 @@ class ObjSpace(object):
         except OperationError, e:
             if not e.match(self, self.w_TypeError):
                 raise
-            buffer = self.buffer_w(w_obj)
-            return buffer.as_str()
+        return self.readbuf_w(w_obj).as_str()
 
     def str_or_None_w(self, w_obj):
         if self.is_w(w_obj, self.w_None):
