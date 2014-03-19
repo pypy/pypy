@@ -53,7 +53,7 @@ class W_BytearrayObject(W_Root):
         return space.bufferstr_w(self)
 
     def _op_val(self, space, w_other):
-        return space.bufferstr_new_w(w_other)
+        return space.buffer_w(w_other).as_str()
 
     def _chr(self, char):
         assert len(char) == 1
@@ -432,12 +432,12 @@ def new_bytearray(space, w_bytearraytype, data):
 def makebytearraydata_w(space, w_source):
     # String-like argument
     try:
-        string = space.bufferstr_new_w(w_source)
+        buf = space.buffer_w(w_source)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return [c for c in string]
+        return [c for c in buf.as_str()]
 
     # sequence of bytes
     w_iter = space.iter(w_source)
@@ -1055,7 +1055,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
 
         if data and i != 0:
             newdata.extend(data)
-        newdata.extend([c for c in space.bufferstr_new_w(w_s)])
+        newdata.extend([c for c in space.buffer_w(w_s).as_str()])
     return W_BytearrayObject(newdata)
 
 _space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])

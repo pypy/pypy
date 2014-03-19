@@ -1333,13 +1333,6 @@ class ObjSpace(object):
                                  self.wrap('read-write buffer expected'))
         return buffer
 
-    def bufferstr_new_w(self, w_obj):
-        # Implement the "new buffer interface" (new in Python 2.7)
-        # returning an unwrapped string. It doesn't accept unicode
-        # strings
-        buffer = self.buffer_w(w_obj)
-        return buffer.as_str()
-
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
