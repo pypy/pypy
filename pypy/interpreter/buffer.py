@@ -1,7 +1,6 @@
 """
 Buffer protocol support.
 """
-from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import import_from_mixin
 
 

@@ -1,4 +1,3 @@
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app

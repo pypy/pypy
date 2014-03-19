@@ -1,7 +1,6 @@
-
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-import sys
+
 
 class Module(MixedModule):
     appleveldefs = {

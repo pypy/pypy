@@ -1,13 +1,10 @@
 import sys
-import math
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
-from rpython.rtyper.annlowlevel import llstr, hlunicode
 
 OVF_DIGITS = len(str(sys.maxint))
 
@@ -30,7 +27,7 @@ def strslice2unicode_latin1(s, start, end):
 
     Internally it's implemented at the level of low-level helpers, to avoid
     the extra copy we would need if we take the actual slice first.
-    
+
     No bound checking is done, use carefully.
     """
     from rpython.rtyper.annlowlevel import llstr, hlunicode
@@ -226,7 +223,6 @@ class JSONDecoder(object):
     def decode_array(self, i):
         w_list = self.space.newlist([])
         start = i
-        count = 0
         i = self.skip_whitespace(start)
         if self.ll_chars[i] == ']':
             self.pos = i+1
