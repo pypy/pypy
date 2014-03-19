@@ -48,7 +48,7 @@ void pypy_stm_set_transaction_length(long percentage)
 void pypy_stm_setup(void)
 {
     stm_setup();
-    stm_register_thread_local(&stm_thread_local);
+    pypy_stm_register_thread_local();
     pypy_stm_ready_atomic = 1;
     pypy_stm_set_transaction_length(100);
     pypy_stm_start_inevitable_if_not_atomic();
@@ -59,7 +59,7 @@ long pypy_stm_enter_callback_call(void)
     if (pypy_stm_ready_atomic == 0) {
         /* first time we see this thread */
         int e = errno;
-        stm_register_thread_local(&stm_thread_local);
+        pypy_stm_register_thread_local();
         errno = e;
         pypy_stm_ready_atomic = 1;
         pypy_stm_start_inevitable_if_not_atomic();

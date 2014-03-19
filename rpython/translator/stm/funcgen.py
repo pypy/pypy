@@ -44,10 +44,7 @@ class StmHeader_OpaqueNode(ContainerNode):
 
 
 def stm_register_thread_local(funcgen, op):
-    return (
-      'stm_register_thread_local(&stm_thread_local);\n\t'
-      'stm_thread_local.mem_clear_on_abort = &pypy_g_ExcData;\n\t'
-      'stm_thread_local.mem_bytes_to_clear_on_abort = sizeof(pypy_g_ExcData);')
+    return 'pypy_stm_register_thread_local();'
 
 def stm_unregister_thread_local(funcgen, op):
     return 'stm_unregister_thread_local(&stm_thread_local);'
