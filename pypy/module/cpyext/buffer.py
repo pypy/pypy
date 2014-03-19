@@ -37,5 +37,4 @@ class CBufferMixin(object):
         
 class CBuffer(CBufferMixin, buffer.Buffer):
     def __del__(self):
-        self.enqueue_for_destruction(self.space, CBufferMixin.destructor,
-                                     'internal __del__ of ')
+        CBufferMixin.destructor(self)
