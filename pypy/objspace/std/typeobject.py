@@ -2,12 +2,12 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
+from pypy.interpreter.typedef import weakref_descr, GetSetProperty, Member, \
      descr_get_dict
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
+from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,

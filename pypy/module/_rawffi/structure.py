@@ -15,7 +15,7 @@ from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi, rgc
-from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint, \
+from rpython.rlib.rarithmetic import intmask, signedtype, r_uint, \
     r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
 

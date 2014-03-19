@@ -4,12 +4,12 @@ python builtin open()
 """
 
 import os
+from rpython.rlib import rposix
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib import rposix
-from rpython.rlib.rstring import StringBuilder
 
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":

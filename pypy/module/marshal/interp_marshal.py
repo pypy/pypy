@@ -6,7 +6,7 @@ from rpython.rlib import rstackovf
 
 Py_MARSHAL_VERSION = 2
 
-@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
     # XXX: before py3k, we special-cased W_File to use a more performant
@@ -22,7 +22,7 @@ def dump(space, w_data, w_f, w_version):
     finally:
         writer.finished()
 
-@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dumps(space, w_data, w_version):
     """Return the string that would have been written to a file
 by dump(data, file)."""
@@ -221,10 +221,15 @@ class Marshaller(_Base):
 
     def dump_w_obj(self, w_obj):
         space = self.space
-        if (space.type(w_obj).is_heaptype() and
-            space.lookup(w_obj, "__buffer__") is None):
-            w_err = space.wrap("only builtins can be marshaled")
-            raise OperationError(space.w_ValueError, w_err)
+        if space.type(w_obj).is_heaptype():
+            try:
+                buf = space.buffer_w(w_obj)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                self.raise_exc("unmarshallable object")
+            else:
+                w_obj = space.newbuffer(buf)
         try:
             self.put_w_obj(w_obj)
         except rstackovf.StackOverflow:

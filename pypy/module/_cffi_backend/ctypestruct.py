@@ -80,7 +80,6 @@ class W_CTypeStructOrUnion(W_CType):
         return (cfield.ctype, cfield.offset)
 
     def _copy_from_same(self, cdata, w_ob):
-        space = self.space
         if isinstance(w_ob, cdataobj.W_CData):
             if w_ob.ctype is self and self.size >= 0:
                 misc._raw_memcopy(w_ob._cdata, cdata, self.size)
