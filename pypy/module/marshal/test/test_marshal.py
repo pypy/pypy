@@ -173,7 +173,7 @@ class AppTestMarshal:
         import marshal
         types = (float, complex, int, tuple, list, dict, set, frozenset)
         for cls in types:
-            print cls
+            print(cls)
             class subtype(cls):
                 pass
             exc = raises(ValueError, marshal.dumps, subtype)
