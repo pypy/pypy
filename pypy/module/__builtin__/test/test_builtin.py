@@ -26,15 +26,11 @@ class AppTestBuiltinApp:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
 
     def test_builtin_names(self):
-        import __builtin__
-        assert __builtin__.None is None
-        assert __builtin__.False is False
-        assert __builtin__.True is True
-
-        assert __builtin__.buffer is buffer
-        assert __builtin__.bytes is str
+        import builtins as __builtin__
+        assert __builtin__.bytes is bytes
         assert __builtin__.dict is dict
         assert __builtin__.memoryview is memoryview
+        assert not hasattr(__builtin__, 'buffer')
 
     def test_bytes_alias(self):
         assert bytes is not str
