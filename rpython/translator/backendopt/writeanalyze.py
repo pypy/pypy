@@ -45,10 +45,17 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         elif op.opname == "setarrayitem":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return self._array_result(op.args[0].concretetype)
+        elif op.opname == "setinteriorfield":
+            if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
+                return self._interiorfield_result(op.args[0].concretetype,
+                                                  op.args[2].value)
         return empty_set
 
     def _array_result(self, TYPE):
         return frozenset([("array", TYPE)])
+
+    def _interiorfield_result(self, TYPE, fieldname):
+        return frozenset([("interiorfield", TYPE, fieldname)])
 
     def compute_graph_info(self, graph):
         return FreshMallocs(graph)
@@ -99,4 +106,8 @@ class ReadWriteAnalyzer(WriteAnalyzer):
         elif op.opname == "getarrayitem":
             return frozenset([
                 ("readarray", op.args[0].concretetype)])
+        elif op.opname == "getinteriorfield":
+            return frozenset([
+                ("readinteriorfield", op.args[0].concretetype,
+                 op.args[2].value)])
         return WriteAnalyzer.analyze_simple_operation(self, op, graphinfo)
