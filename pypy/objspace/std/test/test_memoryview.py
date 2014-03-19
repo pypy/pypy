@@ -234,3 +234,7 @@ class AppTestMemoryView:
         assert memoryview("abc") == "abc"
         assert memoryview("abc") == bytearray("abc")
         assert memoryview("abc") != 3
+        assert not memoryview("abc") == u"abc"
+        assert memoryview("abc") != u"abc"
+        assert not u"abc" == memoryview("abc")
+        assert u"abc" != memoryview("abc")
