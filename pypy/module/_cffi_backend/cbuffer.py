@@ -4,7 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
-from pypy.objspace.std.memoryview import W_Buffer
+from pypy.objspace.std.memoryview import W_MemoryView
 
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
@@ -42,9 +42,9 @@ class LLBuffer(RWBuffer):
 
 # Override the typedef to narrow down the interface that's exposed to app-level
 
-class MiniBuffer(W_Buffer):
+class MiniBuffer(W_MemoryView):
     def __init__(self, buffer, keepalive=None):
-        W_Buffer.__init__(self, buffer)
+        W_MemoryView.__init__(self, buffer)
         self.keepalive = keepalive
 
 MiniBuffer.typedef = TypeDef(
