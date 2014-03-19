@@ -14,6 +14,11 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":
     includes += ['unistd.h']
+    ftruncate = 'ftruncate'
+    fileno = 'fileno'
+else:
+    ftruncate = '_chsize'
+    fileno = '_fileno'
 eci = ExternalCompilationInfo(includes=includes)
 
 def llexternal(*args, **kwargs):
@@ -41,10 +46,10 @@ c_clearerror = llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
 c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
                      rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
-c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
+c_fileno = llexternal(fileno, [lltype.Ptr(FILE)], rffi.INT)
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
-c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT, macro=True)
+c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
                      rffi.CCHARP)
