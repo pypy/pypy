@@ -866,7 +866,6 @@ class InstallerVersion2(object):
         entryarray = CompressedArray(null_entry)
         indexarray = self.mrdtable.indexarray
         lst = self.mrdtable.list_of_types
-        indexline = []
 
         def compress(typesprefix, typesnum):
             if len(typesprefix) == self.multimethod.arity:

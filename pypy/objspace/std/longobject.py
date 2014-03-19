@@ -9,7 +9,6 @@ from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)

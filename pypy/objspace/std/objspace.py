@@ -306,7 +306,6 @@ class StdObjSpace(ObjSpace):
                 strdict=strdict, kwargs=kwargs)
 
     def newset(self):
-        from pypy.objspace.std.setobject import newset
         return W_SetObject(self, None)
 
     def newslice(self, w_start, w_end, w_step):

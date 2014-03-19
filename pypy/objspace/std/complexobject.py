@@ -1,4 +1,5 @@
-from pypy.interpreter import gateway
+import math
+
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
 from pypy.objspace.std.intobject import W_IntObject
@@ -11,8 +12,6 @@ from rpython.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask, r_ulonglong
-
-import math
 
 
 class W_AbstractComplexObject(W_Object):
