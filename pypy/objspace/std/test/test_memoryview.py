@@ -2,10 +2,14 @@ class AppTestBuffer:
     spaceconfig = dict(usemodules=['array'])
 
     def test_init(self):
+        import sys
         class A(object):
             def __buffer__(self):
                 return buffer('123')
-        raises(TypeError, buffer, A())
+        if '__pypy__' not in sys.builtin_module_names:
+            raises(TypeError, buffer, A())
+        else:
+            assert buffer(A()) == buffer('123')
 
     def test_unicode_buffer(self):
         import sys
