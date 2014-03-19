@@ -53,13 +53,13 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             "unbalanced stm_ignore_start/stm_ignore_stop in block")
 
     def gct_stm_ignored_start(self, hop):
-        assert not self.in_stm_ignored
-        self.in_stm_ignored = True
+        #assert not self.in_stm_ignored
+        #self.in_stm_ignored = True
         self.default(hop)
 
     def gct_stm_ignored_stop(self, hop):
-        assert self.in_stm_ignored
-        self.in_stm_ignored = False
+        #assert self.in_stm_ignored
+        #self.in_stm_ignored = False
         self.default(hop)
 
     def var_needs_set_transform(self, var):
