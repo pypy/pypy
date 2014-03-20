@@ -416,6 +416,6 @@ from __future__ import generators""")
         import copy
         str_node = ast.Str(n=2,lineno=2)
         assert str_node.n == 2
-        assert str_node2.n == 2
+        assert str_node.lineno == 2
         str_node2 = copy.deepcopy(str_node)
 
