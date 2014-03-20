@@ -583,6 +583,10 @@ class ResOpAssembler(BaseAssembler):
     emit_op_getfield_raw_pure = emit_op_getfield_gc
     emit_op_getfield_gc_pure = emit_op_getfield_gc
 
+    def emit_op_increment_debug_counter(self, op, arglocs, regalloc, fcond):
+        # XXX implement me
+        return fcond
+
     def emit_op_getinteriorfield_gc(self, op, arglocs, regalloc, fcond):
         (base_loc, index_loc, res_loc,
             ofs_loc, ofs, itemsize, fieldsize) = arglocs

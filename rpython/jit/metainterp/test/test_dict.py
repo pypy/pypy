@@ -193,6 +193,107 @@ class DictTests:
         self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
                                 'jump': 1})
 
+    def test_dict_two_lookups(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        d = {'a': 3, 'b': 4}
+        indexes = ['a', 'b']
+
+        def f(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                s += d[indexes[n & 1]]
+                s += d[indexes[n & 1]]
+                n -= 1
+            return s
+
+        self.meta_interp(f, [10])
+        # XXX should be one getinteriorfield_gc
+        self.check_simple_loop(call=1, getinteriorfield_gc=2,
+                               guard_no_exception=1)
+
+    def test_ordered_dict_two_lookups(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        d = OrderedDict()
+        d['a'] = 3
+        d['b'] = 4
+        indexes = ['a', 'b']
+
+        def f(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                s += d[indexes[n & 1]]
+                s += d[indexes[n & 1]]
+                n -= 1
+            return s
+
+        self.meta_interp(f, [10])
+        # XXX should be one getinteriorfield_gc
+        self.check_simple_loop(call=1, getinteriorfield_gc=2,
+                               guard_no_exception=1)
+
+    def test_dict_insert_invalidates_caches(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        indexes = ['aa', 'b', 'cc']
+
+        def f(n):
+            d = {'aa': 3, 'b': 4, 'cc': 5}
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                d['aa'] += 1 # this will invalidate the index
+                s += d[index]
+                n -= 1
+            return s
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_simple_loop(call=5)
+
+    def test_dict_array_write_invalidates_caches(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        indexes = ['aa', 'b', 'cc']
+
+        def f(n):
+            d = {'aa': 3, 'b': 4, 'cc': 5}
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                del d['cc']
+                s += d[index]
+                d['cc'] = 3
+                n -= 1
+            return s
+
+        exp = f(10)
+        res = self.meta_interp(f, [10])
+        assert res == exp
+        self.check_simple_loop(call=7)
+
+    def test_dict_double_lookup_2(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        indexes = ['aa', 'b', 'cc']
+
+        def f(n):
+            d = {'aa': 3, 'b': 4, 'cc': 5}
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                d[index] += 1
+                n -= 1
+            return s
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_simple_loop(call=3)
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

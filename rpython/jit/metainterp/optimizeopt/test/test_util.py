@@ -181,28 +181,29 @@ class LLtypeMixin(object):
     plaincalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                      EffectInfo.MOST_GENERAL)
     nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                    EffectInfo([], [], [], []))
+                                    EffectInfo([], [], [], [], [], []))
     writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], []))
+                                  EffectInfo([], [], [], [adescr], [], []))
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], [arraydescr]))
+                                  EffectInfo([], [], [], [adescr], [arraydescr],
+                                             []))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                 EffectInfo([adescr], [], [], []))
+                                 EffectInfo([adescr], [], [], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([nextdescr], [], [], [],
+                 EffectInfo([nextdescr], [], [], [], [], [],
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [arraydescr], [], [arraydescr],
+             EffectInfo([], [arraydescr], [], [], [arraydescr], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
     raw_malloc_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [], [], [],
+             EffectInfo([], [], [], [], [], [],
                         EffectInfo.EF_CAN_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR))
     raw_free_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [], [], [],
+             EffectInfo([], [], [], [], [], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_FREE))
 
@@ -251,17 +252,18 @@ class LLtypeMixin(object):
         _oopspecindex = getattr(EffectInfo, _os)
         locals()[_name] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                            oopspecindex=_oopspecindex))
         #
         _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
         locals()[_name.replace('str', 'unicode')] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                            oopspecindex=_oopspecindex))
 
     s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-            EffectInfo([], [], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))
+            EffectInfo([], [], [], [], [], [],
+                       oopspecindex=EffectInfo.OS_STR2UNICODE))
     #
 
     class LoopToken(AbstractDescr):
@@ -277,7 +279,7 @@ class LLtypeMixin(object):
     virtualtokendescr = vrefinfo.descr_virtual_token
     virtualforceddescr = vrefinfo.descr_forced
     FUNC = lltype.FuncType([], lltype.Void)
-    ei = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                     can_invalidate=False,
                     oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
     clear_vable = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
