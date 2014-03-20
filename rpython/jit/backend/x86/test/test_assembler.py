@@ -83,3 +83,9 @@ class TestRegallocPushPop(object):
             asm.mc.CVTTSD2SI(eax, xmm0)
         res = self.do_test(callback)
         assert res == -42
+
+    def test_xmm_pushes_8_bytes(self):
+        def callback(asm):
+            asm.regalloc_push(xmm5)
+            asm.mc.ADD(esp, imm(8))
+        self.do_test(callback)
