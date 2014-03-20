@@ -10,7 +10,10 @@ UINT32MAX = 2 ** 32 - 1
 # keep in sync with the C code in pypy__decay_jit_counters
 ENTRY = lltype.Struct('timetable_entry',
                       ('times', lltype.FixedSizeArray(rffi.FLOAT, 5)),
-                      ('subhashes', lltype.FixedSizeArray(rffi.USHORT, 5)))
+                      ('subhashes', lltype.FixedSizeArray(rffi.USHORT, 5)),
+                      hints={'stm_dont_track_raw_accesses': True})
+ENTRY_ARRAY = lltype.Array(ENTRY, hints={'nolength': True,
+                                         'stm_dont_track_raw_accesses': True})
 
 
 class JitCounter:
@@ -29,7 +32,7 @@ class JitCounter:
         # and we're getting a 32-bytes-long entry; then this entry
         # contains 5 possible ways, each occupying 6 bytes: 4 bytes
         # for a float, and the 2 lowest bytes from the original hash.
-        self.timetable = lltype.malloc(rffi.CArray(ENTRY), self.size,
+        self.timetable = lltype.malloc(ENTRY_ARRAY, self.size,
                                        flavor='raw', zero=True,
                                        track_allocation=False)
         self._nexthash = r_uint(0)
@@ -205,7 +208,8 @@ static void pypy__decay_jit_counters(char *data, double f1, long size) {
 
 pypy__decay_jit_counters = rffi.llexternal(
     "pypy__decay_jit_counters", [rffi.CCHARP, lltype.Float, lltype.Signed],
-    lltype.Void, compilation_info=eci, _nowrapper=True, sandboxsafe=True)
+    lltype.Void, compilation_info=eci, _nowrapper=True, sandboxsafe=True,
+    transactionsafe=True)
 
 
 # ____________________________________________________________

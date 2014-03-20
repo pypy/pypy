@@ -35,7 +35,7 @@ assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
 def build_opt_chain(metainterp_sd, enable_opts):
     optimizations = []
     unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
-    if config.translation.stm:
+    if metainterp_sd.config.translation.stm:
         optimizations.append(OptSTM())
         
     for name, opt in unroll_all_opts:

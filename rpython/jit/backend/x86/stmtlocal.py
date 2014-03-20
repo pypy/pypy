@@ -11,7 +11,7 @@ else:
 eci = ExternalCompilationInfo(post_include_bits=['''
 static long pypy__threadlocal_base(void)
 {
-    /* XXX ONLY LINUX WITH GCC FOR NOW XXX */
+    /* XXX ONLY LINUX WITH GCC/CLANG FOR NOW XXX */
     long result;
     asm("%s" : "=r"(result));
     return result;
@@ -23,8 +23,7 @@ threadlocal_base = rffi.llexternal(
     'pypy__threadlocal_base',
     [], lltype.Signed,
     compilation_info=eci,
-    threadsafe=False,
-    transactionsafe=True)
+    _nowrapper=True)
 
 
 def tl_segment_prefix(mc):
@@ -47,9 +46,3 @@ stm_invalidate_jmp_buf_fn = rffi.llexternal(
     'stm_invalidate_jmp_buf',
     [llmemory.Address], lltype.Void,
     sandboxsafe=True, _nowrapper=True, transactionsafe=True)
-stm_pointer_equal_fn = rffi.llexternal(
-    'stm_pointer_equal',
-    [llmemory.Address, llmemory.Address], lltype.Bool,
-    sandboxsafe=True, _nowrapper=True, transactionsafe=True)
-
-

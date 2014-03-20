@@ -502,9 +502,6 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
-    rd_stm_busy = False       # same as CNT_BUSY_FLAG, in a different field,
-                              # only for stm
-
     status = r_uint(0)
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
@@ -573,30 +570,6 @@ class ResumeGuardDescr(ResumeDescr):
     _trace_and_compile_from_bridge._dont_inline_ = True
 
     def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
-        if rgc.stm_is_enabled():
-            method = self.must_compile_stm
-        else:
-            method = self.must_compile_nonstm
-        return method(deadframe, metainterp_sd, jitdriver_sd)
-
-    def must_compile_stm(self, deadframe, metainterp_sd, jitdriver_sd):
-        XXX   # fix me
-        trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
-        with stm_ignored:
-            approx_counter = self._counter + 1
-            self._counter = approx_counter
-
-        # The call to guard_already_patched is necessary because it is 
-        # possible that the current transaction didn't see the 
-        # patched JMP yet, but already sees rd_stm_busy as False (because
-        # the patching is in raw-memory).
-        # Thus it may try to compile a trace too and also patch the assembler.
-        # However, this would trigger the assertion in 
-        #     x86.assembler.patch_jump_for_descr.
-        return (approx_counter >= trace_eagerness and not self.rd_stm_busy
-                and not metainterp_sd.cpu.guard_already_patched(self))
-
-    def must_compile_nonstm(self, deadframe, metainterp_sd, jitdriver_sd):
         jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
         #
         if self.status & (self.ST_BUSY_FLAG | self.ST_TYPE_MASK) == 0:
@@ -638,23 +611,27 @@ class ResumeGuardDescr(ResumeDescr):
                           intval * 1442968193)
         #
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
-        return jitcounter.tick(hash, increment)
+        result = jitcounter.tick(hash, increment)
+        if rgc.stm_is_enabled():
+            # The call to guard_already_patched is necessary because it is 
+            # possible that the current transaction didn't see the 
+            # patched JMP yet, but already sees the ST_BUSY_FLAG as 0 (because
+            # the patching is in raw-memory).
+            # Thus it may try to compile a trace too and also patch the assembler.
+            # However, this would trigger the assertion in 
+            #     x86.assembler.patch_jump_for_descr.
+            result = result and not metainterp_sd.cpu.guard_already_patched(self)
+        return result
 
     def start_compiling(self):
         # start tracing and compiling from this guard.
-        if rgc.stm_is_enabled():
-            self.rd_stm_busy = True
-        else:
-            self.status |= self.ST_BUSY_FLAG
+        self.status |= self.ST_BUSY_FLAG
 
     def done_compiling(self):
         # done tracing and compiling from this guard.  Note that if the
         # bridge has not been successfully compiled, the jitcounter for
         # it was reset to 0 already by jitcounter.tick() and not
         # incremented at all as long as ST_BUSY_FLAG was set.
-        if rgc.stm_is_enabled():
-            XXX # review
-            self.rd_stm_busy = False
         self.status &= ~self.ST_BUSY_FLAG
 
     def compile_and_attach(self, metainterp, new_loop):

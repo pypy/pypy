@@ -4,7 +4,6 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.warmstate import wrap, unwrap, specialize_value
 from rpython.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from rpython.jit.metainterp.warmstate import WarmEnterState
-from rpython.jit.metainterp.warmstate import MODE_HAVE_PROC, MODE_TRACING
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.metainterp.counter import DeterministicJitCounter

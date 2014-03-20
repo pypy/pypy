@@ -1,7 +1,3 @@
-XXX
-this file here is from default.  It's missing some changes related to stm
-that were conflicting (see the stmgc-c4 branch).  We need to review carefully...
-XXX
 import sys
 import weakref
 
