@@ -465,13 +465,8 @@ class ObjSpace(object):
             if isinstance(w_mod, Module):
                 if not reuse and w_mod.startup_called:
                     # Create a copy of the module
-                    w_mod.getdict(self)  # unlazy w_initialdict
-                    w_new = self.wrap(Module(self, w_name))
-                    self.call_method(w_new.getdict(self), 'update',
-                                     w_mod.w_initialdict)
-                    w_mod = w_new
-                else:
-                    w_mod.init(self)
+                    w_mod = self.wrap(w_mod.__class__(self, w_name))
+                w_mod.init(self)
 
             # Add the module to sys.modules
             self.setitem(w_modules, w_name, w_mod)
