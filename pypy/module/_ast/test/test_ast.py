@@ -390,27 +390,32 @@ from __future__ import generators""")
         
     def test_dict_astNode(self):
         import ast
-        num_node = ast.Num(n=2,lineno=2,col_offset=3)
+        num_node = ast.Num(n=2, lineno=2, col_offset=3)
         dict_res = num_node.__dict__
-        assert dict_res['n'] == 2
-        assert dict_res['lineno'] == 2
-        assert dict_res['col_offset'] == 3
-        
+        assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
+
     def test_issue1673_Num_notfullinit(self):
         import ast
         import copy
         num_node = ast.Num(n=2,lineno=2)
+        assert num_node.n == 2
+        assert num_node.lineno == 2
         num_node2 = copy.deepcopy(num_node)
-        
+
     def test_issue1673_Num_fullinit(self):
         import ast
         import copy 
         num_node = ast.Num(n=2,lineno=2,col_offset=3)
         num_node2 = copy.deepcopy(num_node)
+        assert num_node.n == num_node2.n
+        assert num_node.lineno == num_node2.lineno
+        assert num_node.col_offset == num_node2.col_offset
             
     def test_issue1673_Str(self):
         import ast
         import copy
         str_node = ast.Str(n=2,lineno=2)
+        assert str_node.n == 2
+        assert str_node2.n == 2
         str_node2 = copy.deepcopy(str_node)
 
