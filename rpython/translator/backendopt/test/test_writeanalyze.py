@@ -362,7 +362,7 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
             a = lltype.malloc(A, 1)
             a[0].y = 3
             return f(a, x)
-        
+
         def f(a, x):
             a[0].x = x
             return a[0].y
