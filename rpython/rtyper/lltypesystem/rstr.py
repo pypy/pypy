@@ -377,14 +377,18 @@ class LLHelpers(AbstractLLHelpers):
         # special non-computed-yet value.
         if not s:
             return 0
-        with stm_ignored:
-            x = s.hash
+        #with stm_ignored:
+        x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
             if x == 0:
                 x = 29872897
-            with stm_ignored:
-                s.hash = x
+            # XXX STM note: we would like this write to be stm-ignored,
+            # but we can't, because ll_strfasthash() might later miss
+            # the written value and return 0 again (rarely).  Think
+            # again later about the best option.
+            #with stm_ignored:
+            s.hash = x
         return x
 
     def ll_length(s):
