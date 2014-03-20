@@ -71,7 +71,9 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         v_struct = hop.spaceop.args[0]
         assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
                           'raw_store')
-        if not var_needsgc(v_struct):
+        if hop.spaceop.args[-1].concretetype == lltype.Void:
+            pass   # ignore setfields of a Void type
+        elif not var_needsgc(v_struct):
             if (var_needsgc(hop.spaceop.args[-1]) and
                 'is_excdata' not in hop.spaceop.args[0].concretetype.TO._hints):
                 raise Exception("%s: GC pointer written into a non-GC location"
