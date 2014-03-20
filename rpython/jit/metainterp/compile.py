@@ -1,7 +1,7 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib.objectmodel import we_are_translated, stm_ignored
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack, rgc
@@ -394,8 +394,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = do_compile_bridge(metainterp_sd, faildescr,
-                                    inputargs, operations,
+        asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
+                                    operations,
                                     original_loop_token)
     finally:
         debug_stop("jit-backend")
@@ -526,8 +526,6 @@ class ResumeGuardDescr(ResumeDescr):
             self.status = hash & self.ST_SHIFT_MASK
 
     def make_a_counter_per_value(self, guard_value_op):
-        if rgc.stm_is_enabled():
-            return    # XXX don't use the special counters in stm mode for now
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
         box = guard_value_op.getarg(0)
         try:

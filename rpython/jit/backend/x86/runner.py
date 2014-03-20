@@ -94,16 +94,15 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def compile_loop(self, inputargs, operations, looptoken, log=True,
                      name='', logger=None):
-        return self.assembler.assemble_loop(logger, name, inputargs, operations,
-                                            looptoken, log=log)
+        return self.assembler.assemble_loop(inputargs, operations, looptoken, log,
+                                            name, logger)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        return self.assembler.assemble_bridge(logger, faildescr, inputargs,
-                                              operations,
-                                              original_loop_token, log=log)
+        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                              original_loop_token, log, logger)
 
     def guard_already_patched(self, faildescr):
         # only needed for STM so far

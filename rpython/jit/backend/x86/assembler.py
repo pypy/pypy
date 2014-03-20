@@ -685,8 +685,8 @@ class Assembler386(BaseAssembler):
 
 
     @rgc.no_release_gil
-    def assemble_loop(self, loopname, inputargs, operations, looptoken, log,
-                      logger=None):
+    def assemble_loop(self, inputargs, operations, looptoken, log,
+                      loopname, logger):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -767,7 +767,7 @@ class Assembler386(BaseAssembler):
 
     @rgc.no_release_gil
     def assemble_bridge(self, faildescr, inputargs, operations,
-                        original_loop_token, log, logger=None):
+                        original_loop_token, log, logger):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)

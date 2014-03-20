@@ -18,7 +18,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_n
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 
 
 # ____________________________________________________________
@@ -201,6 +201,7 @@ class MIFrame(object):
     
     @arguments("int")
     def opimpl_stm_should_break_transaction(self, if_there_is_no_other):
+        from rpython.rtyper.lltypesystem import llmemory
         val = bool(if_there_is_no_other)
         mi = self.metainterp
         if val:
@@ -2749,6 +2750,7 @@ class MetaInterp(object):
         # if the codewriter didn't produce any OS_LIBFFI_CALL at all.
         assert self.staticdata.has_libffi_call
         #
+        from rpython.rtyper.lltypesystem import llmemory
         from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
         from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
         #

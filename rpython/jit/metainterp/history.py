@@ -9,7 +9,6 @@ from rpython.conftest import option
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib.objectmodel import compute_identity_hash
-from rpython.rlib import rgc
 import weakref
 
 # ____________________________________________________________
@@ -298,24 +297,17 @@ CONST_FZERO = ConstFloat(longlong.ZEROF)
 class ConstPtr(Const):
     type = REF
     value = lltype.nullptr(llmemory.GCREF.TO)
-    imm_value = 0
-    _attrs_ = ('value', 'imm_value',)
+    _attrs_ = ('value',)
 
     def __init__(self, value):
         assert lltype.typeOf(value) == llmemory.GCREF
         self.value = value
-        self.imm_value = 0
 
     def clonebox(self):
         return BoxPtr(self.value)
 
     nonconstbox = clonebox
 
-    def get_imm_value(self):
-        # imm_value set if needed:
-        assert (not self.value) or self.imm_value
-        return self.imm_value
-    
     def getref_base(self):
         return self.value
 

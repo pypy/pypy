@@ -11,7 +11,7 @@ from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
-    IS_X86_64, FRAME_FIXED_SIZE)
+    IS_X86_64)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
@@ -26,7 +26,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
-from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -45,11 +45,9 @@ class X86RegisterManager(RegisterManager):
         if isinstance(c, ConstInt):
             return imm(c.value)
         elif isinstance(c, ConstPtr):
-            # if we_are_translated() and c.value and rgc.can_move(c.value):
-            #     not_implemented("convert_to_imm: ConstPtr needs special care")
-            if c.value and not c.imm_value:
+            if we_are_translated() and c.value and rgc.can_move(c.value):
                 not_implemented("convert_to_imm: ConstPtr needs special care")
-            return imm(c.get_imm_value())
+            return imm(rffi.cast(lltype.Signed, c.value))
         else:
             not_implemented("convert_to_imm: got a %s" % c)
 
