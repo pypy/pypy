@@ -403,6 +403,9 @@ class Transformer(object):
             prepare = self._handle_math_sqrt_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
+        elif oopspec_name.endswith('dict.lookup'):
+            # also ordereddict.lookup
+            prepare = self._handle_dict_lookup_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -1680,9 +1683,11 @@ class Transformer(object):
     # ----------
     # Strings and Unicodes.
 
-    def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
+    def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None,
+                             extradescr=None):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
-                                                  extraeffect)
+                                                  extraeffect,
+                                                  extradescr=extradescr)
         if extraeffect is not None:
             assert (is_test_calldescr(calldescr)      # for tests
                     or calldescr.get_extra_info().extraeffect == extraeffect)
@@ -1845,6 +1850,14 @@ class Transformer(object):
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+
+    def _handle_dict_lookup_call(self, op, oopspec_name, args):
+        extradescr1 = self.cpu.fielddescrof(op.args[1].concretetype.TO,
+                                            'entries')
+        extradescr2 = self.cpu.interiorfielddescrof(
+            op.args[1].concretetype.TO.entries.TO, 'key')
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_DICT_LOOKUP,
+                                         extradescr=[extradescr1, extradescr2])
 
     def _handle_rgc_call(self, op, oopspec_name, args):
         if oopspec_name == 'rgc.ll_shrink_array':

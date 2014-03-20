@@ -353,3 +353,23 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
 
         result = wa.analyze(fgraph.startblock.operations[-1])
         assert list(result) == [("struct", lltype.Ptr(S), "x")]
+
+    def test_interiorfield(self):
+        A = lltype.GcArray(lltype.Struct('x', ('x', lltype.Signed),
+                                         ('y', lltype.Signed)))
+
+        def g(x):
+            a = lltype.malloc(A, 1)
+            a[0].y = 3
+            return f(a, x)
+        
+        def f(a, x):
+            a[0].x = x
+            return a[0].y
+
+        t, wa = self.translate(g, [int])
+        ggraph = graphof(t, g)
+        result = wa.analyze(ggraph.startblock.operations[-1])
+        res = list(result)
+        assert ('readinteriorfield', lltype.Ptr(A), 'y') in res
+        assert ('interiorfield', lltype.Ptr(A), 'x') in res

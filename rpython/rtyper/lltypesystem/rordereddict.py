@@ -709,6 +709,7 @@ def ll_kill_something(d, T):
 
 @jit.look_inside_iff(lambda d, key, hash, store_flag, T:
                      jit.isvirtual(d) and jit.isconstant(key))
+@jit.oopspec('ordereddict.lookup(d, key, hash, store_flag, T)')
 def ll_dict_lookup(d, key, hash, store_flag, T):
     INDEXES = _ll_ptr_to_array_of(T)
     entries = d.entries
