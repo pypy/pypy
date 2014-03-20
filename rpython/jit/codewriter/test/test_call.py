@@ -207,7 +207,7 @@ def test_call_needs_inevitable():
         T = rffi.CArrayPtr(rffi.TIME_T)
         external = rffi.llexternal("time", [T], rffi.TIME_T, 
                                     _nowrapper=True,
-                                    threadsafe=False,
+                                    releasegil=False,
                                     transactionsafe=transactionsafe)
 
         @jit.dont_look_inside
