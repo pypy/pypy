@@ -287,7 +287,6 @@ class Assembler386(BaseAssembler):
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
-        self.mc.MOV_rr(eax.value, ebp.value)
         #
         self._call_footer()
         rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
@@ -761,6 +760,9 @@ class Assembler386(BaseAssembler):
             #
 
     def _call_footer(self):
+        # the return value is the jitframe
+        self.mc.MOV_rr(eax.value, ebp.value)
+
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
@@ -1827,8 +1829,6 @@ class Assembler386(BaseAssembler):
         mc.MOV_br(ofs2, eax.value)
         mc.POP(eax)
         mc.MOV_br(ofs, eax.value)
-        # the return value is the jitframe
-        mc.MOV_rr(eax.value, ebp.value)
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -1861,7 +1861,6 @@ class Assembler386(BaseAssembler):
             # keep that one and kill all the others
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
             self.mc.MOV_bi(ofs, 0)
-        self.mc.MOV_rr(eax.value, ebp.value)
         # exit function
         self._call_footer()
 
