@@ -306,6 +306,7 @@ class OptHeap(Optimization):
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
         descrs = op.getdescr().get_extra_info().extradescrs
+        assert descrs        # translation hint
         descr1 = descrs[0]
         descr2 = descrs[1]
         if descr1 in self.cached_dict_reads:
