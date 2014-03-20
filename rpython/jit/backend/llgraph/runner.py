@@ -1032,9 +1032,6 @@ class LLFrame(object):
     def execute_stm_transaction_break(self, _, really_wanted):
         pass
 
-    def execute_increment_debug_counter(self, descr, a):
-        pass
-
     def execute_keepalive(self, descr, x):
         pass
 
