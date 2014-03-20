@@ -4338,3 +4338,12 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.cast(lltype.Signed, a[0]) == -7654
         assert rffi.cast(lltype.Signed, a[1]) == 777
         lltype.free(a, flavor='raw')
+
+    def test_increment_debug_counter(self):
+        foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
+        foo[0] = 1789200
+        self.execute_operation(rop.INCREMENT_DEBUG_COUNTER,
+                               [ConstInt(rffi.cast(lltype.Signed, foo))],
+                               'void')
+        assert foo[0] == 1789201
+        lltype.free(foo, flavor='raw')

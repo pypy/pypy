@@ -1469,6 +1469,14 @@ class Assembler386(BaseAssembler):
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
+    def genop_discard_increment_debug_counter(self, op, arglocs):
+        # The argument should be an immediate address.  This should
+        # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
+        # SETFIELD_RAW.  Here we use the direct from-memory-to-memory
+        # increment operation of x86.
+        base_loc, = arglocs
+        self.mc.INC(mem(base_loc, 0))
+
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
