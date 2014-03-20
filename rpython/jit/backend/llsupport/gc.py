@@ -706,21 +706,9 @@ class GcLLDescr_framework(GcLLDescription):
         if self.stm:
             # XXX remove the indirections in the following calls
             from rpython.rlib import rstm
-            def stm_allocate_nonmovable_int_adr(obj):
-                return llop1.stm_allocate_nonmovable_int_adr(
-                    lltype.Signed, obj)
-            self.generate_function('stm_allocate_nonmovable_int_adr',
-                                   stm_allocate_nonmovable_int_adr,
-                                   [llmemory.GCREF], RESULT=lltype.Signed)
             self.generate_function('stm_try_inevitable',
                                    rstm.become_inevitable, [],
                                    RESULT=lltype.Void)
-            def ptr_eq(x, y): return x == y
-            def ptr_ne(x, y): return x != y
-            self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
-                                   RESULT=lltype.Bool)
-            self.generate_function('stm_ptr_ne', ptr_ne, [llmemory.GCREF] * 2,
-                                   RESULT=lltype.Bool)
 
     def _bh_malloc(self, sizedescr):
         from rpython.memory.gctypelayout import check_typeid

@@ -1253,58 +1253,6 @@ class Assembler386(BaseAssembler):
                 self.mc.LEA_rm(result_loc.value, (loc.value, delta))
         return genop_binary_or_lea
 
-    
-    def genop_ptr_eq(self, op, arglocs, result_loc):
-        if not self.cpu.gc_ll_descr.stm:
-            self.genop_int_eq(op, arglocs, result_loc)
-            return
-        assert self.cpu.gc_ll_descr.stm
-        rl = result_loc.lowest8bits()
-        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        self.mc.SET_ir(rx86.Conditions['NZ'], rl.value)
-        self.mc.MOVZX8_rr(result_loc.value, rl.value)
-
-    def genop_ptr_ne(self, op, arglocs, result_loc):
-        if not self.cpu.gc_ll_descr.stm:
-            self.genop_int_ne(op, arglocs, result_loc)
-            return
-        assert self.cpu.gc_ll_descr.stm
-        rl = result_loc.lowest8bits()
-        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        self.mc.SET_ir(rx86.Conditions['Z'], rl.value)
-        self.mc.MOVZX8_rr(result_loc.value, rl.value)
-
-    def genop_guard_ptr_eq(self, op, guard_op, guard_token, 
-                           arglocs, result_loc):
-        if not self.cpu.gc_ll_descr.stm:
-            self.genop_guard_int_eq(op, guard_op, guard_token,
-                                    arglocs, result_loc)
-            return
-        assert self.cpu.gc_ll_descr.stm
-        guard_opnum = guard_op.getopnum()
-        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        # p1==p2 -> NZ
-        if guard_opnum == rop.GUARD_FALSE:
-            # jump to failure-code if ptrs are equal
-            self.implement_guard(guard_token, "NZ")
-        else:
-            # jump to failure-code if ptrs are not equal
-            self.implement_guard(guard_token, "Z")
-
-    def genop_guard_ptr_ne(self, op, guard_op, guard_token, 
-                           arglocs, result_loc):
-        if not self.cpu.gc_ll_descr.stm:
-            self.genop_guard_int_ne(op, guard_op, guard_token,
-                                    arglocs, result_loc)
-            return
-        assert self.cpu.gc_ll_descr.stm
-        guard_opnum = guard_op.getopnum()
-        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        if guard_opnum == rop.GUARD_FALSE:
-            self.implement_guard(guard_token, "Z")
-        else:
-            self.implement_guard(guard_token, "NZ")        
-        
     def _cmpop(cond, rev_cond):
         def genop_cmp(self, op, arglocs, result_loc):
             rl = result_loc.lowest8bits()
@@ -1453,8 +1401,8 @@ class Assembler386(BaseAssembler):
     genop_int_ne = _cmpop("NE", "NE")
     genop_int_gt = _cmpop("G", "L")
     genop_int_ge = _cmpop("GE", "LE")
-    genop_instance_ptr_eq = genop_ptr_eq
-    genop_instance_ptr_ne = genop_ptr_ne
+    genop_ptr_eq = genop_instance_ptr_eq = genop_int_eq
+    genop_ptr_ne = genop_instance_ptr_ne = genop_int_ne
 
     genop_float_lt = _cmpop_float('B', 'A')
     genop_float_le = _cmpop_float('BE', 'AE')
@@ -1474,8 +1422,8 @@ class Assembler386(BaseAssembler):
     genop_guard_int_ne = _cmpop_guard("NE", "NE", "E", "E")
     genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
     genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
-    genop_guard_instance_ptr_eq = genop_guard_ptr_eq
-    genop_guard_instance_ptr_ne = genop_guard_ptr_ne
+    genop_guard_ptr_eq = genop_guard_instance_ptr_eq = genop_guard_int_eq
+    genop_guard_ptr_ne = genop_guard_instance_ptr_ne = genop_guard_int_ne
 
     genop_guard_uint_gt = _cmpop_guard("A", "B", "BE", "AE")
     genop_guard_uint_lt = _cmpop_guard("B", "A", "AE", "BE")
