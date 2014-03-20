@@ -5,8 +5,7 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import (llhelper, cast_instance_to_gcref,
-                                        cast_base_ptr_to_instance)
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.history import ConstPtr, AbstractDescr
@@ -97,17 +96,12 @@ class GcLLDescription(GcCache):
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
-                v.imm_value = rgc._make_sure_does_not_move(v.value)
-                # XXX: fix for stm, record imm_values and unregister
-                # them again (below too):
-                gcrefs_output_list.append(v.value)
-
-        if self.stm:
-            return # for descr, we do it on the fly in assembler.py
+                p = v.value
+                rgc._make_sure_does_not_move(p)
+                gcrefs_output_list.append(p)
         if op.is_guard() or op.getopnum() == rop.FINISH:
             # the only ops with descrs that get recorded in a trace
-            descr = op.getdescr()
-            llref = rgc.cast_instance_to_gcref(descr)
+            llref = cast_instance_to_gcref(op.getdescr())
             rgc._make_sure_does_not_move(llref)
             gcrefs_output_list.append(llref)
 
