@@ -387,34 +387,38 @@ from __future__ import generators""")
         mod.body[0].body[0].handlers[0].lineno = 7
         mod.body[0].body[0].handlers[1].lineno = 6
         code = compile(mod, "<test>", "exec")
+        
     def test_dict_astNode(self):
         import ast
-        numMode = ast.Num(n=2,lineno=2,col_offset=3)
-        dictRes = numMode.__dict__
-        assert dictRes['n'] == 2
-        assert dictRes['lineno'] == 2
-        assert dictRes['col_offset'] == 3
+        num_node = ast.Num(n=2,lineno=2,col_offset=3)
+        dict_res = num_node.__dict__
+        assert dict_res['n'] == 2
+        assert dict_res['lineno'] == 2
+        assert dict_res['col_offset'] == 3
+        
     def test_issue1673_Num_notfullinit(self):
         import ast
         import copy
-        numMode = ast.Num(n=2,lineno=2)
+        num_node = ast.Num(n=2,lineno=2)
         try:
-            numNode2 = copy.deepcopy(numMode)
+            num_node2 = copy.deepcopy(num_node)
         except:
             raise
+            
     def test_issue1673_Num_fullinit(self):
         import ast
         import copy 
-        numMode = ast.Num(n=2,lineno=2,col_offset=3)
+        num_node = ast.Num(n=2,lineno=2,col_offset=3)
         try:
-            numNode2 = copy.deepcopy(numMode)
+            num_node2 = copy.deepcopy(num_node)
         except:
             raise
+            
     def test_issue1673_Str(self):
         import ast
         import copy
-        strNode = ast.Str(n=2,lineno=2)
+        str_node = ast.Str(n=2,lineno=2)
         try:
-            strNode2 = copy.deepcopy(strNode)
+            str_node2 = copy.deepcopy(str_node)
         except:
             raise
