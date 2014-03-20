@@ -801,21 +801,6 @@ class RegAlloc(BaseRegalloc):
                    for i in range(N)]
         self.perform_discard(op, arglocs)
 
-    def consider_cond_call_stm_b(self, op):
-        assert op.result is None
-        # we force all arguments in a reg (unless they are Consts),
-        # because it will be needed anyway by the following setfield_gc
-        # or setarrayitem_gc. It avoids loading it twice from the memory.
-        arg = op.getarg(0)
-        argloc = self.rm.make_sure_var_in_reg(arg)
-        self.perform_discard(op, [argloc])
-
-        # if 'arg' is in two locations (once in argloc and once spilled
-        # on the frame), we need to ensure that both locations are
-        # updated with the possibly changed reference.
-        self.rm.update_spill_loc_if_necessary(arg, argloc)
-
-
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
     def consider_cond_call(self, op):
@@ -1265,17 +1250,7 @@ class RegAlloc(BaseRegalloc):
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
 
-    
-    def consider_stm_set_revision_gc(self, op):
-        ofs, size, _ = unpack_fielddescr(op.getdescr())
-        ofs_loc = imm(ofs)
-        size_loc = imm(size)
-        assert isinstance(size_loc, ImmedLoc)
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        self.perform_discard(op, [base_loc, ofs_loc, size_loc])
 
-        
     def consider_stm_transaction_break(self, op, guard_op):
         #
         # only save regs for the should_break_transaction call

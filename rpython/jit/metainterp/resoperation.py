@@ -499,7 +499,6 @@ _oplist = [
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
-    'COND_CALL_STM_B/1d', # objptr (write/read barrier)
     'COND_CALL_GC_WB/1d',       # [objptr] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/2d', # [objptr, arrayindex] (write barr. for array)
     'DEBUG_MERGE_POINT/*',      # debugging only
@@ -511,7 +510,6 @@ _oplist = [
     'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
     'KEEPALIVE/1',
     'STM_TRANSACTION_BREAK/1',
-    'STM_SET_REVISION_GC/1d', # not really GC, writes raw to the header
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
