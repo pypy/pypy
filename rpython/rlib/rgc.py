@@ -93,30 +93,17 @@ class CanMoveEntry(ExtRegistryEntry):
 def _make_sure_does_not_move(p):
     """'p' is a non-null GC object.  This (tries to) make sure that the
     object does not move any more, by forcing collections if needed.
-    It may return a different addr!
     Warning: should ideally only be used with the minimark GC, and only
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
     if not we_are_translated():
-        if isinstance(p, _GcRef):
-            return cast_gcref_to_int(p)
-        else:
-            from rpython.rtyper.lltypesystem import rffi
-            return rffi.cast(lltype.Signed, p)
-    
-    if stm_is_enabled():
-        from rpython.rtyper.lltypesystem.lloperation import llop
-        res = llop.stm_allocate_nonmovable_int_adr(lltype.Signed, p)
-        return res
-        
+        return
     i = 0
     while can_move(p):
         if i > 6:
             raise NotImplementedError("can't make object non-movable!")
         collect(i)
         i += 1
-
-    return 0
 
 def _heap_stats():
     raise NotImplementedError # can't be run directly
