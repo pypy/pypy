@@ -434,8 +434,8 @@ class Assembler386(BaseAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     @rgc.no_release_gil
-    def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
-                      log):
+    def assemble_loop(self, inputargs, operations, looptoken, log,
+                      loopname, logger):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -514,8 +514,8 @@ class Assembler386(BaseAssembler):
                        size_excluding_failure_stuff - looppos)
 
     @rgc.no_release_gil
-    def assemble_bridge(self, logger, faildescr, inputargs, operations,
-                        original_loop_token, log):
+    def assemble_bridge(self, faildescr, inputargs, operations,
+                        original_loop_token, log, logger):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
