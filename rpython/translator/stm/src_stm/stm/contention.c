@@ -70,6 +70,14 @@ static void cm_abort_the_younger(struct contmgr_s *cm)
 __attribute__((unused))
 static void cm_always_wait_for_other_thread(struct contmgr_s *cm)
 {
+    /* we tried this contention management, but it seems to have
+       very bad cases: if thread 1 always reads an object in every
+       transaction, and thread 2 wants to write this object just
+       once, then thread 2 will pause when it tries to commit;
+       it will wait until thread 1 committed; but by the time
+       thread 2 resumes again, thread 1 has already started the
+       next transaction and read the object again.
+    */
     cm_abort_the_younger(cm);
     cm->try_sleep = true;
 }
@@ -111,7 +119,7 @@ static void contention_management(uint8_t other_segment_num,
 #ifdef STM_TESTS
     cm_abort_the_younger(&contmgr);
 #else
-    cm_always_wait_for_other_thread(&contmgr);
+    cm_pause_if_younger(&contmgr);
 #endif
 
     /* Fix the choices that are found incorrect due to TS_INEVITABLE
