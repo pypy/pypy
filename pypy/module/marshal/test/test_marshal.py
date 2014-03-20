@@ -11,7 +11,7 @@ class AppTestMarshal:
     def w_marshal_check(self, case):
         import marshal, StringIO
         s = marshal.dumps(case)
-        print repr(s)
+        print(repr(s))
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
         f = StringIO.StringIO()
@@ -173,9 +173,12 @@ class AppTestMarshal:
         import marshal
         types = (float, complex, int, long, tuple, list, dict, set, frozenset)
         for cls in types:
+            print(cls)
             class subtype(cls):
                 pass
             exc = raises(ValueError, marshal.dumps, subtype)
+            assert str(exc.value) == 'unmarshallable object'
+            exc = raises(ValueError, marshal.dumps, subtype())
             assert str(exc.value) == 'unmarshallable object'
 
     def test_valid_subtypes(self):
