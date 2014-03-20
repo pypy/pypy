@@ -1825,10 +1825,8 @@ class Assembler386(BaseAssembler):
         # did just above.
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.POP(eax)
-        mc.MOV_br(ofs2, eax.value)
-        mc.POP(eax)
-        mc.MOV_br(ofs, eax.value)
+        mc.POP_b(ofs2)
+        mc.POP_b(ofs)
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
