@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

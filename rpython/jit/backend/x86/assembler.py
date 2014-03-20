@@ -1772,15 +1772,12 @@ class Assembler386(BaseAssembler):
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
     def genop_discard_increment_debug_counter(self, op, arglocs):
-        # base_loc and ofs_loc should be immediates, but maybe not
-        # fitting in 32-bit
-        base_loc, ofs_loc, size_loc = arglocs
-        addr = addr_add(base_loc, ofs_loc)
-        if rx86.fits_in_32bits(addr.value):
-            self.mc.INC(addr)
-        else:
-            self.mc.MOV(X86_64_SCRATCH_REG, base_loc)
-            self.mc.INC_m((X86_64_SCRATCH_REG.value, ofs_loc.getint()))
+        # The argument should be an immediate address.  This should
+        # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
+        # SETFIELD_RAW.  Here we use the direct from-memory-to-memory
+        # increment operation of x86.
+        base_loc, = arglocs
+        self.mc.INC(mem(base_loc, 0))
 
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
@@ -2168,10 +2165,8 @@ class Assembler386(BaseAssembler):
         # did just above.
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.POP(eax)
-        mc.MOV_br(ofs2, eax.value)
-        mc.POP(eax)
-        mc.MOV_br(ofs, eax.value)
+        mc.POP_b(ofs2)
+        mc.POP_b(ofs)
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -2204,7 +2199,6 @@ class Assembler386(BaseAssembler):
             # keep that one and kill all the others
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
             self.mc.MOV_bi(ofs, 0)
-        self.mc.MOV_rr(eax.value, ebp.value)
         # exit function
         self._call_footer()
 

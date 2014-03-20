@@ -33,16 +33,11 @@ class Module(MixedModule):
 
     interpleveldefs = {
         # constants
+        '__debug__'     : '(space.w_True)',      # XXX
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',
-        '__debug__'     : '(space.w_True)',      # XXX
-        'type'          : '(space.w_type)',
-        'object'        : '(space.w_object)',
         'bytes'         : '(space.w_str)',
-        'unicode'       : '(space.w_unicode)',
-        'buffer'        : 'interp_memoryview.W_Buffer',
-        'memoryview'    : 'interp_memoryview.W_MemoryView',
 
         'file'          : 'state.get(space).w_file',
         'open'          : 'state.get(space).w_file',

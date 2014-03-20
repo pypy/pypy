@@ -424,9 +424,6 @@ class W_AbstractBytesObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
-    def descr_buffer(self, space):
-        pass
-
 
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
@@ -444,6 +441,9 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def str_w(self, space):
         return self._value
+
+    def buffer_w(w_self, space):
+        return StringBuffer(w_self._value)
 
     def listview_bytes(self):
         return _create_list_from_bytes(self._value)
@@ -566,9 +566,6 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=False)
-
-    def descr_buffer(self, space):
-        return space.wrap(StringBuffer(self._value))
 
     def descr_eq(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
@@ -853,7 +850,6 @@ W_BytesObject.typedef = StdTypeDef(
     format = interpindirect2app(W_BytesObject.descr_format),
     __format__ = interpindirect2app(W_BytesObject.descr__format__),
     __mod__ = interpindirect2app(W_BytesObject.descr_mod),
-    __buffer__ = interpindirect2app(W_AbstractBytesObject.descr_buffer),
     __getnewargs__ = interpindirect2app(
         W_AbstractBytesObject.descr_getnewargs),
     _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),

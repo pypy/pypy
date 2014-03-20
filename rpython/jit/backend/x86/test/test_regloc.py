@@ -373,3 +373,56 @@ class Test64Bits:
                 '\x59'
         )
         assert cb.getvalue() == expected_instructions
+
+    # ------------------------------------------------------------
+
+    def test_push_immed64(self):
+        immed = 0x0123456789ABCDEF
+        cb = LocationCodeBuilder64()
+        cb.PUSH(imm(immed))
+        #
+        expected_instructions = (
+                # mov r11, 0x0123456789ABCDEF
+                '\x49\xBB\xEF\xCD\xAB\x89\x67\x45\x23\x01'
+                # push r11
+                '\x41\x53'
+        )
+        assert cb.getvalue() == expected_instructions
+
+    def test_inc_64bit_address_1(self):
+        base_addr = 0x0123456789ABCDEF
+        cb = LocationCodeBuilder64()
+        cb.INC(AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr))
+        # this case is a INC_j
+        #
+        expected_instructions = (
+                # mov r11, 0x0123456789ABCDEF
+                '\x49\xBB\xEF\xCD\xAB\x89\x67\x45\x23\x01'
+                # inc [r11]
+                '\x49\xFF\x03'
+        )
+        assert cb.getvalue() == expected_instructions
+
+    def test_inc_64bit_address_2(self):
+        py.test.skip("there is no unary instruction INSN_a so far")
+        base_addr = 0x0123456789ABCDEF
+        cb = LocationCodeBuilder64()
+        cb.INC(AddressLoc(ImmedLoc(0), edx, 3, base_addr))
+        # this case would be a INC_a
+        xxx
+
+    def test_inc_64bit_address_3(self):
+        base_addr = 0x0123456789ABCDEF
+        cb = LocationCodeBuilder64()
+        cb.INC(AddressLoc(eax, ImmedLoc(0), 0, base_addr))
+        # this case is a INC_m
+        #
+        expected_instructions = (
+                # mov r11, 0x0123456789ABCDEF
+                '\x49\xBB\xEF\xCD\xAB\x89\x67\x45\x23\x01'
+                # lea r11, [rax+r11]
+                '\x4E\x8D\x1C\x18'
+                # inc [r11]
+                '\x49\xFF\x03'
+        )
+        assert cb.getvalue() == expected_instructions

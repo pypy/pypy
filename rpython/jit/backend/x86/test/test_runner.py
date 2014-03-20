@@ -427,7 +427,7 @@ class TestX86(LLtypeBackendTest):
         debug._log = None
         #
         assert ops_offset is looptoken._x86_ops_offset
-        # 2*[INCREMENT_DEBUG_COUNTER] + ops + None
+        # 2*increment_debug_counter + ops + None
         assert len(ops_offset) == 2 + len(operations) + 1
         assert (ops_offset[operations[0]] <=
                 ops_offset[operations[1]] <=

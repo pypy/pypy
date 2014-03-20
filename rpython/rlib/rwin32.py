@@ -169,7 +169,8 @@ if WIN32:
         cfile = udir.join('dosmaperr.c')
         cfile.write(r'''
                 #include <errno.h>
-                #include  <stdio.h>
+                #include <WinError.h>
+                #include <stdio.h>
                 #ifdef __GNUC__
                 #define _dosmaperr mingw_dosmaperr
                 #endif
@@ -196,6 +197,7 @@ if WIN32:
                 standalone=True)
         except (CompilationError, WindowsError):
             # Fallback for the mingw32 compiler
+            assert static_platform.name == 'mingw32'
             errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
                 11: 8, 15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13,

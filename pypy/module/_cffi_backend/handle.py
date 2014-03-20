@@ -1,4 +1,3 @@
-import weakref
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module._cffi_backend import ctypeobj, ctypeptr, cdataobj

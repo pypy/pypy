@@ -194,6 +194,14 @@ class W_Root(object):
     def immutable_unique_id(self, space):
         return None
 
+    def buffer_w(self, space):
+        w_impl = space.lookup(self, '__buffer__')
+        if w_impl is not None:
+            w_result = space.get_and_call_function(w_impl, self)
+            if space.isinstance_w(w_result, space.w_buffer):
+                return w_result.buffer_w(space)
+        self._typed_unwrap_error(space, "buffer")
+
     def str_w(self, space):
         self._typed_unwrap_error(space, "string")
 
@@ -432,17 +440,16 @@ class ObjSpace(object):
 
         return name
 
-    def getbuiltinmodule(self, name, force_init=False):
+    def getbuiltinmodule(self, name, force_init=False, reuse=True):
         w_name = self.wrap(name)
         w_modules = self.sys.get('modules')
-        try:
-            w_mod = self.getitem(w_modules, w_name)
-        except OperationError, e:
-            if not e.match(self, self.w_KeyError):
-                raise
-        else:
-            if not force_init:
-                return w_mod
+        if not force_init:
+            assert reuse is True
+            try:
+                return self.getitem(w_modules, w_name)
+            except OperationError, e:
+                if not e.match(self, self.w_KeyError):
+                    raise
 
         # If the module is a builtin but not yet imported,
         # retrieve it and initialize it
@@ -453,13 +460,16 @@ class ObjSpace(object):
                         "getbuiltinmodule() called with non-builtin module %s",
                         name)
         else:
-            # Add the module to sys.modules
-            self.setitem(w_modules, w_name, w_mod)
-
-            # And initialize it
+            # Initialize the module
             from pypy.interpreter.module import Module
             if isinstance(w_mod, Module):
+                if not reuse and w_mod.startup_called:
+                    # Create a copy of the module
+                    w_mod = self.wrap(w_mod.__class__(self, w_name))
                 w_mod.init(self)
+
+            # Add the module to sys.modules
+            self.setitem(w_modules, w_name, w_mod)
             return w_mod
 
     def get_builtinmodule_to_install(self):
@@ -1320,10 +1330,7 @@ class ObjSpace(object):
                                            'to unsigned int'))
 
     def buffer_w(self, w_obj):
-        # returns a Buffer instance
-        from pypy.interpreter.buffer import Buffer
-        w_buffer = self.buffer(w_obj)
-        return self.interp_w(Buffer, w_buffer)
+        return w_obj.buffer_w(self)
 
     def rwbuffer_w(self, w_obj):
         # returns a RWBuffer instance
@@ -1683,7 +1690,6 @@ ObjSpace.MethodTable = [
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
     ('userdel',         'del',       1, ['__del__']),
-    ('buffer',          'buffer',    1, ['__buffer__']),   # see buffer.py
 ]
 
 ObjSpace.BuiltinModuleTable = [

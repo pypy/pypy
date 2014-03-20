@@ -605,9 +605,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = ptr_eq(p0, NULL)
         guard_false(i1) []
         i2 = ptr_ne(NULL, p0)
-        guard_true(i0) []
+        guard_true(i2) []
         i3 = ptr_eq(NULL, p0)
-        guard_false(i1) []
+        guard_false(i3) []
         guard_nonnull(p0) []
         jump(p0)
         """
@@ -621,6 +621,30 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_nonnull_2(self):
+        ops = """
+        []
+        p0 = new_array(5, descr=arraydescr)     # forces p0 != NULL
+        i0 = ptr_ne(p0, NULL)
+        guard_true(i0) []
+        i1 = ptr_eq(p0, NULL)
+        guard_false(i1) []
+        i2 = ptr_ne(NULL, p0)
+        guard_true(i2) []
+        i3 = ptr_eq(NULL, p0)
+        guard_false(i3) []
+        guard_nonnull(p0) []
+        escape(p0)
+        jump()
+        """
+        expected = """
+        []
+        p0 = new_array(5, descr=arraydescr)
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     def test_const_guard_value(self):
         ops = """
@@ -1725,10 +1749,28 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # We cannot track virtuals that survive for more than two iterations.
         self.optimize_loop(ops, expected, preamble)
 
-    def test_virtual_raw_malloc(self):
+    def test_virtual_raw_malloc_basic(self):
         ops = """
         [i1]
         i2 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr)
+        call('free', i2, descr=raw_free_descr)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_malloc_const(self):
+        ops = """
+        [i1]
+        i5 = int_mul(10, 1)
+        i2 = call('malloc', i5, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr)
         call('free', i2, descr=raw_free_descr)
@@ -1743,10 +1785,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_force(self):
         ops = """
         [i1]
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call('malloc', 20, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr_char)
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
         setarrayitem_raw(i2, 1, 123, descr=rawarraydescr_char)
+        setarrayitem_raw(i2, 1, 789, descr=rawarraydescr_float)
         label('foo') # we expect the buffer to be forced *after* the label
         escape(i2)
         call('free', i2, descr=raw_free_descr)
@@ -1755,12 +1799,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i1]
         label('foo')
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
-        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr_char)
-        i3 = int_add(i2, 1)
-        setarrayitem_raw(i3, 0, 123, descr=rawarraydescr_char)
-        i4 = int_add(i2, 2)
-        setarrayitem_raw(i4, 0, 456, descr=rawarraydescr_char)
+        i2 = call('malloc', 20, descr=raw_malloc_descr)
+        #guard_no_exception() []  # XXX should appear
+        raw_store(i2, 0, i1, descr=rawarraydescr_char)
+        raw_store(i2, 1, 123, descr=rawarraydescr_char)
+        raw_store(i2, 2, 456, descr=rawarraydescr_char)
+        raw_store(i2, 8, 789, descr=rawarraydescr_float)
         escape(i2)
         call('free', i2, descr=raw_free_descr)
         jump(i1)
@@ -1771,6 +1815,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i1]
         i2 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         label('foo') # we expect the buffer to be forced *after* the label
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char) # overlap!
@@ -1781,7 +1826,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         label('foo')
         i2 = call('malloc', 10, descr=raw_malloc_descr)
-        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        #guard_no_exception() []  # XXX should appear
+        raw_store(i2, 0, i1, descr=rawarraydescr)
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
         call('free', i2, descr=raw_free_descr)
         jump(i1)
@@ -1792,6 +1838,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i1]
         i2 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         label('foo') # we expect the buffer to be forced *after* the label
         i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
@@ -1802,7 +1849,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         label('foo')
         i2 = call('malloc', 10, descr=raw_malloc_descr)
-        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        #guard_no_exception() []  # XXX should appear
+        raw_store(i2, 0, i1, descr=rawarraydescr)
         i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
         call('free', i2, descr=raw_free_descr)
         jump(i1)
@@ -1813,6 +1861,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0, i1]
         i2 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
         i3 = int_add(i2, 1) # get a slice of the original buffer
         setarrayitem_raw(i3, 0, 4242, descr=rawarraydescr) # write to the slice
@@ -1832,6 +1881,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0, i1]
         i2 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         i3 = int_add(i2, 1) # get a slice of the original buffer
         i4 = int_add(i3, 1) # get a slice of a slice
         setarrayitem_raw(i4, 0, i1, descr=rawarraydescr_char) # write to the slice
@@ -1849,6 +1899,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0, i1]
         i2 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
         i3 = int_add(i2, 1) # get a slice of the original buffer
         setarrayitem_raw(i3, 4, 4242, descr=rawarraydescr_char) # write to the slice
@@ -1861,9 +1912,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         label('foo')
         # these ops are generated by VirtualRawBufferValue._really_force
         i2 = call('malloc', 10, descr=raw_malloc_descr)
-        setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
-        i3 = int_add(i2, 5) # 1+4*sizeof(char)
-        setarrayitem_raw(i3, 0, 4242, descr=rawarraydescr_char)
+        #guard_no_exception() []  # XXX should appear
+        raw_store(i2, 0, 42, descr=rawarraydescr_char)
+        raw_store(i2, 5, 4242, descr=rawarraydescr_char)
         # this is generated by VirtualRawSliceValue._really_force
         i4 = int_add(i2, 1)
         escape(i4)
@@ -1878,6 +1929,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         call('free', i0, descr=raw_free_descr)
         i3 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
         label('foo')
         jump(i3)
@@ -1889,8 +1941,63 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call('free', i0, descr=raw_free_descr)
         label('foo')
         i3 = call('malloc', 10, descr=raw_malloc_descr)
-        setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
+        #guard_no_exception() []  # XXX should appear
+        raw_store(i3, 0, i2, descr=rawarraydescr)
         jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_store_raw_load(self):
+        ops = """
+        [i1]
+        i0 = call('malloc', 10, descr=raw_malloc_descr)
+        guard_no_exception() []
+        raw_store(i0, 0, i1, descr=rawarraydescr)
+        i2 = raw_load(i0, 0, descr=rawarraydescr)
+        i3 = int_add(i1, i2)
+        call('free', i0, descr=raw_free_descr)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(i1, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_store_getarrayitem_raw(self):
+        ops = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        guard_no_exception() []
+        raw_store(i0, 8, f1, descr=rawarraydescr_float)
+        f2 = getarrayitem_raw(i0, 1, descr=rawarraydescr_float)
+        f3 = float_add(f1, f2)
+        call('free', i0, descr=raw_free_descr)
+        jump(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_add(f1, f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_setarrayitem_raw_raw_load(self):
+        ops = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        guard_no_exception() []
+        setarrayitem_raw(i0, 1, f1, descr=rawarraydescr_float)
+        f2 = raw_load(i0, 8, descr=rawarraydescr_float)
+        f3 = float_add(f1, f2)
+        call('free', i0, descr=raw_free_descr)
+        jump(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_add(f1, f1)
+        jump(f2)
         """
         self.optimize_loop(ops, expected)
 

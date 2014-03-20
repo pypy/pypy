@@ -7,7 +7,6 @@ from pypy.interpreter.gateway import unwrap_spec
 
 
 class ByteBuffer(RWBuffer):
-
     def __init__(self, len):
         self.data = ['\x00'] * len
 
@@ -23,4 +22,4 @@ class ByteBuffer(RWBuffer):
 
 @unwrap_spec(length=int)
 def bytebuffer(space, length):
-    return space.wrap(ByteBuffer(length))
+    return space.newbuffer(ByteBuffer(length))

@@ -204,16 +204,14 @@ def PyEval_ReleaseThread(space, tstate):
         # Before external call is after running Python
         rffi.aroundstate.before()
 
-PyGILState_STATE = rffi.COpaquePtr('PyGILState_STATE',
-                                   typedef='PyGILState_STATE',
-                                   compilation_info=CConfig._compilation_info_)
+PyGILState_STATE = rffi.INT
 
 @cpython_api([], PyGILState_STATE, error=CANNOT_FAIL)
 def PyGILState_Ensure(space):
     if rffi.aroundstate.after:
         # After external call is before entering Python
         rffi.aroundstate.after()
-    return lltype.nullptr(PyGILState_STATE.TO)
+    return rffi.cast(PyGILState_STATE, 0)
 
 @cpython_api([PyGILState_STATE], lltype.Void)
 def PyGILState_Release(space, state):

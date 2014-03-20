@@ -461,7 +461,6 @@ def make_formatting_class():
                 if not got_align:
                     self._align = "="
                 i += 1
-            start_i = i
             self._width, i = _parse_int(self.space, spec, i, length)
             if length != i and spec[i] == ",":
                 self._thousands_sep = True
@@ -576,7 +575,6 @@ def make_formatting_class():
             return space.wrap(self._pad(string))
 
         def _get_locale(self, tp):
-            space = self.space
             if tp == "n":
                 dec, thousands, grouping = rlocale.numeric_formatting()
             elif self._thousands_sep:
@@ -673,12 +671,10 @@ def make_formatting_class():
             grouping = self._loc_grouping
             min_width = spec.n_min_width
             grouping_state = 0
-            count = 0
             left = spec.n_digits
             n_ts = len(self._loc_thousands)
             need_separator = False
             done = False
-            groupings = len(grouping)
             previous = 0
             while True:
                 group = ord(grouping[grouping_state])

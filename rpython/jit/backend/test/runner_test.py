@@ -37,6 +37,15 @@ STUFF = lltype.GcStruct('STUFF')
 random_gcref = lltype.cast_opaque_ptr(llmemory.GCREF,
                                       lltype.malloc(STUFF, immortal=True))
 
+class WBDescrForTests(AbstractDescr):
+    returns_modified_object = False
+    b_slowpath = (0, 0, 0, 0)
+    def get_b_slowpath(self, c1):
+        return self.b_slowpath[c1]
+    def set_b_slowpath(self, c1, addr):
+        self.b_slowpath = (self.b_slowpath[:c1] + (addr,) +
+                            self.b_slowpath[c1+1:])
+
 
 class Runner(object):
 
@@ -3792,7 +3801,7 @@ class LLtypeBackendTest(BaseBackendTest):
             assert False, 'should not be called'
         from rpython.jit.codewriter.effectinfo import EffectInfo
 
-        effectinfo = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MATH_SQRT)
+        effectinfo = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MATH_SQRT)
         FPTR = self.Ptr(self.FuncType([lltype.Float], lltype.Float))
         func_ptr = llhelper(FPTR, math_sqrt)
         FUNC = deref(FPTR)
@@ -4395,12 +4404,11 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.cast(lltype.Signed, a[1]) == 777
         lltype.free(a, flavor='raw')
 
-class WBDescrForTests(AbstractDescr):
-    returns_modified_object = False
-    b_slowpath = (0, 0, 0, 0)
-    def get_b_slowpath(self, c1):
-        return self.b_slowpath[c1]
-    def set_b_slowpath(self, c1, addr):
-        self.b_slowpath = (self.b_slowpath[:c1] + (addr,) +
-                            self.b_slowpath[c1+1:])
-        
+    def test_increment_debug_counter(self):
+        foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
+        foo[0] = 1789200
+        self.execute_operation(rop.INCREMENT_DEBUG_COUNTER,
+                               [ConstInt(rffi.cast(lltype.Signed, foo))],
+                               'void')
+        assert foo[0] == 1789201
+        lltype.free(foo, flavor='raw')
