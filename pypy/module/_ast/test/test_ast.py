@@ -402,7 +402,8 @@ from __future__ import generators""")
         num_node = ast.Num(n=2,lineno=2)
         try:
             num_node2 = copy.deepcopy(num_node)
-        except: raise
+        except: 
+            raise
             
     def test_issue1673_Num_fullinit(self):
         import ast
@@ -410,7 +411,8 @@ from __future__ import generators""")
         num_node = ast.Num(n=2,lineno=2,col_offset=3)
         try:
             num_node2 = copy.deepcopy(num_node)
-        except: raise
+        except: 
+            raise
             
     def test_issue1673_Str(self):
         import ast
@@ -418,4 +420,5 @@ from __future__ import generators""")
         str_node = ast.Str(n=2,lineno=2)
         try:
             str_node2 = copy.deepcopy(str_node)
-        except: raise
+        except: 
+            raise
