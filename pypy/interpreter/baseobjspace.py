@@ -440,11 +440,10 @@ class ObjSpace(object):
 
         return name
 
-    def getbuiltinmodule(self, name, force_init=False, reuse=True):
+    def getbuiltinmodule(self, name, force_init=False):
         w_name = self.wrap(name)
         w_modules = self.sys.get('modules')
         if not force_init:
-            assert reuse is True
             try:
                 return self.getitem(w_modules, w_name)
             except OperationError, e:
@@ -463,9 +462,6 @@ class ObjSpace(object):
             # Initialize the module
             from pypy.interpreter.module import Module
             if isinstance(w_mod, Module):
-                if not reuse and w_mod.startup_called:
-                    # Create a copy of the module
-                    w_mod = self.wrap(w_mod.__class__(self, w_name))
                 w_mod.init(self)
 
             # Add the module to sys.modules
