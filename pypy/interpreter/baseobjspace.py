@@ -200,7 +200,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buffer_w(space, flags)
-        raise oefmt(space.w_TypeError, "'%T' does not have the buffer interface", self)
+        raise TypeError
 
     def readbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -208,7 +208,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.readbuf_w(space)
-        self._typed_unwrap_error(space, "readable buffer")
+        raise TypeError
 
     def writebuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -216,7 +216,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.writebuf_w(space)
-        self._typed_unwrap_error(space, "writeable buffer")
+        raise TypeError
 
     def charbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -224,7 +224,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.charbuf_w(space)
-        self._typed_unwrap_error(space, "character buffer")
+        raise TypeError
 
     def str_w(self, space):
         self._typed_unwrap_error(space, "string")
@@ -1352,19 +1352,35 @@ class ObjSpace(object):
 
     def buffer_w(self, w_obj, flags):
         # New buffer interface, returns a buffer based on flags
-        return w_obj.buffer_w(self, flags)
+        try:
+            return w_obj.buffer_w(self, flags)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "'%T' does not have the buffer interface", w_obj)
 
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer
-        return w_obj.readbuf_w(self)
+        try:
+            return w_obj.readbuf_w(self)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "expected a readable buffer object")
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer
-        return w_obj.writebuf_w(self)
+        try:
+            return w_obj.writebuf_w(self)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "expected a writeable buffer object")
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer
-        return w_obj.charbuf_w(self)
+        try:
+            return w_obj.charbuf_w(self)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "expected a character buffer object")
 
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
