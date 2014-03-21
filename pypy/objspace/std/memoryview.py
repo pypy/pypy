@@ -40,8 +40,17 @@ class W_Buffer(W_Root):
         assert isinstance(buf, buffer.Buffer)
         self.buf = buf
 
-    def buffer_w(self, space):
+    def buffer_w(self, space, flags):
         return self.buf
+
+    def readbuf_w(self, space):
+        return self.buf
+
+    def writebuf_w(self, space):
+        return self.buf
+
+    def charbuf_w(self, space):
+        return self.buf.as_str()
 
     @staticmethod
     @unwrap_spec(offset=int, size=int)
@@ -57,7 +66,7 @@ class W_Buffer(W_Root):
             from pypy.interpreter.buffer import StringBuffer
             buf = StringBuffer(builder.build())
         else:
-            buf = space.buffer_w(w_object)
+            buf = space.readbuf_w(w_object)
 
         if offset == 0 and size == -1:
             return W_Buffer(buf)
@@ -175,20 +184,12 @@ class W_MemoryView(W_Root):
         assert isinstance(buf, buffer.Buffer)
         self.buf = buf
 
-    def buffer_w(self, space):
-        """
-        Note that memoryview() is very inconsistent in CPython: it does not
-        support the buffer interface but does support the new buffer
-        interface: as a result, it is possible to pass memoryview to
-        e.g. socket.send() but not to file.write().  For simplicity and
-        consistency, in PyPy memoryview DOES support buffer(), which means
-        that it is accepted in more places than CPython.
-        """
+    def buffer_w(self, space, flags):
         return self.buf
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
-        return W_MemoryView(space.buffer_w(w_object))
+        return W_MemoryView(space.buffer_w(w_object, space.BUF_FULL_RO))
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -199,7 +200,7 @@ class W_MemoryView(W_Root):
                 return space.wrap(getattr(operator, name)(str1, str2))
 
             try:
-                buf = space.buffer_w(w_other)
+                buf = space.buffer_w(w_other, space.BUF_CONTIG_RO)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise

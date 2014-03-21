@@ -1345,6 +1345,11 @@ class ObjSpace(object):
                                  self.wrap('cannot convert negative integer '
                                            'to unsigned int'))
 
+    BUF_SIMPLE = 0
+    BUF_FULL_RO = 1
+    BUF_CONTIG = 2
+    BUF_CONTIG_RO = 3
+
     def buffer_w(self, w_obj, flags):
         # New buffer interface, returns a buffer based on flags
         return w_obj.buffer_w(self, flags)
@@ -1376,6 +1381,14 @@ class ObjSpace(object):
             if not e.match(self, self.w_TypeError):
                 raise
         return self.readbuf_w(w_obj).as_str()
+
+    def bufferchar_w(self, w_obj):
+        try:
+            return self.str_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_TypeError):
+                raise
+        return self.charbuf_w(w_obj)
 
     def str_or_None_w(self, w_obj):
         if self.is_w(w_obj, self.w_None):

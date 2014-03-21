@@ -27,8 +27,17 @@ class W_BytearrayObject(W_Root):
         """representation for debugging purposes"""
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
-    def buffer_w(w_self, space):
-        return BytearrayBuffer(w_self.data)
+    def buffer_w(self, space, flags):
+        return BytearrayBuffer(self.data)
+
+    def readbuf_w(self, space):
+        return BytearrayBuffer(self.data)
+
+    def writebuf_w(self, space):
+        return BytearrayBuffer(self.data)
+
+    def charbuf_w(self, space):
+        return ''.join(self.data)
 
     def _new(self, value):
         return W_BytearrayObject(_make_data(value))
@@ -50,10 +59,10 @@ class W_BytearrayObject(W_Root):
         return space.wrap(ord(character))
 
     def _val(self, space):
-        return space.bufferstr_w(self)
+        return space.buffer_w(self, space.BUF_SIMPLE).as_str()
 
     def _op_val(self, space, w_other):
-        return space.buffer_w(w_other).as_str()
+        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
         assert len(char) == 1
@@ -432,7 +441,7 @@ def new_bytearray(space, w_bytearraytype, data):
 def makebytearraydata_w(space, w_source):
     # String-like argument
     try:
-        buf = space.buffer_w(w_source)
+        buf = space.buffer_w(w_source, space.BUF_FULL_RO)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise

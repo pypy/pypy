@@ -220,7 +220,7 @@ class Marshaller(_Base):
         space = self.space
         if space.type(w_obj).is_heaptype():
             try:
-                buf = space.buffer_w(w_obj)
+                buf = space.readbuf_w(w_obj)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise

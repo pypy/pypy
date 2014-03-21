@@ -442,8 +442,14 @@ class W_BytesObject(W_AbstractBytesObject):
     def str_w(self, space):
         return self._value
 
-    def buffer_w(w_self, space):
-        return StringBuffer(w_self._value)
+    def buffer_w(self, space, flags):
+        return StringBuffer(self._value)
+
+    def readbuf_w(self, space):
+        return StringBuffer(self._value)
+
+    def charbuf_w(self, space):
+        return self._value
 
     def listview_bytes(self):
         return _create_list_from_bytes(self._value)
@@ -471,8 +477,7 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._value
 
     def _op_val(self, space, w_other):
-        return space.bufferstr_w(w_other)
-        #return w_other._value
+        return space.bufferchar_w(w_other)
 
     def _chr(self, char):
         assert len(char) == 1

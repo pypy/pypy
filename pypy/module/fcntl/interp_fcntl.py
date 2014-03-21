@@ -209,7 +209,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
 
     if mutate_flag != 0:
         try:
-            rwbuffer = space.rwbuffer_w(w_arg)
+            rwbuffer = space.writebuf_w(w_arg)
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise

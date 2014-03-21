@@ -122,7 +122,7 @@ class W_BaseConnection(W_Root):
 
     @unwrap_spec(offset='index')
     def recv_bytes_into(self, space, w_buffer, offset=0):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
 
         res, newbuf = self.do_recv_string(

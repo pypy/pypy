@@ -16,6 +16,7 @@ if _MS_WINDOWS:
 
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
+from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
 
 TYPEMAP = {
@@ -352,8 +353,13 @@ class W_DataInstance(W_Root):
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
-    def buffer_w(self, space):
-        from pypy.module._rawffi.buffer import RawFFIBuffer
+    def buffer_w(self, space, flags):
+        return RawFFIBuffer(self)
+
+    def readbuf_w(self, space):
+        return RawFFIBuffer(self)
+
+    def writebuf_w(self, space):
         return RawFFIBuffer(self)
 
     def getrawsize(self):

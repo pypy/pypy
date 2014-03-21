@@ -468,7 +468,7 @@ producing strings. This is equivalent to calling write() for each string."""
         """readinto() -> Undocumented.  Don't use this; it may go away."""
         # XXX not the most efficient solution as it doesn't avoid the copying
         space = self.space
-        rwbuffer = space.rwbuffer_w(w_rwbuffer)
+        rwbuffer = space.writebuf_w(w_rwbuffer)
         w_data = self.file_read(rwbuffer.getlength())
         data = space.str_w(w_data)
         rwbuffer.setslice(0, data)

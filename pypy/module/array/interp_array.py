@@ -132,7 +132,10 @@ class W_ArrayBase(W_Root):
         self.len = 0
         self.allocated = 0
 
-    def buffer_w(self, space):
+    def readbuf_w(self, space):
+        return ArrayBuffer(self)
+
+    def writebuf_w(self, space):
         return ArrayBuffer(self)
 
     def descr_append(self, space, w_x):

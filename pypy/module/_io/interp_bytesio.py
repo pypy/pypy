@@ -41,7 +41,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.buffer_w(w_buffer, space.BUF_CONTIG)
         size = rwbuffer.getlength()
 
         output = self.read(size)

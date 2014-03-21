@@ -1,6 +1,7 @@
 from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
+from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -295,8 +296,11 @@ class FakeObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
-    def buffer_w(self, w_obj):
-        from pypy.interpreter.buffer import Buffer
+    def readbuf_w(self, w_obj):
+        is_root(w_obj)
+        return Buffer()
+
+    def writebuf_w(self, w_obj):
         is_root(w_obj)
         return Buffer()
 

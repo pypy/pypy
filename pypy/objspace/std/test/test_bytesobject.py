@@ -634,7 +634,8 @@ class AppTestBytesObject:
 
         table = maketrans('abc', 'xyz')
         assert 'xyzxyz' == 'xyzabcdef'.translate(table, 'def')
-        assert 'xyzxyz' == 'xyzabcdef'.translate(memoryview(table), 'def')
+        exc = raises(TypeError, "'xyzabcdef'.translate(memoryview(table), 'def')")
+        assert 'character buffer' in str(exc.value)
 
         table = maketrans('a', 'A')
         assert 'Abc' == 'abc'.translate(table)

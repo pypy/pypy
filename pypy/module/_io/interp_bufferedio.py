@@ -80,7 +80,7 @@ class W_BufferedIOBase(W_IOBase):
         self._unsupportedoperation(space, "detach")
 
     def readinto_w(self, space, w_buffer):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.buffer_w(w_buffer, space.BUF_CONTIG)
         length = rwbuffer.getlength()
         w_data = space.call_method(self, "read", space.wrap(length))
 
