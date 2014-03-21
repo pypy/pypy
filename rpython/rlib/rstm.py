@@ -61,8 +61,8 @@ def should_break_transaction():
         llop.stm_should_break_transaction(lltype.Bool))
 
 @dont_look_inside
-def set_transaction_length(length):
-    llop.stm_set_transaction_length(lltype.Void, length)
+def set_transaction_length(fraction):
+    llop.stm_set_transaction_length(lltype.Void, float(fraction))
 
 @dont_look_inside
 def increment_atomic():

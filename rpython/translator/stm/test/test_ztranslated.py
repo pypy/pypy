@@ -98,7 +98,7 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_set_transaction_length(self):
         def entry_point(argv):
-            rstm.set_transaction_length(123)
+            rstm.set_transaction_length(0.123)
             return 0
         t, cbuilder = self.compile(entry_point)
         cbuilder.cmdexec('')
