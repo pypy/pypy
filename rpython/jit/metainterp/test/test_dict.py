@@ -311,16 +311,20 @@ class DictTests:
             dct = objectmodel.r_dict(eq, key)
             total = n
             x = 44444
+            y = 55555
+            z = 66666
             while total:
                 myjitdriver.jit_merge_point(total=total, dct=dct)
                 dct[total] = total
                 x = dct[total]
+                y = dct[total]
+                z = dct[total]
                 total -= 1
-            return len(dct) + x
+            return len(dct) + x + y + z
 
         res = self.meta_interp(f, [10], listops=True)
-        assert res == 2 + 1
-        self.check_simple_loop(call_may_force=2,    # ll_dict_lookup_trampoline
+        assert res == 2 + 1 + 1 + 1
+        self.check_simple_loop(call_may_force=4,    # ll_dict_lookup_trampoline
                                call=1) # ll_dict_setitem_lookup_done_trampoline
 
 
