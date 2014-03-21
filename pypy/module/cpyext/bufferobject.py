@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
 from pypy.module.array.interp_array import ArrayBuffer
-from pypy.objspace.std.memoryview import W_Buffer
+from pypy.objspace.std.bufferobject import W_Buffer
 
 
 PyBufferObjectStruct = lltype.ForwardReference()

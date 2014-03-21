@@ -24,7 +24,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
-from pypy.objspace.std.memoryview import W_Buffer
+from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.iterobject import W_SeqIterObject

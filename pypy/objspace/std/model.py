@@ -63,7 +63,8 @@ class StdTypeModel:
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import proxyobject
-        from pypy.objspace.std.memoryview import W_Buffer, W_MemoryView
+        from pypy.objspace.std import bufferobject
+        from pypy.objspace.std import memoryobject
         import pypy.objspace.std.default # register a few catch-all multimethods
 
         import pypy.objspace.std.marshal_impl # install marshal multimethods
@@ -83,8 +84,8 @@ class StdTypeModel:
         self.pythontypes.append(intobject.W_IntObject.typedef)
         self.pythontypes.append(boolobject.W_BoolObject.typedef)
         self.pythontypes.append(longobject.W_LongObject.typedef)
-        self.pythontypes.append(W_Buffer.typedef)
-        self.pythontypes.append(W_MemoryView.typedef)
+        self.pythontypes.append(bufferobject.W_Buffer.typedef)
+        self.pythontypes.append(memoryobject.W_MemoryView.typedef)
 
         # the set of implementation types
         self.typeorder = {
