@@ -294,6 +294,35 @@ class DictTests:
         assert res == f(10)
         self.check_simple_loop(call=3)
 
+    def test_dict_eq_can_release_gil(self):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        if type(self.newdict()) is not dict:
+            py.test.skip("this is an r_dict test")
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
+        myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
+        def key(x):
+            return x % 2
+        def eq(x, y):
+            external(lltype.nullptr(T.TO))
+            return (x % 2) == (y % 2)
+
+        def f(n):
+            dct = objectmodel.r_dict(eq, key)
+            total = n
+            x = 44444
+            while total:
+                myjitdriver.jit_merge_point(total=total, dct=dct)
+                dct[total] = total
+                x = dct[total]
+                total -= 1
+            return len(dct) + x
+
+        res = self.meta_interp(f, [10], listops=True)
+        assert res == 2 + 1
+        self.check_simple_loop(call_may_force=2,    # ll_dict_lookup_trampoline
+                               call=1) # ll_dict_setitem_lookup_done_trampoline
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass
