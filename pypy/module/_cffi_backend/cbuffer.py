@@ -1,9 +1,10 @@
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
-from pypy.objspace.std.memoryview import W_MemoryView
+from pypy.objspace.std.memoryview import _buffer_setitem
 
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
@@ -41,10 +42,29 @@ class LLBuffer(RWBuffer):
 
 # Override the typedef to narrow down the interface that's exposed to app-level
 
-class MiniBuffer(W_MemoryView):
+class MiniBuffer(W_Root):
     def __init__(self, buffer, keepalive=None):
-        W_MemoryView.__init__(self, buffer)
+        self.buffer = buffer
         self.keepalive = keepalive
+
+    def buffer_w(self, space):
+        return self.buffer
+
+    def descr_len(self, space):
+        return space.wrap(self.buffer.getlength())
+
+    def descr_getitem(self, space, w_index):
+        start, stop, step, size = space.decode_index4(w_index,
+                                                      self.buffer.getlength())
+        if step == 0:
+            return space.wrapbytes(self.buffer.getitem(start))
+        res = self.buffer.getslice(start, stop, step, size)
+        return space.wrapbytes(res)
+
+    @unwrap_spec(newstring='bufferstr')
+    def descr_setitem(self, space, w_index, newstring):
+        _buffer_setitem(space, self.buffer, w_index, newstring)
+
 
 MiniBuffer.typedef = TypeDef(
     "buffer",
