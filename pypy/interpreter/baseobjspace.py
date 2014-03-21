@@ -199,7 +199,8 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_memoryview):
                 return w_result.buffer_w(space)
-        self._typed_unwrap_error(space, "buffer")
+        raise oefmt(space.w_TypeError,
+                    "'%T' does not support the buffer interface", self)
 
     def bytes_w(self, space):
         self._typed_unwrap_error(space, "bytes")

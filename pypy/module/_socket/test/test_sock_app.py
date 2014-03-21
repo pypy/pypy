@@ -536,7 +536,8 @@ class AppTestSocket:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         assert s.send(memoryview(b'')) == 0
         assert s.sendall(memoryview(b'')) is None
-        raises(TypeError, s.send, '')
+        exc = raises(TypeError, s.send, '')
+        assert str(exc.value) == "'str' does not support the buffer interface"
         raises(TypeError, s.sendall, '')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
