@@ -76,11 +76,11 @@ def insert_stm_read_barrier(transformer, graph):
                                                  [op.args[0]], v_none))
                     transformer.read_barrier_counts += 1
             elif op.opname == 'stm_ignored_start':
-                pass #assert stm_ignored == False
-                #stm_ignored = True
+                assert stm_ignored == False
+                stm_ignored = True
             elif op.opname == 'stm_ignored_stop':
-                pass #assert stm_ignored == True
-                #stm_ignored = False
+                assert stm_ignored == True
+                stm_ignored = False
             newops.append(op)
         assert stm_ignored == False
         block.operations = newops
