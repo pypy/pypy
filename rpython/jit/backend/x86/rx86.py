@@ -470,6 +470,9 @@ class AbstractX86CodeBuilder(object):
 
     # ------------------------------ Arithmetic ------------------------------
 
+    INC_m = insn(rex_w, '\xFF', orbyte(0), mem_reg_plus_const(1))
+    INC_j = insn(rex_w, '\xFF', orbyte(0), abs_(1))
+
     ADD_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
     OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_ = common_modes(1)
     AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_ = common_modes(4)

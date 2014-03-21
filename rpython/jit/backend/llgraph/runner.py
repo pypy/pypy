@@ -553,6 +553,10 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def bh_increment_debug_counter(self, addr):
+        p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
+        p[0] += 1
+
     def unpack_arraydescr_size(self, arraydescr):
         from rpython.jit.backend.llsupport.symbolic import get_array_token
         from rpython.jit.backend.llsupport.descr import get_type_flag, FLAG_SIGNED
