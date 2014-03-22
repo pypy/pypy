@@ -102,6 +102,18 @@ class TestStm(RewriteTests):
             jump()
         """)
 
+    def test_rewrite_one_setfield_gc_i(self):
+        self.check_rewrite("""
+            [p1, i2]
+            setfield_gc(p1, i2, descr=tzdescr)
+            jump()
+        """, """
+            [p1, i2]
+            cond_call_gc_wb(p1, descr=wbdescr)
+            setfield_gc(p1, i2, descr=tzdescr)
+            jump()
+        """)
+
     def test_rewrite_setfield_gc_const(self):
         TP = lltype.GcArray(lltype.Signed)
         NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
@@ -147,6 +159,20 @@ class TestStm(RewriteTests):
             jump()
         """)
 
+    def test_rewrite_getfield_after_setfield(self):
+        self.check_rewrite("""
+            [p1, i2]
+            setfield_gc(p1, i2, descr=tydescr)
+            p3 = getfield_gc(p1, descr=tzdescr)
+            jump(p3)
+        """, """
+            [p1, i2]
+            cond_call_gc_wb(p1, descr=wbdescr)
+            setfield_gc(p1, i2, descr=tydescr)
+            p3 = getfield_gc(p1, descr=tzdescr)
+             jump(p3)
+        """)
+
     def test_invalidate_read_status_after_write_to_constptr(self):
         TP = lltype.GcArray(lltype.Signed)
         NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
@@ -162,9 +188,9 @@ class TestStm(RewriteTests):
             [p0]
             p1 = same_as(ConstPtr(t))
             p2 = same_as(ConstPtr(t))
-            cond_call_stm_b(p1, descr=A2Rdescr)
             p3 = getfield_gc(p1, descr=tzdescr)
-            cond_call_stm_b(p2, descr=A2Wdescr)
+            stm_read(p1)
+            cond_call_gc_wb(p2, descr=wbdescr)
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=Q2Rdescr)
             p4 = getfield_gc(p1, descr=tzdescr)

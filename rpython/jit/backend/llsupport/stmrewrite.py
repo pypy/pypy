@@ -121,6 +121,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.read_barrier_applied[v_ptr] = None
 
 
+    def must_apply_write_barrier(self, val, v):
+        return val not in self.write_barrier_applied
+
+
     def handle_setfields(self, op):
         opnum = op.getopnum()
         descr = op.getdescr()
