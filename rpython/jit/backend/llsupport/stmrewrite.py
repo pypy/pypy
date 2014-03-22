@@ -9,32 +9,6 @@ from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
                                 debug_print)
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
-### XXX:
-### we changed some 'x2I' barriers to 'x2R' since
-### obj initialization may happen in 2 different transactions.
-### check and fix this assumption
-
-
-#
-# STM Support
-# -----------    
-#
-# Any SETFIELD_GC, SETARRAYITEM_GC, SETINTERIORFIELD_GC must be done on a
-# W object.  The operation that forces an object p1 to be W is
-# COND_CALL_STM_B(p1, descr=x2Wdescr), for x in 'AIQRVWZ'.  This
-# COND_CALL_STM_B is a bit special because if p1 is not W, it *replaces*
-# its value with the W copy (by changing the register's value and
-# patching the stack location if any).  It's still conceptually the same
-# object, but the pointer is different.
-#
-# The case of GETFIELD_GC & friends is similar, excepted that it goes to
-# a R or L object (at first, always a R object).
-#
-# The name "x2y" of write barriers is called the *category* or "cat".
-#
-
-
-
 
 class GcStmRewriterAssembler(GcRewriterAssembler):
     # This class performs the same rewrites as its base class,
@@ -42,143 +16,83 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def __init__(self, *args):
         GcRewriterAssembler.__init__(self, *args)
-        self.known_category = {}    # variable: letter (R, W, ...)
         self.always_inevitable = False
-        
 
-    def rewrite(self, operations):
-        debug_start("jit-stmrewrite-ops")
-        # overridden method from parent class
-        #
-        for op in operations:
-            opnum = op.getopnum()
-            if not we_are_translated():
-                # only possible in tests:
-                if opnum in (rop.COND_CALL_STM_B, 
-                            -124): # FORCE_SPILL
-                    self.newops.append(op)
-                    continue
-            if opnum in (rop.INCREMENT_DEBUG_COUNTER,
-                         rop.DEBUG_MERGE_POINT):
+    def other_operation(self, op):
+        opnum = op.getopnum()
+        if opnum == rop.INCREMENT_DEBUG_COUNTER:
+            self.newops.append(op)
+            return
+        # ----------  transaction breaks  ----------
+        if opnum == rop.STM_TRANSACTION_BREAK:
+            # XXX redo!
+            #self.emitting_an_operation_that_can_collect()
+            #self.next_op_may_be_in_new_transaction()
+            #self.newops.append(op)
+            return
+        # ----------  pure operations, guards  ----------
+        if op.is_always_pure() or op.is_guard() or op.is_ovf():
+            self.newops.append(op)
+            return
+        # ----------  non-pure getfields  ----------
+        if opnum in (rop.GETFIELD_GC, rop.GETARRAYITEM_GC,
+                     rop.GETINTERIORFIELD_GC):
+            self.handle_getfields(op)
+            return
+        # ----------  calls  ----------
+        if op.is_call():
+            if opnum == rop.CALL_RELEASE_GIL:
+                # self.fallback_inevitable(op)
+                # is done by assembler._release_gil_shadowstack()
                 self.newops.append(op)
-                continue
-            # ----------  transaction breaks  ----------
-            if opnum == rop.STM_TRANSACTION_BREAK:
-                self.emitting_an_operation_that_can_collect()
-                self.next_op_may_be_in_new_transaction()
-                self.newops.append(op)
-                continue
-            # ----------  ptr_eq  ----------
-            if opnum in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ,
-                         rop.PTR_NE, rop.INSTANCE_PTR_NE):
-                self.newops.append(op)
-                continue
-            # ----------  guard_class  ----------
-            if opnum == rop.GUARD_CLASS:
-                assert self.cpu.vtable_offset is None
-                # requires gcremovetypeptr translation option
-                # uses h_tid which doesn't need a read-barrier
-                self.newops.append(op)
-                continue
-            # ----------  pure operations needing read-barrier  ----------
-            if opnum in (rop.GETFIELD_GC_PURE,
-                        rop.GETARRAYITEM_GC_PURE,
-                        rop.ARRAYLEN_GC, rop.STRGETITEM,
-                        rop.UNICODEGETITEM, rop.STRLEN,
-                        rop.UNICODELEN):
-                # e.g. getting inst_intval of a W_IntObject that is
-                # currently only a stub needs to first resolve to a 
-                # real object
-                # XXX: 'I' enough?
-                self.handle_category_operations(op, 'R')
-                continue
-            # ----------  pure operations, guards  ----------
-            if op.is_always_pure() or op.is_guard() or op.is_ovf():
-                self.newops.append(op)
-                continue
-            # ----------  getfields  ----------
-            if opnum in (rop.GETFIELD_GC, rop.GETARRAYITEM_GC,
-                        rop.GETINTERIORFIELD_GC):
-                self.handle_getfields(op)
-                continue
-            # ----------  setfields  ----------
-            if opnum in (rop.SETFIELD_GC, rop.SETINTERIORFIELD_GC,
-                         rop.SETARRAYITEM_GC, rop.STRSETITEM,
-                         rop.UNICODESETITEM):
-                self.handle_setfields(op)
-                continue
-            # ----------  mallocs  ----------
-            if op.is_malloc():
-                self.handle_malloc_operation(op)
-                continue
-            # ----------  calls  ----------
-            if op.is_call():
-                if opnum == rop.CALL and op.getdescr():
-                    d = op.getdescr()
-                    assert isinstance(d, CallDescr)
-                    ei = d.get_extra_info()
-                    if ei and ei.oopspecindex == EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION:
-                        self.newops.append(op)
-                        continue
-                    
-                self.emitting_an_operation_that_can_collect()
-                self.next_op_may_be_in_new_transaction()
-                                    
-                if opnum == rop.CALL_RELEASE_GIL:
-                    # self.fallback_inevitable(op)
-                    # is done by assembler._release_gil_shadowstack()
-                    self.newops.append(op)
-                elif opnum == rop.CALL_ASSEMBLER:
-                    self.handle_call_assembler(op)
-                else:
-                    # only insert become_inevitable if calling a
-                    # non-transactionsafe and non-releasegil function
-                    descr = op.getdescr()
-                    assert not descr or isinstance(descr, CallDescr)
-                    
-                    if not descr or not descr.get_extra_info() \
+            elif opnum == rop.CALL_ASSEMBLER:
+                assert 0   # case handled by the parent class
+            else:
+                # only insert become_inevitable if calling a
+                # non-transactionsafe and non-releasegil function
+                descr = op.getdescr()
+                assert not descr or isinstance(descr, CallDescr)
+
+                if not descr or not descr.get_extra_info() \
                       or descr.get_extra_info().call_needs_inevitable():
-                        self.fallback_inevitable(op)
-                    else:
-                        self.newops.append(op)
+                    self.fallback_inevitable(op)
+                else:
+                    self.newops.append(op)
+            return
+        # ----------  copystrcontent  ----------
+        if opnum in (rop.COPYSTRCONTENT, rop.COPYUNICODECONTENT):
+            self.handle_copystrcontent(op)
+            continue
+        XXX
+        # ----------  raw getfields and setfields  ----------
+        if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
+            if self.maybe_handle_raw_accesses(op):
                 continue
-            # ----------  copystrcontent  ----------
-            if opnum in (rop.COPYSTRCONTENT, rop.COPYUNICODECONTENT):
-                self.handle_copystrcontent(op)
-                continue
-            # ----------  raw getfields and setfields  ----------
-            if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
-                if self.maybe_handle_raw_accesses(op):
-                    continue
-            # ----------  labels  ----------
-            if opnum == rop.LABEL:
-                self.emitting_an_operation_that_can_collect()
-                self.next_op_may_be_in_new_transaction()
-                
-                self.newops.append(op)
-                continue
-            # ----------  jumps  ----------
-            if opnum == rop.JUMP:
-                self.newops.append(op)
-                continue
-            # ----------  finish, other ignored ops  ----------
-            if opnum in (rop.FINISH, rop.FORCE_TOKEN,
-                        rop.READ_TIMESTAMP, rop.MARK_OPAQUE_PTR,
-                        rop.JIT_DEBUG, rop.KEEPALIVE,
-                        rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
-                        ):
-                self.newops.append(op)
-                continue
-            # ----------  fall-back  ----------
-            # Check that none of the ops handled here can_collect
-            # or cause a transaction break. This is not done by
-            # the fallback here
-            self.fallback_inevitable(op)
-            debug_print("fallback for", op.repr())
-            #
-
-        debug_stop("jit-stmrewrite-ops")
-        return self.newops
+        # ----------  labels  ----------
+        if opnum == rop.LABEL:
+            self.emitting_an_operation_that_can_collect()
+            self.next_op_may_be_in_new_transaction()
+            
+            self.newops.append(op)
+            continue
+        # ----------  jumps  ----------
+        if opnum == rop.JUMP:
+            self.newops.append(op)
+            continue
+        # ----------  finish, other ignored ops  ----------
+        if opnum in (rop.FINISH, rop.FORCE_TOKEN,
+                    rop.READ_TIMESTAMP, rop.MARK_OPAQUE_PTR,
+                    rop.JIT_DEBUG, rop.KEEPALIVE,
+                    rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
+                    ):
+            self.newops.append(op)
+            continue
+        # ----------  fall-back  ----------
+        # Check that none of the ops handled here can_collect
+        # or cause a transaction break. This is not done by
+        # the fallback here
+        self.fallback_inevitable(op)
+        debug_print("fallback for", op.repr())
 
     def emitting_an_operation_that_can_collect(self):
         GcRewriterAssembler.emitting_an_operation_that_can_collect(self)

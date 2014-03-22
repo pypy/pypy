@@ -107,7 +107,8 @@ class GcLLDescription(GcCache):
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         if not self.stm:
-            from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
+            from rpython.jit.backend.llsupport import rewrite
+            GcRewriterAssembler = rewrite.GcRewriterAssembler
         else:
             from rpython.jit.backend.llsupport import stmrewrite
             GcRewriterAssembler = stmrewrite.GcStmRewriterAssembler

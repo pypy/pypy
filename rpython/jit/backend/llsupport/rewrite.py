@@ -52,7 +52,6 @@ class GcRewriterAssembler(object):
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
-        # SYNC with stmrewrite.py!
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
@@ -60,7 +59,7 @@ class GcRewriterAssembler(object):
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
-            elif op.is_call():
+            elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
@@ -80,9 +79,12 @@ class GcRewriterAssembler(object):
             if op.getopnum() == rop.CALL_ASSEMBLER:
                 self.handle_call_assembler(op)
                 continue
-            #
-            self.newops.append(op)
+            # ---------- fallback case (overwritten in stmrewrite) -----------
+            self.other_operation(op)
         return self.newops
+
+    def other_operation(self, op):
+        self.newops.append(op)
 
     # ----------
 
@@ -158,8 +160,7 @@ class GcRewriterAssembler(object):
             else:
                 raise NotImplementedError(op.getopname())
 
-    def gen_malloc_frame(self, frame_info, frame):
-        size_box = history.BoxInt()
+    def gen_malloc_frame(self, frame_info, frame, size_box):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm' or self.gc_ll_descr.stm:
             op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
@@ -176,8 +177,8 @@ class GcRewriterAssembler(object):
                                size_box,
                                descr=descrs.jfi_frame_size)
             self.newops.append(op0)
-            self.gen_malloc_nursery_varsize_frame(size_box, frame,
-                                                  descrs.arraydescr.tid)
+            self.gen_malloc_nursery_varsize_frame(size_box, frame)
+            self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             length_box = history.BoxInt()
             op1 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                length_box,
@@ -192,8 +193,9 @@ class GcRewriterAssembler(object):
         assert isinstance(loop_token, history.JitCellToken)
         jfi = loop_token.compiled_loop_token.frame_info
         llfi = heaptracker.adr2int(llmemory.cast_ptr_to_adr(jfi))
+        size_box = history.BoxInt()
         frame = history.BoxPtr()
-        self.gen_malloc_frame(llfi, frame)
+        self.gen_malloc_frame(llfi, frame, size_box)
         op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstInt(llfi)],
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
@@ -322,7 +324,7 @@ class GcRewriterAssembler(object):
         self.write_barrier_applied[v_result] = None
         return True
 
-    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result, tid):
+    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result):
         """ Generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
         """
         self.emitting_an_operation_that_can_collect()
@@ -332,8 +334,6 @@ class GcRewriterAssembler(object):
 
         self.newops.append(op)
         self.write_barrier_applied[v_result] = None
-
-        self.gen_initialize_tid(v_result, tid)
 
     def gen_malloc_nursery(self, size, v_result):
         """Try to generate or update a CALL_MALLOC_NURSERY.
@@ -392,8 +392,8 @@ class GcRewriterAssembler(object):
             v = op.getarg(1)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
-                op = self.prepare_write_barrier(op, rop.SETFIELD_RAW)
-                self.gen_write_barrier(op.getarg(0))
+                self.gen_write_barrier(val)
+                #op = op.copy_and_change(rop.SETFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setinteriorfield(self, op):
@@ -402,8 +402,8 @@ class GcRewriterAssembler(object):
             v = op.getarg(2)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
-                op = self.prepare_write_barrier(op, rop.SETINTERIORFIELD_RAW)
-                self.gen_write_barrier(op.getarg(0))
+                self.gen_write_barrier(val)
+                #op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setarrayitem(self, op):
@@ -412,21 +412,9 @@ class GcRewriterAssembler(object):
             v = op.getarg(2)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
-                op = self.prepare_write_barrier(op, rop.SETARRAYITEM_RAW)
-                self.gen_write_barrier_array(op.getarg(0),
-                                             op.getarg(1))
+                self.gen_write_barrier_array(val, op.getarg(1))
+                #op = op.copy_and_change(rop.SETARRAYITEM_RAW)
         self.newops.append(op)
-
-    def prepare_write_barrier(self, op, newopnum):
-        write_barrier_descr = self.gc_ll_descr.write_barrier_descr
-        if (write_barrier_descr.returns_modified_object and
-                isinstance(op.getarg(0), ConstPtr)):
-            args = op.getarglist()
-            v_box = BoxPtr()
-            self.newops.append(ResOperation(rop.SAME_AS, [args[0]], v_box))
-            args[0] = v_box
-            return op.copy_and_change(opnum=newopnum, args=args)
-        return op
 
     def gen_write_barrier(self, v_base):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
@@ -437,11 +425,10 @@ class GcRewriterAssembler(object):
 
     def gen_write_barrier_array(self, v_base, v_index):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
-        if write_barrier_descr.has_barrier_from_array(self.cpu):
+        if write_barrier_descr.has_write_barrier_from_array(self.cpu):
             # If we know statically the length of 'v', and it is not too
             # big, then produce a regular write_barrier.  If it's unknown or
             # too big, produce instead a write_barrier_from_array.
-            assert not write_barrier_descr.returns_modified_object
             LARGE = 130
             length = self.known_lengths.get(v_base, LARGE)
             if length >= LARGE:
