@@ -73,7 +73,7 @@ class Assembler386(BaseAssembler):
         if WORD == 8:
             self.pending_memoryerror_trampoline_from = []
             self.error_trampoline_64 = 0
-        self.mc = codebuf.MachineCodeBlockWrapper()
+        self.mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         #assert self.datablockwrapper is None --- but obscure case
         # possible, e.g. getting MemoryError and continuing
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -112,7 +112,7 @@ class Assembler386(BaseAssembler):
             mc.MOV_bi(extra_ofs, value)
 
     def build_frame_realloc_slowpath(self):
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
         # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
         mc.MOV_rs(ecx.value, WORD)
@@ -156,7 +156,7 @@ class Assembler386(BaseAssembler):
         """ This builds a general call slowpath, for whatever call happens to
         come.
         """
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         # copy registers to the frame, with the exception of the
         # 'cond_call_register_arguments' and eax, because these have already
         # been saved by the caller.  Note that this is not symmetrical:
@@ -196,7 +196,7 @@ class Assembler386(BaseAssembler):
         This function does not have to preserve registers. It expects
         all registers to be saved in the caller.
         """
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         # store the gc pattern
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_rs(ecx.value, WORD)
@@ -250,7 +250,7 @@ class Assembler386(BaseAssembler):
         This function must preserve all registers apart from eax and edi.
         """
         assert kind in ['fixed', 'str', 'unicode', 'var']
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         self._push_all_regs_to_frame(mc, [eax, edi], self.cpu.supports_floats)
         # store the gc pattern
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
@@ -305,14 +305,9 @@ class Assembler386(BaseAssembler):
         self._reload_frame_if_necessary(mc, align_stack=True)
         self.set_extra_stack_depth(mc, 0)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
-        if self.cpu.gc_ll_descr.stm:
-            # load nursery_current into EDI
-            nc = self._get_stm_tl(rstm.get_nursery_current_adr())
-            self._tl_segment_if_stm(mc)
-            mc.MOV_rj(edi.value, nc)
-        else:
-            nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-            mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        mc.SEGC7()
+        mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
         # clear the gc pattern
         mc.MOV_bi(ofs, 0)
         mc.RET()
@@ -333,7 +328,7 @@ class Assembler386(BaseAssembler):
         if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
         #
-        self.mc = codebuf.MachineCodeBlockWrapper()
+        self.mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         #
         # read and reset the current exception
 
@@ -350,22 +345,6 @@ class Assembler386(BaseAssembler):
         self.propagate_exception_path = rawstart
         self.mc = None
 
-    def _get_stm_tl(self, adr):
-        """Makes 'adr' relative to threadlocal-base if we run in STM. 
-        Before using such a relative address, call _tl_segment_if_stm()."""
-        if self.cpu.gc_ll_descr.stm and we_are_translated():
-            # only for STM and not during tests
-            result = adr - stmtlocal.threadlocal_base()
-            assert rx86.fits_in_32bits(result)
-            return result
-        return adr
-
-    def _tl_segment_if_stm(self, mc):
-        """Insert segment prefix for thread-local memory if we run
-        in STM and not during testing."""
-        if self.cpu.gc_ll_descr.stm and we_are_translated():
-            stmtlocal.tl_segment_prefix(mc)
-
     def _build_stack_check_slowpath(self):
         if self.cpu.gc_ll_descr.stm:
             return      # XXX no stack check on STM for now
@@ -381,7 +360,7 @@ class Assembler386(BaseAssembler):
         #    |  my own retaddr     |    <-- esp
         #    +---------------------+
         #
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         #
         if IS_X86_64:
             # on the x86_64, we have to save all the registers that may
@@ -402,8 +381,8 @@ class Assembler386(BaseAssembler):
         else:
             mc.ADD_ri(esp.value, WORD)
         #
-        ea = self._get_stm_tl(self.cpu.pos_exception())
-        self._tl_segment_if_stm(mc)
+        ea = mc.in_tl_segment(self.cpu.pos_exception())
+        mc.SEGTL()
         mc.MOV(eax, heap(ea))
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il8(rx86.Conditions['NZ'], 0)
@@ -441,7 +420,7 @@ class Assembler386(BaseAssembler):
         # all XMM registers.  It takes a single argument just pushed
         # on the stack even on X86_64.  It must restore stack alignment
         # accordingly.
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         #
         if not for_frame:
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
@@ -518,7 +497,7 @@ class Assembler386(BaseAssembler):
         #
         # make the stm_longjmp_callback() function, with signature
         #     void (*longjmp_callback)(void *stm_resume_buffer)
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         #
         # 'edi' contains the stm resume buffer, so the new stack
         # location that we have to enforce is 'edi - FRAME_FIXED_SIZE * WORD'.
@@ -529,9 +508,9 @@ class Assembler386(BaseAssembler):
         #
         # restore the shadowstack pointer from stm_resume_buffer[1]
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
+        rst = mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
         mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE + 1) * WORD)
-        self._tl_segment_if_stm(mc)
+        mc.SEGTL()
         mc.MOV_jr(rst, eax.value)
         #
         # must restore 'ebp' from its saved value in the shadowstack
@@ -702,7 +681,7 @@ class Assembler386(BaseAssembler):
             assert rx86.fits_in_32bits(relative_target)
             #
             if not tok.is_guard_not_invalidated:
-                mc = codebuf.MachineCodeBlockWrapper()
+                mc = codebuf.MachineCodeBlockWrapper(self.cpu)
                 mc.writeimm32(relative_target)
                 mc.copy_to_raw_memory(addr)
             else:
@@ -727,7 +706,7 @@ class Assembler386(BaseAssembler):
         if WORD == 8:
             for pos_after_jz in self.pending_memoryerror_trampoline_from:
                 assert self.error_trampoline_64 != 0     # only if non-empty
-                mc = codebuf.MachineCodeBlockWrapper()
+                mc = codebuf.MachineCodeBlockWrapper(self.cpu)
                 mc.writeimm32(self.error_trampoline_64 - pos_after_jz)
                 mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
@@ -786,7 +765,7 @@ class Assembler386(BaseAssembler):
         self.frame_depth_to_patch.append(ofs2)
 
     def _patch_frame_depth(self, adr, allocated_depth):
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
 
@@ -811,7 +790,7 @@ class Assembler386(BaseAssembler):
         # that. Otherwise, leave the original rel32 to the recovery stub in
         # place, but clobber the recovery stub with a jump to the real
         # target.
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         if rx86.fits_in_32bits(offset):
             mc.writeimm32(offset)
             mc.copy_to_raw_memory(adr_jump_offset)
@@ -894,7 +873,7 @@ class Assembler386(BaseAssembler):
             fn = stmtlocal.stm_invalidate_jmp_buf_fn
             self.mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
             # there could have been a collection in invalidate_jmp_buf()
-            self._reload_frame_if_necessary(self.mc)
+            self._reload_frame_if_necessary(self.mc, wb=False)
 
         # the return value is the jitframe
         self.mc.MOV_rr(eax.value, ebp.value)
@@ -916,9 +895,9 @@ class Assembler386(BaseAssembler):
         that gives the address of the stack top.  If this integer doesn't
         fit in 32 bits, it will be loaded in r11.
         """
-        rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
+        rst = mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
         if rx86.fits_in_32bits(rst):
-            self._tl_segment_if_stm(mc)
+            mc.SEGTL()
             mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
@@ -934,9 +913,9 @@ class Assembler386(BaseAssembler):
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
         self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)
-        
+
         if rx86.fits_in_32bits(rst):
-            self._tl_segment_if_stm(self.mc)
+            self.mc.SEGTL()
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
         else:
             # The integer 'rst' doesn't fit in 32 bits, so we know that
@@ -946,9 +925,9 @@ class Assembler386(BaseAssembler):
                            ebx.value) # MOV [r11], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
-        rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
+        rst = self.mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
         if rx86.fits_in_32bits(rst):
-            self._tl_segment_if_stm(self.mc)
+            self.mc.SEGTL()
             self.mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
         else:
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
@@ -968,7 +947,7 @@ class Assembler386(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()
             assert mc.get_relative_pos() == 5
@@ -1215,25 +1194,17 @@ class Assembler386(BaseAssembler):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
 
-    def _reload_frame_if_necessary(self, mc, align_stack=False):
+    def _reload_frame_if_necessary(self, mc, align_stack=False, wb=True):
         gc_ll_descr = self.cpu.gc_ll_descr
         gcrootmap = gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
-            self._tl_segment_if_stm(mc)
+            rst = mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
+            mc.SEGTL()
             mc.MOV(ecx, heap(rst))
             mc.MOV(ebp, mem(ecx, -WORD))
         #
-        if gcrootmap and gcrootmap.is_stm:
-            if not hasattr(gc_ll_descr, 'A2Wdescr'):
-                raise Exception("unreachable code")
-            wbdescr = gc_ll_descr.A2Wdescr
-            self._stm_barrier_fastpath(mc, wbdescr, [ebp], is_frame=True,
-                                       align_stack=align_stack)
-            return
-        #
         wbdescr = gc_ll_descr.write_barrier_descr
-        if gcrootmap and wbdescr:
+        if gcrootmap and wbdescr and wb:
             # frame never uses card marking, so we enforce this is not
             # an array
             self._write_barrier_fastpath(mc, wbdescr, [ebp], array=False,
@@ -1745,8 +1716,8 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
                                        locs, ign_2):
-        ea = self._get_stm_tl(self.cpu.pos_exception())
-        self._tl_segment_if_stm(self.mc)
+        ea = self.mc.in_tl_segment(self.cpu.pos_exception())
+        self.mc.SEGTL()
         self.mc.CMP(heap(ea), imm0)
         self.implement_guard(guard_token, 'NZ')
 
@@ -1760,8 +1731,8 @@ class Assembler386(BaseAssembler):
                                     locs, resloc):
         loc = locs[0]
         loc1 = locs[1]
-        ea = self._get_stm_tl(self.cpu.pos_exception())
-        self._tl_segment_if_stm(self.mc)
+        ea = self.mc.in_tl_segment(self.cpu.pos_exception())
+        self.mc.SEGTL()
         self.mc.MOV(loc1, heap(ea))
         self.mc.CMP(loc1, loc)
         self.implement_guard(guard_token, 'NE')
@@ -1772,42 +1743,43 @@ class Assembler386(BaseAssembler):
         """ Resest the exception. If excvalloc is None, then store it on the
         frame in jf_guard_exc
         """
-        eva = self._get_stm_tl(self.cpu.pos_exc_value())
-        ea = self._get_stm_tl(self.cpu.pos_exception())
+        eva = mc.in_tl_segment(self.cpu.pos_exc_value())
+        ea = mc.in_tl_segment(self.cpu.pos_exception())
         #
-        self._tl_segment_if_stm(mc)
         if excvalloc is not None:
             assert excvalloc.is_core_reg()
+            mc.SEGTL()
             mc.MOV(excvalloc, heap(eva))
         elif tmploc is not None: # if both are None, just ignore
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.SEGTL()
             mc.MOV(tmploc, heap(eva))
             mc.MOV(RawEbpLoc(ofs), tmploc)
         #
         if exctploc is not None:
             assert exctploc.is_core_reg()
-            self._tl_segment_if_stm(mc)
+            mc.SEGTL()
             mc.MOV(exctploc, heap(ea))
         #
-        self._tl_segment_if_stm(mc)
+        mc.SEGTL()
         mc.MOV(heap(ea), imm0)
-        self._tl_segment_if_stm(mc)
+        mc.SEGTL()
         mc.MOV(heap(eva), imm0)
 
     def _restore_exception(self, mc, excvalloc, exctploc, tmploc=None):
-        eva = self._get_stm_tl(self.cpu.pos_exc_value())
-        ea = self._get_stm_tl(self.cpu.pos_exception())
+        eva = mc.in_tl_segment(self.cpu.pos_exc_value())
+        ea = mc.in_tl_segment(self.cpu.pos_exception())
         if excvalloc is not None:
-            self._tl_segment_if_stm(mc)
+            mc.SEGTL()
             mc.MOV(heap(eva), excvalloc)
         else:
             assert tmploc is not None
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV(tmploc, RawEbpLoc(ofs))
             mc.MOV_bi(ofs, 0)
-            self._tl_segment_if_stm(mc)
+            mc.SEGTL()
             mc.MOV(heap(eva), tmploc)
-        self._tl_segment_if_stm(mc)
+        mc.SEGTL()
         mc.MOV(heap(ea), exctploc)
 
     def _gen_guard_overflow(self, guard_op, guard_token):
@@ -2000,20 +1972,20 @@ class Assembler386(BaseAssembler):
                 mc.MOVSD_xb(i, (ofs + i * coeff) * WORD + base_ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        mc = codebuf.MachineCodeBlockWrapper()
+        mc = codebuf.MachineCodeBlockWrapper(self.cpu)
         self.mc = mc
 
         self._push_all_regs_to_frame(mc, [], withfloats)
 
         if exc:
             # We might have an exception pending.  Load it into ebx...
-            eva = self._get_stm_tl(self.cpu.pos_exc_value())
-            ea = self._get_stm_tl(self.cpu.pos_exception())
-            self._tl_segment_if_stm(mc)
+            eva = mc.in_tl_segment(self.cpu.pos_exc_value())
+            ea = mc.in_tl_segment(self.cpu.pos_exception())
+            mc.SEGTL()
             mc.MOV(ebx, heap(eva))
-            self._tl_segment_if_stm(mc)
+            mc.SEGTL()
             mc.MOV(heap(ea), imm0)
-            self._tl_segment_if_stm(mc)
+            mc.SEGTL()
             mc.MOV(heap(eva), imm0)
             # ...and save ebx into 'jf_guard_exc'
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
@@ -2424,46 +2396,13 @@ class Assembler386(BaseAssembler):
         # XXX if the next operation is a GUARD_NO_EXCEPTION, we should
         # somehow jump over it too in the fast path
 
-    
-    def _cond_allocate_in_nursery_or_slowpath(self, mc, gcmap):
-        # needed for slowpath:
-        # eax = nursery_current
-        # edi = nursery_current + size
-        #
-        # cmp nursery_current+size > nursery_nextlimit
-        nnl = self._get_stm_tl(rstm.get_nursery_nextlimit_adr())
-        self._tl_segment_if_stm(mc)
-        mc.CMP_rj(edi.value, nnl)
-        mc.J_il8(rx86.Conditions['NA'], 0) # patched later
-        jmp_adr = mc.get_relative_pos()
-        #
-        # == SLOWPATH ==
-        # save the gcmap
-        self.push_gcmap(mc, gcmap, mov=True)
-        mc.CALL(imm(self.malloc_slowpath))
-        mc.JMP_l8(0) # XXX: is JMP over 1 instr good?
-        jmp2_adr = mc.get_relative_pos()
-        #
-        # == FASTPATH ==
-        offset = mc.get_relative_pos() - jmp_adr
-        assert 0 < offset <= 127
-        mc.overwrite(jmp_adr-1, chr(offset))
-        #
-        # stm_nursery_current = stm_nursery_current+size
-        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
-        self._tl_segment_if_stm(mc)
-        mc.MOV_jr(nc, edi.value)
-        #
-        # END
-        offset = mc.get_relative_pos() - jmp2_adr
-        assert 0 < offset <= 127
-        mc.overwrite(jmp2_adr-1, chr(offset))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
-        assert not self.cpu.gc_ll_descr.stm
         assert size & (WORD-1) == 0     # must be correctly aligned
+        self.mc.SEGC7()
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edi.value, (eax.value, size))
+        self.mc.SEGC7()
         self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2473,6 +2412,7 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
+        self.mc.SEGC7()
         self.mc.MOV(heap(nursery_free_adr), edi)
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
@@ -2482,6 +2422,7 @@ class Assembler386(BaseAssembler):
         if sizeloc is eax:
             self.mc.MOV(edi, sizeloc)
             sizeloc = edi
+        self.mc.SEGC7()
         self.mc.MOV(eax, heap(nursery_free_adr))
         if self.cpu.gc_ll_descr.stm:
             constsize = self.cpu.get_baseofs_of_frame_field()
@@ -2492,6 +2433,7 @@ class Assembler386(BaseAssembler):
             self.mc.ADD_rr(edi.value, eax.value)
         else:
             self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
+        self.mc.SEGC7()
         self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2501,6 +2443,7 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
+        self.mc.SEGC7()
         self.mc.MOV(heap(nursery_free_adr), edi)
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
@@ -2522,6 +2465,7 @@ class Assembler386(BaseAssembler):
         self.mc.J_il8(rx86.Conditions['A'], 0) # patched later
         jmp_adr0 = self.mc.get_relative_pos()
 
+        self.mc.SEGC7()
         self.mc.MOV(eax, heap(nursery_free_adr))
         if valid_addressing_size(itemsize):
             shift = get_scale(itemsize)
@@ -2542,6 +2486,7 @@ class Assembler386(BaseAssembler):
             self.mc.AND_ri(edi.value, ~(WORD - 1))
         # now edi contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
+        self.mc.SEGC7()
         self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr1 = self.mc.get_relative_pos()
@@ -2573,6 +2518,7 @@ class Assembler386(BaseAssembler):
         # write down the tid, but not if it's the result of the CALL
         self.mc.MOV(mem(eax, 0), imm(arraydescr.tid))
         # while we're at it, this line is not needed if we've done the CALL
+        self.mc.SEGC7()
         self.mc.MOV(heap(nursery_free_adr), edi)
         #
         offset = self.mc.get_relative_pos() - jmp_location
@@ -2655,16 +2601,18 @@ class Assembler386(BaseAssembler):
     def genop_discard_stm_read(self, op, arglocs):
         assert IS_X86_64, "needed for X86_64_SCRATCH_REG"
         mc = self.mc
-        rm8reg = X86_64_SCRATCH_REG.value | BYTE_REG_FLAG
-        xxxxxx #load STM_SEGMENT->transaction_read_version into rm8reg
+        rmreg = X86_64_SCRATCH_REG.value
+        mc.SEGC7()
+        mc.MOVZX8_rj(rmreg, rstm.adr_transaction_read_version)
+        #
         loc_src, loc_tmp = arglocs
         if tmp_loc is None:
             assert isinstance(loc_src, ImmedLoc)
             assert loc_src.value > 0
             mem = loc_src.value >> 4
             assert rx86.fits_in_32bits(mem)
-            tl_segment_prefix(mc)
-            mc.MOV8_jr(mem, rm8reg)
+            mc.SEGC7()
+            mc.MOV8_jr(mem, rmreg | rx86.BYTE_REG_FLAG)
         else:
             assert isinstance(loc_tmp, RegLoc)
             if isinstance(loc_src, ImmedLoc):
@@ -2673,8 +2621,8 @@ class Assembler386(BaseAssembler):
                 if loc_tmp is not loc_src:
                     mc.MOV(loc_tmp, loc_src)
                 mc.SHR_ri(loc_tmp.value, 4)
-            tl_segment_prefix(mc)
-            mc.MOV8_mr((loc_tmp.value, 0), rm8reg)
+            mc.SEGC7()
+            mc.MOV8_mr((loc_tmp.value, 0), rmreg | rx86.BYTE_REG_FLAG)
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

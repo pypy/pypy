@@ -1,4 +1,5 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -6,38 +7,16 @@ from rpython.rlib.jit import dont_look_inside
 
 
 TID = rffi.UINT
-tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)', default=4)
+tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)')
+adr_nursery_free = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_current)')
+adr_nursery_top  = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_end)')
+adr_transaction_read_version = (
+    CDefinedIntSymbolic('(long)(&STM_SEGMENT->transaction_read_version)'))
 
-
-@dont_look_inside
-def get_nursery_current_adr():
-    addr = llop.stm_get_adr_of_nursery_current(llmemory.Address)
-    return rffi.cast(lltype.Signed, addr)
-
-@dont_look_inside
-def get_nursery_nextlimit_adr():
-    addr = llop.stm_get_adr_of_nursery_nextlimit(llmemory.Address)
-    return rffi.cast(lltype.Signed, addr)
-
-@dont_look_inside
-def get_active_adr():
-    addr = llop.stm_get_adr_of_active(llmemory.Address)
-    return rffi.cast(lltype.Signed, addr)
-
-@dont_look_inside
-def get_adr_of_private_rev_num():
-    addr = llop.stm_get_adr_of_private_rev_num(llmemory.Address)
-    return rffi.cast(lltype.Signed, addr)
-
-@dont_look_inside
-def get_adr_of_read_barrier_cache():
-    addr = llop.stm_get_adr_of_read_barrier_cache(llmemory.Address)
-    return rffi.cast(lltype.Signed, addr)
 
 def jit_stm_transaction_break_point():
     if we_are_translated():
         llop.jit_stm_transaction_break_point(lltype.Void)
-
 
 def jit_stm_should_break_transaction(if_there_is_no_other):
     # if_there_is_no_other means that we use this point only
@@ -47,19 +26,10 @@ def jit_stm_should_break_transaction(if_there_is_no_other):
     return llop.jit_stm_should_break_transaction(lltype.Bool,
                                                  if_there_is_no_other)
 
-
 @dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 
-@dont_look_inside
-def stop_all_other_threads():
-    llop.stm_stop_all_other_threads(lltype.Void)
-
-@dont_look_inside
-def partial_commit_and_resume_other_threads():
-    llop.stm_partial_commit_and_resume_other_threads(lltype.Void)
-    
 @dont_look_inside
 def should_break_transaction():
     return we_are_translated() and (

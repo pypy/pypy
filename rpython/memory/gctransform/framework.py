@@ -773,6 +773,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   v_typeid], resultvar=op.result)
 
     def _gc_adr_of_gc_attr(self, hop, attrname):
+        assert not self.translator.config.translation.stm
         if getattr(self.gcdata.gc, attrname, None) is None:
             raise NotImplementedError("gc_adr_of_%s only for generational gcs"
                                       % (attrname,))
@@ -780,7 +781,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
                                 'inst_' + attrname)
         c_ofs = rmodel.inputconst(lltype.Signed, ofs)
-        assert not self.translator.config.translation.stm, "XXX"
         v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
                              resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)

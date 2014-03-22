@@ -1546,7 +1546,7 @@ class MetaInterpStaticData(object):
                 _callable=lambda : False)
             FUNC = lltype.typeOf(self.stm_should_break_transaction).TO
 
-            ei = EffectInfo([], [], [], [],
+            ei = EffectInfo([], [], [], [], [], [],
                             EffectInfo.EF_CANNOT_RAISE,
                             oopspecindex=EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION,
                             can_invalidate=False)

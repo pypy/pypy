@@ -33,7 +33,9 @@ class StmGC(MovingGCBase):
 
     VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
 
-    minimal_size_in_nursery = llmemory.sizeof(HDR)
+    JIT_WB_IF_FLAG = 0x01            # value of _STM_GCFLAG_WRITE_BARRIER
+    stm_fast_alloc = 66*1024         # value of _STM_FAST_ALLOC in stmgc.h
+    minimal_size_in_nursery = 16     # hard-coded lower limit
 
     TRANSLATION_PARAMS = {
     }
@@ -97,7 +99,7 @@ class StmGC(MovingGCBase):
 
     @classmethod
     def JIT_max_size_of_young_obj(cls):
-        return cls.GC_NURSERY_SECTION
+        return cls.stm_fast_alloc
 
     @classmethod
     def JIT_minimal_size_in_nursery(cls):

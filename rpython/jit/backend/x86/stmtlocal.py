@@ -32,6 +32,10 @@ def tl_segment_prefix(mc):
     else:
         mc.writechar('\x64')   # %fs:
 
+def c7_segment_prefix(mc):
+    assert WORD == 8
+    mc.writechar('\x65')       # %gs:
+
 
 # special STM functions called directly by the JIT backend
 stm_should_break_transaction_fn = rffi.llexternal(

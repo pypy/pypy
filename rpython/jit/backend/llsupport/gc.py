@@ -564,12 +564,20 @@ class GcLLDescr_framework(GcLLDescription):
         self.for_test_only.x = x0 + x1 + x2 + x3
 
     def get_nursery_free_addr(self):
-        nurs_addr = llop.gc_adr_of_nursery_free(llmemory.Address)
-        return rffi.cast(lltype.Signed, nurs_addr)
+        if self.stm:
+            from rpython.rlib import rstm
+            return rstm.adr_nursery_free
+        else:
+            nurs_addr = llop.gc_adr_of_nursery_free(llmemory.Address)
+            return rffi.cast(lltype.Signed, nurs_addr)
 
     def get_nursery_top_addr(self):
-        nurs_top_addr = llop.gc_adr_of_nursery_top(llmemory.Address)
-        return rffi.cast(lltype.Signed, nurs_top_addr)
+        if self.stm:
+            from rpython.rlib import rstm
+            return rstm.adr_nursery_top
+        else:
+            nurs_top_addr = llop.gc_adr_of_nursery_top(llmemory.Address)
+            return rffi.cast(lltype.Signed, nurs_top_addr)
 
     def initialize(self):
         pass

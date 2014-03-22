@@ -839,13 +839,10 @@ class RegAlloc(BaseRegalloc):
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
-        if gc_ll_descr.stm:
-            self.assembler.malloc_cond_stm(size, gcmap)
-        else:
-            self.assembler.malloc_cond(
-                gc_ll_descr.get_nursery_free_addr(),
-                gc_ll_descr.get_nursery_top_addr(),
-                size, gcmap)
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            size, gcmap)
 
     def consider_call_malloc_nursery_varsize_frame(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -893,16 +890,11 @@ class RegAlloc(BaseRegalloc):
         #
         itemsize = op.getarg(1).getint()
         maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
-        if gc_ll_descr.stm:
-            self.assembler.malloc_cond_varsize_stm(
-                op.getarg(0).getint(), 
-                lengthloc, itemsize, maxlength, gcmap, arraydescr)
-        else:
-            self.assembler.malloc_cond_varsize(
-                op.getarg(0).getint(),
-                gc_ll_descr.get_nursery_free_addr(),
-                gc_ll_descr.get_nursery_top_addr(),
-                lengthloc, itemsize, maxlength, gcmap, arraydescr)
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
