@@ -1476,33 +1476,36 @@ class Assembler386(BaseAssembler):
     # ----------
 
     def load_from_mem(self, resloc, source_addr, size_loc, sign_loc, op):
-        assert isinstance(resloc, RegLoc)
         size = size_loc.value
         sign = sign_loc.value
         self.mc.SEGC7_if_gc(op)
+        self.generate_one_mov_with_extension(resloc, source_addr, size, sign)
+
+    def generate_one_mov_with_extension(self, resloc, srcloc, size, sign):
+        assert isinstance(resloc, RegLoc)
         if resloc.is_xmm:
-            self.mc.MOVSD(resloc, source_addr)
+            self.mc.MOVSD(resloc, srcloc)
         elif size == WORD:
-            self.mc.MOV(resloc, source_addr)
+            self.mc.MOV(resloc, srcloc)
         elif size == 1:
             if sign:
-                self.mc.MOVSX8(resloc, source_addr)
+                self.mc.MOVSX8(resloc, srcloc)
             else:
-                self.mc.MOVZX8(resloc, source_addr)
+                self.mc.MOVZX8(resloc, srcloc)
         elif size == 2:
             if sign:
-                self.mc.MOVSX16(resloc, source_addr)
+                self.mc.MOVSX16(resloc, srcloc)
             else:
-                self.mc.MOVZX16(resloc, source_addr)
+                self.mc.MOVZX16(resloc, srcloc)
         elif IS_X86_64 and size == 4:
             if sign:
-                self.mc.MOVSX32(resloc, source_addr)
+                self.mc.MOVSX32(resloc, srcloc)
             else:
-                self.mc.MOV32(resloc, source_addr)    # zero-extending
+                self.mc.MOV32(resloc, srcloc)    # zero-extending
         else:
             not_implemented("load_from_mem size = %d" % size)
 
-    def save_into_mem(self, dest_addr, value_loc, size_loc):
+    def save_into_mem(self, dest_addr, value_loc, size_loc, op):
         size = size_loc.value
         self.mc.SEGC7_if_gc(op)
         if isinstance(value_loc, RegLoc) and value_loc.is_xmm:
@@ -2156,15 +2159,6 @@ class Assembler386(BaseAssembler):
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-
-        if self.cpu.gc_ll_descr.stm:
-            # value is non-moving, but jf_descr may have a changed
-            # descr -> different copy
-            self._stm_ptr_eq_fastpath(self.mc, [mem(eax, ofs), imm(value)],
-                                      tmploc)
-            self.mc.J_il8(rx86.Conditions['NZ'], 0)
-            return self.mc.get_relative_pos()
-        
         self.mc.CMP(mem(eax, ofs), imm(value))
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
@@ -2602,14 +2596,15 @@ class Assembler386(BaseAssembler):
         self._emit_guard_not_forced(guard_token)
 
     def genop_discard_stm_read(self, op, arglocs):
-        assert IS_X86_64, "needed for X86_64_SCRATCH_REG"
+        if not IS_X86_64:
+            todo()   # "needed for X86_64_SCRATCH_REG"
         mc = self.mc
         rmreg = X86_64_SCRATCH_REG.value
         mc.SEGC7()
         mc.MOVZX8_rj(rmreg, rstm.adr_transaction_read_version)
         #
         loc_src, loc_tmp = arglocs
-        if tmp_loc is None:
+        if loc_tmp is None:
             assert isinstance(loc_src, ImmedLoc)
             assert loc_src.value > 0
             mem = loc_src.value >> 4

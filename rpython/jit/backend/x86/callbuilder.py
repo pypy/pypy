@@ -68,7 +68,7 @@ class CallBuilderX86(AbstractCallBuilder):
         """Overridden in CallBuilder32 and CallBuilder64"""
         if self.ressize == 0:
             return      # void result
-        # use the code in load_from_mem to do the zero- or sign-extension
+        # use the code in self.asm to do the zero- or sign-extension
         srcloc = self.tmpresloc
         if srcloc is None:
             if self.restype == FLOAT:
@@ -79,8 +79,8 @@ class CallBuilderX86(AbstractCallBuilder):
             return      # no need for any MOV
         if self.ressize == 1 and isinstance(srcloc, RegLoc):
             srcloc = srcloc.lowest8bits()
-        self.asm.load_from_mem(self.resloc, srcloc,
-                               imm(self.ressize), imm(self.ressign))
+        self.asm.generate_one_mov_with_extension(self.resloc, srcloc,
+                                                 self.ressize, self.ressign)
 
     def push_gcmap(self):
         # we push *now* the gcmap, describing the status of GC registers
