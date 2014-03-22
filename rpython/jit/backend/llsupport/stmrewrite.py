@@ -125,38 +125,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         return val not in self.write_barrier_applied
 
 
-    def handle_setfields(self, op):
-        opnum = op.getopnum()
-        descr = op.getdescr()
-        target_category = 'W'
-        if opnum == rop.SETFIELD_GC:
-            assert isinstance(descr, FieldDescr)
-            if not descr.is_pointer_field():
-                target_category = 'V'
-        elif opnum == rop.SETINTERIORFIELD_GC:
-            assert isinstance(descr, InteriorFieldDescr)
-            if not descr.is_pointer_field():
-                target_category = 'V'
-        elif opnum == rop.SETARRAYITEM_GC:
-            assert isinstance(descr, ArrayDescr)
-            if not descr.is_array_of_pointers():
-                target_category = 'V'
-        elif opnum in (rop.STRSETITEM, rop.UNICODESETITEM):
-            target_category = 'V'
-            
-        self.handle_category_operations(op, target_category)
-
-    
-    def handle_category_operations(self, op, target_category):
-        lst = op.getarglist()
-        lst[0] = self.gen_barrier(lst[0], target_category)
-        self.newops.append(op.copy_and_change(op.getopnum(), args=lst))
-
-    def handle_malloc_operation(self, op):
-        GcRewriterAssembler.handle_malloc_operation(self, op)
-        self.known_category[op.result] = 'W'
-
     def handle_copystrcontent(self, op):
+        xxxxxxxx
         # first, a write barrier on the target string
         lst = op.getarglist()
         lst[1] = self.gen_barrier(lst[1], 'W')
@@ -181,10 +151,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.newops.append(op)
         debug_print("fallback for", op.repr())
 
-    def _is_null(self, box):
-        return isinstance(box, ConstPtr) and not box.value
-
     def maybe_handle_raw_accesses(self, op):
+        xxxxx
         from rpython.jit.backend.llsupport.descr import FieldDescr
         descr = op.getdescr()
         assert isinstance(descr, FieldDescr)
