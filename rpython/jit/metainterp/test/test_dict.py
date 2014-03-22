@@ -327,6 +327,21 @@ class DictTests:
         self.check_simple_loop(call_may_force=4,    # ll_dict_lookup_trampoline
                                call=1) # ll_dict_setitem_lookup_done_trampoline
 
+    def test_bug42(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(n):
+            mdict = {0: None, 1: None, 2: None, 3: None, 4: None,
+                     5: None, 6: None, 7: None, 8: None, 9: None}
+            while n > 0:
+                myjitdriver.jit_merge_point()
+                n -= 1
+                if n in mdict:
+                    del mdict[n]
+                    if n in mdict:
+                        raise Exception
+        self.meta_interp(f, [10])
+        self.check_simple_loop(call_may_force=0, call=3)
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass
