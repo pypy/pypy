@@ -103,8 +103,10 @@ class EffectInfo(object):
                 extradescrs=None):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
+               frozenset_or_none(readonly_descrs_interiorfields),
                frozenset_or_none(write_descrs_fields),
                frozenset_or_none(write_descrs_arrays),
+               frozenset_or_none(write_descrs_interiorfields),
                extraeffect,
                oopspecindex,
                can_invalidate)
