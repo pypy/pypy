@@ -192,9 +192,9 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
     STM_PSEGMENT->shadowstack_at_start_of_transaction = tl->shadowstack;
     STM_PSEGMENT->threadlocal_at_start_of_transaction = tl->thread_local_obj;
 
+    enter_safe_point_if_requested();
     dprintf(("start_transaction\n"));
 
-    enter_safe_point_if_requested();
     s_mutex_unlock();
 
     /* Now running the SP_RUNNING start.  We can set our

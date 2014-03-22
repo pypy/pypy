@@ -131,6 +131,7 @@ static void contention_management(uint8_t other_segment_num,
     else if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
         assert(contmgr.other_pseg->transaction_state != TS_INEVITABLE);
         contmgr.abort_other = true;
+        contmgr.try_sleep = false;
     }
     else if (contmgr.other_pseg->transaction_state == TS_INEVITABLE) {
         contmgr.abort_other = false;
