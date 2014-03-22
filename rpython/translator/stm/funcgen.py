@@ -129,6 +129,9 @@ def stm_become_inevitable(funcgen, op):
     string_literal = c_string_constant(info)
     return 'stm_become_inevitable(%s);' % (string_literal,)
 
+def stm_become_globally_unique_transaction(funcgen, op):
+    return 'stm_become_globally_unique_transaction("for the JIT");'
+
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'STM_PUSH_ROOT(stm_thread_local, %s);' % (arg0,)

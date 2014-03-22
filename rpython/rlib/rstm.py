@@ -6,10 +6,6 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.jit import dont_look_inside
 
 
-def stop_all_other_threads(): "XXX"
-def partial_commit_and_resume_other_threads(): "XXX"
-
-
 TID = rffi.UINT
 tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)')
 adr_nursery_free = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_current)')
@@ -33,6 +29,13 @@ def jit_stm_should_break_transaction(if_there_is_no_other):
 @dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
+
+@dont_look_inside
+def stop_all_other_threads():
+    llop.stm_become_globally_unique_transaction(lltype.Void)
+
+def partial_commit_and_resume_other_threads():
+    pass    # for now
 
 @dont_look_inside
 def should_break_transaction():
