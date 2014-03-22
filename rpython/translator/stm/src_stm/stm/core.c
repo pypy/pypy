@@ -462,7 +462,7 @@ void stm_commit_transaction(void)
     /* force all other threads to be paused.  They will unpause
        automatically when we are done here, i.e. at mutex_unlock().
        Important: we should not call cond_wait() in the meantime. */
-    synchronize_all_threads();
+    synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
 
     /* detect conflicts */
     if (detect_write_read_conflicts())
@@ -501,6 +501,8 @@ void stm_commit_transaction(void)
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
         /* wake up one thread in wait_for_end_of_inevitable_transaction() */
         cond_signal(C_INEVITABLE);
+        if (globally_unique_transaction)
+            committed_globally_unique_transaction();
     }
 
     /* done */
@@ -671,5 +673,14 @@ void _stm_become_inevitable(const char *msg)
         clear_callbacks_on_abort();
     }
 
+    s_mutex_unlock();
+}
+
+void stm_become_globally_unique_transaction(const char *msg)
+{
+    stm_become_inevitable(msg);   /* may still abort */
+
+    s_mutex_lock();
+    synchronize_all_threads(STOP_OTHERS_AND_BECOME_GLOBALLY_UNIQUE);
     s_mutex_unlock();
 }

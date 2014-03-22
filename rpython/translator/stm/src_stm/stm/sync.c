@@ -320,7 +320,9 @@ static void enter_safe_point_if_requested(void)
 
         /* If we are requested to enter a safe-point, we cannot proceed now.
            Wait until the safe-point request is removed for us. */
-
+#ifdef STM_TESTS
+        abort_with_mutex();
+#endif
         cond_signal(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_REQUEST_REMOVED;
         cond_wait(C_REQUEST_REMOVED);
@@ -328,7 +330,7 @@ static void enter_safe_point_if_requested(void)
     }
 }
 
-static void synchronize_all_threads(void)
+static void synchronize_all_threads(enum sync_type_e sync_type)
 {
     enter_safe_point_if_requested();
 
@@ -336,7 +338,13 @@ static void synchronize_all_threads(void)
        why: if several threads call this function, the first one that
        goes past this point will set the "request safe point" on all
        other threads; then none of the other threads will go past the
-       enter_safe_point_if_requested() above. */
+       enter_safe_point_if_requested() above.
+    */
+    if (UNLIKELY(globally_unique_transaction)) {
+        assert(count_other_threads_sp_running() == 0);
+        return;
+    }
+
     signal_everybody_to_pause_running();
 
     /* If some other threads are SP_RUNNING, we cannot proceed now.
@@ -353,11 +361,27 @@ static void synchronize_all_threads(void)
         }
     }
 
+    if (UNLIKELY(sync_type == STOP_OTHERS_AND_BECOME_GLOBALLY_UNIQUE)) {
+        globally_unique_transaction = true;
+        assert(STM_SEGMENT->nursery_end == NSE_SIGPAUSE);
+        STM_SEGMENT->nursery_end = NURSERY_END;
+        return;  /* don't remove the requests for safe-points in this case */
+    }
+
     /* Remove the requests for safe-points now.  In principle we should
        remove it later, when the caller is done, but this is equivalent
        as long as we hold the mutex.
     */
     remove_requests_for_safe_point();    /* => C_REQUEST_REMOVED */
+}
+
+static void committed_globally_unique_transaction(void)
+{
+    assert(globally_unique_transaction);
+    assert(STM_SEGMENT->nursery_end == NURSERY_END);
+    STM_SEGMENT->nursery_end = NSE_SIGPAUSE;
+    globally_unique_transaction = false;
+    remove_requests_for_safe_point();
 }
 
 void _stm_collectable_safe_point(void)

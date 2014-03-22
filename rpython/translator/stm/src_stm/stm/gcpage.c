@@ -135,7 +135,7 @@ static void major_collection_if_requested(void)
 
     if (is_major_collection_requested()) {   /* if still true */
 
-        synchronize_all_threads();
+        synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
 
         if (is_major_collection_requested()) {   /* if *still* true */
             major_collection_now_at_safe_point();

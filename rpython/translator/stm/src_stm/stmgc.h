@@ -326,6 +326,14 @@ long stm_can_move(object_t *);
 void stm_call_on_abort(stm_thread_local_t *, void *key, void callback(void *));
 
 
+/* Similar to stm_become_inevitable(), but additionally suspend all
+   other threads.  A very heavy-handed way to make sure that no other
+   transaction is running concurrently.  Avoid as much as possible.
+   Other transactions will continue running only after this transaction
+   commits. */
+void stm_become_globally_unique_transaction(const char *msg);
+
+
 /* ==================== END ==================== */
 
 #endif

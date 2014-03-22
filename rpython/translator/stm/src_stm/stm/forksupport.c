@@ -69,7 +69,7 @@ static void forksupport_prepare(void)
     }
 
     s_mutex_lock();
-    synchronize_all_threads();
+    synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
     mutex_pages_lock();
 
     /* Make a new mmap at some other address, but of the same size as
