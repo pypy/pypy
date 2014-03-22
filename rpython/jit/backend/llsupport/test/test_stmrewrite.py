@@ -1133,98 +1133,23 @@ class TestStm(RewriteTests):
             V = lltype.GcArray(('z', lltype.Ptr(S)), hints=imm_hint)
             vdescr = get_array_descr(self.gc_ll_descr, V)
             vdescr.tid = 1233
-            vzdescr = get_interiorfield_descr(self.gc_ll_descr, V, 'z')
+            #vzdescr = get_interiorfield_descr(self.gc_ll_descr, V, 'z')
 
-            # XXX: "A2Idescr" if imm_hint else "A2Rdescr"
-            barr = "A2Rdescr" if imm_hint else "A2Rdescr"
+            if imm_hint:
+                d = {'comment': '#', 'pure': '_pure'}
+            else:
+                d = {'comment': '', 'pure': ''}
+
             self.check_rewrite("""
                 [p1, p3, i1, p4]
-                p2 = getfield_gc(p1, descr=uxdescr)
-                i3 = getinteriorfield_gc(p3, i1, descr=vzdescr)
-                i4 = getarrayitem_gc(p4, i3, descr=vdescr)
+                p2 = getfield_gc%(pure)s(p1, descr=uxdescr)
+                i4 = getarrayitem_gc%(pure)s(p4, i1, descr=vdescr)
                 jump(p2)
-            """, """
+            """ % d, """
                 [p1, p3, i1, p4]
-                cond_call_stm_b(p1, descr=%s)
-                p2 = getfield_gc(p1, descr=uxdescr)
-                cond_call_stm_b(p3, descr=%s)
-                i3 = getinteriorfield_gc(p3, i1, descr=vzdescr)
-                cond_call_stm_b(p4, descr=%s)
-                i4 = getarrayitem_gc(p4, i3, descr=vdescr)
-                
+                p2 = getfield_gc%(pure)s(p1, descr=uxdescr)
+                %(comment)s stm_read(p1)
+                i4 = getarrayitem_gc%(pure)s(p4, i1, descr=vdescr)
+                %(comment)s stm_read(p4)
                 jump(p2)
-            """ % (barr, barr, barr), uxdescr=uxdescr,
-            vzdescr=vzdescr, vdescr=vdescr)
-
-    def test_noptr_setfields(self):
-        S = lltype.GcStruct('S')
-        U = lltype.GcStruct('U',
-                ('x', lltype.Signed),
-                ('y', lltype.Ptr(S)))
-        udescr = get_size_descr(self.gc_ll_descr, U)
-        udescr.tid = 2123
-        uxdescr = get_field_descr(self.gc_ll_descr, U, 'x')
-        #uydescr = get_field_descr(self.gc_ll_descr, U, 'y')
-
-        V = lltype.GcArray(('z', lltype.Signed))
-        vdescr = get_array_descr(self.gc_ll_descr, V)
-        vdescr.tid = 1233
-        vzdescr = get_interiorfield_descr(self.gc_ll_descr, V, 'z')
-
-        self.check_rewrite("""
-                [p1, p3, i1, p4]
-                setfield_gc(p1, 1, descr=uxdescr)
-                setinteriorfield_gc(p3, i1, 1, descr=vzdescr)
-                setarrayitem_gc(p4, i1, 1, descr=vdescr)
-                jump(p3)
-            """, """
-                [p1, p3, i1, p4]
-                cond_call_stm_b(p1, descr=A2Vdescr)
-                setfield_gc(p1, 1, descr=uxdescr)
-                cond_call_stm_b(p3, descr=A2Vdescr)
-                setinteriorfield_gc(p3, i1, 1, descr=vzdescr)
-                cond_call_stm_b(p4, descr=A2Vdescr)
-                setarrayitem_gc(p4, i1, 1, descr=vdescr)
-                
-                jump(p3)
-            """, uxdescr=uxdescr, vzdescr=vzdescr, vdescr=vdescr)
-
-    def test_weaken_previous_barrier(self):
-        class fakeextrainfo:
-            oopspecindex=0
-            def call_needs_inevitable(self):
-                return False
-        T = rffi.CArrayPtr(rffi.TIME_T)
-        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T,
-                                    fakeextrainfo())
-
-        # True: weaken previous barrier
-        # False: do not weaken
-        ops = [("stm_transaction_break(1)", False),
-               ("call(123, descr=cd)", False),
-               ("label()", False),
-               ("i2 = int_add(i1, 1)", True)
-           ]
-        for op, weaken in ops:
-            b1 = ("cond_call_stm_b(p1, descr=A2Vdescr)" if weaken
-                  else "cond_call_stm_b(p1, descr=A2Rdescr)")
-            b2 = ("" if weaken
-                  else "cond_call_stm_b(p1, descr=A2Vdescr)")
-            self.check_rewrite("""
-            [p1, i3]
-            i1 = getfield_gc(p1, descr=tydescr) # noptr
-            %s
-            setfield_gc(p1, i3, descr=tydescr) # noptr
-            jump(p1)
-            """ % (op,), """
-            [p1, i3]
-            %s
-            i1 = getfield_gc(p1, descr=tydescr)
-            %s
-            %s
-            setfield_gc(p1, i3, descr=tydescr)
-            
-            jump(p1)
-            """ % (b1, op, b2), cd=calldescr2)
-
-
+            """ % d, uxdescr=uxdescr, vdescr=vdescr)
