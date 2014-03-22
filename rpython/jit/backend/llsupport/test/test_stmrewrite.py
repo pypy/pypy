@@ -50,6 +50,8 @@ class TestStm(RewriteTests):
         gcdescr = get_description(config_)
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
                                                really_not_translated=True)
+        self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
+            lambda cpu: False)   # for now
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
@@ -241,10 +243,22 @@ class TestStm(RewriteTests):
             [p1]
             p2 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
-            stm_set_revision_gc(p2, descr=revdescr)
             setfield_gc(p2, p1, descr=tzdescr)
-            
             jump(p2)
+        """)
+
+    def test_rewrite_getfield_gc_on_local(self):
+        self.check_rewrite("""
+            []
+            p2 = new(descr=tdescr)
+            p1 = getfield_gc(p2, descr=tzdescr)
+            jump(p1)
+        """, """
+            []
+            p2 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
+            p1 = getfield_gc(p2, descr=tzdescr)
+            jump(p1)
         """)
 
     def test_rewrite_unrelated_setfield_gcs(self):
@@ -255,11 +269,10 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, p3, p4]
-            cond_call_stm_b(p1, descr=A2Wdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, p2, descr=tzdescr)
-            cond_call_stm_b(p3, descr=A2Wdescr)
+            cond_call_gc_wb(p3, descr=wbdescr)
             setfield_gc(p3, p4, descr=tzdescr)
-            
             jump()
         """)
 
@@ -271,10 +284,9 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i3]
-            cond_call_stm_b(p1, descr=A2Wdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, p2, descr=tzdescr)
             setfield_gc(p1, i3, descr=tydescr)
-            
             jump()
         """)
 
@@ -283,16 +295,15 @@ class TestStm(RewriteTests):
             [p1, p2, i3]
             setfield_gc(p1, p2, descr=tzdescr)
             label(p1, i3)
-            setfield_gc(p1, i3, descr=tydescr) # noptr
+            setfield_gc(p1, i3, descr=tydescr)
             jump(p1)
         """, """
             [p1, p2, i3]
-            cond_call_stm_b(p1, descr=A2Wdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, p2, descr=tzdescr)
             label(p1, i3)
-            cond_call_stm_b(p1, descr=A2Vdescr) # noptr
+            cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, i3, descr=tydescr)
-            
             jump(p1)
         """)
 
@@ -319,27 +330,15 @@ class TestStm(RewriteTests):
             "jit_debug(i1, i2)",
             "keepalive(i1)",
             "i3 = int_sub_ovf(i1, i2)",   # is_ovf operations
+            "increment_debug_counter(i1)",
             ]
-        for op in oplist:       
+        for op in oplist:
             testcase = """
                 [i1, i2, p1, p2, f1]
                 %s
                 finish()
             """ % op
             self.check_rewrite(testcase, testcase)
-
-    def test_rewrite_getfield_gc(self):
-        self.check_rewrite("""
-            [p1]
-            p2 = getfield_gc(p1, descr=tzdescr)
-            jump(p2)
-        """, """
-            [p1]
-            cond_call_stm_b(p1, descr=A2Rdescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            
-            jump(p2)
-        """)
 
     def test_rewrite_getfield_gc_const(self):
         TP = lltype.GcArray(lltype.Signed)
@@ -350,10 +349,8 @@ class TestStm(RewriteTests):
             jump(p2)
         """, """
             [p1]
-            p3 = same_as(ConstPtr(t))
-            cond_call_stm_b(p3, descr=A2Rdescr)
-            p2 = getfield_gc(p3, descr=tzdescr)
-            
+            p2 = getfield_gc(ConstPtr(t), descr=tzdescr)
+            stm_read(ConstPtr(t))
             jump(p2)
         """, t=NULL)
         # XXX could do better: G2Rdescr
@@ -365,9 +362,8 @@ class TestStm(RewriteTests):
             jump(i3)
         """, """
             [p1, i2]
-            cond_call_stm_b(p1, descr=A2Rdescr)
             i3 = getarrayitem_gc(p1, i2, descr=adescr)
-            
+            stm_read(p1)
             jump(i3)
         """)
 
@@ -378,25 +374,9 @@ class TestStm(RewriteTests):
             jump(i3)
         """, """
             [p1, i2]
-            cond_call_stm_b(p1, descr=A2Rdescr)
             i3 = getinteriorfield_gc(p1, i2, descr=intzdescr)
-            
+            stm_read(p1)
             jump(i3)
-        """)
-
-    def test_rewrite_several_getfield_gcs(self):
-        self.check_rewrite("""
-            [p1]
-            p2 = getfield_gc(p1, descr=tzdescr)
-            i2 = getfield_gc(p1, descr=tydescr)
-            jump(p2, i2)
-        """, """
-            [p1]
-            cond_call_stm_b(p1, descr=A2Rdescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            i2 = getfield_gc(p1, descr=tydescr)
-            
-            jump(p2, i2)
         """)
 
     def test_rewrite_unrelated_getfield_gcs(self):
@@ -407,11 +387,10 @@ class TestStm(RewriteTests):
             jump(p2, i2)
         """, """
             [p1]
-            cond_call_stm_b(p1, descr=A2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            cond_call_stm_b(p2, descr=A2Rdescr)
+            stm_read(p1)
             i2 = getfield_gc(p2, descr=tydescr)
-            
+            stm_read(p2)
             jump(p2, i2)
         """)
 
@@ -426,44 +405,13 @@ class TestStm(RewriteTests):
             jump(p1)
         """, """
             [p1]
-            cond_call_stm_b(p1, descr=A2Rdescr)
             i1 = getfield_gc(p1, descr=tydescr)
+            stm_read(p1)
             i2 = int_add(i1, 1)
-            cond_call_stm_b(p1, descr=A2Vdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, i2, descr=tydescr)
             
             jump(p1)
-        """)
-
-    def test_setfield_followed_by_getfield(self):
-        self.check_rewrite("""
-            [p1]
-            setfield_gc(p1, 123, descr=tydescr) # noptr
-            p2 = getfield_gc(p1, descr=tzdescr)
-            jump(p2)
-        """, """
-            [p1]
-            cond_call_stm_b(p1, descr=A2Vdescr)
-            setfield_gc(p1, 123, descr=tydescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            
-            jump(p2)
-        """)
-
-    def test_rewrite_getfield_gc_on_local_2(self):
-        self.check_rewrite("""
-            [p0]
-            p1 = new(descr=tdescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            jump(p2)
-        """, """
-            [p0]
-            p1 = call_malloc_nursery(%(tdescr.size)d)
-            setfield_gc(p1, %(tdescr.tid)d, descr=tiddescr)
-            stm_set_revision_gc(p1, descr=revdescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            
-            jump(p2)
         """)
 
     def test_rewrite_getfield_gc_on_future_local_after_call(self):
@@ -484,12 +432,11 @@ class TestStm(RewriteTests):
             jump(p2)
         """, """
             [p1]
-            cond_call_stm_b(p1, descr=A2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
+            stm_read(p1)
             call(p2, descr=calldescr1)
-            cond_call_stm_b(p1, descr=A2Vdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, 5, descr=tydescr)
-            
             jump(p2)
         """, calldescr1=calldescr1)
 
@@ -567,9 +514,9 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, i1, p2, p3, i3, p4]
-            cond_call_stm_b(p1, descr=A2Vdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setarrayitem_gc(p1, i1, p2, descr=adescr)
-            cond_call_stm_b(p3, descr=A2Vdescr)
+            cond_call_gc_wb(p3, descr=wbdescr)
             setarrayitem_gc(p3, i3, p4, descr=adescr)
             
             jump()
@@ -584,7 +531,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i2, p3, i3]
-            cond_call_stm_b(p1, descr=A2Vdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setarrayitem_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
             setarrayitem_gc(p1, i3, p3, descr=adescr)
@@ -601,7 +548,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i2, p3, i3]
-            cond_call_stm_b(p1, descr=A2Wdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setinteriorfield_gc(p1, i2, p2, descr=intzdescr)
             i4 = read_timestamp()
             setinteriorfield_gc(p1, i3, p3, descr=intzdescr)
@@ -617,14 +564,28 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, i2, i3]
-            cond_call_stm_b(p1, descr=A2Vdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             strsetitem(p1, i2, i3)
             unicodesetitem(p1, i2, i3)
             
             jump()
         """)
-        # py.test.skip("XXX not really right: should instead be an assert "
-        #              "that p1 is already a W")
+
+    def test_rewrite_strsetitem_unicodesetitem_on_fresh_malloc(self):
+        self.check_rewrite("""
+            [i2, i3]
+            p1 = newstr(i3)
+            strsetitem(p1, i2, i3)
+            unicodesetitem(p1, i2, i3)
+            jump()
+        """, """
+            [i2, i3]
+            p1 = call_malloc_nursery_varsize(1, 1, i3, descr=strdescr)
+            setfield_gc(p1, i3, descr=strlendescr)
+            strsetitem(p1, i2, i3)
+            unicodesetitem(p1, i2, i3)
+            jump()
+        """)
 
     def test_rewrite_strgetitem_unicodegetitem(self):
         self.check_rewrite("""
@@ -634,13 +595,10 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, i2, i3]
-            cond_call_stm_b(p1, descr=A2Rdescr)
             i4=strgetitem(p1, i2)
             i5=unicodegetitem(p1, i2)
-            
             jump()
         """)
-    
 
     def test_call_release_gil(self):
         T = rffi.CArrayPtr(rffi.TIME_T)

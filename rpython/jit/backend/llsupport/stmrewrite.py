@@ -121,7 +121,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.read_barrier_applied[v_ptr] = None
 
 
-    def must_apply_write_barrier(self, val, v):
+    def must_apply_write_barrier(self, val, v=None):
         return val not in self.write_barrier_applied
 
 
@@ -152,7 +152,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         debug_print("fallback for", op.repr())
 
     def maybe_handle_raw_accesses(self, op):
-        xxxxx
         from rpython.jit.backend.llsupport.descr import FieldDescr
         descr = op.getdescr()
         assert isinstance(descr, FieldDescr)
@@ -160,3 +159,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newops.append(op)
             return True
         return False
+
+    def handle_setters_for_pure_fields(self, op):
+        val = op.getarg(0)
+        if self.must_apply_write_barrier(val):
+            self.gen_write_barrier(val)
+        self.newops.append(op)

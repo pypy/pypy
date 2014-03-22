@@ -102,9 +102,11 @@ class RewriteTests(object):
             namespace[funcname + '_descr'] = getattr(self.gc_ll_descr,
                                                      '%s_descr' % funcname)
         #
-        ops = parse(frm_operations, namespace=namespace)
+        ops = parse(frm_operations, namespace=namespace,
+                    invent_fail_descr=False)
         expected = parse(to_operations % Evaluator(namespace),
-                         namespace=namespace)
+                         namespace=namespace,
+                         invent_fail_descr=False)
         operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                         ops.operations,
                                                         [])
