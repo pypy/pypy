@@ -6,6 +6,10 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.jit import dont_look_inside
 
 
+def stop_all_other_threads(): "XXX"
+def partial_commit_and_resume_other_threads(): "XXX"
+
+
 TID = rffi.UINT
 tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)')
 adr_nursery_free = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_current)')
