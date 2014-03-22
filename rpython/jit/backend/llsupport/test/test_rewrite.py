@@ -71,7 +71,6 @@ class RewriteTests(object):
         register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
-        revdescr = self.gc_ll_descr.fielddescr_rev
         wbdescr = self.gc_ll_descr.write_barrier_descr
         WORD = globals()['WORD']
         #
@@ -103,11 +102,9 @@ class RewriteTests(object):
             namespace[funcname + '_descr'] = getattr(self.gc_ll_descr,
                                                      '%s_descr' % funcname)
         #
-        ops = parse(frm_operations, namespace=namespace,
-                    invent_fail_descr=False)
+        ops = parse(frm_operations, namespace=namespace)
         expected = parse(to_operations % Evaluator(namespace),
-                         namespace=namespace,
-                         invent_fail_descr=False)
+                         namespace=namespace)
         operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                         ops.operations,
                                                         [])
@@ -287,7 +284,7 @@ class TestFramework(RewriteTests):
         gcdescr = get_description(config_)
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
                                                really_not_translated=True)
-        self.gc_ll_descr.write_barrier_descr.has_barrier_from_array = (
+        self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
             lambda cpu: True)
         #
         class FakeCPU(BaseFakeCPU):
@@ -579,7 +576,7 @@ class TestFramework(RewriteTests):
         """)
 
     def test_write_barrier_before_array_without_from_array(self):
-        self.gc_ll_descr.write_barrier_descr.has_barrier_from_array = (
+        self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
             lambda cpu: False)
         self.check_rewrite("""
             [p1, i2, p3]

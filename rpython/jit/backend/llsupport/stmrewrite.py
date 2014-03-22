@@ -25,10 +25,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  transaction breaks  ----------
         if opnum == rop.STM_TRANSACTION_BREAK:
-            # XXX redo!
-            #self.emitting_an_operation_that_can_collect()
-            #self.next_op_may_be_in_new_transaction()
-            #self.newops.append(op)
+            self.emitting_an_operation_that_can_collect()
+            self.next_op_may_be_in_new_transaction()
+            self.newops.append(op)
             return
         # ----------  pure operations, guards  ----------
         if op.is_always_pure() or op.is_guard() or op.is_ovf():
@@ -41,6 +40,17 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  calls  ----------
         if op.is_call():
+            if opnum == rop.CALL and op.getdescr():
+                d = op.getdescr()
+                assert isinstance(d, CallDescr)
+                ei = d.get_extra_info()
+                if ei and (ei.oopspecindex ==
+                           EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION):
+                    self.newops.append(op)
+                    return
+            #
+            self.next_op_may_be_in_new_transaction()
+            #
             if opnum == rop.CALL_RELEASE_GIL:
                 # self.fallback_inevitable(op)
                 # is done by assembler._release_gil_shadowstack()
@@ -59,124 +69,40 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 else:
                     self.newops.append(op)
             return
+        # ----------  setters for pure fields  ----------
+        if opnum in (rop.STRSETITEM, rop.UNICODESETITEM):
+            self.handle_setters_for_pure_fields(op)
+            return
         # ----------  copystrcontent  ----------
         if opnum in (rop.COPYSTRCONTENT, rop.COPYUNICODECONTENT):
             self.handle_copystrcontent(op)
-            continue
-        XXX
+            return
         # ----------  raw getfields and setfields  ----------
         if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
             if self.maybe_handle_raw_accesses(op):
-                continue
+                return
         # ----------  labels  ----------
         if opnum == rop.LABEL:
-            self.emitting_an_operation_that_can_collect()
+            # note that the parent class also clears some things on a LABEL
             self.next_op_may_be_in_new_transaction()
-            
             self.newops.append(op)
-            continue
-        # ----------  jumps  ----------
-        if opnum == rop.JUMP:
+            return
+        # ----------  jumps, finish, other ignored ops  ----------
+        if opnum in (rop.JUMP, rop.FINISH, rop.FORCE_TOKEN,
+                     rop.READ_TIMESTAMP, rop.MARK_OPAQUE_PTR,
+                     rop.JIT_DEBUG, rop.KEEPALIVE,
+                     rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
+                     ):
             self.newops.append(op)
-            continue
-        # ----------  finish, other ignored ops  ----------
-        if opnum in (rop.FINISH, rop.FORCE_TOKEN,
-                    rop.READ_TIMESTAMP, rop.MARK_OPAQUE_PTR,
-                    rop.JIT_DEBUG, rop.KEEPALIVE,
-                    rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
-                    ):
-            self.newops.append(op)
-            continue
+            return
         # ----------  fall-back  ----------
-        # Check that none of the ops handled here can_collect
-        # or cause a transaction break. This is not done by
-        # the fallback here
+        # Check that none of the ops handled here can collect.
+        # This is not done by the fallback here
+        assert not op.is_call() and not op.is_malloc()
         self.fallback_inevitable(op)
-        debug_print("fallback for", op.repr())
 
-    def emitting_an_operation_that_can_collect(self):
-        GcRewriterAssembler.emitting_an_operation_that_can_collect(self)
-        self.invalidate_write_categories()
-    
     def next_op_may_be_in_new_transaction(self):
-        self.known_lengths.clear() # XXX: check if really necessary or
-                                   # just for labels
-        self.known_category.clear()
         self.always_inevitable = False
-
-    def invalidate_write_categories(self):
-        for v, c in self.known_category.items():
-            if c == 'W':
-                self.known_category[v] = 'V'
-
-    def invalidate_read_categories(self, reason):
-        # XXX: needs aliasing info to be better
-        # XXX: move to optimizeopt to only invalidate same typed vars?
-        for v, c in self.known_category.items():
-            if c == 'R':
-                self.known_category[v] = 'Q'
-
-    
-    def get_barrier_descr(self, from_cat, to_cat):
-        # compare with translator.stm.funcgen.stm_barrier
-        # XXX: specialize more with info of IMMUTABLE and NOPTR
-        if from_cat >= to_cat:
-            return None
-        
-        gc = self.gc_ll_descr
-        if to_cat == 'W':
-            if from_cat >= 'V':
-                return gc.V2Wdescr
-            return gc.A2Wdescr
-        elif to_cat == 'V':
-            return gc.A2Vdescr
-        elif to_cat == 'R':
-            if from_cat >= 'Q':
-                return gc.Q2Rdescr
-            return gc.A2Rdescr
-        elif to_cat == 'I':
-            return gc.A2Idescr
-
-    def gen_initialize_tid(self, v_newgcobj, tid):
-        GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)
-        if self.gc_ll_descr.fielddescr_rev is not None:
-            op = ResOperation(rop.STM_SET_REVISION_GC, [v_newgcobj,], None,
-                              descr=self.gc_ll_descr.fielddescr_rev)
-            self.newops.append(op)
-            
-    def gen_write_barrier(self, v):
-        raise NotImplementedError
-
-    def gen_barrier(self, v_base, target_category):
-        v_base = self.unconstifyptr(v_base)
-        assert isinstance(v_base, BoxPtr)
-        source_category = self.known_category.get(v_base, 'A')
-        write_barrier_descr = self.get_barrier_descr(source_category,
-                                                     target_category)
-        if write_barrier_descr is None:
-            return v_base    # no barrier needed
-
-        if target_category in ('W', 'V'):
-            # if *any* of the readable vars is the same object,
-            # it must repeat the read_barrier now
-            self.invalidate_read_categories(v_base)
-
-        args = [v_base,]
-        op = rop.COND_CALL_STM_B
-        self.newops.append(ResOperation(op, args, None,
-                                        descr=write_barrier_descr))
-        
-        self.known_category[v_base] = target_category
-        return v_base
-
-    def unconstifyptr(self, v):
-        if isinstance(v, ConstPtr):
-            v_in = v
-            v_out = BoxPtr()
-            self.newops.append(ResOperation(rop.SAME_AS, [v_in], v_out))
-            v = v_out
-        assert isinstance(v, BoxPtr)
-        return v
 
     def handle_getfields(self, op):
         opnum = op.getopnum()
@@ -254,6 +180,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self._do_stm_call('stm_try_inevitable', [], None)
             self.always_inevitable = True
         self.newops.append(op)
+        debug_print("fallback for", op.repr())
 
     def _is_null(self, box):
         return isinstance(box, ConstPtr) and not box.value

@@ -280,60 +280,16 @@ class GcRootMap_stm(object):
     def get_root_stack_top_addr(self):
         rst_addr = llop.gc_adr_of_root_stack_top(llmemory.Address)
         return rffi.cast(lltype.Signed, rst_addr)
-        
-        
-class BarrierDescr(AbstractDescr):
+
+class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
         self.llop1 = gc_ll_descr.llop1
-
-        self.returns_modified_object = False
-        self.gcheaderbuilder = gc_ll_descr.gcheaderbuilder
-        self.HDRPTR = gc_ll_descr.HDRPTR
-        self.b_slowpath = [0, 0, 0, 0, 0]
-
-    def repr_of_descr(self):
-        raise NotImplementedError
-
-    def __repr(self):
-        raise NotImplementedError
-
-    def get_b_slowpath(self, num):
-        return self.b_slowpath[num]
-
-    def set_b_slowpath(self, num, addr):
-        self.b_slowpath[num] = addr
-
-    def get_barrier_funcptr(self, returns_modified_object):
-        raise NotImplementedError
-        
-    def get_barrier_fn(self, cpu, returns_modified_object):
-        # must pass in 'self.returns_modified_object', to make sure that
-        # the callers are fixed for this case
-        funcptr = self.get_barrier_funcptr(returns_modified_object)
-        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-        return cpu.cast_adr_to_int(funcaddr)
-
-    def get_barrier_from_array_fn(self, cpu):
-        # returns a function with arguments [array, index, newvalue]
-        llop1 = self.llop1
-        funcptr = llop1.get_write_barrier_from_array_failing_case(
-            self.FUNCPTR)
-        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-        return cpu.cast_adr_to_int(funcaddr)    # this may return 0
-
-    def has_barrier_from_array(self, cpu):
-        return self.get_barrier_from_array_fn(cpu) != 0
-
-
-        
-class WriteBarrierDescr(BarrierDescr):
-    def __init__(self, gc_ll_descr):
-        BarrierDescr.__init__(self, gc_ll_descr)
+        self.WB_FUNCPTR = gc_ll_descr.WB_FUNCPTR
         self.fielddescr_tid = gc_ll_descr.fielddescr_tid
-        self.FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address], lltype.Void))
-
+        #
         GCClass = gc_ll_descr.GCClass
+        if GCClass is None:     # for tests
+            return
         self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
         self.jit_wb_if_flag_byteofs, self.jit_wb_if_flag_singlebyte = (
             self.extract_flag_byte(self.jit_wb_if_flag))
@@ -351,17 +307,9 @@ class WriteBarrierDescr(BarrierDescr):
         else:
             self.jit_wb_cards_set = 0
 
-    def repr_of_descr(self):
-        return 'wbdescr'
-
-    def __repr__(self):
-        return '<WriteBarrierDescr %r>' % (self.repr_of_descr(),)
-
     def extract_flag_byte(self, flag_word):
         # if convenient for the backend, we compute the info about
         # the flag as (byte-offset, single-byte-flag).
-        if flag_word == 0:
-            return (0, 0)
         import struct
         value = struct.pack(lltype.SignedFmt, flag_word)
         assert value.count('\x00') == len(value) - 1    # only one byte is != 0
@@ -369,143 +317,24 @@ class WriteBarrierDescr(BarrierDescr):
         while value[i] == '\x00': i += 1
         return (i, struct.unpack('b', value[i])[0])
 
-    def get_barrier_funcptr(self, returns_modified_object):
-        assert not returns_modified_object
-        FUNCTYPE = self.FUNCPTR
-        return self.llop1.get_write_barrier_failing_case(FUNCTYPE)
+    def get_write_barrier_fn(self, cpu):
+        llop1 = self.llop1
+        funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
+        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        return cpu.cast_adr_to_int(funcaddr)
 
-    @specialize.arg(2)
-    def _do_barrier(self, gcref_struct, returns_modified_object):
-        assert self.returns_modified_object == returns_modified_object
-        hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
-        hdr_addr -= self.gcheaderbuilder.size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
-        if self.jit_wb_if_flag == 0 or hdr.tid & self.jit_wb_if_flag:
-            # get a pointer to the 'remember_young_pointer' function from
-            # the GC, and call it immediately
-            funcptr = self.get_barrier_funcptr(returns_modified_object)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
+    def get_write_barrier_from_array_fn(self, cpu):
+        # returns a function with arguments [array, index, newvalue]
+        llop1 = self.llop1
+        funcptr = llop1.get_write_barrier_from_array_failing_case(
+            self.WB_FUNCPTR)
+        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        return cpu.cast_adr_to_int(funcaddr)    # this may return 0
 
-            
-class STMBarrierDescr(BarrierDescr):
-    def __init__(self, gc_ll_descr, stmcat, cfunc_name):
-        BarrierDescr.__init__(self, gc_ll_descr)
-        self.stmcat = stmcat
-        self.returns_modified_object = True
-        self.B_FUNCPTR_MOD = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address], llmemory.Address))
-
-        self.b_failing_case_ptr = rffi.llexternal(
-            cfunc_name,
-            self.B_FUNCPTR_MOD.TO.ARGS,
-            self.B_FUNCPTR_MOD.TO.RESULT,
-            sandboxsafe=True,
-            _nowrapper=True)
-
-    def repr_of_descr(self):
-        return self.stmcat
-
-    def __repr__(self):
-        return '<STMBarrierDescr %r>' % (self.repr_of_descr(),)
-
-    def get_barrier_funcptr(self, returns_modified_object):
-        assert returns_modified_object
-        return self.b_failing_case_ptr
-
-    @specialize.arg(2)
-    def _do_barrier(self, gcref_struct, returns_modified_object):
-        raise NotImplementedError("implement in subclasses!")
-        assert self.returns_modified_object == returns_modified_object
-        funcptr = self.get_barrier_funcptr(returns_modified_object)
-        res = funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
-        return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
+    def has_write_barrier_from_array(self, cpu):
+        return self.get_write_barrier_from_array_fn(cpu) != 0
 
 
-class STMReadBarrierDescr(STMBarrierDescr):
-    def __init__(self, gc_ll_descr, stmcat):
-        assert stmcat in ['A2R', 'Q2R', 'A2I']
-        func = {'A2R': 'stm_DirectReadBarrier',
-                'Q2R': 'stm_RepeatReadBarrier',
-                'A2I': 'stm_ImmutReadBarrier',
-                }
-        
-        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 func[stmcat])
-
-    @specialize.arg(2)
-    def _do_barrier(self, gcref_struct, returns_modified_object):
-        assert returns_modified_object
-        from rpython.memory.gc.stmgc import StmGC
-        objadr = llmemory.cast_ptr_to_adr(gcref_struct)
-        objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
-
-        if self.stmcat == 'A2R':
-            # if h_revision == privat_rev of transaction
-            priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
-            if objhdr.h_revision == priv_rev[0]:
-                return gcref_struct
-
-            # readcache[obj] == obj
-            read_cache = self.llop1.stm_get_adr_of_read_barrier_cache(rffi.SIGNEDP)
-            objint = llmemory.cast_adr_to_int(objadr)
-            assert WORD == 8, "check for 32bit compatibility"
-            index = (objint & StmGC.FX_MASK) / WORD
-            CP = lltype.Ptr(rffi.CArray(lltype.Signed))
-            rcp = rffi.cast(CP, read_cache[0])
-            if rcp[index] == objint:
-                return gcref_struct
-        elif self.stmcat == 'Q2R':
-            # is GCFLAG_PUBLIC_TO_PRIVATE or GCFLAG_MOVED set?
-            if not (objhdr.h_tid &
-                    (StmGC.GCFLAG_PUBLIC_TO_PRIVATE | StmGC.GCFLAG_MOVED)):
-                # no.
-                return gcref_struct
-        else: # A2I
-            # GCFLAG_STUB set?
-            if not (objhdr.h_tid & StmGC.GCFLAG_STUB):
-                return gcref_struct
-        
-        funcptr = self.get_barrier_funcptr(returns_modified_object)
-        res = funcptr(objadr)
-        return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
-
-        
-class STMWriteBarrierDescr(STMBarrierDescr):
-    def __init__(self, gc_ll_descr, stmcat):
-        assert stmcat in ['A2W', 'V2W', 'A2V']
-        func = {'A2W':'stm_WriteBarrier',
-                'V2W':'stm_RepeatWriteBarrier',
-                'A2V':'stm_WriteBarrier',
-                }
-
-        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 func[stmcat])
-
-
-    @specialize.arg(2)
-    def _do_barrier(self, gcref_struct, returns_modified_object):
-        assert returns_modified_object
-        from rpython.memory.gc.stmgc import StmGC
-        objadr = llmemory.cast_ptr_to_adr(gcref_struct)
-        objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
-
-        # for A2W, we check h_revision and WRITE_BARRIER
-        # for V2W, we only check WRITE_BARRIER
-        # for A2V, we only check h_revision
-        
-        # if it is a repeated WB or h_revision == privat_rev of transaction
-        priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
-        if self.stmcat == 'V2W' or objhdr.h_revision == priv_rev[0]:
-            # also WRITE_BARRIER not set?
-            if (self.stmcat == 'A2V'
-                or not (objhdr.h_tid & StmGC.GCFLAG_WRITE_BARRIER)):
-                return gcref_struct
-        
-        funcptr = self.get_barrier_funcptr(returns_modified_object)
-        res = funcptr(objadr)
-        return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
-    
-        
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
     kind = 'framework'
@@ -551,7 +380,6 @@ class GcLLDescr_framework(GcLLDescription):
     def _initialize_for_tests(self):
         self.layoutbuilder = None
         self.fielddescr_tid = AbstractDescr()
-        self.fielddescr_rev = AbstractDescr()
         self.max_size_of_young_obj = 1000
         self.GCClass = None
         self.gcheaderbuilder = None
@@ -592,27 +420,17 @@ class GcLLDescr_framework(GcLLDescription):
     def _setup_tid(self):
         if not self.stm:
             self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
-            self.fielddescr_rev = None
         else:
+            xxxxxxxx
             self.fielddescr_tid = get_field_descr(self, self.GCClass.GCHDR,
                                                   'h_tid')
-            self.fielddescr_rev = get_field_descr(self, self.GCClass.GCHDR,
-                                                  'h_revision')
-                        
         frame_tid = self.layoutbuilder.get_type_id(jitframe.JITFRAME)
         self.translator._jit2gc['frame_tid'] = frame_tid
 
     def _setup_write_barrier(self):
-        if self.stm:
-            self.A2Rdescr = STMReadBarrierDescr(self, 'A2R')
-            self.A2Idescr = STMReadBarrierDescr(self, 'A2I')
-            self.Q2Rdescr = STMReadBarrierDescr(self, 'Q2R')
-            self.A2Wdescr = STMWriteBarrierDescr(self, 'A2W')
-            self.A2Vdescr = STMWriteBarrierDescr(self, 'A2V')
-            self.V2Wdescr = STMWriteBarrierDescr(self, 'V2W')
-            self.write_barrier_descr = "wbdescr: do not use"
-        else:
-            self.write_barrier_descr = WriteBarrierDescr(self)
+        self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], lltype.Void))
+        self.write_barrier_descr = WriteBarrierDescr(self)
 
     def _make_functions(self, really_not_translated):
         from rpython.memory.gctypelayout import check_typeid
@@ -775,15 +593,12 @@ class GcLLDescr_framework(GcLLDescription):
         hdr.tid = tid
 
     def can_use_nursery_malloc(self, size):
-        return (self.max_size_of_young_obj is not None and
-                size < self.max_size_of_young_obj)
+        return size < self.max_size_of_young_obj
         
     def has_write_barrier_class(self):
         return WriteBarrierDescr
 
     def get_malloc_slowpath_addr(self):
-        if self.max_size_of_young_obj is None:    # stm
-            return None
         return self.get_malloc_fn_addr('malloc_nursery')
 
     def get_malloc_slowpath_array_addr(self):
