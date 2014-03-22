@@ -20,6 +20,10 @@ def test_all_operations_with_gc_in_their_name():
     words.append('CALL_MALLOC_GC')
     words.append('COND_CALL_GC_WB')
     words.append('COND_CALL_GC_WB_ARRAY')
+    # these are pure, and can be done without any read barrier
+    words.append('ARRAYLEN_GC')
+    words.append('GETFIELD_GC_PURE')
+    words.append('GETARRAYITEM_GC_PURE')
     #
     words = set(words)
     missing = []
@@ -85,7 +89,7 @@ class TestStm(RewriteTests):
                 call(123, descr=cd)
                 jump()
             """ % ("$INEV" if inev else "",), cd=calldescr)
-    
+
     def test_rewrite_one_setfield_gc(self):
         self.check_rewrite("""
             [p1, p2]
@@ -93,9 +97,8 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2]
-            cond_call_stm_b(p1, descr=A2Wdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, p2, descr=tzdescr)
-            
             jump()
         """)
 
@@ -108,12 +111,41 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2]
-            p3 = same_as(ConstPtr(t))
-            cond_call_stm_b(p3, descr=A2Wdescr)
-            setfield_gc(p3, p2, descr=tzdescr)
-            
+            cond_call_gc_wb(ConstPtr(t), descr=wbdescr)
+            setfield_gc(ConstPtr(t), p2, descr=tzdescr)
             jump()
             """, t=NULL)
+
+    def test_rewrite_one_getfield_gc(self):
+        self.check_rewrite("""
+            [p1]
+            p2 = getfield_gc(p1, descr=tzdescr)
+            jump()
+        """, """
+            [p1]
+            p2 = getfield_gc(p1, descr=tzdescr)
+            stm_read(p1)
+            jump()
+        """)
+
+    def test_rewrite_several_getfield_gc(self):
+        self.check_rewrite("""
+            [p1, p2]
+            p3 = getfield_gc(p1, descr=tzdescr)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            p5 = getfield_gc(p2, descr=tzdescr)
+            p6 = getfield_gc(p1, descr=tzdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p3 = getfield_gc(p1, descr=tzdescr)
+            stm_read(p1)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            p5 = getfield_gc(p2, descr=tzdescr)
+            stm_read(p2)
+            p6 = getfield_gc(p1, descr=tzdescr)
+            jump()
+        """)
 
     def test_invalidate_read_status_after_write_to_constptr(self):
         TP = lltype.GcArray(lltype.Signed)

@@ -511,6 +511,7 @@ _oplist = [
     'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
     'KEEPALIVE/1',
     'STM_TRANSACTION_BREAK/1',
+    'STM_READ/1',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',

@@ -17,6 +17,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def __init__(self, *args):
         GcRewriterAssembler.__init__(self, *args)
         self.always_inevitable = False
+        self.read_barrier_applied = {}
 
     def other_operation(self, op):
         opnum = op.getopnum()
@@ -103,28 +104,23 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def next_op_may_be_in_new_transaction(self):
         self.always_inevitable = False
+        self.read_barrier_applied.clear()
 
     def handle_getfields(self, op):
-        opnum = op.getopnum()
-        descr = op.getdescr()
-        target_category = 'R'
-        # XXX: review:
-        # if opnum == rop.GETFIELD_GC:
-        #     assert isinstance(descr, FieldDescr)
-        #     if descr.is_immutable():
-        #         target_category = 'I'
-        # elif opnum == rop.GETINTERIORFIELD_GC:
-        #     assert isinstance(descr, InteriorFieldDescr)
-        #     if descr.is_immutable():
-        #         target_category = 'I'
-        # elif opnum == rop.GETARRAYITEM_GC:
-        #     assert isinstance(descr, ArrayDescr)
-        #     if descr.is_immutable():
-        #         target_category = 'I'
-                
-        self.handle_category_operations(op, target_category)
+        # XXX missing optimitations: the placement of stm_read should
+        # ideally be delayed for a bit longer after the getfields; if we
+        # group together several stm_reads then we can save one
+        # instruction; if delayed over a cond_call_gc_wb then we can
+        # omit the stm_read completely; ...
+        self.newops.append(op)
+        v_ptr = op.getarg(0)
+        if (v_ptr not in self.read_barrier_applied and
+            v_ptr not in self.write_barrier_applied):
+            op1 = ResOperation(rop.STM_READ, [v_ptr], None)
+            self.newops.append(op1)
+            self.read_barrier_applied[v_ptr] = None
 
-    
+
     def handle_setfields(self, op):
         opnum = op.getopnum()
         descr = op.getdescr()
@@ -174,7 +170,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.newops.append(op1)
 
     def fallback_inevitable(self, op):
-        self.known_category.clear()
         if not self.always_inevitable:
             self.emitting_an_operation_that_can_collect()
             self._do_stm_call('stm_try_inevitable', [], None)
