@@ -164,7 +164,7 @@ class GcRewriterAssembler(object):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
             size_box = history.BoxInt()
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_RAW,[history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op0)
@@ -174,14 +174,14 @@ class GcRewriterAssembler(object):
         elif not self.gc_ll_descr.stm:
             # we read size in bytes here, not the length
             size_box = history.BoxInt()
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_RAW,[history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_size)
             self.newops.append(op0)
             self.gen_malloc_nursery_varsize_frame(size_box, frame)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             length_box = history.BoxInt()
-            op1 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op1 = ResOperation(rop.GETFIELD_RAW,[history.ConstInt(frame_info)],
                                length_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op1)
@@ -190,7 +190,7 @@ class GcRewriterAssembler(object):
         else:
             # jfi_frame_size not set in STM!
             length_box = history.BoxInt()
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_RAW,[history.ConstInt(frame_info)],
                                length_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op0)
@@ -407,21 +407,18 @@ class GcRewriterAssembler(object):
         val = op.getarg(0)
         if self.must_apply_write_barrier(val, op.getarg(1)):
             self.gen_write_barrier(val)
-            #op = op.copy_and_change(rop.SETFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setinteriorfield(self, op):
         val = op.getarg(0)
         if self.must_apply_write_barrier(val, op.getarg(2)):
             self.gen_write_barrier(val)
-            #op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setarrayitem(self, op):
         val = op.getarg(0)
         if self.must_apply_write_barrier(val, op.getarg(2)):
             self.gen_write_barrier_array(val, op.getarg(1))
-            #op = op.copy_and_change(rop.SETARRAYITEM_RAW)
         self.newops.append(op)
 
     def gen_write_barrier(self, v_base):

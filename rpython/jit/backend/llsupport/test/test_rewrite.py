@@ -786,10 +786,10 @@ class TestFramework(RewriteTests):
         i2 = call_assembler(i0, f0, descr=casmdescr)
         """, """
         [i0, f0]
-        i1 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_size)
+        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_size)
         p1 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p1, 0, descr=tiddescr)
-        i2 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
+        i2 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
         setfield_gc(p1, i2, descr=framelendescr)
         setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)

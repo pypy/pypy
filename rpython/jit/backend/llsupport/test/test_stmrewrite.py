@@ -741,7 +741,7 @@ class TestStm(RewriteTests):
         guard_not_forced()[] 
         """, """
         [i0, f0]
-        i1 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
+        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
         p1 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p1, 0, descr=tiddescr)
         setfield_gc(p1, i1, descr=framelendescr)

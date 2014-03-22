@@ -81,3 +81,20 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         if self.stm and we_are_translated():
             from rpython.jit.backend.x86 import stmtlocal
             stmtlocal.c7_segment_prefix(self)
+
+    def SEGC7_if_gc(self, op):
+        if self.stm and we_are_translated():
+            from rpython.jit.backend.x86 import stmtlocal
+            from rpython.jit.metainterp.resoperation import rop
+            #
+            opnum = op.getopnum()
+            if opnum in (rop.GETFIELD_GC,
+                         rop.GETFIELD_GC_PURE,
+                         rop.GETARRAYITEM_GC,
+                         rop.GETARRAYITEM_GC_PURE,
+                         rop.GETINTERIORFIELD_GC,
+                         rop.SETFIELD_GC,
+                         rop.SETARRAYITEM_GC,
+                         rop.SETINTERIORFIELD_GC,
+                         ):
+                stmtlocal.c7_segment_prefix(self)
