@@ -865,6 +865,7 @@ class RegAlloc(BaseRegalloc):
         self.rm.possibly_free_var(tmp_box)
         #
         if gc_ll_descr.stm:
+            xxxxxx
             self.assembler.malloc_cond_varsize_frame_stm(sizeloc, gcmap)
         else:
             self.assembler.malloc_cond_varsize_frame(

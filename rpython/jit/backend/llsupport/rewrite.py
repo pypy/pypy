@@ -160,9 +160,10 @@ class GcRewriterAssembler(object):
             else:
                 raise NotImplementedError(op.getopname())
 
-    def gen_malloc_frame(self, frame_info, frame, size_box):
+    def gen_malloc_frame(self, frame_info, frame):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
-        if self.gc_ll_descr.kind == 'boehm' or self.gc_ll_descr.stm:
+        if self.gc_ll_descr.kind == 'boehm':
+            size_box = history.BoxInt()
             op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_depth)
@@ -170,9 +171,9 @@ class GcRewriterAssembler(object):
             op1 = ResOperation(rop.NEW_ARRAY, [size_box], frame,
                                descr=descrs.arraydescr)
             self.handle_new_array(descrs.arraydescr, op1)
-        else:
+        elif not self.gc_ll_descr.stm:
             # we read size in bytes here, not the length
-            # jfi_frame_size not set in STM!
+            size_box = history.BoxInt()
             op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_size)
@@ -186,6 +187,17 @@ class GcRewriterAssembler(object):
             self.newops.append(op1)
             self.gen_initialize_len(frame, length_box,
                                     descrs.arraydescr.lendescr)
+        else:
+            # jfi_frame_size not set in STM!
+            length_box = history.BoxInt()
+            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+                               length_box,
+                               descr=descrs.jfi_frame_depth)
+            self.newops.append(op0)
+            self.gen_malloc_nursery_varsize_frame(length_box, frame)
+            self.gen_initialize_tid(frame, descrs.arraydescr.tid)
+            self.gen_initialize_len(frame, length_box,
+                                    descrs.arraydescr.lendescr)
 
     def handle_call_assembler(self, op):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
@@ -193,9 +205,8 @@ class GcRewriterAssembler(object):
         assert isinstance(loop_token, history.JitCellToken)
         jfi = loop_token.compiled_loop_token.frame_info
         llfi = heaptracker.adr2int(llmemory.cast_ptr_to_adr(jfi))
-        size_box = history.BoxInt()
         frame = history.BoxPtr()
-        self.gen_malloc_frame(llfi, frame, size_box)
+        self.gen_malloc_frame(llfi, frame)
         op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstInt(llfi)],
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
@@ -329,7 +340,7 @@ class GcRewriterAssembler(object):
         """
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
-                          [sizebox],
+                          [sizebox],   # if STM, this is actually lengthbox!
                           v_result)
 
         self.newops.append(op)
