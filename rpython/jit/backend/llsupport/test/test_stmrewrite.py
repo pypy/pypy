@@ -612,17 +612,17 @@ class TestStm(RewriteTests):
             jump(i2, p7)
         """, """
             [i1, i2, i3, p7]
-            cond_call_stm_b(p7, descr=A2Vdescr)
+            cond_call_gc_wb(p7, descr=wbdescr)
             setfield_gc(p7, 10, descr=tydescr)
             call_release_gil(123, descr=calldescr2)
             guard_not_forced() []
             
-            cond_call_stm_b(p7, descr=A2Vdescr)
+            cond_call_gc_wb(p7, descr=wbdescr)
             setfield_gc(p7, 20, descr=tydescr)
             
             jump(i2, p7)
         """, calldescr2=calldescr2)
-        
+
     def test_fallback_to_inevitable(self):
         T = rffi.CArrayPtr(rffi.TIME_T)
         calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T)
@@ -641,27 +641,39 @@ class TestStm(RewriteTests):
                 jump(i2, p7)
             """ % op, """
                 [i1, i2, i3, p7]
-                cond_call_stm_b(p7, descr=A2Vdescr)
+                cond_call_gc_wb(p7, descr=wbdescr)
                 setfield_gc(p7, 10, descr=tydescr)
                 $INEV
                 %s
-                cond_call_stm_b(p7, descr=A2Vdescr)
+                cond_call_gc_wb(p7, descr=wbdescr)
                 setfield_gc(p7, 20, descr=tydescr)
                 
                 jump(i2, p7)
             """ % op, calldescr2=calldescr2)
 
-    def test_copystrcontent(self):
+    def test_copystrcontent_new(self):
+        self.check_rewrite("""
+            [p1, i1, i2, i3]
+            p2 = newstr(i3)
+            copystrcontent(p1, p2, i1, i2, i3)
+            jump()
+        """, """
+            [p1, i1, i2, i3]
+            p2 = call_malloc_nursery_varsize(1, 1, i3, descr=strdescr)
+            setfield_gc(p2, i3, descr=strlendescr)
+            copystrcontent(p1, p2, i1, i2, i3)
+            jump()
+        """)
+
+    def test_copystrcontent_old(self):
         self.check_rewrite("""
             [p1, p2, i1, i2, i3]
             copystrcontent(p1, p2, i1, i2, i3)
             jump()
         """, """
             [p1, p2, i1, i2, i3]
-            cond_call_stm_b(p2, descr=A2Wdescr)
-            cond_call_stm_b(p1, descr=A2Rdescr)
+            cond_call_gc_wb(p2, descr=wbdescr)
             copystrcontent(p1, p2, i1, i2, i3)
-            
             jump()
         """)
 

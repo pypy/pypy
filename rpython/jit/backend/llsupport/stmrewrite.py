@@ -72,11 +72,11 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  setters for pure fields  ----------
         if opnum in (rop.STRSETITEM, rop.UNICODESETITEM):
-            self.handle_setters_for_pure_fields(op)
+            self.handle_setters_for_pure_fields(op, 0)
             return
         # ----------  copystrcontent  ----------
         if opnum in (rop.COPYSTRCONTENT, rop.COPYUNICODECONTENT):
-            self.handle_copystrcontent(op)
+            self.handle_setters_for_pure_fields(op, 1)
             return
         # ----------  raw getfields and setfields  ----------
         if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
@@ -160,8 +160,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return True
         return False
 
-    def handle_setters_for_pure_fields(self, op):
-        val = op.getarg(0)
+    def handle_setters_for_pure_fields(self, op, targetindex):
+        val = op.getarg(targetindex)
         if self.must_apply_write_barrier(val):
             self.gen_write_barrier(val)
         self.newops.append(op)
