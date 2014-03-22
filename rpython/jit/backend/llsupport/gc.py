@@ -16,6 +16,7 @@ from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
+from rpython.jit.backend.llsupport.descr import build_stm_tid_field_descr
 from rpython.memory.gctransform import asmgcroot
 
 # ____________________________________________________________
@@ -418,12 +419,12 @@ class GcLLDescr_framework(GcLLDescription):
         assert self.GCClass.inline_simple_malloc_varsize
 
     def _setup_tid(self):
+        "NOT_RPYTHON"
         if not self.stm:
-            self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
+            self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR,
+                                                  'tid')
         else:
-            xxxxxxxx
-            self.fielddescr_tid = get_field_descr(self, self.GCClass.GCHDR,
-                                                  'h_tid')
+            self.fielddescr_tid = build_stm_tid_field_descr()
         frame_tid = self.layoutbuilder.get_type_id(jitframe.JITFRAME)
         self.translator._jit2gc['frame_tid'] = frame_tid
 

@@ -79,34 +79,23 @@ class BaseAssembler(object):
         else:
             self.gc_size_of_header = WORD # for tests
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        if gc_ll_descr.stm:
-            descrs = [gc_ll_descr.A2Rdescr, gc_ll_descr.Q2Rdescr,
-                      gc_ll_descr.A2Idescr, gc_ll_descr.A2Vdescr,
-                      gc_ll_descr.A2Wdescr, gc_ll_descr.V2Wdescr]
-        else:
-            descrs = [gc_ll_descr.write_barrier_descr]
-        for d in descrs:
-            self._build_b_slowpath(d, False)
-            self._build_b_slowpath(d, True)
-            self._build_b_slowpath(d, False, for_frame=True)
         # building the barriers needs to happen before these:
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
+        self._build_wb_slowpath(False)
+        self._build_wb_slowpath(True)
+        self._build_wb_slowpath(False, for_frame=True)
         # only for stm:
         if gc_ll_descr.stm:
-            self._build_ptr_eq_slowpath()
             self._build_stm_longjmp_callback()
             self.stm_transaction_break_path = self._build_stm_transaction_break_path()
-        else:
-            self.ptr_eq_slowpath = None
         # only one of those
         self.build_frame_realloc_slowpath()
         if self.cpu.supports_floats:
             self._build_failure_recovery(False, withfloats=True)
             self._build_failure_recovery(True, withfloats=True)
-            for d in descrs:
-                self._build_b_slowpath(d, False, withfloats=True)
-                self._build_b_slowpath(d, True, withfloats=True)
+            self._build_wb_slowpath(False, withfloats=True)
+            self._build_wb_slowpath(True, withfloats=True)
         self._build_propagate_exception_path()
 
         if gc_ll_descr.get_malloc_slowpath_addr() is not None:
@@ -346,12 +335,14 @@ class BaseAssembler(object):
         next.prev = prev
 
     @staticmethod
+    @rgc.no_collect
     def _release_gil_shadowstack():
         before = rffi.aroundstate.before
         if before:
             before()
 
     @staticmethod
+    @rgc.no_collect
     def _reacquire_gil_shadowstack():
         after = rffi.aroundstate.after
         if after:

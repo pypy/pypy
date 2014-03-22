@@ -39,8 +39,6 @@ class AbstractLLCPU(AbstractCPU):
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None
         else:
-            assert not self.gc_ll_descr.stm, """doesn't work in stm
-                because it would need a read barrier when reading typeptr"""
             self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
                                                              'typeptr',
                                                         translate_support_code)

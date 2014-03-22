@@ -864,14 +864,10 @@ class RegAlloc(BaseRegalloc):
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
-        if gc_ll_descr.stm:
-            xxxxxx
-            self.assembler.malloc_cond_varsize_frame_stm(sizeloc, gcmap)
-        else:
-            self.assembler.malloc_cond_varsize_frame(
-                gc_ll_descr.get_nursery_free_addr(),
-                gc_ll_descr.get_nursery_top_addr(),
-                sizeloc, gcmap)
+        self.assembler.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc, gcmap)
 
     def consider_call_malloc_nursery_varsize(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -1368,6 +1364,20 @@ class RegAlloc(BaseRegalloc):
 
     def consider_keepalive(self, op):
         pass
+
+    def consider_stm_read(self, op):
+        loc_src = self.loc(op.getarg(0))
+        self.possibly_free_vars_for_op(op)
+        # this will get in 'loc_tmp' a register that is the same as
+        # 'loc_src' if the op.getarg(0) is freed now
+        if (isinstance(loc_src, ImmedLoc) and
+                rx86.fits_in_32bits(loc_src.value >> 4)):
+            loc_tmp = None
+        else:
+            tmpxvar = TempBox()
+            loc_tmp = self.rm.force_allocate_reg(tmpxvar)
+            self.rm.possibly_free_var(tmpxvar)
+        self.perform_discard(op, [loc_src, loc_tmp])
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

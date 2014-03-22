@@ -4,6 +4,11 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.jit import dont_look_inside
 
+
+TID = rffi.UINT
+tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)', default=4)
+
+
 @dont_look_inside
 def get_nursery_current_adr():
     addr = llop.stm_get_adr_of_nursery_current(llmemory.Address)

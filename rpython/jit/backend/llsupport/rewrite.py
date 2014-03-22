@@ -256,8 +256,7 @@ class GcRewriterAssembler(object):
         mallocs.  (For all I know this latter case never occurs in
         practice, but better safe than sorry.)
         """
-        if self.gc_ll_descr.fielddescr_tid is not None \
-          or self.gc_ll_descr.stm:  # framework GC
+        if self.gc_ll_descr.fielddescr_tid is not None:
             assert (size & (WORD-1)) == 0, "size not aligned?"
             addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
             args = [ConstInt(addr), ConstInt(size), ConstInt(typeid)]

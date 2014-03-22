@@ -36,8 +36,6 @@ from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.backend.x86 import stmtlocal
 from rpython.rlib import rstm
-from rpython.memory.gc.stmgc import StmGC
-from rpython.jit.backend.llsupport.gc import STMBarrierDescr
 
 
 class Assembler386(BaseAssembler):
@@ -55,6 +53,7 @@ class Assembler386(BaseAssembler):
         self.float_const_abs_addr = 0
         self.malloc_slowpath = 0
         self.malloc_slowpath_varsize = 0
+        self.wb_slowpath = [0, 0, 0, 0, 0]
         self.setup_failure_recovery()
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
@@ -423,101 +422,17 @@ class Assembler386(BaseAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-
-    def _build_ptr_eq_slowpath(self):
-        cpu = self.cpu
-        assert cpu.gc_ll_descr.stm
-        #
-        # SYNCHRONIZE WITH extra.c'S IMPLEMENTATION!
-        #
-        # This builds a helper function called from the slow path of
-        # ptr_eq/ne.  It must save all registers, and optionally
-        # all XMM registers. It takes two values pushed on the stack,
-        # even on X86_64.  It must restore stack alignment accordingly.
-        mc = codebuf.MachineCodeBlockWrapper()
-        #
-        # we want 2 registers:
-        mc.PUSH_r(esi.value)
-        mc.PUSH_r(edi.value)
-        #
-        # get arguments: ||val2|val1||retaddr|esi||edi|
-        mc.MOV_rs(esi.value, 3 * WORD)
-        mc.MOV_rs(edi.value, 4 * WORD)
-        #
-        # the fastpath checks if val1==val2 or any of them is NULL
-        # thus, we only have to get to their h_original
-        # if they are *not* PREBUILT_ORIGINALS
-        #
-        flag = StmGC.GCFLAG_PREBUILT_ORIGINAL
-        assert (flag >> 32) > 0 and (flag >> 40) == 0
-        flag = flag >> 32
-        off = 4
-        # if !(val1->h_original), leave EDI as is
-        mc.MOV_rm(X86_64_SCRATCH_REG.value, (edi.value, StmGC.H_ORIGINAL))
-        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
-        mc.J_il8(rx86.Conditions['Z'], 0)
-        z1_location = mc.get_relative_pos()
-        # if val1->h_tid & PREBUILT_ORIGINAL, take h_original
-        mc.TEST8_mi((edi.value, StmGC.H_TID + off), flag)
-        mc.CMOVE_rr(edi.value, X86_64_SCRATCH_REG.value)
-        #
-        # Do the same for val2=ESI
-        offset = mc.get_relative_pos() - z1_location
-        assert 0 < offset <= 127
-        mc.overwrite(z1_location - 1, chr(offset))
-        # if !(val2->h_original), leave ESI as is
-        mc.MOV_rm(X86_64_SCRATCH_REG.value, (esi.value, StmGC.H_ORIGINAL))
-        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
-        mc.J_il8(rx86.Conditions['Z'], 0)
-        z2_location = mc.get_relative_pos()
-        # if val2->h_tid & PREBUILT_ORIGINAL, take h_original
-        mc.TEST8_mi((esi.value, StmGC.H_TID + off), flag)
-        mc.CMOVE_rr(esi.value, X86_64_SCRATCH_REG.value)
-        #
-        # COMPARE
-        offset = mc.get_relative_pos() - z2_location
-        assert 0 < offset <= 127
-        mc.overwrite(z2_location - 1, chr(offset))
-        #
-        mc.CMP_rr(edi.value, esi.value)
-        sl = X86_64_SCRATCH_REG.lowest8bits()
-        mc.SET_ir(rx86.Conditions['Z'], sl.value)
-        # mov result to val2 on stack
-        # ||val2|val1||retaddr|esi||edi|
-        mc.MOV_sr(4 * WORD, X86_64_SCRATCH_REG.value)
-        #
-        # Restore everything:
-        mc.POP_r(edi.value)
-        mc.POP_r(esi.value)
-        # ||result|val1|retaddr|
-        #
-        #
-        # only remove one arg:
-        mc.RET16_i(1 * WORD)
-        
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.ptr_eq_slowpath = rawstart
-
-        
-    def _build_b_slowpath(self, descr, withcards, withfloats=False,
-                          for_frame=False):
-        is_stm = self.cpu.gc_ll_descr.stm
+    def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
+        descr = self.cpu.gc_ll_descr.write_barrier_descr
         exc0, exc1 = None, None
         if descr is None:
             return
-
-        if is_stm and withcards:
-            return
-        
         if not withcards:
-            func = descr.get_barrier_fn(self.cpu, 
-                                        returns_modified_object=is_stm)
-            assert func is not None
+            func = descr.get_write_barrier_fn(self.cpu)
         else:
-            assert not is_stm
             if descr.jit_wb_cards_set == 0:
                 return
-            func = descr.get_barrier_from_array_fn(self.cpu)
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
             if func == 0:
                 return
         #
@@ -529,53 +444,20 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         #
         if not for_frame:
-            if descr.stmcat in ['A2W', 'A2V']:
-                # slow fastpath
-                # check if PRIV_FROM_PROT is set, but not
-                # WRITE_BARRIER
-                mc.MOV_rs(X86_64_SCRATCH_REG.value, WORD)
-                
-                flag = StmGC.GCFLAG_WRITE_BARRIER >> 32
-                off = 4
-                assert 0 < flag < 256
-                mc.TEST8_mi((X86_64_SCRATCH_REG.value, off), flag)
-                mc.J_il8(rx86.Conditions['NZ'], 0)
-                jz1 = mc.get_relative_pos()
-                # if flag set, jump over the next check & RET
-                
-                flag = StmGC.GCFLAG_PRIVATE_FROM_PROTECTED >> 40
-                off = 5
-                assert 0 < flag < 256
-                mc.TEST8_mi((X86_64_SCRATCH_REG.value, off), flag)
-                mc.J_il8(rx86.Conditions['Z'], 0)
-                jz2 = mc.get_relative_pos()
-                # if PRIV_F_PROT, RET
-                mc.RET()
-                mc.overwrite(jz2 - 1, chr(mc.get_relative_pos() - jz2))
-                mc.overwrite(jz1 - 1, chr(mc.get_relative_pos() - jz1))
-                
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
             if IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
                 # arg, so we need to substract 2 words
-                # ||val|retadr|
                 mc.SUB_ri(esp.value, 2 * WORD)
-                # ||val|retadr|x|x||
                 mc.MOV_rs(eax.value, 3 * WORD) # 2 + 1
                 mc.MOV_sr(0, eax.value)
-                # ||val|retadr|x|val||
             else:
-                # ||val|retadr||
                 mc.MOV_rs(edi.value, WORD)
         else:
-            # ||retadr|
             # we have one word to align
             mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
-            # ||retadr|x||x|x||x|x||x|x||
             mc.MOV_sr(WORD, eax.value) # save for later
-            # ||retadr|x||x|x||x|x||rax|x||
             mc.MOVSD_sx(3 * WORD, xmm0.value)
-            # ||retadr|x||x|x||xmm0|x||rax|x||
             if IS_X86_32:
                 mc.MOV_sr(4 * WORD, edx.value)
                 mc.MOV_sr(0, ebp.value)
@@ -592,63 +474,41 @@ class Assembler386(BaseAssembler):
             self._store_and_reset_exception(mc, exc0, exc1)
 
         mc.CALL(imm(func))
-
-        if descr.returns_modified_object:
-            # new addr in eax, save to now unused arg
-            if for_frame:
-                # ||retadr|x||x|x||xmm0|x||rax|x||
-                # directly move to rbp
-                mc.MOV_rr(ebp.value, eax.value)
-            elif IS_X86_32:
-                mc.MOV_sr(3 * WORD, eax.value)
-                # ||val|retadr|x|val||
-                # -> ||result|retaddr|x|val||
-            else:
-                mc.MOV_sr(WORD, eax.value)
-                # ||val|retadr|| -> ||result|retadr||
-                
+        #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            assert not is_stm and not descr.returns_modified_object
             if IS_X86_32:
-                mc.MOV_rs(eax.value, 3 * WORD)
+                mc.MOV_rs(eax.value, 3*WORD)
             else:
                 mc.MOV_rs(eax.value, WORD)
             mc.TEST8(addr_add_const(eax, descr.jit_wb_if_flag_byteofs),
                      imm(-0x80))
         #
+
         if not for_frame:
             if IS_X86_32:
                 # ADD touches CPU flags
                 mc.LEA_rs(esp.value, 2 * WORD)
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
-
-            if descr.returns_modified_object:
-                # preserve argument which now holds the result
-                mc.RET()
-            else:
-                mc.RET16_i(WORD)
+            mc.RET16_i(WORD)
         else:
             if IS_X86_32:
-                mc.MOV_rs(edx.value, 5 * WORD)
-            # ||retadr|x||x|x||xmm0|x||rax|x||
+                mc.MOV_rs(edx.value, 4 * WORD)
             mc.MOVSD_xs(xmm0.value, 3 * WORD)
             mc.MOV_rs(eax.value, WORD) # restore
             self._restore_exception(mc, exc0, exc1)
             mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
             mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
-
             mc.LEA_rs(esp.value, 7 * WORD)
-            # retval already in ebp
             mc.RET()
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if for_frame:
-            descr.set_b_slowpath(4, rawstart)
+            self.wb_slowpath[4] = rawstart
         else:
-            descr.set_b_slowpath(withcards + 2 * withfloats, rawstart)
+            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
 
     def _build_stm_longjmp_callback(self):
@@ -2598,134 +2458,7 @@ class Assembler386(BaseAssembler):
         offset = mc.get_relative_pos() - jmp2_adr
         assert 0 < offset <= 127
         mc.overwrite(jmp2_adr-1, chr(offset))
-        
-    def malloc_cond_stm(self, size, gcmap):
-        assert self.cpu.gc_ll_descr.stm
-        assert size & (WORD-1) == 0     # must be correctly aligned
-        mc = self.mc
-        # load nursery_current and nursery_nextlimit
-        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
-        self._tl_segment_if_stm(mc)
-        mc.MOV_rj(eax.value, nc)
-        #
-        mc.LEA_rm(edi.value, (eax.value, size))
-        #
-        # eax=nursery_current, edi=nursery_current+size
-        self._cond_allocate_in_nursery_or_slowpath(mc, gcmap)
 
-    def malloc_cond_varsize_frame_stm(self, sizeloc, gcmap):
-        assert self.cpu.gc_ll_descr.stm
-        mc = self.mc
-        if sizeloc is eax:
-            self.mc.MOV(edi, sizeloc)
-            sizeloc = edi
-
-        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
-        self._tl_segment_if_stm(mc)
-        mc.MOV_rj(eax.value, nc)
-        
-        if sizeloc is edi:
-            self.mc.ADD_rr(edi.value, eax.value)
-        else:
-            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
-        #
-        # eax=nursery_current, edi=nursery_current+size
-        self._cond_allocate_in_nursery_or_slowpath(mc, gcmap)
-
-    def malloc_cond_varsize_stm(self, kind, lengthloc, itemsize,
-                                maxlength, gcmap, arraydescr):
-        assert self.cpu.gc_ll_descr.stm
-        from rpython.jit.backend.llsupport.descr import ArrayDescr
-        assert isinstance(arraydescr, ArrayDescr)
-
-        mc = self.mc
-        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
-        nnl = self._get_stm_tl(rstm.get_nursery_nextlimit_adr())
-            
-        # lengthloc is the length of the array, which we must not modify!
-        assert lengthloc is not eax and lengthloc is not edi
-        if isinstance(lengthloc, RegLoc):
-            varsizeloc = lengthloc
-        else:
-            mc.MOV(edi, lengthloc)
-            varsizeloc = edi
-
-        mc.CMP(varsizeloc, imm(maxlength))
-        mc.J_il8(rx86.Conditions['A'], 0) # patched later
-        jmp_adr0 = mc.get_relative_pos()
-
-        self._tl_segment_if_stm(mc)
-        mc.MOV_rj(eax.value, nc)
-
-        if valid_addressing_size(itemsize):
-            shift = get_scale(itemsize)
-        else:
-            shift = self._imul_const_scaled(mc, edi.value,
-                                            varsizeloc.value, itemsize)
-            varsizeloc = edi
-        # now varsizeloc is a register != eax.  The size of
-        # the variable part of the array is (varsizeloc << shift)
-        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
-        constsize = arraydescr.basesize + self.gc_size_of_header
-        force_realignment = (itemsize % WORD) != 0
-        if force_realignment:
-            constsize += WORD - 1
-        mc.LEA_ra(edi.value, (eax.value, varsizeloc.value, shift,
-                                   constsize))
-        if force_realignment:
-            mc.AND_ri(edi.value, ~(WORD - 1))
-        # now edi contains the total size in bytes, rounded up to a multiple
-        # of WORD, plus nursery_free_adr
-        self._tl_segment_if_stm(mc)
-        mc.CMP_rj(edi.value, nnl)
-        mc.J_il8(rx86.Conditions['NA'], 0) # patched later
-        jmp_adr1 = mc.get_relative_pos()
-        #
-        # == SLOWPATH ==
-        offset = mc.get_relative_pos() - jmp_adr0
-        assert 0 < offset <= 127
-        mc.overwrite(jmp_adr0-1, chr(offset))
-        # save the gcmap
-        self.push_gcmap(mc, gcmap, mov=True)   # mov into RawEspLoc(0)
-        if kind == rewrite.FLAG_ARRAY:
-            mc.MOV_si(WORD, itemsize)
-            mc.MOV(edi, lengthloc)
-            mc.MOV_ri(eax.value, arraydescr.tid)
-            addr = self.malloc_slowpath_varsize
-        else:
-            if kind == rewrite.FLAG_STR:
-                addr = self.malloc_slowpath_str
-            else:
-                assert kind == rewrite.FLAG_UNICODE
-                addr = self.malloc_slowpath_unicode
-            mc.MOV(edi, lengthloc)
-        mc.CALL(imm(addr))
-        mc.JMP_l8(0)      # jump to done, patched later
-        jmp_location = mc.get_relative_pos()
-        #
-        # == FASTPATH ==
-        offset = mc.get_relative_pos() - jmp_adr1
-        assert 0 < offset <= 127
-        mc.overwrite(jmp_adr1-1, chr(offset))
-        #
-        # set stm_nursery_current
-        self._tl_segment_if_stm(mc)
-        mc.MOV_jr(nc, edi.value)
-        #
-        # write down the tid
-        mc.MOV(mem(eax, 0), imm(arraydescr.tid))
-        # also set private_rev_num:
-        rn = self._get_stm_private_rev_num_addr()
-        self._tl_segment_if_stm(mc)
-        mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
-        mc.MOV(mem(eax, StmGC.H_REVISION), X86_64_SCRATCH_REG)
-        #
-        # == END ==
-        offset = mc.get_relative_pos() - jmp_location
-        assert 0 < offset <= 127
-        mc.overwrite(jmp_location - 1, chr(offset))
-
-    
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert not self.cpu.gc_ll_descr.stm
         assert size & (WORD-1) == 0     # must be correctly aligned
@@ -2742,15 +2475,20 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
 
-        
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
-        assert not self.cpu.gc_ll_descr.stm
+        # 'sizeloc' is the size in bytes if not STM; and the length of
+        # the array to allocate if STM
         if sizeloc is eax:
             self.mc.MOV(edi, sizeloc)
             sizeloc = edi
         self.mc.MOV(eax, heap(nursery_free_adr))
-        if sizeloc is edi:
+        if self.cpu.gc_ll_descr.stm:
+            constsize = self.cpu.get_baseofs_of_frame_field()
+            shift = get_scale(WORD)
+            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, shift,
+                                       constsize))
+        elif sizeloc is edi:
             self.mc.ADD_rr(edi.value, eax.value)
         else:
             self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
@@ -2914,7 +2652,29 @@ class Assembler386(BaseAssembler):
 
         self._emit_guard_not_forced(guard_token)
 
-
+    def genop_discard_stm_read(self, op, arglocs):
+        assert IS_X86_64, "needed for X86_64_SCRATCH_REG"
+        mc = self.mc
+        rm8reg = X86_64_SCRATCH_REG.value | BYTE_REG_FLAG
+        xxxxxx #load STM_SEGMENT->transaction_read_version into rm8reg
+        loc_src, loc_tmp = arglocs
+        if tmp_loc is None:
+            assert isinstance(loc_src, ImmedLoc)
+            assert loc_src.value > 0
+            mem = loc_src.value >> 4
+            assert rx86.fits_in_32bits(mem)
+            tl_segment_prefix(mc)
+            mc.MOV8_jr(mem, rm8reg)
+        else:
+            assert isinstance(loc_tmp, RegLoc)
+            if isinstance(loc_src, ImmedLoc):
+                mc.MOV_ri(loc_tmp.value, loc_src.value >> 4)
+            else:
+                if loc_tmp is not loc_src:
+                    mc.MOV(loc_tmp, loc_src)
+                mc.SHR_ri(loc_tmp.value, 4)
+            tl_segment_prefix(mc)
+            mc.MOV8_mr((loc_tmp.value, 0), rm8reg)
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

@@ -160,6 +160,11 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict[fieldname] = fielddescr
         return fielddescr
 
+def build_stm_tid_field_descr():
+    from rpython.rlib import rstm
+    return FieldDescr('tid', rstm.tid_offset, rffi.sizeof(rstm.TID),
+                      get_type_flag(rstm.TID), False, True)
+
 def get_type_flag(TYPE):
     if isinstance(TYPE, lltype.Ptr):
         if TYPE.TO._gckind == 'gc':
