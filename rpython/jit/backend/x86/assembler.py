@@ -157,7 +157,7 @@ class Assembler386(BaseAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._load_shadowstack_top_in_ebx(mc, gcrootmap)
-            mc.MOV_mr((ebx.value, -WORD), eax.value)
+            mc.MOV_mr((self.SEGMENT_NO, ebx.value, -WORD), eax.value)
 
         mc.MOV_bi((self.SEGMENT_FRAME, gcmap_ofs), 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
@@ -474,7 +474,8 @@ class Assembler386(BaseAssembler):
                 mc.MOV_rs(eax.value, 3*WORD)
             else:
                 mc.MOV_rs(eax.value, WORD)
-            mc.TEST8(addr_add_const(eax, descr.jit_wb_if_flag_byteofs),
+            mc.TEST8(addr_add_const(self.SEGMENT_GC, eax,
+                                    descr.jit_wb_if_flag_byteofs),
                      imm(-0x80))
         #
 
@@ -891,7 +892,7 @@ class Assembler386(BaseAssembler):
             rst = self.heap_tl(gcrootmap.get_root_stack_top_addr())
             self.mc.MOV(ebx, rst)
             self.mc.SUB_ri(ebx.value, -WORD)
-            self.mc.MOV_rm(eax.value, (ebx.value, 0))
+            self.mc.MOV_rm(eax.value, (self.SEGMENT_NO, ebx.value, 0))
             self.mc.MOV(rst, ebx)
         else:
             # the return value is the jitframe
@@ -919,7 +920,8 @@ class Assembler386(BaseAssembler):
         # (ebp is a writeable object and does not need a write-barrier
         # again (ensured by the code calling the loop))
         self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
-        self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
+        self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0), ebp.value)
+                                                      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)
         self.mc.MOV(self.heap_tl(gcrootmap.get_root_stack_top_addr()), ebx)
                                                       # MOV [rootstacktop], ebx
@@ -1057,7 +1059,8 @@ class Assembler386(BaseAssembler):
                                          resloc, frame_depth)
 
     def load_effective_addr(self, sizereg, baseofs, scale, result, frm=imm0):
-        self.mc.LEA(result, addr_add(frm, sizereg, baseofs, scale))
+        self.mc.LEA(result, addr_add(self.SEGMENT_NO, frm, sizereg,
+                                     baseofs, scale))
 
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):
@@ -1084,7 +1087,8 @@ class Assembler386(BaseAssembler):
                 delta = argloc.value
                 if not is_add:    # subtraction
                     delta = -delta
-                self.mc.LEA_rm(result_loc.value, (loc.value, delta))
+                self.mc.LEA_rm(result_loc.value,
+                               (self.SEGMENT_NO, loc.value, delta))
         return genop_binary_or_lea
 
     def _cmpop(cond, rev_cond):
@@ -1773,6 +1777,7 @@ class Assembler386(BaseAssembler):
         mc.MOV(self.heap_tl(self.cpu.pos_exc_value()), imm0)
 
     def _restore_exception(self, mc, excvalloc, exctploc, tmploc=None):
+        # for _build_wb_slowpath(): don't touch the cpu flags!
         if excvalloc is not None:
             mc.MOV(heap(self.cpu.pos_exc_value()), excvalloc)
         else:
@@ -2169,13 +2174,14 @@ class Assembler386(BaseAssembler):
             kind = op.result.type
             descr = self.cpu.getarraydescr_for_frame(kind)
             ofs = self.cpu.unpack_arraydescr(descr)
+            eax_plus_ofs = (self.SEGMENT_FRAME, eax.value, ofs)
             if kind == FLOAT:
-                self.mc.MOVSD_xm(xmm0.value, (eax.value, ofs))
+                self.mc.MOVSD_xm(xmm0.value, eax_plus_ofs)
                 if result_loc is not xmm0:
                     self.mc.MOVSD(result_loc, xmm0)
             else:
                 assert result_loc is eax
-                self.mc.MOV_rm(eax.value, (eax.value, ofs))
+                self.mc.MOV_rm(eax.value, eax_plus_ofs)
 
     def _call_assembler_patch_jmp(self, jmp_location):
         offset = self.mc.get_relative_pos() - jmp_location
@@ -2383,7 +2389,7 @@ class Assembler386(BaseAssembler):
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
         self.mc.MOV(eax, heap(self.SEGMENT_GC, nursery_free_adr))
-        self.mc.LEA_rm(edi.value, (eax.value, size))
+        self.mc.LEA_rm(edi.value, (self.SEGMENT_NO, eax.value, size))
         self.mc.CMP(edi, heap(self.SEGMENT_GC, nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
