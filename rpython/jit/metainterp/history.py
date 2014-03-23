@@ -108,6 +108,7 @@ class AbstractValue(object):
         raise NotImplementedError
 
     def getaddr(self):
+        "Only for raw addresses (BoxInt & ConstInt), not for GC addresses"
         raise NotImplementedError
 
     def sort_key(self):
@@ -321,9 +322,6 @@ class ConstPtr(Const):
         else:
             return 0
 
-    def getaddr(self):
-        return llmemory.cast_ptr_to_adr(self.value)
-
     def same_constant(self, other):
         if isinstance(other, ConstPtr):
             return self.value == other.value
@@ -493,9 +491,6 @@ class BoxPtr(Box):
     def getref(self, PTR):
         return lltype.cast_opaque_ptr(PTR, self.getref_base())
     getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def getaddr(self):
-        return llmemory.cast_ptr_to_adr(self.value)
 
     def _get_hash_(self):
         if self.value:
