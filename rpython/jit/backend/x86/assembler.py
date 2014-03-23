@@ -2421,12 +2421,13 @@ class Assembler386(BaseAssembler):
         if self.cpu.gc_ll_descr.stm:
             constsize = self.cpu.get_baseofs_of_frame_field()
             shift = get_scale(WORD)
-            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, shift,
-                                       constsize))
+            self.mc.LEA_ra(edi.value, (self.SEGMENT_NO, eax.value,
+                                       sizeloc.value, shift, constsize))
         elif sizeloc is edi:
             self.mc.ADD_rr(edi.value, eax.value)
         else:
-            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
+            self.mc.LEA_ra(edi.value, (self.SEGMENT_NO, eax.value,
+                                       sizeloc.value, 0, 0))
         self.mc.CMP(edi, heap(self.SEGMENT_GC, nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2470,8 +2471,8 @@ class Assembler386(BaseAssembler):
         force_realignment = (itemsize % WORD) != 0
         if force_realignment:
             constsize += WORD - 1
-        self.mc.LEA_ra(edi.value, (eax.value, varsizeloc.value, shift,
-                                   constsize))
+        self.mc.LEA_ra(edi.value, (self.SEGMENT_NO, eax.value,
+                                   varsizeloc.value, shift, constsize))
         if force_realignment:
             self.mc.AND_ri(edi.value, ~(WORD - 1))
         # now edi contains the total size in bytes, rounded up to a multiple
