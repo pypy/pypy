@@ -319,6 +319,9 @@ class FakeMetaInterpStaticData(object):
         def log_loop(*args):
             pass
 
+    class logger_ops:
+        repr_of_resop = repr
+
     class warmrunnerdesc:
         class memory_manager:
             retrace_limit = 5
