@@ -562,8 +562,8 @@ class Assembler386(BaseAssembler):
         self._call_header_with_stack_check()
         self._check_frame_depth_debug(self.mc)
 
-        operations = regalloc.prepare_loop(inputargs, operations, looptoken,
-                                           clt.allgcrefs)
+        operations = regalloc.prepare_loop(inputargs, operations,
+                                           looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
@@ -660,8 +660,7 @@ class Assembler386(BaseAssembler):
             name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
-        return AsmInfo(ops_offset, startpos + rawstart,
-                       codeendpos - startpos)
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def write_pending_failure_recoveries(self):
         # for each pending guard, generate the code of the recovery stub
@@ -879,14 +878,23 @@ class Assembler386(BaseAssembler):
             #self.mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
 
             # there could have been a collection in invalidate_jmp_buf()
-            # but _call_footer_shadowstack() will reload the frame
+            # reload the frame into eax, while at the same time popping
+            # it off the shadowstack
+            rst = self.mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
+            assert rx86.fits_in_32bits(rst)
+            self.mc.SEGTL()
+            self.mc.MOV_rj(ebx.value, rst)
+            self.mc.LEA_rm(ebx.value, (ebx.value, -WORD))
+            self.mc.MOV_rm(eax.value, (ebx.value, 0))
+            self.mc.SEGTL()
+            self.mc.MOV_jr(rst, ebx.value)
         else:
             # the return value is the jitframe
             self.mc.MOV_rr(eax.value, ebp.value)
-
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_footer_shadowstack(gcrootmap)
+            #
+            gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+            if gcrootmap and gcrootmap.is_shadow_stack:
+                self._call_footer_shadowstack(gcrootmap)
 
         for i in range(len(self.cpu.CALLEE_SAVE_REGISTERS)-1, -1, -1):
             self.mc.MOV_rs(self.cpu.CALLEE_SAVE_REGISTERS[i].value,
@@ -932,15 +940,7 @@ class Assembler386(BaseAssembler):
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = self.mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
-        if self.cpu.gc_ll_descr.stm and we_are_translated():
-            assert rx86.fits_in_32bits(rst)
-            self.mc.SEGTL()
-            self.mc.MOV_rj(ebx.value, rst)
-            self.mc.LEA_rm(ebx.value, (ebx.value, -WORD))
-            self.mc.MOV_rm(eax.value, (ebx.value, 0))
-            self.mc.SEGTL()
-            self.mc.MOV_jr(rst, ebx.value)
-        elif rx86.fits_in_32bits(rst):
+        if rx86.fits_in_32bits(rst):
             self.mc.SEGTL()
             self.mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
         else:
@@ -1209,15 +1209,15 @@ class Assembler386(BaseAssembler):
         cb.emit_no_collect()
 
     def _reload_frame_if_necessary(self, mc, align_stack=False):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        gcrootmap = gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            rst = mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
-            mc.SEGTL()
-            mc.MOV(ecx, heap(rst))
-            mc.MOV(ebp, mem(ecx, -WORD))
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack:
+                rst = mc.in_tl_segment(gcrootmap.get_root_stack_top_addr())
+                mc.SEGTL()
+                mc.MOV(ecx, heap(rst))
+                mc.MOV(ebp, mem(ecx, -WORD))
         #
-        wbdescr = gc_ll_descr.write_barrier_descr
+        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
             # an array
@@ -1281,9 +1281,6 @@ class Assembler386(BaseAssembler):
     genop_guard_float_gt = _cmpop_guard_float("A", "B", "BE","AE")
     genop_guard_float_ge = _cmpop_guard_float("AE","BE", "B", "A")
 
-    
-
-    
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
 
@@ -1831,15 +1828,7 @@ class Assembler386(BaseAssembler):
     genop_guard_guard_isnull = genop_guard_guard_false
 
     def genop_guard_guard_value(self, ign_1, guard_op, guard_token, locs, ign_2):
-        argtype = guard_op.getarg(0).type
-        if self.cpu.gc_ll_descr.stm and argtype == REF:
-            assert guard_op.getarg(1).type == REF
-            # x64 has no support for 64bit immed. Force them into registers!
-            # XXX: do better for 32 bit
-            self.genop_guard_ptr_eq(ign_1, guard_op, guard_token, 
-                                    locs, ign_2)
-            return
-        elif argtype == FLOAT:
+        if guard_op.getarg(0).type == FLOAT:
             assert guard_op.getarg(1).type == FLOAT
             self.mc.UCOMISD(locs[0], locs[1])
         else:
@@ -2260,18 +2249,18 @@ class Assembler386(BaseAssembler):
             helper_num = 4
         elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
             helper_num += 2
-        if descr.get_wb_slowpath(helper_num) == 0:    # tests only
+        if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
             self.cpu.gc_ll_descr.write_barrier_descr = descr
-            self._build_b_slowpath(descr, card_marking,
-                                   bool(self._regalloc.xrm.reg_bindings))
-            assert descr.get_wb_slowpath(helper_num) != 0
+            self._build_wb_slowpath(card_marking,
+                                    bool(self._regalloc.xrm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
         #
         if not is_frame:
             mc.PUSH(loc_base)
         if is_frame and align_stack:
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
-        mc.CALL(imm(descr.get_b_slowpath(helper_num)))
+        mc.CALL(imm(self.wb_slowpath[helper_num]))
         if is_frame and align_stack:
             mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
@@ -2459,7 +2448,6 @@ class Assembler386(BaseAssembler):
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
                             arraydescr):
-        assert not self.cpu.gc_ll_descr.stm
         from rpython.jit.backend.llsupport.descr import ArrayDescr
         assert isinstance(arraydescr, ArrayDescr)
 
