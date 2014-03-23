@@ -528,11 +528,6 @@ class TestFramework(RewriteTests):
         """)
 
     def test_rewrite_assembler_newstr_newunicode(self):
-        import sys
-        if sys.platform == 'win32':
-            unicode_size = 2
-        else:    
-            unicode_size = 4
         self.check_rewrite("""
             [i2]
             p0 = newstr(14)
@@ -543,21 +538,21 @@ class TestFramework(RewriteTests):
         """, """
             [i2]
             p0 = call_malloc_nursery(                                \
-                      %%(strdescr.basesize + 16 * strdescr.itemsize + \
+                      %(strdescr.basesize + 16 * strdescr.itemsize + \
                         unicodedescr.basesize + 10 * unicodedescr.itemsize)d)
-            setfield_gc(p0, %%(strdescr.tid)d, descr=tiddescr)
+            setfield_gc(p0, %(strdescr.tid)d, descr=tiddescr)
             setfield_gc(p0, 14, descr=strlendescr)
-            p1 = int_add(p0, %%(strdescr.basesize + 16 * strdescr.itemsize)d)
-            setfield_gc(p1, %%(unicodedescr.tid)d, descr=tiddescr)
+            p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
+            setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
-            p2 = call_malloc_nursery_varsize(2, %d, i2, \
+            p2 = call_malloc_nursery_varsize(2, %(unicodedescr.itemsize)d, i2,\
                                 descr=unicodedescr)
             setfield_gc(p2, i2, descr=unicodelendescr)
             p3 = call_malloc_nursery_varsize(1, 1, i2, \
                                 descr=strdescr)
             setfield_gc(p3, i2, descr=strlendescr)
             jump()
-        """ % unicode_size)
+        """)
 
     def test_write_barrier_before_setfield_gc(self):
         self.check_rewrite("""
