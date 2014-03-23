@@ -243,7 +243,7 @@ class AddressLoc(AssemblerLocation):
                               scale, static_offset)
 
     def __repr__(self):
-        dict = {'j': 'value', 'a': 'loc_a', 'm': 'loc_m', 'a':'loc_a'}
+        dict = {'j': 'loc_j', 'a': 'loc_a', 'm': 'loc_m', 'a':'loc_a'}
         attr = dict.get(self._location_code, '?')
         info = getattr(self, attr, '?')
         return '<AddressLoc %r: %s>' % (self._location_code, info)
@@ -402,7 +402,7 @@ class LocationCodeBuilder(object):
             val2 = loc2.value_i()
             code1 = loc1.location_code()
             if code1 == 'j':
-                checkvalue = loc1.value_j()
+                checkvalue = loc1.value_j()[1]
             elif code1 == 'm':
                 checkvalue = loc1.value_m()[2]
             elif code1 == 'a':
@@ -457,7 +457,7 @@ class LocationCodeBuilder(object):
             if loc2 is X86_64_SCRATCH_REG:
                 if code1 == 'j':
                     assert (name.startswith("MOV") and
-                            rx86.fits_in_32bits(loc1.value_j()))
+                            rx86.fits_in_32bits(loc1.value_j()[1]))
             if loc1 is X86_64_SCRATCH_REG and not name.startswith("MOV"):
                 assert code2 not in ('j', 'i')
 
