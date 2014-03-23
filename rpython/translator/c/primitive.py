@@ -189,7 +189,7 @@ def name_gcref(value, db, static=False):
         if isinstance(realobj, int):
             return _name_tagged(realobj, db)
         realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
-        return db.get(realvalue, static=static)
+        return '((rpygcchar_t *)%s)' % (db.get(realvalue, static=static),)
     else:
         return 'NULL'
 
