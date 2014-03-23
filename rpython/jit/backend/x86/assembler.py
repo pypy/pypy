@@ -893,7 +893,7 @@ class Assembler386(BaseAssembler):
             # it off the shadowstack
             rst = self.heap_tl(gcrootmap.get_root_stack_top_addr())
             self.mc.MOV(ebx, rst)
-            self.mc.SUB_ri(ebx.value, -WORD)
+            self.mc.SUB_ri(ebx.value, WORD)
             self.mc.MOV_rm(eax.value, (self.SEGMENT_NO, ebx.value, 0))
             self.mc.MOV(rst, ebx)
         else:
