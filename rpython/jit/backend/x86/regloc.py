@@ -299,6 +299,9 @@ class ConstFloatLoc(ImmediateAssemblerLocation):
     def __init__(self, address):
         self.value = address
 
+    def value_j(self):
+        return (rx86.SEGMENT_NO, self.value)
+
     def get_width(self):
         return 8
 
