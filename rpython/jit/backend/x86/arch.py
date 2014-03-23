@@ -15,12 +15,12 @@ else:
 #
 #        +--------------------+    <== aligned to 16 bytes
 #        |   return address   |
-#        +--------------------+
-#        |    saved regs      |
-#        +--------------------+
-#        |   scratch          |
-#        |      space         |
-#        +--------------------+    <== aligned to 16 bytes
+#        +--------------------+           ----------------------.
+#        |    saved regs      |                FRAME_FIXED_SIZE |
+#        +--------------------+       --------------------.     |
+#        |   scratch          |          PASS_ON_MY_FRAME |     |
+#        |      space         |                           |     |
+#        +--------------------+    <== aligned to 16 -----' ----'
 
 # All the rest of the data is in a GC-managed variable-size "frame".
 # This frame object's address is always stored in the register EBP/RBP.
@@ -30,14 +30,14 @@ else:
 # start of every frame: the saved value of some registers
 
 if WORD == 4:
-    # ebp + ebx + esi + edi + 14 extra words + return address = 19 words
+    # ebp + ebx + esi + edi + 15 extra words = 19 words
     FRAME_FIXED_SIZE = 19
-    PASS_ON_MY_FRAME = 14
+    PASS_ON_MY_FRAME = 15
     JITFRAME_FIXED_SIZE = 6 + 8 * 2 # 6 GPR + 8 XMM * 2 WORDS/float
 else:
-    # rbp + rbx + r12 + r13 + r14 + r15 + 12 extra words + return address = 19
+    # rbp + rbx + r12 + r13 + r14 + r15 + 13 extra words = 19
     FRAME_FIXED_SIZE = 19
-    PASS_ON_MY_FRAME = 12
+    PASS_ON_MY_FRAME = 13
     JITFRAME_FIXED_SIZE = 28 # 13 GPR + 15 XMM
 
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
