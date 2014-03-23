@@ -36,3 +36,15 @@ class TestReadBarrier(BaseTestTransform):
         res = self.interpret(f1, [])
         assert res == 42
         assert self.read_barriers == []
+
+    def test_getarrayitem(self):
+        X = lltype.GcArray(lltype.Signed)
+        x1 = lltype.malloc(X, 5, immortal=True, zero=True)
+        x1[2] = 42
+
+        def f1(n):
+            return x1[n]
+
+        res = self.interpret(f1, [2])
+        assert res == 42
+        assert self.read_barriers == [x1]
