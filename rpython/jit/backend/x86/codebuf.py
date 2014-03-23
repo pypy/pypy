@@ -22,8 +22,7 @@ elif IS_X86_64:
 class MachineCodeBlockWrapper(BlockBuilderMixin,
                               LocationCodeBuilder,
                               codebuilder_cls):
-    def __init__(self, cpu):
-        self.stm = cpu.gc_ll_descr.stm
+    def __init__(self):
         self.init_block_builder()
         # a list of relative positions; for each position p, the bytes
         # at [p-4:p] encode an absolute address that will need to be
@@ -54,47 +53,3 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
                 adr[0] = intmask(adr[0] - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)
-
-    def in_tl_segment(self, adr):
-        """Makes 'adr' relative to threadlocal-base if we run in STM. 
-        Before using such a relative address, call SEGTL()."""
-        if self.stm and we_are_translated():
-            # only for STM and not during tests
-            from rpython.jit.backend.x86 import stmtlocal, rx86
-            result = adr - stmtlocal.threadlocal_base()
-            assert rx86.fits_in_32bits(result)
-            return result
-        return adr
-
-    def SEGTL(self):
-        """Insert segment prefix for thread-local memory if we run
-        in STM and not during testing.  This is used to access thread-local
-        data structures like the struct stm_thread_local_s."""
-        if self.stm and we_are_translated():
-            from rpython.jit.backend.x86 import stmtlocal
-            stmtlocal.tl_segment_prefix(self)
-
-    def SEGC7(self):
-        """Insert segment prefix for the stmgc-c7 segment of memory
-        if we run in STM and not during testing.  This is used to access
-        any GC object, or things in the STM_SEGMENT structure."""
-        if self.stm and we_are_translated():
-            from rpython.jit.backend.x86 import stmtlocal
-            stmtlocal.c7_segment_prefix(self)
-
-    def SEGC7_if_gc(self, op):
-        if self.stm and we_are_translated():
-            from rpython.jit.backend.x86 import stmtlocal
-            from rpython.jit.metainterp.resoperation import rop
-            #
-            opnum = op.getopnum()
-            if opnum in (rop.GETFIELD_GC,
-                         rop.GETFIELD_GC_PURE,
-                         rop.GETARRAYITEM_GC,
-                         rop.GETARRAYITEM_GC_PURE,
-                         rop.GETINTERIORFIELD_GC,
-                         rop.SETFIELD_GC,
-                         rop.SETARRAYITEM_GC,
-                         rop.SETINTERIORFIELD_GC,
-                         ):
-                stmtlocal.c7_segment_prefix(self)

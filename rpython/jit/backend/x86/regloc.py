@@ -3,7 +3,7 @@ from rpython.jit.backend.x86 import rx86
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import specialize, instantiate
+from rpython.rlib.objectmodel import specialize, instantiate, we_are_translated
 from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.history import FLOAT, INT
 from rpython.jit.codewriter import longlong
@@ -34,7 +34,7 @@ class AssemblerLocation(object):
     def value_r(self): return self.value
     def value_b(self): return self.value
     def value_s(self): return self.value
-    def value_j(self): return self.value
+    def value_j(self): raise AssertionError("value_j undefined")
     def value_i(self): return self.value
     def value_x(self): return self.value
     def value_a(self): raise AssertionError("value_a undefined")
@@ -206,7 +206,10 @@ class AddressLoc(AssemblerLocation):
     _immutable_ = True
 
     # The address is base_loc + (scaled_loc << scale) + static_offset
-    def __init__(self, base_loc, scaled_loc, scale=0, static_offset=0):
+    def __init__(self, segment,base_loc, scaled_loc, scale=0, static_offset=0):
+        if not we_are_translated():
+            assert segment in (rx86.SEGMENT_NO, rx86.SEGMENT_FS,
+                               rx86.SEGMENT_GS)
         assert 0 <= scale < 4
         assert isinstance(base_loc, ImmedLoc) or isinstance(base_loc, RegLoc)
         assert isinstance(scaled_loc, ImmedLoc) or isinstance(scaled_loc, RegLoc)
@@ -214,18 +217,22 @@ class AddressLoc(AssemblerLocation):
         if isinstance(base_loc, ImmedLoc):
             if isinstance(scaled_loc, ImmedLoc):
                 self._location_code = 'j'
-                self.value = base_loc.value + (scaled_loc.value << scale) + static_offset
+                self.loc_j = (segment, base_loc.value +
+                              (scaled_loc.value << scale) + static_offset)
             else:
                 self._location_code = 'a'
-                self.loc_a = (rx86.NO_BASE_REGISTER, scaled_loc.value, scale, base_loc.value + static_offset)
+                self.loc_a = (segment, rx86.NO_BASE_REGISTER, scaled_loc.value,
+                              scale, base_loc.value + static_offset)
         else:
             if isinstance(scaled_loc, ImmedLoc):
                 # FIXME: What if base_loc is ebp or esp?
                 self._location_code = 'm'
-                self.loc_m = (base_loc.value, (scaled_loc.value << scale) + static_offset)
+                self.loc_m = (segment, base_loc.value,
+                              (scaled_loc.value << scale) + static_offset)
             else:
                 self._location_code = 'a'
-                self.loc_a = (base_loc.value, scaled_loc.value, scale, static_offset)
+                self.loc_a = (segment, base_loc.value, scaled_loc.value,
+                              scale, static_offset)
 
     def __repr__(self):
         dict = {'j': 'value', 'a': 'loc_a', 'm': 'loc_m', 'a':'loc_a'}
@@ -240,6 +247,9 @@ class AddressLoc(AssemblerLocation):
         return False # not 100% true, but we don't use AddressLoc for locations
         # really, so it's ok
 
+    def value_j(self):
+        return self.loc_j
+
     def value_a(self):
         return self.loc_a
 
@@ -248,15 +258,15 @@ class AddressLoc(AssemblerLocation):
 
     def find_unused_reg(self):
         if self._location_code == 'm':
-            if self.loc_m[0] == eax.value:
+            if self.loc_m[1] == eax.value:
                 return edx
         elif self._location_code == 'a':
-            if self.loc_a[0] == eax.value:
-                if self.loc_a[1] == edx.value:
+            if self.loc_a[1] == eax.value:
+                if self.loc_a[2] == edx.value:
                     return ecx
                 return edx
-            if self.loc_a[1] == eax.value:
-                if self.loc_a[0] == edx.value:
+            if self.loc_a[2] == eax.value:
+                if self.loc_a[1] == edx.value:
                     return ecx
                 return edx
         return eax
@@ -265,11 +275,11 @@ class AddressLoc(AssemblerLocation):
         result = instantiate(AddressLoc)
         result._location_code = self._location_code
         if self._location_code == 'm':
-            result.loc_m = (self.loc_m[0], self.loc_m[1] + ofs)
+            result.loc_m = self.loc_m[:2] + (self.loc_m[2] + ofs)
         elif self._location_code == 'a':
-            result.loc_a = self.loc_a[:3] + (self.loc_a[3] + ofs,)
+            result.loc_a = self.loc_a[:4] + (self.loc_a[4] + ofs,)
         elif self._location_code == 'j':
-            result.value = self.value + ofs
+            result.loc_j = (self.loc_j[0], self.loc_j[1] + ofs)
         else:
             raise AssertionError(self._location_code)
         return result
@@ -383,9 +393,9 @@ class LocationCodeBuilder(object):
             if code1 == 'j':
                 checkvalue = loc1.value_j()
             elif code1 == 'm':
-                checkvalue = loc1.value_m()[1]
+                checkvalue = loc1.value_m()[2]
             elif code1 == 'a':
-                checkvalue = loc1.value_a()[3]
+                checkvalue = loc1.value_a()[4]
             else:
                 checkvalue = 0
             if not rx86.fits_in_32bits(checkvalue):
@@ -468,13 +478,13 @@ class LocationCodeBuilder(object):
                                 val2 = self._addr_as_reg_offset(val2)
                                 invoke(self, possible_code1 + "m", val1, val2)
                                 return
-                            if possible_code1 == 'm' and not fits32(val1[1]):
+                            if possible_code1 == 'm' and not fits32(val1[2]):
                                 val1 = self._fix_static_offset_64_m(val1)
-                            if possible_code2 == 'm' and not fits32(val2[1]):
+                            if possible_code2 == 'm' and not fits32(val2[2]):
                                 val2 = self._fix_static_offset_64_m(val2)
-                            if possible_code1 == 'a' and not fits32(val1[3]):
+                            if possible_code1 == 'a' and not fits32(val1[4]):
                                 val1 = self._fix_static_offset_64_a(val1)
-                            if possible_code2 == 'a' and not fits32(val2[3]):
+                            if possible_code2 == 'a' and not fits32(val2[4]):
                                 val2 = self._fix_static_offset_64_a(val2)
                             invoke(self, possible_code1 + possible_code2, val1, val2)
                             return
@@ -498,9 +508,9 @@ class LocationCodeBuilder(object):
                         val = self._addr_as_reg_offset(val)
                         _rx86_getattr(self, name + "_m")(val)
                         return
-                    if possible_code == 'm' and not fits32(val[1]):
+                    if possible_code == 'm' and not fits32(val[2]):
                         val = self._fix_static_offset_64_m(val)
-                    if possible_code == 'a' and not fits32(val[3]):
+                    if possible_code == 'a' and not fits32(val[4]):
                         val = self._fix_static_offset_64_a(val)
                     methname = name + "_" + possible_code
                     _rx86_getattr(self, methname)(val)
@@ -531,7 +541,7 @@ class LocationCodeBuilder(object):
 
         return func_with_new_name(INSN, "INSN_" + name)
 
-    def _addr_as_reg_offset(self, addr):
+    def _addr_as_reg_offset(self, (segment, addr)):
         # Encodes a (64-bit) address as an offset from the scratch register.
         # If we are within a "reuse_scratch_register" block, we remember the
         # last value we loaded to the scratch register and encode the address
@@ -539,7 +549,7 @@ class LocationCodeBuilder(object):
         if self._scratch_register_known:
             offset = addr - self._scratch_register_value
             if rx86.fits_in_32bits(offset):
-                return (X86_64_SCRATCH_REG.value, offset)
+                return (segment, X86_64_SCRATCH_REG.value, offset)
             # else: fall through
 
         if self._reuse_scratch_register:
@@ -547,9 +557,9 @@ class LocationCodeBuilder(object):
             self._scratch_register_value = addr
 
         self.MOV_ri(X86_64_SCRATCH_REG.value, addr)
-        return (X86_64_SCRATCH_REG.value, 0)
+        return (segment, X86_64_SCRATCH_REG.value, 0)
 
-    def _fix_static_offset_64_m(self, (basereg, static_offset)):
+    def _fix_static_offset_64_m(self, (segment, basereg, static_offset)):
         # For cases where an AddressLoc has the location_code 'm', but
         # where the static offset does not fit in 32-bits.  We have to fall
         # back to the X86_64_SCRATCH_REG.  Returns a new location encoded
@@ -558,10 +568,10 @@ class LocationCodeBuilder(object):
         self._scratch_register_known = False
         self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
         self.LEA_ra(X86_64_SCRATCH_REG.value,
-                    (basereg, X86_64_SCRATCH_REG.value, 0, 0))
-        return (X86_64_SCRATCH_REG.value, 0)
+                    (rx86.SEGMENT_NO, basereg, X86_64_SCRATCH_REG.value, 0, 0))
+        return (segment, X86_64_SCRATCH_REG.value, 0)
 
-    def _fix_static_offset_64_a(self, (basereg, scalereg,
+    def _fix_static_offset_64_a(self, (segment, basereg, scalereg,
                                        scale, static_offset)):
         # For cases where an AddressLoc has the location_code 'a', but
         # where the static offset does not fit in 32-bits.  We have to fall
@@ -573,8 +583,8 @@ class LocationCodeBuilder(object):
         #
         if basereg != rx86.NO_BASE_REGISTER:
             self.LEA_ra(X86_64_SCRATCH_REG.value,
-                        (basereg, X86_64_SCRATCH_REG.value, 0, 0))
-        return (X86_64_SCRATCH_REG.value, scalereg, scale, 0)
+                    (rx86.SEGMENT_NO, basereg, X86_64_SCRATCH_REG.value, 0, 0))
+        return (segment, X86_64_SCRATCH_REG.value, scalereg, scale, 0)
 
     def _load_scratch(self, value):
         if (self._scratch_register_known

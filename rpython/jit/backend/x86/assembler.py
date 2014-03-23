@@ -2671,8 +2671,8 @@ def mem(loc, offset):
 def raw_stack(offset, type=INT):
     return RawEbpLoc(offset, type)
 
-def heap(addr):
-    return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
+def heap(segment, addr):
+    return AddressLoc(segment, ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
     msg = '[x86/asm] %s\n' % msg

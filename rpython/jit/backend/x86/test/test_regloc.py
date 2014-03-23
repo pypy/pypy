@@ -1,5 +1,6 @@
 import struct, sys
 from rpython.jit.backend.x86.rx86 import R
+from rpython.jit.backend.x86.rx86 import SEGMENT_NO, SEGMENT_FS
 from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from rpython.jit.backend.x86.assembler import heap
@@ -24,7 +25,7 @@ def test_mov_16():
     # 32-bit
     assert_encodes_as(cb32, "MOV16", (ecx, ebx), '\x66\x89\xD9')
     assert_encodes_as(cb32, "MOV16",
-                      (AddressLoc(ecx, ImmedLoc(16), 0, 0), ebx),
+                      (AddressLoc(SEGMENT_NO, ecx, ImmedLoc(16), 0, 0), ebx),
                       '\x66\x89\x59\x10')
     # 64-bit
     assert_encodes_as(cb64, "MOV16", (r8, ebx), '\x66\x41\x89\xD8')  # 11 011 000
@@ -43,21 +44,25 @@ def test_mov_16():
     expected = '\x66\x41\xC7\xC1\xC7\xCF'  # could be '\x66\x41\xB9\xC7\xCF'
     assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(-12345)), expected)
     assert_encodes_as(cb64, "MOV16",
-                      (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)),
+                      (AddressLoc(SEGMENT_NO, r13, ImmedLoc(0), 0, 0),
+                       ImmedLoc(12345)),
                       '\x66\x41\xC7\x45\x00\x39\x30')
 
 def test_cmp_16():
     # only 'CMP16_mi' is supported
     # 32-bit
     assert_encodes_as(cb32, "CMP16",
-                      (AddressLoc(ecx, ImmedLoc(0), 0, 0), ImmedLoc(21324)),
+                      (AddressLoc(SEGMENT_NO, ecx, ImmedLoc(0), 0, 0),
+                       ImmedLoc(21324)),
                       '\x66\x81\x39\x4c\x53')
     assert_encodes_as(cb32, "CMP16",
-                      (AddressLoc(esi, ImmedLoc(2), 0, 0), ImmedLoc(-12345)),
-                      '\x66\x81\x7e\x02\xc7\xcf')
+                      (AddressLoc(SEGMENT_FS, esi, ImmedLoc(2), 0, 0),
+                       ImmedLoc(-12345)),
+                      '\x64\x66\x81\x7e\x02\xc7\xcf')
     # 64-bit
     assert_encodes_as(cb64, "CMP16",
-                      (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)),
+                      (AddressLoc(SEGMENT_NO, r13, ImmedLoc(0), 0, 0),
+                       ImmedLoc(12345)),
                       '\x66\x41\x81\x7D\x00\x39\x30')
 
 def test_relocation():
@@ -107,8 +112,8 @@ class Test64Bits:
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
         cb.begin_reuse_scratch_register()
-        cb.MOV(ecx, heap(base_addr))
-        cb.MOV(ecx, heap(base_addr + 8))
+        cb.MOV(ecx, heap(SEGMENT_NO, base_addr))
+        cb.MOV(ecx, heap(SEGMENT_FS, base_addr + 8))
         cb.end_reuse_scratch_register()
 
         expected_instructions = (
@@ -116,8 +121,8 @@ class Test64Bits:
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE' +
                 # mov rcx, [r11]
                 '\x49\x8B\x0B' +
-                # mov rcx, [r11+8]
-                '\x49\x8B\x4B\x08'
+                # mov rcx, %fs:[r11+8]
+                '\x64\x49\x8B\x4B\x08'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -126,35 +131,36 @@ class Test64Bits:
     def test_64bit_address_1(self):
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.CMP(ecx, AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr))
+        cb.CMP(ecx, AddressLoc(SEGMENT_FS, ImmedLoc(0), ImmedLoc(0),
+                               0, base_addr))
         # this case is a CMP_rj
         #
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # cmp rcx, [r11]
-                '\x49\x3B\x0B'
+                # cmp rcx, %fs:[r11]
+                '\x64\x49\x3B\x0B'
         )
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_2(self):
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(ecx, AddressLoc(ImmedLoc(0), edx, 3, base_addr))
+        cb.MOV(ecx, AddressLoc(SEGMENT_FS, ImmedLoc(0), edx, 3, base_addr))
         # this case is a CMP_ra
         #
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov rcx, [r11+8*rdx]
-                '\x49\x8B\x0C\xD3'
+                # mov rcx, %fs:[r11+8*rdx]
+                '\x64\x49\x8B\x0C\xD3'
         )
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_3(self):
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(ecx, AddressLoc(edx, ImmedLoc(0), 0, base_addr))
+        cb.MOV(ecx, AddressLoc(SEGMENT_FS, edx, ImmedLoc(0), 0, base_addr))
         # this case is a CMP_rm
         #
         expected_instructions = (
@@ -162,8 +168,8 @@ class Test64Bits:
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
                 # lea r11, [rdx+r11]
                 '\x4E\x8D\x1C\x1A'
-                # mov rcx, [r11]
-                '\x49\x8B\x0B'
+                # mov rcx, %fs:[r11]
+                '\x64\x49\x8B\x0B'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -173,7 +179,7 @@ class Test64Bits:
         cb.begin_reuse_scratch_register()
         assert cb._reuse_scratch_register is True
         assert cb._scratch_register_known is False
-        cb.MOV(ecx, AddressLoc(edx, esi, 2, base_addr))
+        cb.MOV(ecx, AddressLoc(SEGMENT_FS, edx, esi, 2, base_addr))
         assert cb._reuse_scratch_register is True
         assert cb._scratch_register_known is False
         # this case is a CMP_ra
@@ -183,8 +189,8 @@ class Test64Bits:
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
                 # lea r11, [rdx+r11]
                 '\x4E\x8D\x1C\x1A'
-                # mov rcx, [r11+4*rsi]
-                '\x49\x8B\x0C\xB3'
+                # mov rcx, %fs:[r11+4*rsi]
+                '\x64\x49\x8B\x0C\xB3'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -204,13 +210,13 @@ class Test64Bits:
     def test_MOV_64bit_address_into_r11(self):
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(r11, heap(base_addr))
+        cb.MOV(r11, heap(SEGMENT_FS, base_addr))
 
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE' +
-                # mov r11, [r11]
-                '\x4D\x8B\x1B'
+                # mov r11, %fs:[r11]
+                '\x64\x4D\x8B\x1B'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -218,15 +224,15 @@ class Test64Bits:
         immed = -0x01234567
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr),
+        cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
         # this case is a MOV_ji
         #
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [r11], -0x01234567
-                '\x49\xC7\x03\x99\xBA\xDC\xFE'
+                # mov %fs:[r11], -0x01234567
+                '\x64\x49\xC7\x03\x99\xBA\xDC\xFE'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -234,15 +240,15 @@ class Test64Bits:
         immed = -0x01234567
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(ImmedLoc(0), edx, 3, base_addr),
+        cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), edx, 3, base_addr),
                ImmedLoc(immed))
         # this case is a MOV_ai
         #
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [r11+8*rdx], -0x01234567
-                '\x49\xC7\x04\xD3\x99\xBA\xDC\xFE'
+                # mov %fs:[r11+8*rdx], -0x01234567
+                '\x64\x49\xC7\x04\xD3\x99\xBA\xDC\xFE'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -250,7 +256,7 @@ class Test64Bits:
         immed = -0x01234567
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(edx, ImmedLoc(0), 0, base_addr),
+        cb.MOV(AddressLoc(SEGMENT_FS, edx, ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
         # this case is a MOV_mi
         #
@@ -259,8 +265,8 @@ class Test64Bits:
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
                 # lea r11, [rdx+r11]
                 '\x4E\x8D\x1C\x1A'
-                # mov [r11], -0x01234567
-                '\x49\xC7\x03\x99\xBA\xDC\xFE'
+                # mov %fs:[r11], -0x01234567
+                '\x64\x49\xC7\x03\x99\xBA\xDC\xFE'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -268,7 +274,7 @@ class Test64Bits:
         immed = -0x01234567
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(edx, esi, 2, base_addr), ImmedLoc(immed))
+        cb.MOV(AddressLoc(SEGMENT_FS, edx, esi, 2, base_addr), ImmedLoc(immed))
         # this case is a MOV_ai
         #
         expected_instructions = (
@@ -276,8 +282,8 @@ class Test64Bits:
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
                 # lea r11, [rdx+r11]
                 '\x4E\x8D\x1C\x1A'
-                # mov [r11+4*rsi], -0x01234567
-                '\x49\xC7\x04\xB3\x99\xBA\xDC\xFE'
+                # mov %fs:[r11+4*rsi], -0x01234567
+                '\x64\x49\xC7\x04\xB3\x99\xBA\xDC\xFE'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -287,7 +293,7 @@ class Test64Bits:
         immed = 0x0123456789ABCDEF
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr),
+        cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
         # this case is a MOV_ji
         #
@@ -298,8 +304,8 @@ class Test64Bits:
                 '\x48\xB8\xEF\xCD\xAB\x89\x67\x45\x23\x01'
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [r11], rax
-                '\x49\x89\x03'
+                # mov %fs:[r11], rax
+                '\x64\x49\x89\x03'
                 # pop rax
                 '\x58'
         )
@@ -309,7 +315,7 @@ class Test64Bits:
         immed = 0x0123456789ABCDEF
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(ImmedLoc(0), edx, 3, base_addr),
+        cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), edx, 3, base_addr),
                ImmedLoc(immed))
         # this case is a MOV_ai
         #
@@ -320,8 +326,8 @@ class Test64Bits:
                 '\x48\xB8\xEF\xCD\xAB\x89\x67\x45\x23\x01'
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [r11+8*rdx], rax
-                '\x49\x89\x04\xD3'
+                # mov %fs:[r11+8*rdx], rax
+                '\x64\x49\x89\x04\xD3'
                 # pop rax
                 '\x58'
         )
@@ -331,7 +337,7 @@ class Test64Bits:
         immed = 0x0123456789ABCDEF
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(eax, ImmedLoc(0), 0, base_addr),
+        cb.MOV(AddressLoc(SEGMENT_FS, eax, ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
         # this case is a MOV_mi
         #
@@ -344,8 +350,8 @@ class Test64Bits:
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
                 # lea r11, [rax+r11]
                 '\x4E\x8D\x1C\x18'
-                # mov [r11], rdx
-                '\x49\x89\x13'
+                # mov %fs:[r11], rdx
+                '\x64\x49\x89\x13'
                 # pop rdx
                 '\x5A'
         )
@@ -355,7 +361,7 @@ class Test64Bits:
         immed = 0x0123456789ABCDEF
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()
-        cb.MOV(AddressLoc(edx, eax, 2, base_addr), ImmedLoc(immed))
+        cb.MOV(AddressLoc(SEGMENT_FS, edx, eax, 2, base_addr), ImmedLoc(immed))
         # this case is a MOV_ai
         #
         expected_instructions = (
@@ -367,8 +373,8 @@ class Test64Bits:
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
                 # lea r11, [rdx+r11]
                 '\x4E\x8D\x1C\x1A'
-                # mov [r11+4*rax], rcx
-                '\x49\x89\x0C\x83'
+                # mov %fs:[r11+4*rax], rcx
+                '\x64\x49\x89\x0C\x83'
                 # pop rcx
                 '\x59'
         )
@@ -392,14 +398,14 @@ class Test64Bits:
     def test_inc_64bit_address_1(self):
         base_addr = 0x0123456789ABCDEF
         cb = LocationCodeBuilder64()
-        cb.INC(AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr))
+        cb.INC(AddressLoc(SEGMENT_FS, ImmedLoc(0), ImmedLoc(0), 0, base_addr))
         # this case is a INC_j
         #
         expected_instructions = (
                 # mov r11, 0x0123456789ABCDEF
                 '\x49\xBB\xEF\xCD\xAB\x89\x67\x45\x23\x01'
-                # inc [r11]
-                '\x49\xFF\x03'
+                # inc %fs:[r11]
+                '\x64\x49\xFF\x03'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -407,14 +413,14 @@ class Test64Bits:
         py.test.skip("there is no unary instruction INSN_a so far")
         base_addr = 0x0123456789ABCDEF
         cb = LocationCodeBuilder64()
-        cb.INC(AddressLoc(ImmedLoc(0), edx, 3, base_addr))
+        cb.INC(AddressLoc(SEGMENT_FS, ImmedLoc(0), edx, 3, base_addr))
         # this case would be a INC_a
         xxx
 
     def test_inc_64bit_address_3(self):
         base_addr = 0x0123456789ABCDEF
         cb = LocationCodeBuilder64()
-        cb.INC(AddressLoc(eax, ImmedLoc(0), 0, base_addr))
+        cb.INC(AddressLoc(SEGMENT_FS, eax, ImmedLoc(0), 0, base_addr))
         # this case is a INC_m
         #
         expected_instructions = (
@@ -422,7 +428,7 @@ class Test64Bits:
                 '\x49\xBB\xEF\xCD\xAB\x89\x67\x45\x23\x01'
                 # lea r11, [rax+r11]
                 '\x4E\x8D\x1C\x18'
-                # inc [r11]
-                '\x49\xFF\x03'
+                # inc %fs:[r11]
+                '\x64\x49\xFF\x03'
         )
         assert cb.getvalue() == expected_instructions
