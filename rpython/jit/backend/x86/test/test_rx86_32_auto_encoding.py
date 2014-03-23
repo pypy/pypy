@@ -22,7 +22,10 @@ class CodeCheckerMixin(object):
     def writechar(self, char):
         if char != self.expected[self.index:self.index+1]:
             if (char == self.accept_unnecessary_prefix
-                and self.index == self.instrindex):
+                and (self.index == self.instrindex or
+                     (self.index == self.instrindex+1 and
+                      self.expected[self.instrindex] in (rx86.SEGMENT_FS,
+                                                         rx86.SEGMENT_GS)))):
                 return    # ignore the extra character '\x40'
             print self.op
             print "\x09from rx86.py:", hexdump(self.expected[self.instrindex:self.index] + char)+"..."
@@ -63,6 +66,14 @@ class TestRx86_32(object):
                    rx86.R.esi, rx86.R.edi]
     accept_unnecessary_prefix = None
     methname = '?'
+    prevseg = rx86.SEGMENT_NO
+    SEGMAP = {rx86.SEGMENT_NO: rx86.SEGMENT_FS,
+              rx86.SEGMENT_FS: rx86.SEGMENT_GS,
+              rx86.SEGMENT_GS: rx86.SEGMENT_NO}
+
+    def getseg(self):
+        self.prevseg = seg = self.SEGMAP[self.prevseg]
+        return seg
 
     def reg_tests(self):
         return self.REGS
@@ -73,28 +84,31 @@ class TestRx86_32(object):
     def xmm_reg_tests(self):
         return self.reg_tests()
 
-    def stack_bp_tests(self, count=COUNT1):
+    def _all_numbers(self, count):
         return ([0, 4, -4, 124, 128, -128, -132] +
                 [random.randrange(-0x20000000, 0x20000000) * 4
                  for i in range(count)])
 
-    def stack_sp_tests(self, count=COUNT1):
+    def stack_bp_tests(self):
+        return [(self.getseg(), x) for x in self._all_numbers(COUNT1)]
+
+    def stack_sp_tests(self):
         return ([0, 4, 124, 128] +
                 [random.randrange(0, 0x20000000) * 4
-                 for i in range(count)])
+                 for i in range(COUNT1)])
 
     def memory_tests(self):
-        return [(reg, ofs)
+        return [(self.getseg(), reg, ofs)
                     for reg in self.NONSPECREGS
-                    for ofs in self.stack_bp_tests(5)
+                    for ofs in self._all_numbers(5)
                 ]
 
     def array_tests(self):
-        return [(reg1, reg2, scaleshift, ofs)
+        return [(self.getseg(), reg1, reg2, scaleshift, ofs)
                     for reg1 in self.NONSPECREGS
                     for reg2 in self.NONSPECREGS
                     for scaleshift in [0, 1, 2, 3]
-                    for ofs in self.stack_bp_tests(1)
+                    for ofs in self._all_numbers(1)
                 ]
 
     def imm8_tests(self):
@@ -108,6 +122,9 @@ class TestRx86_32(object):
                  random.randrange(0,65536) for i in range(COUNT1)] +
              [random.randrange(128, 256) for i in range(COUNT1)])
         return self.imm8_tests() + v
+
+    def addr_tests(self):
+        return [(self.getseg(), x) for x in self.imm32_tests()]
 
     def relative_tests(self):
         py.test.skip("explicit test required for %r" % (self.methname,))
@@ -123,9 +140,14 @@ class TestRx86_32(object):
             'a': self.array_tests,
             'i': self.imm32_tests,
             'i8': self.imm8_tests,
-            'j': self.imm32_tests,
+            'j': self.addr_tests,
             'l': self.relative_tests,
             }
+
+    def assembler_segment(self, segment):
+        return {rx86.SEGMENT_NO: '',
+                rx86.SEGMENT_FS: '%fs:',
+                rx86.SEGMENT_GS: '%gs:'}[segment]
 
     def assembler_operand_reg(self, regnum):
         return self.REGNAMES[regnum]
@@ -137,26 +159,30 @@ class TestRx86_32(object):
     def assembler_operand_xmm_reg(self, regnum):
         return self.XMMREGNAMES[regnum]
 
-    def assembler_operand_stack_bp(self, position):
-        return '%d(%s)' % (position, self.REGNAMES[5])
+    def assembler_operand_stack_bp(self, (seg, position)):
+        return '%s%d(%s)' % (self.assembler_segment(seg),
+                             position, self.REGNAMES[5])
 
     def assembler_operand_stack_sp(self, position):
         return '%d(%s)' % (position, self.REGNAMES[4])
 
-    def assembler_operand_memory(self, (reg1, offset)):
+    def assembler_operand_memory(self, (seg, reg1, offset)):
         if not offset: offset = ''
-        return '%s(%s)' % (offset, self.REGNAMES[reg1])
+        return '%s%s(%s)' % (self.assembler_segment(seg),
+                             offset, self.REGNAMES[reg1])
 
-    def assembler_operand_array(self, (reg1, reg2, scaleshift, offset)):
+    def assembler_operand_array(self, (seg, reg1, reg2, scaleshift, offset)):
+        assert isinstance(offset, int)
         if not offset: offset = ''
-        return '%s(%s,%s,%d)' % (offset, self.REGNAMES[reg1],
-                                 self.REGNAMES[reg2], 1<<scaleshift)
+        return '%s%s(%s,%s,%d)' % (self.assembler_segment(seg),
+                                   offset, self.REGNAMES[reg1],
+                                   self.REGNAMES[reg2], 1<<scaleshift)
 
     def assembler_operand_imm(self, value):
         return '$%d' % value
 
-    def assembler_operand_imm_addr(self, value):
-        return '%d' % value
+    def assembler_operand_imm_addr(self, (seg, value)):
+        return '%s%d' % (self.assembler_segment(seg), value)
 
     def get_all_assembler_operands(self):
         return {
@@ -362,7 +388,11 @@ class TestRx86_32(object):
         self.methname = methname
         self.is_xmm_insn = getattr(getattr(self.X86_CodeBuilder,
                                            methname), 'is_xmm_insn', False)
+        if methname.startswith('LEA'):
+            self.getseg = lambda: rx86.SEGMENT_NO
         ilist = self.make_all_tests(methname, argmodes)
+        if methname.startswith('LEA'):
+            del self.getseg
         oplist, as_code = self.run_test(methname, instrname, argmodes, ilist,
                                         instr_suffix)
         cls = self.get_code_checker_class()

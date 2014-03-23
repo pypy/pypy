@@ -254,3 +254,10 @@ def test_movsd_xj_64():
     s = CodeBuilder64()
     s.MOVSD_xj(xmm2, (SEGMENT_NO, 0x01234567))
     assert s.getvalue() == '\xF2\x0F\x10\x14\x25\x67\x45\x23\x01'
+
+def test_mov8_jr():
+    py.test.skip("currently this is a rare case that generates an extra "
+                 "rex prefix \x40, which doesn't hurt")
+    s = CodeBuilder64()
+    s.MOV8_jr((SEGMENT_GS, 51), ebx | BYTE_REG_FLAG)
+    assert s.getvalue() == '\x65\x88\x1C\x25\x33\x00\x00\x00'
