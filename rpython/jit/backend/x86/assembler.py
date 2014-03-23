@@ -866,6 +866,7 @@ class Assembler386(BaseAssembler):
             #
 
     def _call_footer(self):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if self.cpu.gc_ll_descr.stm and we_are_translated():
             # call stm_invalidate_jmp_buf(), in case we called
             # stm_transaction_break() earlier
@@ -892,7 +893,6 @@ class Assembler386(BaseAssembler):
             # the return value is the jitframe
             self.mc.MOV_rr(eax.value, ebp.value)
             #
-            gcrootmap = self.cpu.gc_ll_descr.gcrootmap
             if gcrootmap and gcrootmap.is_shadow_stack:
                 self._call_footer_shadowstack(gcrootmap)
 
