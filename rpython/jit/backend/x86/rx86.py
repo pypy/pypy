@@ -49,6 +49,10 @@ def single_byte(value):
 def fits_in_32bits(value):
     return -2147483648 <= value <= 2147483647
 
+SEGMENT_NO = '\x00'
+SEGMENT_FS = '\x64'
+SEGMENT_GS = '\x65'
+
 # ____________________________________________________________
 # Emit a single char
 
@@ -146,7 +150,7 @@ def relative(argnum):
 # Emit a mod/rm referencing a stack location [EBP+offset]
 
 @specialize.arg(2)
-def encode_stack_bp(mc, offset, force_32bits, orbyte):
+def encode_stack_bp(mc, (segment, offset), force_32bits, orbyte):
     if not force_32bits and single_byte(offset):
         mc.writechar(chr(0x40 | orbyte | R.ebp))
         mc.writeimm8(offset)
@@ -155,8 +159,12 @@ def encode_stack_bp(mc, offset, force_32bits, orbyte):
         mc.writeimm32(offset)
     return 0
 
+def rex_stack_bp(mc, (segment, offset), _):
+    mc.write_segment_prefix(segment)
+    return 0
+
 def stack_bp(argnum, force_32bits=False):
-    return encode_stack_bp, argnum, force_32bits, None
+    return encode_stack_bp, argnum, force_32bits, rex_stack_bp
 
 # ____________________________________________________________
 # Emit a mod/rm referencing a stack location [ESP+offset]
@@ -182,7 +190,7 @@ def stack_sp(argnum):
 # ____________________________________________________________
 # Emit a mod/rm referencing a memory location [reg1+offset]
 
-def encode_mem_reg_plus_const(mc, (reg, offset), _, orbyte):
+def encode_mem_reg_plus_const(mc, (segment, reg, offset), _, orbyte):
     assert reg != R.esp and reg != R.ebp
     #
     reg1 = reg_number_3bits(mc, reg)
@@ -209,7 +217,8 @@ def encode_mem_reg_plus_const(mc, (reg, offset), _, orbyte):
         mc.writeimm32(offset)
     return 0
 
-def rex_mem_reg_plus_const(mc, (reg, offset), _):
+def rex_mem_reg_plus_const(mc, (segment, reg, offset), _):
+    mc.write_segment_prefix(segment)
     if reg >= 8:
         return REX_B
     return 0
@@ -220,9 +229,8 @@ def mem_reg_plus_const(argnum):
 # ____________________________________________________________
 # Emit a mod/rm referencing an array memory location [reg1+reg2*scale+offset]
 
-def encode_mem_reg_plus_scaled_reg_plus_const(mc,
-                                              (reg1, reg2, scaleshift, offset),
-                                              _, orbyte):
+def encode_mem_reg_plus_scaled_reg_plus_const(
+        mc, (segment, reg1, reg2, scaleshift, offset), _, orbyte):
     # emit "reg1 + (reg2 << scaleshift) + offset"
     assert reg1 != R.ebp and reg2 != R.esp
     assert 0 <= scaleshift < 4
@@ -262,9 +270,9 @@ def encode_mem_reg_plus_scaled_reg_plus_const(mc,
         mc.writeimm32(offset)
     return 0
 
-def rex_mem_reg_plus_scaled_reg_plus_const(mc,
-                                           (reg1, reg2, scaleshift, offset),
-                                           _):
+def rex_mem_reg_plus_scaled_reg_plus_const(
+        mc, (segment, reg1, reg2, scaleshift, offset), _):
+    mc.write_segment_prefix(segment)
     rex = 0
     if reg1 >= 8: rex |= REX_B
     if reg2 >= 8: rex |= REX_X
@@ -280,7 +288,7 @@ def mem_reg_plus_scaled_reg_plus_const(argnum):
 # with immediate(argnum)).
 
 @specialize.arg(2)
-def encode_abs(mc, immediate, _, orbyte):
+def encode_abs(mc, (segment, immediate), _, orbyte):
     # expands to either '\x05' on 32-bit, or '\x04\x25' on 64-bit
     if mc.WORD == 8:
         mc.writechar(chr(0x04 | orbyte))
@@ -291,8 +299,12 @@ def encode_abs(mc, immediate, _, orbyte):
     mc.writeimm32(immediate)
     return 0
 
+def rex_abs(mc, (segment, immediate), _):
+    mc.write_segment_prefix(segment)
+    return 0
+
 def abs_(argnum):
-    return encode_abs, argnum, None, None
+    return encode_abs, argnum, None, rex_abs
 
 # ____________________________________________________________
 # For 64-bits mode: the REX.W, REX.R, REX.X, REG.B prefixes
@@ -330,7 +342,7 @@ rex_fw = encode_rex, 0, 0x40, None                # a forced REX prefix
 def insn(*encoding):
     def encode(mc, *args):
         rexbyte = 0
-        if mc.WORD == 8:
+        if 1:   #mc.WORD == 8: always needed for the SEGMENT_xx prefix
             # compute the REX byte, if any
             for encode_step, arg, extra, rex_step in encoding_steps:
                 if rex_step:
@@ -464,6 +476,10 @@ class AbstractX86CodeBuilder(object):
         self.writechar(chr((imm >> 8) & 0xFF))
         self.writechar(chr((imm >> 16) & 0xFF))
         self.writechar(chr((imm >> 24) & 0xFF))
+
+    def write_segment_prefix(self, segment):
+        if segment != SEGMENT_NO:
+            self.writechar(segment)
 
     # ------------------------------ MOV ------------------------------
 
