@@ -91,6 +91,12 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                 hop.genop("stm_write", [v_struct])
         hop.rename('bare_' + opname)
 
+    def gct_gc_writebarrier(self, hop):
+        v_struct = hop.spaceop.args[0]
+        assert var_needsgc(v_struct), ("gc_writebarrier: the argument is %r"
+                                       % v_struct.concretetype)
+        hop.genop("stm_write", [v_struct])
+
     def gc_header_for(self, obj, needs_hash=False):
         return self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
 
