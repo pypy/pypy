@@ -47,6 +47,7 @@ def single_byte(value):
     return -128 <= value < 128
 
 def fits_in_32bits(value):
+    value + 0    # check that it's an integer; crashes if we receive a tuple
     return -2147483648 <= value <= 2147483647
 
 SEGMENT_NO = '\x00'

@@ -481,11 +481,11 @@ class LocationCodeBuilder(object):
                             val1 = getattr(loc1, "value_" + possible_code1)()
                             # More faking out of certain operations for x86_64
                             fits32 = rx86.fits_in_32bits
-                            if possible_code1 == 'j' and not fits32(val1):
+                            if possible_code1 == 'j' and not fits32(val1[1]):
                                 val1 = self._addr_as_reg_offset(val1)
                                 invoke(self, "m" + possible_code2, val1, val2)
                                 return
-                            if possible_code2 == 'j' and not fits32(val2):
+                            if possible_code2 == 'j' and not fits32(val2[1]):
                                 val2 = self._addr_as_reg_offset(val2)
                                 invoke(self, possible_code1 + "m", val1, val2)
                                 return
@@ -515,7 +515,7 @@ class LocationCodeBuilder(object):
                         self._load_scratch(val)    # for 'PUSH(imm)'
                         _rx86_getattr(self, name + "_r")(X86_64_SCRATCH_REG.value)
                         return
-                    if possible_code == 'j' and not fits32(val):
+                    if possible_code == 'j' and not fits32(val[1]):
                         val = self._addr_as_reg_offset(val)
                         _rx86_getattr(self, name + "_m")(val)
                         return
