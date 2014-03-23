@@ -12,6 +12,7 @@ adr_nursery_free = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_end)')
 adr_transaction_read_version = (
     CDefinedIntSymbolic('(long)(&STM_SEGMENT->transaction_read_version)'))
+adr_write_slowpath = CDefinedIntSymbolic('(long)(&_stm_write_slowpath)')
 
 
 def jit_stm_transaction_break_point():

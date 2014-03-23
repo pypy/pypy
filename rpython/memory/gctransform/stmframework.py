@@ -6,6 +6,7 @@ from rpython.memory.gctransform.framework import ( TYPE_ID,
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.rtyper import rmodel, llannotation
 from rpython.translator.backendopt.support import var_needsgc
+from rpython.rlib import rstm
 
 
 class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
@@ -102,6 +103,12 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     def gct_gc_adr_of_root_stack_top(self, hop):
         hop.genop("stm_get_root_stack_top", [], resultvar=hop.spaceop.result)
+
+    def gct_get_write_barrier_failing_case(self, hop):
+        op = hop.spaceop
+        c_write_slowpath = rmodel.inputconst(
+            lltype.Signed, rstm.adr_write_slowpath)
+        hop.genop("cast_int_to_ptr", [c_write_slowpath], resultvar=op.result)
 
 ##    def _gct_with_roots_pushed(self, hop):
 ##        livevars = self.push_roots(hop)

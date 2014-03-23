@@ -392,6 +392,7 @@ class TestSTMTranslated(CompiledSTMTests):
             debug_print(objectmodel.current_object_addr_as_int(prebuilt))
             prebuilt.foo = 43
             debug_print(objectmodel.current_object_addr_as_int(prebuilt))
+            llop.get_write_barrier_failing_case(rffi.VOIDP)
             return 0
 
         t, cbuilder = self.compile(main)
