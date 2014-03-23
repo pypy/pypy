@@ -425,6 +425,7 @@ LL_OPERATIONS = {
     'stm_id':                 LLOp(sideeffects=False),
     'stm_identityhash':       LLOp(canfold=True),
     'stm_addr_get_tid':       LLOp(canfold=True),
+    'stm_get_root_stack_top': LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(canmallocgc=True),
     'stm_become_globally_unique_transaction': LLOp(canmallocgc=True),
     'stm_push_root':          LLOp(),

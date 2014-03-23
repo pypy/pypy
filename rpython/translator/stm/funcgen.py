@@ -211,6 +211,11 @@ def stm_ignored_start(funcgen, op):
 def stm_ignored_stop(funcgen, op):
     return '/* stm_ignored_stop */'
 
+def stm_get_root_stack_top(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)&stm_thread_local.shadowstack;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
+
 
 ##def stm_initialize(funcgen, op):
 ##    return '''stm_initialize();
@@ -305,11 +310,6 @@ def stm_ignored_stop(funcgen, op):
 ##def stm_get_adr_of_active(funcgen, op):
 ##    result = funcgen.expr(op.result)
 ##    return '%s = (%s)&stm_active;' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''))
-    
-##def stm_get_root_stack_top(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)&stm_shadowstack;' % (
 ##        result, cdecl(funcgen.lltypename(op.result), ''))
 
 ##def stm_get_adr_of_private_rev_num(funcgen, op):

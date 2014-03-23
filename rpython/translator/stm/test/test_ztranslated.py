@@ -1,7 +1,7 @@
 import py
 from rpython.rlib import rstm, rgc, objectmodel
 from rpython.rlib.debug import debug_print
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.stm.test.support import CompiledSTMTests
@@ -393,6 +393,7 @@ class TestSTMTranslated(CompiledSTMTests):
             prebuilt.foo = 43
             debug_print(objectmodel.current_object_addr_as_int(prebuilt))
             llop.get_write_barrier_failing_case(rffi.VOIDP)
+            llop.gc_adr_of_root_stack_top(llmemory.Address)
             assert llop.gc_can_move(lltype.Bool, prebuilt) == False
             return 0
 
