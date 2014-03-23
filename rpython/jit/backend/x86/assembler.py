@@ -1549,7 +1549,7 @@ class Assembler386(BaseAssembler):
     genop_getarrayitem_raw_pure = genop_getarrayitem_raw
 
     def genop_raw_load(self, op, arglocs, resloc):
-        assert not isinstance(op.getarg(0), BoxPtr)  # not for a GC argument!
+        assert op.getarg(0).type == INT     # only for a GC argument!
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         src_addr = addr_add(self.SEGMENT_NO, base_loc, ofs_loc, ofs.value, 0)
@@ -1571,11 +1571,11 @@ class Assembler386(BaseAssembler):
         itemsize >>= shift
         #
         if valid_addressing_size(itemsize - 1):
-            mc.LEA_ra(targetreg, (sourcereg, sourcereg,
+            mc.LEA_ra(targetreg, (self.SEGMENT_NO, sourcereg, sourcereg,
                                   get_scale(itemsize - 1), 0))
         elif valid_addressing_size(itemsize):
-            mc.LEA_ra(targetreg, (rx86.NO_BASE_REGISTER, sourcereg,
-                                  get_scale(itemsize), 0))
+            mc.LEA_ra(targetreg, (self.SEGMENT_NO, rx86.NO_BASE_REGISTER,
+                                  sourcereg, get_scale(itemsize), 0))
         else:
             mc.IMUL_rri(targetreg, sourcereg, itemsize)
         #
@@ -1602,7 +1602,7 @@ class Assembler386(BaseAssembler):
                           shift, ofs_loc.value)
 
     def genop_getinteriorfield_gc(self, op, arglocs, resloc):
-        assert not isinstance(op.getarg(0), BoxInt)  # only for a GC argument!
+        assert op.getarg(0).type == REF     # only for a GC argument!
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
             index_loc, temp_loc, sign_loc) = arglocs
         src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
@@ -1630,13 +1630,13 @@ class Assembler386(BaseAssembler):
         self._genop_discard_setfield(arglocs, self.SEGMENT_NO)
 
     def genop_discard_setinteriorfield_gc(self, op, arglocs):
-        assert not isinstance(op.getarg(0), BoxInt)  # only for a GC argument!
+        assert op.getarg(0).type == REF     # only for a GC argument!
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
             index_loc, temp_loc, value_loc) = arglocs
         dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
                                                  itemsize_loc, base_loc,
                                                  ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, fieldsize_loc, op)
+        self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
 
     def _genop_discard_setarrayitem(self, arglocs, segment):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
@@ -1653,7 +1653,7 @@ class Assembler386(BaseAssembler):
         self._genop_discard_setarrayitem(arglocs, self.SEGMENT_NO)
 
     def genop_discard_raw_store(self, op, arglocs):
-        assert not isinstance(op.getarg(0), BoxPtr)  # not for a GC argument!
+        assert op.getarg(0).type == INT     # only for a GC argument!
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
         assert isinstance(baseofs, ImmedLoc)
         dest_addr = AddressLoc(self.SEGMENT_NO, base_loc, ofs_loc,
