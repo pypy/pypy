@@ -861,9 +861,11 @@ class Assembler386(BaseAssembler):
             pass                # no stack check (e.g. not translated)
         else:
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
-            self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
+            assert not self.cpu.gc_ll_descr.stm, "XXX check heap()"
+            S = self.SEGMENT_NO
+            self.mc.MOV(eax, heap(S, endaddr))          # MOV eax, [start]
             self.mc.SUB(eax, esp)                       # SUB eax, current
-            self.mc.CMP(eax, heap(lengthaddr))          # CMP eax, [length]
+            self.mc.CMP(eax, heap(S, lengthaddr))       # CMP eax, [length]
             self.mc.J_il8(rx86.Conditions['BE'], 0)     # JBE .skip
             jb_location = self.mc.get_relative_pos()
             self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
@@ -1283,11 +1285,13 @@ class Assembler386(BaseAssembler):
 
     def genop_float_neg(self, op, arglocs, resloc):
         # Following what gcc does: res = x ^ 0x8000000000000000
-        self.mc.XORPD(arglocs[0], heap(self.float_const_neg_addr))
+        self.mc.XORPD(arglocs[0],
+                      heap(self.SEGMENT_NO, self.float_const_neg_addr))
 
     def genop_float_abs(self, op, arglocs, resloc):
         # Following what gcc does: res = x & 0x7FFFFFFFFFFFFFFF
-        self.mc.ANDPD(arglocs[0], heap(self.float_const_abs_addr))
+        self.mc.ANDPD(arglocs[0],
+                      heap(self.SEGMENT_NO, self.float_const_abs_addr))
 
     def genop_cast_float_to_int(self, op, arglocs, resloc):
         self.mc.CVTTSD2SI(resloc, arglocs[0])
@@ -1782,7 +1786,7 @@ class Assembler386(BaseAssembler):
     def _restore_exception(self, mc, excvalloc, exctploc, tmploc=None):
         # for _build_wb_slowpath(): don't touch the cpu flags!
         if excvalloc is not None:
-            mc.MOV(heap(self.cpu.pos_exc_value()), excvalloc)
+            mc.MOV(self.heap_tl(self.cpu.pos_exc_value()), excvalloc)
         else:
             assert tmploc is not None
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
