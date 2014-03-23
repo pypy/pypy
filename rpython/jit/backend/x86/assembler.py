@@ -1685,18 +1685,21 @@ class Assembler386(BaseAssembler):
         base_loc = arglocs[0]
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
+        self.mc.MOV(resloc,
+                    addr_add_const(self.SEGMENT_GC, base_loc, ofs_length))
 
     def genop_unicodelen(self, op, arglocs, resloc):
         base_loc = arglocs[0]
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
+        self.mc.MOV(resloc,
+                    addr_add_const(self.SEGMENT_GC, base_loc, ofs_length))
 
     def genop_arraylen_gc(self, op, arglocs, resloc):
         base_loc, ofs_loc = arglocs
         assert isinstance(ofs_loc, ImmedLoc)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_loc.value))
+        self.mc.MOV(resloc,
+                    addr_add_const(self.SEGMENT_GC, base_loc, ofs_loc.value))
 
     def genop_strgetitem(self, op, arglocs, resloc):
         base_loc, ofs_loc = arglocs
@@ -2215,7 +2218,8 @@ class Assembler386(BaseAssembler):
             assert loc_base is ebp
             loc = self.raw_stack(descr.jit_wb_if_flag_byteofs)
         else:
-            loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
+            loc = addr_add_const(self.SEGMENT_GC, loc_base,
+                                 descr.jit_wb_if_flag_byteofs)
         mc.TEST8(loc, imm(mask))
         mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = mc.get_relative_pos()
@@ -2284,7 +2288,7 @@ class Assembler386(BaseAssembler):
                 # XOR tmp, -8
                 mc.XOR_ri(tmp1.value, -8)
                 # BTS [loc_base], tmp
-                mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                mc.BTS(addr_add_const(self.SEGMENT_GC, loc_base, 0), tmp1)
                 # done
                 if final_pop:
                     mc.POP_r(loc_index.value)
@@ -2293,7 +2297,8 @@ class Assembler386(BaseAssembler):
                 byte_index = loc_index.value >> descr.jit_wb_card_page_shift
                 byte_ofs = ~(byte_index >> 3)
                 byte_val = 1 << (byte_index & 7)
-                mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
+                mc.OR8(addr_add_const(self.SEGMENT_GC, loc_base, byte_ofs),
+                       imm(byte_val))
             else:
                 raise AssertionError("index is neither RegLoc nor ImmedLoc")
             #
