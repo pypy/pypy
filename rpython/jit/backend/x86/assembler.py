@@ -1540,9 +1540,9 @@ class Assembler386(BaseAssembler):
         src_addr = addr_add(segment, base_loc, ofs_loc, ofs.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
-    def genop_getarrayitem_gc(self, op, arglocs, resloc, segment):
+    def genop_getarrayitem_gc(self, op, arglocs, resloc):
         self._genop_getarrayitem(arglocs, resloc, self.SEGMENT_GC)
-    def genop_getarrayitem_raw(self, op, arglocs, resloc, segment):
+    def genop_getarrayitem_raw(self, op, arglocs, resloc):
         self._genop_getarrayitem(arglocs, resloc, self.SEGMENT_NO)
 
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
