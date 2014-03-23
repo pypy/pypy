@@ -1557,7 +1557,7 @@ class Assembler386(BaseAssembler):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         src_addr = addr_add(self.SEGMENT_NO, base_loc, ofs_loc, ofs.value, 0)
-        self.load_from_mem(resloc, src_addr, size_loc, sign_loc, op)
+        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
     def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
         """Produce one operation to do roughly
