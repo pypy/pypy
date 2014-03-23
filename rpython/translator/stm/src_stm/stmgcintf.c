@@ -95,7 +95,8 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     stm_jmpbuf_t jmpbuf;
     long volatile v_counter = 0;
 #ifndef NDEBUG
-    object_t **volatile old_shadowstack = stm_thread_local.shadowstack;
+    struct stm_shadowentry_s *volatile old_shadowstack =
+        stm_thread_local.shadowstack;
 #endif
 
     STM_PUSH_ROOT(stm_thread_local, arg);

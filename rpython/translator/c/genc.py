@@ -911,7 +911,7 @@ void pypy_stm_setup_prebuilt(void)
 void pypy_stm_register_thread_local(void)
 {
     stm_register_thread_local(&stm_thread_local);
-    stm_thread_local.mem_clear_on_abort = &pypy_g_ExcData;
+    stm_thread_local.mem_clear_on_abort = (char *)&pypy_g_ExcData;
     stm_thread_local.mem_bytes_to_clear_on_abort = sizeof(pypy_g_ExcData);
 }
 '''
