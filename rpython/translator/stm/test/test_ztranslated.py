@@ -473,3 +473,22 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert '< 42 >\n< 84 >\n' in data
+
+    def test_raw_load_store_on_gc(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        prebuilt = lltype.malloc(X, immortal=True)
+        prebuilt.foo = 42
+        ofs_foo = llmemory.offsetof(X, 'foo')
+
+        def main(argv):
+            p = lltype.cast_opaque_ptr(llmemory.GCREF, prebuilt)
+            llop.raw_store(lltype.Void, p, ofs_foo, -84)
+            print prebuilt.foo
+            prebuilt.foo = -1298
+            print llop.raw_load(lltype.Signed, p, ofs_foo)
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert '-84\n' in data
+        assert '-1298\n' in data
