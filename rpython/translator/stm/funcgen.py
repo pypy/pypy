@@ -64,7 +64,7 @@ def stm_write(funcgen, op):
 def stm_can_move(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)
-    return '%s = stm_can_move(%s);' % (result, arg0)
+    return '%s = stm_can_move((object_t *)%s);' % (result, arg0)
 
 def stm_allocate_tid(funcgen, op):
     arg_size    = funcgen.expr(op.args[0])

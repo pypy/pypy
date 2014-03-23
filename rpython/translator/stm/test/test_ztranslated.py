@@ -382,7 +382,7 @@ class TestSTMTranslated(CompiledSTMTests):
         assert match
         assert int(match.group(1)) < 20
 
-    def test_gc_writebarrier(self):
+    def test_gc_writebarrier_and_misc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         prebuilt = lltype.malloc(X, immortal=True)
         prebuilt.foo = 42
@@ -393,6 +393,7 @@ class TestSTMTranslated(CompiledSTMTests):
             prebuilt.foo = 43
             debug_print(objectmodel.current_object_addr_as_int(prebuilt))
             llop.get_write_barrier_failing_case(rffi.VOIDP)
+            assert llop.gc_can_move(lltype.Bool, prebuilt) == False
             return 0
 
         t, cbuilder = self.compile(main)

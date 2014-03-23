@@ -110,6 +110,9 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             lltype.Signed, rstm.adr_write_slowpath)
         hop.genop("cast_int_to_ptr", [c_write_slowpath], resultvar=op.result)
 
+    def gct_gc_can_move(self, hop):
+        hop.rename('stm_can_move')
+
 ##    def _gct_with_roots_pushed(self, hop):
 ##        livevars = self.push_roots(hop)
 ##        self.default(hop)
