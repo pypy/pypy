@@ -32,7 +32,7 @@ class AssemblerLocation(object):
         raise NotImplementedError
 
     def value_r(self): return self.value
-    def value_b(self): return self.value
+    def value_b(self): raise AssertionError("value_b undefined")
     def value_s(self): return self.value
     def value_j(self): raise AssertionError("value_j undefined")
     def value_i(self): return self.value
@@ -58,9 +58,16 @@ class RawEbpLoc(AssemblerLocation):
     _immutable_ = True
     _location_code = 'b'
 
-    def __init__(self, value, type=INT):
+    def __init__(self, segment, value, type=INT):
+        if not we_are_translated():
+            assert segment in (rx86.SEGMENT_NO, rx86.SEGMENT_FS,
+                               rx86.SEGMENT_GS)
+        self.segment = segment
         self.value = value
         self.type = type
+
+    def value_b(self):
+        return (self.segment, self.value)
 
     def get_width(self):
         if self.type == FLOAT:
@@ -112,12 +119,13 @@ class RawEspLoc(AssemblerLocation):
 
 class FrameLoc(RawEbpLoc):
     _immutable_ = True
-    
-    def __init__(self, position, ebp_offset, type):
+
+    def __init__(self, segment, position, ebp_offset, type):
         # _getregkey() returns self.value; the value returned must not
         # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
         # so let it fail the following assert if it no longer does.
         assert ebp_offset >= 8 + 8 * IS_X86_64
+        self.segment = segment
         self.position = position
         #if position != 9999:
         #    assert (position + JITFRAME_FIXED_SIZE) * WORD == ebp_offset

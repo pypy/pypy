@@ -88,12 +88,14 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     save_around_call_regs = all_regs
 
 class X86FrameManager(FrameManager):
-    def __init__(self, base_ofs):
+    def __init__(self, base_ofs, segment):
         FrameManager.__init__(self)
         self.base_ofs = base_ofs
+        self.segment = segment
 
     def frame_pos(self, i, box_type):
-        return FrameLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
+        return FrameLoc(self.segment, i,
+                        get_ebp_ofs(self.base_ofs, i), box_type)
 
     @staticmethod
     def frame_size(box_type):
@@ -134,7 +136,8 @@ class RegAlloc(BaseRegalloc):
 
     def _prepare(self, inputargs, operations, allgcrefs):
         cpu = self.assembler.cpu
-        self.fm = X86FrameManager(cpu.get_baseofs_of_frame_field())
+        self.fm = X86FrameManager(cpu.get_baseofs_of_frame_field(),
+                                  self.assembler.SEGMENT_FRAME)
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
@@ -961,8 +964,6 @@ class RegAlloc(BaseRegalloc):
         self.possibly_free_var(box_value)
         self.perform_discard(op, [base_loc, ofs, itemsize, fieldsize,
                                  index_loc, temp_loc, value_loc])
-
-    consider_setinteriorfield_raw = consider_setinteriorfield_gc
 
     def consider_strsetitem(self, op):
         args = op.getarglist()
