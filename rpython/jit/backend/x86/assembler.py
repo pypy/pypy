@@ -16,9 +16,9 @@ from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
-from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
-                                       JITFRAME_FIXED_SIZE, IS_X86_32,
-                                       PASS_ON_MY_FRAME, STM_RESUME_BUF)
+from rpython.jit.backend.x86.arch import (
+    FRAME_FIXED_SIZE, WORD, IS_X86_64, JITFRAME_FIXED_SIZE, IS_X86_32,
+    PASS_ON_MY_FRAME, STM_FRAME_FIXED_SIZE)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -503,37 +503,6 @@ class Assembler386(BaseAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
 
-    def _build_stm_longjmp_callback(self):
-        assert self.cpu.gc_ll_descr.stm
-        if not we_are_translated():
-            return    # tests only
-        #
-        # make the stm_longjmp_callback() function, with signature
-        #     void (*longjmp_callback)(void *stm_resume_buffer)
-        mc = codebuf.MachineCodeBlockWrapper()
-        #
-        # 'edi' contains the stm resume buffer, so the new stack
-        # location that we have to enforce is 'edi - FRAME_FIXED_SIZE * WORD'.
-        if IS_X86_32:
-            mc.MOV_rs(edi.value, WORD)      # first argument
-        mc.MOV_rr(esp.value, edi.value)
-        mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
-        #
-        # restore the shadowstack pointer from stm_resume_buffer[1]
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE + 1) * WORD)
-        mc.MOV(self.heap_tl(gcrootmap.get_root_stack_top_addr()), eax)
-        #
-        # must restore 'ebp' from its saved value in the shadowstack
-        self._reload_frame_if_necessary(mc)
-        #
-        # jump to the place saved in stm_resume_buffer[0]
-        # (to "HERE" in genop_stm_transaction_break())
-        mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE + 0) * WORD)
-        mc.JMP_r(eax.value)
-        self.stm_longjmp_callback_addr = mc.materialize(self.cpu.asmmemmgr, [])
-
-
     @rgc.no_release_gil
     def assemble_loop(self, inputargs, operations, looptoken, log,
                       loopname, logger):
@@ -835,10 +804,10 @@ class Assembler386(BaseAssembler):
         return frame_depth
 
     def _get_whole_frame_size(self):
-        frame_size = FRAME_FIXED_SIZE
         if self.cpu.gc_ll_descr.stm:
-            frame_size += STM_RESUME_BUF
-        return frame_size
+            return STM_FRAME_FIXED_SIZE
+        else:
+            return FRAME_FIXED_SIZE
 
     def _call_header(self):
         self.mc.SUB_ri(esp.value, self._get_whole_frame_size() * WORD)
@@ -881,27 +850,42 @@ class Assembler386(BaseAssembler):
             # call stm_invalidate_jmp_buf(), in case we called
             # stm_transaction_break() earlier
             assert IS_X86_64
-            # load the address of the STM_RESUME_BUF
-            self.mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD)
-
-            # XXX UD2
-            #fn = stmtlocal.stm_invalidate_jmp_buf_fn
-            #self.mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
-
-            # there could have been a collection in invalidate_jmp_buf()
-            # reload the frame into eax, while at the same time popping
-            # it off the shadowstack
-            rst = self.heap_tl(gcrootmap.get_root_stack_top_addr())
-            self.mc.MOV(ebx, rst)
-            self.mc.SUB_ri(ebx.value, WORD)
-            self.mc.MOV_rm(eax.value, (self.SEGMENT_NO, ebx.value, 0))
-            self.mc.MOV(rst, ebx)
-        else:
-            # the return value is the jitframe
-            self.mc.MOV_rr(eax.value, ebp.value)
             #
-            if gcrootmap and gcrootmap.is_shadow_stack:
-                self._call_footer_shadowstack(gcrootmap)
+            # load the shadowstack pointer into ebx, and decrement it,
+            # but don't decrement the official shadowstack yet!  We just
+            # keep it in ebx for a while (a callee-saved register).
+            mc = self.mc
+            rst = self.heap_tl(gcrootmap.get_root_stack_top_addr())
+            mc.MOV(ebx, rst)
+            mc.SUB_ri(ebx.value, WORD)
+            # load the address of the jmpbuf
+            mc.LEA_rs(edi.value, STM_JMPBUF_OFS)
+            # compare it with the currently-stored jmpbuf
+            mc.CMP_rj(edi.value, (self.SEGMENT_GC, rstm.adr_jmpbuf_ptr))
+            # if they differ (or if jmpbuf_ptr is already NULL), nothing to do
+            mc.J_il(rx86.Conditions['NE'], 0) # patched later
+            jne_location = mc.get_relative_pos()
+            #
+            # if they are equal, we need to become inevitable now
+            mc.MOV_rj(edi.value, (self.SEGMENT_NO, rstm.adr_jit_default_msg))
+            mc.CALL(imm(rstm.adr__stm_become_inevitable))
+            # there could have been a collection in _stm_become_inevitable;
+            # reload the frame into ebp
+            mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ebx.value, 0))
+            #
+            # this is where the JNE above jumps
+            offset = mc.get_relative_pos() - jne_location
+            assert 0 < offset <= 127
+            mc.overwrite(jne_location-1, chr(offset))
+            #
+            # now store ebx back, which will really decrement the shadowstack
+            mc.MOV(rst, ebx)
+
+        elif gcrootmap and gcrootmap.is_shadow_stack:
+            self._call_footer_shadowstack(gcrootmap)
+
+        # the return value is the jitframe
+        self.mc.MOV_rr(eax.value, ebp.value)
 
         for i in range(len(self.cpu.CALLEE_SAVE_REGISTERS)-1, -1, -1):
             self.mc.MOV_rs(self.cpu.CALLEE_SAVE_REGISTERS[i].value,

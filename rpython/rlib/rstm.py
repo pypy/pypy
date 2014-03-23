@@ -8,11 +8,18 @@ from rpython.rlib.jit import dont_look_inside
 
 TID = rffi.UINT
 tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)')
-adr_nursery_free = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_current)')
-adr_nursery_top  = CDefinedIntSymbolic('(long)(&STM_SEGMENT->nursery_end)')
+adr_nursery_free = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_current)')
+adr_nursery_top  = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_end)')
 adr_transaction_read_version = (
-    CDefinedIntSymbolic('(long)(&STM_SEGMENT->transaction_read_version)'))
-adr_write_slowpath = CDefinedIntSymbolic('(long)(&_stm_write_slowpath)')
+    CDefinedIntSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
+adr_jmpbuf_ptr = (
+    CDefinedIntSymbolic('((long)&STM_SEGMENT->jmpbuf_ptr)'))
+adr_write_slowpath = CDefinedIntSymbolic('((long)&_stm_write_slowpath)')
+
+adr_jit_default_msg = (
+    CDefinedIntSymbolic('((long)"return from JITted function")'))
+adr__stm_become_inevitable = (
+    CDefinedIntSymbolic('((long)&_stm_become_inevitable)')
 
 
 def jit_stm_transaction_break_point():

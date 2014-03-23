@@ -45,5 +45,15 @@ else:
 
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
 
-STM_RESUME_BUF = 16 / WORD
-STM_FRAME_FIXED_SIZE = FRAME_FIXED_SIZE + STM_RESUME_BUF
+# The STM resume buffer (on x86-64) is two words wide.  Actually, clang
+# uses three words (see test_stm.py): rbp, rip, rsp.  But the value of
+# rbp is not interesting for the JIT-generated machine code.  So the
+# STM_JMPBUF_OFS is the offset from the stack top to the start of the
+# buffer, with only words at offset +1 and +2 in this buffer being
+# meaningful -- these are the two words overlapping the STM resume
+# buffer's location in the diagram above.
+STM_RESUME_BUF_WORDS  = 16 / WORD
+STM_FRAME_FIXED_SIZE  = FRAME_FIXED_SIZE + STM_RESUME_BUF_WORDS
+STM_JMPBUF_OFS        = WORD * (FRAME_FIXED_SIZE - 1)
+STM_JMPBUF_OFS_RIP    = STM_JMPBUF_OFS + 1 * WORD
+STM_JMPBUF_OFS_RSP    = STM_JMPBUF_OFS + 2 * WORD
