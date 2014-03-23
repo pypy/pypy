@@ -570,6 +570,8 @@ class AbstractX86CodeBuilder(object):
     POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
     POP_m = insn(rex_nw, '\x8F', orbyte(0<<3), mem_reg_plus_const(1))
 
+    # note: the segment specified in LEA should always be SEGMENT_NO;
+    # if instead you give it a SEGMENT_*S, it is ignored
     LEA_rb = insn(rex_w, '\x8D', register(1,8), stack_bp(2))
     LEA_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
     LEA32_rb = insn(rex_w, '\x8D', register(1,8),stack_bp(2,force_32bits=True))
