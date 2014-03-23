@@ -885,7 +885,7 @@ class Assembler386(BaseAssembler):
             assert rx86.fits_in_32bits(rst)
             self.mc.SEGTL()
             self.mc.MOV_rj(ebx.value, rst)
-            self.mc.LEA_rm(ebx.value, (ebx.value, -WORD))
+            self.mc.SUB_ri(ebx.value, -WORD)
             self.mc.MOV_rm(eax.value, (ebx.value, 0))
             self.mc.SEGTL()
             self.mc.MOV_jr(rst, ebx.value)
