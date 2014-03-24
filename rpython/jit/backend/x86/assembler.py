@@ -2479,17 +2479,23 @@ class Assembler386(BaseAssembler):
         # so if it is followed with a JB, it will follow the jump if
         # we should break the transaction now.
         #
+        if not IS_X86_64:
+            todo()   # "needed for X86_64_SCRATCH_REG"
         psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
         self.mc.MOV(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
         nf_adr = rstm.adr_nursery_free
         assert rx86.fits_in_32bits(nf_adr)    # because it is in the 2nd page
         self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
 
+    def genop_stm_should_break_transaction(self, op, arglocs, result_loc):
+        self._generate_cmp_break_transaction()
+        rl = result_loc.lowest8bits()
+        self.mc.SET_ir(rx86.Conditions['B'], rl.value)
+        self.mc.MOVZX8_rr(result_loc.value, rl.value)
+
     def genop_guard_stm_should_break_transaction(self, op, guard_op,
                                                  guard_token, arglocs,
                                                  result_loc):
-        if not IS_X86_64:
-            todo()   # "needed for X86_64_SCRATCH_REG"
         self._generate_cmp_break_transaction()
         if guard_op.getopnum() == rop.GUARD_FALSE:
             self.implement_guard(guard_token, 'B')   # JB goes to "yes, break"

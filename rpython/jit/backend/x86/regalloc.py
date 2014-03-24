@@ -1236,9 +1236,12 @@ class RegAlloc(BaseRegalloc):
 
 
     def consider_stm_should_break_transaction(self, op, guard_op):
-        if guard_op is None:
-            self.not_implemented_op(op)
-        self.perform_with_guard(op, guard_op, [], None)
+        if guard_op is not None:
+            self.perform_with_guard(op, guard_op, [], None)
+        else:
+            resloc = self.rm.force_allocate_reg(op.result,
+                                                need_lower_byte=True)
+            self.perform(op, [], resloc)
 
     def consider_stm_transaction_break(self, op, guard_op):
         self.perform_with_guard(op, guard_op, [], None)
