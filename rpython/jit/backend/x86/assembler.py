@@ -2521,7 +2521,7 @@ class Assembler386(BaseAssembler):
         #     pypy_stm_start_transaction(&jmpbuf);
 
         # save all registers and the gcmap
-        self.push_gcmap(mc, gcmap, mov=True)
+        self.push_gcmap(mc, gcmap, store=True)
         grp_regs = self._regalloc.rm.reg_bindings.values()
         xmm_regs = self._regalloc.xrm.reg_bindings.values()
         self._push_pop_regs_to_frame(True, mc, grp_regs, xmm_regs)
@@ -2532,15 +2532,15 @@ class Assembler386(BaseAssembler):
         # update the two words in the STM_RESUME_BUF, as described
         # in arch.py.  The "learip" pseudo-instruction turns into
         # what is, in gnu as syntax: lea 0(%rip), %rax (the 0 is
-        # one byte, patched just below)
-        mc.LEARIP_rl8(eax.value, 0)
+        # four bytes, patched just below)
+        mc.LEARIP_rl32(eax.value, 0)
         learip_location = mc.get_relative_pos()
         mc.MOV_sr(STM_JMPBUF_OFS_RIP, eax.value)
         mc.MOV_sr(STM_JMPBUF_OFS_RSP, esp.value)
         #
         offset = mc.get_relative_pos() - learip_location
         assert 0 < offset <= 127
-        mc.overwrite(learip_location - 1, chr(offset))
+        mc.overwrite32(learip_location - 4, offset)
         # ** HERE ** is the place an aborted transaction retries
         # (when resuming, ebp is garbage, but the STM_RESUME_BUF is
         # still correct in case of repeated aborting)
@@ -2560,7 +2560,7 @@ class Assembler386(BaseAssembler):
         # patch the JAE above (note that we also skip the guard_not_forced
         # in the common situation where we jump over the code above)
         offset = mc.get_relative_pos() - jae_location
-        mc.overwrite32(jae_location-4, offset)
+        mc.overwrite32(jae_location - 4, offset)
 
     def genop_discard_stm_read(self, op, arglocs):
         if not IS_X86_64:
