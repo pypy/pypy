@@ -55,7 +55,7 @@ change the limit (or at least lower it) with setsegmentlimit().
 '''
     if space.config.translation.stm:
         from rpython.rlib.rstm import stm_nb_segments
-        return space.wrap(stm_nb_segments)
+        return space.wrap(stm_nb_segments + 0)  # :-( annotation hack
     else:
         return space.wrap(1)
 
