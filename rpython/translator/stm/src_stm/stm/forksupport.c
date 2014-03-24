@@ -13,6 +13,7 @@ static stm_thread_local_t *fork_this_tl;
 static bool fork_was_in_transaction;
 
 static char *setup_mmap(char *reason);            /* forward, in setup.c */
+static void setup_protection_settings(void);      /* forward, in setup.c */
 static pthread_t *_get_cpth(stm_thread_local_t *);/* forward, in setup.c */
 
 
@@ -226,6 +227,10 @@ static void forksupport_child(void)
             stm_unregister_thread_local(stm_all_thread_locals);
     }
     assert(stm_all_thread_locals == fork_this_tl);
+
+    /* Restore the base setting of PROT_NONE pages.
+     */
+    setup_protection_settings();
 
     /* Make all pages shared again.
      */

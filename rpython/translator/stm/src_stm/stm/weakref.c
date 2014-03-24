@@ -126,7 +126,9 @@ static void stm_visit_old_weakrefs(void)
             }
 
             ssize_t size = 16;
-            object_t *pointing_to = *WEAKREF_PTR(weakref, size);
+            stm_char *wr = (stm_char *)WEAKREF_PTR(weakref, size);
+            char *real_wr = REAL_ADDRESS(stm_object_pages, wr);
+            object_t *pointing_to = *(object_t **)real_wr;
             assert(pointing_to != NULL);
             if (!mark_visited_test(pointing_to)) {
                 //assert(flag_page_private[(uintptr_t)weakref / 4096UL] != PRIVATE_PAGE);
