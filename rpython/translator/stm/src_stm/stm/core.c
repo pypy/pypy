@@ -590,6 +590,7 @@ static void abort_data_structures_from_segment_num(int segment_num)
     /* reset the tl->shadowstack and thread_local_obj to their original
        value before the transaction start */
     stm_thread_local_t *tl = pseg->pub.running_thread;
+    assert(tl->shadowstack >= pseg->shadowstack_at_start_of_transaction);
     tl->shadowstack = pseg->shadowstack_at_start_of_transaction;
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
     tl->last_abort__bytes_in_nursery = bytes_in_nursery;
