@@ -629,7 +629,7 @@ class TestStm(RewriteTests):
         oplist = [
             "setfield_raw(i1, i2, descr=tydescr)",
             "setarrayitem_raw(i1, i2, i3, descr=tydescr)",
-            "setinteriorfield_raw(i1, i2, i3, descr=intzdescr)",
+            #"setinteriorfield_raw(i1, i2, i3, descr=intzdescr)", -- no such op
             "escape(i1)",    # a generic unknown operation
             ]
         for op in oplist:
