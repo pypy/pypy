@@ -43,6 +43,10 @@ change the limit (or at least lower it) with setsegmentlimit().
 
 ------------------------------------------------------------
 
+remap the group of read markers corresponding to a nusery into
+a single physical "garbage" page
+
+------------------------------------------------------------
 
 
 
