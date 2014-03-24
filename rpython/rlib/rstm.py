@@ -8,6 +8,7 @@ from rpython.rlib.jit import dont_look_inside
 
 TID = rffi.UINT
 tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)')
+stm_nb_segments = CDefinedIntSymbolic('STM_NB_SEGMENTS')
 adr_nursery_free = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_end)')
 adr_transaction_read_version = (

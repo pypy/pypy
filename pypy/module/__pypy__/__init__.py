@@ -41,6 +41,7 @@ class ThreadModule(MixedModule):
         '_atomic_exit':            'interp_atomic.atomic_exit',
         'last_abort_info':         'interp_atomic.last_abort_info',
         'discard_last_abort_info': 'interp_atomic.discard_last_abort_info',
+        'getsegmentlimit':         'interp_atomic.getsegmentlimit',
     }
 
 

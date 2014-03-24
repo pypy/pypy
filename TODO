@@ -34,6 +34,15 @@ failing after a few minutes (or just running translate.py)
 
 ------------------------------------------------------------
 
+__pypy__.thread.getsegmentlimit():
+
+XXX This limit is so far a compile time option (STM_NB_SEGMENTS in
+rpython/translator/stm/src_stm/stmgc.h), but this should instead be
+based on the machine found at run-time.  We should also be able to
+change the limit (or at least lower it) with setsegmentlimit().
+
+------------------------------------------------------------
+
 
 
 

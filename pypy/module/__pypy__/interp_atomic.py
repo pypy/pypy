@@ -41,6 +41,24 @@ def atomic_exit(space, w_ignored1=None, w_ignored2=None, w_ignored3=None):
     raise wrap_thread_error(space,
         "atomic.__exit__(): more exits than enters")
 
+def getsegmentlimit(space):
+    '''Return the number of "segments" this PyPy is running with.
+
+With STM, multithreaded Python code executes on multiple segments in
+parallel.  This function gives the limit above which more threads will not
+be able to execute on more cores.  In a non-STM PyPy, this limit is 1.
+
+XXX This limit is so far a compile time option (STM_NB_SEGMENTS in
+rpython/translator/stm/src_stm/stmgc.h), but this should instead be
+based on the machine found at run-time.  We should also be able to
+change the limit (or at least lower it) with setsegmentlimit().
+'''
+    if space.config.translation.stm:
+        from rpython.rlib.rstm import stm_nb_segments
+        return space.wrap(stm_nb_segments)
+    else:
+        return space.wrap(1)
+
 def last_abort_info(space):
     from rpython.rlib.rstm import charp_inspect_abort_info
     p = charp_inspect_abort_info()
