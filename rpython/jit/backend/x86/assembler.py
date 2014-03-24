@@ -813,7 +813,7 @@ class Assembler386(BaseAssembler):
             # compare it with the currently-stored jmpbuf
             mc.CMP_rj(edi.value, (self.SEGMENT_GC, rstm.adr_jmpbuf_ptr))
             # if they differ (or if jmpbuf_ptr is already NULL), nothing to do
-            mc.J_il(rx86.Conditions['NE'], 0) # patched later
+            mc.J_il8(rx86.Conditions['NE'], 0) # patched later
             jne_location = mc.get_relative_pos()
             #
             # if they are equal, we need to become inevitable now
