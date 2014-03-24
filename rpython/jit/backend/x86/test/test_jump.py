@@ -3,9 +3,10 @@ from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.regalloc import X86FrameManager
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
+from rpython.jit.backend.x86.rx86 import SEGMENT_NO
 from rpython.jit.metainterp.history import INT
 
-fm = X86FrameManager(0)
+fm = X86FrameManager(0, SEGMENT_NO)
 frame_pos = fm.frame_pos
 
 class MockAssembler:
@@ -406,8 +407,8 @@ def test_overflow_bug():
         def regalloc_immedmem2mem(self, x, y):
             print "?????????????????????????"
     def main():
-        srclocs = [FrameLoc(9999, x, 'i') for x,y in CASE]
-        dstlocs = [FrameLoc(9999, y, 'i') for x,y in CASE]
+        srclocs = [FrameLoc(SEGMENT_NO, 9999, x, 'i') for x,y in CASE]
+        dstlocs = [FrameLoc(SEGMENT_NO, 9999, y, 'i') for x,y in CASE]
         remap_frame_layout(FakeAssembler(), srclocs, dstlocs, eax)
     # it works when run directly
     main()
