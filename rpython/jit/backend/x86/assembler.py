@@ -199,58 +199,6 @@ class Assembler386(BaseAssembler):
         mc.RET()
         return mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _build_stm_transaction_break_path(self):
-        assert self.cpu.gc_ll_descr.stm
-        if not we_are_translated():
-            return    # tests only
-
-        """ While arriving on slowpath, we have a gcpattern on stack 0.
-        This function does not have to preserve registers. It expects
-        all registers to be saved in the caller.
-        """
-        mc = codebuf.MachineCodeBlockWrapper()
-        # store the gc pattern
-        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.MOV_rs(ecx.value, WORD)
-        mc.MOV_br((self.SEGMENT_FRAME, ofs), ecx.value)
-        #
-        # align on 16b boundary (there is a retaddr on the stack)
-        mc.SUB_ri(esp.value, 16 - WORD)
-        #
-        # call stm_transaction_break() with the address of the
-        # STM_RESUME_BUF and the custom longjmp function
-        # (rsp + FRAME_FIXED_SIZE + RET_ADDR + ALIGNMENT)
-        mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD + WORD + (16-WORD))
-        mc.MOV(esi, imm(self.stm_longjmp_callback_addr))
-
-        # XXX UD2
-        #fn = stmtlocal.stm_transaction_break_fn
-        #mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
-
-        #
-        self._reload_frame_if_necessary(mc)
-        #
-        mc.ADD_ri(esp.value, 16 - WORD)
-        # clear the gc pattern
-        mc.MOV_bi((self.SEGMENT_FRAME, ofs), 0)
-        #
-        # Fill the stm resume buffer.  Don't do it before the call!
-        # The previous transaction may still be aborted during the call
-        # above, so we need the old content of the buffer!
-        # The buffer contains the address of the resume point which
-        # is the RET_ADDR of this called piece of code. This will be
-        # put at offset 0 of the buffer, at offset WORD, there is a
-        # copy of the current shadowstack pointer.
-        mc.POP_r(eax.value) # get ret addr
-        self._load_shadowstack_top_in_ebx(mc, self.cpu.gc_ll_descr.gcrootmap)
-        mc.MOV_sr((FRAME_FIXED_SIZE + 1) * WORD, ebx.value)
-        mc.MOV_sr((FRAME_FIXED_SIZE + 0) * WORD, eax.value)
-        mc.JMP_r(eax.value)
-        #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        return rawstart
-
-    
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
         The arguments are passed in eax and edi, as follows:
@@ -847,8 +795,9 @@ class Assembler386(BaseAssembler):
     def _call_footer(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if self.cpu.gc_ll_descr.stm and we_are_translated():
-            # call stm_invalidate_jmp_buf(), in case we called
-            # stm_transaction_break() earlier
+            # call _stm_become_inevitable() if the current jmpbuf is set
+            # to this frame, because we're about to leave.  This is if
+            # we called a pypy_stm_start_transaction() earlier.
             assert IS_X86_64
             #
             # load the shadowstack pointer into ebx, and decrement it,
