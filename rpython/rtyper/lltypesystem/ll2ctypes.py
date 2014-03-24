@@ -366,9 +366,15 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = get_ctypes_type(T.TO.RESULT)
             try:
                 kwds = {'use_errno': True}
+                if getattr(T.TO, 'ABI', 'FFI_STDCALL'):
+                    # for win32 system call
+                    return ctypes.WINFUNCTYPE(restype, *argtypes, **kwds)
                 return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
             except TypeError:
                 # unexpected 'use_errno' argument, old ctypes version
+                if getattr(T.TO, 'ABI', 'FFI_STDCALL'):
+                    # for win32 system call
+                    return ctypes.WINFUNCTYPE(restype, *argtypes)
                 return ctypes.CFUNCTYPE(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
