@@ -1766,9 +1766,11 @@ class Assembler386(BaseAssembler):
         self.implement_guard(guard_token, 'NE')
 
     def _cmp_guard_class(self, locs):
+        inst_loc = locs[0]
+        assert isinstance(inst_loc, RegLoc)
         offset = self.cpu.vtable_offset
         if offset is not None:
-            self.mc.CMP(mem(self.SEGMENT_NO, locs[0], offset), locs[1])
+            self.mc.CMP(mem(self.SEGMENT_GC, inst_loc, offset), locs[1])
         else:
             # XXX hard-coded assumption: to go from an object to its class
             # we use the following algorithm:
@@ -1787,6 +1789,12 @@ class Assembler386(BaseAssembler):
             # from reading the half-word in the object header.  Note that
             # this half-word is at offset 0 on a little-endian machine;
             # it would be at offset 2 or 4 on a big-endian machine.
+            # It is at offset 4 with stm.
+            if self.cpu.gc_ll_descr.stm:
+                offset = rstm.tid_offset
+            else:
+                offset = 0
+            #
             from rpython.memory.gctypelayout import GCData
             sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
@@ -1794,10 +1802,10 @@ class Assembler386(BaseAssembler):
             expected_typeid = classptr - sizeof_ti - type_info_group
             if IS_X86_32:
                 expected_typeid >>= 2
-                self.mc.CMP16(mem(self.SEGMENT_NO, locs[0], 0),
+                self.mc.CMP16(mem(self.SEGMENT_GC, inst_loc, offset),
                               ImmedLoc(expected_typeid))
             elif IS_X86_64:
-                self.mc.CMP32_mi((self.SEGMENT_NO, locs[0].value, 0),
+                self.mc.CMP32_mi((self.SEGMENT_GC, inst_loc.value, offset),
                                  expected_typeid)
 
     def genop_guard_guard_class(self, ign_1, guard_op, guard_token, locs, ign_2):
