@@ -116,4 +116,5 @@ class AppTestMemoryView:
         v = memoryview(b"a"*100)
         with v as cm:
             assert cm is v
+        raises(ValueError, bytes, v)
         assert "released memory" in repr(v)

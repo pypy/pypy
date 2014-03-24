@@ -49,6 +49,7 @@ class W_MemoryView(W_Root):
         consistency, in PyPy memoryview DOES support buffer(), which means
         that it is accepted in more places than CPython.
         """
+        self._check_released(space)
         return self.buf
 
     @staticmethod
