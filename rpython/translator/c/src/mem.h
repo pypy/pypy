@@ -11,6 +11,10 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
+#define OP_JIT_STM_TRANSACTION_BREAK_POINT(r)      /* nothing */
+#define OP_JIT_STM_SHOULD_BREAK_TRANSACTION(x, r)  r = 0
+
+
 #ifdef RPY_STM
 void _pypy_stm_free(void *);
 #define _OP_RAW_MALLOCED(r)       stm_call_on_abort(&stm_thread_local, r,   \

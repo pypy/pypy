@@ -152,7 +152,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         assert(v_old_shadowstack == stm_thread_local.shadowstack);
         STM_PUSH_ROOT(stm_thread_local, arg);
 
-        long result = v_callback(arg, counter);
+        long result = v_callback(arg, v_counter);
         if (result <= 0)
             break;
         v_counter = 0;
