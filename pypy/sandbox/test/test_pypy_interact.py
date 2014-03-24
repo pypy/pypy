@@ -1,4 +1,4 @@
-import os, sys, stat, errno
+import os, stat, errno, py
 from pypy.sandbox.pypy_interact import PyPySandboxedProc
 from rpython.translator.interactive import Translation
 
@@ -8,6 +8,9 @@ from pypy.tool.lib_pypy import LIB_PYTHON
 VERSION = '%d.%d' % CPYTHON_VERSION[:2]
 SITE_PY_CONTENT = LIB_PYTHON.join('site.py').read()
 ERROR_TEXT = os.strerror(errno.ENOENT)
+
+if os.name == 'nt':
+    py.test.skip('sandbox not supported on windows')
 
 def assert_(cond, text):
     if not cond:
