@@ -1,4 +1,3 @@
-
 Embedding PyPy
 --------------
 
@@ -51,6 +50,8 @@ The API is:
 
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 
+   .. note:: Not available in <=2.2.1 yet
+   
    Just like the above, except it registers a magic argument in the source
    scope as ``c_argument``, where ``void*`` is encoded as Python int.
 
