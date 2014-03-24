@@ -11,6 +11,8 @@ tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)')
 stm_nb_segments = CDefinedIntSymbolic('STM_NB_SEGMENTS')
 adr_nursery_free = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_end)')
+adr_pypy_stm_nursery_low_fill_mark = (
+    CDefinedIntSymbolic('((long)&pypy_stm_nursery_low_fill_mark'))
 adr_transaction_read_version = (
     CDefinedIntSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
 adr_jmpbuf_ptr = (
@@ -21,6 +23,10 @@ adr_jit_default_msg = (
     CDefinedIntSymbolic('((long)"return from JITted function")'))
 adr__stm_become_inevitable = (
     CDefinedIntSymbolic('((long)&_stm_become_inevitable)'))
+adr_stm_commit_transaction = (
+    CDefinedIntSymbolic('((long)&stm_commit_transaction)'))
+adr_pypy_stm_start_transaction = (
+    CDefinedIntSymbolic('((long)&pypy_stm_start_transaction)'))
 
 
 def jit_stm_transaction_break_point():

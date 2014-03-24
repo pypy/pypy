@@ -11,6 +11,7 @@
 extern __thread struct stm_thread_local_s stm_thread_local;
 extern __thread long pypy_stm_ready_atomic;
 extern __thread uintptr_t pypy_stm_nursery_low_fill_mark;
+extern __thread uintptr_t pypy_stm_nursery_low_fill_mark_saved;
 
 void pypy_stm_setup(void);
 void pypy_stm_setup_prebuilt(void);        /* generated into stm_prebuilt.c */
@@ -35,11 +36,26 @@ static inline void pypy_stm_start_inevitable_if_not_atomic(void) {
     }
 }
 static inline void pypy_stm_increment_atomic(void) {
-    pypy_stm_ready_atomic++;
+    switch (++pypy_stm_ready_atomic) {
+    case 2:
+        pypy_stm_nursery_low_fill_mark_saved = pypy_stm_nursery_low_fill_mark;
+        pypy_stm_nursery_low_fill_mark = (uintptr_t) -1;
+        break;
+    default:
+        break;
+    }
 }
 static inline void pypy_stm_decrement_atomic(void) {
-    if (--pypy_stm_ready_atomic == 0)
+    switch (--pypy_stm_ready_atomic) {
+    case 1:
+        pypy_stm_nursery_low_fill_mark = pypy_stm_nursery_low_fill_mark_saved;
+        break;
+    case 0:
         pypy_stm_ready_atomic = 1;
+        break;
+    default:
+        break;
+    }
 }
 static inline long pypy_stm_get_atomic(void) {
     return pypy_stm_ready_atomic - 1;
@@ -48,15 +64,19 @@ long pypy_stm_enter_callback_call(void);
 void pypy_stm_leave_callback_call(long);
 void pypy_stm_set_transaction_length(double);
 void pypy_stm_perform_transaction(object_t *, int(object_t *, int));
+void pypy_stm_start_transaction(stm_jmpbuf_t *, volatile long *);
 
 static inline int pypy_stm_should_break_transaction(void)
 {
     /* we should break the current transaction if we have used more than
        some initial portion of the nursery, or if we are running inevitable
-       (in which case pypy_stm_nursery_low_fill_mark is set to 0)
+       (in which case pypy_stm_nursery_low_fill_mark is set to 0).
+       If the transaction is atomic, pypy_stm_nursery_low_fill_mark is
+       instead set to (uintptr_t) -1, and the following check is never true.
     */
     uintptr_t current = (uintptr_t)STM_SEGMENT->nursery_current;
     return current > pypy_stm_nursery_low_fill_mark;
+    /* NB. this logic is hard-coded in jit/backend/x86/assembler.py too */
 }
 
 

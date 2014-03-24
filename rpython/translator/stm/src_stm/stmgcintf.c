@@ -90,12 +90,38 @@ void pypy_stm_leave_callback_call(long token)
     }
 }
 
+void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
+                                volatile long *v_counter)
+{
+    _stm_start_transaction(&stm_thread_local, jmpbuf_ptr);
+
+    /* If v_counter==0, initialize 'pypy_stm_nursery_low_fill_mark'
+       from the configured length limit.  If v_counter>0, we did an
+       abort, and we now configure 'pypy_stm_nursery_low_fill_mark'
+       to a value slightly smaller than the value at last abort.
+    */
+    long counter, limit;
+    counter = *v_counter;
+    *v_counter = counter + 1;
+
+    if (counter == 0) {
+        limit = pypy_transaction_length;
+    }
+    else {
+        limit = stm_thread_local.last_abort__bytes_in_nursery;
+        limit -= (limit >> 4);
+    }
+    pypy_stm_nursery_low_fill_mark = _stm_nursery_start + limit;
+    pypy_stm_ready_atomic = 1; /* reset after abort */
+}
+
 void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
 {   /* must save roots around this call */
     stm_jmpbuf_t jmpbuf;
     long volatile v_counter = 0;
+    int (*volatile v_callback)(object_t *, int) = callback;
 #ifndef NDEBUG
-    struct stm_shadowentry_s *volatile old_shadowstack =
+    struct stm_shadowentry_s *volatile v_old_shadowstack =
         stm_thread_local.shadowstack;
 #endif
 
@@ -105,42 +131,28 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     while (1) {
 
         if (pypy_stm_ready_atomic == 1) {
+            /* Not in an atomic transaction
+             */
             stm_commit_transaction();
-            STM_START_TRANSACTION(&stm_thread_local, jmpbuf);
-            pypy_stm_ready_atomic = 1; /* reset after abort */
-        }
 
-        /* After setjmp(), the local variables v_* are preserved because they
-         * are volatile.  The other variables are only declared here. */
-        long counter, result;
-        counter = v_counter;
-        v_counter = counter + 1;
-
-        /* If counter==0, initialize 'pypy_stm_nursery_low_fill_mark'
-           from the configured length limit.  If counter>0, we did an
-           abort, and we can now configure 'pypy_stm_nursery_low_fill_mark'
-           to a value slightly smaller than the value at last abort.
-        */
-        if (stm_is_inevitable()) {
-            pypy_stm_nursery_low_fill_mark = 0;
+            /* After setjmp(), the local variables v_* are preserved because
+               they are volatile.  The other local variables should be
+               declared below than this point only.
+            */
+            while (__builtin_setjmp(jmpbuf) == 1) { /*redo setjmp*/ }
+            pypy_stm_start_transaction(&jmpbuf, &v_counter);
         }
         else {
-            long limit;
-            if (counter == 0) {
-                limit = pypy_transaction_length;
-            }
-            else {
-                limit = stm_thread_local.last_abort__bytes_in_nursery;
-                limit -= (limit >> 4);
-            }
-            pypy_stm_nursery_low_fill_mark = _stm_nursery_start + limit;
+            /* In an atomic transaction */
+            assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
         }
 
         /* invoke the callback in the new transaction */
         STM_POP_ROOT(stm_thread_local, arg);
-        assert(old_shadowstack == stm_thread_local.shadowstack);
+        assert(v_old_shadowstack == stm_thread_local.shadowstack);
         STM_PUSH_ROOT(stm_thread_local, arg);
-        result = callback(arg, counter);
+
+        long result = v_callback(arg, counter);
         if (result <= 0)
             break;
         v_counter = 0;
@@ -157,11 +169,12 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         }
         else {
             _stm_become_inevitable("perform_transaction left with atomic");
+            assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
         }
     }
 
     //gcptr x = stm_pop_root();   /* pop the END_MARKER */
     //assert(x == END_MARKER_OFF || x == END_MARKER_ON);
     STM_POP_ROOT_RET(stm_thread_local);             /* pop the 'arg' */
-    assert(old_shadowstack == stm_thread_local.shadowstack);
+    assert(v_old_shadowstack == stm_thread_local.shadowstack);
 }

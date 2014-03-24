@@ -696,6 +696,8 @@ class X86_64_CodeBuilder(AbstractX86CodeBuilder):
         self.writechar(chr((imm >> 56) & 0xFF))
 
     CQO = insn(rex_w, '\x99')
+    LEARIP_rl8 = insn(rex_w, '\x8D', register(1, 8), chr(0x05),
+                      immediate(2, 'b'))
 
     # Three different encodings... following what gcc does.  From the
     # shortest encoding to the longest one.

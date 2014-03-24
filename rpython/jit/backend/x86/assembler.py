@@ -1918,51 +1918,56 @@ class Assembler386(BaseAssembler):
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats,
-                                callee_only=False):
-        # Push all general purpose registers
+    def _push_pop_regs_to_frame(self, push, mc, grp_regs, xmm_regs):
+        # Push the general purpose registers
         base_ofs = self.cpu.get_baseofs_of_frame_field()
+        for gpr in grp_regs:
+            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+            addr = (self.SEGMENT_FRAME, v * WORD + base_ofs)
+            if push:
+                mc.MOV_br(addr, gpr.value)
+            else:
+                mc.MOV_rb(gpr.value, addr)
+        # Push the XMM regs
+        if IS_X86_64:
+            coeff = 1
+        else:
+            coeff = 2
+        ofs = len(gpr_reg_mgr_cls.all_regs)
+        for xmm in xmm_regs:
+            addr = (self.SEGMENT_FRAME,
+                    (ofs + xmm.value * coeff) * WORD + base_ofs)
+            if push:
+                mc.MOVSD_bx(addr, xmm.value)
+            else:
+                mc.MOVSD_xb(xmm.value, addr)
+
+    def _do_with_registers(self, push, mc,
+                           ignored_regs, withfloats, callee_only):
         if callee_only:
             regs = gpr_reg_mgr_cls.save_around_call_regs
         else:
             regs = gpr_reg_mgr_cls.all_regs
-        for gpr in regs:
-            if gpr not in ignored_regs:
-                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
-                mc.MOV_br((self.SEGMENT_FRAME, v * WORD + base_ofs), gpr.value)
+        regs = [grp for gpr in regs if gpr not in ignored_regs]
         if withfloats:
-            if IS_X86_64:
-                coeff = 1
-            else:
-                coeff = 2
-            # Push all XMM regs
-            ofs = len(gpr_reg_mgr_cls.all_regs)
-            for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_bx((self.SEGMENT_FRAME,
-                             (ofs + i * coeff) * WORD + base_ofs), i)
+            xmm_regs = xmm_reg_mgr_cls.all_regs
+        else:
+            xmm_regs = []
+        self._push_pop_regs_from_frame(push, mc, regs, xmm_regs)
+
+    def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats,
+                                callee_only=False):
+        # Push all general purpose registers (or only the ones that a
+        # callee might clobber); and if withfloats, push all XMM regs
+        self._do_with_registers(True, mc,
+                                ignored_regs, withfloats, callee_only)
 
     def _pop_all_regs_from_frame(self, mc, ignored_regs, withfloats,
                                  callee_only=False):
-        # Pop all general purpose registers
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        if callee_only:
-            regs = gpr_reg_mgr_cls.save_around_call_regs
-        else:
-            regs = gpr_reg_mgr_cls.all_regs
-        for gpr in regs:
-            if gpr not in ignored_regs:
-                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
-                mc.MOV_rb(gpr.value, (self.SEGMENT_FRAME, v * WORD + base_ofs))
-        if withfloats:
-            # Pop all XMM regs
-            if IS_X86_64:
-                coeff = 1
-            else:
-                coeff = 2
-            ofs = len(gpr_reg_mgr_cls.all_regs)
-            for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_xb(i, (self.SEGMENT_FRAME,
-                                (ofs + i * coeff) * WORD + base_ofs))
+        # Pop all general purpose registers (or only the ones that a
+        # callee might clobber); and if withfloats, pop all XMM regs
+        self._do_with_registers(False, mc,
+                                ignored_regs, withfloats, callee_only)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = codebuf.MachineCodeBlockWrapper()
@@ -2510,6 +2515,29 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
+    def _generate_cmp_break_transaction(self):
+        # emits the check with a CMP instruction:
+        #    pypy_stm_nursery_low_fill_mark < STM_SEGMENT->nursery_current
+        # so if it is followed with a JB, it will follow the jump if
+        # we should break the transaction now.
+        #
+        psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
+        self.mc.MOV(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
+        nf_adr = rstm.nursery_free_adr
+        assert rx86.fits_in_32bits(nf_adr)    # because it is in the 2nd page
+        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
+
+    def genop_guard_stm_should_break_transaction(self, op, guard_op,
+                                                 guard_token, arglocs,
+                                                 result_loc):
+        if not IS_X86_64:
+            todo()   # "needed for X86_64_SCRATCH_REG"
+        self._generate_cmp_break_transaction()
+        if guard_op.getopnum() == rop.GUARD_FALSE:
+            self.implement_guard(guard_token, 'B')   # JB goes to "yes, break"
+        else:
+            self.implement_guard(guard_token, 'AE')  # JAE goes to "no, don't"
+
     def genop_guard_stm_transaction_break(self, op, guard_op, guard_token,
                                           arglocs, result_loc):
         assert self.cpu.gc_ll_descr.stm
@@ -2520,62 +2548,61 @@ class Assembler386(BaseAssembler):
         self._store_force_index(guard_op)
 
         mc = self.mc
-        # if stm_should_break_transaction()
+        self._generate_cmp_break_transaction()
+        # use JAE to jump over the following piece of code if we don't need
+        # to break the transaction now
+        mc.J_il(rx86.Conditions['AE'], 0xfffff)    # patched later
+        jae_location = mc.get_relative_pos()
 
+        # This is the case in which we have to do the same as the logic
+        # in pypy_stm_perform_transaction().  We know that we're not in
+        # an atomic transaction (otherwise the jump above always triggers).
+        # So we only have to do the following three operations:
+        #     stm_commit_transaction();
+        #     __builtin_setjmp(jmpbuf);
+        #     pypy_stm_start_transaction(&jmpbuf);
 
-        # XXX UD2
-        #fn = stmtlocal.stm_should_break_transaction_fn
-        #mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
-        mc.MOV(eax, imm(0))
-
-
-        mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
-        mc.J_il(rx86.Conditions['Z'], 0xfffff)    # patched later
-        jz_location2 = mc.get_relative_pos()
-        #
-        # call stm_transaction_break() with the address of the
-        # STM_RESUME_BUF and the custom longjmp function
+        # save all registers and the gcmap
         self.push_gcmap(mc, gcmap, mov=True)
+        grp_regs = self._regalloc.rm.reg_bindings.values()
+        xmm_regs = self._regalloc.xrm.reg_bindings.values()
+        self._push_pop_regs_from_frame(True, mc, grp_regs, xmm_regs)
         #
-        # save all registers
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        for gpr in self._regalloc.rm.reg_bindings.values():
-            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
-            mc.MOV_br((self.SEGMENT_FRAME, v * WORD + base_ofs), gpr.value)
-        if IS_X86_64:
-            coeff = 1
-        else:
-            coeff = 2
-        ofs = len(gpr_reg_mgr_cls.all_regs)
-        for xr in self._regalloc.xrm.reg_bindings.values():
-            mc.MOVSD_bx((self.SEGMENT_FRAME,
-                         (ofs + xr.value * coeff) * WORD + base_ofs), xr.value)
+        # call stm_commit_transaction()
+        mc.CALL(imm(rstm.adr_stm_commit_transaction))
         #
-        # CALL break function
-        fn = self.stm_transaction_break_path
-        mc.CALL(imm(fn))
+        # update the two words in the STM_RESUME_BUF, as described
+        # in arch.py.  The "learip" pseudo-instruction turns into
+        # what is, in gnu as syntax: lea 0(%rip), %rax (the 0 is
+        # one byte, patched just below)
+        mc.LEARIP_rl8(eax, 0)
+        learip_location = mc.get_relative_pos()
+        mc.MOV_sr(STM_JMPBUF_OFS_RIP, eax)
+        mc.MOV_sr(STM_JMPBUF_OFS_RSP, esp)
+        #
+        offset = mc.get_relative_pos() - learip_location
+        assert 0 < offset <= 127
+        mc.overwrite(learip_location - 1, chr(offset))
         # ** HERE ** is the place an aborted transaction retries
-        # ebp/frame reloaded by longjmp callback
+        # (when resuming, ebp is garbage, but the STM_RESUME_BUF is
+        # still correct in case of repeated aborting)
+        #
+        # call pypy_stm_start_transaction(&jmpbuf)
+        mc.LEA_rs(edi, STM_JMPBUF_OFS)
+        mc.CALL(imm(rstm.adr_pypy_stm_start_transaction))
+        #
+        # reload ebp (the frame) now
+        self._reload_frame_if_necessary(self.mc)
         #
         # restore regs
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        for gpr in self._regalloc.rm.reg_bindings.values():
-            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
-            mc.MOV_rb(gpr.value, (self.SEGMENT_FRAME, v * WORD + base_ofs))
-        if IS_X86_64:
-            coeff = 1
-        else:
-            coeff = 2
-        ofs = len(gpr_reg_mgr_cls.all_regs)
-        for xr in self._regalloc.xrm.reg_bindings.values():
-            mc.MOVSD_xb(xr.value, (self.SEGMENT_FRAME,
-                                   (ofs + xr.value * coeff) * WORD + base_ofs))
+        self._push_pop_regs_from_frame(False, mc, grp_regs, xmm_regs)
         #
-        # patch the JZ above
-        offset = mc.get_relative_pos() - jz_location2
-        mc.overwrite32(jz_location2-4, offset)
-
         self._emit_guard_not_forced(guard_token)
+
+        # patch the JAE above (note that we also skip the guard_not_forced
+        # in the common situation where we jump over the code above)
+        offset = mc.get_relative_pos() - jae_location
+        mc.overwrite32(jae_location-4, offset)
 
     def genop_discard_stm_read(self, op, arglocs):
         if not IS_X86_64:

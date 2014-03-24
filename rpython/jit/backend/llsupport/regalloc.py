@@ -654,7 +654,8 @@ class BaseRegalloc(object):
             op.getopnum() == rop.STM_TRANSACTION_BREAK):
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
-        if not op.is_comparison():
+        if (not op.is_comparison() and
+            op.getopnum() != rop.STM_SHOULD_BREAK_TRANSACTION):
             if op.is_ovf():
                 if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
                     operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
