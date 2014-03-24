@@ -58,6 +58,14 @@ become_inevitable: getarrayitem/raw, for the jit/metainterp/counters.py
 
 ------------------------------------------------------------
 
+**BUG** assembler.py: _call_footer(): we need to set the gcmap to
+something around the call to _stm_become_inevitable()!  Or else it
+doesn't work and we need to call a different version of
+_stm_become_inevitable() that will never attempt to pause or mark a
+safe-point
+
+------------------------------------------------------------
+
 
 
 
