@@ -85,10 +85,6 @@ class BaseAssembler(object):
         self._build_wb_slowpath(False)
         self._build_wb_slowpath(True)
         self._build_wb_slowpath(False, for_frame=True)
-        # only for stm:
-        if gc_ll_descr.stm:
-            self._build_stm_longjmp_callback()
-            self.stm_transaction_break_path = self._build_stm_transaction_break_path()
         # only one of those
         self.build_frame_realloc_slowpath()
         if self.cpu.supports_floats:

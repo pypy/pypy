@@ -18,7 +18,8 @@ from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (
     FRAME_FIXED_SIZE, WORD, IS_X86_64, JITFRAME_FIXED_SIZE, IS_X86_32,
-    PASS_ON_MY_FRAME, STM_FRAME_FIXED_SIZE)
+    PASS_ON_MY_FRAME, STM_FRAME_FIXED_SIZE, STM_JMPBUF_OFS,
+    STM_JMPBUF_OFS_RIP, STM_JMPBUF_OFS_RSP)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -1897,12 +1898,12 @@ class Assembler386(BaseAssembler):
             regs = gpr_reg_mgr_cls.save_around_call_regs
         else:
             regs = gpr_reg_mgr_cls.all_regs
-        regs = [grp for gpr in regs if gpr not in ignored_regs]
+        regs = [gpr for gpr in regs if gpr not in ignored_regs]
         if withfloats:
             xmm_regs = xmm_reg_mgr_cls.all_regs
         else:
             xmm_regs = []
-        self._push_pop_regs_from_frame(push, mc, regs, xmm_regs)
+        self._push_pop_regs_to_frame(push, mc, regs, xmm_regs)
 
     def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats,
                                 callee_only=False):
@@ -2472,7 +2473,7 @@ class Assembler386(BaseAssembler):
         #
         psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
         self.mc.MOV(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
-        nf_adr = rstm.nursery_free_adr
+        nf_adr = rstm.adr_nursery_free
         assert rx86.fits_in_32bits(nf_adr)    # because it is in the 2nd page
         self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
 
@@ -2515,7 +2516,7 @@ class Assembler386(BaseAssembler):
         self.push_gcmap(mc, gcmap, mov=True)
         grp_regs = self._regalloc.rm.reg_bindings.values()
         xmm_regs = self._regalloc.xrm.reg_bindings.values()
-        self._push_pop_regs_from_frame(True, mc, grp_regs, xmm_regs)
+        self._push_pop_regs_to_frame(True, mc, grp_regs, xmm_regs)
         #
         # call stm_commit_transaction()
         mc.CALL(imm(rstm.adr_stm_commit_transaction))
@@ -2524,10 +2525,10 @@ class Assembler386(BaseAssembler):
         # in arch.py.  The "learip" pseudo-instruction turns into
         # what is, in gnu as syntax: lea 0(%rip), %rax (the 0 is
         # one byte, patched just below)
-        mc.LEARIP_rl8(eax, 0)
+        mc.LEARIP_rl8(eax.value, 0)
         learip_location = mc.get_relative_pos()
-        mc.MOV_sr(STM_JMPBUF_OFS_RIP, eax)
-        mc.MOV_sr(STM_JMPBUF_OFS_RSP, esp)
+        mc.MOV_sr(STM_JMPBUF_OFS_RIP, eax.value)
+        mc.MOV_sr(STM_JMPBUF_OFS_RSP, esp.value)
         #
         offset = mc.get_relative_pos() - learip_location
         assert 0 < offset <= 127
@@ -2537,14 +2538,14 @@ class Assembler386(BaseAssembler):
         # still correct in case of repeated aborting)
         #
         # call pypy_stm_start_transaction(&jmpbuf)
-        mc.LEA_rs(edi, STM_JMPBUF_OFS)
+        mc.LEA_rs(edi.value, STM_JMPBUF_OFS)
         mc.CALL(imm(rstm.adr_pypy_stm_start_transaction))
         #
         # reload ebp (the frame) now
         self._reload_frame_if_necessary(self.mc)
         #
         # restore regs
-        self._push_pop_regs_from_frame(False, mc, grp_regs, xmm_regs)
+        self._push_pop_regs_to_frame(False, mc, grp_regs, xmm_regs)
         #
         self._emit_guard_not_forced(guard_token)
 
