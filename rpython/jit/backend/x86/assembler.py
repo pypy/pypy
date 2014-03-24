@@ -19,7 +19,7 @@ from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_
 from rpython.jit.backend.x86.arch import (
     FRAME_FIXED_SIZE, WORD, IS_X86_64, JITFRAME_FIXED_SIZE, IS_X86_32,
     PASS_ON_MY_FRAME, STM_FRAME_FIXED_SIZE, STM_JMPBUF_OFS,
-    STM_JMPBUF_OFS_RIP, STM_JMPBUF_OFS_RSP)
+    STM_JMPBUF_OFS_RIP, STM_JMPBUF_OFS_RSP, STM_JMPBUF_OFS_RBP)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -2537,6 +2537,8 @@ class Assembler386(BaseAssembler):
         learip_location = mc.get_relative_pos()
         mc.MOV_sr(STM_JMPBUF_OFS_RIP, eax.value)
         mc.MOV_sr(STM_JMPBUF_OFS_RSP, esp.value)
+        mc.XOR(ebp, ebp)
+        mc.MOV_sr(STM_JMPBUF_OFS_RBP, ebp.value)
         #
         offset = mc.get_relative_pos() - learip_location
         assert 0 < offset <= 127
@@ -2545,11 +2547,15 @@ class Assembler386(BaseAssembler):
         # (when resuming, ebp is garbage, but the STM_RESUME_BUF is
         # still correct in case of repeated aborting)
         #
-        # call pypy_stm_start_transaction(&jmpbuf)
+        # call pypy_stm_start_transaction(&jmpbuf, &v_counter)
+        # where v_counter is abusively stored in the jmpbuf at
+        # the location for ebp (so that the value in v_counter
+        # is here found in ebp, if we needed it).
         mc.LEA_rs(edi.value, STM_JMPBUF_OFS)
+        mc.LEA_rs(esi.value, STM_JMPBUF_OFS_RBP)
         mc.CALL(imm(rstm.adr_pypy_stm_start_transaction))
         #
-        # reload ebp (the frame) now
+        # reload ebp with the frame now
         self._reload_frame_if_necessary(self.mc)
         #
         # restore regs

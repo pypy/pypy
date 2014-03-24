@@ -206,6 +206,7 @@ def enforceargs(*types_, **kwds):
 # ____________________________________________________________
 
 class Symbolic(object):
+    _compare_by_id_ = False
 
     def annotation(self):
         return None
@@ -216,11 +217,15 @@ class Symbolic(object):
     def __cmp__(self, other):
         if self is other:
             return 0
+        elif self._compare_by_id_ or getattr(other, '_compare_by_id_', False):
+            return cmp(id(self), id(other))
         else:
             raise TypeError("Symbolics cannot be compared! (%r, %r)"
                             % (self, other))
 
     def __hash__(self):
+        if self._compare_by_id_:
+            return object.__hash__(self)
         raise TypeError("Symbolics are not hashable! %r" % (self,))
 
     def __nonzero__(self):

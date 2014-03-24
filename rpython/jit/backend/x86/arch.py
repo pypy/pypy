@@ -45,15 +45,19 @@ else:
 
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
 
-# The STM resume buffer (on x86-64) is two words wide.  Actually, clang
+
+# The STM resume buffer (on x86-64) is four words wide.  Actually, clang
 # uses three words (see test_stm.py): rbp, rip, rsp.  But the value of
 # rbp is not interesting for the JIT-generated machine code.  So the
 # STM_JMPBUF_OFS is the offset from the stack top to the start of the
 # buffer, with only words at offset +1 and +2 in this buffer being
-# meaningful -- these are the two words overlapping the STM resume
-# buffer's location in the diagram above.
-STM_RESUME_BUF_WORDS  = 16 / WORD
+# meaningful.  We use ebp, i.e. the word at offset +0, to store the
+# resume counter.
+
+STM_RESUME_BUF_WORDS  = 4     # <-- for alignment, it can't be 3
 STM_FRAME_FIXED_SIZE  = FRAME_FIXED_SIZE + STM_RESUME_BUF_WORDS
-STM_JMPBUF_OFS        = WORD * (FRAME_FIXED_SIZE - 1)
+STM_JMPBUF_OFS        = WORD * FRAME_FIXED_SIZE
+STM_JMPBUF_OFS_RBP    = STM_JMPBUF_OFS + 0 * WORD
 STM_JMPBUF_OFS_RIP    = STM_JMPBUF_OFS + 1 * WORD
 STM_JMPBUF_OFS_RSP    = STM_JMPBUF_OFS + 2 * WORD
+# unused:               STM_JMPBUF_OFS + 3 * WORD

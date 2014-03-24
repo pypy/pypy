@@ -5,28 +5,31 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.jit import dont_look_inside
 
+class CFlexSymbolic(CDefinedIntSymbolic):
+    _compare_by_id_ = True
+
 
 TID = rffi.UINT
-tid_offset = CDefinedIntSymbolic('offsetof(struct rpyobj_s, tid)')
-stm_nb_segments = CDefinedIntSymbolic('STM_NB_SEGMENTS')
-adr_nursery_free = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_current)')
-adr_nursery_top  = CDefinedIntSymbolic('((long)&STM_SEGMENT->nursery_end)')
+tid_offset = CFlexSymbolic('offsetof(struct rpyobj_s, tid)')
+stm_nb_segments = CFlexSymbolic('STM_NB_SEGMENTS')
+adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
+adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')
 adr_pypy_stm_nursery_low_fill_mark = (
-    CDefinedIntSymbolic('((long)&pypy_stm_nursery_low_fill_mark)'))
+    CFlexSymbolic('((long)&pypy_stm_nursery_low_fill_mark)'))
 adr_transaction_read_version = (
-    CDefinedIntSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
+    CFlexSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
 adr_jmpbuf_ptr = (
-    CDefinedIntSymbolic('((long)&STM_SEGMENT->jmpbuf_ptr)'))
-adr_write_slowpath = CDefinedIntSymbolic('((long)&_stm_write_slowpath)')
+    CFlexSymbolic('((long)&STM_SEGMENT->jmpbuf_ptr)'))
+adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
 
 adr_jit_default_msg = (
-    CDefinedIntSymbolic('((long)(char *)"return from JITted function")'))
+    CFlexSymbolic('((long)(char *)"return from JITted function")'))
 adr__stm_become_inevitable = (
-    CDefinedIntSymbolic('((long)&_stm_become_inevitable)'))
+    CFlexSymbolic('((long)&_stm_become_inevitable)'))
 adr_stm_commit_transaction = (
-    CDefinedIntSymbolic('((long)&stm_commit_transaction)'))
+    CFlexSymbolic('((long)&stm_commit_transaction)'))
 adr_pypy_stm_start_transaction = (
-    CDefinedIntSymbolic('((long)&pypy_stm_start_transaction)'))
+    CFlexSymbolic('((long)&pypy_stm_start_transaction)'))
 
 
 def jit_stm_transaction_break_point():
