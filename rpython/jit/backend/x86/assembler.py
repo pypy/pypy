@@ -157,8 +157,12 @@ class Assembler386(BaseAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._load_shadowstack_top_in_ebx(mc, gcrootmap)
+            mc.MOV(ebx, self.heap_shadowstack_top())
             mc.MOV_mr((self.SEGMENT_NO, ebx.value, -WORD), eax.value)
+            # STM note: this stores the updated jitframe object in the
+            # position -WORD, but (in this case) leaves the position
+            # -2*WORD untouched.  This old jitframe object remains in
+            # the shadowstack just in case we do an abort later.
 
         mc.MOV_bi((self.SEGMENT_FRAME, gcmap_ofs), 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
@@ -771,7 +775,7 @@ class Assembler386(BaseAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_header_shadowstack(gcrootmap)
+            self._call_header_shadowstack()
 
     def _call_header_with_stack_check(self):
         self._call_header()
@@ -801,13 +805,9 @@ class Assembler386(BaseAssembler):
             # we called a pypy_stm_start_transaction() earlier.
             assert IS_X86_64
             #
-            # load the shadowstack pointer into ebx, and decrement it,
-            # but don't decrement the official shadowstack yet!  We just
-            # keep it in ebx for a while (a callee-saved register).
+            # load the shadowstack pointer into ebx (a callee-saved register)
             mc = self.mc
-            rst = self.heap_tl(gcrootmap.get_root_stack_top_addr())
-            mc.MOV(ebx, rst)
-            mc.SUB_ri(ebx.value, WORD)
+            mc.MOV(ebx, self.heap_shadowstack_top())
             # load the address of the jmpbuf
             mc.LEA_rs(edi.value, STM_JMPBUF_OFS)
             # compare it with the currently-stored jmpbuf
@@ -821,18 +821,20 @@ class Assembler386(BaseAssembler):
             mc.CALL(imm(rstm.adr__stm_become_inevitable))
             # there could have been a collection in _stm_become_inevitable;
             # reload the frame into ebp
-            mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ebx.value, 0))
+            mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ebx.value, -WORD))
             #
             # this is where the JNE above jumps
             offset = mc.get_relative_pos() - jne_location
             assert 0 < offset <= 127
             mc.overwrite(jne_location-1, chr(offset))
             #
-            # now store ebx back, which will really decrement the shadowstack
-            mc.MOV(rst, ebx)
+            # now decrement ebx by 2*WORD and store it back, which will
+            # really decrement the shadowstack
+            mc.SUB_ri(ebx.value, 2 * WORD)
+            mc.MOV(self.heap_shadowstack_top(), ebx)
 
         elif gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_footer_shadowstack(gcrootmap)
+            self._call_footer_shadowstack()
 
         # the return value is the jitframe
         self.mc.MOV_rr(eax.value, ebp.value)
@@ -845,26 +847,37 @@ class Assembler386(BaseAssembler):
         self.mc.ADD_ri(esp.value, self._get_whole_frame_size() * WORD)
         self.mc.RET()
 
-    def _load_shadowstack_top_in_ebx(self, mc, gcrootmap):
-        """Loads the shadowstack top in ebx, and returns an integer
-        that gives the address of the stack top.
-        """
-        mc.MOV(ebx, self.heap_tl(gcrootmap.get_root_stack_top_addr()))
+    def heap_shadowstack_top(self):
+        """Return an AddressLoc for '&shadowstack', the shadow stack top."""
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        return self.heap_tl(gcrootmap.get_root_stack_top_addr())
 
-    def _call_header_shadowstack(self, gcrootmap):
+    def _call_header_shadowstack(self):
         # put the frame in ebp on the shadowstack for the GC to find
         # (ebp is a writeable object and does not need a write-barrier
         # again (ensured by the code calling the loop))
-        self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
+        self.mc.MOV(ebx, self.heap_shadowstack_top())
         self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0), ebp.value)
                                                       # MOV [ebx], ebp
-        self.mc.ADD_ri(ebx.value, WORD)
-        self.mc.MOV(self.heap_tl(gcrootmap.get_root_stack_top_addr()), ebx)
-                                                      # MOV [rootstacktop], ebx
+        if self.cpu.gc_ll_descr.stm:
+            # With stm, we push the jitframe twice on the shadowstack.
+            # If we break transaction inside this frame, we'll do it
+            # with only one item on the shadowstack, and then we'll
+            # duplicate it again.  The point is to store both the
+            # old and the new copy when case we do a realloc_frame,
+            # just for the case where we later abort.
+            self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, WORD), ebp.value)
+            self.mc.ADD_ri(ebx.value, 2 * WORD)
+        else:
+            self.mc.ADD_ri(ebx.value, WORD)
+        self.mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
 
-    def _call_footer_shadowstack(self, gcrootmap):
-        self.mc.SUB(self.heap_tl(gcrootmap.get_root_stack_top_addr()), WORD)
-                                             # SUB [rootstacktop], WORD
+    def _call_footer_shadowstack(self):
+        # SUB [rootstacktop], WORD  (or 2 * WORD with STM)
+        if self.cpu.gc_ll_descr.stm:
+            self.mc.SUB(self.heap_shadowstack_top(), 2 * WORD)
+        else:
+            self.mc.SUB(self.heap_shadowstack_top(), WORD)
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
@@ -1133,9 +1146,12 @@ class Assembler386(BaseAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
-                mc.MOV(ecx, self.heap_tl(gcrootmap.get_root_stack_top_addr()))
+                mc.MOV(ecx, self.heap_shadowstack_top())
                 mc.MOV(ebp, mem(self.SEGMENT_NO, ecx, -WORD))
-        #
+        self._reload_frame_wb(mc, align_stack)
+
+    def _reload_frame_wb(self, mc, align_stack=False):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
@@ -2535,6 +2551,12 @@ class Assembler386(BaseAssembler):
         # call stm_commit_transaction()
         mc.CALL(imm(rstm.adr_stm_commit_transaction))
         #
+        # copy shadowstack[-1] into shadowstack[-2]: the latter is
+        # not going to be used any more, now that we committed
+        mc.MOV(ebx, self.heap_shadowstack_top())
+        mc.MOV_rm(eax.value, (self.SEGMENT_NO, ebx, -WORD))
+        mc.MOV_mr((self.SEGMENT_NO, ebx, -2 * WORD), eax.value)
+        #
         # update the two words in the STM_RESUME_BUF, as described
         # in arch.py.  The "learip" pseudo-instruction turns into
         # what is, in gnu as syntax: lea 0(%rip), %rax (the 0 is
@@ -2561,8 +2583,13 @@ class Assembler386(BaseAssembler):
         mc.LEA_rs(esi.value, STM_JMPBUF_OFS_RBP)
         mc.CALL(imm(rstm.adr_pypy_stm_start_transaction))
         #
-        # reload ebp with the frame now
-        self._reload_frame_if_necessary(self.mc)
+        # reload ebp with the frame now, picking the value from
+        # shadowstack[-2] and duplicating it into shadowstack[-1].
+        # Only realloc_frame can make these values different again.
+        mc.MOV(ebx, self.heap_shadowstack_top())
+        mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ebx, -2 * WORD))
+        mc.MOV_mr((self.SEGMENT_NO, ebx, -WORD), ebp.value)
+        self._reload_frame_wb(self.mc)
         #
         # restore regs
         self._push_pop_regs_to_frame(False, mc, grp_regs, xmm_regs)
