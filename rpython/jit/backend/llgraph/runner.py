@@ -66,9 +66,11 @@ class Jump(Exception):
         self.args = args
 
 class CallDescr(AbstractDescr):
-    def __init__(self, RESULT, ARGS, extrainfo):
+    from rpython.rlib.clibffi import FFI_DEFAULT_ABI
+    def __init__(self, RESULT, ARGS, extrainfo, ABI=FFI_DEFAULT_ABI):
         self.RESULT = RESULT
         self.ARGS = ARGS
+        self.ABI = ABI
         self.extrainfo = extrainfo
 
     def __repr__(self):
@@ -428,7 +430,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = CallDescr(RESULT, ARGS, extrainfo)
+            descr = CallDescr(RESULT, ARGS, extrainfo, ABI=cif_description.abi)
             self.descrs[key] = descr
             return descr
 
@@ -949,7 +951,7 @@ class LLFrame(object):
             # graph, not to directly execute the python function
             result = self.cpu.maybe_on_top_of_llinterp(func, call_args, descr.RESULT)
         else:
-            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
+            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT, descr.ABI)
             func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
             result = func_to_call(*call_args)
         del self.force_guard_op
