@@ -117,3 +117,10 @@ an alias to `Buffer`, which was wrappable itself.
 
 .. branch: improve-consecutive-dict-lookups
 Improve the situation when dict lookups of the same key are performed in a chain
+
+.. branch: add_PyErr_SetFromErrnoWithFilenameObject_try_2
+.. branch: test_SetFromErrnoWithFilename_NULL
+.. branch: test_SetFromErrnoWithFilename__tweaks
+
+.. branch: refactor_PyErr_SetFromErrnoWithFilename
+Add support for PyErr_SetFromErrnoWithFilenameObject to cpyext
