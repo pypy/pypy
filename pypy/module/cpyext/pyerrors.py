@@ -150,19 +150,13 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     this is used to define the filename attribute of the exception instance.
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
-    errno = get_errno()
-    msg = os.strerror(errno)
     if llfilename:
         w_filename = rffi.charp2str(llfilename)
-        w_error = space.call_function(w_type,
-                                      space.wrap(errno),
-                                      space.wrap(msg),
-                                      space.wrap(w_filename))
+        filename = space.wrap(w_filename)
     else:
-        w_error = space.call_function(w_type,
-                                      space.wrap(errno),
-                                      space.wrap(msg))
-    raise OperationError(w_type, w_error)
+        filename = space.w_None
+
+    PyErr_SetFromErrnoWithFilenameObject(space, w_type, filename)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
@@ -171,6 +165,7 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     third parameter.  In the case of exceptions such as IOError and OSError,
     this is used to define the filename attribute of the exception instance.
     Return value: always NULL."""
+    # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = get_errno()
     msg = os.strerror(errno)
     if w_value:
