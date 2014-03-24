@@ -20,7 +20,7 @@ adr_write_slowpath = CDefinedIntSymbolic('((long)&_stm_write_slowpath)')
 adr_jit_default_msg = (
     CDefinedIntSymbolic('((long)"return from JITted function")'))
 adr__stm_become_inevitable = (
-    CDefinedIntSymbolic('((long)&_stm_become_inevitable)')
+    CDefinedIntSymbolic('((long)&_stm_become_inevitable)'))
 
 
 def jit_stm_transaction_break_point():
