@@ -7,6 +7,7 @@ __thread struct stm_thread_local_s stm_thread_local;
 /* 0 = not initialized; 1 = normal mode; 2 or more = atomic mode */
 __thread long pypy_stm_ready_atomic;
 __thread uintptr_t pypy_stm_nursery_low_fill_mark;
+__thread uintptr_t pypy_stm_nursery_low_fill_mark_saved;
 
 extern Signed pypy_stmcb_size_rounded_up(void*);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
