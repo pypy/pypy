@@ -24,14 +24,16 @@ adr__stm_become_inevitable = (
 
 
 def jit_stm_transaction_break_point():
+    # XXX REFACTOR AWAY
     if we_are_translated():
         llop.jit_stm_transaction_break_point(lltype.Void)
 
 def jit_stm_should_break_transaction(if_there_is_no_other):
+    # XXX REFACTOR AWAY
     # if_there_is_no_other means that we use this point only
     # if there is no other break point in the trace.
     # If it is False, the point may be used if it comes right
-    # a CALL_RELEASE_GIL
+    # after a CALL_RELEASE_GIL
     return llop.jit_stm_should_break_transaction(lltype.Bool,
                                                  if_there_is_no_other)
 
