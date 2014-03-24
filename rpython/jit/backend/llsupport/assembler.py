@@ -331,14 +331,12 @@ class BaseAssembler(object):
         next.prev = prev
 
     @staticmethod
-    @rgc.no_collect
     def _release_gil_shadowstack():
         before = rffi.aroundstate.before
         if before:
             before()
 
     @staticmethod
-    @rgc.no_collect
     def _reacquire_gil_shadowstack():
         after = rffi.aroundstate.after
         if after:
