@@ -817,7 +817,7 @@ class Assembler386(BaseAssembler):
             jne_location = mc.get_relative_pos()
             #
             # if they are equal, we need to become inevitable now
-            mc.MOV_rj(edi.value, (self.SEGMENT_NO, rstm.adr_jit_default_msg))
+            mc.MOV_ri(edi.value, rstm.adr_jit_default_msg)
             mc.CALL(imm(rstm.adr__stm_become_inevitable))
             # there could have been a collection in _stm_become_inevitable;
             # reload the frame into ebp
