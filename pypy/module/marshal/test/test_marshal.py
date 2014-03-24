@@ -186,7 +186,7 @@ class AppTestMarshal:
         from array import array
         class subtype(array):
             pass
-        assert marshal.dumps(subtype('c', 'test')) == marshal.dumps(array('c', 'test'))
+        assert marshal.dumps(subtype('b', b'test')) == marshal.dumps(array('b', b'test'))
 
     def test_bad_typecode(self):
         import marshal
