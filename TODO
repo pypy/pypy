@@ -48,6 +48,11 @@ a single physical "garbage" page
 
 ------------------------------------------------------------
 
+JIT: add an artificial malloc if the loop is so small as to contain
+any!
+
+------------------------------------------------------------
+
 
 
 
