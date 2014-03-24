@@ -215,6 +215,23 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
+    def test_SetFromErrnoWithFilename_NULL(self):
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, NULL);
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename == None
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
     def test_SetFromErrnoWithFilenameObject__PyString(self):
         import errno, os
 
