@@ -2052,9 +2052,7 @@ class Assembler386(BaseAssembler):
         assert isinstance(signloc, ImmedLoc)
         cb.ressign = signloc.value
 
-        if effectinfo and effectinfo.oopspecindex == EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION:
-            cb.emit_no_collect()
-        elif is_call_release_gil:
+        if is_call_release_gil:
             cb.emit_call_release_gil()
         else:
             cb.emit()

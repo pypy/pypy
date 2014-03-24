@@ -206,13 +206,7 @@ class MIFrame(object):
         mi = self.metainterp
         if val:
             resbox = history.BoxInt(0)
-            funcptr = mi.staticdata.stm_should_break_transaction
-            funcdescr = mi.staticdata.stm_should_break_transaction_descr
-            funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-            mi._record_helper_nonpure_varargs(
-                rop.CALL, resbox, funcdescr,
-                [ConstInt(heaptracker.adr2int(funcaddr)),])
-            #
+            mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
             return resbox
         else:
             self._record_stm_transaction_break(False)
@@ -1538,24 +1532,6 @@ class MetaInterpStaticData(object):
         d = self.exit_frame_with_exception_descr_ref
         self.cpu.exit_frame_with_exception_descr_ref = d
 
-        if self.config.translation.stm:
-            self.stm_should_break_transaction = rffi.llexternal(
-                'stm_should_break_transaction',
-                [], lltype.Bool,
-                sandboxsafe=True, _nowrapper=True, transactionsafe=True,
-                _callable=lambda : False)
-            FUNC = lltype.typeOf(self.stm_should_break_transaction).TO
-
-            ei = EffectInfo([], [], [], [], [], [],
-                            EffectInfo.EF_CANNOT_RAISE,
-                            oopspecindex=EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION,
-                            can_invalidate=False)
-            
-            self.stm_should_break_transaction_descr = (
-                self.cpu.calldescrof(FUNC, FUNC.ARGS,
-                                     FUNC.RESULT, ei))
-
-            
     def _freeze_(self):
         return True
 
@@ -2499,7 +2475,7 @@ class MetaInterp(object):
                 # it by ConstPtr(NULL).
                 self.stop_tracking_virtualref(i)
 
-    def vable_after_residual_call(self, funcbox):
+    def vable_after_residual_call(self, funcbox=None):
         vinfo = self.jitdriver_sd.virtualizable_info
         if vinfo is not None:
             virtualizable_box = self.virtualizable_boxes[-1]
@@ -2507,11 +2483,15 @@ class MetaInterp(object):
             if vinfo.tracing_after_residual_call(virtualizable):
                 # the virtualizable escaped during CALL_MAY_FORCE.
                 self.load_fields_from_virtualizable()
-                target_name = self.staticdata.get_name_from_address(funcbox.getaddr())
-                if target_name:
-                    target_name = "ConstClass(%s)" % target_name
+                if funcbox is None:
+                    target_name = "?"
                 else:
-                    target_name = str(funcbox.getaddr())
+                    target_name = self.staticdata.get_name_from_address(
+                        funcbox.getaddr())
+                    if target_name:
+                        target_name = "ConstClass(%s)" % target_name
+                    else:
+                        target_name = str(funcbox.getaddr())
                 debug_print('vable escaped during a call in %s to %s' % (
                     self.framestack[-1].jitcode.name, target_name
                 ))

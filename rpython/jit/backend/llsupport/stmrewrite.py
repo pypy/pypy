@@ -25,6 +25,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newops.append(op)
             return
         # ----------  transaction breaks  ----------
+        if opnum == rop.STM_SHOULD_BREAK_TRANSACTION:
+            self.newops.append(op)
+            return
         if opnum == rop.STM_TRANSACTION_BREAK:
             self.emitting_an_operation_that_can_collect()
             self.next_op_may_be_in_new_transaction()
@@ -41,15 +44,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  calls  ----------
         if op.is_call():
-            if opnum == rop.CALL and op.getdescr():
-                d = op.getdescr()
-                assert isinstance(d, CallDescr)
-                ei = d.get_extra_info()
-                if ei and (ei.oopspecindex ==
-                           EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION):
-                    self.newops.append(op)
-                    return
-            #
             self.next_op_may_be_in_new_transaction()
             #
             if opnum == rop.CALL_RELEASE_GIL:

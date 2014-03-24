@@ -14,7 +14,8 @@ class STMTests:
             return rstm.jit_stm_should_break_transaction(False)
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
-        self.check_operations_history(stm_transaction_break=1)
+        self.check_operations_history(stm_transaction_break=1,
+                                      stm_should_break_transaction=0)
 
     def test_not_removed(self):
         import time
@@ -23,14 +24,17 @@ class STMTests:
             return rstm.jit_stm_should_break_transaction(False)
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
-        self.check_operations_history(stm_transaction_break=1, call_may_force=1)
+        self.check_operations_history(stm_transaction_break=1,
+                                      call_may_force=1,
+                                      stm_should_break_transaction=0)
 
     def test_not_removed2(self):
         def g():
             return rstm.jit_stm_should_break_transaction(True)
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
-        self.check_operations_history(call=1, stm_transaction_break=0)
+        self.check_operations_history(stm_transaction_break=0,
+                                      stm_should_break_transaction=1)
 
     def test_transaction_break(self):
         def g():

@@ -56,13 +56,10 @@ class OptSTM(Optimization):
             assert len(self.cached_ops) == 1
             assert self.cached_ops[0].getopnum() == rop.FORCE_TOKEN
             self.cached_ops.append(op)
-        
-    def optimize_CALL(self, op):
+
+    def optimize_STM_SHOULD_BREAK_TRANSACTION(self, op):
         self.flush_cached()
-        effectinfo = op.getdescr().get_extra_info()
-        oopspecindex = effectinfo.oopspecindex
-        if oopspecindex == EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION:
-            self._set_break_wanted(False)
+        self._set_break_wanted(False)
         self.emit_operation(op)
 
     def optimize_STM_TRANSACTION_BREAK(self, op):

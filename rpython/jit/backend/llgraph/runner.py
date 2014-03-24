@@ -1033,6 +1033,9 @@ class LLFrame(object):
     def execute_cond_call_gc_wb_array(self, descr, a, b):
         py.test.skip("cond_call_gc_wb_array not supported")
 
+    def execute_stm_should_break_transaction(self, _):
+        return 0
+
     def execute_stm_transaction_break(self, _, really_wanted):
         pass
 

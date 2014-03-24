@@ -8,22 +8,14 @@ from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
 class TestSTM(BaseTestWithUnroll, LLtypeMixin):
     stm = True
 
-    FUNC = lltype.FuncType([], lltype.Signed)
-    sbtdescr = LLtypeMixin.cpu.calldescrof(
-        FUNC, FUNC.ARGS, FUNC.RESULT,
-        EffectInfo([], [], [], [],
-                   EffectInfo.EF_CANNOT_RAISE,
-                   oopspecindex=EffectInfo.OS_JIT_STM_SHOULD_BREAK_TRANSACTION,
-                   can_invalidate=False)
-    )
     namespace = LLtypeMixin.namespace.copy()
     namespace.update(locals())
-        
-    
+
+
     def test_unrolled_loop(self):
         ops = """
         []
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
@@ -66,7 +58,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         stm_transaction_break(0)
         guard_not_forced() []
 
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
 
         jump()
@@ -76,14 +68,14 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         stm_transaction_break(0)
         guard_not_forced() []
 
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         
         jump()
         """
         expected = """
         []
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
@@ -94,7 +86,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         [p1]
         i1 = getfield_gc(p1, descr=adescr)
 
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p1)
         """
@@ -102,13 +94,13 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         [p1]
         i1 = getfield_gc(p1, descr=adescr)
         
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p1)
         """
         expected = """
         [p1]
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         
         jump(p1)
@@ -124,7 +116,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         guard_not_forced() []
         stm_transaction_break(0)
         guard_not_forced() []
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
@@ -133,13 +125,13 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         stm_transaction_break(0)
         guard_not_forced() []
 
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
         expected = """
         []
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
@@ -158,7 +150,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         guard_not_forced() []
         stm_transaction_break(0)
         guard_not_forced() []
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
@@ -173,7 +165,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         stm_transaction_break(0)
         guard_not_forced() []
         
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
@@ -185,7 +177,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         stm_transaction_break(0)
         guard_not_forced() []
 
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
         """
@@ -218,7 +210,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
 
         p6 = force_token() # not removed!
                 
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p0)
         """
@@ -233,7 +225,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
 
         p6 = force_token() # not removed!
         
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p0)
         """
@@ -243,7 +235,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
 
         p6 = force_token() # not removed!
         
-        i0 = call(123, descr=sbtdescr)
+        i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p0)
         """
