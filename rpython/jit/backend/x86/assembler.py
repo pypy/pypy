@@ -2554,8 +2554,8 @@ class Assembler386(BaseAssembler):
         # copy shadowstack[-1] into shadowstack[-2]: the latter is
         # not going to be used any more, now that we committed
         mc.MOV(ebx, self.heap_shadowstack_top())
-        mc.MOV_rm(eax.value, (self.SEGMENT_NO, ebx, -WORD))
-        mc.MOV_mr((self.SEGMENT_NO, ebx, -2 * WORD), eax.value)
+        mc.MOV_rm(eax.value, (self.SEGMENT_NO, ebx.value, -WORD))
+        mc.MOV_mr((self.SEGMENT_NO, ebx.value, -2 * WORD), eax.value)
         #
         # update the two words in the STM_RESUME_BUF, as described
         # in arch.py.  The "learip" pseudo-instruction turns into
@@ -2587,8 +2587,8 @@ class Assembler386(BaseAssembler):
         # shadowstack[-2] and duplicating it into shadowstack[-1].
         # Only realloc_frame can make these values different again.
         mc.MOV(ebx, self.heap_shadowstack_top())
-        mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ebx, -2 * WORD))
-        mc.MOV_mr((self.SEGMENT_NO, ebx, -WORD), ebp.value)
+        mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ebx.value, -2 * WORD))
+        mc.MOV_mr((self.SEGMENT_NO, ebx.value, -WORD), ebp.value)
         self._reload_frame_wb(self.mc)
         #
         # restore regs
