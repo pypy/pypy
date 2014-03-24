@@ -196,7 +196,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         except OSError, e:
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
-            assert e.filename == None
+            assert e.filename is None
 
     def test_SetFromErrnoWithFilename(self):
         import errno, os
@@ -228,7 +228,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 ],
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
-        assert exc_info.value.filename == None
+        assert exc_info.value.filename is None
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
