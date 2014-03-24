@@ -165,15 +165,24 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     raise OperationError(w_type, w_error)
 
 @cpython_api([PyObject, PyObject], PyObject)
-def PyErr_SetFromErrnoWithFilenameObject(space, w_type, filename_object):
+def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     """Similar to PyErr_SetFromErrno(), with the additional behavior that if
-    filename_object is not NULL, it is passed to the constructor of type as a
+    w_value is not NULL, it is passed to the constructor of type as a
     third parameter.  In the case of exceptions such as IOError and OSError,
     this is used to define the filename attribute of the exception instance.
     Return value: always NULL."""
-    from pypy.module.cpyext.stringobject import PyString_AsString
-    PyErr_SetFromErrnoWithFilename(space, w_type,
-                                   PyString_AsString(space, filename_object))
+    errno = get_errno()
+    msg = os.strerror(errno)
+    if w_value:
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg),
+                                      w_value)
+    else:
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg))
+    raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
 def PyErr_CheckSignals(space):
