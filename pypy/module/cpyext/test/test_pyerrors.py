@@ -199,26 +199,21 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert e.filename == None
 
     def test_SetFromErrnoWithFilename(self):
-        import sys
-        if sys.platform != 'win32':
-            skip("callbacks through ll2ctypes modify errno")
         import errno, os
 
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
                  errno = EBADF;
-                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "blyf");
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/file");
                  return NULL;
                  '''),
                 ],
                 prologue="#include <errno.h>")
-        try:
-            module.set_from_errno()
-        except OSError, e:
-            assert e.filename == "blyf"
-            assert e.errno == errno.EBADF
-            assert e.strerror == os.strerror(errno.EBADF)
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename == "/path/to/file"
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_PyErr_Display(self):
         module = self.import_extension('foo', [
