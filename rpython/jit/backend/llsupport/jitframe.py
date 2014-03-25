@@ -3,7 +3,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import enforceargs
-from rpython.rlib.rgc import stm_is_enabled
+from rpython.rlib import rgc
 
 SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
 IS_32BIT = (SIZEOFSIGNED == 4)
@@ -15,10 +15,11 @@ IS_32BIT = (SIZEOFSIGNED == 4)
 GCMAP = lltype.Array(lltype.Unsigned)
 NULLGCMAP = lltype.nullptr(GCMAP)
 
+@rgc.no_collect
 @enforceargs(None, int, int)
 def jitframeinfo_update_depth(jfi, base_ofs, new_depth):
     #
-    if stm_is_enabled():
+    if rgc.stm_is_enabled():
         from rpython.rlib.atomic_ops import bool_cas
         # careful here, 'jfi' has 'stm_dont_track_raw_accesses'
         while True:
