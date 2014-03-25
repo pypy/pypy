@@ -377,17 +377,17 @@ class LLHelpers(AbstractLLHelpers):
         # special non-computed-yet value.
         if not s:
             return 0
-        #with stm_ignored:
-        x = s.hash
+        with stm_ignored:
+            x = s.hash
         if x == 0:
-            x = _hash_string(s.chars)
-            if x == 0:
-                x = 29872897
-            # XXX STM note: we would like this write to be stm-ignored,
-            # but we can't, because ll_strfasthash() might later miss
-            # the written value and return 0 again (rarely).  Think
-            # again later about the best option.
-            #with stm_ignored:
+            x = LLHelpers._ll_compute_strhash(s)
+        return x
+
+    def _ll_compute_strhash(s):
+        x = _hash_string(s.chars)
+        if x == 0:
+            x = 29872897
+        with stm_ignored:
             s.hash = x
         return x
 
@@ -395,7 +395,17 @@ class LLHelpers(AbstractLLHelpers):
         return len(s.chars)
 
     def ll_strfasthash(s):
-        return s.hash     # assumes that the hash is already computed
+        if rgc.stm_is_enabled():
+            # due to "with stm_ignored" in _ll_strhash(), it is possible
+            # that just returning 's.hash' from here would rarely return
+            # the old value, which is 0.  We need to check.
+            with stm_ignored:
+                x = s.hash
+            if x == 0:
+                x = LLHelpers._ll_compute_strhash(s)
+            return x
+        else:
+            return s.hash     # assumes that the hash is already computed
 
     @jit.elidable
     def ll_strconcat(s1, s2):
