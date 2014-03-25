@@ -700,17 +700,17 @@ class AppTestPartialEvaluation:
             return
         toencode = u'caf\xe9', 'caf\xe9'
         try:
-            #test for non-latin1 codepage, more general test needed
+            # test for non-latin1 codepage, more general test needed
             import _winreg
-            key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, 
+            key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
                         r'System\CurrentControlSet\Control\Nls\CodePage')
-            if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255': #non-latin1
+            if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
                 toencode = u'caf\xbf','caf\xbf'
         except:
             assert False, 'cannot test mbcs on this windows system, check code page'
         assert u'test'.encode('mbcs') == 'test'
         assert toencode[0].encode('mbcs') == toencode[1]
-        assert u'\u040a'.encode('mbcs') == '?' # some cyrillic letter
+        assert u'\u040a'.encode('mbcs') == '?'  # some cyrillic letter
         assert 'cafx\e9'.decode('mbcs') == u'cafx\e9'
 
     def test_bad_handler_string_result(self):

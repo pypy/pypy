@@ -358,7 +358,6 @@ def build_new_ctypes_type(T, delayed_builders):
 
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
-            
             functype = ctypes.CFUNCTYPE
             if sys.platform == 'win32':
                 from rpython.rlib.clibffi import FFI_STDCALL, FFI_DEFAULT_ABI

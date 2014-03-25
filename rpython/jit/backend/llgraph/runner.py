@@ -13,6 +13,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 
+from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
 from rpython.rlib.rtimer import read_timestamp
 
@@ -66,7 +67,6 @@ class Jump(Exception):
         self.args = args
 
 class CallDescr(AbstractDescr):
-    from rpython.rlib.clibffi import FFI_DEFAULT_ABI
     def __init__(self, RESULT, ARGS, extrainfo, ABI=FFI_DEFAULT_ABI):
         self.RESULT = RESULT
         self.ARGS = ARGS
