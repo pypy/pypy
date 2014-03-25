@@ -772,10 +772,10 @@ class AppTestPartialEvaluation:
         assert u'\u040a'.encode('mbcs') == b'?'  # some cyrillic letter
         assert b'cafx\e9'.decode('mbcs') == u'cafx\e9'
 
-    def test_bad_handler_string_result(self):
+    def test_handler_string_result(self):
         import _codecs
         def f(exc):
             return (b'foo', exc.end)
         _codecs.register_error("test.test_codecs_not_a_string", f)
-        raises(TypeError, u'\u1234'.encode, 'ascii',
-               'test.test_codecs_not_a_string')
+        result = '\u1234'.encode('ascii', 'test.test_codecs_not_a_string')
+        assert result == b'foo'
