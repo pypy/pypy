@@ -276,7 +276,9 @@ void stm_abort_transaction(void) __attribute__((noreturn));
 /* Turn the current transaction inevitable.  The 'jmpbuf' passed to
    STM_START_TRANSACTION() is not going to be used any more after
    this call (but the stm_become_inevitable() itself may still abort). */
-static inline void stm_become_inevitable(const char* msg) {
+static inline void stm_become_inevitable(stm_thread_local_t *tl,
+                                         const char* msg) {
+    assert(STM_SEGMENT->running_thread == tl);
     if (STM_SEGMENT->jmpbuf_ptr != NULL)
         _stm_become_inevitable(msg);
 }
@@ -331,7 +333,8 @@ void stm_call_on_abort(stm_thread_local_t *, void *key, void callback(void *));
    transaction is running concurrently.  Avoid as much as possible.
    Other transactions will continue running only after this transaction
    commits. */
-void stm_become_globally_unique_transaction(const char *msg);
+void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
+                                            const char *msg);
 
 
 /* ==================== END ==================== */

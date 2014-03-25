@@ -61,7 +61,7 @@ static void forksupport_prepare(void)
 
     bool was_in_transaction = _stm_in_transaction(this_tl);
     if (was_in_transaction) {
-        stm_become_inevitable("fork");
+        stm_become_inevitable(this_tl, "fork");
         /* Note that the line above can still fail and abort, which should
            be fine */
     }
@@ -191,6 +191,8 @@ static void fork_abort_thread(long i)
 #ifndef NDEBUG
         pr->running_pthread = pthread_self();
 #endif
+        pr->pub.running_thread->shadowstack = (
+            pr->shadowstack_at_start_of_transaction);
         stm_abort_transaction();
     }
 }
