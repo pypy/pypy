@@ -127,7 +127,7 @@ def stm_become_inevitable(funcgen, op):
     except IndexError:
         info = "?"    # cannot insert it in 'llop'
     try:
-        info = '%s:%s' % funcgen.graph.name
+        info = '%s:%s' % (funcgen.graph.name, info)
     except AttributeError:
         pass
     string_literal = c_string_constant(info)
