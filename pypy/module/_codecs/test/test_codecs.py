@@ -1,3 +1,5 @@
+import sys
+
 class AppTestCodecs:
     spaceconfig = {
         "usemodules": ['unicodedata', 'struct', 'binascii'],
@@ -138,7 +140,9 @@ class AppTestCodecs:
 
 
 class AppTestPartialEvaluation:
-    spaceconfig = dict(usemodules=('array',))
+    spaceconfig = dict(usemodules=['array',])
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_winreg')
 
     def test_partial_utf8(self):
         import _codecs
@@ -753,9 +757,25 @@ class AppTestPartialEvaluation:
         import sys
         if sys.platform != 'win32':
             return
-        assert 'test'.encode('mbcs') == b'test'
-        assert 'caf\xe9'.encode('mbcs') == b'caf\xe9'
-        raises(UnicodeEncodeError, '\u040a'.encode, 'mbcs')
-        raises(UnicodeEncodeError,
-               "-\u5171\u0141\u2661\u0363\uDC80".encode, 'mbcs')
-        assert b'cafx\e9'.decode('mbcs') == 'cafx\e9'
+        toencode = u'caf\xe9', b'caf\xe9'
+        try:
+            # test for non-latin1 codepage, more general test needed
+            import _winreg
+            key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
+                        r'System\CurrentControlSet\Control\Nls\CodePage')
+            if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
+                toencode = u'caf\xbf',b'caf\xbf'
+        except:
+            assert False, 'cannot test mbcs on this windows system, check code page'
+        assert u'test'.encode('mbcs') == b'test'
+        assert toencode[0].encode('mbcs') == toencode[1]
+        assert u'\u040a'.encode('mbcs') == b'?'  # some cyrillic letter
+        assert b'cafx\e9'.decode('mbcs') == u'cafx\e9'
+
+    def test_bad_handler_string_result(self):
+        import _codecs
+        def f(exc):
+            return (b'foo', exc.end)
+        _codecs.register_error("test.test_codecs_not_a_string", f)
+        raises(TypeError, u'\u1234'.encode, 'ascii',
+               'test.test_codecs_not_a_string')

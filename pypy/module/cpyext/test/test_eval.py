@@ -312,8 +312,9 @@ class AppTestCall(AppTestCpythonExtensionBase):
             ("get_flags", "METH_NOARGS",
              """
                 PyCompilerFlags flags;
+                int result;
                 flags.cf_flags = 0;
-                int result = PyEval_MergeCompilerFlags(&flags);
+                result = PyEval_MergeCompilerFlags(&flags);
                 return Py_BuildValue("ii", result, flags.cf_flags);
              """),
             ])
