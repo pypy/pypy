@@ -1,12 +1,14 @@
-from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.buffer import Buffer
 
 # XXX not the most efficient implementation
 
 
-class RawFFIBuffer(RWBuffer):
+class RawFFIBuffer(Buffer):
+    _immutable_ = True
 
     def __init__(self, datainstance):
         self.datainstance = datainstance
+        self.readonly = False
 
     def getlength(self):
         return self.datainstance.getrawsize()

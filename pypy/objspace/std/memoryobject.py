@@ -85,11 +85,7 @@ class W_MemoryView(W_Root):
         size = stop - start
         if size < 0:
             size = 0
-        buf = self.buf
-        if isinstance(buf, buffer.RWBuffer):
-            buf = buffer.RWSubBuffer(buf, start, size)
-        else:
-            buf = buffer.SubBuffer(buf, start, size)
+        buf = buffer.SubBuffer(self.buf, start, size)
         return W_MemoryView(buf)
 
     def descr_tobytes(self, space):
@@ -116,7 +112,7 @@ class W_MemoryView(W_Root):
 
     @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
-        if not isinstance(self.buf, buffer.RWBuffer):
+        if not self.buf.is_writable():
             raise OperationError(space.w_TypeError,
                                  space.wrap("cannot modify read-only memory"))
         _buffer_setitem(space, self.buf, w_index, newstring)
@@ -134,7 +130,7 @@ class W_MemoryView(W_Root):
         return space.wrap(1)
 
     def w_is_readonly(self, space):
-        return space.wrap(not isinstance(self.buf, buffer.RWBuffer))
+        return space.wrap(not self.buf.is_writable())
 
     def w_get_shape(self, space):
         return space.newtuple([space.wrap(self.getlength())])

@@ -6,7 +6,8 @@ from rpython.rlib.objectmodel import import_from_mixin
 
 class Buffer(object):
     """Abstract base class for buffers."""
-    __slots__ = []
+    __slots__ = ['readonly']
+    _immutable_ = True
 
     def getlength(self):
         raise NotImplementedError
@@ -24,20 +25,6 @@ class Buffer(object):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
-    def get_raw_address(self):
-        raise ValueError("no raw buffer")
-
-    def is_writable(self):
-        return False
-
-
-class RWBuffer(Buffer):
-    """Abstract base class for read-write buffers."""
-    __slots__ = []
-
-    def is_writable(self):
-        return True
-
     def setitem(self, index, char):
         "Write a character into the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
@@ -47,12 +34,20 @@ class RWBuffer(Buffer):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
+    def get_raw_address(self):
+        raise ValueError("no raw buffer")
+
+    def is_writable(self):
+        return not self.readonly
+
 
 class StringBuffer(Buffer):
     __slots__ = ['value']
+    _immutable_ = True
 
     def __init__(self, value):
         self.value = value
+        self.readonly = True
 
     def getlength(self):
         return len(self.value)
@@ -70,13 +65,14 @@ class StringBuffer(Buffer):
             assert 0 <= start <= stop
             return self.value[start:stop]
         return "".join([self.value[start + i*step] for i in xrange(size)])
-# ____________________________________________________________
 
 
-class SubBufferMixin(object):
-    _attrs_ = ['buffer', 'offset', 'size']
+class SubBuffer(Buffer):
+    __slots__ = ['buffer', 'offset', 'size']
+    _immutable_ = True
 
     def __init__(self, buffer, offset, size):
+        self.readonly = buffer.readonly
         self.buffer = buffer
         self.offset = offset
         self.size = size
@@ -99,14 +95,6 @@ class SubBufferMixin(object):
                           # out of bounds
         return self.buffer.getslice(self.offset + start, self.offset + stop,
                                     step, size)
-
-
-class SubBuffer(Buffer):
-    import_from_mixin(SubBufferMixin)
-
-
-class RWSubBuffer(RWBuffer):
-    import_from_mixin(SubBufferMixin)
 
     def setitem(self, index, char):
         self.buffer.setitem(self.offset + index, char)

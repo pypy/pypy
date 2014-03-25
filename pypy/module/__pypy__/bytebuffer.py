@@ -2,13 +2,16 @@
 # A convenient read-write buffer.  Located here for want of a better place.
 #
 
-from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.gateway import unwrap_spec
 
 
-class ByteBuffer(RWBuffer):
+class ByteBuffer(Buffer):
+    _immutable_ = True
+
     def __init__(self, len):
         self.data = ['\x00'] * len
+        self.readonly = False
 
     def getlength(self):
         return len(self.data)

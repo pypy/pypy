@@ -560,14 +560,24 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         m[5] = '?'
         b = buffer(m)
-        try:
-            b[:3] = "FOO"
-        except TypeError:     # on CPython: "buffer is read-only" :-/
-            skip("on CPython: buffer is read-only")
+        exc = raises(TypeError, 'b[:3] = "FOO"')
+        assert str(exc.value) == "buffer is read-only"
         m.close()
         f.seek(0)
         got = f.read()
-        assert got == "FOOba?"
+        assert got == "fooba?"
+        f.close()
+
+    def test_memoryview(self):
+        from mmap import mmap
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        m[5] = '?'
+        exc = raises(TypeError, memoryview, m)
+        assert 'buffer interface' in str(exc.value)
+        m.close()
         f.close()
 
     def test_offset(self):

@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -101,11 +101,14 @@ W_BufferedIOBase.typedef = TypeDef(
     readinto = interp2app(W_BufferedIOBase.readinto_w),
 )
 
-class RawBuffer(RWBuffer):
+class RawBuffer(Buffer):
+    _immutable_ = True
+
     def __init__(self, buf, start, length):
         self.buf = buf
         self.start = start
         self.length = length
+        self.readonly = False
 
     def getlength(self):
         return self.length

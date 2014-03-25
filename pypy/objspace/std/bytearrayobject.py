@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.signature import Signature
@@ -1150,9 +1150,12 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-class BytearrayBuffer(RWBuffer):
+class BytearrayBuffer(Buffer):
+    _immutable_ = True
+
     def __init__(self, data):
         self.data = data
+        self.readonly = False
 
     def getlength(self):
         return len(self.data)

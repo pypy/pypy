@@ -116,23 +116,27 @@ class AppTestBuffer:
         assert b[0] == 'w'
         assert b[:] == 'world'
         raises(IndexError, 'b[5]')
-        b[0] = 'W'
-        assert str(b) == 'World'
-        assert a.tostring() == 'hello World'
-        b[:] = '12345'
-        assert a.tostring() == 'hello 12345'
-        raises(IndexError, 'b[5] = "."')
-        b[4:2] = ''
-        assert a.tostring() == 'hello 12345'
+        exc = raises(TypeError, "b[0] = 'W'")
+        assert str(exc.value) == "buffer is read-only"
+        exc = raises(TypeError, "b[:] = '12345'")
+        assert str(exc.value) == "buffer is read-only"
+        exc = raises(TypeError, 'b[5] = "."')
+        assert str(exc.value) == "buffer is read-only"
+        exc = raises(TypeError, "b[4:2] = ''")
+        assert str(exc.value) == "buffer is read-only"
+        assert str(b) == 'world'
+        assert a.tostring() == 'hello world'
 
         b = buffer(b, 2)
         assert len(b) == 3
-        assert b[0] == '3'
-        assert b[:] == '345'
+        assert b[0] == 'r'
+        assert b[:] == 'rld'
         raises(IndexError, 'b[3]')
-        b[1] = 'X'
-        assert a.tostring() == 'hello 123X5'
-        raises(IndexError, 'b[3] = "."')
+        exc = raises(TypeError, "b[1] = 'X'")
+        assert str(exc.value) == "buffer is read-only"
+        exc = raises(TypeError, 'b[3] = "."')
+        assert str(exc.value) == "buffer is read-only"
+        assert a.tostring() == 'hello world'
 
         a = array.array("c", 'hello world')
         b = buffer(a, 1, 8)
@@ -140,28 +144,33 @@ class AppTestBuffer:
         assert b[0] == 'e'
         assert b[:] == 'ello wor'
         raises(IndexError, 'b[8]')
-        b[0] = 'E'
-        assert str(b) == 'Ello wor'
-        assert a.tostring() == 'hEllo world'
-        b[:] = '12345678'
-        assert a.tostring() == 'h12345678ld'
-        raises(IndexError, 'b[8] = "."')
+        exc = raises(TypeError, "b[0] = 'E'")
+        assert str(exc.value) == "buffer is read-only"
+        assert str(b) == 'ello wor'
+        assert a.tostring() == 'hello world'
+        exc = raises(TypeError, "b[:] = '12345678'")
+        assert str(exc.value) == "buffer is read-only"
+        assert a.tostring() == 'hello world'
+        exc = raises(TypeError, 'b[8] = "."')
+        assert str(exc.value) == "buffer is read-only"
 
         b = buffer(b, 2, 3)
         assert len(b) == 3
-        assert b[2] == '5'
-        assert b[:] == '345'
+        assert b[2] == ' '
+        assert b[:] == 'lo '
         raises(IndexError, 'b[3]')
-        b[1] = 'X'
-        assert a.tostring() == 'h123X5678ld'
-        raises(IndexError, 'b[3] = "."')
+        exc = raises(TypeError, "b[1] = 'X'")
+        assert str(exc.value) == "buffer is read-only"
+        assert a.tostring() == 'hello world'
+        exc = raises(TypeError, 'b[3] = "."')
+        assert str(exc.value) == "buffer is read-only"
 
         b = buffer(a, 55)
         assert len(b) == 0
         assert b[:] == ''
         b = buffer(a, 6, 999)
         assert len(b) == 5
-        assert b[:] == '678ld'
+        assert b[:] == 'world'
 
         raises(ValueError, buffer, a, -1)
         raises(ValueError, buffer, a, 0, -2)

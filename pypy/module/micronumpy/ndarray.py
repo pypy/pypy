@@ -603,19 +603,19 @@ class __extend__(W_NDimArray):
             "ctypes not implemented yet"))
 
     def buffer_w(self, space, flags):
-        return self.implementation.get_buffer(space)
+        return self.implementation.get_buffer(space, True)
 
     def readbuf_w(self, space):
-        return self.implementation.get_buffer(space)
+        return self.implementation.get_buffer(space, True)
 
     def writebuf_w(self, space):
-        return self.implementation.get_buffer(space)
+        return self.implementation.get_buffer(space, False)
 
     def charbuf_w(self, space):
-        return self.implementation.get_buffer(space).as_str()
+        return self.implementation.get_buffer(space, True).as_str()
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.implementation.get_buffer(space))
+        return space.newbuffer(self.implementation.get_buffer(space, False))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):

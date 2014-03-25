@@ -230,11 +230,13 @@ def wrap_hashfunc(space, w_self, w_args, func):
 
 class CPyBuffer(Buffer):
     # Similar to Py_buffer
+    _immutable_ = True
 
     def __init__(self, ptr, size, w_obj):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
+        self.readonly = True
 
     def getlength(self):
         return self.size

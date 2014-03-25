@@ -59,10 +59,7 @@ class W_Buffer(W_Root):
         if size < -1:
             raise OperationError(space.w_ValueError,
                                  space.wrap("size must be zero or positive"))
-        if isinstance(buf, buffer.RWBuffer):
-            buf = buffer.RWSubBuffer(buf, offset, size)
-        else:
-            buf = buffer.SubBuffer(buf, offset, size)
+        buf = buffer.SubBuffer(buf, offset, size)
         return W_Buffer(buf)
 
     def descr_len(self, space):
@@ -77,7 +74,7 @@ class W_Buffer(W_Root):
 
     @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
-        if not isinstance(self.buf, buffer.RWBuffer):
+        if not self.buf.is_writable():
             raise OperationError(space.w_TypeError,
                                  space.wrap("buffer is read-only"))
         _buffer_setitem(space, self.buf, w_index, newstring)
@@ -118,7 +115,7 @@ class W_Buffer(W_Root):
         return space.call_method(w_string, '__mul__', w_times)
 
     def descr_repr(self, space):
-        if isinstance(self.buf, buffer.RWBuffer):
+        if self.buf.is_writable():
             info = 'read-write buffer'
         else:
             info = 'read-only buffer'
