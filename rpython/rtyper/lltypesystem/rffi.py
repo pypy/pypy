@@ -127,6 +127,12 @@ def llexternal(name, args, result, _callable=None,
             has_callback)               # because the callback can do it
     assert not (elidable_function and random_effects_on_gcobjs)
 
+    if not _nowrapper and invoke_around_handlers:
+        # enable 'transactionsafe' so that the call to funcptr, which is
+        # really done outside a transaction, doesn't force stm/inevitable.py
+        # to insert a spurious stm_become_inevitable()
+        transactionsafe = True
+
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  transactionsafe=transactionsafe,
                                  compilation_info=compilation_info,
