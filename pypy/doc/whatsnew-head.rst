@@ -124,3 +124,6 @@ Improve the situation when dict lookups of the same key are performed in a chain
 
 .. branch: refactor_PyErr_SetFromErrnoWithFilename
 Add support for PyErr_SetFromErrnoWithFilenameObject to cpyext
+
+.. branch: win32-fixes4
+fix more tests for win32
