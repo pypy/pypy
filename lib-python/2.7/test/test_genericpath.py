@@ -231,9 +231,12 @@ class CommonTest(GenericTest):
         unicwd = u'\xe7w\xf0'
         try:
             fsencoding = test_support.TESTFN_ENCODING or "ascii"
-            unicwd.encode(fsencoding)
+            asciival = unicwd.encode(fsencoding)
+            v = asciival.find('?')
+            if v >= 0:
+                raise UnicodeEncodeError(fsencoding, unicwd, v, v, asciival)
         except (AttributeError, UnicodeEncodeError):
-            # FS encoding is probably ASCII
+            # FS encoding is probably ASCII or windows and codepage is non-Latin1
             pass
         else:
             with test_support.temp_cwd(unicwd):

@@ -358,6 +358,13 @@ def build_new_ctypes_type(T, delayed_builders):
 
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
+            
+            functype = ctypes.CFUNCTYPE
+            if sys.platform == 'win32':
+                from rpython.rlib.clibffi import FFI_STDCALL, FFI_DEFAULT_ABI
+                if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
+                    # for win32 system call
+                    functype = ctypes.WINFUNCTYPE
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS
                         if ARG is not lltype.Void]
             if T.TO.RESULT is lltype.Void:
@@ -366,10 +373,10 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = get_ctypes_type(T.TO.RESULT)
             try:
                 kwds = {'use_errno': True}
-                return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
+                return functype(restype, *argtypes, **kwds)
             except TypeError:
                 # unexpected 'use_errno' argument, old ctypes version
-                return ctypes.CFUNCTYPE(restype, *argtypes)
+                return functype(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
         else:
