@@ -125,7 +125,11 @@ def stm_become_inevitable(funcgen, op):
     try:
         info = op.args[0].value
     except IndexError:
-        info = "rstm.become_inevitable"    # cannot insert it in 'llop'
+        info = "?"    # cannot insert it in 'llop'
+    try:
+        info = '%s:%s' % funcgen.graph.name
+    except AttributeError:
+        pass
     string_literal = c_string_constant(info)
     return 'stm_become_inevitable(&stm_thread_local, %s);' % (string_literal,)
 

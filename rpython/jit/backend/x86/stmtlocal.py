@@ -23,4 +23,5 @@ threadlocal_base = rffi.llexternal(
     'pypy__threadlocal_base',
     [], lltype.Signed,
     compilation_info=eci,
-    _nowrapper=True)
+    _nowrapper=True,
+    transactionsafe=True)

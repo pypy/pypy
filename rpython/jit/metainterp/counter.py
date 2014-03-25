@@ -8,12 +8,15 @@ assert r_uint32.BITS == 32
 UINT32MAX = 2 ** 32 - 1
 
 # keep in sync with the C code in pypy__decay_jit_counters
-ENTRY = lltype.Struct('timetable_entry',
-                      ('times', lltype.FixedSizeArray(rffi.FLOAT, 5)),
-                      ('subhashes', lltype.FixedSizeArray(rffi.USHORT, 5)),
-                      hints={'stm_dont_track_raw_accesses': True})
-ENTRY_ARRAY = lltype.Array(ENTRY, hints={'nolength': True,
-                                         'stm_dont_track_raw_accesses': True})
+_h = {'stm_dont_track_raw_accesses': True}
+ENTRY = lltype.Struct(
+    'timetable_entry',
+    ('times', lltype.FixedSizeArray(rffi.FLOAT, 5, hints=_h)),
+    ('subhashes', lltype.FixedSizeArray(rffi.USHORT, 5, hints=_h)),
+    hints=_h)
+ENTRY_ARRAY = lltype.Array(
+    ENTRY,
+    hints={'nolength': True, 'stm_dont_track_raw_accesses': True})
 
 
 class JitCounter:
