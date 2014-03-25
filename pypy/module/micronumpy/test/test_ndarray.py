@@ -2369,6 +2369,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == b[...].shape
         assert (b == b[...]).all()
 
+    def test_empty_indexing(self):
+        import numpy as np
+        r = np.ones(3)
+        ind = np.array([], np.int32)
+        tmp = np.array([], np.float64)
+        assert r[ind].shape == (0,)
+        r[ind] = 0
+        assert (r == np.ones(3)).all()
+        r[ind] = tmp
+        assert (r == np.ones(3)).all()
+        r[[]] = 0
+        assert (r == np.ones(3)).all()
+
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
