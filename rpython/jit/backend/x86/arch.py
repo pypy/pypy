@@ -54,10 +54,10 @@ assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
 # meaningful.  We use ebp, i.e. the word at offset +0, to store the
 # resume counter.
 
-STM_RESUME_BUF_WORDS  = 4     # <-- for alignment, it can't be 3
+STM_RESUME_BUF_WORDS  = 4
 STM_FRAME_FIXED_SIZE  = FRAME_FIXED_SIZE + STM_RESUME_BUF_WORDS
 STM_JMPBUF_OFS        = WORD * FRAME_FIXED_SIZE
 STM_JMPBUF_OFS_RBP    = STM_JMPBUF_OFS + 0 * WORD
 STM_JMPBUF_OFS_RIP    = STM_JMPBUF_OFS + 1 * WORD
 STM_JMPBUF_OFS_RSP    = STM_JMPBUF_OFS + 2 * WORD
-# unused:               STM_JMPBUF_OFS + 3 * WORD
+STM_OLD_SHADOWSTACK   = STM_JMPBUF_OFS + 3 * WORD
