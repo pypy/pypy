@@ -23,7 +23,8 @@ static inline void pypy_stm_commit_if_not_atomic(void) {
         stm_commit_transaction();
     }
     else {
-        stm_become_inevitable("commit_if_not_atomic in atomic");
+        stm_become_inevitable(&stm_thread_local,
+                              "commit_if_not_atomic in atomic");
     }
     errno = e;
 }

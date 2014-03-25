@@ -127,10 +127,11 @@ def stm_become_inevitable(funcgen, op):
     except IndexError:
         info = "rstm.become_inevitable"    # cannot insert it in 'llop'
     string_literal = c_string_constant(info)
-    return 'stm_become_inevitable(%s);' % (string_literal,)
+    return 'stm_become_inevitable(&stm_thread_local, %s);' % (string_literal,)
 
 def stm_become_globally_unique_transaction(funcgen, op):
-    return 'stm_become_globally_unique_transaction("for the JIT");'
+    return ('stm_become_globally_unique_transaction(&stm_thread_local,'
+            ' "for the JIT");')
 
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
@@ -275,14 +276,6 @@ def stm_get_root_stack_top(funcgen, op):
 ##    #
 ##    return '%s = stm_pointer_equal((gcptr)%s, (gcptr)%s);' % (
 ##        result, args[0], args[1])
-
-##def stm_become_inevitable(funcgen, op):
-##    try:
-##        info = op.args[0].value
-##    except IndexError:
-##        info = "rstm.become_inevitable"    # cannot insert it in 'llop'
-##    string_literal = c_string_constant(info)
-##    return 'stm_become_inevitable(%s);' % (string_literal,)
 
 ##def stm_stop_all_other_threads(funcgen, op):
 ##    return 'stm_stop_all_other_threads();'
