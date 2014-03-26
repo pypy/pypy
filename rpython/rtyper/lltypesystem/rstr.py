@@ -377,12 +377,12 @@ class LLHelpers(AbstractLLHelpers):
         # special non-computed-yet value.
         if not s:
             return 0
-        with stm_ignored:
-            x = s.hash
+        x = s.hash
         if x == 0:
             x = LLHelpers._ll_compute_strhash(s)
         return x
 
+    @jit.dont_look_inside
     def _ll_compute_strhash(s):
         x = _hash_string(s.chars)
         if x == 0:
@@ -396,11 +396,10 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_strfasthash(s):
         if rgc.stm_is_enabled():
-            # due to "with stm_ignored" in _ll_strhash(), it is possible
-            # that just returning 's.hash' from here would rarely return
-            # the old value, which is 0.  We need to check.
-            with stm_ignored:
-                x = s.hash
+            # due to "with stm_ignored" in _ll_compute_strhash(), it is
+            # possible that just returning 's.hash' from here would rarely
+            # return the old value, which is 0.  We need to check.
+            x = s.hash
             if x == 0:
                 x = LLHelpers._ll_compute_strhash(s)
             return x
