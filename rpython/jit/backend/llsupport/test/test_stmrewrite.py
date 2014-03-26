@@ -81,10 +81,10 @@ class TestStm(RewriteTests):
                 oopspecindex = 0
                 def call_needs_inevitable(self):
                     return inev
-        
-            calldescr = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U), 
+
+            calldescr = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U),
                                        fakeextrainfo())
-            
+
             self.check_rewrite("""
                 []
                 call(123, descr=cd)
@@ -315,7 +315,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [i1, i2]
-            
+
             jump()
         """)
 
@@ -410,7 +410,7 @@ class TestStm(RewriteTests):
             i2 = int_add(i1, 1)
             cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, i2, descr=tydescr)
-            
+
             jump(p1)
         """)
 
@@ -453,7 +453,7 @@ class TestStm(RewriteTests):
             i3 = getfield_raw(i1, descr=tydescr)
             keepalive(i3)
             i4 = getfield_raw(i2, descr=tydescr)
-            
+
             jump(i3, i4)
         """)
 
@@ -469,7 +469,7 @@ class TestStm(RewriteTests):
         """, """
             [i1]
             i2 = getfield_raw(i1, descr=fdescr)
-            
+
             jump(i2)
         """, fdescr=fdescr)
 
@@ -487,7 +487,7 @@ class TestStm(RewriteTests):
             label(i1, i2, i3)
             $INEV
             i4 = getfield_raw(i2, descr=tydescr)
-            
+
             jump(i3, i4)
         """)
 
@@ -502,7 +502,7 @@ class TestStm(RewriteTests):
             $INEV
             i3 = getarrayitem_raw(i1, 5, descr=adescr)
             i4 = getarrayitem_raw(i2, i3, descr=adescr)
-            
+
             jump(i3, i4)
         """)
 
@@ -518,7 +518,7 @@ class TestStm(RewriteTests):
             setarrayitem_gc(p1, i1, p2, descr=adescr)
             cond_call_gc_wb(p3, descr=wbdescr)
             setarrayitem_gc(p3, i3, p4, descr=adescr)
-            
+
             jump()
         """)
 
@@ -535,7 +535,7 @@ class TestStm(RewriteTests):
             setarrayitem_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
             setarrayitem_gc(p1, i3, p3, descr=adescr)
-            
+
             jump()
         """)
 
@@ -552,7 +552,7 @@ class TestStm(RewriteTests):
             setinteriorfield_gc(p1, i2, p2, descr=intzdescr)
             i4 = read_timestamp()
             setinteriorfield_gc(p1, i3, p3, descr=intzdescr)
-            
+
             jump()
         """)
 
@@ -567,7 +567,7 @@ class TestStm(RewriteTests):
             cond_call_gc_wb(p1, descr=wbdescr)
             strsetitem(p1, i2, i3)
             unicodesetitem(p1, i2, i3)
-            
+
             jump()
         """)
 
@@ -616,10 +616,10 @@ class TestStm(RewriteTests):
             setfield_gc(p7, 10, descr=tydescr)
             call_release_gil(123, descr=calldescr2)
             guard_not_forced() []
-            
+
             cond_call_gc_wb(p7, descr=wbdescr)
             setfield_gc(p7, 20, descr=tydescr)
-            
+
             jump(i2, p7)
         """, calldescr2=calldescr2)
 
@@ -647,7 +647,7 @@ class TestStm(RewriteTests):
                 %s
                 cond_call_gc_wb(p7, descr=wbdescr)
                 setfield_gc(p7, 20, descr=tydescr)
-                
+
                 jump(i2, p7)
             """ % op, calldescr2=calldescr2)
 
@@ -695,7 +695,7 @@ class TestStm(RewriteTests):
                 setfield_gc(p1, 10, descr=tydescr)
                 %s
                 setfield_gc(p1, 20, descr=tydescr)
-                
+
                 jump(p1)
             """ % op)
 
@@ -730,7 +730,7 @@ class TestStm(RewriteTests):
                 %s
                 cond_call_gc_wb(p1, descr=wbdescr)
                 setfield_gc(p1, 20, descr=tydescr)
-                
+
                 jump(p1)
             """ % (op, guard, tr_break), calldescr2=calldescr2)
 
@@ -738,7 +738,7 @@ class TestStm(RewriteTests):
         self.check_rewrite("""
         [i0, f0]
         i2 = call_assembler(i0, f0, descr=casmdescr)
-        guard_not_forced()[] 
+        guard_not_forced()[]
         """, """
         [i0, f0]
         i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
@@ -750,7 +750,41 @@ class TestStm(RewriteTests):
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
         i3 = call_assembler(p1, descr=casmdescr)
         guard_not_forced() []
-        
+
+        """)
+
+    def test_repeat_barrier_after_call_assembler(self):
+        self.check_rewrite("""
+        [i0, f0, p1]
+        p2 = getfield_gc(p1, descr=tzdescr)
+        setfield_gc(p1, p2, descr=tzdescr)
+
+        i2 = call_assembler(i0, f0, descr=casmdescr)
+        guard_not_forced()[]
+
+        p3 = getfield_gc(p1, descr=tzdescr)
+        setfield_gc(p1, p3, descr=tzdescr)
+        """, """
+        [i0, f0, p1]
+        p2 = getfield_gc(p1, descr=tzdescr)
+        stm_read(p1)
+        cond_call_gc_wb(p1, descr=wbdescr)
+        setfield_gc(p1, p2, descr=tzdescr)
+
+        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
+        p5 = call_malloc_nursery_varsize_frame(i1)
+        setfield_gc(p5, 0, descr=tiddescr)
+        setfield_gc(p5, i1, descr=framelendescr)
+        setfield_gc(p5, ConstClass(frame_info), descr=jf_frame_info)
+        setarrayitem_gc(p5, 0, i0, descr=signedframedescr)
+        setarrayitem_gc(p5, 1, f0, descr=floatframedescr)
+        i3 = call_assembler(p5, descr=casmdescr)
+        guard_not_forced() []
+
+        p3 = getfield_gc(p1, descr=tzdescr)
+        stm_read(p1)
+        cond_call_gc_wb(p1, descr=wbdescr)
+        setfield_gc(p1, p3, descr=tzdescr)
         """)
 
     def test_ptr_eq_null(self):
@@ -761,7 +795,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = ptr_eq(p1, NULL)
-            
+
             jump(i1)
         """)
 
@@ -773,7 +807,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = ptr_eq(p1, p2)
-            
+
             jump(i1)
         """)
 
@@ -785,7 +819,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = instance_ptr_eq(p1, p2)
-            
+
             jump(i1)
         """)
 
@@ -797,7 +831,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = ptr_ne(p1, p2)
-            
+
             jump(i1)
         """)
 
@@ -809,7 +843,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = instance_ptr_ne(p1, p2)
-            
+
             jump(i1)
         """)
 
@@ -926,7 +960,7 @@ class TestStm(RewriteTests):
             [i0]
             p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
             setfield_gc(p0, i0, descr=blendescr)
-            
+
             jump(i0)
         """)
 
@@ -939,7 +973,7 @@ class TestStm(RewriteTests):
         [i0]
         p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
         setfield_gc(p0, i0, descr=strlendescr)
-        
+
         jump(i0)
         """)
 
@@ -963,7 +997,7 @@ class TestStm(RewriteTests):
                                 %(nonstd_descr.lendescr.offset)d,     \
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
-            
+
             jump(i0)
         """, nonstd_descr=nonstd_descr)
 
@@ -978,7 +1012,7 @@ class TestStm(RewriteTests):
             p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
                                 %(bdescr.tid)d, 103,          \
                                 descr=malloc_array_descr)
-            
+
             jump()
         """)
 
@@ -1015,7 +1049,7 @@ class TestStm(RewriteTests):
             p0 = call_malloc_gc(ConstClass(malloc_array), 1, \
                                 %(bdescr.tid)d, 20000000,    \
                                 descr=malloc_array_descr)
-            
+
             jump()
         """)
 
@@ -1110,7 +1144,7 @@ class TestStm(RewriteTests):
             setfield_gc(p1, 5, descr=blendescr)
 
             stm_transaction_break(1)
-        
+
             p2 = call_malloc_nursery(    \
                               %(bdescr.basesize + 8)d)
             setfield_gc(p2, 8765, descr=tiddescr)
