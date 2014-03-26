@@ -1,3 +1,4 @@
+
 Embedding PyPy
 --------------
 
@@ -50,7 +51,7 @@ The API is:
 
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 
-   .. note:: Not available in <=2.2.1 yet
+   .. note:: Not available in PyPy <= 2.2.1
    
    Just like the above, except it registers a magic argument in the source
    scope as ``c_argument``, where ``void*`` is encoded as Python int.
@@ -75,7 +76,6 @@ We write a little C program:
 
 .. code-block:: c
 
-    #include "include/PyPy.h"
     #include <stdio.h>
 
     const char source[] = "print 'hello from pypy'";
@@ -101,8 +101,25 @@ If we save it as ``x.c`` now, compile it and run it with::
 
 Worked!
 
+Missing PyPy.h
+--------------
+
+.. note:: PyPy.h is in the nigthly builds and goes to new PyPy releases (>2.2.1).
+
+For PyPy <= 2.2.1, you can download PyPy.h from PyPy repository (it has been added in commit c4cd6ec):
+
+.. code-block:: bash
+
+    cd /opt/pypy/include
+    wget https://bitbucket.org/pypy/pypy/raw/c4cd6eca9358066571500ac82aaacfdaa3889e8c/include/PyPy.h
+
+
 More advanced example
 ---------------------
+
+.. note:: This example depends on pypy_execute_source_ptr which is not available
+          in PyPy <= 2.2.1. You might want to see the alternative example
+          below.
 
 Typically we need something more to do than simply execute source. The following
 is a fully fledged example, please consult cffi documentation for details.
@@ -161,6 +178,95 @@ As you can see, we successfully managed to call Python from C and C from
 Python. Now having one callback might not be enough, so what typically happens
 is that we would pass a struct full of callbacks to ``pypy_execute_source_ptr``
 and fill the structure from Python side for the future use.
+
+Alternative example
+-------------------
+
+As ``pypy_execute_source_ptr`` is not available in PyPy 2.2.1, you might want to try 
+an alternative approach which relies on -export-dynamic flag to the GNU linker. 
+The downside to this approach is that it is platform dependent.
+
+.. code-block:: c
+
+    #include "include/PyPy.h"
+    #include <stdio.h>
+
+    char source[] = "from cffi import FFI\n\
+    ffi = FFI()\n\
+    @ffi.callback('int(int)')\n\
+    def func(a):\n\
+        print 'Got from C %d' % a\n\
+        return a * 2\n\
+    ffi.cdef('int callback(int (*func)(int));')\n\
+    lib = ffi.verify('int callback(int (*func)(int));')\n\
+    lib.callback(func)\n\
+    print 'finished the Python part'\n\
+    ";
+
+    int callback(int (*func)(int))
+    {
+        printf("Calling to Python, result: %d\n", func(3));
+    }
+
+    int main()
+    {
+        int res;
+        void *lib, *func;
+
+        rpython_startup_code();
+        res = pypy_setup_home("/home/lukas/dev/pypy-2.2.1-src/libpypy-c.so", 1);
+        if (res) {
+            printf("Error setting pypy home!\n");
+            return 1;
+        }
+        res = pypy_execute_source(source);
+        if (res) {
+            printf("Error calling pypy_execute_source!\n");
+        }
+        return res;
+    }
+
+
+Make sure to pass -export-dynamic flag when compiling::
+
+   $ gcc -g -o x x.c -lpypy-c -L. -export-dynamic
+   $ LD_LIBRARY_PATH=. ./x
+   Got from C 3
+   Calling to Python, result: 6
+   finished the Python part
+
+Finding pypy_home
+-----------------
+
+Function pypy_setup_home takes one parameter - the path to libpypy. There's currently no "clean" way (pkg-config comes to mind) how to find this path. You can try the following (GNU-specific) hack (don't forget to link against *dl*):
+
+.. code-block:: c
+
+    #if !(_GNU_SOURCE)
+    #define _GNU_SOURCE
+    #endif
+
+    #include <dlfcn.h>
+    #include <limits.h>
+    #include <stdlib.h>
+
+    // caller should free returned pointer to avoid memleaks
+    // returns NULL on error
+    char* guess_pypyhome() {
+        // glibc-only (dladdr is why we #define _GNU_SOURCE)
+        Dl_info info;
+        void *_rpython_startup_code = dlsym(0,"rpython_startup_code");
+        if (_rpython_startup_code == 0) {
+            return 0;
+        }
+        if (dladdr(_rpython_startup_code, &info) != 0) {
+            const char* lib_path = info.dli_fname;
+            char* lib_realpath = realpath(lib_path, 0);
+            return lib_realpath;
+        }
+        return 0;
+    }
+
 
 Threading
 ---------
