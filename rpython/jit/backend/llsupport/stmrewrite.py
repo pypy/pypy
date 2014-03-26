@@ -96,6 +96,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert not op.is_call() and not op.is_malloc()
         self.fallback_inevitable(op)
 
+    def handle_call_assembler(self, op):
+        # required, because this op is only handled in super class
+        # and we didn't call this line yet:
+        self.next_op_may_be_in_new_transaction()
+        GcRewriterAssembler.handle_call_assembler(self, op)
+
     def next_op_may_be_in_new_transaction(self):
         self.always_inevitable = False
         self.read_barrier_applied.clear()

@@ -16,7 +16,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
     'jit_record_known_class',
     'gc_identityhash', 'gc_id', 'gc_can_move', 'gc__collect',
-    'gc_adr_of_root_stack_top',
+    'gc_adr_of_root_stack_top', 'gc_add_memory_pressure',
     'weakref_create', 'weakref_deref',
     'stm_threadlocalref_get', 'stm_threadlocalref_set',
     'stm_threadlocalref_count', 'stm_threadlocalref_addr',
@@ -68,7 +68,7 @@ def should_turn_inevitable_call(op):
             return funcptr._name + '()'
         except AttributeError:
             return True
-        
+
     elif op.opname == 'indirect_call':
         tographs = op.args[-1].value
         if tographs is not None:
@@ -76,10 +76,10 @@ def should_turn_inevitable_call(op):
             return False
         # unknown function
         return True
-        
+
     assert False
-    
-    
+
+
 def should_turn_inevitable(op, block, fresh_mallocs):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
