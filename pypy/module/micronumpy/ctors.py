@@ -48,6 +48,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         order = 'C'
     else:
         order = space.str_w(w_order)
+        if order == 'K':
+            order = 'C'
         if order != 'C':  # or order != 'F':
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
