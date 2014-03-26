@@ -158,14 +158,14 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              PyErr_NormalizeException(&type, &val, &tb);
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (val->ob_type != (_typeobject *)PyExc_TypeError)
+             if (val->ob_type != PyExc_TypeError)
                  Py_RETURN_FALSE;
 
              /* Normalize again */
              PyErr_NormalizeException(&type, &val, &tb);
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (val->ob_type != (_typeobject *)PyExc_TypeError)
+             if (val->ob_type != PyExc_TypeError)
                  Py_RETURN_FALSE;
 
              PyErr_Restore(type, val, tb);
