@@ -100,7 +100,7 @@ def zeros(space, w_shape, w_dtype=None, w_order=None):
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     w_a = convert_to_array(space, w_a)
-    if w_dtype is None:
+    if space.is_none(w_dtype):
         dtype = w_a.get_dtype()
     else:
         dtype = space.interp_w(descriptor.W_Dtype,

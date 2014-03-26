@@ -404,6 +404,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == a.shape
         assert b.dtype == a.dtype
         assert b[0,0] != 1
+        b = np.empty_like(np.array(True), dtype=None)
+        assert b.dtype is np.dtype(bool)
         b = np.empty_like(a, dtype='i4')
         assert b.shape == a.shape
         assert b.dtype == np.dtype('i4')
