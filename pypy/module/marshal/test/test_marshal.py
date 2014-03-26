@@ -208,7 +208,7 @@ class AppTestSmallLong(AppTestMarshal):
         from pypy.interpreter import gateway
         from pypy.objspace.std.smalllongobject import W_SmallLongObject
         def w__small(space, w_obj):
-            return W_SmallLongObject.fromint(space.int_w(w_obj))
+            return W_SmallLongObject.frombigint(space.bigint_w(w_obj))
         cls.w__small = cls.space.wrap(gateway.interp2app(w__small))
 
     def test_smalllong(self):
