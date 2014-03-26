@@ -104,7 +104,7 @@ Worked!
 Missing PyPy.h
 --------------
 
-.. note:: PyPy.h is in the nigthly builds and goes to new PyPy releases (>2.2.1).
+.. note:: PyPy.h is in the nightly builds and goes to new PyPy releases (>2.2.1).
 
 For PyPy <= 2.2.1, you can download PyPy.h from PyPy repository (it has been added in commit c4cd6ec):
 
@@ -214,7 +214,7 @@ The downside to this approach is that it is platform dependent.
         void *lib, *func;
 
         rpython_startup_code();
-        res = pypy_setup_home("/home/lukas/dev/pypy-2.2.1-src/libpypy-c.so", 1);
+        res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
         if (res) {
             printf("Error setting pypy home!\n");
             return 1;
@@ -238,7 +238,9 @@ Make sure to pass -export-dynamic flag when compiling::
 Finding pypy_home
 -----------------
 
-Function pypy_setup_home takes one parameter - the path to libpypy. There's currently no "clean" way (pkg-config comes to mind) how to find this path. You can try the following (GNU-specific) hack (don't forget to link against *dl*):
+Function pypy_setup_home takes one parameter - the path to libpypy. There's 
+currently no "clean" way (pkg-config comes to mind) how to find this path. You 
+can try the following (GNU-specific) hack (don't forget to link against *dl*):
 
 .. code-block:: c
 
