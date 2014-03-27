@@ -572,7 +572,7 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         from rpython.rtyper.lltypesystem import lltype
         if isinstance(vobj.concretetype, lltype.Ptr):
-            return hop.genop('cast_current_ptr_to_int', [vobj],
+            return hop.genop('cast_ptr_to_int', [vobj],
                              resulttype = lltype.Signed)
         from rpython.rtyper.error import TyperError
         raise TyperError("current_object_addr_as_int() cannot be applied to"
