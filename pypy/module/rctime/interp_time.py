@@ -109,7 +109,6 @@ class CConfig:
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
-    has_gettimeofday = platform.Has('gettimeofday')
 
 if _POSIX:
     calling_conv = 'c'
@@ -141,7 +140,7 @@ for k, v in platform.configure(CConfig).items():
     setattr(cConfig, k, v)
 cConfig.tm.__name__ = "_tm"
 
-def external(name, args, result, eci=CConfig._compilation_info_):
+def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
     if _WIN and rffi.sizeof(rffi.TIME_T) == 8:
         # Recent Microsoft compilers use 64bit time_t and
         # the corresponding functions are named differently
@@ -151,7 +150,8 @@ def external(name, args, result, eci=CConfig._compilation_info_):
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
                            calling_conv=calling_conv,
-                           releasegil=False)
+                           releasegil=False,
+                           **kwds)
 
 if _POSIX:
     cConfig.timeval.__name__ = "_timeval"
@@ -162,16 +162,13 @@ clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
-if cConfig.has_gettimeofday:
-    c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
 TM_P = lltype.Ptr(tm)
-c_clock = external('clock', [rffi.TIME_TP], clock_t)
-c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
-c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)
-c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)
-c_mktime = external('mktime', [TM_P], rffi.TIME_T)
-c_asctime = external('asctime', [TM_P], rffi.CCHARP)
-c_localtime = external('localtime', [rffi.TIME_TP], TM_P)
+c_time = external('time', [rffi.TIME_TP], rffi.TIME_T, transactionsafe=True)
+c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)   # not reentrant
+c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)        # not reentrant
+c_mktime = external('mktime', [TM_P], rffi.TIME_T, transactionsafe=True)
+c_asctime = external('asctime', [TM_P], rffi.CCHARP)       # not reentrant
+c_localtime = external('localtime', [rffi.TIME_TP], TM_P)  # not reentrant
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -195,7 +192,7 @@ if _WIN:
     c_get_tzname = external('pypy_get_tzname', [], rffi.CCHARPP, win_eci)
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
-                      rffi.SIZE_T)
+                      rffi.SIZE_T, transactionsafe=True)
 
 def _init_accept2dyear(space):
     if os.environ.get("PYTHONY2K"):
