@@ -12,6 +12,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'cast_opaque_ptr', 'hint',
     'stack_current', 'gc_stack_bottom',
     'cast_current_ptr_to_int',   # this variant of 'cast_ptr_to_int' is ok
+    'cast_ptr_to_int',           # only for non-gc, crashes in genc for gc
     'jit_force_virtual', 'jit_force_virtualizable',
     'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
     'jit_record_known_class',
