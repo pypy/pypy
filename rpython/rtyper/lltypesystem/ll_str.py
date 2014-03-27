@@ -39,7 +39,7 @@ def ll_int2dec(val):
         j += 1
     return result
 
-hex_chars = malloc(Array(Char), 16, immortal=True)
+hex_chars = malloc(Array(Char, hints={'immutable': True}), 16, immortal=True)
 
 for i in range(16):
     hex_chars[i] = "%x" % i
