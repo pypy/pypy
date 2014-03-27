@@ -2,7 +2,7 @@
 /* This is not meant to be compiled stand-alone, but with all
    of PyPy's #defines and #includes prepended. */
 
-__thread struct stm_thread_local_s stm_thread_local;
+__thread struct stm_thread_local_s stm_thread_local __attribute__((aligned(64)));
 
 /* 0 = not initialized; 1 = normal mode; 2 or more = atomic mode */
 __thread long pypy_stm_ready_atomic;
@@ -102,6 +102,13 @@ void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
        to a value slightly smaller than the value at last abort.
     */
     long counter, limit;
+#ifdef HTM_INFO_AVAILABLE
+    if (_htm_info.use_gil)
+        counter = 0;            /* maybe we want the default size here... */
+    else
+        counter = _htm_info.retry_counter;
+    limit = pypy_transaction_length >> counter;
+#else
     counter = *v_counter;
     *v_counter = counter + 1;
 
@@ -112,6 +119,8 @@ void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
         limit = stm_thread_local.last_abort__bytes_in_nursery;
         limit -= (limit >> 4);
     }
+#endif
+
     pypy_stm_nursery_low_fill_mark = _stm_nursery_start + limit;
     pypy_stm_ready_atomic = 1; /* reset after abort */
 }
