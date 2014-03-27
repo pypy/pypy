@@ -1,5 +1,6 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -593,7 +594,7 @@ class ResumeGuardDescr(ResumeDescr):
                 intval = metainterp_sd.cpu.get_int_value(deadframe, index)
             elif typetag == self.TY_REF:
                 refval = metainterp_sd.cpu.get_ref_value(deadframe, index)
-                intval = lltype.cast_ptr_to_int(refval)
+                intval = llop.cast_current_ptr_to_int(lltype.Signed, refval)
             elif typetag == self.TY_FLOAT:
                 floatval = metainterp_sd.cpu.get_float_value(deadframe, index)
                 intval = longlong.gethash_fast(floatval)
