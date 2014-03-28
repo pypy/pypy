@@ -59,9 +59,9 @@ class BasePosixUnicodeOrAscii:
         def f():
             return rposix.stat(self.path).st_mtime
         if sys.platform == 'win32':
-            #double vs. float, be satisfied with sub-millisec resolution
+            # double vs. float, be satisfied with sub-millisec resolution
             assert abs(interpret(f, []) - os.stat(self.ufilename).st_mtime) < 1e-4
-        else:    
+        else:
             assert interpret(f, []) == os.stat(self.ufilename).st_mtime
 
     def test_access(self):

@@ -48,6 +48,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         order = 'C'
     else:
         order = space.str_w(w_order)
+        if order == 'K':
+            order = 'C'
         if order != 'C':  # or order != 'F':
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
@@ -100,7 +102,7 @@ def zeros(space, w_shape, w_dtype=None, w_order=None):
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     w_a = convert_to_array(space, w_a)
-    if w_dtype is None:
+    if space.is_none(w_dtype):
         dtype = w_a.get_dtype()
     else:
         dtype = space.interp_w(descriptor.W_Dtype,

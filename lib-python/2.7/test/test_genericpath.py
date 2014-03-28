@@ -232,9 +232,11 @@ class CommonTest(GenericTest):
         try:
             fsencoding = test_support.TESTFN_ENCODING or "ascii"
             asciival = unicwd.encode(fsencoding)
-            v = asciival.find('?')
-            if v >= 0:
-                raise UnicodeEncodeError(fsencoding, unicwd, v, v, asciival)
+            if fsencoding == "mbcs":
+                # http://bugs.python.org/issue850997
+                v = asciival.find('?')
+                if v >= 0:
+                    raise UnicodeEncodeError(fsencoding, unicwd, v, v, asciival)
         except (AttributeError, UnicodeEncodeError):
             # FS encoding is probably ASCII or windows and codepage is non-Latin1
             pass

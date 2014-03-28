@@ -64,6 +64,8 @@ def compile_extension_module(space, modname, **kwds):
         kwds["libraries"] = [api_library]
         # '%s' undefined; assuming extern returning int
         kwds["compile_extra"] = ["/we4013"]
+        # tests are not strictly ansi C compliant, compile as C++
+        kwds["compile_extra"].append("/TP")
         # prevent linking with PythonXX.lib
         w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
         kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
@@ -640,30 +642,30 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         body = """
         static PyObject* foo_pi(PyObject* self, PyObject *args)
         {
-            PyObject *true = Py_True;
-            int refcnt = true->ob_refcnt;
+            PyObject *true_obj = Py_True;
+            int refcnt = true_obj->ob_refcnt;
             int refcnt_after;
-            Py_INCREF(true);
-            Py_INCREF(true);
-            PyBool_Check(true);
-            refcnt_after = true->ob_refcnt;
-            Py_DECREF(true);
-            Py_DECREF(true);
+            Py_INCREF(true_obj);
+            Py_INCREF(true_obj);
+            PyBool_Check(true_obj);
+            refcnt_after = true_obj->ob_refcnt;
+            Py_DECREF(true_obj);
+            Py_DECREF(true_obj);
             fprintf(stderr, "REFCNT %i %i\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt+2 && refcnt < 3);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
         {
-            PyObject *true = Py_True;
+            PyObject *true_obj = Py_True;
             PyObject *tup = NULL;
-            int refcnt = true->ob_refcnt;
+            int refcnt = true_obj->ob_refcnt;
             int refcnt_after;
 
             tup = PyTuple_New(1);
-            Py_INCREF(true);
-            if (PyTuple_SetItem(tup, 0, true) < 0)
+            Py_INCREF(true_obj);
+            if (PyTuple_SetItem(tup, 0, true_obj) < 0)
                 return NULL;
-            refcnt_after = true->ob_refcnt;
+            refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(tup);
             fprintf(stderr, "REFCNT2 %i %i\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt);
