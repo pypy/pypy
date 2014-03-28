@@ -7,12 +7,13 @@ def _get_c_extension_suffix():
             return ext
 
 
-def compile_shared(csource, modulename):
+def compile_shared(csource, modulename, output_dir=None):
     """Compile '_testcapi.c' or '_ctypes_test.c' into an extension module,
     and import it.
     """
     thisdir = os.path.dirname(__file__)
-    output_dir = tempfile.mkdtemp()
+    if output_dir is None:
+        output_dir = tempfile.mkdtemp()
 
     from distutils.ccompiler import new_compiler
 
