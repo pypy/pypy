@@ -9,6 +9,16 @@ from rpython.rtyper.test.test_llinterp import interpret
 def setup_module(mod):
     rsocket_startup()
 
+def one_in_event(events, fd):
+    assert len(events) == 1
+    assert events[0][0] == fd
+    assert events[0][1] & POLLIN
+
+def one_out_event(events, fd):
+    assert len(events) == 1
+    assert events[0][0] == fd
+    assert events[0][1] & POLLOUT
+
 def test_simple():
     serv = RSocket(AF_INET, SOCK_STREAM)
     serv.bind(INETAddress('127.0.0.1', INADDR_ANY))
@@ -24,18 +34,14 @@ def test_simple():
     assert err != 0
 
     events = poll({serv.fd: POLLIN}, timeout=500)
-    assert len(events) == 1
-    assert events[0][0] == serv.fd
-    assert events[0][1] & POLLIN
+    one_in_event(events, serv.fd)
 
     servconn_fd, cliaddr = serv.accept()
     servconn = RSocket(AF_INET, fd=servconn_fd)
 
     events = poll({serv.fd: POLLIN,
                    cli.fd: POLLOUT}, timeout=500)
-    assert len(events) == 1
-    assert events[0][0] == cli.fd
-    assert events[0][1] & POLLOUT
+    one_out_event(events, cli.fd)
 
     err = cli.connect_ex(servaddr)
     # win32: returns WSAEISCONN when the connection finally succeed.
@@ -54,6 +60,70 @@ def test_simple():
     cli.close()
     servconn.close()
     serv.close()
+
+def test_exchange():
+    serv = RSocket(AF_INET, SOCK_STREAM)
+    serv.bind(INETAddress('127.0.0.1', INADDR_ANY))
+    serv.listen(1)
+    servaddr = serv.getsockname()
+
+    events = poll({serv.fd: POLLIN}, timeout=100)
+    assert len(events) == 0
+
+    cli = RSocket(AF_INET, SOCK_STREAM)
+    cli.setblocking(False)
+    err = cli.connect_ex(servaddr)
+    assert err != 0
+
+    events = poll({serv.fd: POLLIN}, timeout=500)
+    one_in_event(events, serv.fd)
+
+    servconn_fd, cliaddr = serv.accept()
+    servconn = RSocket(AF_INET, fd=servconn_fd)
+
+    events = poll({serv.fd: POLLIN,
+                   cli.fd: POLLOUT}, timeout=500)
+    one_out_event(events, cli.fd)
+
+    #send some data
+    events = poll({cli.fd: POLLOUT}, timeout=500)
+    one_out_event(events, cli.fd)
+    cli.send("g'day, mate")
+    events = poll({servconn.fd: POLLIN}, timeout=500)
+    one_in_event(events, servconn.fd)
+    answer = servconn.recv(1024)
+    assert answer == "g'day, mate"
+
+    #send a reply
+    events = poll({servconn.fd: POLLOUT}, timeout=500)
+    one_out_event(events, servconn.fd)
+    servconn.send("you mean hello?")
+    events = poll({cli.fd: POLLIN}, timeout=500)
+    one_in_event(events, cli.fd)
+    answer = cli.recv(1024)
+    assert answer == "you mean hello?"
+
+    #send more data
+    events = poll({cli.fd: POLLOUT}, timeout=500)
+    one_out_event(events, cli.fd)
+    cli.send("sorry, wrong channel")
+    events = poll({servconn.fd: POLLIN}, timeout=500)
+    one_in_event(events, servconn.fd)
+    answer = servconn.recv(1024)
+    assert answer == "sorry, wrong channel"
+
+    events = poll({servconn.fd: POLLOUT}, timeout=500)
+    one_out_event(events, servconn.fd)
+    servconn.send("np bye")
+    events = poll({cli.fd: POLLIN}, timeout=500)
+    one_in_event(events, cli.fd)
+    answer = cli.recv(1024)
+    assert answer == "np bye"
+
+    cli.close()
+    servconn.close()
+    serv.close()
+
 
 def test_select():
     if os.name == 'nt':
