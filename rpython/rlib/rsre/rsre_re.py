@@ -71,7 +71,11 @@ class RSREPattern(object):
 
     def findall(self, string, pos=0, endpos=sys.maxint):
         matchlist = []
-        for match in self.finditer(string, pos, endpos):
+        scanner = self.scanner(string, pos, endpos)
+        while True:
+            match = scanner.search()
+            if match is None:
+                break
             if self.groups == 0 or self.groups == 1:
                 item = match.group(self.groups)
             else:
@@ -80,7 +84,12 @@ class RSREPattern(object):
         return matchlist
 
     def finditer(self, string, pos=0, endpos=sys.maxint):
-        return iter(self.scanner(string, pos, endpos).search, None)
+        scanner = self.scanner(string, pos, endpos)
+        while True:
+            match = scanner.search()
+            if match is None:
+                break
+            yield match
 
     def subn(self, repl, string, count=0):
         filter = repl
