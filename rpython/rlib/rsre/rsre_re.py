@@ -1,8 +1,9 @@
 """
 This is not used in a PyPy translation, but it can be used
-in RPython code (at least the functions at the start of the
-module, except the ones with NOT_RPYTHON).  It exports the
-same interface as the Python 're' module.
+in RPython code.  It exports the same interface as the
+Python 're' module.  You can call the functions at the start
+of the module (expect the ones with NOT_RPYTHON for now).
+They must be called with a *constant* pattern string.
 """
 import re, sys
 from rpython.rlib.rsre import rsre_core, rsre_char
