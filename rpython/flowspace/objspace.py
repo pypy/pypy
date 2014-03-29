@@ -16,7 +16,13 @@ def _assert_rpythonic(func):
     if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
         raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
     if func.func_code.co_cellvars:
-        raise ValueError("RPython functions cannot create closures")
+        raise ValueError(
+"""RPython functions cannot create closures
+Possible casues:
+    Function is inner function
+    Function uses generator expressions
+    Lambda expressions
+""")
     if not (func.func_code.co_flags & CO_NEWLOCALS):
         raise ValueError("The code object for a RPython function should have "
                          "the flag CO_NEWLOCALS set.")
