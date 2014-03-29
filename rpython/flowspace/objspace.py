@@ -22,7 +22,7 @@ Possible casues:
     Function is inner function
     Function uses generator expressions
     Lambda expressions
-""")
+in %r""" % (func,))
     if not (func.func_code.co_flags & CO_NEWLOCALS):
         raise ValueError("The code object for a RPython function should have "
                          "the flag CO_NEWLOCALS set.")
