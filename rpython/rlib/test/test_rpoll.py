@@ -3,7 +3,10 @@ import errno
 import py
 
 from rpython.rlib.rsocket import *
-from rpython.rlib.rpoll import *
+try:
+    from rpython.rlib.rpoll import poll
+except ImportError:
+    py.test.skip('no poll available on this platform')
 from rpython.rtyper.test.test_llinterp import interpret
 
 def setup_module(mod):
@@ -62,6 +65,8 @@ def test_simple():
     serv.close()
 
 def test_exchange():
+    if not poll:
+        py.test.skip('poll not available for this platform')
     serv = RSocket(AF_INET, SOCK_STREAM)
     serv.bind(INETAddress('127.0.0.1', INADDR_ANY))
     serv.listen(1)
@@ -71,9 +76,9 @@ def test_exchange():
     assert len(events) == 0
 
     cli = RSocket(AF_INET, SOCK_STREAM)
-    cli.setblocking(False)
+    cli.setblocking(True)
     err = cli.connect_ex(servaddr)
-    assert err != 0
+    assert err == 0
 
     events = poll({serv.fd: POLLIN}, timeout=500)
     one_in_event(events, serv.fd)
