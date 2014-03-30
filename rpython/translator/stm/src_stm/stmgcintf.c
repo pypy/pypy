@@ -83,7 +83,7 @@ void pypy_stm_leave_callback_call(long token)
         pypy_stm_ready_atomic = 1;
         stm_commit_transaction();
         pypy_stm_ready_atomic = 0;
-        stm_unregister_thread_local(&stm_thread_local);
+        pypy_stm_unregister_thread_local();
         errno = e;
     }
     else {

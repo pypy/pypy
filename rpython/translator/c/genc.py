@@ -914,6 +914,12 @@ void pypy_stm_register_thread_local(void)
     stm_thread_local.mem_clear_on_abort = (char *)&pypy_g_ExcData;
     stm_thread_local.mem_bytes_to_clear_on_abort = sizeof(pypy_g_ExcData);
 }
+
+void pypy_stm_unregister_thread_local(void)
+{
+    stm_flush_timing(&stm_thread_local, 1);  // XXX temporary
+    stm_unregister_thread_local(&stm_thread_local);
+}
 '''
 
 def commondefs(defines):

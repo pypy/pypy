@@ -47,7 +47,7 @@ def stm_register_thread_local(funcgen, op):
     return 'pypy_stm_register_thread_local();'
 
 def stm_unregister_thread_local(funcgen, op):
-    return 'stm_unregister_thread_local(&stm_thread_local);'
+    return 'pypy_stm_unregister_thread_local();'
 
 def stm_read(funcgen, op):
     assert isinstance(op.args[0].concretetype, lltype.Ptr)
