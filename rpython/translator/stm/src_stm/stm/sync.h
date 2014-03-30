@@ -29,7 +29,7 @@ static void set_gs_register(char *value);
 static bool acquire_thread_segment(stm_thread_local_t *tl);
 static void release_thread_segment(stm_thread_local_t *tl);
 
-static void wait_for_end_of_inevitable_transaction(bool can_abort);
+static void wait_for_end_of_inevitable_transaction(stm_thread_local_t *);
 
 enum sync_type_e {
     STOP_OTHERS_UNTIL_MUTEX_UNLOCK,

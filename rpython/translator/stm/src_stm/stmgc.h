@@ -55,6 +55,25 @@ struct stm_shadowentry_s {
     object_t *ss;
 };
 
+enum stm_time_e {
+    STM_TIME_OUTSIDE_TRANSACTION,
+    STM_TIME_RUN_CURRENT,
+    STM_TIME_RUN_COMMITTED,
+    STM_TIME_RUN_ABORTED_WRITE_WRITE,
+    STM_TIME_RUN_ABORTED_WRITE_READ,
+    STM_TIME_RUN_ABORTED_INEVITABLE,
+    STM_TIME_RUN_ABORTED_OTHER,
+    STM_TIME_WAIT_FREE_SEGMENT,
+    STM_TIME_WAIT_WRITE_READ,
+    STM_TIME_WAIT_INEVITABLE,
+    STM_TIME_WAIT_OTHER,
+    STM_TIME_BOOKKEEPING,
+    STM_TIME_MINOR_GC,
+    STM_TIME_MAJOR_GC,
+    STM_TIME_SYNC_PAUSE,
+    _STM_TIME_N
+};
+
 typedef struct stm_thread_local_s {
     /* every thread should handle the shadow stack itself */
     struct stm_shadowentry_s *shadowstack, *shadowstack_base;
@@ -67,6 +86,10 @@ typedef struct stm_thread_local_s {
     /* after an abort, some details about the abort are stored there.
        (these fields are not modified on a successful commit) */
     long last_abort__bytes_in_nursery;
+    /* timing information, accumulated */
+    float timing[_STM_TIME_N];
+    double _timing_cur_start;
+    enum stm_time_e _timing_cur_state;
     /* the next fields are handled internally by the library */
     int associated_segment_num;
     struct stm_thread_local_s *prev, *next;
@@ -114,7 +137,7 @@ void _stm_mutex_pages_unlock(void);
 #endif
 
 #define _STM_GCFLAG_WRITE_BARRIER      0x01
-#define _STM_NSE_SIGNAL_MAX               1
+#define _STM_NSE_SIGNAL_MAX     _STM_TIME_N
 #define _STM_FAST_ALLOC           (66*1024)
 
 
@@ -335,6 +358,10 @@ void stm_call_on_abort(stm_thread_local_t *, void *key, void callback(void *));
    commits. */
 void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
                                             const char *msg);
+
+
+/* Temporary? */
+void stm_flush_timing(stm_thread_local_t *tl, int verbose);
 
 
 /* ==================== END ==================== */

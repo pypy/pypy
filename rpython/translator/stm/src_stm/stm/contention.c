@@ -123,8 +123,8 @@ static void contention_management(uint8_t other_segment_num,
 #endif
 
     /* Fix the choices that are found incorrect due to TS_INEVITABLE
-       or NSE_SIGABORT */
-    if (contmgr.other_pseg->pub.nursery_end == NSE_SIGABORT) {
+       or is_abort() */
+    if (is_abort(contmgr.other_pseg->pub.nursery_end)) {
         contmgr.abort_other = true;
         contmgr.try_sleep = false;
     }
@@ -136,6 +136,19 @@ static void contention_management(uint8_t other_segment_num,
     else if (contmgr.other_pseg->transaction_state == TS_INEVITABLE) {
         contmgr.abort_other = false;
     }
+
+
+    int wait_category =
+        kind == WRITE_READ_CONTENTION ? STM_TIME_WAIT_WRITE_READ :
+        kind == INEVITABLE_CONTENTION ? STM_TIME_WAIT_INEVITABLE :
+        STM_TIME_WAIT_OTHER;
+
+    int abort_category =
+        kind == WRITE_WRITE_CONTENTION ? STM_TIME_RUN_ABORTED_WRITE_WRITE :
+        kind == WRITE_READ_CONTENTION ? STM_TIME_RUN_ABORTED_WRITE_READ :
+        kind == INEVITABLE_CONTENTION ? STM_TIME_RUN_ABORTED_INEVITABLE :
+        STM_TIME_RUN_ABORTED_OTHER;
+
 
     if (contmgr.try_sleep && kind != WRITE_WRITE_CONTENTION &&
         contmgr.other_pseg->safe_point != SP_WAIT_FOR_C_TRANSACTION_DONE) {
@@ -150,6 +163,10 @@ static void contention_management(uint8_t other_segment_num,
         */
         contmgr.other_pseg->signal_when_done = true;
 
+        change_timing_state(wait_category);
+
+        /* XXX should also tell other_pseg "please commit soon" */
+
         dprintf(("pausing...\n"));
         cond_signal(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_TRANSACTION_DONE;
@@ -159,15 +176,20 @@ static void contention_management(uint8_t other_segment_num,
 
         if (must_abort())
             abort_with_mutex();
+
+        change_timing_state(STM_TIME_RUN_CURRENT);
     }
+
     else if (!contmgr.abort_other) {
         dprintf(("abort in contention\n"));
+        STM_SEGMENT->nursery_end = abort_category;
         abort_with_mutex();
     }
+
     else {
         /* We have to signal the other thread to abort, and wait until
            it does. */
-        contmgr.other_pseg->pub.nursery_end = NSE_SIGABORT;
+        contmgr.other_pseg->pub.nursery_end = abort_category;
 
         int sp = contmgr.other_pseg->safe_point;
         switch (sp) {

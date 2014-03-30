@@ -173,7 +173,7 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
 
   retry:
     if (jmpbuf == NULL) {
-        wait_for_end_of_inevitable_transaction(false);
+        wait_for_end_of_inevitable_transaction(tl);
     }
 
     if (!acquire_thread_segment(tl))
@@ -182,6 +182,8 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
 
     assert(STM_PSEGMENT->safe_point == SP_NO_TRANSACTION);
     assert(STM_PSEGMENT->transaction_state == TS_NONE);
+    change_timing_state(STM_TIME_RUN_CURRENT);
+    STM_PSEGMENT->start_time = tl->_timing_cur_start;
     STM_PSEGMENT->safe_point = SP_RUNNING;
     STM_PSEGMENT->transaction_state = (jmpbuf != NULL ? TS_REGULAR
                                                       : TS_INEVITABLE);
@@ -434,7 +436,7 @@ static void push_modified_to_other_segments(void)
     list_clear(STM_PSEGMENT->modified_old_objects);
 }
 
-static void _finish_transaction(void)
+static void _finish_transaction(int attribute_to)
 {
     STM_PSEGMENT->safe_point = SP_NO_TRANSACTION;
     STM_PSEGMENT->transaction_state = TS_NONE;
@@ -442,6 +444,8 @@ static void _finish_transaction(void)
     /* reset these lists to NULL for the next transaction */
     LIST_FREE(STM_PSEGMENT->objects_pointing_to_nursery);
     LIST_FREE(STM_PSEGMENT->large_overflow_objects);
+
+    timing_end_transaction(attribute_to);
 
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
     release_thread_segment(tl);
@@ -455,6 +459,9 @@ void stm_commit_transaction(void)
     assert(STM_PSEGMENT->running_pthread == pthread_self());
 
     minor_collection(/*commit=*/ true);
+
+    /* the call to minor_collection() above leaves us with
+       STM_TIME_BOOKKEEPING */
 
     s_mutex_lock();
 
@@ -506,7 +513,7 @@ void stm_commit_transaction(void)
     }
 
     /* done */
-    _finish_transaction();
+    _finish_transaction(STM_TIME_RUN_COMMITTED);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 
     s_mutex_unlock();
@@ -630,13 +637,16 @@ static void abort_with_mutex(void)
     /* invoke the callbacks */
     invoke_and_clear_callbacks_on_abort();
 
-    if (STM_SEGMENT->nursery_end == NSE_SIGABORT) {
+    int attribute_to = STM_TIME_RUN_ABORTED_OTHER;
+
+    if (is_abort(STM_SEGMENT->nursery_end)) {
         /* done aborting */
+        attribute_to = STM_SEGMENT->nursery_end;
         STM_SEGMENT->nursery_end = pause_signalled ? NSE_SIGPAUSE
                                                    : NURSERY_END;
     }
 
-    _finish_transaction();
+    _finish_transaction(attribute_to);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 
     /* Broadcast C_ABORTED to wake up contention.c */
@@ -669,7 +679,7 @@ void _stm_become_inevitable(const char *msg)
     if (STM_PSEGMENT->transaction_state == TS_REGULAR) {
         dprintf(("become_inevitable: %s\n", msg));
 
-        wait_for_end_of_inevitable_transaction(true);
+        wait_for_end_of_inevitable_transaction(NULL);
         STM_PSEGMENT->transaction_state = TS_INEVITABLE;
         STM_SEGMENT->jmpbuf_ptr = NULL;
         clear_callbacks_on_abort();

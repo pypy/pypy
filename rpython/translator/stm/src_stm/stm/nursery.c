@@ -319,7 +319,11 @@ static void minor_collection(bool commit)
 
     stm_safe_point();
 
+    change_timing_state(STM_TIME_MINOR_GC);
+
     _do_minor_collection(commit);
+
+    change_timing_state(commit ? STM_TIME_BOOKKEEPING : STM_TIME_RUN_CURRENT);
 }
 
 void stm_collect(long level)

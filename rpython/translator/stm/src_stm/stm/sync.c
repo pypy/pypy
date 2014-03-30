@@ -32,7 +32,6 @@ static union {
         pthread_cond_t cond[_C_TOTAL];
         /* some additional pieces of global state follow */
         uint8_t in_use1[NB_SEGMENTS];   /* 1 if running a pthread */
-        uint64_t global_time;
     };
     char reserved[192];
 } sync_ctl __attribute__((aligned(64)));
@@ -121,13 +120,14 @@ static inline void cond_broadcast(enum cond_type_e ctype)
 /************************************************************/
 
 
-static void wait_for_end_of_inevitable_transaction(bool can_abort)
+static void wait_for_end_of_inevitable_transaction(
+                        stm_thread_local_t *tl_or_null_if_can_abort)
 {
     long i;
  restart:
     for (i = 1; i <= NB_SEGMENTS; i++) {
         if (get_priv_segment(i)->transaction_state == TS_INEVITABLE) {
-            if (can_abort) {
+            if (tl_or_null_if_can_abort == NULL) {
                 /* handle this case like a contention: it will either
                    abort us (not the other thread, which is inevitable),
                    or wait for a while.  If we go past this call, then we
@@ -138,7 +138,11 @@ static void wait_for_end_of_inevitable_transaction(bool can_abort)
             else {
                 /* wait for stm_commit_transaction() to finish this
                    inevitable transaction */
+                change_timing_state_tl(tl_or_null_if_can_abort,
+                                       STM_TIME_WAIT_INEVITABLE);
                 cond_wait(C_INEVITABLE);
+                /* don't bother changing the timing state again: the caller
+                   will very soon go to STM_TIME_RUN_CURRENT */
             }
             goto restart;
         }
@@ -179,6 +183,7 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     }
     /* No segment available.  Wait until release_thread_segment()
        signals that one segment has been freed. */
+    change_timing_state_tl(tl, STM_TIME_WAIT_FREE_SEGMENT);
     cond_wait(C_SEGMENT_FREE);
 
     /* Return false to the caller, which will call us again */
@@ -189,7 +194,6 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     assert(STM_SEGMENT->segment_num == num);
     assert(STM_SEGMENT->running_thread == NULL);
     STM_SEGMENT->running_thread = tl;
-    STM_PSEGMENT->start_time = ++sync_ctl.global_time;
     return true;
 }
 
@@ -307,6 +311,10 @@ static void remove_requests_for_safe_point(void)
 
 static void enter_safe_point_if_requested(void)
 {
+    if (STM_SEGMENT->nursery_end == NURSERY_END)
+        return;    /* fast path: no safe point requested */
+
+    int previous_state = -1;
     assert(_seems_to_be_running_transaction());
     assert(_has_mutex());
     while (1) {
@@ -323,10 +331,17 @@ static void enter_safe_point_if_requested(void)
 #ifdef STM_TESTS
         abort_with_mutex();
 #endif
+        if (previous_state == -1) {
+            previous_state = change_timing_state(STM_TIME_SYNC_PAUSE);
+        }
         cond_signal(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_REQUEST_REMOVED;
         cond_wait(C_REQUEST_REMOVED);
         STM_PSEGMENT->safe_point = SP_RUNNING;
+    }
+
+    if (previous_state != -1) {
+        change_timing_state(previous_state);
     }
 }
 

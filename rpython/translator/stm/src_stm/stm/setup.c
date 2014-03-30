@@ -37,6 +37,7 @@ static void setup_protection_settings(void)
                      (FIRST_READMARKER_PAGE - 2) * 4096UL,
                      PROT_NONE);
     }
+    pages_setup_readmarkers_for_nursery();
 }
 
 void stm_setup(void)
@@ -169,6 +170,8 @@ void stm_register_thread_local(stm_thread_local_t *tl)
         num = tl->prev->associated_segment_num;
     }
     tl->thread_local_obj = NULL;
+    tl->_timing_cur_state = STM_TIME_OUTSIDE_TRANSACTION;
+    tl->_timing_cur_start = get_stm_time();
 
     /* assign numbers consecutively, but that's for tests; we could also
        assign the same number to all of them and they would get their own

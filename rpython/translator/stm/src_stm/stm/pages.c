@@ -170,25 +170,24 @@ static void page_reshare(uintptr_t pagenum)
     increment_total_allocated(total);
 }
 
-
-#if 0
-static bool is_fully_in_shared_pages(object_t *obj)
+static void pages_setup_readmarkers_for_nursery(void)
 {
-    uintptr_t first_page = ((uintptr_t)obj) / 4096UL;
+    /* The nursery page's read markers are never read, but must still
+       be writeable.  We'd like to map the pages to a general "trash
+       page"; missing one, we remap all the pages over to the same one.
+       We still keep one page *per segment* to avoid cross-CPU cache
+       conflicts.
 
-    if ((obj->stm_flags & GCFLAG_SMALL_UNIFORM) != 0)
-        return (flag_page_private[first_page] == SHARED_PAGE);
+       (XXX no performance difference measured so far)
+    */
+    long i, j;
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        char *segment_base = get_segment_base(i);
 
-    ssize_t obj_size = stmcb_size_rounded_up(
-        (struct object_s *)REAL_ADDRESS(stm_object_pages, obj));
-
-    uintptr_t last_page = (((uintptr_t)obj) + obj_size - 1) / 4096UL;
-
-    do {
-        if (flag_page_private[first_page++] != SHARED_PAGE)
-            return false;
-    } while (first_page <= last_page);
-
-    return true;
+        for (j = FIRST_READMARKER_PAGE + 1; j < FIRST_OLD_RM_PAGE; j++) {
+            remap_file_pages(segment_base + 4096 * j, 4096, 0,
+                             i * NB_PAGES + FIRST_READMARKER_PAGE, 0);
+            /* errors here ignored */
+        }
+    }
 }
-#endif

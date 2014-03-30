@@ -40,6 +40,7 @@ static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count);
 static void page_privatize(uintptr_t pagenum);
 static void page_reshare(uintptr_t pagenum);
 static void _page_do_reshare(long segnum, uintptr_t pagenum);
+static void pages_setup_readmarkers_for_nursery(void);
 
 /* Note: don't ever do "mutex_pages_lock(); mutex_lock()" in that order */
 static void mutex_pages_lock(void);
