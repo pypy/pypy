@@ -480,7 +480,9 @@ class AppExposeVisitor(ASDLVisitor):
                 self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
                           % (field.name,), 1)
             else:
-                self.emit("w_self.deldictvalue(space, '%s')" %(field.name,), 1)
+                #self.emit("w_self.deldictvalue(space, '%s')" %(field.name,), 1)
+                self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
+                          % (field.name,), 1)
         self.emit("w_self.initialization_state |= %s" % (flag,), 1)
         self.emit("")
 
@@ -596,13 +598,19 @@ class AST(W_Root):
         w_type = space.type(self)
         w_fields = w_type.getdictvalue(space, "_fields")
         for w_name in space.fixedview(w_fields):
-            space.setitem(w_dict, w_name,
+            try:
+                space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
+            except:
+                pass
         w_attrs = space.findattr(w_type, space.wrap("_attributes"))
         if w_attrs:
             for w_name in space.fixedview(w_attrs):
-                space.setitem(w_dict, w_name,
+                try:
+                    space.setitem(w_dict, w_name,
                               space.getattr(self, w_name))
+                except:
+                    pass
         return space.newtuple([space.type(self),
                                space.newtuple([]),
                                w_dict])
