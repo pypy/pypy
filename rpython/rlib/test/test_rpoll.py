@@ -3,6 +3,7 @@ import errno
 import py
 
 from rpython.rlib.rsocket import *
+from rpython.rlib.rpoll import select
 try:
     from rpython.rlib.rpoll import poll
 except ImportError:
