@@ -8,7 +8,7 @@ from lib_pypy import _testcapi #make sure _testcapi is built
 def test_get_hashed_dir():
     import sys
     # This should not compile _testcapi, so the output is empty
-    script = "import _testcapi; assert 'get_hashed_dir' in dir(_testcapi)"
+    script = "import _testcapi; assert 'get_hashed_dir' not in dir(_testcapi)"
     output = py.process.cmdexec('''"%s" -c "%s"''' %
                              (sys.executable, script))
     assert output == ''
