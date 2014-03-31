@@ -265,10 +265,10 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (it.operands[1] == a.sum(axis=2)).all()
 
     def test_get_dtypes(self):
-        from numpy import array, dtype, nditer
+        from numpy import array, nditer
         x = array([1, 2])
         y = array([1.0, 2.0])
-        assert nditer([x, y]).dtypes == (dtype("int64"), dtype("float64"))
+        assert nditer([x, y]).dtypes == (x.dtype, y.dtype)
 
     def test_multi_index(self):
         import numpy as np
