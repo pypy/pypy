@@ -807,7 +807,7 @@ class Assembler386(BaseAssembler):
     def _call_footer(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if self.cpu.gc_ll_descr.stm and we_are_translated():
-            # call _stm_become_inevitable() if the current jmpbuf is set
+            # call _pypy_stm_become_inevitable() if the current jmpbuf is set
             # to this frame, because we're about to leave.  This is if
             # we called a pypy_stm_start_transaction() earlier.
             assert IS_X86_64
@@ -822,9 +822,9 @@ class Assembler386(BaseAssembler):
             jne_location = mc.get_relative_pos()
             #
             # if they are equal, we need to become inevitable now
-            mc.MOV_ri(edi.value, rstm.adr_jit_default_msg)
-            mc.CALL(imm(rstm.adr__stm_become_inevitable))
-            # there could have been a collection in _stm_become_inevitable;
+            mc.XOR_rr(edi.value, edi.value)
+            mc.CALL(imm(rstm.adr__pypy_stm_become_inevitable))
+            # there could have been a collection in the call above;
             # reload the frame into ebp (but we don't need to apply the
             # write barrier to it now)
             mc.MOV(ecx, self.heap_shadowstack_top())

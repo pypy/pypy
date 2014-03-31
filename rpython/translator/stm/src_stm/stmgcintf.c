@@ -14,8 +14,8 @@ extern void pypy_stmcb_trace(void*, void(*)(void*));
 
 inline ssize_t stmcb_size_rounded_up(struct object_s *obj) {
     ssize_t result = pypy_stmcb_size_rounded_up(obj);
-    assert(result >= 16);
-    assert((result & 7) == 0);
+    OPT_ASSERT(result >= 16);
+    OPT_ASSERT((result & 7) == 0);
     return result;
 }
 
@@ -41,8 +41,8 @@ void pypy_stm_set_transaction_length(double fraction)
     /* the value '100' means 'use the default'.  Other values are
        interpreted proportionally, up to some maximum. */
     long low_fill_mark = (long)(LOW_FILL_MARK * fraction);
-    if (low_fill_mark > NURSERY_SIZE / 2)
-        low_fill_mark = NURSERY_SIZE / 2;
+    if (low_fill_mark > NURSERY_SIZE * 3 / 4)
+        low_fill_mark = NURSERY_SIZE * 3 / 4;
     pypy_transaction_length = low_fill_mark;
 }
 
@@ -141,8 +141,13 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     while (1) {
 
         if (pypy_stm_ready_atomic == 1) {
-            /* Not in an atomic transaction
+            /* Not in an atomic transaction; but it might be an inevitable
+               transaction.
              */
+            assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
+            assert((STM_SEGMENT->jmpbuf_ptr == NULL) ==
+                   (pypy_stm_nursery_low_fill_mark == 0));
+
             stm_commit_transaction();
 
             /* After setjmp(), the local variables v_* are preserved because
@@ -173,6 +178,8 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
            transaction whose jmpbuf points into this function
         */
         if (pypy_stm_ready_atomic == 1) {
+            assert(pypy_stm_nursery_low_fill_mark != 0);
+            assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
             stm_commit_transaction();
             stm_start_inevitable_transaction(&stm_thread_local);
             pypy_stm_nursery_low_fill_mark = 0;
@@ -180,11 +187,36 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         else {
             _stm_become_inevitable("perform_transaction left with atomic");
             assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
+            pypy_stm_nursery_low_fill_mark_saved = 0;
         }
+    }
+    /* double-check */
+    if (pypy_stm_ready_atomic == 1) {
+        assert((STM_SEGMENT->jmpbuf_ptr == NULL) ==
+               (pypy_stm_nursery_low_fill_mark == 0));
+    }
+    else {
+        assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
     }
 
     //gcptr x = stm_pop_root();   /* pop the END_MARKER */
     //assert(x == END_MARKER_OFF || x == END_MARKER_ON);
     STM_POP_ROOT_RET(stm_thread_local);             /* pop the 'arg' */
     assert(v_old_shadowstack == stm_thread_local.shadowstack);
+}
+
+void _pypy_stm_become_inevitable(const char *msg)
+{
+    if (msg == NULL) {
+        msg = "return from JITted function";
+    }
+    _stm_become_inevitable(msg);
+
+    if (pypy_stm_ready_atomic == 1) {
+        pypy_stm_nursery_low_fill_mark = 0;
+    }
+    else {
+        assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
+        pypy_stm_nursery_low_fill_mark_saved = 0;
+    }
 }

@@ -22,10 +22,8 @@ adr_jmpbuf_ptr = (
     CFlexSymbolic('((long)&STM_SEGMENT->jmpbuf_ptr)'))
 adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
 
-adr_jit_default_msg = (
-    CFlexSymbolic('((long)(char *)"return from JITted function")'))
-adr__stm_become_inevitable = (
-    CFlexSymbolic('((long)&_stm_become_inevitable)'))
+adr__pypy_stm_become_inevitable = (
+    CFlexSymbolic('((long)&_pypy_stm_become_inevitable)'))
 adr_stm_commit_transaction = (
     CFlexSymbolic('((long)&stm_commit_transaction)'))
 adr_pypy_stm_start_transaction = (

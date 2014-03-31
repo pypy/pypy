@@ -131,7 +131,7 @@ def stm_become_inevitable(funcgen, op):
     except AttributeError:
         pass
     string_literal = c_string_constant(info)
-    return 'stm_become_inevitable(&stm_thread_local, %s);' % (string_literal,)
+    return 'pypy_stm_become_inevitable(%s);' % (string_literal,)
 
 def stm_become_globally_unique_transaction(funcgen, op):
     return ('stm_become_globally_unique_transaction(&stm_thread_local,'

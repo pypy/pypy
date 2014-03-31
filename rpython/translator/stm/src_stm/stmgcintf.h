@@ -12,20 +12,34 @@ extern __thread struct stm_thread_local_s stm_thread_local;
 extern __thread long pypy_stm_ready_atomic;
 extern __thread uintptr_t pypy_stm_nursery_low_fill_mark;
 extern __thread uintptr_t pypy_stm_nursery_low_fill_mark_saved;
+/* Invariant: if we're running a transaction:
+   - if it is atomic, pypy_stm_nursery_low_fill_mark == (uintptr_t) -1
+   - otherwise, if it is inevitable, pypy_stm_nursery_low_fill_mark == 0
+   - otherwise, it's a fraction of the nursery size strictly between 0 and 1
+*/
 
 void pypy_stm_setup(void);
 void pypy_stm_setup_prebuilt(void);        /* generated into stm_prebuilt.c */
 void pypy_stm_register_thread_local(void); /* generated into stm_prebuilt.c */
 void pypy_stm_unregister_thread_local(void); /* generated into stm_prebuilt.c */
 
+void _pypy_stm_become_inevitable(const char *);
+
+
+static inline void pypy_stm_become_inevitable(const char *msg)
+{
+    assert(STM_SEGMENT->running_thread == &stm_thread_local);
+    if (STM_SEGMENT->jmpbuf_ptr != NULL) {
+        _pypy_stm_become_inevitable(msg);
+    }
+}
 static inline void pypy_stm_commit_if_not_atomic(void) {
     int e = errno;
     if (pypy_stm_ready_atomic == 1) {
         stm_commit_transaction();
     }
     else {
-        stm_become_inevitable(&stm_thread_local,
-                              "commit_if_not_atomic in atomic");
+        pypy_stm_become_inevitable("commit_if_not_atomic in atomic");
     }
     errno = e;
 }
@@ -40,6 +54,7 @@ static inline void pypy_stm_start_inevitable_if_not_atomic(void) {
 static inline void pypy_stm_increment_atomic(void) {
     switch (++pypy_stm_ready_atomic) {
     case 2:
+        assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
         pypy_stm_nursery_low_fill_mark_saved = pypy_stm_nursery_low_fill_mark;
         pypy_stm_nursery_low_fill_mark = (uintptr_t) -1;
         break;
@@ -51,6 +66,9 @@ static inline void pypy_stm_decrement_atomic(void) {
     switch (--pypy_stm_ready_atomic) {
     case 1:
         pypy_stm_nursery_low_fill_mark = pypy_stm_nursery_low_fill_mark_saved;
+        assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
+        assert((STM_SEGMENT->jmpbuf_ptr == NULL) ==
+               (pypy_stm_nursery_low_fill_mark == 0));
         break;
     case 0:
         pypy_stm_ready_atomic = 1;
