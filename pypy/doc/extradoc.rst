@@ -87,7 +87,7 @@ Papers
 .. _`Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _`Automatic generation of JIT compilers for dynamic languages in .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
 .. _`Core Object Optimization Results`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
-.. _`Compiling Dynamic Language Implementations`: http://codespeak.net/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`Compiling Dynamic Language Implementations`: https://bytebucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
 Talks and Presentations 
