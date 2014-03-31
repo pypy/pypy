@@ -254,6 +254,13 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         if '__pypy__' in sys.builtin_module_names:
             assert repr(self.temppath) in g.getvalue()
 
+    def test_truncate(self):
+        f = self.file(self.temppath, "w")
+        f.write("foo")
+        f.close()
+        with self.file(self.temppath, 'r') as f:
+            raises(IOError, f.truncate, 100)
+
 
 class AppTestNonblocking(object):
     def setup_class(cls):
