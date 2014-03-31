@@ -10,7 +10,7 @@ UNI_SYMLINK_DIR = os.path.join(SCRIPT_DIR, "lib_pypy")
 PYRO_REPO="ssh://hg@bitbucket.org/cfbolz/pyrolog-unipycation"
 PYRO_DIR = os.path.join(DEPS_DIR, "pyrolog")
 
-SHARED_REPO = "git@bitbucket.org:vext01/unipycation-shared.git"
+SHARED_REPO = "git@bitbucket.org:softdevteam/unipycation-shared.git"
 DEFAULT_SHARED_DIR = os.path.join(DEPS_DIR, "unipycation-shared")
 
 PATHS_CONF = os.path.join(SCRIPT_DIR, "paths.conf")
