@@ -259,23 +259,23 @@ Talks in 2003
 .. _`PyCon 2010`: http://morepypy.blogspot.com/2010/02/pycon-2010-report.html
 .. _`RuPy 2009`: http://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
 .. _`PyPy 3000`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/ep2006/pypy3000.txt
-.. _`What can PyPy do for you`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/ep2006/usecases-slides.html
+.. _`What can PyPy do for you`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/ep2006/usecases-slides.txt
 .. _`PyPy introduction at EuroPython 2006`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/ep2006/intro.pdf
-.. _`PyPy - the new Python implementation on the block`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/22c3/hpk-tech.html
-.. _`PyPy development method`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/pycon2006/method_talk.html
+.. _`PyPy - the new Python implementation on the block`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/22c3/hpk-tech.txt
+.. _`PyPy development method`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/pycon2006/method_talk.txt
 .. _`PyPy intro`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/accu2006/accu-2006.pdf 
-.. _oscon2003-paper: https://bytebucket.org/pypy/extradoc/raw/tip/talk/oscon2003-paper.html
+.. _oscon2003-paper: https://bytebucket.org/pypy/extradoc/raw/tip/talk/oscon2003-paper.txt
 .. _`Architecture introduction slides`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/amsterdam-sprint-intro.pdf
 .. _`EU funding for FOSS`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/2004-21C3-pypy-EU-hpk.pdf
 .. _`py lib slides`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/2005-pycon-py.pdf
-.. _`PyCon 2005`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/pypy-talk-pycon2005/README.html
+.. _`PyCon 2005`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/pypy-talk-pycon2005/README.txt
 .. _`Trouble in Paradise`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/agile2006/during-oss-sprints_talk.pdf
 .. _`Sprint Driven Development`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/xp2006/during-xp2006-sprints.pdf
 .. _`Kill -1`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/ep2006/kill_1_agiletalk.pdf
 .. _`Open Source, EU-Funding and Agile Methods`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/22c3/agility.pdf
-.. _`PyPy Status`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/vancouver/talk.html
+.. _`PyPy Status`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/vancouver/
 .. _`Sprinting the PyPy way`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
-.. _`PyPy's VM Approach`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/dls2006/talk.html
+.. _`PyPy's VM Approach`: https://bytebucket.org/pypy/extradoc/raw/tip/talk/dls2006/
 .. _`PyPy's approach to virtual machine construction`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
 .. _`EuroPython talks 2009`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2009/
 .. _`PyCon talks 2009`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2009/
