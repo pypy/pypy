@@ -1,3 +1,5 @@
+import sys
+
 class AppTestCodecs:
     spaceconfig = {
         "usemodules": ['unicodedata', 'struct', 'binascii'],
@@ -109,7 +111,7 @@ class AppTestCodecs:
         assert charmap_decode('xxx\xff', 'strict', map) == (u'xxx\xff', 4)
 
         exc = raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 'a'})
-        assert exc.value[0] == "character mapping must return integer, None or unicode"
+        assert str(exc.value) == "character mapping must return integer, None or unicode"
         raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 0x110000})
         assert (charmap_decode("\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
@@ -137,7 +139,9 @@ class AppTestCodecs:
 
 
 class AppTestPartialEvaluation:
-    spaceconfig = dict(usemodules=('array',))
+    spaceconfig = dict(usemodules=['array',])
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_winreg')
 
     def test_partial_utf8(self):
         import _codecs
@@ -330,12 +334,12 @@ class AppTestPartialEvaluation:
             raises(UnicodeDecodeError, decode, r"\U00110000")
             assert decode(r"\U00110000", "ignore") == (u"", 10)
             assert decode(r"\U00110000", "replace") == (u"\ufffd", 10)
-        exc = raises(UnicodeDecodeError, unicode_escape_decode, "\u1z32z3", 'strict')
-        assert str(exc.value) == "'unicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
-        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, "\u1z32z3", 'strict')
-        assert str(exc.value) == "'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
-        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, "\U1z32z3", 'strict')
-        assert str(exc.value) == "'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        exc = raises(UnicodeDecodeError, unicode_escape_decode, b"\u1z32z3", 'strict')
+        assert str(exc.value) == r"'unicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\u1z32z3", 'strict')
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\U1z32z3", 'strict')
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
 
     def test_escape_encode(self):
         assert '"'.encode('string_escape') == '"'
@@ -596,7 +600,7 @@ class AppTestPartialEvaluation:
             l = [u"<%d>" % ord(exc.object[pos]) for pos in xrange(exc.start, exc.end)]
             return (u"[%s]" % u"".join(l), exc.end)
         codecs.register_error("test.handler1", handler1)
-        assert "\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
+        assert b"\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
             u"\u3042[<92><117><51>]xxx"
 
     def test_encode_error_bad_handler(self):
@@ -615,9 +619,9 @@ class AppTestPartialEvaluation:
 
         import codecs
         exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
-        assert exc.value[0] == 'character mapping must be in range(256)'
+        assert str(exc.value) == 'character mapping must be in range(256)'
         exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: u'a'})
-        assert exc.value[0] == 'character mapping must return integer, None or str'
+        assert str(exc.value) == 'character mapping must return integer, None or str'
         raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
 
     def test_charmap_encode_replace(self):
@@ -649,22 +653,22 @@ class AppTestPartialEvaluation:
     def test_utf7_errors(self):
         import codecs
         tests = [
-            ('a\xffb', u'a\ufffdb'),
-            ('a+IK', u'a\ufffd'),
-            ('a+IK-b', u'a\ufffdb'),
-            ('a+IK,b', u'a\ufffdb'),
-            ('a+IKx', u'a\u20ac\ufffd'),
-            ('a+IKx-b', u'a\u20ac\ufffdb'),
-            ('a+IKwgr', u'a\u20ac\ufffd'),
-            ('a+IKwgr-b', u'a\u20ac\ufffdb'),
-            ('a+IKwgr,', u'a\u20ac\ufffd'),
-            ('a+IKwgr,-b', u'a\u20ac\ufffd-b'),
-            ('a+IKwgrB', u'a\u20ac\u20ac\ufffd'),
-            ('a+IKwgrB-b', u'a\u20ac\u20ac\ufffdb'),
-            ('a+/,+IKw-b', u'a\ufffd\u20acb'),
-            ('a+//,+IKw-b', u'a\ufffd\u20acb'),
-            ('a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
-            ('a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a\xffb', u'a\ufffdb'),
+            (b'a+IK', u'a\ufffd'),
+            (b'a+IK-b', u'a\ufffdb'),
+            (b'a+IK,b', u'a\ufffdb'),
+            (b'a+IKx', u'a\u20ac\ufffd'),
+            (b'a+IKx-b', u'a\u20ac\ufffdb'),
+            (b'a+IKwgr', u'a\u20ac\ufffd'),
+            (b'a+IKwgr-b', u'a\u20ac\ufffdb'),
+            (b'a+IKwgr,', u'a\u20ac\ufffd'),
+            (b'a+IKwgr,-b', u'a\u20ac\ufffd-b'),
+            (b'a+IKwgrB', u'a\u20ac\u20ac\ufffd'),
+            (b'a+IKwgrB-b', u'a\u20ac\u20ac\ufffdb'),
+            (b'a+/,+IKw-b', u'a\ufffd\u20acb'),
+            (b'a+//,+IKw-b', u'a\ufffd\u20acb'),
+            (b'a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
         ]
         for raw, expected in tests:
             raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)
@@ -694,9 +698,19 @@ class AppTestPartialEvaluation:
         import sys
         if sys.platform != 'win32':
             return
+        toencode = u'caf\xe9', 'caf\xe9'
+        try:
+            # test for non-latin1 codepage, more general test needed
+            import _winreg
+            key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
+                        r'System\CurrentControlSet\Control\Nls\CodePage')
+            if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
+                toencode = u'caf\xbf','caf\xbf'
+        except:
+            assert False, 'cannot test mbcs on this windows system, check code page'
         assert u'test'.encode('mbcs') == 'test'
-        assert u'caf\xe9'.encode('mbcs') == 'caf\xe9'
-        assert u'\u040a'.encode('mbcs') == '?' # some cyrillic letter
+        assert toencode[0].encode('mbcs') == toencode[1]
+        assert u'\u040a'.encode('mbcs') == '?'  # some cyrillic letter
         assert 'cafx\e9'.decode('mbcs') == u'cafx\e9'
 
     def test_bad_handler_string_result(self):

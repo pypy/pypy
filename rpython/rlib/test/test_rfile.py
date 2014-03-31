@@ -1,8 +1,8 @@
-
 import os, sys, py
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
+
 
 class TestFile(BaseRtypingTest):
     def setup_class(cls):
@@ -207,6 +207,7 @@ class TestPopen(object):
         r = f.close()
         assert s == "%s\n" % printval
         assert os.WEXITSTATUS(r) == retval
+
 
 class TestPopenR(BaseRtypingTest):
     def setup_class(cls):

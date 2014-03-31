@@ -14,6 +14,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 class BasicTests:
@@ -3228,11 +3229,12 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops(arraylen_gc=2)
 
     def test_release_gil_flush_heap_cache(self):
+        eci = ExternalCompilationInfo()
         if sys.platform == "win32":
-            py.test.skip("needs 'time'")
+            eci = ExternalCompilationInfo(libraries=["msvcrt"])
         T = rffi.CArrayPtr(rffi.TIME_T)
 
-        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True, compilation_info=eci)
         # Not a real lock, has all the same properties with respect to GIL
         # release though, so good for this test.
         class Lock(object):
@@ -3920,10 +3922,13 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.interp_operations(f, [])
 
     def test_external_call(self):
+        eci = ExternalCompilationInfo()
+        if sys.platform == "win32":
+            eci = ExternalCompilationInfo(libraries=["msvcrt"])
         from rpython.rlib.objectmodel import invoke_around_extcall
 
         T = rffi.CArrayPtr(rffi.TIME_T)
-        external = rffi.llexternal("time", [T], rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, compilation_info=eci)
 
         class Oups(Exception):
             pass
@@ -3970,3 +3975,12 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return a.x
         res = self.interp_operations(f, [42])
         assert res == 0
+
+    def test_conditions_without_guards(self):
+        def f(n):
+            if (n == 1) | (n == 3) | (n == 17):
+                return 42
+            return 5
+        res = self.interp_operations(f, [17])
+        assert res == 42
+        self.check_operations_history(guard_true=1, guard_false=0)

@@ -1,7 +1,7 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import UnicodeBuilder
-from rpython.rlib.runicode import UNICHR, MAXUNICODE
+from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -541,7 +541,7 @@ class Charmap_Decode:
             if not 0 <= x <= 0x10FFFF:
                 raise oefmt(space.w_TypeError,
                     "character mapping must be in range(0x110000)")
-            return UNICHR(x)
+            return code_to_unichr(x)
         elif space.is_w(w_ch, space.w_None):
             # Charmap may return None
             return errorchar

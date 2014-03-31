@@ -15,7 +15,7 @@ from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi, rgc
-from rpython.rlib.rarithmetic import intmask, signedtype, widen, r_uint, \
+from rpython.rlib.rarithmetic import intmask, signedtype, r_uint, \
     r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -364,7 +364,6 @@ W_StructureInstance.typedef = TypeDef(
     __repr__    = interp2app(W_StructureInstance.descr_repr),
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
-    __buffer__  = interp2app(W_StructureInstance.descr_buffer),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
     free        = interp2app(W_StructureInstance.free),
     shape       = interp_attrproperty('shape', W_StructureInstance),
@@ -387,7 +386,6 @@ W_StructureInstanceAutoFree.typedef = TypeDef(
     __repr__    = interp2app(W_StructureInstance.descr_repr),
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
-    __buffer__  = interp2app(W_StructureInstance.descr_buffer),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_StructureInstance),
     byptr       = interp2app(W_StructureInstance.byptr),

@@ -511,7 +511,7 @@ class BufferedMixin:
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
-        w_buf = space.wrap(RawBuffer(buffer, start, length))
+        w_buf = space.newbuffer(RawBuffer(buffer, start, length))
         while True:
             try:
                 w_size = space.call_method(self.w_raw, "readinto", w_buf)

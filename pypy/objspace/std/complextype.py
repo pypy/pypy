@@ -1,7 +1,6 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
 from rpython.rlib.rfloat import string_to_float

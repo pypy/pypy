@@ -1,25 +1,8 @@
 import sys
-import py
-import py.test
-
-
-## class AppTestSimpleArray:
-##     spaceconfig = dict(usemodules=('array',))
-##     def setup_class(cls):
-##         cls.w_simple_array = cls.space.appexec([], """():
-##             import array
-##             return array.simple_array
-##         """)
-
-##     def test_simple(self):
-##         a = self.simple_array(10)
-##         a[5] = 7.42
-##         assert a[5] == 7.42
+import pytest
 
 
 class BaseArrayTests:
-
-
     def test_ctor(self):
         assert len(self.array('c')) == 0
         assert len(self.array('i')) == 0
@@ -563,7 +546,6 @@ class BaseArrayTests:
         assert not a > 2*a
         assert not a >= 2*a
 
-
     def test_reduce(self):
         import pickle
         a = self.array('i', [1, 2, 3])
@@ -794,7 +776,6 @@ class BaseArrayTests:
 
         assert img[3, 25] == 3 * 9
 
-
     def test_override_from(self):
         class mya(self.array):
             def fromlist(self, lst):
@@ -879,41 +860,41 @@ class BaseArrayTests:
 
     def test_assign_object_with_special_methods(self):
         from array import array
-        
+
         class Num(object):
             def __float__(self):
                 return 5.25
-                
+
             def __int__(self):
                 return 7
-                
+
         class NotNum(object):
             pass
-        
+
         class Silly(object):
             def __float__(self):
                 return None
-                
+
             def __int__(self):
-                return None         
+                return None
 
         class OldNum:
             def __float__(self):
                 return 6.25
-                
+
             def __int__(self):
                 return 8
-                
+
         class OldNotNum:
             pass
-        
+
         class OldSilly:
             def __float__(self):
                 return None
-                
+
             def __int__(self):
                 return None
-                
+
         for tc in 'bBhHiIlL':
             a = array(tc, [0])
             raises(TypeError, a.__setitem__, 0, 1.0)
@@ -931,7 +912,7 @@ class BaseArrayTests:
             a = array(tc, [0])
             a[0] = 1.0
             a[0] = 1
-            a[0] = Num()        
+            a[0] = Num()
             assert a[0] == 5.25
             raises(TypeError, a.__setitem__, NotNum())
             a[0] = OldNum()
@@ -939,24 +920,23 @@ class BaseArrayTests:
             raises(TypeError, a.__setitem__, OldNotNum())
             raises(TypeError, a.__setitem__, Silly())
             raises(TypeError, a.__setitem__, OldSilly())
-            
+
         a = array('c', 'hi')
         a[0] = 'b'
         assert a[0] == 'b'
-            
+
         a = array('u', u'hi')
         a[0] = u'b'
         assert a[0] == u'b'
-        
+
 
 class TestCPythonsOwnArray(BaseArrayTests):
-
     def setup_class(cls):
         import array
         cls.array = array.array
         import struct
         cls.struct = struct
-        cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
+        cls.tempfile = str(pytest.ensuretemp('array').join('tmpfile'))
         cls.maxint = sys.maxint
 
 
@@ -969,7 +949,7 @@ class AppTestArray(BaseArrayTests):
             return array.array
         """)
         cls.w_tempfile = cls.space.wrap(
-            str(py.test.ensuretemp('array').join('tmpfile')))
+            str(pytest.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
 
     def test_buffer_info(self):
@@ -1036,11 +1016,11 @@ class AppTestArray(BaseArrayTests):
 
     def test_getitem_only_ints(self):
         class MyInt(object):
-          def __init__(self, x):
-            self.x = x
+            def __init__(self, x):
+                self.x = x
 
-          def __int__(self):
-            return self.x
+            def __int__(self):
+                return self.x
 
         a = self.array('i', [1, 2, 3, 4, 5, 6])
         raises(TypeError, "a[MyInt(0)]")
@@ -1050,4 +1030,3 @@ class AppTestArray(BaseArrayTests):
 class AppTestArrayBuiltinShortcut(AppTestArray):
     spaceconfig = AppTestArray.spaceconfig.copy()
     spaceconfig['objspace.std.builtinshortcut'] = True
-

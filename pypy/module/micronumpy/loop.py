@@ -164,6 +164,13 @@ def fill(arr, box):
         arr_iter.setitem(box)
         arr_iter.next()
 
+def assign(space, arr, seq):
+    arr_iter = arr.create_iter()
+    arr_dtype = arr.get_dtype()
+    for item in seq:
+        arr_iter.setitem(arr_dtype.coerce(space, item))
+        arr_iter.next()
+
 where_driver = jit.JitDriver(name='numpy_where',
                              greens = ['shapelen', 'dtype', 'arr_dtype'],
                              reds = 'auto')

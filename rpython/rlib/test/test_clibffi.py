@@ -423,11 +423,12 @@ class TestWin32Handles(BaseFfiTest):
     def setup_class(cls):
         if sys.platform != 'win32':
             py.test.skip("Handle to libc library, Win-only test")
-        BaseFfiTest.setup_class(cls)
+        BaseFfiTest.setup_class()
     
     def test_get_libc_handle(self):
         handle = get_libc_handle()
         print get_libc_name()
-        print hex(handle)
-        assert handle != 0
-        assert handle % 0x1000 == 0
+        print dir(handle)
+        addr = rffi.cast(rffi.INT, handle)
+        assert addr != 0
+        assert addr % 0x1000 == 0

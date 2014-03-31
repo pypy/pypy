@@ -22,10 +22,10 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
+from pypy.objspace.std.memoryview import W_MemoryView
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
-from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd

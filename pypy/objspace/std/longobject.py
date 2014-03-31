@@ -9,7 +9,6 @@ from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
@@ -513,7 +512,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                                      unicode_to_decimal_w(space, w_value))
         else:
             try:
-                w_buffer = space.buffer(w_value)
+                buf = space.buffer_w(w_value)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -521,7 +520,6 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                             "long() argument must be a string or a number, "
                             "not '%T'", w_value)
             else:
-                buf = space.interp_w(Buffer, w_buffer)
                 return _string_to_w_long(space, w_longtype, w_value,
                                          buf.as_str())
     else:

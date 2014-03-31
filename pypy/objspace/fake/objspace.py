@@ -168,6 +168,9 @@ class FakeObjSpace(ObjSpace):
     def newseqiter(self, x):
         return w_some_obj()
 
+    def newbuffer(self, x):
+        return w_some_obj()
+
     def marshal_w(self, w_obj):
         "NOT_RPYTHON"
         raise NotImplementedError
@@ -291,6 +294,11 @@ class FakeObjSpace(ObjSpace):
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = None
         return ec
+
+    def buffer_w(self, w_obj):
+        from pypy.interpreter.buffer import Buffer
+        is_root(w_obj)
+        return Buffer()
 
     def unicode_from_object(self, w_obj):
         return w_some_obj()

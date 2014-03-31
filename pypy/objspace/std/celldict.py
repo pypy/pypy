@@ -140,7 +140,7 @@ class ModuleDictStrategy(DictStrategy):
                     for key, cell in iterator()]
 
     def clear(self, w_dict):
-        iterator = self.unerase(w_dict.dstorage).clear()
+        self.unerase(w_dict.dstorage).clear()
         self.mutated()
 
     def popitem(self, w_dict):

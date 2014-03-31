@@ -352,9 +352,9 @@ class W_DataInstance(W_Root):
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
-    def descr_buffer(self, space):
+    def buffer_w(self, space):
         from pypy.module._rawffi.buffer import RawFFIBuffer
-        return space.wrap(RawFFIBuffer(self))
+        return RawFFIBuffer(self)
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")

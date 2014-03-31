@@ -87,7 +87,8 @@ class PrimitiveBox(Box):
         value[0] = self.value
 
         builder = StringBuilder()
-        builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.value)))
+        builder.append_charpsize(rffi.cast(rffi.CCHARP, value),
+                                 rffi.sizeof(lltype.typeOf(self.value)))
         ret = builder.build()
 
         lltype.free(value, flavor="raw")
@@ -117,7 +118,8 @@ class ComplexBox(Box):
         value[1] = self.imag
 
         builder = StringBuilder()
-        builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.real)) * 2)
+        builder.append_charpsize(rffi.cast(rffi.CCHARP, value),
+                                 rffi.sizeof(lltype.typeOf(self.real)) * 2)
         ret = builder.build()
 
         lltype.free(value, flavor="raw")
@@ -159,22 +161,25 @@ class W_GenericBox(W_Root):
         return space.index(self.item(space))
 
     def descr_int(self, space):
-        if isinstance(self, W_UnsignedIntegerBox):
-            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        if isinstance(self, W_ComplexFloatingBox):
+            box = self.descr_get_real(space)
         else:
-            box = self.convert_to(space, W_Int64Box._get_dtype(space))
-        return space.int(box.item(space))
+            box = self
+        return space.call_function(space.w_int, box.item(space))
 
     def descr_long(self, space):
-        if isinstance(self, W_UnsignedIntegerBox):
-            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        if isinstance(self, W_ComplexFloatingBox):
+            box = self.descr_get_real(space)
         else:
-            box = self.convert_to(space, W_Int64Box._get_dtype(space))
-        return space.long(box.item(space))
+            box = self
+        return space.call_function(space.w_long, box.item(space))
 
     def descr_float(self, space):
-        box = self.convert_to(space, W_Float64Box._get_dtype(space))
-        return space.float(box.item(space))
+        if isinstance(self, W_ComplexFloatingBox):
+            box = self.descr_get_real(space)
+        else:
+            box = self
+        return space.call_function(space.w_float, box.item(space))
 
     def descr_oct(self, space):
         return space.oct(self.descr_int(space))
@@ -183,29 +188,28 @@ class W_GenericBox(W_Root):
         return space.hex(self.descr_int(space))
 
     def descr_nonzero(self, space):
-        dtype = self.get_dtype(space)
-        return space.wrap(dtype.itemtype.bool(self))
+        return space.wrap(self.get_dtype(space).itemtype.bool(self))
+
+    def _unaryop_impl(ufunc_name):
+        def impl(self, space, w_out=None):
+            from pypy.module.micronumpy import ufuncs
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [self, w_out])
+        return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import ufuncs
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                            [self, w_other, w_out])
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [self, w_other, w_out])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import ufuncs
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                            [w_other, self, w_out])
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
-
-    def _unaryop_impl(ufunc_name):
-        def impl(self, space, w_out=None):
-            from pypy.module.micronumpy import ufuncs
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                                    [self, w_out])
-        return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
     descr_sub = _binop_impl("subtract")
@@ -340,8 +344,8 @@ class W_GenericBox(W_Root):
     def descr_copy(self, space):
         return self.convert_to(space, self.get_dtype(space))
 
-    def descr_buffer(self, space):
-        return self.descr_ravel(space).descr_get_data(space)
+    def buffer_w(self, space):
+        return self.descr_ravel(space).buffer_w(space)
 
     def descr_byteswap(self, space):
         return self.get_dtype(space).itemtype.byteswap(self)
@@ -551,7 +555,6 @@ W_GenericBox.typedef = TypeDef("generic",
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
     __oct__ = interp2app(W_GenericBox.descr_oct),
     __hex__ = interp2app(W_GenericBox.descr_hex),
-    __buffer__ = interp2app(W_GenericBox.descr_buffer),
 
     __add__ = interp2app(W_GenericBox.descr_add),
     __sub__ = interp2app(W_GenericBox.descr_sub),

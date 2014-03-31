@@ -1,5 +1,22 @@
 import os, sys, imp
-import tempfile
+import tempfile, binascii
+
+def get_hashed_dir(cfile):
+    with open(cfile,'r') as fid:
+        content = fid.read()
+    # from cffi's Verifier()
+    key = '\x00'.join([sys.version[:3], content])
+    if sys.version_info >= (3,):
+        key = key.encode('utf-8')
+    k1 = hex(binascii.crc32(key[0::2]) & 0xffffffff)
+    k1 = k1.lstrip('0x').rstrip('L')
+    k2 = hex(binascii.crc32(key[1::2]) & 0xffffffff)
+    k2 = k2.lstrip('0').rstrip('L')
+    output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s%s' %(k1, k2)
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    return output_dir 
+
 
 def _get_c_extension_suffix():
     for ext, mod, typ in imp.get_suffixes():
@@ -7,12 +24,13 @@ def _get_c_extension_suffix():
             return ext
 
 
-def compile_shared(csource, modulename):
+def compile_shared(csource, modulename, output_dir=None):
     """Compile '_testcapi.c' or '_ctypes_test.c' into an extension module,
     and import it.
     """
     thisdir = os.path.dirname(__file__)
-    output_dir = tempfile.mkdtemp()
+    if output_dir is None:
+        output_dir = tempfile.mkdtemp()
 
     from distutils.ccompiler import new_compiler
 

@@ -246,6 +246,13 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         return CustomIntObject(value)
 
+    def test_constants(self):
+        import numpy as np
+        assert np.MAXDIMS is 32
+        assert np.CLIP is 0
+        assert np.WRAP is 1
+        assert np.RAISE is 2
+
     def test_ndarray(self):
         from numpy import ndarray, array, dtype, flatiter
 
@@ -327,6 +334,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array(a, dtype=float)
         assert b == 123.0
 
+        a = array([[123, 456]])
+        assert a.flags['C']
+        b = array(a, order='K')
+        assert b.flags['C']
+        assert (b == a).all()
+        b = array(a, order='K', copy=True)
+        assert b.flags['C']
+        assert (b == a).all()
+
     def test_dtype_attribute(self):
         import numpy as np
         a = np.array(40000, dtype='uint16')
@@ -397,6 +413,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == a.shape
         assert b.dtype == a.dtype
         assert b[0,0] != 1
+        b = np.empty_like(np.array(True), dtype=None)
+        assert b.dtype is np.dtype(bool)
         b = np.empty_like(a, dtype='i4')
         assert b.shape == a.shape
         assert b.dtype == np.dtype('i4')
@@ -2276,6 +2294,30 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(TypeError, "float(np.array([1.5, 2.5]))")
         assert exc.value[0] == 'only length-1 arrays can be converted to Python scalars'
 
+    def test__hex__(self):
+        import numpy as np
+        assert hex(np.array(True)) == '0x1'
+        assert hex(np.array(15)) == '0xf'
+        assert hex(np.array([15])) == '0xf'
+        exc = raises(TypeError, "hex(np.array(1.5))")
+        assert str(exc.value) == "don't know how to convert scalar number to hex"
+        exc = raises(TypeError, "hex(np.array('15'))")
+        assert str(exc.value) == "don't know how to convert scalar number to hex"
+        exc = raises(TypeError, "hex(np.array([1, 2]))")
+        assert str(exc.value) == "only length-1 arrays can be converted to Python scalars"
+
+    def test__oct__(self):
+        import numpy as np
+        assert oct(np.array(True)) == '01'
+        assert oct(np.array(15)) == '017'
+        assert oct(np.array([15])) == '017'
+        exc = raises(TypeError, "oct(np.array(1.5))")
+        assert str(exc.value) == "don't know how to convert scalar number to oct"
+        exc = raises(TypeError, "oct(np.array('15'))")
+        assert str(exc.value) == "don't know how to convert scalar number to oct"
+        exc = raises(TypeError, "oct(np.array([1, 2]))")
+        assert str(exc.value) == "only length-1 arrays can be converted to Python scalars"
+
     def test__reduce__(self):
         from numpypy import array, dtype
         from cPickle import loads, dumps
@@ -2337,6 +2379,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[0,0,:] == [10, 20, 30, 40]).all()
         assert b.shape == b[...].shape
         assert (b == b[...]).all()
+
+    def test_empty_indexing(self):
+        import numpy as np
+        r = np.ones(3)
+        ind = np.array([], np.int32)
+        tmp = np.array([], np.float64)
+        assert r[ind].shape == (0,)
+        r[ind] = 0
+        assert (r == np.ones(3)).all()
+        r[ind] = tmp
+        assert (r == np.ones(3)).all()
+        r[[]] = 0
+        assert (r == np.ones(3)).all()
 
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):

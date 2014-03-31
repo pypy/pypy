@@ -1,8 +1,8 @@
 import os
-import py
+import pytest
 
 if os.name != 'posix':
-    py.test.skip('pwd module only available on unix')
+    pytest.skip('pwd module only available on unix')
 
 class AppTestPwd:
     spaceconfig = dict(usemodules=['pwd'])
@@ -24,21 +24,21 @@ class AppTestPwd:
         assert type(pw.pw_gid) is int
         raises(TypeError, pwd.getpwuid)
         raises(TypeError, pwd.getpwuid, 3.14)
-        raises(KeyError, pwd.getpwuid, sys.maxint)
+        raises(KeyError, pwd.getpwuid, sys.maxsize)
         # -1 is allowed, cast to uid_t
         exc = raises(KeyError, pwd.getpwuid, -1)
-        m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value[0])
-        assert m, exc.value[0]
+        m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value.args[0])
+        assert m, exc.value.args[0]
         maxval = int(m.group(1))
         assert maxval >= 2**32 - 1
         # shouldn't overflow
         exc = raises(KeyError, pwd.getpwuid, maxval)
-        m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value[0])
-        assert m, exc.value[0]
+        m = re.match('getpwuid\(\): uid not found: ([0-9]+)', exc.value.args[0])
+        assert m, exc.value.args[0]
         # should be out of uid_t range
         for v in [-2, maxval+1, 2**128, -2**128]:
             exc = raises(KeyError, pwd.getpwuid, v)
-            assert exc.value[0] == 'getpwuid(): uid not found'
+            assert exc.value.args[0] == 'getpwuid(): uid not found'
 
     def test_getpwnam(self):
         import pwd
