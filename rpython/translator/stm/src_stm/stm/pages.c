@@ -31,9 +31,14 @@ static void teardown_pages(void)
 
 static void mutex_pages_lock(void)
 {
+    if (__sync_lock_test_and_set(&pages_ctl.mutex_pages, 1) == 0)
+        return;
+
+    int previous = change_timing_state(STM_TIME_SPIN_LOOP);
     while (__sync_lock_test_and_set(&pages_ctl.mutex_pages, 1) != 0) {
         spin_loop();
     }
+    change_timing_state(previous);
 }
 
 static void mutex_pages_unlock(void)
