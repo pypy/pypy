@@ -94,6 +94,7 @@ void pypy_stm_leave_callback_call(long token)
 void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
                                 volatile long *v_counter)
 {
+    pypy_stm_nursery_low_fill_mark = 1;  /* will be set to a correct value below */
     _stm_start_transaction(&stm_thread_local, jmpbuf_ptr);
 
     /* If v_counter==0, initialize 'pypy_stm_nursery_low_fill_mark'
@@ -181,13 +182,13 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
             assert(pypy_stm_nursery_low_fill_mark != 0);
             assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
             stm_commit_transaction();
-            stm_start_inevitable_transaction(&stm_thread_local);
             pypy_stm_nursery_low_fill_mark = 0;
+            stm_start_inevitable_transaction(&stm_thread_local);
         }
         else {
-            _stm_become_inevitable("perform_transaction left with atomic");
             assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
             pypy_stm_nursery_low_fill_mark_saved = 0;
+            _stm_become_inevitable("perform_transaction left with atomic");
         }
     }
     /* double-check */
@@ -205,13 +206,8 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     assert(v_old_shadowstack == stm_thread_local.shadowstack);
 }
 
-void _pypy_stm_become_inevitable(const char *msg)
+static void _pypy_stm_inev_state(void)
 {
-    if (msg == NULL) {
-        msg = "return from JITted function";
-    }
-    _stm_become_inevitable(msg);
-
     if (pypy_stm_ready_atomic == 1) {
         pypy_stm_nursery_low_fill_mark = 0;
     }
@@ -219,4 +215,19 @@ void _pypy_stm_become_inevitable(const char *msg)
         assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
         pypy_stm_nursery_low_fill_mark_saved = 0;
     }
+}
+
+void _pypy_stm_become_inevitable(const char *msg)
+{
+    _pypy_stm_inev_state();
+    if (msg == NULL) {
+        msg = "return from JITted function";
+    }
+    _stm_become_inevitable(msg);
+}
+
+void pypy_stm_become_globally_unique_transaction(void)
+{
+    _pypy_stm_inev_state();
+    stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");
 }

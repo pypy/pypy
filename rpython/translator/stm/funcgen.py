@@ -134,8 +134,7 @@ def stm_become_inevitable(funcgen, op):
     return 'pypy_stm_become_inevitable(%s);' % (string_literal,)
 
 def stm_become_globally_unique_transaction(funcgen, op):
-    return ('stm_become_globally_unique_transaction(&stm_thread_local,'
-            ' "for the JIT");')
+    return 'pypy_stm_become_globally_unique_transaction();'
 
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
