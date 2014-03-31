@@ -8,6 +8,7 @@ static inline void add_timing(stm_thread_local_t *tl, enum stm_time_e category,
                               double elapsed)
 {
     tl->timing[category] += elapsed;
+    tl->events[category] += 1;
 }
 
 #define TIMING_CHANGE(tl, newstate)                     \
@@ -59,7 +60,10 @@ static const char *timer_names[] = {
 
 void stm_flush_timing(stm_thread_local_t *tl, int verbose)
 {
-    TIMING_CHANGE(tl, tl->_timing_cur_state);
+    enum stm_time_e category = tl->_timing_cur_state;
+    uint64_t oldevents = tl->events[category];
+    TIMING_CHANGE(tl, category);
+    tl->events[category] = oldevents;
 
     assert((sizeof(timer_names) / sizeof(timer_names[0])) == _STM_TIME_N);
     if (verbose > 0) {
@@ -67,8 +71,8 @@ void stm_flush_timing(stm_thread_local_t *tl, int verbose)
         s_mutex_lock();
         fprintf(stderr, "thread %p:\n", tl);
         for (i = 0; i < _STM_TIME_N; i++) {
-            fprintf(stderr, "    %-24s %.3f s\n",
-                    timer_names[i], (double)tl->timing[i]);
+            fprintf(stderr, "    %-24s %9u  %.3f s\n",
+                    timer_names[i], tl->events[i], (double)tl->timing[i]);
         }
         s_mutex_unlock();
     }

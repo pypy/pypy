@@ -87,6 +87,7 @@ typedef struct stm_thread_local_s {
        (these fields are not modified on a successful commit) */
     long last_abort__bytes_in_nursery;
     /* timing information, accumulated */
+    uint32_t events[_STM_TIME_N];
     float timing[_STM_TIME_N];
     double _timing_cur_start;
     enum stm_time_e _timing_cur_state;
