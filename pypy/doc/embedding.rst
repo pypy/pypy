@@ -76,6 +76,7 @@ We write a little C program:
 
 .. code-block:: c
 
+    #include "include/PyPy.h"
     #include <stdio.h>
 
     const char source[] = "print 'hello from pypy'";
@@ -100,6 +101,9 @@ If we save it as ``x.c`` now, compile it and run it with::
     hello from pypy
 
 Worked!
+
+.. note:: If the compilation fails because of missing PyPy.h header file,
+          you are running PyPy <= 2.2.1, please see the section `Missing PyPy.h`_.
 
 Missing PyPy.h
 --------------
