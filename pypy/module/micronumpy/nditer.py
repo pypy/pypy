@@ -277,6 +277,7 @@ class W_NDIter(W_Root):
         self.index_iter = None
         self.done = False
         self.first_next = True
+        self.op_axes = []
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
@@ -333,15 +334,21 @@ class W_NDIter(W_Root):
         op_axes = space.listview(w_op_axes)
         l = -1
         for w_axis in op_axes:
-            if not space.is_(w_axis, space.w_None):
+            if not space.is_none(w_axis):
                 axis_len = space.len_w(w_axis)
                 if l == -1:
                     l = axis_len
                 elif axis_len != l:
                     raise OperationError(space.w_ValueError, space.wrap("Each entry of op_axes must have the same size"))
-                self.op_axes.append([space.int_w(x) if not space.is_(x, space.w_None) else space.w_None for x in space.listview(w_axis)])
+                self.op_axes.append([space.int_w(x) if not space.is_none(x) else space.w_None for x in space.listview(w_axis)])
         if l == -1:
             raise OperationError(space.w_ValueError, space.wrap("If op_axes is provided, at least one list of axes must be contained within it"))
+        raise Exception('xxx TODO')
+        # Check that values make sense:
+        # - in bounds for each operand
+        # ValueError: Iterator input op_axes[0][3] (==3) is not a valid axis of op[0], which has 2 dimensions
+        # - no repeat axis
+        # ValueError: The 'op_axes' provided to the iterator constructor for operand 1 contained duplicate value 0
 
     def descr_iter(self, space):
         return space.wrap(self)
