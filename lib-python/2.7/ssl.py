@@ -193,7 +193,6 @@ class SSLSocket(socket):
                     self.__class__)
             while True:
                 try:
-                    import pdb;pdb.set_trace()
                     v = self._sslobj.write(data)
                 except SSLError, x:
                     if x.args[0] == SSL_ERROR_WANT_READ:
