@@ -197,9 +197,13 @@ class TestPartial(unittest.TestCase):
                 raise IndexError
 
         f = self.thetype(object)
-        self.assertRaisesRegex(SystemError,
-                "new style getargs format but argument is not a tuple",
-                f.__setstate__, BadSequence())
+        if support.check_impl_detail(pypy=True):
+            # CPython fails, pypy does not :-)
+            f.__setstate__(BadSequence())
+        else:
+            self.assertRaisesRegex(SystemError,
+                    "new style getargs format but argument is not a tuple",
+                    f.__setstate__, BadSequence())
 
 class PartialSubclass(functools.partial):
     pass

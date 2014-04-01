@@ -934,6 +934,7 @@ class MappingTestCase(TestBase):
         n1 = len(dct)
         del it
         gc.collect()
+        gc.collect()
         n2 = len(dct)
         # one item may be kept alive inside the iterator
         self.assertIn(n1, (0, 1))
@@ -945,6 +946,7 @@ class MappingTestCase(TestBase):
     def test_weak_valued_len_cycles(self):
         self.check_len_cycles(weakref.WeakValueDictionary, lambda k: (1, k))
 
+    @support.impl_detail("PyPy has no cyclic collection", pypy=False)
     def check_len_race(self, dict_type, cons):
         # Extended sanity checks for len() in the face of cyclic collection
         self.addCleanup(gc.set_threshold, *gc.get_threshold())

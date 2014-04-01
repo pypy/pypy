@@ -406,11 +406,13 @@ class TestWeakSet(unittest.TestCase):
         n1 = len(s)
         del it
         gc.collect()
+        gc.collect()
         n2 = len(s)
         # one item may be kept alive inside the iterator
         self.assertIn(n1, (0, 1))
         self.assertEqual(n2, 0)
 
+    @support.impl_detail("PyPy has no cyclic collection", pypy=False)
     def test_len_race(self):
         # Extended sanity checks for len() in the face of cyclic collection
         self.addCleanup(gc.set_threshold, *gc.get_threshold())
