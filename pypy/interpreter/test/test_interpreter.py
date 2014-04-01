@@ -347,6 +347,14 @@ class AppTestInterpreter:
         assert l(1, 2, k=10) == 1 + 2 + 10
         """
 
+    def test_kwonlyarg_mangling(self):
+        """
+        class X:
+            def f(self, *, __a=42):
+                return __a
+        assert X().f() == 42
+        """
+
     def test_extended_unpacking_short(self):
         """
         class Seq:
