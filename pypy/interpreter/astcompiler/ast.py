@@ -52,7 +52,7 @@ class AST(W_Root):
             try:
                 space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
-            except Exception:
+            except OperationError:
                 pass
         w_attrs = space.findattr(w_type, space.wrap("_attributes"))
         if w_attrs:
@@ -60,7 +60,7 @@ class AST(W_Root):
                 try:
                     space.setitem(w_dict, w_name,
                               space.getattr(self, w_name))
-                except Exception:
+                except OperationError:
                     pass
         return space.newtuple([space.type(self),
                                space.newtuple([]),
