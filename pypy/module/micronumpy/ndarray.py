@@ -185,7 +185,7 @@ class __extend__(W_NDimArray):
             return chunks.apply(space, self)
         shape = res_shape + self.get_shape()[len(indexes):]
         w_res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
-                                     self.get_order(), w_instance=self)
+                                       self.get_order(), w_instance=self)
         if not w_res.get_size():
             return w_res
         return loop.getitem_array_int(space, self, w_res, iter_shape, indexes,
@@ -200,6 +200,8 @@ class __extend__(W_NDimArray):
             chunks = self.implementation._prepare_slice_args(space, w_index)
             view = chunks.apply(space, self)
             view.implementation.setslice(space, val_arr)
+            return
+        if support.product(iter_shape) == 0:
             return
         loop.setitem_array_int(space, self, iter_shape, indexes, val_arr,
                                prefix)
@@ -602,8 +604,11 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ctypes not implemented yet"))
 
-    def descr_get_data(self, space):
+    def buffer_w(self, space):
         return self.implementation.get_buffer(space)
+
+    def descr_get_data(self, space):
+        return space.newbuffer(self.buffer_w(space))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -1156,7 +1161,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
             raise OperationError(space.w_TypeError, space.wrap(
                 "numpy scalars from buffers not supported yet"))
         totalsize = support.product(shape) * dtype.elsize
-        if totalsize+offset > buf.getlength():
+        if totalsize + offset > buf.getlength():
             raise OperationError(space.w_TypeError, space.wrap(
                 "buffer is too small for requested array"))
         storage = rffi.cast(RAW_STORAGE_PTR, raw_ptr)
@@ -1248,7 +1253,6 @@ W_NDimArray.typedef = TypeDef("ndarray",
     __float__ = interp2app(W_NDimArray.descr_float),
     __hex__ = interp2app(W_NDimArray.descr_hex),
     __oct__ = interp2app(W_NDimArray.descr_oct),
-    __buffer__ = interp2app(W_NDimArray.descr_get_data),
     __index__ = interp2app(W_NDimArray.descr_index),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),

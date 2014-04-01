@@ -1,14 +1,15 @@
+import math
 import operator
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.objspace.std import model, newformat
+from pypy.objspace.std import newformat
 from pypy.objspace.std.floattype import float_typedef, W_AbstractFloatObject
 from pypy.objspace.std.intobject import HASH_BITS, HASH_MODULUS
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject, newlong_from_float
+from pypy.objspace.std.noneobject import W_NoneObject
 from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, ovfcheck_float_to_int, r_uint)
 from rpython.rlib.rfloat import (
@@ -18,8 +19,6 @@ from rpython.rlib.rbigint import rbigint
 from rpython.rlib import rfloat
 from rpython.tool.sourcetools import func_with_new_name
 
-
-import math
 from pypy.objspace.std.intobject import W_IntObject
 
 HASH_INF  = 314159

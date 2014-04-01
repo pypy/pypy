@@ -4,14 +4,22 @@ python builtin open()
 """
 
 import os
+from rpython.rlib import rposix
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib import rposix
-from rpython.rlib.rstring import StringBuilder
 
-eci = ExternalCompilationInfo(includes=['stdio.h', 'unistd.h', 'sys/types.h'])
+includes = ['stdio.h', 'sys/types.h']
+if os.name == "posix":
+    includes += ['unistd.h']
+    ftruncate = 'ftruncate'
+    fileno = 'fileno'
+else:
+    ftruncate = '_chsize'
+    fileno = '_fileno'
+eci = ExternalCompilationInfo(includes=includes)
 
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
@@ -38,10 +46,11 @@ c_clearerror = llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
 c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
                      rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
-c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
+c_fileno = llexternal(fileno, [lltype.Ptr(FILE)], rffi.INT)
+c_fdopen = llexternal('fdopen', [rffi.INT, rffi.CCHARP], lltype.Ptr(FILE))
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
-c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT, macro=True)
+c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
                      rffi.CCHARP)
@@ -85,6 +94,17 @@ def create_temp_rfile():
         raise OSError(errno, os.strerror(errno))
     return RFile(res)
 
+def create_fdopen_rfile(fd, mode="r"):
+    assert mode is not None
+    ll_mode = rffi.str2charp(mode)
+    try:
+        ll_f = c_fdopen(rffi.cast(rffi.INT, fd), ll_mode)
+        if not ll_f:
+            errno = rposix.get_errno()
+            raise OSError(errno, os.strerror(errno))
+    finally:
+        lltype.free(ll_mode, flavor='raw')
+    return RFile(ll_f)
 
 def create_popen_file(command, type):
     ll_command = rffi.str2charp(command)

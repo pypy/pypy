@@ -292,6 +292,10 @@ Miscellaneous
   depending on the compiler settings, the default of 768KB is enough
   for about 1400 calls.
 
+* since the implementation of dictionary is different, the exact number
+  which ``__hash__`` and ``__eq__`` are called is different. Since CPython
+  does not give any specific guarantees either, don't rely on it.
+
 * assignment to ``__class__`` is limited to the cases where it
   works on CPython 2.5.  On CPython 2.6 and 2.7 it works in a bit
   more cases, which are not supported by PyPy so far.  (If needed,

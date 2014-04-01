@@ -5,12 +5,11 @@ In order to have the same behavior running on CPython, and after RPython
 translation this module uses rarithmetic.ovfcheck to explicitly check
 for overflows, something CPython does not do anymore.
 """
-
 import operator
 import sys
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import instantiate, import_from_mixin, specialize
+from rpython.rlib.objectmodel import instantiate
 from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, is_valid_int, ovfcheck, r_longlong, r_uint,
     string_to_int)
@@ -23,7 +22,6 @@ from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, interpindirect2app, unwrap_spec)
@@ -32,7 +30,6 @@ from pypy.objspace.std.model import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
-
 SENTINEL = object()
 
 HASH_BITS = 61 if sys.maxsize > 2 ** 31 - 1 else 31
@@ -40,7 +37,6 @@ HASH_MODULUS = 2 ** HASH_BITS - 1
 
 
 class W_AbstractIntObject(W_Root):
-
     __slots__ = ()
 
     def is_w(self, space, w_other):
@@ -889,7 +885,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         else:
             # If object supports the buffer interface
             try:
-                w_buffer = space.buffer(w_value)
+                buf = space.buffer_w(w_value)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -897,7 +893,6 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                             "int() argument must be a string or a number, "
                             "not '%T'", w_value)
             else:
-                buf = space.interp_w(Buffer, w_buffer)
                 return _string_to_int_or_long(space, w_inttype, w_value,
                                               buf.as_str())
     else:

@@ -3,7 +3,6 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.module import Module
-from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIteratorWithDel
 from rpython.rlib.objectmodel import instantiate

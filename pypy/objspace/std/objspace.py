@@ -25,6 +25,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
+from pypy.objspace.std.memoryview import W_MemoryView
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
@@ -330,7 +331,6 @@ class StdObjSpace(ObjSpace):
                 strdict=strdict, kwargs=kwargs)
 
     def newset(self):
-        from pypy.objspace.std.setobject import newset
         return W_SetObject(self, None)
 
     def newslice(self, w_start, w_end, w_step):
@@ -338,6 +338,9 @@ class StdObjSpace(ObjSpace):
 
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
+
+    def newbuffer(self, w_obj):
+        return W_MemoryView(w_obj)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)

@@ -1,6 +1,3 @@
-"""Tests some behaviour of the buffer type that is not tested in
-lib-python/2.5.2/test/test_types.py where the stdlib buffer tests live."""
-
 class AppTestMemoryView:
     spaceconfig = dict(usemodules=['array'])
 
@@ -119,4 +116,5 @@ class AppTestMemoryView:
         v = memoryview(b"a"*100)
         with v as cm:
             assert cm is v
+        raises(ValueError, bytes, v)
         assert "released memory" in repr(v)

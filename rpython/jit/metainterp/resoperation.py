@@ -119,10 +119,11 @@ class AbstractResOp(object):
         descr = self.getdescr()
         if descr is None or we_are_translated():
             return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                 ', '.join([str(a) for a in args]))
+                                   ', '.join([str(a) for a in args]))
         else:
-            return '%s%s%s(%s, descr=%r)' % (prefix, sres, self.getopname(),
-                                             ', '.join([str(a) for a in args]), descr)
+            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
+                                   ', '.join([str(a) for a in args] +
+                                             ['descr=%r' % descr]))
 
     def getopname(self):
         try:
@@ -493,6 +494,7 @@ _oplist = [
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
+    'INCREMENT_DEBUG_COUNTER/1',
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',

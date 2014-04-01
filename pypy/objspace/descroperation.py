@@ -473,13 +473,6 @@ class DescrOperation(object):
         else:
             return space.isinstance(w_inst, w_type)
 
-    def buffer(space, w_obj):
-        w_impl = space.lookup(w_obj, '__buffer__')
-        if w_impl is None:
-            raise oefmt(space.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
-        return space.get_and_call_function(w_impl, w_obj)
-
 
 # helpers
 

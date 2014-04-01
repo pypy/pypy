@@ -1,13 +1,29 @@
-
 """ transparent.py - Several transparent proxy helpers
 """
-
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.objspace.std.proxyobject import *
+from pypy.interpreter.typedef import Function, GeneratorIterator, PyTraceback, \
+    PyFrame, PyCode
+from pypy.objspace.std.proxyobject import W_Transparent
 from pypy.objspace.std.typeobject import W_TypeObject
-from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.unroll import unrolling_iterable
+
+
+class W_TransparentFunction(W_Transparent):
+    typedef = Function.typedef
+
+class W_TransparentTraceback(W_Transparent):
+    typedef = PyTraceback.typedef
+
+class W_TransparentCode(W_Transparent):
+    typedef = PyCode.typedef
+
+class W_TransparentFrame(W_Transparent):
+    typedef = PyFrame.typedef
+
+class W_TransparentGenerator(W_Transparent):
+    typedef = GeneratorIterator.typedef
+
 
 class TypeCache(object):
     def __init__(self):
@@ -28,13 +44,10 @@ def setup(space):
                   space.wrap(app_proxy_controller))
 
 
-
 def proxy(space, w_type, w_controller):
     """tproxy(typ, controller) -> obj
 Return something that looks like it is of type typ. Its behaviour is
 completely controlled by the controller."""
-    from pypy.interpreter.typedef import Function, PyTraceback, PyFrame, \
-        PyCode, GeneratorIterator
     if not space.is_true(space.callable(w_controller)):
         raise OperationError(space.w_TypeError, space.wrap("controller should be function"))
 

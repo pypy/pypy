@@ -21,6 +21,7 @@ class EffectInfo(object):
     OS_ARRAYCOPY                = 1    # "list.ll_arraycopy"
     OS_STR2UNICODE              = 2    # "str.str2unicode"
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
+    OS_DICT_LOOKUP              = 4    # ll_dict_lookup
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
@@ -88,19 +89,24 @@ class EffectInfo(object):
     # for debugging:
     _OS_CANRAISE = set([
         OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,
-        OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY,
+        OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY, OS_DICT_LOOKUP,
     ])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
+                readonly_descrs_interiorfields,
                 write_descrs_fields, write_descrs_arrays,
+                write_descrs_interiorfields,
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
-                call_release_gil_target=llmemory.NULL):
+                call_release_gil_target=llmemory.NULL,
+                extradescrs=None):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
+               frozenset_or_none(readonly_descrs_interiorfields),
                frozenset_or_none(write_descrs_fields),
                frozenset_or_none(write_descrs_arrays),
+               frozenset_or_none(write_descrs_interiorfields),
                extraeffect,
                oopspecindex,
                can_invalidate)
@@ -121,17 +127,21 @@ class EffectInfo(object):
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
         result.readonly_descrs_arrays = readonly_descrs_arrays
+        result.readonly_descrs_interiorfields = readonly_descrs_interiorfields
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
            extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
            extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
+            result.write_descrs_interiorfields = []
         else:
             result.write_descrs_fields = write_descrs_fields
             result.write_descrs_arrays = write_descrs_arrays
+            result.write_descrs_interiorfields = write_descrs_interiorfields
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
+        result.extradescrs = extradescrs
         result.call_release_gil_target = call_release_gil_target
         if result.check_can_raise():
             assert oopspecindex in cls._OS_CANRAISE
@@ -163,7 +173,7 @@ def frozenset_or_none(x):
         return None
     return frozenset(x)
 
-EffectInfo.MOST_GENERAL = EffectInfo(None, None, None, None,
+EffectInfo.MOST_GENERAL = EffectInfo(None, None, None, None, None, None,
                                      EffectInfo.EF_RANDOM_EFFECTS,
                                      can_invalidate=True)
 
@@ -172,19 +182,24 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False,
-                                 call_release_gil_target=llmemory.NULL):
+                                 call_release_gil_target=llmemory.NULL,
+                                 extradescr=None):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
         readonly_descrs_arrays = None
+        readonly_descrs_interiorfields = None
         write_descrs_fields = None
         write_descrs_arrays = None
+        write_descrs_interiorfields = None
         extraeffect = EffectInfo.EF_RANDOM_EFFECTS
     else:
         readonly_descrs_fields = []
         readonly_descrs_arrays = []
+        readonly_descrs_interiorfields = []
         write_descrs_fields = []
         write_descrs_arrays = []
+        write_descrs_interiorfields = []
 
         def add_struct(descrs_fields, (_, T, fieldname)):
             T = deref(T)
@@ -198,6 +213,29 @@ def effectinfo_from_writeanalyze(effects, cpu,
                 descr = cpu.arraydescrof(ARRAY)
                 descrs_arrays.append(descr)
 
+        def add_interiorfield(descrs_interiorfields, (_, T, fieldname)):
+            T = deref(T)
+            if not isinstance(T, lltype.Array):
+                return # let's not consider structs for now
+            if not consider_array(T):
+                return
+            if getattr(T.OF, fieldname) is lltype.Void:
+                return
+            descr = cpu.interiorfielddescrof(T, fieldname)
+            descrs_interiorfields.append(descr)
+
+        # a read or a write to an interiorfield, inside an array of
+        # structs, is additionally recorded as a read or write of
+        # the array itself
+        extraef = set()
+        for tup in effects:
+            if tup[0] == "interiorfield" or tup[0] == "readinteriorfield":
+                T = deref(tup[1])
+                if isinstance(T, lltype.Array) and consider_array(T):
+                    extraef.add((tup[0].replace("interiorfield", "array"),
+                                 tup[1]))
+        effects |= extraef
+
         for tup in effects:
             if tup[0] == "struct":
                 add_struct(write_descrs_fields, tup)
@@ -205,6 +243,12 @@ def effectinfo_from_writeanalyze(effects, cpu,
                 tupw = ("struct",) + tup[1:]
                 if tupw not in effects:
                     add_struct(readonly_descrs_fields, tup)
+            elif tup[0] == "interiorfield":
+                add_interiorfield(write_descrs_interiorfields, tup)
+            elif tup[0] == "readinteriorfield":
+                tupw = ('interiorfield',) + tup[1:]
+                if tupw not in effects:
+                    add_interiorfield(readonly_descrs_interiorfields, tup)
             elif tup[0] == "array":
                 add_array(write_descrs_arrays, tup)
             elif tup[0] == "readarray":
@@ -216,12 +260,15 @@ def effectinfo_from_writeanalyze(effects, cpu,
     #
     return EffectInfo(readonly_descrs_fields,
                       readonly_descrs_arrays,
+                      readonly_descrs_interiorfields,
                       write_descrs_fields,
                       write_descrs_arrays,
+                      write_descrs_interiorfields,
                       extraeffect,
                       oopspecindex,
                       can_invalidate,
-                      call_release_gil_target)
+                      call_release_gil_target,
+                      extradescr)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:

@@ -4,6 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
+from pypy.objspace.std.memoryview import _buffer_setitem
 
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
@@ -39,26 +40,30 @@ class LLBuffer(RWBuffer):
         copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
 
 
-class MiniBuffer(W_Root):
-    # a different subclass of W_Root for the MiniBuffer, because we
-    # want a slightly different (simplified) API at the level of Python.
+# Override the typedef to narrow down the interface that's exposed to app-level
 
+class MiniBuffer(W_Root):
     def __init__(self, buffer, keepalive=None):
         self.buffer = buffer
         self.keepalive = keepalive
 
+    def buffer_w(self, space):
+        return self.buffer
+
     def descr_len(self, space):
-        return self.buffer.descr_len(space)
+        return space.wrap(self.buffer.getlength())
 
     def descr_getitem(self, space, w_index):
-        return self.buffer.descr_getitem(space, w_index)
+        start, stop, step, size = space.decode_index4(w_index,
+                                                      self.buffer.getlength())
+        if step == 0:
+            return space.wrapbytes(self.buffer.getitem(start))
+        res = self.buffer.getslice(start, stop, step, size)
+        return space.wrapbytes(res)
 
     @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
-        self.buffer.descr_setitem(space, w_index, newstring)
-
-    def descr__buffer__(self, space):
-        return self.buffer.descr__buffer__(space)
+        _buffer_setitem(space, self.buffer, w_index, newstring)
 
 
 MiniBuffer.typedef = TypeDef(
@@ -67,7 +72,6 @@ MiniBuffer.typedef = TypeDef(
     __len__ = interp2app(MiniBuffer.descr_len),
     __getitem__ = interp2app(MiniBuffer.descr_getitem),
     __setitem__ = interp2app(MiniBuffer.descr_setitem),
-    __buffer__ = interp2app(MiniBuffer.descr__buffer__),
     __weakref__ = make_weakref_descr(MiniBuffer),
     )
 MiniBuffer.typedef.acceptable_as_base_class = False

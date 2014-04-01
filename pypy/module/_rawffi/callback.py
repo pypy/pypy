@@ -2,7 +2,7 @@
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
+from pypy.module._rawffi.interp_rawffi import write_ptr
 from pypy.module._rawffi.structure import W_Structure
 from pypy.module._rawffi.interp_rawffi import (W_DataInstance, letter2tp,
      unwrap_value, unpack_argshapes, got_libffi_error)

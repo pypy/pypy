@@ -2,7 +2,6 @@
 Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
-import re
 from rpython.translator.platform import platform
 from pypy.interpreter import gateway
 

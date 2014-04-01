@@ -488,12 +488,22 @@ class LocationCodeBuilder(object):
             for possible_code in unrolling_location_codes:
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
-                    if self.WORD == 8 and possible_code == 'i' and not rx86.fits_in_32bits(val):
-                        self._load_scratch(val)
+                    # Faking out of certain operations for x86_64
+                    fits32 = rx86.fits_in_32bits
+                    if possible_code == 'i' and not fits32(val):
+                        self._load_scratch(val)    # for 'PUSH(imm)'
                         _rx86_getattr(self, name + "_r")(X86_64_SCRATCH_REG.value)
-                    else:
-                        methname = name + "_" + possible_code
-                        _rx86_getattr(self, methname)(val)
+                        return
+                    if possible_code == 'j' and not fits32(val):
+                        val = self._addr_as_reg_offset(val)
+                        _rx86_getattr(self, name + "_m")(val)
+                        return
+                    if possible_code == 'm' and not fits32(val[1]):
+                        val = self._fix_static_offset_64_m(val)
+                    if possible_code == 'a' and not fits32(val[3]):
+                        val = self._fix_static_offset_64_a(val)
+                    methname = name + "_" + possible_code
+                    _rx86_getattr(self, methname)(val)
 
         return func_with_new_name(INSN, "INSN_" + name)
 
@@ -600,6 +610,7 @@ class LocationCodeBuilder(object):
     TEST8 = _binaryop('TEST8')
     BTS = _binaryop('BTS')
 
+    INC = _unaryop('INC')
     ADD = _binaryop('ADD')
     SUB = _binaryop('SUB')
     IMUL = _binaryop('IMUL')

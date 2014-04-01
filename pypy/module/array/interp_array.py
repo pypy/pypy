@@ -40,16 +40,19 @@ def w_array(space, w_cls, typecode, __args__):
 
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
-                if space.lookup(w_initializer, '__buffer__') is not None:
-                    if isinstance(w_initializer, W_ArrayBase):
-                        a.extend(w_initializer, True)
-                    else:
-                        a.descr_frombytes(space,
-                                          space.bufferstr_w(w_initializer))
+                if isinstance(w_initializer, W_ArrayBase):
+                    a.extend(w_initializer, True)
                 elif space.type(w_initializer) is space.w_list:
                     a.descr_fromlist(space, w_initializer)
                 else:
-                    a.extend(w_initializer, True)
+                    try:
+                        buf = space.bufferstr_w(w_initializer)
+                    except OperationError as e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                        a.extend(w_initializer, True)
+                    else:
+                        a.descr_frombytes(space, buf)
             break
     else:
         msg = 'bad typecode (must be b, B, u, h, H, i, I, l, L, f or d)'
@@ -134,6 +137,9 @@ class W_ArrayBase(W_Root):
         self.space = space
         self.len = 0
         self.allocated = 0
+
+    def buffer_w(self, space):
+        return ArrayBuffer(self)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -505,9 +511,6 @@ class W_ArrayBase(W_Root):
     def descr_iter(self, space):
         return space.wrap(ArrayIterator(self))
 
-    def descr_buffer(self, space):
-        return space.wrap(ArrayBuffer(self))
-
     def descr_repr(self, space):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -544,7 +547,6 @@ W_ArrayBase.typedef = TypeDef(
     __radd__ = interp2app(W_ArrayBase.descr_radd),
     __rmul__ = interp2app(W_ArrayBase.descr_rmul),
 
-    __buffer__ = interp2app(W_ArrayBase.descr_buffer),
     __iter__ = interp2app(W_ArrayBase.descr_iter),
     __repr__ = interp2app(W_ArrayBase.descr_repr),
 

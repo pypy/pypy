@@ -389,7 +389,7 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 .. _`pypy-dev mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: index.html
 
-.. _`py library`: http://pylib.org
+.. _`py library`: http://pylib.readthedocs.org/
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 

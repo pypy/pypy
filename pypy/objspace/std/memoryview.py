@@ -1,21 +1,60 @@
 """
 Implementation of the 'buffer' and 'memoryview' types.
 """
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter import buffer
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError
 import operator
 
+from pypy.interpreter import buffer
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.rstring import StringBuilder
+
+
+def _buffer_setitem(space, buf, w_index, newstring):
+    start, stop, step, size = space.decode_index4(w_index, buf.getlength())
+    if step == 0:  # index only
+        if len(newstring) != 1:
+            msg = 'buffer[index]=x: x must be a single character'
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        char = newstring[0]   # annotator hint
+        buf.setitem(start, char)
+    elif step == 1:
+        if len(newstring) != size:
+            msg = "right operand length must match slice length"
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        buf.setslice(start, newstring)
+    else:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("buffer object does not support"
+                                        " slicing with a step"))
+
+
 class W_MemoryView(W_Root):
-    """Implement the built-in 'memoryview' type as a thin wrapper around
+    """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
 
     def __init__(self, buf):
         assert isinstance(buf, buffer.Buffer)
         self.buf = buf
+
+    def buffer_w(self, space):
+        """
+        Note that memoryview() is very inconsistent in CPython: it does not
+        support the buffer interface but does support the new buffer
+        interface: as a result, it is possible to pass memoryview to
+        e.g. socket.send() but not to file.write().  For simplicity and
+        consistency, in PyPy memoryview DOES support buffer(), which means
+        that it is accepted in more places than CPython.
+        """
+        self._check_released(space)
+        return self.buf
+
+    @staticmethod
+    def descr_new_memoryview(space, w_subtype, w_object):
+        return W_MemoryView(space.buffer_w(w_object))
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -28,14 +67,14 @@ class W_MemoryView(W_Root):
                 return space.wrap(getattr(operator, name)(str1, str2))
 
             try:
-                w_buf = space.buffer(w_other)
+                buf = space.buffer_w(w_other)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
                 return space.w_NotImplemented
             else:
                 str1 = self.as_str()
-                str2 = space.buffer_w(w_buf).as_str()
+                str2 = buf.as_str()
                 return space.wrap(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp
@@ -61,18 +100,6 @@ class W_MemoryView(W_Root):
         else:
             buf = buffer.SubBuffer(buf, start, size)
         return W_MemoryView(buf)
-
-    def descr_buffer(self, space):
-        """
-        Note that memoryview() is very inconsistent in CPython: it does not
-        support the buffer interface but does support the new buffer
-        interface: as a result, it is possible to pass memoryview to
-        e.g. socket.send() but not to file.write().  For simplicity and
-        consistency, in PyPy memoryview DOES support buffer(), which means
-        that it is accepted in more places than CPython.
-        """
-        self._check_released(space)
-        return space.wrap(self.buf)
 
     def descr_tobytes(self, space):
         self._check_released(space)
@@ -102,16 +129,14 @@ class W_MemoryView(W_Root):
     @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
         self._check_released(space)
-        buf = self.buf
-        if isinstance(buf, buffer.RWBuffer):
-            buf.descr_setitem(space, w_index, newstring)
-        else:
+        if not isinstance(self.buf, buffer.RWBuffer):
             raise OperationError(space.w_TypeError,
                                  space.wrap("cannot modify read-only memory"))
+        _buffer_setitem(space, self.buf, w_index, newstring)
 
     def descr_len(self, space):
         self._check_released(space)
-        return self.buf.descr_len(space)
+        return space.wrap(self.buf.getlength())
 
     def w_get_format(self, space):
         self._check_released(space)
@@ -165,17 +190,12 @@ class W_MemoryView(W_Root):
         return space.w_None
 
 
-def descr_new(space, w_subtype, w_object):
-    memoryview = W_MemoryView(space.buffer(w_object))
-    return space.wrap(memoryview)
-
 W_MemoryView.typedef = TypeDef(
     "memoryview",
     __doc__ = """\
 Create a new memoryview object which references the given object.
 """,
-    __new__ = interp2app(descr_new),
-    __buffer__  = interp2app(W_MemoryView.descr_buffer),
+    __new__     = interp2app(W_MemoryView.descr_new_memoryview),
     __eq__      = interp2app(W_MemoryView.descr_eq),
     __getitem__ = interp2app(W_MemoryView.descr_getitem),
     __len__     = interp2app(W_MemoryView.descr_len),

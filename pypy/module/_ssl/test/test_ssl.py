@@ -1,7 +1,7 @@
 from rpython.tool.udir import udir
 
 class AppTestSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii', 'thread'))
 
     def setup_class(cls):
         import os

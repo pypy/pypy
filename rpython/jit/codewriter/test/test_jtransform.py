@@ -60,7 +60,8 @@ class FakeLink:
 class FakeResidualCallControl:
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op, **kwds):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None,
+                     extradescr=None):
         return 'calldescr'
     def calldescr_canraise(self, calldescr):
         return True
@@ -117,7 +118,8 @@ class FakeBuiltinCallControl:
         self.callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'builtin'
-    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None,
+                     extradescr=None):
         assert oopspecindex is not None    # in this test
         EI = effectinfo.EffectInfo
         if oopspecindex != EI.OS_ARRAYCOPY:
