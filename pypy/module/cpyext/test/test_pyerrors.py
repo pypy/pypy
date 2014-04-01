@@ -222,14 +222,14 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
-    def test_SetFromErrnoWithFilenameObject__PyString(self):
+    def test_SetFromErrnoWithFilenameObject__PyUnicode(self):
         import errno, os
 
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
                  errno = EBADF;
-                 PyObject *filenameObject = PyString_FromString("/path/to/file");
+                 PyObject *filenameObject = PyUnicode_FromString("/path/to/file");
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, filenameObject);
                  Py_DECREF(filenameObject);
                  return NULL;
@@ -241,14 +241,14 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
-    def test_SetFromErrnoWithFilenameObject__PyInt(self):
+    def test_SetFromErrnoWithFilenameObject__PyLong(self):
         import errno, os
 
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
                  errno = EBADF;
-                 PyObject *intObject = PyInt_FromLong(3);
+                 PyObject *intObject = PyLong_FromLong(3);
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, intObject);
                  Py_DECREF(intObject);
                  return NULL;
