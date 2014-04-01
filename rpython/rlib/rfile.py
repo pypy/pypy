@@ -47,6 +47,7 @@ c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
                      rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 c_fileno = llexternal(fileno, [lltype.Ptr(FILE)], rffi.INT)
+c_fdopen = llexternal('fdopen', [rffi.INT, rffi.CCHARP], lltype.Ptr(FILE))
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
@@ -93,6 +94,17 @@ def create_temp_rfile():
         raise OSError(errno, os.strerror(errno))
     return RFile(res)
 
+def create_fdopen_rfile(fd, mode="r"):
+    assert mode is not None
+    ll_mode = rffi.str2charp(mode)
+    try:
+        ll_f = c_fdopen(rffi.cast(rffi.INT, fd), ll_mode)
+        if not ll_f:
+            errno = rposix.get_errno()
+            raise OSError(errno, os.strerror(errno))
+    finally:
+        lltype.free(ll_mode, flavor='raw')
+    return RFile(ll_f)
 
 def create_popen_file(command, type):
     ll_command = rffi.str2charp(command)

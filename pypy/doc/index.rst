@@ -103,7 +103,7 @@ on the `development mailing list`_.
 .. _`more...`: architecture.html#mission-statement 
 .. _`PyPy blog`: http://morepypy.blogspot.com/
 .. _`development bug/feature tracker`: https://bugs.pypy.org
-.. _here: http://tismerysoft.de/pypy/irc-logs/pypy
+.. _here: http://www.tismer.com/pypy/irc-logs/pypy/
 .. _`Mercurial commit mailing list`: http://mail.python.org/mailman/listinfo/pypy-commit
 .. _`development mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html

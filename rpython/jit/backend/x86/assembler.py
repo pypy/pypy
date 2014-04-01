@@ -1857,10 +1857,17 @@ class Assembler386(BaseAssembler):
         arglist = op.getarglist()
         if arglist and arglist[0].type == REF:
             if self._finish_gcmap:
-                self._finish_gcmap[0] |= r_uint(1) # rax
+                # we're returning with a guard_not_forced_2, and
+                # additionally we need to say that eax/rax contains
+                # a reference too:
+                self._finish_gcmap[0] |= r_uint(1)
                 gcmap = self._finish_gcmap
             else:
                 gcmap = self.gcmap_for_finish
+            self.push_gcmap(self.mc, gcmap, store=True)
+        elif self._finish_gcmap:
+            # we're returning with a guard_not_forced_2
+            gcmap = self._finish_gcmap
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather

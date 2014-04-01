@@ -17,6 +17,8 @@ def test_dir_structure(test='test'):
         exe_name_in_archive = 'bin/pypy'
     pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
+        if sys.platform == 'win32':
+            assert False, "test on win32 requires exe"
         pypy_c.write("#!/bin/sh")
         pypy_c.chmod(0755)
         fake_pypy_c = True
@@ -81,6 +83,8 @@ def test_with_zipfile_module():
         package.USE_ZIPFILE_MODULE = prev
 
 def test_fix_permissions(tmpdir):
+    if sys.platform == 'win32':
+        py.test.skip('needs to be more general for windows')
     def check(f, mode):
         assert f.stat().mode & 0777 == mode
     #

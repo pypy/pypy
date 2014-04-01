@@ -1,12 +1,15 @@
 """
-Testing code.  This is not used in a PyPy translation.
-It exports the same interface as the Python 're' module.
+This is not used in a PyPy translation, but it can be used
+in RPython code.  It exports the same interface as the
+Python 're' module.  You can call the functions at the start
+of the module (expect the ones with NOT_RPYTHON for now).
+They must be called with a *constant* pattern string.
 """
 import re, sys
 from rpython.rlib.rsre import rsre_core, rsre_char
 from rpython.rlib.rsre.rpy import get_code as _get_code
 from rpython.rlib.unicodedata import unicodedb
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 rsre_char.set_unicode_db(unicodedb)
 
 
@@ -18,24 +21,31 @@ S = DOTALL     = re.S   # make dot match newline
 X = VERBOSE    = re.X   # ignore whitespace and comments
 
 
+@specialize.call_location()
 def match(pattern, string, flags=0):
     return compile(pattern, flags).match(string)
 
+@specialize.call_location()
 def search(pattern, string, flags=0):
     return compile(pattern, flags).search(string)
 
+@specialize.call_location()
 def findall(pattern, string, flags=0):
     return compile(pattern, flags).findall(string)
 
+@specialize.call_location()
 def finditer(pattern, string, flags=0):
     return compile(pattern, flags).finditer(string)
 
 def sub(pattern, repl, string, count=0):
+    "NOT_RPYTHON"
     return compile(pattern).sub(repl, string, count)
 
 def subn(pattern, repl, string, count=0):
+    "NOT_RPYTHON"
     return compile(pattern).subn(repl, string, count)
 
+@specialize.call_location()
 def split(pattern, string, maxsplit=0):
     return compile(pattern).split(string, maxsplit)
 
@@ -71,18 +81,30 @@ class RSREPattern(object):
 
     def findall(self, string, pos=0, endpos=sys.maxint):
         matchlist = []
-        for match in self.finditer(string, pos, endpos):
+        scanner = self.scanner(string, pos, endpos)
+        while True:
+            match = scanner.search()
+            if match is None:
+                break
             if self.groups == 0 or self.groups == 1:
                 item = match.group(self.groups)
             else:
+                assert False, ("findall() not supported if there is more "
+                               "than one group: not valid RPython")
                 item = match.groups("")
             matchlist.append(item)
         return matchlist
 
     def finditer(self, string, pos=0, endpos=sys.maxint):
-        return iter(self.scanner(string, pos, endpos).search, None)
+        scanner = self.scanner(string, pos, endpos)
+        while True:
+            match = scanner.search()
+            if match is None:
+                break
+            yield match
 
     def subn(self, repl, string, count=0):
+        "NOT_RPYTHON"
         filter = repl
         if not callable(repl) and "\\" in repl:
             # handle non-literal strings; hand it over to the template compiler
@@ -130,6 +152,7 @@ class RSREPattern(object):
         return item, n
 
     def sub(self, repl, string, count=0):
+        "NOT_RPYTHON"
         item, n = self.subn(repl, string, count)
         return item
 
@@ -212,7 +235,9 @@ class RSREMatch(object):
             grp = self.group(i)
             if grp is None: grp = default
             grps.append(grp)
-        return tuple(grps)
+        if not we_are_translated():
+            grps = tuple(grps)    # xxx mostly to make tests happy
+        return grps
 
     def groupdict(self, default=None):
         d = {}
