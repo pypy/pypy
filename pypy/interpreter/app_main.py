@@ -690,7 +690,7 @@ debug: WARNING: It is ok to create a symlink to it from somewhere else."""
 
 def setup_bootstrap_path(executable):
     """
-    Try to to as little as possible and to have the stdlib in sys.path. In
+    Try to do as little as possible and to have the stdlib in sys.path. In
     particular, we cannot use any unicode at this point, because lots of
     unicode operations require to be able to import encodings.
     """
