@@ -127,3 +127,6 @@ Add support for PyErr_SetFromErrnoWithFilenameObject to cpyext
 
 .. branch: win32-fixes4
 fix more tests for win32
+
+.. branch: latest-improve-doc
+Fix broken links in documentation
