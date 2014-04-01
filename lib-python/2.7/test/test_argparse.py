@@ -10,6 +10,7 @@ import textwrap
 import tempfile
 import unittest
 import argparse
+import gc
 
 from StringIO import StringIO
 
@@ -47,7 +48,11 @@ class TempDirMixin(object):
 
     def tearDown(self):
         os.chdir(self.old_dir)
-        shutil.rmtree(self.temp_dir, True)
+        gc.collect()
+        for root, dirs, files in os.walk(self.temp_dir, topdown=False):
+            for name in files:
+                os.chmod(os.path.join(self.temp_dir, name), stat.S_IWRITE)
+        shutil.rmtree(self.temp_dir, True)        
 
     def create_readonly_file(self, filename):
         file_path = os.path.join(self.temp_dir, filename)
