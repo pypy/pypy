@@ -130,3 +130,7 @@ fix more tests for win32
 
 .. branch: latest-improve-doc
 Fix broken links in documentation
+
+.. branch: ast-issue1673
+fix ast classes __dict__ are always empty problem and fix the ast deepcopy issue when 
+there is missing field
