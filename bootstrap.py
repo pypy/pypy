@@ -89,7 +89,7 @@ def gen_env_sh(shared_dir):
                 os.path.join(SCRIPT_DIR, "rpython", "bin", "rpython")))
 
 def force_symlink(src, dest):
-    if os.path.exists(dest):
+    if os.path.exists(dest) or os.path.islink(dest):
         os.unlink(dest)
     os.symlink(src, dest)
 
@@ -110,7 +110,7 @@ def gen_uni_symlink(shared_dir):
 #
 # MAIN
 #
-def bootstrap(shared_dir=None):
+def bootstrap(target, shared_dir=None):
     if shared_dir is None:
         with_shared = True
         shared_dir = DEFAULT_SHARED_DIR
@@ -118,34 +118,50 @@ def bootstrap(shared_dir=None):
         with_shared = False
         shared_dir = os.path.abspath(shared_dir)
 
-    fetch_deps(with_shared)
+    if target in ["fetch", "all"]:
+        fetch_deps(with_shared)
+
+    # happens in all targets
     configure(shared_dir)
 
-    print("""
-    **************************************************************
-    *** NOTE: This bootstrapper will not translate unipycation ***
-    **************************************************************
+    # XXX actually translate
+    if target in ["build", "all"]:
+        print("""
+        **************************************************************
+        *** NOTE: This bootstrapper will not translate unipycation ***
+        **************************************************************
 
-    To translate, run translate_unipycation.py.
+        To translate, run translate_unipycation.py.
 
-    Note that OpenBSD users will need to install a newish GCC from packages.
+        Note that OpenBSD users will need to install a newish GCC from packages.
 
-    Once you are translated, source env.sh and run 'pypy-c'.
-    """)
+        Once you are translated, source env.sh and run 'pypy-c'.
+        """)
 
 def usage():
     print("\nUsage:")
-    print("  bootstrap.py [unipycation_shared_path]")
-    print("\nIf no path specified, will clone afresh\n")
+    print("  bootstrap.py target [unipycation_shared_path]")
+    print("\nIf no path specified, will clone afresh")
+    print("\nValid targets: fetch, build, all.")
+    sys.exit(666)
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        bootstrap() # will clone a new unipycation-shared
-    elif len(sys.argv) == 2:
-        if sys.argv[1] in ["-h", "--help", "-help"]:
-            usage()
-        else:
-            # using an existing clone of unipycation-shared
-            bootstrap(sys.argv[1])
-    else:
+
+    try:
+        shared_arg = sys.argv[2]
+    except KeyError:
+        shared_arg = None
+
+    try:
+        target = sys.argv[1]
+    except KeyError:
         usage()
+
+    if target not in ["fetch", "build", "configure", "all"]:
+        print("Bad target")
+        usage()
+
+    if shared_arg is not None:
+        bootstrap(target, shared_arg)
+    else:
+        bootstrap(target)
