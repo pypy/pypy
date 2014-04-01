@@ -1041,7 +1041,7 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedReader"):
+        with self.assertRaisesRegex(TypeError, "__init__()"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
@@ -1329,7 +1329,7 @@ class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedWriter"):
+        with self.assertRaisesRegex(TypeError, "__init__()"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
@@ -1705,7 +1705,7 @@ class CBufferedRandomTest(BufferedRandomTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedRandom"):
+        with self.assertRaisesRegex(TypeError, "__init__()"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
