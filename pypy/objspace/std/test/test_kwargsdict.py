@@ -73,7 +73,7 @@ def test_limit_size():
     for i in range(100):
         assert d.setitem_str("d%s" % i, 4) is None
     assert d.strategy is not strategy
-    assert "BytesDictStrategy" == d.strategy.__class__.__name__
+    assert "UnicodeDictStrategy" == d.strategy.__class__.__name__
 
 def test_keys_doesnt_wrap():
     space = FakeSpace()
@@ -133,7 +133,6 @@ class AppTestKwargsDictStrategy(object):
         return r[r.find("(") + 1: r.find(")")]
 
     def test_create(self):
-        py3k_skip("need UnicodeDictStrategy to work in py3k")
         def f(**args):
             return args
         d = f(a=1)
@@ -149,7 +148,6 @@ class AppTestKwargsDictStrategy(object):
         assert sorted(f(a=2, b=3).values()) == [2, 3]
 
     def test_setdefault(self):
-        py3k_skip("XXX: strategies are currently broken")
         def f(**args):
             return args
         d = f(a=1, b=2)

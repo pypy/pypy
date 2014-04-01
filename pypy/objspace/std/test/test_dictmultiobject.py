@@ -3,7 +3,7 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    BytesDictStrategy, ObjectDictStrategy)
+    BytesDictStrategy, ObjectDictStrategy, UnicodeDictStrategy)
 
 
 class TestW_DictObject(object):
@@ -1054,15 +1054,24 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
+    def newlist_unicode(self, l):
+        return l
     DictObjectCls = W_DictMultiObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
             return str
         return type(w_obj)
     w_str = str
+    w_unicode = unicode
 
     def str_w(self, string):
+        if isinstance(string, unicode):
+            return string.encode('utf-8')
         assert isinstance(string, str)
+        return string
+
+    def unicode_w(self, string):
+        assert isinstance(string, unicode)
         return string
 
     def int_w(self, integer, allow_conversion=True):
@@ -1070,6 +1079,11 @@ class FakeSpace:
         return integer
 
     def wrap(self, obj):
+        if isinstance(obj, str):
+            return obj.decode('ascii')
+        return obj
+
+    def wrapbytes(self, obj):
         return obj
 
     def isinstance_w(self, obj, klass):
@@ -1147,9 +1161,14 @@ class BaseTestRDictImplementation:
 
     def setup_method(self,method):
         self.fakespace = FakeSpace()
-        self.string = self.fakespace.wrap("fish")
-        self.string2 = self.fakespace.wrap("fish2")
+        self.string = self.wrapstroruni("fish")
+        self.string2 = self.wrapstroruni("fish2")
         self.impl = self.get_impl()
+
+    def wrapstrorunicode(self, obj):
+        # XXX: blargh this is all screwed. its referencing FakeString
+        # and using regular strings to setitem.
+        return self.fakespace.wrap(obj)
 
     def get_impl(self):
         strategy = self.StrategyClass(self.fakespace)
@@ -1295,18 +1314,19 @@ class BaseTestRDictImplementation:
         assert "s" not in d.w_keys()
         assert F() not in d.w_keys()
 
-class TestBytesDictImplementation(BaseTestRDictImplementation):
-    StrategyClass = BytesDictStrategy
+class TestUnicodeDictImplementation(BaseTestRDictImplementation):
+    StrategyClass = UnicodeDictStrategy
     #ImplementionClass = BytesDictImplementation
 
     def test_str_shortcut(self):
         self.fill_impl()
-        s = FakeString(self.string)
+        #s = FakeString(self.string)
+        s = FakeUnicode(self.string)
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
 
     def test_view_as_kwargs(self):
-        py.test.py3k_skip("XXX: strategies are currently broken")
+        #py.test.py3k_skip("XXX: strategies are currently broken")
         self.fill_impl()
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
@@ -1322,8 +1342,8 @@ class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def check_not_devolved(self):
         pass
 
-class TestDevolvedBytesDictImplementation(BaseTestDevolvedDictImplementation):
-    StrategyClass = BytesDictStrategy
+class TestDevolvedUnicodeDictImplementation(BaseTestDevolvedDictImplementation):
+    StrategyClass = UnicodeDictStrategy
 
 
 def test_module_uses_strdict():

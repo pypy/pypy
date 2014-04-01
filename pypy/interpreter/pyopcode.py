@@ -1192,13 +1192,13 @@ class __extend__(pyframe.PyFrame):
         w_ann = None
         if num_annotations:
             names_w = space.fixedview(self.popvalue())
-            w_ann = space.newdict(strdict=True)
+            w_ann = space.newdict(strdict=True) # XXX: strdict??
             for i in range(len(names_w) - 1, -1, -1):
                 space.setitem(w_ann, names_w[i], self.popvalue())
         defaultarguments = self.popvalues(posdefaults)
         w_kw_defs = None
         if kwdefaults:
-            w_kw_defs = space.newdict(strdict=True)
+            w_kw_defs = space.newdict(strdict=True) # XXX:
             for i in range(kwdefaults - 1, -1, -1):
                 w_name = self.popvalue()
                 w_def = self.popvalue()

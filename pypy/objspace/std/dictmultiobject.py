@@ -58,7 +58,7 @@ class W_DictMultiObject(W_Root):
         #elif instance or strdict or module:
         #    assert w_type is None
         #    strategy = space.fromcache(BytesDictStrategy)
-        elif False and kwargs:
+        elif kwargs:
             assert w_type is None
             from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
             strategy = space.fromcache(EmptyKwargsDictStrategy)
@@ -500,7 +500,7 @@ class EmptyDictStrategy(DictStrategy):
         w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
-        self.switch_to_bytes_strategy(w_dict)
+        self.switch_to_unicode_strategy(w_dict)
         w_dict.setitem_str(key, w_value)
 
     def delitem(self, w_dict, w_key):
@@ -829,6 +829,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def _never_equal_to(self, w_lookup_type):
         return _never_equal_to_string(self.space, w_lookup_type)
 
+    """
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
         self.unerase(w_dict.dstorage)[key] = w_value
@@ -844,6 +845,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def getitem_str(self, w_dict, key):
         assert key is not None
         return self.unerase(w_dict.dstorage).get(key, None)
+        """
 
     def listview_bytes(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
@@ -896,43 +898,47 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
-    ## def setitem_str(self, w_dict, key, w_value):
-    ##     assert key is not None
-    ##     self.unerase(w_dict.dstorage)[key] = w_value
+    def setitem_str(self, w_dict, key, w_value):
+        assert key is not None
+        self.unerase(w_dict.dstorage)[key.decode('ascii')] = w_value
 
-    ## def getitem(self, w_dict, w_key):
-    ##     space = self.space
-    ##     # -- This is called extremely often.  Hack for performance --
-    ##     if type(w_key) is space.StringObjectCls:
-    ##         return self.getitem_str(w_dict, w_key.unwrap(space))
-    ##     # -- End of performance hack --
-    ##     return AbstractTypedStrategy.getitem(self, w_dict, w_key)
+    def getitem(self, w_dict, w_key):
+        space = self.space
+        # -- This is called extremely often.  Hack for performance --
+        if type(w_key) is space.StringObjectCls:
+            #return self.getitem_str(w_dict, w_key.unwrap(space))
+            # XXX:
+            key = w_key.unwrap(space)
+            return self.unerase(w_dict.dstorage).get(key, None)
+        # -- End of performance hack --
+        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
-    ## def getitem_str(self, w_dict, key):
-    ##     assert key is not None
-    ##     return self.unerase(w_dict.dstorage).get(key, None)
+    def getitem_str(self, w_dict, key):
+        assert key is not None
+        return self.unerase(w_dict.dstorage).get(key.decode('utf-8'), None)
 
     def listview_unicode(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
-    ## def w_keys(self, w_dict):
-    ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
+    #def w_keys(self, w_dict):
+    #    # XXX: I think we can completely kill w_keys...
+    #    return self.space.newlist_str(self.listview_str(w_dict))
 
     def wrapkey(space, key):
         return space.wrap(key)
 
-    ## @jit.look_inside_iff(lambda self, w_dict:
-    ##                      w_dict_unrolling_heuristic(w_dict))
-    ## def view_as_kwargs(self, w_dict):
-    ##     d = self.unerase(w_dict.dstorage)
-    ##     l = len(d)
-    ##     keys, values = [None] * l, [None] * l
-    ##     i = 0
-    ##     for key, val in d.iteritems():
-    ##         keys[i] = key
-    ##         values[i] = val
-    ##         i += 1
-    ##     return keys, values
+    @jit.look_inside_iff(lambda self, w_dict:
+                         w_dict_unrolling_heuristic(w_dict))
+    def view_as_kwargs(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        l = len(d)
+        keys, values = [None] * l, [None] * l
+        i = 0
+        for key, val in d.iteritems():
+            keys[i] = key.encode('utf-8')
+            values[i] = val
+            i += 1
+        return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
 
