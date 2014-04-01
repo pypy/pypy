@@ -459,6 +459,7 @@ class AppExposeVisitor(ASDLVisitor):
                         self.emit("raise OperationError(space.w_TypeError, "
                                   "space.w_None)", 3)
             else:
+                save_original_object = True
                 level = 2
                 if field.opt and field.type.value != "int":
                     self.emit("if space.is_w(w_new_value, space.w_None):", 2)
@@ -480,9 +481,7 @@ class AppExposeVisitor(ASDLVisitor):
                 self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
                           % (field.name,), 1)
             else:
-                #self.emit("w_self.deldictvalue(space, '%s')" %(field.name,), 1)
-                self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
-                          % (field.name,), 1)
+                self.emit("w_self.deldictvalue(space, '%s')" %(field.name,), 1)
         self.emit("w_self.initialization_state |= %s" % (flag,), 1)
         self.emit("")
 
@@ -601,7 +600,7 @@ class AST(W_Root):
             try:
                 space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
-            except:
+            except Exception:
                 pass
         w_attrs = space.findattr(w_type, space.wrap("_attributes"))
         if w_attrs:
@@ -609,7 +608,7 @@ class AST(W_Root):
                 try:
                     space.setitem(w_dict, w_name,
                               space.getattr(self, w_name))
-                except:
+                except Exception:
                     pass
         return space.newtuple([space.type(self),
                                space.newtuple([]),
