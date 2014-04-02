@@ -684,6 +684,10 @@ void _stm_become_inevitable(const char *msg)
         STM_SEGMENT->jmpbuf_ptr = NULL;
         clear_callbacks_on_abort();
     }
+    else {
+        assert(STM_PSEGMENT->transaction_state == TS_INEVITABLE);
+        assert(STM_SEGMENT->jmpbuf_ptr == NULL);
+    }
 
     s_mutex_unlock();
 }
