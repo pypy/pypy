@@ -89,6 +89,9 @@ Caveats:
   explicitly force a transaction break just before (and possibly after)
   each large atomic section, with ``time.sleep(0)``.
 
+* Forking the process is slow because the complete memory needs to be
+  copied manually right now.
+
 .. _`report bugs`: https://bugs.pypy.org/
 
 
