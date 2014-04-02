@@ -92,6 +92,11 @@ Caveats:
 * Forking the process is slow because the complete memory needs to be
   copied manually right now.
 
+* Very long-running processes should eventually crash on an assertion
+  error because of a non-implemented overflow of an internal 29-bit
+  number, but this requires at the very least ten hours --- more
+  probably, several days or more.
+
 .. _`report bugs`: https://bugs.pypy.org/
 
 
