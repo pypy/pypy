@@ -1046,7 +1046,7 @@ class FakeSpace:
         assert isinstance(string, str)
         return string
 
-    def int_w(self, integer):
+    def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)
         return integer
 

@@ -247,12 +247,10 @@ def importhook(space, name, w_globals=None,
         fromlist_w = None
 
     rel_modulename = None
-    if (level != 0 and
-        w_globals is not None and
-        space.isinstance_w(w_globals, space.w_dict)):
-
-        rel_modulename, rel_level = _get_relative_name(space, modulename, level, w_globals)
-
+    if (level != 0 and w_globals is not None and
+            space.isinstance_w(w_globals, space.w_dict)):
+        rel_modulename, rel_level = _get_relative_name(space, modulename, level,
+                                                       w_globals)
         if rel_modulename:
             # if no level was set, ignore import errors, and
             # fall back to absolute import at the end of the
@@ -576,6 +574,7 @@ def load_c_extension(space, filename, modulename):
 def load_module(space, w_modulename, find_info, reuse=False):
     if find_info is None:
         return
+
     if find_info.w_loader:
         return space.call_method(find_info.w_loader, "load_module", w_modulename)
 
@@ -601,7 +600,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
         try:
             if find_info.modtype == PY_SOURCE:
                 load_source_module(
-                    space, w_modulename, w_mod, 
+                    space, w_modulename, w_mod,
                     find_info.filename, find_info.stream.readall(),
                     find_info.stream.try_to_find_file_descriptor())
                 return w_mod

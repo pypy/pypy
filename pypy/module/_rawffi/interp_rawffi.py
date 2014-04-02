@@ -352,9 +352,9 @@ class W_DataInstance(W_Root):
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
-    def descr_buffer(self, space):
+    def buffer_w(self, space):
         from pypy.module._rawffi.buffer import RawFFIBuffer
-        return space.wrap(RawFFIBuffer(self))
+        return RawFFIBuffer(self)
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
@@ -418,12 +418,10 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
-            elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
-                return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             else:
-                return space.wrap(intmask(func(add_arg, argdesc, ll_type)))
+                return space.wrap(func(add_arg, argdesc, ll_type))
     raise OperationError(space.w_TypeError,
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'

@@ -50,7 +50,7 @@ def _string_to_float(space, w_source, string):
     try:
         return rfloat.string_to_float(string)
     except ParseStringError as e:
-        from pypy.objspace.std.inttype import wrap_parsestringerror
+        from pypy.objspace.std.intobject import wrap_parsestringerror
         raise wrap_parsestringerror(space, e, w_source)
 
 

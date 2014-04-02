@@ -1,9 +1,9 @@
-import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestSupport(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_NoNew = cls.space.appexec([], '''():

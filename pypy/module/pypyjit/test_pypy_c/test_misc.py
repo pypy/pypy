@@ -160,12 +160,42 @@ class TestMisc(BaseTestPyPyC):
         jump(..., descr=...)
         """)
 
-    def test_range_iter(self):
+    def test_range_iter_simple(self):
         def main(n):
             def g(n):
                 return range(n)
             s = 0
             for i in range(n):  # ID: for
+                tmp = g(n)
+                s += tmp[i]     # ID: getitem
+                a = 0
+            return s
+        #
+        log = self.run(main, [1000])
+        assert log.result == 1000 * 999 / 2
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            guard_not_invalidated?
+            i16 = int_ge(i11, i12)
+            guard_false(i16, descr=...)
+            i20 = int_add(i11, 1)
+            i21 = force_token()
+            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_not_invalidated?
+            i25 = int_ge(i11, i9)
+            guard_false(i25, descr=...)
+            i27 = int_add_ovf(i7, i11)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(..., descr=...)
+        """)
+
+    def test_range_iter_normal(self):
+        def main(n):
+            def g(n):
+                return range(n)
+            s = 0
+            for i in range(1, n):  # ID: for
                 tmp = g(n)
                 s += tmp[i]     # ID: getitem
                 a = 0

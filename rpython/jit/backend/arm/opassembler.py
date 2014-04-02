@@ -362,10 +362,17 @@ class ResOpAssembler(BaseAssembler):
         self.store_reg(self.mc, r.ip, r.fp, ofs, helper=r.lr)
         if op.numargs() > 0 and op.getarg(0).type == REF:
             if self._finish_gcmap:
-                self._finish_gcmap[0] |= r_uint(0) # r0
+                # we're returning with a guard_not_forced_2, and
+                # additionally we need to say that r0 contains
+                # a reference too:
+                self._finish_gcmap[0] |= r_uint(0)
                 gcmap = self._finish_gcmap
             else:
                 gcmap = self.gcmap_for_finish
+            self.push_gcmap(self.mc, gcmap, store=True)
+        elif self._finish_gcmap:
+            # we're returning with a guard_not_forced_2
+            gcmap = self._finish_gcmap
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather
@@ -582,6 +589,13 @@ class ResOpAssembler(BaseAssembler):
     emit_op_getfield_raw = emit_op_getfield_gc
     emit_op_getfield_raw_pure = emit_op_getfield_gc
     emit_op_getfield_gc_pure = emit_op_getfield_gc
+
+    def emit_op_increment_debug_counter(self, op, arglocs, regalloc, fcond):
+        base_loc, value_loc = arglocs
+        self.mc.LDR_ri(value_loc.value, base_loc.value, 0, cond=fcond)
+        self.mc.ADD_ri(value_loc.value, value_loc.value, 1, cond=fcond)
+        self.mc.STR_ri(value_loc.value, base_loc.value, 0, cond=fcond)
+        return fcond
 
     def emit_op_getinteriorfield_gc(self, op, arglocs, regalloc, fcond):
         (base_loc, index_loc, res_loc,

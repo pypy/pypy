@@ -345,8 +345,9 @@ class AppExposeVisitor(ASDLVisitor):
         for field in fields:
             getter = "%s_get_%s" % (name, field.name)
             setter = "%s_set_%s" % (name, field.name)
-            config = (field.name, getter, setter, name)
-            self.emit("%s=typedef.GetSetProperty(%s, %s, cls=%s)," % config, 1)
+            delter = "%s_del_%s" % (name, field.name)
+            config = (field.name, getter, setter, delter, name)
+            self.emit("%s=typedef.GetSetProperty(%s, %s, %s, cls=%s)," % config, 1)
         self.emit("__new__=interp2app(get_AST_new(%s))," % (name,), 1)
         if needs_init:
             self.emit("__init__=interp2app(%s_init)," % (name,), 1)
@@ -458,6 +459,7 @@ class AppExposeVisitor(ASDLVisitor):
                         self.emit("raise OperationError(space.w_TypeError, "
                                   "space.w_None)", 3)
             else:
+                save_original_object = True
                 level = 2
                 if field.opt and field.type.value != "int":
                     self.emit("if space.is_w(w_new_value, space.w_None):", 2)
@@ -481,6 +483,15 @@ class AppExposeVisitor(ASDLVisitor):
             else:
                 self.emit("w_self.deldictvalue(space, '%s')" %(field.name,), 1)
         self.emit("w_self.initialization_state |= %s" % (flag,), 1)
+        self.emit("")
+
+        func = "def %s_del_%s(space, w_self):" % (name, field.name)
+        self.emit(func)
+        flag = self.data.field_masks[field]
+        self.emit("# Check if the element exists, raise appropriate exceptions", 1 )
+        self.emit("%s_get_%s(space, w_self)" % (name, field.name), 1 )
+        self.emit("w_self.deldictvalue(space, '%s')" % (field.name,), 1)
+        self.emit("w_self.initialization_state &= ~%s" % (flag,), 1)
         self.emit("")
 
 
@@ -586,13 +597,19 @@ class AST(W_Root):
         w_type = space.type(self)
         w_fields = w_type.getdictvalue(space, "_fields")
         for w_name in space.fixedview(w_fields):
-            space.setitem(w_dict, w_name,
+            try:
+                space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
+            except OperationError:
+                pass
         w_attrs = space.findattr(w_type, space.wrap("_attributes"))
         if w_attrs:
             for w_name in space.fixedview(w_attrs):
-                space.setitem(w_dict, w_name,
+                try:
+                    space.setitem(w_dict, w_name,
                               space.getattr(self, w_name))
+                except OperationError:
+                    pass
         return space.newtuple([space.type(self),
                                space.newtuple([]),
                                w_dict])

@@ -113,8 +113,6 @@ class MsvcPlatform(Platform):
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
             self.c_environ.update(msvc_compiler_environ)
-            # XXX passing an environment to subprocess is not enough. Why?
-            os.environ.update(msvc_compiler_environ)
 
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
@@ -371,32 +369,21 @@ class MsvcPlatform(Platform):
         for rule in rules:
             m.rule(*rule)
         
-        objects = ' $(OBJECTS)'
-        create_obj_response_file = []
-        if len(' '.join(rel_ofiles)) > 4000:
-            # cmd.exe has a limit of ~4000 characters before a command line is too long.
-            # Use a response file instead, at the cost of making the Makefile very ugly.
-            for i in range(len(rel_ofiles) - 1):
-                create_obj_response_file.append('echo %s >> obj_names.rsp' % \
-                                                rel_ofiles[i])
-            # use cmd /c for the last one so that the file is flushed 
-            create_obj_response_file.append('cmd /c echo %s >> obj_names.rsp' % \
-                                            rel_ofiles[-1])
-            objects = ' @obj_names.rsp'
         if self.version < 80:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                    create_obj_response_file + [\
-                   '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' /out:$@ $(LIBDIRS) $(LIBS)',
+                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
+                      ' $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
                    ])
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                    create_obj_response_file + [\
-                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
+                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
+                      ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
+                      ' /MANIFESTFILE:$*.manifest @<<\n$(OBJECTS)\n<<',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
         m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
-                create_obj_response_file + [\
-               '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
+                [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
                 ])
 
         if shared:
@@ -427,7 +414,8 @@ class MsvcPlatform(Platform):
         try:
             returncode, stdout, stderr = _run_subprocess(
                 'nmake',
-                ['/nologo', '/f', str(path.join('Makefile'))] + extra_opts)
+                ['/nologo', '/f', str(path.join('Makefile'))] + extra_opts,
+                evn = self.c_environ)
         finally:
             oldcwd.chdir()
 

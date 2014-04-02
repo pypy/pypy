@@ -82,3 +82,55 @@ of other operand.
 .. branch: bounds-int-add-or
 Propagate appropriate bounds through INT_(OR|XOR|AND) operations if the
 operands are positive to kill some guards
+
+.. branch: remove-intlong-smm
+kills int/long/smalllong/bool multimethods
+
+.. branch: numpy-refactor
+Cleanup micronumpy module
+
+.. branch: int_w-refactor
+In a lot of places CPython allows objects with __int__ and __float__ instead of actual ints and floats, while until now pypy disallowed them. We fix it by making space.{int_w,float_w,etc.} accepting those objects by default, and disallowing conversions only when explicitly needed.
+
+.. branch: test-58c3d8552833
+Fix for getarrayitem_gc_pure optimization
+
+.. branch: simple-range-strategy
+Implements SimpleRangeListStrategy for case range(n) where n is a positive number.
+Makes some traces nicer by getting rid of multiplication for calculating loop counter
+and propagates that n > 0 further to get rid of guards.
+
+.. branch: popen-pclose
+Provide an exit status for popen'ed RFiles via pclose
+
+.. branch: stdlib-2.7.6
+Update stdlib to v2.7.6
+
+.. branch: virtual-raw-store-load
+Support for virtualizing raw_store/raw_load operations
+
+.. branch: refactor-buffer-api
+Separate the interp-level buffer API from the buffer type exposed to
+app-level.  The `Buffer` class is now used by `W_MemoryView` and
+`W_Buffer`, which is not present in Python 3.  Previously `W_Buffer` was
+an alias to `Buffer`, which was wrappable itself.
+
+.. branch: improve-consecutive-dict-lookups
+Improve the situation when dict lookups of the same key are performed in a chain
+
+.. branch: add_PyErr_SetFromErrnoWithFilenameObject_try_2
+.. branch: test_SetFromErrnoWithFilename_NULL
+.. branch: test_SetFromErrnoWithFilename__tweaks
+
+.. branch: refactor_PyErr_SetFromErrnoWithFilename
+Add support for PyErr_SetFromErrnoWithFilenameObject to cpyext
+
+.. branch: win32-fixes4
+fix more tests for win32
+
+.. branch: latest-improve-doc
+Fix broken links in documentation
+
+.. branch: ast-issue1673
+fix ast classes __dict__ are always empty problem and fix the ast deepcopy issue when 
+there is missing field

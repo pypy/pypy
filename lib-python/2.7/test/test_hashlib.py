@@ -108,12 +108,8 @@ class HashLibTestCase(unittest.TestCase):
                                                 _algo.islower()]))
 
     def test_unknown_hash(self):
-        try:
-            hashlib.new('spam spam spam spam spam')
-        except ValueError:
-            pass
-        else:
-            self.assertTrue(0 == "hashlib didn't reject bogus hash name")
+        self.assertRaises(ValueError, hashlib.new, 'spam spam spam spam spam')
+        self.assertRaises(TypeError, hashlib.new, 1)
 
     def test_get_builtin_constructor(self):
         get_builtin_constructor = hashlib.__dict__[
@@ -132,6 +128,7 @@ class HashLibTestCase(unittest.TestCase):
                 sys.modules['_md5'] = _md5
             else:
                 del sys.modules['_md5']
+        self.assertRaises(TypeError, get_builtin_constructor, 3)
 
     def test_hexdigest(self):
         for name in self.supported_hash_names:
@@ -170,6 +167,21 @@ class HashLibTestCase(unittest.TestCase):
                     % (name, hash_object_constructor,
                        computed, len(data), digest))
 
+    def check_update(self, name, data, digest):
+        constructors = self.constructors_to_test[name]
+        # 2 is for hashlib.name(...) and hashlib.new(name, ...)
+        self.assertGreaterEqual(len(constructors), 2)
+        for hash_object_constructor in constructors:
+            h = hash_object_constructor()
+            h.update(data)
+            computed = h.hexdigest()
+            self.assertEqual(
+                    computed, digest,
+                    "Hash algorithm %s using %s when updated returned hexdigest"
+                    " %r for %d byte input data that should have hashed to %r."
+                    % (name, hash_object_constructor,
+                       computed, len(data), digest))
+
     def check_unicode(self, algorithm_name):
         # Unicode objects are not allowed as input.
         expected = hashlib.new(algorithm_name, str(u'spam')).hexdigest()
@@ -203,6 +215,15 @@ class HashLibTestCase(unittest.TestCase):
             except OverflowError:
                 pass # 32-bit arch
 
+    @precisionbigmemtest(size=_4G + 5, memuse=1)
+    def test_case_md5_huge_update(self, size):
+        if size == _4G + 5:
+            try:
+                self.check_update('md5', 'A'*size,
+                        'c9af2dff37468ce5dfee8f2cfc0a9c6d')
+            except OverflowError:
+                pass # 32-bit arch
+
     @precisionbigmemtest(size=_4G - 1, memuse=1)
     def test_case_md5_uintmax(self, size):
         if size == _4G - 1:
@@ -231,6 +252,23 @@ class HashLibTestCase(unittest.TestCase):
         self.check('sha1', "a" * 1000000,
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
 
+    @precisionbigmemtest(size=_4G + 5, memuse=1)
+    def test_case_sha1_huge(self, size):
+        if size == _4G + 5:
+            try:
+                self.check('sha1', 'A'*size,
+                        '87d745c50e6b2879ffa0fb2c930e9fbfe0dc9a5b')
+            except OverflowError:
+                pass # 32-bit arch
+
+    @precisionbigmemtest(size=_4G + 5, memuse=1)
+    def test_case_sha1_huge_update(self, size):
+        if size == _4G + 5:
+            try:
+                self.check_update('sha1', 'A'*size,
+                        '87d745c50e6b2879ffa0fb2c930e9fbfe0dc9a5b')
+            except OverflowError:
+                pass # 32-bit arch
 
     # use the examples from Federal Information Processing Standards
     # Publication 180-2, Secure Hash Standard,  2002 August 1

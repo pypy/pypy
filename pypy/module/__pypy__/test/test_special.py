@@ -57,6 +57,8 @@ class AppTest(object):
         l = [1.1, 2.2, 3.3]
         assert list_strategy(l) == "float"
         l = range(3)
+        assert list_strategy(l) == "simple_range"
+        l = range(1, 2)
         assert list_strategy(l) == "range"
         l = [1, "b", 3]
         assert list_strategy(l) == "object"

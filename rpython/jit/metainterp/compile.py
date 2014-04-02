@@ -500,8 +500,9 @@ class ResumeGuardDescr(ResumeDescr):
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
     ST_TYPE_MASK    = 0x06     # mask for the type (TY_xxx)
     ST_SHIFT        = 3        # in "status >> ST_SHIFT" is stored:
-                               # - if TY_NONE, the jitcounter index directly
+                               # - if TY_NONE, the jitcounter hash directly
                                # - otherwise, the guard_value failarg index
+    ST_SHIFT_MASK   = -(1 << ST_SHIFT)
     TY_NONE         = 0x00
     TY_INT          = 0x02
     TY_REF          = 0x04
@@ -514,8 +515,8 @@ class ResumeGuardDescr(ResumeDescr):
         #
         if metainterp_sd.warmrunnerdesc is not None:   # for tests
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
-            index = jitcounter.in_second_half(jitcounter.fetch_next_index())
-            self.status = index << self.ST_SHIFT
+            hash = jitcounter.fetch_next_hash()
+            self.status = hash & self.ST_SHIFT_MASK
 
     def make_a_counter_per_value(self, guard_value_op):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
@@ -566,7 +567,7 @@ class ResumeGuardDescr(ResumeDescr):
             # common case: this is not a guard_value, and we are not
             # already busy tracing.  The rest of self.status stores a
             # valid per-guard index in the jitcounter.
-            index = self.status >> self.ST_SHIFT
+            hash = self.status & self.ST_SHIFT_MASK
         #
         # do we have the BUSY flag?  If so, we're tracing right now, e.g. in an
         # outer invocation of the same function, so don't trace again for now.
@@ -597,12 +598,11 @@ class ResumeGuardDescr(ResumeDescr):
                     intval = llmemory.cast_adr_to_int(
                         llmemory.cast_int_to_adr(intval), "forced")
 
-            hash = (current_object_addr_as_int(self) * 777767777 +
-                    intval * 1442968193)
-            index = jitcounter.in_second_half(jitcounter.get_index(hash))
+            hash = r_uint(current_object_addr_as_int(self) * 777767777 +
+                          intval * 1442968193)
         #
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
-        return jitcounter.tick(index, increment)
+        return jitcounter.tick(hash, increment)
 
     def start_compiling(self):
         # start tracing and compiling from this guard.

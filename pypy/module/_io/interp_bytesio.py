@@ -112,12 +112,15 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
         return space.wrap(self.tell())
 
     def readable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def writable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def seekable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def close_w(self, space):

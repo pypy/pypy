@@ -177,10 +177,13 @@ def test_compute_identity_hash():
     assert h == getattr(foo, '__precomputed_identity_hash')
 
 def test_compute_unique_id():
+    from rpython.rlib.rarithmetic import intmask
     class Foo(object):
         pass
     foo = Foo()
-    assert compute_unique_id(foo) == id(foo)
+    x = compute_unique_id(foo)
+    assert type(x) is int
+    assert x == intmask(id(foo))
 
 def test_current_object_addr_as_int():
     from rpython.rlib.rarithmetic import intmask

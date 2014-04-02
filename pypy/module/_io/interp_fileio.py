@@ -60,8 +60,8 @@ def decode_mode(space, mode):
                 _bad_mode(space)
             rwa = True
             writable = True
-            flags |= O_CREAT
             append = True
+            flags |= O_APPEND | O_CREAT
         elif s == 'b':
             pass
         elif s == '+':
@@ -84,9 +84,6 @@ def decode_mode(space, mode):
         flags |= O_WRONLY
 
     flags |= O_BINARY
-
-    if append:
-        flags |= O_APPEND
 
     return readable, writable, append, flags
 
@@ -123,6 +120,7 @@ class W_FileIO(W_RawIOBase):
         self.fd = -1
         self.readable = False
         self.writable = False
+        self.appending = False
         self.seekable = -1
         self.closefd = True
         self.w_name = None
@@ -140,7 +138,7 @@ class W_FileIO(W_RawIOBase):
 
         fd = -1
         try:
-            fd = space.int_w(w_name)
+            fd = space.c_int_w(w_name)
         except OperationError, e:
             pass
         else:
@@ -148,7 +146,7 @@ class W_FileIO(W_RawIOBase):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "negative file descriptor"))
 
-        self.readable, self.writable, append, flags = decode_mode(space, mode)
+        self.readable, self.writable, self.appending, flags = decode_mode(space, mode)
 
         fd_is_own = False
         try:
@@ -179,9 +177,9 @@ class W_FileIO(W_RawIOBase):
                     fd_is_own = True
 
             self._dircheck(space, w_name)
-            self.w_name = w_name
+            space.setattr(self, space.wrap("name"), w_name)
 
-            if append:
+            if self.appending:
                 # For consistent behaviour, we explicitly seek to the end of file
                 # (otherwise, it might be done only on the first write()).
                 try:
@@ -194,7 +192,12 @@ class W_FileIO(W_RawIOBase):
             raise
 
     def _mode(self):
-        if self.readable:
+        if self.appending:
+            if self.readable:
+                return 'ab+'
+            else:
+                return 'ab'
+        elif self.readable:
             if self.writable:
                 return 'rb+'
             else:
@@ -387,10 +390,13 @@ class W_FileIO(W_RawIOBase):
             try:
                 chunk = os.read(self.fd, newsize - total)
             except OSError, e:
+                if e.errno == errno.EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
+                if total > 0:
+                    # return what we've got so far
+                    break
                 if e.errno == errno.EAGAIN:
-                    if total > 0:
-                        # return what we've got so far
-                        break
                     return space.w_None
                 raise wrap_oserror(space, e,
                                    exception_name='w_IOError')

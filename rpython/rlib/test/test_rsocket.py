@@ -311,7 +311,7 @@ def test_getaddrinfo_pydotorg():
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '82.94.164.162':
+        if addr.get_host() == '140.211.10.69':
             found = True
     assert found, lst
 
@@ -327,6 +327,11 @@ def test_getaddrinfo_no_reverse_lookup():
         if addr.get_host() == '82.94.164.162':
             found = True
     assert found, lst
+
+def test_getaddrinfo_osx_crash():
+    # see CPython issue17269
+    for port in [None, '0', '00']:
+        getaddrinfo('localhost', port, 0, 0, 0, AI_NUMERICSERV)
 
 def test_connect_ex():
     s = RSocket()

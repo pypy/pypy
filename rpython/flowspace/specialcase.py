@@ -49,6 +49,11 @@ def sc_open(ctx, *args_w):
     from rpython.rlib.rfile import create_file
     return ctx.appcall(create_file, *args_w)
 
+@register_flow_sc(os.fdopen)
+def sc_os_fdopen(ctx, *args_w):
+    from rpython.rlib.rfile import create_fdopen_rfile
+    return ctx.appcall(create_fdopen_rfile, *args_w)
+
 @register_flow_sc(os.tmpfile)
 def sc_os_tmpfile(ctx):
     from rpython.rlib.rfile import create_temp_rfile

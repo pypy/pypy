@@ -1,8 +1,8 @@
-
 import os, sys, py
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
+
 
 class TestFile(BaseRtypingTest):
     def setup_class(cls):
@@ -78,6 +78,22 @@ class TestFile(BaseRtypingTest):
 
         f()
         self.interpret(f, [])
+
+    def test_fdopen(self):
+        fname = str(self.tmpdir.join('file_4a'))
+
+        def f():
+            f = open(fname, "w")
+            new_fno = os.dup(f.fileno())
+            f2 = os.fdopen(new_fno, "w")
+            f.close()
+            f2.write("xxx")
+            f2.close()
+
+        f()
+        assert open(fname).read() == "xxx"
+        self.interpret(f, [])
+        assert open(fname).read() == "xxx"
 
     def test_fileno(self):
         fname = str(self.tmpdir.join('file_5'))
@@ -186,7 +202,7 @@ class TestDirect:
             f.close()
 
 
-class TestPopen:
+class TestPopen(object):
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("not for win32")
@@ -196,3 +212,43 @@ class TestPopen:
         s = f.read()
         f.close()
         assert s == '42\n'
+
+    def test_pclose(self):
+        retval = 32
+        printval = 42
+        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+            printval, retval)
+        f = rfile.create_popen_file(cmd, "r")
+        s = f.read()
+        r = f.close()
+        assert s == "%s\n" % printval
+        assert os.WEXITSTATUS(r) == retval
+
+
+class TestPopenR(BaseRtypingTest):
+    def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("not for win32")
+
+    def test_popen(self):
+        printval = 42
+        cmd = "python -c 'print %s'" % printval
+        def f():
+            f = rfile.create_popen_file(cmd, "r")
+            s = f.read()
+            f.close()
+            assert s == "%s\n" % printval
+        self.interpret(f, [])
+
+    def test_pclose(self):
+        printval = 42
+        retval = 32
+        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+            printval, retval)
+        def f():
+            f = rfile.create_popen_file(cmd, "r")
+            s = f.read()
+            assert s == "%s\n" % printval
+            return f.close()
+        r = self.interpret(f, [])
+        assert os.WEXITSTATUS(r) == retval

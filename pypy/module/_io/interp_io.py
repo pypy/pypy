@@ -10,6 +10,12 @@ from pypy.module._io.interp_textio import W_TextIOWrapper
 from rpython.rtyper.module.ll_os_stat import STAT_FIELD_TYPES
 
 
+class Cache:
+    def __init__(self, space):
+        self.w_unsupportedoperation = space.new_exception_class(
+            "io.UnsupportedOperation",
+            space.newtuple([space.w_ValueError, space.w_IOError]))
+
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):
         W_IOError.__init__(self, space)
@@ -113,7 +119,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         buffering = DEFAULT_BUFFER_SIZE
 
         if space.config.translation.type_system == 'lltype' and 'st_blksize' in STAT_FIELD_TYPES:
-            fileno = space.int_w(space.call_method(w_raw, "fileno"))
+            fileno = space.c_int_w(space.call_method(w_raw, "fileno"))
             try:
                 st = os.fstat(fileno)
             except OSError:

@@ -24,6 +24,17 @@ class AppTestBuiltinApp:
         else:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
 
+    def test_builtin_names(self):
+        import __builtin__
+        assert __builtin__.None is None
+        assert __builtin__.False is False
+        assert __builtin__.True is True
+
+        assert __builtin__.buffer is buffer
+        assert __builtin__.bytes is str
+        assert __builtin__.dict is dict
+        assert __builtin__.memoryview is memoryview
+
     def test_bytes_alias(self):
         assert bytes is str
         assert isinstance(eval("b'hi'"), str)
@@ -486,10 +497,27 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
+    def test_compile_error_message(self):
+        import re
+        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
+        exc = raises(SyntaxError, compile,
+            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        assert 'iso-8859-15' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+
     def test_unicode_compile(self):
         try:
             compile(u'-', '?', 'eval')
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 1
 
     def test_unicode_encoding_compile(self):

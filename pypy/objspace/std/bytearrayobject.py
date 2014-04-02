@@ -27,6 +27,9 @@ class W_BytearrayObject(W_Root):
         """representation for debugging purposes"""
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
+    def buffer_w(w_self, space):
+        return BytearrayBuffer(w_self.data)
+
     def _new(self, value):
         return W_BytearrayObject(_make_data(value))
 
@@ -38,6 +41,13 @@ class W_BytearrayObject(W_Root):
 
     def _len(self):
         return len(self.data)
+
+    def _getitem_result(self, space, index):
+        try:
+            character = self.data[index]
+        except IndexError:
+            raise oefmt(space.w_IndexError, "bytearray index out of range")
+        return space.wrap(ord(character))
 
     def _val(self, space):
         return space.bufferstr_w(self)
@@ -287,9 +297,6 @@ class W_BytearrayObject(W_Root):
 
     def descr_iter(self, space):
         return space.newseqiter(self)
-
-    def descr_buffer(self, space):
-        return BytearrayBuffer(self.data)
 
     def descr_inplace_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
@@ -1004,7 +1011,6 @@ W_BytearrayObject.typedef = StdTypeDef(
 
     __init__ = interp2app(W_BytearrayObject.descr_init,
                           doc=BytearrayDocstrings.__init__.__doc__),
-    __buffer__ = interp2app(W_BytearrayObject.descr_buffer),
 
     __iadd__ = interp2app(W_BytearrayObject.descr_inplace_add,
                           doc=BytearrayDocstrings.__iadd__.__doc__),

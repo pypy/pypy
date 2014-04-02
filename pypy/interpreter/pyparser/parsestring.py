@@ -1,6 +1,7 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
+
 
 def parsestr(space, encoding, s, unicode_literal=False):
     """Parses a string or unicode literal, and return a wrapped value.
@@ -79,7 +80,7 @@ def parsestr(space, encoding, s, unicode_literal=False):
     enc = None
     if need_encoding:
         enc = encoding
-    v = PyString_DecodeEscape(space, substr, enc)
+    v = PyString_DecodeEscape(space, substr, 'strict', enc)
     return space.wrap(v)
 
 def hexbyte(val):
@@ -121,7 +122,7 @@ def decode_unicode_utf8(space, s, ps, q):
             ps += 1
     return ''.join(lis)
 
-def PyString_DecodeEscape(space, s, recode_encoding):
+def PyString_DecodeEscape(space, s, errors, recode_encoding):
     """
     Unescape a backslash-escaped string. If recode_encoding is non-zero,
     the string is UTF-8 encoded and should be re-encoded in the
@@ -190,9 +191,17 @@ def PyString_DecodeEscape(space, s, recode_encoding):
                 builder.append(chr(num))
                 ps += 2
             else:
-                raise_app_valueerror(space, 'invalid \\x escape')
-            # ignored replace and ignore for now
-
+                if errors == 'strict':
+                    raise_app_valueerror(space, 'invalid \\x escape')
+                elif errors == 'replace':
+                    builder.append('?')
+                elif errors == 'ignore':
+                    pass
+                else:
+                    raise oefmt(space.w_ValueError, "decoding error; "
+                        "unknown error handling code: %s", errors)
+                if ps+1 <= end and isxdigit(s[ps]):
+                    ps += 1
         else:
             # this was not an escape, so the backslash
             # has to be added, and we start over in

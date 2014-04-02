@@ -676,6 +676,12 @@ class __extend__(SomeInstance):
             # create or update the attribute in clsdef
             clsdef.generalize_attr(attr, s_value)
 
+            if isinstance(s_value, SomeList):
+                clsdef.classdesc.maybe_return_immutable_list(
+                    attr, s_value)
+        else:
+            raise AnnotatorError("setattr(instance, variable_attr, value)")
+
     def bool_behavior(self, s):
         if not self.can_be_None:
             s.const = True

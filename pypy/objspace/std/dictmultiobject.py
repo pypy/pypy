@@ -1184,7 +1184,7 @@ class W_BaseDictMultiIterObject(W_Root):
         w_clone.setup_iterator()
         # spool until we have the same pos
         while w_clone.pos < self.pos:
-            w_obj = w_clone.next_entry()
+            w_clone.next_entry()
             w_clone.pos += 1
         stuff = [w_clone.next_entry() for i in range(w_clone.pos, w_clone.len)]
         w_res = space.newlist(stuff)

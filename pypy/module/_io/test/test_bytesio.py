@@ -29,6 +29,9 @@ class AppTestBytesIO:
         assert f.writable()
         assert f.seekable()
         f.close()
+        raises(ValueError, f.readable)
+        raises(ValueError, f.writable)
+        raises(ValueError, f.seekable)
 
     def test_write(self):
         import _io

@@ -20,10 +20,11 @@ MODEL_PPC_64      = 'ppc-64'
 
 def detect_model_from_c_compiler():
     # based on http://sourceforge.net/p/predef/wiki/Architectures/
+    # and http://msdn.microsoft.com/en-us/library/b0084kay.aspx
     mapping = {
-        MODEL_X86_64: ['__amd64__', '__amd64', '__x86_64__', '__x86_64'],
-        MODEL_ARM:    ['__arm__', '__thumb__'],
-        MODEL_X86:    ['i386', '__i386', '__i386__', '__i686__'],
+        MODEL_X86_64: ['__amd64__', '__amd64', '__x86_64__', '__x86_64', '_M_X64', '_M_AMD64'],
+        MODEL_ARM:    ['__arm__', '__thumb__','_M_ARM_EP'],
+        MODEL_X86:    ['i386', '__i386', '__i386__', '__i686__','_M_IX86'],
         MODEL_PPC_64: ['__powerpc64__'],
     }
     for k, v in mapping.iteritems():

@@ -78,16 +78,15 @@ class StringMethods(object):
                 return self._new_from_list(ret)
 
         index = space.getindex_w(w_index, space.w_IndexError, "string index")
+        return self._getitem_result(space, index)
+
+    def _getitem_result(self, space, index):
         selfvalue = self._val(space)
-        selflen = len(selfvalue)
-        if index < 0:
-            index += selflen
-        if index < 0 or index >= selflen:
+        try:
+            character = selfvalue[index]
+        except IndexError:
             raise oefmt(space.w_IndexError, "string index out of range")
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        if isinstance(self, W_BytearrayObject):
-            return space.wrap(ord(selfvalue[index]))
-        return self._new(selfvalue[index])
+        return self._new(character)
 
     def descr_getslice(self, space, w_start, w_stop):
         selfvalue = self._val(space)
@@ -438,7 +437,6 @@ class StringMethods(object):
     def descr_split(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._val(space)
-        length = len(value)
         if space.is_none(w_sep):
             res = split(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)

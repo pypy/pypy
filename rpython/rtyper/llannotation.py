@@ -6,7 +6,7 @@ from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeSingleFloat, SomeFloat, SomeLongFloat, SomeChar,
     SomeUnicodeCodePoint, SomeInteger, SomeString, SomeImpossibleValue,
-    s_None, s_Bool, UnionError, AnnotatorError)
+    s_None, s_Bool, UnionError, AnnotatorError, SomeBool)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 class SomeAddress(SomeObject):
@@ -155,7 +155,10 @@ class SomePtr(SomeObject):
         return ll_to_annotation(v)
 
     def bool(self):
-        return s_Bool
+        result = SomeBool()
+        if self.is_constant():
+            result.const = bool(self.const)
+        return result
 
 
 class SomeInteriorPtr(SomePtr):

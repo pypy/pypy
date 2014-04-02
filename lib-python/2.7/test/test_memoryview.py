@@ -171,7 +171,7 @@ class AbstractMemoryTests:
                 # very inconsisten on CPython. In PyPy, memoryview supports
                 # the buffer interface, and thus the following comparison
                 # succeeds. See also the comment in
-                # pypy.modules.__builtin__.interp_memoryview.W_MemoryView.descr_buffer
+                # pypy.objspace.std.memoryview.W_MemoryView.descr_buffer
                 #
                 # Comparison with objects which don't support the buffer API
                 self.assertFalse(m == u"abcdef", "%s %s" % (self, tp))

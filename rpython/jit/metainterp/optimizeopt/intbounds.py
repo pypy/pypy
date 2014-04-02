@@ -329,6 +329,13 @@ class OptIntBounds(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_INT_FORCE_GE_ZERO(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.intbound.known_ge(IntBound(0, 0)):
+            self.make_equal_to(op.result, value)
+        else:
+            self.emit_operation(op)
+
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
         array = self.getvalue(op.getarg(0))

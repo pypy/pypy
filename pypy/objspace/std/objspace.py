@@ -24,6 +24,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
+from pypy.objspace.std.memoryview import W_Buffer
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
@@ -34,7 +35,7 @@ from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
-from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.intobject import wrapint
 from pypy.objspace.std.unicodeobject import wrapunicode
 
 class StdObjSpace(ObjSpace):
@@ -58,8 +59,8 @@ class StdObjSpace(ObjSpace):
         self.w_None = W_NoneObject.w_None
         self.w_False = W_BoolObject.w_False
         self.w_True = W_BoolObject.w_True
-        self.w_NotImplemented = self.wrap(special.NotImplemented(self))
-        self.w_Ellipsis = self.wrap(special.Ellipsis(self))
+        self.w_NotImplemented = self.wrap(special.NotImplemented())
+        self.w_Ellipsis = self.wrap(special.Ellipsis())
 
         # types
         self.builtin_types = {}
@@ -305,7 +306,6 @@ class StdObjSpace(ObjSpace):
                 strdict=strdict, kwargs=kwargs)
 
     def newset(self):
-        from pypy.objspace.std.setobject import newset
         return W_SetObject(self, None)
 
     def newslice(self, w_start, w_end, w_step):
@@ -313,6 +313,9 @@ class StdObjSpace(ObjSpace):
 
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
+
+    def newbuffer(self, w_obj):
+        return W_Buffer(w_obj)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
@@ -516,7 +519,7 @@ class StdObjSpace(ObjSpace):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.
         if type(w_obj) is W_BoolObject:
-            return w_obj.boolval
+            return bool(w_obj.intval)
         return self._DescrOperation_is_true(w_obj)
 
     def getattr(self, w_obj, w_name):

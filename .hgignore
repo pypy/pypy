@@ -64,6 +64,7 @@ syntax: regexp
 ^pypy/goal/pypy-jvm.jar
 ^pypy/goal/.+\.exe$
 ^pypy/goal/.+\.dll$
+^pypy/goal/.+\.lib$
 ^pypy/_cache$
 ^pypy/doc/statistic/.+\.html$
 ^pypy/doc/statistic/.+\.eps$
