@@ -72,6 +72,17 @@ def fetch_pyro():
         vcs.update(version=PYRO_VERSION)
 
 #
+# BUILD
+#
+
+# translate
+def build_unipycation():
+    print("Translating unipycation...")
+    sh.Command(sys.executable)(
+            os.path.join(SCRIPT_DIR, "translate_unipycation.py"),
+            _out=sys.stdout, _err=sys.stderr)
+
+#
 # CONFIGURE
 #
 
@@ -132,19 +143,8 @@ def bootstrap(target, shared_dir=None):
     # happens in all targets
     configure(shared_dir)
 
-    # XXX actually translate
     if target in ["build", "all"]:
-        print("""
-        **************************************************************
-        *** NOTE: This bootstrapper will not translate unipycation ***
-        **************************************************************
-
-        To translate, run translate_unipycation.py.
-
-        Note that OpenBSD users will need to install a newish GCC from packages.
-
-        Once you are translated, source env.sh and run 'pypy-c'.
-        """)
+        build_unipycation()
 
 def usage():
     print("\nUsage:")
