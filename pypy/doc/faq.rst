@@ -438,7 +438,9 @@ clang.  (Note that compiling PyPy with clang gives a result that is not
 faster than compiling it with gcc.)  We might in theory get extra
 benefits from LLVM's GC integration, but this requires more work on the
 LLVM side before it would be remotely useful.  Anyway, it could be
-interfaced via a custom primitive in the C code.
+interfaced via a custom primitive in the C code.  (The latest such
+experimental backend is in the branch ``llvm-translation-backend``,
+which can translate PyPy with or without the JIT on Linux.)
 
 On the other hand, using LLVM as our JIT backend looks interesting as
 well --- but again we made an attempt, and it failed: LLVM has no way to
