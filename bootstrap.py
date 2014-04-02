@@ -7,9 +7,13 @@ DEPS_DIR = os.path.join(SCRIPT_DIR, "deps")
 UNIPY_BIN_DIR = os.path.join(SCRIPT_DIR, "pypy", "goal")
 UNI_SYMLINK_DIR = os.path.join(SCRIPT_DIR, "lib_pypy")
 
+PYRO_VCS = "hg"
+PYRO_VERSION = "unipycation" # branch
 PYRO_REPO="ssh://hg@bitbucket.org/cfbolz/pyrolog-unipycation"
 PYRO_DIR = os.path.join(DEPS_DIR, "pyrolog")
 
+SHARED_VCS = "git"
+SHARED_VERSION = "master"
 SHARED_REPO = "git@bitbucket.org:softdevteam/unipycation-shared.git"
 DEFAULT_SHARED_DIR = os.path.join(DEPS_DIR, "unipycation-shared")
 
@@ -47,26 +51,25 @@ def fetch_deps(with_shared=True):
     if with_shared: fetch_shared()
     fetch_pyro()
 
+# used only for standalone bootstrap
 def fetch_shared():
+    vcs = vcstools.get_vcs_client(SHARED_VCS, DEFAULT_SHARED_DIR)
     if not os.path.exists(DEFAULT_SHARED_DIR):
-        print("Cloning fresh unipycation-shared...")
-        sh.git('clone', SHARED_REPO, DEFAULT_SHARED_DIR,
-                _out=sys.stdout, _err=sys.stderr)
+        print("Cloning fresh unipycation-shared: version=%s" % SHARED_VERSION)
+        vcs.checkout(SHARED_REPO, version=SHARED_VERSION)
     else:
-        print("Updating existing unipycation-shared...")
-        os.chdir(DEFAULT_SHARED_DIR)
-        sh.git("pull")
+        print("Updating existing unipycation-shared to version: %s"
+                % SHARED_VERSION)
+        vcs.update(version=SHARED_VERSION, force_fetch=True)
 
 def fetch_pyro():
+    vcs = vcstools.get_vcs_client(PYRO_VCS, PYRO_DIR)
     if not os.path.exists(PYRO_DIR):
-        print("Cloning pyrolog...")
-        os.chdir(DEPS_DIR)
-        sh.hg("clone", "-u", "unipycation", PYRO_REPO, PYRO_DIR,
-                _out=sys.stdout, _err=sys.stderr)
+        print("Cloning pyrolog: version=%s" % PYRO_VERSION)
+        vcs.checkout(PYRO_REPO, version=PYRO_VERSION)
     else:
-        print("Updating pyrolog...")
-        os.chdir(PYRO_DIR)
-        sh.hg("pull", "-u", _out=sys.stdout, _err=sys.stderr)
+        print("Updating existing pyrolog to version: %s" % PYRO_VERSION)
+        vcs.update(version=PYRO_VERSION)
 
 #
 # CONFIGURE
@@ -154,12 +157,12 @@ if __name__ == "__main__":
 
     try:
         shared_arg = sys.argv[2]
-    except KeyError:
+    except IndexError:
         shared_arg = None
 
     try:
         target = sys.argv[1]
-    except KeyError:
+    except IndexError:
         usage()
 
     if target not in ["fetch", "build", "configure", "all"]:
