@@ -1202,10 +1202,10 @@ class BytesSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.str_w(w_item)
+        return self.space.bytes_w(w_item)
 
     def wrap(self, item):
-        return self.space.wrap(item)
+        return self.space.wrapbytes(item)
 
     def iter(self, w_set):
         return BytesIteratorImplementation(self.space, self, w_set)
