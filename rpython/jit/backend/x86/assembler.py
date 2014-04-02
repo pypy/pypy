@@ -2463,7 +2463,12 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr1-1, chr(offset))
         # write down the tid, but not if it's the result of the CALL
-        self.mc.MOV(mem(self.SEGMENT_GC, eax, 0), imm(arraydescr.tid))
+        if self.cpu.gc_ll_descr.stm:
+            assert IS_X86_64
+            self.mc.MOV32(mem(self.SEGMENT_GC, eax, rstm.tid_offset),
+                          imm(arraydescr.tid))
+        else:
+            self.mc.MOV(mem(self.SEGMENT_GC, eax, 0), imm(arraydescr.tid))
         # while we're at it, this line is not needed if we've done the CALL
         self.mc.MOV(heap(self.SEGMENT_GC, nursery_free_adr), edi)
         #
