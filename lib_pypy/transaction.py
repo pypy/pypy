@@ -105,7 +105,11 @@ def number_of_transactions_in_last_run():
 class _ThreadPool(object):
 
     def __init__(self):
-        self.num_threads = 4    # XXX default value, tweak
+        try:
+            from __pypy__.thread import getsegmentlimit
+            self.num_threads = getsegmentlimit()
+        except ImportError:
+            self.num_threads = 4
         self.in_transaction = False
         self.transactions_run = None
 
