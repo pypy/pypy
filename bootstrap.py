@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import os, os.path, sys
+import os, os.path, sys, importlib
 
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
@@ -21,15 +21,20 @@ try:
 except ImportError:
     raise ImportError("Please install pip")
 
-# list of (package_name, import_name)
-REQUIRED = [ ("sh", "sh") ]
-for (pkg, mod) in REQUIRED:
+reqs = ["sh", "vcstools"]
+for req in reqs:
+    sys.stdout.write("checking for %s..." % req)
     try:
-        exec("import %s" % mod)
+        importlib.import_module(req)
+        print("found")
     except ImportError:
-        print("Installing %s..." % pkg)
-        pip.main(['install', '--user', pkg])
-        exec("import %s" % mod) # should pass this time
+        print("missing!")
+        print("Installing %s..." % req)
+        pip.main(['install', '--user', req])
+        importlib.import_module(req)
+
+    locs = locals()
+    locs[req] = sys.modules[req]
 
 #
 # FETCH
