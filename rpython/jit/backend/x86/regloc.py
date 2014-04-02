@@ -84,7 +84,7 @@ class RawEbpLoc(AssemblerLocation):
         return self.type == FLOAT
 
     def add_offset(self, ofs):
-        return RawEbpLoc(self.value + ofs)
+        return RawEbpLoc(self.segment, self.value + ofs)
 
     def is_stack(self):
         return True
@@ -283,7 +283,7 @@ class AddressLoc(AssemblerLocation):
         result = instantiate(AddressLoc)
         result._location_code = self._location_code
         if self._location_code == 'm':
-            result.loc_m = self.loc_m[:2] + (self.loc_m[2] + ofs)
+            result.loc_m = self.loc_m[:2] + (self.loc_m[2] + ofs,)
         elif self._location_code == 'a':
             result.loc_a = self.loc_a[:4] + (self.loc_a[4] + ofs,)
         elif self._location_code == 'j':
