@@ -331,7 +331,7 @@ OPT_TABLE = {
     'mem':  DEFL_GC + '  lowinline     remove_asserts    removetypeptr',
     '2':    DEFL_GC + '  extraopts',
     '3':    DEFL_GC + '  extraopts     remove_asserts',
-    'jit':  'stmgc  extraopts     jit  stm',
+    'jit':  'stmgc  extraopts     jit  stm',     # XXX STM TEMPORARY
     }
 
 def set_opt_level(config, level):
