@@ -348,6 +348,11 @@ class AppTestAppSetTest:
         s = set([b'hello'])
         assert s.pop() == b'hello'
 
+    def test_set_literal(self):
+        """
+        assert {b'a'}.pop() == b'a'
+        """
+
     def test_compare(self):
         assert set('abc') != 'abc'
         raises(TypeError, "set('abc') < 42")
