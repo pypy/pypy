@@ -56,7 +56,7 @@ to lltype.malloc, and freed by lltype.free both with keyword argument
 flavor='raw'. There are several helpers like string -> char*
 converter, refer to the source for details.
 
-.. _rffi: https://bitbucket.org/pypy/pypy/src/tip/pypy/rpython/lltypesystem/rffi.py
+.. _rffi: https://bitbucket.org/pypy/pypy/src/tip/rpython/rtyper/lltypesystem/rffi.py
 
 Registering function as external
 ---------------------------------
@@ -68,4 +68,4 @@ located in `extfunc.py`_, which provides nice API for declaring such a
 functions, passing llimpl as an argument and eventually llfakeimpl
 as a fake low-level implementation for tests performed by an llinterp.
 
-.. _`extfunc.py`: https://bitbucket.org/pypy/pypy/src/tip/pypy/rpython/extfunc.py
+.. _`extfunc.py`: https://bitbucket.org/pypy/pypy/src/tip/rpython/rtyper/extfunc.py
