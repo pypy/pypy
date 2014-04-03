@@ -742,9 +742,9 @@ translate.py.
 Testing modules in ``lib_pypy/``
 --------------------------------
 
-You can go to the `lib_pypy/pypy_test/`_ directory and invoke the testing tool
+You can go to the `pypy/module/test_lib_pypy/`_ directory and invoke the testing tool
 ("py.test" or "python ../../pypy/test_all.py") to run tests against the
-lib_pypy hierarchy.  Note, that tests in `lib_pypy/pypy_test/`_ are allowed
+lib_pypy hierarchy.  Note, that tests in `pypy/module/test_lib_pypy/`_ are allowed
 and encouraged to let their tests run at interpreter level although
 `lib_pypy/`_ modules eventually live at PyPy's application level.
 This allows us to quickly test our python-coded reimplementations
