@@ -1010,6 +1010,17 @@ class Assembler386(BaseAssembler):
         self.mc.LEA(result, addr_add(self.SEGMENT_NO, frm, sizereg,
                                      baseofs, scale))
 
+    def convert_addresses_to_linear(self, reg1, reg2):
+        if not self.cpu.gc_ll_descr.stm:   # stm-only
+            return
+        if not IS_X86_64:
+            todo()   # "needed for X86_64_SCRATCH_REG"
+        sb_adr = rstm.adr_segment_base
+        assert rx86.fits_in_32bits(sb_adr)    # because it is in the 2nd page
+        self.mc.MOV_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, sb_adr))
+        self.mc.ADD(reg1, X86_64_SCRATCH_REG)
+        self.mc.ADD(reg2, X86_64_SCRATCH_REG)
+
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):
             getattr(self.mc, asmop)(arglocs[0])

@@ -20,6 +20,8 @@ adr_transaction_read_version = (
     CFlexSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
 adr_jmpbuf_ptr = (
     CFlexSymbolic('((long)&STM_SEGMENT->jmpbuf_ptr)'))
+adr_segment_base = (
+    CFlexSymbolic('((long)&STM_SEGMENT->segment_base)'))
 adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
 
 adr__pypy_stm_become_inevitable = (

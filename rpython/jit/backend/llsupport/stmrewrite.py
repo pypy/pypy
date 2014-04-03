@@ -125,16 +125,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         return val not in self.write_barrier_applied
 
 
-    def handle_copystrcontent(self, op):
-        xxxxxxxx
-        # first, a write barrier on the target string
-        lst = op.getarglist()
-        lst[1] = self.gen_barrier(lst[1], 'W')
-        op = op.copy_and_change(op.getopnum(), args=lst)
-        # then an immutable read barrier the source string
-        # XXX: 'I' enough?
-        self.handle_category_operations(op, 'R')
-
     @specialize.arg(1)
     def _do_stm_call(self, funcname, args, result):
         addr = self.gc_ll_descr.get_malloc_fn_addr(funcname)

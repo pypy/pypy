@@ -1133,6 +1133,8 @@ class RegAlloc(BaseRegalloc):
         dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
                                         is_unicode=is_unicode)
+        # for stm: convert the addresses from %gs-based to linear
+        self.assembler.convert_addresses_to_linear(srcaddr_loc, dstaddr_loc)
         # compute the length in bytes
         length_box = args[4]
         length_loc = self.loc(length_box)
