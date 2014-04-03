@@ -42,7 +42,7 @@ Read more in `the sprint announcement`_, see who is  planning to attend
 on the `people page`_.
 
 .. _`the sprint announcement`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.html
-.. _`people page`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.html
+.. _`people page`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.txt
 
 PyPy sprint at Akihabara (Tokyo, Japan)
 ==================================================================
@@ -84,8 +84,8 @@ programming language and the Mozart interpreter.
 
 Read the report_ and the original announcement_.
 
-.. _report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/louvain-la-neuve-2006/report.html
-.. _announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/louvain-la-neuve-2006/sprint-announcement.html
+.. _report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/louvain-la-neuve-2006/report.txt
+.. _announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/louvain-la-neuve-2006/sprint-announcement.txt
 
 PyCon Sprint 2006 (Dallas, Texas, USA)
 ==================================================================
@@ -129,7 +129,7 @@ Read more in `the announcement`_, there is a `sprint report`_
 for the first three days and `one for the rest of the sprint`_.
 
 
-.. _`the announcement`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/mallorca/sprint-announcement.html
+.. _`the announcement`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/mallorca/sprint-announcement.txt
 .. _`sprint report`: https://mail.python.org/pipermail/pypy-dev/2006-January/002746.html
 .. _`one for the rest of the sprint`: https://mail.python.org/pipermail/pypy-dev/2006-January/002749.html
 
@@ -187,7 +187,7 @@ Together with Armin they wrote one about `the rest of the sprint`_ on the
 way back.
 *(10/18/2005)*
 
-.. _`Logilab offices in Paris`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/paris-2005-sprint.html 
+.. _`Logilab offices in Paris`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/paris-2005-sprint.txt 
 .. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _`continuation-passing`: http://en.wikipedia.org/wiki/Continuation_passing_style
 .. _`report about day one`: https://mail.python.org/pipermail/pypy-dev/2005-October/002510.html
@@ -222,8 +222,8 @@ there are `some pictures`_ online and a `heidelberg summary report`_
 detailing some of the works that led to the successful release 
 of `pypy-0.7.0`_! 
 
-.. _`heidelberg summary report`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-report.html 
-.. _`PyPy sprint`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-sprint.html
+.. _`heidelberg summary report`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-report.txt
+.. _`PyPy sprint`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-sprint.txt
 .. _`day 1 - 3`: https://mail.python.org/pipermail/pypy-dev/2005-August/002287.html
 .. _`some pictures`: http://codespeak.net/~hpk/heidelberg-sprint/
 
@@ -285,8 +285,8 @@ release.
 Read more in `the sprint announcement`_, see who is  planning to attend
 on the `people page`_.
 
-.. _`the sprint announcement`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.html
-.. _`people page`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.html
+.. _`the sprint announcement`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.txt
+.. _`people page`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.txt
 
 
 PyPy at XP 2006 and Agile 2006

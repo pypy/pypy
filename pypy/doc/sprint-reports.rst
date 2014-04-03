@@ -42,7 +42,7 @@ A good summary of the progress over the years.....enjoy!
   * `CERN (July 2010)`_
   * `Düsseldorf (October 2010)`_
 
-    .. _Hildesheim (Feb 2003): https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/HildesheimReport.html
+    .. _Hildesheim (Feb 2003): https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/HildesheimReport.txt
     .. _Gothenburg (May 2003): https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/gothenburg-2003-sprintreport.txt
     .. _LovainLaNeuve (June 2003): https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/LouvainLaNeuveReport.txt
     .. _Berlin (Sept 2003): https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/BerlinReport.txt
