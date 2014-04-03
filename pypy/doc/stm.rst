@@ -15,7 +15,11 @@ internally.  This page describes ``pypy-stm`` from the perspective of a
 user, describes work in progress, and finally gives references to more
 implementation details.
 
-This work was done by Remi Meier and Armin Rigo.
+This work was done by Remi Meier and Armin Rigo.  Thanks to all donors
+for crowd-funding the work so far!  Please have a look at the 2nd call
+for donation (*not ready yet*)
+
+.. .. _`2nd call for donation`: http://pypy.org/tmdonate2.html
 
 
 Introduction and current status
@@ -26,6 +30,8 @@ listed below, it should be in theory within 25%-50% of the speed of
 PyPy, comparing the JITting version in both cases.  It is called STM for
 Software Transactional Memory, which is the internal technique used (see
 `Reference to implementation details`_).
+
+XXX more introduction
 
 **pypy-stm requires 64-bit Linux for now.**
 
@@ -46,7 +52,7 @@ the branch `stmgc-c7`_ of PyPy and run::
    rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
 
 .. _`stmgc-c7`: https://bitbucket.org/pypy/pypy/src/stmgc-c7/
-.. __: http://buildbot.pypy.org/nightly/stmgc-c7/
+.. __: http://cobra.cs.uni-duesseldorf.de/~buildmaster/misc/
 .. __: http://clang.llvm.org/get_started.html
 .. __: https://bitbucket.org/pypy/stmgc/src/default/c7/llvmfix/
 
