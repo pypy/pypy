@@ -24,6 +24,10 @@ On a 64-bit architecture the translation process will consume about 8GB of
 memory at peak. The resulting pypy-c binary is the composed Python/Prolog
 compiler.
 
+If you are looking to bootstrap the other unipycation VMs too, then use the
+universal bootstrapper, as found here:
+https://bitbucket.org/softdevteam/unipycation-shared
+
 Running
 =======
 
