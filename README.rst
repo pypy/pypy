@@ -33,9 +33,7 @@ Running
 
 First source `env.sh`:
 
-```
-. ./env.sh
-```
+    $ . ./env.sh
 
 Then you can simply run `pypy-c`.
 
