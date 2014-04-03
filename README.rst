@@ -53,6 +53,12 @@ which appeared in VMIL'13.
 
 The interface is subject to change.
 
+Unit Tests
+==========
+
+Unit tests are run as per the normal PyPy procedure. Please refer to
+the PyPy docs.
+
 Authors
 =======
 
