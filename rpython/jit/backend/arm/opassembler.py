@@ -362,10 +362,17 @@ class ResOpAssembler(BaseAssembler):
         self.store_reg(self.mc, r.ip, r.fp, ofs, helper=r.lr)
         if op.numargs() > 0 and op.getarg(0).type == REF:
             if self._finish_gcmap:
-                self._finish_gcmap[0] |= r_uint(0) # r0
+                # we're returning with a guard_not_forced_2, and
+                # additionally we need to say that r0 contains
+                # a reference too:
+                self._finish_gcmap[0] |= r_uint(0)
                 gcmap = self._finish_gcmap
             else:
                 gcmap = self.gcmap_for_finish
+            self.push_gcmap(self.mc, gcmap, store=True)
+        elif self._finish_gcmap:
+            # we're returning with a guard_not_forced_2
+            gcmap = self._finish_gcmap
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather

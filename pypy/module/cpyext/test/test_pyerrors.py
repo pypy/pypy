@@ -238,8 +238,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
-                 errno = EBADF;
                  PyObject *filenameObject = PyString_FromString("/path/to/file");
+                 errno = EBADF;
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, filenameObject);
                  Py_DECREF(filenameObject);
                  return NULL;
@@ -257,8 +257,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
-                 errno = EBADF;
                  PyObject *intObject = PyInt_FromLong(3);
+                 errno = EBADF;
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, intObject);
                  Py_DECREF(intObject);
                  return NULL;
@@ -276,8 +276,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
-                 errno = EBADF;
                  PyObject *lst = Py_BuildValue("[iis]", 1, 2, "three");
+                 errno = EBADF;
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, lst);
                  Py_DECREF(lst);
                  return NULL;
@@ -295,8 +295,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
-                 errno = EBADF;
                  PyObject *tuple = Py_BuildValue("(iis)", 1, 2, "three");
+                 errno = EBADF;
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, tuple);
                  Py_DECREF(tuple);
                  return NULL;
@@ -314,8 +314,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
-                 errno = EBADF;
                  PyObject *none = Py_BuildValue("");
+                 errno = EBADF;
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, none);
                  Py_DECREF(none);
                  return NULL;

@@ -64,8 +64,6 @@ def compile_extension_module(space, modname, **kwds):
         kwds["libraries"] = [api_library]
         # '%s' undefined; assuming extern returning int
         kwds["compile_extra"] = ["/we4013"]
-        # tests are not strictly ansi C compliant, compile as C++
-        kwds["compile_extra"].append("/TP")
         # prevent linking with PythonXX.lib
         w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
         kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
