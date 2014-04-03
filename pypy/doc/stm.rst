@@ -254,7 +254,7 @@ Reference to implementation details
 
 The core of the implementation is in a separate C library called stmgc_,
 in the c7_ subdirectory.  Please see the `README.txt`_ for more
-information.
+information.  In particular, the notion of segment is discussed there.
 
 .. _stmgc: https://bitbucket.org/pypy/stmgc/src/default/
 .. _c7: https://bitbucket.org/pypy/stmgc/src/default/c7/
