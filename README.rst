@@ -11,18 +11,29 @@ The goal of the project is to identify the challenges associated with composing
 programming languages whose paradigms differ vastly and to evaluate RPython as
 a language composition platform.
 
-Setup
-=====
+Bootstrap
+=========
 
 Run the setup script:
 
-    $ python2.7 bootstrap.py
+    $ python2.7 bootstrap.py all
 
-Follow instructions printed to stdout.
+You will need hg, git and the python modules 'sh' and 'vcstools'.
 
 On a 64-bit architecture the translation process will consume about 8GB of
 memory at peak. The resulting pypy-c binary is the composed Python/Prolog
 compiler.
+
+Running
+=======
+
+First source `env.sh`:
+
+```
+. ./env.sh
+```
+
+Then you can simply run `pypy-c`.
 
 Using Unipycation
 =================
