@@ -7,31 +7,31 @@ directory overview of PyPy:
 =================================  ============================================
 Directory                          explanation/links
 =================================  ============================================
-``pypy/bin/``                       command-line scripts, mainly
+`pypy/bin/`_                       command-line scripts, mainly
                                    `pypy/bin/pyinteractive.py`_
 
-``pypy/config/``                    handles the numerous options for building
+`pypy/config/`_                    handles the numerous options for building
                                    and running PyPy
 
-``pypy/doc/``                       text versions of PyPy developer
+`pypy/doc/`_                       text versions of PyPy developer
                                    documentation
 
-``pypy/doc/config/``                documentation for the numerous translation
+`pypy/doc/config/`_                documentation for the numerous translation
                                    options
 
-``pypy/doc/discussion/``            drafts of ideas and documentation
+`pypy/doc/discussion/`_            drafts of ideas and documentation
 
 ``doc/*/``                         other specific documentation topics or tools
 
-``pypy/interpreter/``               `bytecode interpreter`_ and related objects
+`pypy/interpreter/`_               `bytecode interpreter`_ and related objects
                                    (frames, functions, modules,...)
 
-``pypy/interpreter/pyparser/``      interpreter-level Python source parser
+`pypy/interpreter/pyparser/`_      interpreter-level Python source parser
 
-``pypy/interpreter/astcompiler/``   interpreter-level bytecode compiler,
+`pypy/interpreter/astcompiler/`_   interpreter-level bytecode compiler,
                                    via an AST representation
 
-``pypy/module/``                    contains `mixed modules`_
+`pypy/module/`_                    contains `mixed modules`_
                                    implementing core modules with
                                    both application and interpreter level code.
                                    Not all are finished and working.  Use
@@ -39,55 +39,55 @@ Directory                          explanation/links
                                    or ``--allworkingmodules`` translation
                                    options.
 
-``pypy/objspace/``                  `object space`_ implementations
+`pypy/objspace/`_                  `object space`_ implementations
 
-``pypy/objspace/std/``              the StdObjSpace_ implementing CPython's
+`pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's
                                    objects and types
 
-``pypy/tool/``                      various utilities and hacks used
+`pypy/tool/`_                      various utilities and hacks used
                                    from various places
 
-``pypy/tool/algo/``                 general-purpose algorithmic and mathematic
+`pypy/tool/algo/`_                 general-purpose algorithmic and mathematic
                                    tools
 
-``pypy/tool/pytest/``               support code for our `testing methods`_
+`pypy/tool/pytest/`_               support code for our `testing methods`_
 
 
-``rpython/annotator/``              `type inferencing code`_ for
+`rpython/annotator/`_              `type inferencing code`_ for
                                    `RPython`_ programs
 
-``rpython/config/``                 handles the numerous options for RPython
+`rpython/config/`_                 handles the numerous options for RPython
 
 
-``rpython/flowspace/``              the FlowObjSpace_ implementing
+`rpython/flowspace/`_              the FlowObjSpace_ implementing
                                    `abstract interpretation`_
 
-`rpython/rlib/``                   a `"standard library"`_ for RPython_
+`rpython/rlib/`_                   a `"standard library"`_ for RPython_
                                    programs
 
-``rpython/rtyper/``                 the `RPython Typer`_
+`rpython/rtyper/`_                 the `RPython Typer`_
 
-``rpython/rtyper/lltypesystem/``    the `low-level type system`_ for
+`rpython/rtyper/lltypesystem/`_    the `low-level type system`_ for
                                    C-like backends
 
-``rpython/memory/``                 the `garbage collector`_ construction
+`rpython/memory/`_                 the `garbage collector`_ construction
                                    framework
 
-``rpython/translator/``             translation_ backends and support code
+`rpython/translator/`_             translation_ backends and support code
 
-``rpython/translator/backendopt/``  general optimizations that run before a
+`rpython/translator/backendopt/`_  general optimizations that run before a
                                    backend generates code
 
-``rpython/translator/c/``           the `GenC backend`_, producing C code
+`rpython/translator/c/`_           the `GenC backend`_, producing C code
                                    from an
                                    RPython program (generally via the rtyper_)
 
-``pypy/goal/``                      our `main PyPy-translation scripts`_
+`pypy/goal/`_                      our `main PyPy-translation scripts`_
                                    live here
 
-``rpython/translator/tool/``        helper tools for translation
+`rpython/translator/tool/`_        helper tools for translation
 
-``dotviewer/``                      `graph viewer`_
+`dotviewer/`_                      `graph viewer`_
 
 ``*/test/``                        many directories have a test subdirectory
                                    containing test
