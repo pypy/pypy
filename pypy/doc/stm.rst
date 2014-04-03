@@ -22,24 +22,42 @@ for donation (*not ready yet*)
 .. .. _`2nd call for donation`: http://pypy.org/tmdonate2.html
 
 
-Introduction and current status
-===============================
+Introduction
+============
 
 ``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats
-listed below, it should be in theory within 25%-50% of the speed of
-PyPy, comparing the JITting version in both cases.  It is called STM for
-Software Transactional Memory, which is the internal technique used (see
-`Reference to implementation details`_).
+listed below, it should be in theory within 25%-50% of the speed of a
+regular PyPy, comparing the JITting version in both cases.  It is called
+STM for Software Transactional Memory, which is the internal technique
+used (see `Reference to implementation details`_).
 
-XXX more introduction
+What you get in exchange for this slow-down is that ``pypy-stm`` runs
+any multithreaded Python program on multiple CPUs at once.  Programs
+running two threads or more in parallel should ideally run faster than
+in a regular PyPy, either now or soon as issues are fixed.  In one way,
+that's all there is to it: this is a GIL-less Python, feel free to
+`download and try it`__.  However, the deeper idea behind the
+``pypy-stm`` project is to improve what is so far the state-of-the-art
+for using multiple CPUs, which for cases where separate processes don't
+work is done by writing explicitly multi-threaded programs.  Instead,
+``pypy-stm`` is flushing forward an approach to *hide* the threads, as
+described below in `atomic sections`_.
+
+
+.. __:
+
+Current status
+==============
 
 **pypy-stm requires 64-bit Linux for now.**
 
 Development is done in the branch `stmgc-c7`_.  If you are only
 interested in trying it out, you can download a Ubuntu 12.04 binary
-here__.  The current version supports four "segments", which means that
-it will run up to four threads in parallel (in other words, you get a
-GIL effect again, but only if trying to execute more than 4 threads).
+here__ (``pypy-2.2.x-stm*.tar.bz2``; this version is a release mode,
+but not stripped of debug symbols).  The current version supports four
+"segments", which means that it will run up to four threads in parallel
+(in other words, you get a GIL effect again, but only if trying to
+execute more than 4 threads).
 
 To build a version from sources, you first need to compile a custom
 version of clang; we recommend downloading `llvm and clang like
@@ -59,10 +77,8 @@ the branch `stmgc-c7`_ of PyPy and run::
 
 Caveats:
 
-* It should generally work.  Please do `report bugs`_ that manifest as a
-  crash or wrong behavior (markedly different from the behavior of a
-  regular PyPy).  Performance bugs are likely to be known issues; we're
-  working on them.
+* So far, small examples work fine, but there are still a number of
+  bugs.  We're busy fixing them.
 
 * The JIT warm-up time is abysmal (as opposed to the regular PyPy's,
   which is "only" bad).  Moreover, you should run it with a command like
@@ -191,7 +207,18 @@ pool, but every single call is done in an atomic section.  The end
 result is that the behavior should be exactly equivalent: you don't get
 any extra multithreading issue.
 
+This approach hides the notion of threads from the end programmer,
+including all the hard multithreading-related issues.  This is not the
+first alternative approach to explicit threads; for example, OpenMP_ is
+one.  However, it is one of the first ones which does not require the
+code to be organized in a particular fashion.  Instead, it works on any
+Python program which has got latent, imperfect parallelism.  Ideally, it
+only requires that the end programmer identifies where this parallelism
+is likely to be found, and communicates it to the system, using for
+example the ``transaction.add()`` scheme.
+
 .. _`lib_pypy/transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
+.. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
 ==================
 
