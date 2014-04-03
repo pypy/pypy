@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import os, os.path, sys, importlib, os, vcstools
+import os, os.path, sys, importlib, os, vcstools, sh
 
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
@@ -56,10 +56,10 @@ def fetch_pyro():
 #
 
 # translate
-def build_unipycation():
+def build_unipycation(shared_dir):
     print("Translating unipycation...")
     sh.Command(sys.executable)(
-            os.path.join(SCRIPT_DIR, "translate_unipycation.py"),
+            os.path.join(shared_dir, "translate_unipycation.py"),
             _out=sys.stdout, _err=sys.stderr)
 
 #
@@ -124,7 +124,7 @@ def bootstrap(target, shared_dir=None):
     configure(shared_dir)
 
     if target in ["build", "all"]:
-        build_unipycation()
+        build_unipycation(shared_dir)
 
 def usage():
     print("\nUsage:")
