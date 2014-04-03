@@ -621,7 +621,7 @@ You can choose which garbage collection strategy to use with
 The C Back-End
 ==============
 
-https://bitbucket.org/pypy/pypy/src/tip/rpython/translator/c/
+https://bitbucket.org/pypy/pypy/src/default/rpython/translator/c/
 
 GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are
