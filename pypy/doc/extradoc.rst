@@ -79,7 +79,7 @@ Papers
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
 .. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`: http://wwwold.cobra.cs.uni-duesseldorf.de/thesis/final-master.pdf
-.. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
+.. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
 .. _`EU Reports`: index-report.html
 .. _`Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`: http://sabi.net/nriley/pubs/dls6-riley.pdf
 .. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
