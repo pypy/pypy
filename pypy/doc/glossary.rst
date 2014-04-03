@@ -1,5 +1,3 @@
-.. include:: needswork.txt
-
 .. _glossary:
 
 ********
