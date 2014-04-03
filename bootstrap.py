@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import os, os.path, sys, importlib
+import os, os.path, sys, importlib, os, vcstools
 
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
@@ -19,26 +19,6 @@ DEFAULT_SHARED_DIR = os.path.join(DEPS_DIR, "unipycation-shared")
 
 PATHS_CONF = os.path.join(SCRIPT_DIR, "paths.conf")
 ENV_SH = os.path.join(SCRIPT_DIR, "env.sh")
-
-try:
-    import pip
-except ImportError:
-    raise ImportError("Please install pip")
-
-reqs = ["sh", "vcstools"]
-for req in reqs:
-    sys.stdout.write("checking for %s..." % req)
-    try:
-        importlib.import_module(req)
-        print("found")
-    except ImportError:
-        print("missing!")
-        print("Installing %s..." % req)
-        pip.main(['install', '--user', req])
-        importlib.import_module(req)
-
-    locs = locals()
-    locs[req] = sys.modules[req]
 
 #
 # FETCH
