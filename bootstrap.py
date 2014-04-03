@@ -59,7 +59,7 @@ def fetch_pyro():
 def build_unipycation(shared_dir):
     print("Translating unipycation...")
     sh.Command(sys.executable)(
-            os.path.join(shared_dir, "translate_unipycation.py"),
+            os.path.join(shared_dir, "translate_unipycation.py", "unipycation"),
             _out=sys.stdout, _err=sys.stderr)
 
 #
@@ -88,7 +88,7 @@ def gen_env_sh(shared_dir):
                 os.path.join(SCRIPT_DIR, "rpython", "bin", "rpython")))
 
 def force_symlink(src, dest):
-    if os.path.exists(dest) or os.path.islink(dest):
+    if os.path.islink(dest):
         os.unlink(dest)
     os.symlink(src, dest)
 
