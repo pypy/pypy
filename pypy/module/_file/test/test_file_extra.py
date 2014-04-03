@@ -528,7 +528,7 @@ class AppTestAFewExtra:
         f = open(fn)
         exc = raises(EnvironmentError, f.truncate, 3)
         if sys.platform == 'win32':
-            assert exc.value.winerror == 5 # ERROR_ACCESS_DENIED
+            assert exc.value.errno == 5 # ERROR_ACCESS_DENIED
         else:
             # CPython explicitely checks the file mode
             # PyPy relies on the libc to raise the error
