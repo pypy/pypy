@@ -296,7 +296,7 @@ class UnrollOptimizer(Optimization):
             i += 1
             newoperations = self.optimizer.get_newoperations()
         self.short.append(ResOperation(rop.JUMP, short_jumpargs, None, descr=start_label.getdescr()))
-        self.finilize_short_preamble(start_label)
+        self.finalize_short_preamble(start_label)
 
     def close_loop(self, start_label, jumpop):
         virtual_state = self.initial_virtual_state
@@ -403,9 +403,9 @@ class UnrollOptimizer(Optimization):
             assert isinstance(target_token, TargetToken)
             target_token.targeting_jitcell_token.retraced_count = sys.maxint
 
-        self.finilize_short_preamble(start_label)
+        self.finalize_short_preamble(start_label)
 
-    def finilize_short_preamble(self, start_label):
+    def finalize_short_preamble(self, start_label):
         short = self.short
         assert short[-1].getopnum() == rop.JUMP
         target_token = start_label.getdescr()
@@ -584,6 +584,7 @@ class UnrollOptimizer(Optimization):
 
                 for guard in extra_guards:
                     if guard.is_guard():
+                        import pdb; pdb.set_trace()
                         descr = target.resume_at_jump_descr.clone_if_mutable()
                         inliner.inline_descr_inplace(descr)
                         guard.setdescr(descr)
