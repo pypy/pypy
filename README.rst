@@ -35,7 +35,7 @@ First source `env.sh`:
 
     $ . ./env.sh
 
-Then you can simply run `pypy-c`.
+Then you can simply run `unipycation`.
 
 Using Unipycation
 =================
