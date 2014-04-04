@@ -584,7 +584,6 @@ class UnrollOptimizer(Optimization):
 
                 for guard in extra_guards:
                     if guard.is_guard():
-                        import pdb; pdb.set_trace()
                         descr = target.resume_at_jump_descr.clone_if_mutable()
                         inliner.inline_descr_inplace(descr)
                         guard.setdescr(descr)
