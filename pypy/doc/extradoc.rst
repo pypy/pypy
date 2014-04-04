@@ -356,8 +356,6 @@ Related projects
 .. _`transparent dynamic optimization`: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
 .. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
 .. _testdesign: coding-guide.html#test-design
-.. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
-.. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
 .. _LLVM: http://llvm.org/
 .. _IronPython: http://ironpython.codeplex.com/
 .. _`Dynamic Native Optimization of Native Interpreters`: http://people.csail.mit.edu/gregs/dynamorio.html
