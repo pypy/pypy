@@ -217,15 +217,13 @@ in Germany from 22nd August to 29th August (both days included).
 Its main focus is translation of the whole PyPy interpreter 
 to a low level language and reaching 2.4.1 Python compliance.
 The goal of the sprint is to release a first self-contained
-PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_, 
-there are `some pictures`_ online and a `heidelberg summary report`_
-detailing some of the works that led to the successful release 
-of `pypy-0.7.0`_! 
+PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_
+and a `heidelberg summary report`_ detailing some of the works
+that led to the successful release of `pypy-0.7.0`_! 
 
 .. _`heidelberg summary report`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-report.txt
 .. _`PyPy sprint`: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-sprint.txt
 .. _`day 1 - 3`: https://mail.python.org/pipermail/pypy-dev/2005-August/002287.html
-.. _`some pictures`: http://codespeak.net/~hpk/heidelberg-sprint/
 
 PyPy Hildesheim2 finished: first self-contained PyPy run! 
 ===========================================================
@@ -233,20 +231,16 @@ PyPy Hildesheim2 finished: first self-contained PyPy run!
 Up until 31st August we were in a PyPy sprint at `Trillke-Gut`_. 
 Carl has written a `report about day 1`_, Holger 
 about `day 2 and day 3`_ and Carl again about `day 4 and day 5`_, 
-On `day 6`_ Holger reports the `breakthrough`_: PyPy runs 
-on its own! Hurray_!.  And Carl finally reports about the winding
+On `day 6`_ Holger reports the breakthrough: PyPy runs 
+on its own! Hurray!.  And Carl finally reports about the winding
 down of `day 7`_ which saw us relaxing, discussing and generally 
-having a good time.   You might want to look at the selected 
-`pictures from the sprint`_. 
+having a good time.
 
 .. _`report about day 1`: https://mail.python.org/pipermail/pypy-dev/2005-July/002217.html
 .. _`day 2 and day 3`: https://mail.python.org/pipermail/pypy-dev/2005-July/002220.html
 .. _`day 4 and day 5`: https://mail.python.org/pipermail/pypy-dev/2005-July/002234.html
 .. _`day 6`: https://mail.python.org/pipermail/pypy-dev/2005-July/002239.html
 .. _`day 7`: https://mail.python.org/pipermail/pypy-dev/2005-August/002245.html
-.. _`breakthrough`: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Thumbnails/36.jpg
-.. _`hurray`: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Pages/Image37.html
-.. _`pictures from the sprint`: http://codespeak.net/~hpk/hildesheim2-sprint-www/ 
 .. _`Trillke-Gut`: http://www.trillke.net
 
 EuroPython 2005 sprints finished 
