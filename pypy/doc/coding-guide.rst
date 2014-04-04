@@ -835,15 +835,6 @@ for the next milestone, both from an E-Mail and from a
 web interface.
 
 .. _`development tracker`: https://bugs.pypy.org/
-
-use your codespeak login or register
-------------------------------------
-
-If you have an existing codespeak account, you can use it to login within the
-tracker. Else, you can `register with the tracker`_ easily.
-
-
-.. _`register with the tracker`: https://bugs.pypy.org/user?@template=register
 .. _`roundup`: http://roundup.sourceforge.net/
 
 
