@@ -627,26 +627,26 @@ class BaseTestBridges(BaseTest):
 
     def test_constant(self):
         loops = """
-        [p0]
-        p1 = same_as(ConstPtr(myptr))
-        jump(p1)
+        [i0]
+        i1 = same_as(1)
+        jump(i1)
         """, """
-        [p0]
-        p1 = same_as(ConstPtr(myptr2))
-        jump(p1)
+        [i0]
+        i1 = same_as(2)
+        jump(i1)
         """, """
-        [p0]
-        jump(p0)
+        [i0]
+        jump(i0)
         """
         expected = """
-        [p0]
+        [i0]
         jump()
         """
         self.optimize_bridge(loops, loops[0], expected, 'Loop0')
         self.optimize_bridge(loops, loops[1], expected, 'Loop1')
         expected = """
-        [p0]
-        jump(p0)
+        [i0]
+        jump(i0)
         """
         self.optimize_bridge(loops, loops[2], expected, 'Loop2')
 
