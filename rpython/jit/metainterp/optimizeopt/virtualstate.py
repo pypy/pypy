@@ -18,7 +18,15 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
 
     def generalization_of(self, other, renum, bad):
-        raise NotImplementedError
+        assert self.position != -1
+        if self.position in renum:
+            result = renum[self.position] == other.position
+        else:
+            renum[self.position] = other.position
+            result = self.generalization_of_renumbering_done(other, renum, bad)
+        if not result:
+            bad[self] = bad[other] = None
+        return result
 
     def generate_guards(self, other, box, cpu, extra_guards, renum):
         if self.generalization_of(other, renum, {}):
@@ -67,37 +75,21 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
-    def generalization_of(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            bad[self] = None
-            bad[other] = None
-            return False
-        renum[self.position] = other.position
+    def generalization_of_renumbering_done(self, other, renum, bad):
         if not self._generalization_of(other):
-            bad[self] = None
-            bad[other] = None
             return False
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
-            bad[self] = None
-            bad[other] = None
             return False
 
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
-                bad[self] = None
-                bad[other] = None
                 return False
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
-                bad[self] = None
-                bad[other] = None
                 return False
 
         return True
@@ -130,11 +122,8 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         self.known_class = known_class
 
     def _generalization_of(self, other):
-        if not isinstance(other, VirtualStateInfo):
-            return False
-        if not self.known_class.same_constant(other.known_class):
-            return False
-        return True
+        return (isinstance(other, VirtualStateInfo) and
+                self.known_class.same_constant(other.known_class))
 
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
@@ -146,11 +135,8 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
         self.typedescr = typedescr
 
     def _generalization_of(self, other):
-        if not isinstance(other, VStructStateInfo):
-            return False
-        if self.typedescr is not other.typedescr:
-            return False
-        return True
+        return (isinstance(other, VStructStateInfo) and
+                self.typedescr is other.typedescr)
 
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
@@ -165,28 +151,14 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         return (isinstance(other, VArrayStateInfo) and
             self.arraydescr is other.arraydescr)
 
-    def generalization_of(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            bad[self] = None
-            bad[other] = None
-            return False
-        renum[self.position] = other.position
+    def generalization_of_renumbering_done(self, other, renum, bad):
         if not self._generalization_of(other):
-            bad[self] = None
-            bad[other] = None
             return False
         if len(self.fieldstate) != len(other.fieldstate):
-            bad[self] = None
-            bad[other] = None
             return False
         for i in range(len(self.fieldstate)):
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
-                bad[self] = None
-                bad[other] = None
                 return False
         return True
 
@@ -216,41 +188,23 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
 
-    def generalization_of(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            bad[self] = None
-            bad[other] = None
-            return False
-        renum[self.position] = other.position
+    def generalization_of_renumbering_done(self, other, renum, bad):
         if not self._generalization_of(other):
-            bad[self] = None
-            bad[other] = None
             return False
 
         assert isinstance(other, VArrayStructStateInfo)
         if len(self.fielddescrs) != len(other.fielddescrs):
-            bad[self] = None
-            bad[other] = None
             return False
 
         p = 0
         for i in range(len(self.fielddescrs)):
             if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
-                bad[self] = None
-                bad[other] = None
                 return False
             for j in range(len(self.fielddescrs[i])):
                 if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
-                    bad[self] = None
-                    bad[other] = None
                     return False
                 if not self.fieldstate[p].generalization_of(other.fieldstate[p],
                                                             renum, bad):
-                    bad[self] = None
-                    bad[other] = None
                     return False
                 p += 1
         return True
@@ -302,49 +256,31 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.position_in_notvirtuals = -1
         self.lenbound = value.lenbound
 
-    def generalization_of(self, other, renum, bad):
+    def generalization_of_renumbering_done(self, other, renum, bad):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            bad[self] = None
-            bad[other] = None
-            return False
-        renum[self.position] = other.position
         if not isinstance(other, NotVirtualStateInfo):
-            bad[self] = None
-            bad[other] = None
             return False
         if other.level < self.level:
-            bad[self] = None
-            bad[other] = None
             return False
         if self.level == LEVEL_CONSTANT:
             if not self.constbox.same_constant(other.constbox):
-                bad[self] = None
-                bad[other] = None
                 return False
         elif self.level == LEVEL_KNOWNCLASS:
             if not self.known_class.same_constant(other.known_class):
-                bad[self] = None
-                bad[other] = None
                 return False
+        elif self.level == LEVEL_NONNULL:
+            if other.constbox and not other.constbox.nonnull():
+                return False
+
         if not self.intbound.contains_bound(other.intbound):
-            bad[self] = None
-            bad[other] = None
             return False
         if self.lenbound and other.lenbound:
             if self.lenbound.mode != other.lenbound.mode or \
                self.lenbound.descr != other.lenbound.descr or \
                not self.lenbound.bound.contains_bound(other.lenbound.bound):
-                bad[self] = None
-                bad[other] = None
                 return False
         elif self.lenbound:
-            bad[self] = None
-            bad[other] = None
             return False
         return True
 

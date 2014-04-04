@@ -1,9 +1,10 @@
 import sys
 import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, Config
+from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
+from rpython.translator.platform import platform as compiler
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -16,8 +17,13 @@ DEFL_GC = "incminimark"   # XXX
 
 if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
+    ROOTFINDERS = ["n/a", "shadowstack", "asmgcc"]
+elif compiler.name == 'msvc':    
+    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+    ROOTFINDERS = ["n/a", "shadowstack"]
 else:
     DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+    ROOTFINDERS = ["n/a", "shadowstack", "asmgcc"]
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -85,7 +91,7 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack", "asmgcc"],
+                 ROOTFINDERS,
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
