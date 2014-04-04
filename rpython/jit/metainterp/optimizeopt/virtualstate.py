@@ -360,16 +360,20 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.is_opaque:
             raise InvalidLoop('Generating guards for opaque pointers is not safe')
 
+        # the following conditions always peek into the runtime value that the
+        # box had when tracing. This value is only used as an educated guess.
+        # It is used here to choose between either emitting a guard and jumping
+        # to an existing compiled loop or retracing the loop. Both alternatives
+        # will always generate correct behaviour, but performance will differ.
+        if (self.level == LEVEL_CONSTANT and
+                self.constbox.same_constant(box.constbox())):
+            op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
+            extra_guards.append(op)
+            return
+
         if self.level == LEVEL_KNOWNCLASS and \
            box.nonnull() and \
            self.known_class.same_constant(cpu.ts.cls_of_box(box)):
-            # Note: This is only a hint on what the class of box was
-            # during the trace. There are actually no guarentees that this
-            # box realy comes from a trace. The hint is used here to choose
-            # between either eimtting a guard_class and jumping to an
-            # excisting compiled loop or retracing the loop. Both
-            # alternatives will always generate correct behaviour, but
-            # performace will differ.
             op = ResOperation(rop.GUARD_NONNULL, [box], None)
             extra_guards.append(op)
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)

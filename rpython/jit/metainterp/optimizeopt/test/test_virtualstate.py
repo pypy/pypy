@@ -252,7 +252,24 @@ class BaseTestGenerateGuards(BaseTest):
             guards = []
             vstate2.generate_guards(vstate3, [self.nodebox, self.nodebox],
                                     self.cpu, guards)
-        
+
+    def test_known_value_virtualstate(self):
+        box1 = BoxInt(1)
+        box2 = BoxInt(1)
+        value1 = OptValue(box1)
+        value2 = OptValue(box2)
+        value1.make_constant(ConstInt(1))
+        vstate1 = VirtualState([NotVirtualStateInfo(value1)])
+        vstate2 = VirtualState([NotVirtualStateInfo(value2)])
+        expected = """
+        [i0]
+        guard_value(i0, 1) []
+        """
+        guards = []
+        vstate1.generate_guards(vstate2, [box2], self.cpu, guards)
+        self.compare(guards, expected, [box2])
+
+
     def test_virtuals_with_equal_fields(self):
         info1 = VirtualStateInfo(ConstInt(42), [1, 2])
         value = OptValue(self.nodebox)
