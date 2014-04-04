@@ -59,10 +59,8 @@ def fetch_pyro():
 def build_unipycation(shared_dir):
     print("Translating unipycation...")
     sh.Command(sys.executable)(
-            os.path.join(shared_dir, "translate_unipycation.py"),
+            os.path.join(shared_dir, "translate_unipycation.py"), "unipycation",
             _out=sys.stdout, _err=sys.stderr)
-    sh.mv(os.path.join(UNIPY_BIN_DIR, "pypy-c"),
-            os.path.join(UNIPY_BIN_DIR, "unipycation"))
 
 #
 # CONFIGURE
