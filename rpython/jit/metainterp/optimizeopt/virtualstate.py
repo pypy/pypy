@@ -23,7 +23,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
             result = renum[self.position] == other.position
         else:
             renum[self.position] = other.position
-            result = self.generalization_of_dont_handle_bad(other, renum, bad)
+            result = self.generalization_of_renumbering_done(other, renum, bad)
         if not result:
             bad[self] = bad[other] = None
         return result
@@ -75,7 +75,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
-    def generalization_of_dont_handle_bad(self, other, renum, bad):
+    def generalization_of_renumbering_done(self, other, renum, bad):
         if not self._generalization_of(other):
             return False
 
@@ -151,7 +151,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         return (isinstance(other, VArrayStateInfo) and
             self.arraydescr is other.arraydescr)
 
-    def generalization_of_dont_handle_bad(self, other, renum, bad):
+    def generalization_of_renumbering_done(self, other, renum, bad):
         if not self._generalization_of(other):
             return False
         if len(self.fieldstate) != len(other.fieldstate):
@@ -188,7 +188,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
 
-    def generalization_of_dont_handle_bad(self, other, renum, bad):
+    def generalization_of_renumbering_done(self, other, renum, bad):
         if not self._generalization_of(other):
             return False
 
@@ -256,7 +256,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.position_in_notvirtuals = -1
         self.lenbound = value.lenbound
 
-    def generalization_of_dont_handle_bad(self, other, renum, bad):
+    def generalization_of_renumbering_done(self, other, renum, bad):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
         if not isinstance(other, NotVirtualStateInfo):
