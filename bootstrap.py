@@ -122,11 +122,12 @@ def bootstrap(target, shared_dir=None):
     if target in ["fetch", "all"]:
         fetch_deps(with_shared)
 
+    if target in ["build", "all"]:
+        build_unipycation(shared_dir)
+
     # happens in all targets
     configure(shared_dir)
 
-    if target in ["build", "all"]:
-        build_unipycation(shared_dir)
 
 def usage():
     print("\nUsage:")
