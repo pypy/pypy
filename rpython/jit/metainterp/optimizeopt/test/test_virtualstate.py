@@ -202,6 +202,17 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.compare(guards, expected, [box])
 
+    def test_known_value(self):
+        value1 = OptValue(self.nodebox)
+        value1.make_constant(ConstInt(1))
+        box = self.nodebox
+        guards = value1.make_guards(box)
+        expected = """
+        [i0]
+        guard_value(i0, 1) []
+        """
+        self.compare(guards, expected, [box])
+
     def test_equal_inputargs(self):
         value = OptValue(self.nodebox)        
         classbox = self.cpu.ts.cls_of_box(self.nodebox)
