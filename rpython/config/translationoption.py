@@ -1,7 +1,7 @@
 import sys
 import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, Config
+from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
 
@@ -366,9 +366,11 @@ def set_opt_level(config, level):
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
 
-    # disallow asmgcc on OS/X
+    # disallow asmgcc on OS/X and windows
     if config.translation.gcrootfinder == "asmgcc":
         assert sys.platform != "darwin"
+        if (sys.platform == 'win32'):
+            raise ConflictConfigError("asmgcc unusable on win32")
 
 # ----------------------------------------------------------------
 
