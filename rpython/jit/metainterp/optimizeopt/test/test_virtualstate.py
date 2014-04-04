@@ -89,6 +89,11 @@ class TestBasic:
         assert isgeneral(OptValue(ConstPtr(fooref)),
                          OptValue(ConstPtr(fooref)))
 
+        value1 = OptValue(BoxPtr())
+        value1.make_nonnull(None)
+        value2 = OptValue(ConstPtr(LLtypeMixin.nullptr))
+        assert not isgeneral(value1, value2)
+
     def test_field_matching_generalization(self):
         const1 = NotVirtualStateInfo(OptValue(ConstInt(1)))
         const2 = NotVirtualStateInfo(OptValue(ConstInt(2)))

@@ -502,7 +502,6 @@ class LoopTest(object):
         assert self.meta_interp(h, [25]) == 7 * 25 * (7 + 8 + 2 + 3)
 
     def test_two_bridged_loops_classes(self):
-        py.test.skip("fix me :-((((")
         myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'n', 'x', 's'])
         class A(object):
             pass

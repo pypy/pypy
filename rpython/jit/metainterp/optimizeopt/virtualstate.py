@@ -269,6 +269,10 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         elif self.level == LEVEL_KNOWNCLASS:
             if not self.known_class.same_constant(other.known_class):
                 return False
+        elif self.level == LEVEL_NONNULL:
+            if other.constbox and not other.constbox.nonnull():
+                return False
+
         if not self.intbound.contains_bound(other.intbound):
             return False
         if self.lenbound and other.lenbound:
