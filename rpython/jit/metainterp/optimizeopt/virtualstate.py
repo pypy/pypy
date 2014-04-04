@@ -18,7 +18,12 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
 
     def generalization_of(self, other, renum, bad):
-        result = self.generalization_of_dont_handle_bad(other, renum, bad)
+        assert self.position != -1
+        if self.position in renum:
+            result = renum[self.position] == other.position
+        else:
+            renum[self.position] = other.position
+            result = self.generalization_of_dont_handle_bad(other, renum, bad)
         if not result:
             bad[self] = bad[other] = None
         return result
@@ -71,12 +76,6 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs
 
     def generalization_of_dont_handle_bad(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            return False
-        renum[self.position] = other.position
         if not self._generalization_of(other):
             return False
 
@@ -153,12 +152,6 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             self.arraydescr is other.arraydescr)
 
     def generalization_of_dont_handle_bad(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            return False
-        renum[self.position] = other.position
         if not self._generalization_of(other):
             return False
         if len(self.fieldstate) != len(other.fieldstate):
@@ -196,12 +189,6 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs
 
     def generalization_of_dont_handle_bad(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            return False
-        renum[self.position] = other.position
         if not self._generalization_of(other):
             return False
 
@@ -272,12 +259,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def generalization_of_dont_handle_bad(self, other, renum, bad):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            return False
-        renum[self.position] = other.position
         if not isinstance(other, NotVirtualStateInfo):
             return False
         if other.level < self.level:
