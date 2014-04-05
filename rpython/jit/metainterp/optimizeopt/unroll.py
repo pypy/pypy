@@ -77,6 +77,12 @@ class UnrollOptimizer(Optimization):
         else:
             start_label = None
 
+        patchguardop = None
+        if len(loop.operations) > 1:
+            patchguardop = loop.operations[-2]
+            if patchguardop.getopnum() != rop.GUARD_FUTURE_CONDITION:
+                patchguardop = None
+
         jumpop = loop.operations[-1]
         if jumpop.getopnum() == rop.JUMP or jumpop.getopnum() == rop.LABEL:
             loop.operations = loop.operations[:-1]
@@ -94,7 +100,7 @@ class UnrollOptimizer(Optimization):
         stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), None, TargetToken(cell_token))
 
         if jumpop.getopnum() == rop.JUMP:
-            if self.jump_to_already_compiled_trace(jumpop):
+            if self.jump_to_already_compiled_trace(jumpop, patchguardop):
                 # Found a compiled trace to jump to
                 if self.short:
                     # Construct our short preamble
@@ -108,7 +114,7 @@ class UnrollOptimizer(Optimization):
                                       descr=start_label.getdescr())
                 if self.short:
                     # Construct our short preamble
-                    self.close_loop(start_label, jumpop)
+                    self.close_loop(start_label, jumpop, patchguardop)
                 else:
                     self.optimizer.send_extra_operation(jumpop)
                 return
@@ -162,11 +168,6 @@ class UnrollOptimizer(Optimization):
         original_jump_args = targetop.getarglist()
         jump_args = [self.getvalue(a).get_key_box() for a in original_jump_args]
 
-        assert self.optimizer.loop.resume_at_jump_descr
-        resume_at_jump_descr = self.optimizer.loop.resume_at_jump_descr.clone_if_mutable()
-        assert isinstance(resume_at_jump_descr, ResumeGuardDescr)
-        resume_at_jump_descr.rd_snapshot = self.fix_snapshot(jump_args, resume_at_jump_descr.rd_snapshot)
-
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
 
@@ -195,7 +196,6 @@ class UnrollOptimizer(Optimization):
         targetop.initarglist(inputargs)
         target_token.virtual_state = virtual_state
         target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
-        target_token.resume_at_jump_descr = resume_at_jump_descr
 
         exported_values = {}
         for box in inputargs:
@@ -230,7 +230,6 @@ class UnrollOptimizer(Optimization):
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
-        self.short_resume_at_jump_descr = target_token.resume_at_jump_descr
         self.initial_virtual_state = target_token.virtual_state
 
         seen = {}
@@ -298,7 +297,7 @@ class UnrollOptimizer(Optimization):
         self.short.append(ResOperation(rop.JUMP, short_jumpargs, None, descr=start_label.getdescr()))
         self.finalize_short_preamble(start_label)
 
-    def close_loop(self, start_label, jumpop):
+    def close_loop(self, start_label, jumpop, patchguardop):
         virtual_state = self.initial_virtual_state
         short_inputargs = self.short[0].getarglist()
         inputargs = self.inputargs
@@ -335,6 +334,11 @@ class UnrollOptimizer(Optimization):
             # Note that self.short might be extended during this loop
             op = self.short[i]
             newop = self.short_inliner.inline_op(op)
+            if newop.is_guard():
+                if not patchguardop:
+                    raise InvalidLoop("would like to have short preamble, but it has a guard and there's no guard_future_condition")
+                descr = patchguardop.getdescr().clone_if_mutable()
+                newop.setdescr(descr)
             self.optimizer.send_extra_operation(newop)
             if op.result in self.short_boxes.assumed_classes:
                 classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
@@ -417,8 +421,7 @@ class UnrollOptimizer(Optimization):
             if op.is_guard():
                 op = op.clone()
                 op.setfailargs(None)
-                descr = target_token.resume_at_jump_descr.clone_if_mutable()
-                op.setdescr(descr)
+                op.setdescr(None) # will be set to a proper descr when the preamble is used
                 short[i] = op
 
         # Clone ops and boxes to get private versions and
@@ -440,8 +443,6 @@ class UnrollOptimizer(Optimization):
             if op.result and op.result in self.short_boxes.assumed_classes:
                 target_token.assumed_classes[newop.result] = self.short_boxes.assumed_classes[op.result]
             short[i] = newop
-        target_token.resume_at_jump_descr = target_token.resume_at_jump_descr.clone_if_mutable()
-        inliner.inline_descr_inplace(target_token.resume_at_jump_descr)
 
         # Forget the values to allow them to be freed
         for box in short[0].getarglist():
@@ -485,8 +486,7 @@ class UnrollOptimizer(Optimization):
             if not isinstance(a, Const) and a not in self.short_seen:
                 self.add_op_to_short(self.short_boxes.producer(a), emit, guards_needed)
         if op.is_guard():
-            descr = self.short_resume_at_jump_descr.clone_if_mutable()
-            op.setdescr(descr)
+            op.setdescr(None) # will be set to a proper descr when the preamble is used
 
         if guards_needed and self.short_boxes.has_producer(op.result):
             value_guards = self.getvalue(op.result).make_guards(op.result)
@@ -528,7 +528,7 @@ class UnrollOptimizer(Optimization):
             box = self.optimizer.values[box].force_box(self.optimizer)
         jumpargs.append(box)
 
-    def jump_to_already_compiled_trace(self, jumpop):
+    def jump_to_already_compiled_trace(self, jumpop, patchguardop):
         assert jumpop.getopnum() == rop.JUMP
         cell_token = jumpop.getdescr()
 
@@ -570,6 +570,21 @@ class UnrollOptimizer(Optimization):
                     debugmsg = 'Guarded to match '
                 except InvalidLoop:
                     pass
+            #else:
+            #    import pdb; pdb.set_trace()
+            if ok and not patchguardop:
+                # if we can't patch the guards to go to a good target, no use
+                # in jumping to this label
+                for guard in extra_guards:
+                    if guard.is_guard():
+                        ok = False
+                        break
+                else:
+                    for shop in target.short_preamble[1:]:
+                        if shop.is_guard():
+                            ok = False
+                            break
+
             target.virtual_state.debug_print(debugmsg, bad)
 
             if ok:
@@ -584,14 +599,16 @@ class UnrollOptimizer(Optimization):
 
                 for guard in extra_guards:
                     if guard.is_guard():
-                        descr = target.resume_at_jump_descr.clone_if_mutable()
-                        inliner.inline_descr_inplace(descr)
+                        descr = patchguardop.getdescr().clone_if_mutable()
                         guard.setdescr(descr)
                     self.optimizer.send_extra_operation(guard)
 
                 try:
                     for shop in target.short_preamble[1:]:
                         newop = inliner.inline_op(shop)
+                        if newop.is_guard():
+                            descr = patchguardop.getdescr().clone_if_mutable()
+                            newop.setdescr(descr)
                         self.optimizer.send_extra_operation(newop)
                         if shop.result in target.assumed_classes:
                             classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)

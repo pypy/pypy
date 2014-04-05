@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
-                                                           equaloplists, FakeDescrWithSnapshot
+                                                           equaloplists
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
@@ -488,7 +488,6 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        bridge.resume_at_jump_descr = FakeDescrWithSnapshot()
         optimize_trace(metainterp_sd, bridge, self.enable_opts)
 
         
@@ -497,6 +496,7 @@ class BaseTestBridges(BaseTest):
             loops = (loops, )
         loops = [self.parse(loop) for loop in loops]
         bridge = self.parse(bridge)
+        self.add_guard_future_condition(bridge)
         for loop in loops:
             loop.preamble = self.unroll_and_optimize(loop)
         preamble = loops[0].preamble
