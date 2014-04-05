@@ -28,12 +28,6 @@ Optimize them manually...
 
 ------------------------------------------------------------
 
-reintroduce 'stm_ignored', disabled in 4294a7789103 for causing
-a rare bug in ll_strhash() shown by http://bpaste.net/show/190868/
-failing after a few minutes (or just running translate.py)
-
-------------------------------------------------------------
-
 __pypy__.thread.getsegmentlimit():
 
 XXX This limit is so far a compile time option (STM_NB_SEGMENTS in
@@ -43,21 +37,42 @@ change the limit (or at least lower it) with setsegmentlimit().
 
 ------------------------------------------------------------
 
-remap the group of read markers corresponding to a nusery into
-a single physical "garbage" page
-
-------------------------------------------------------------
-
 JIT: add an artificial malloc if the loop is so small as to contain
 any!
 
 ------------------------------------------------------------
 
-**URGENT**
-become_inevitable: getarrayitem/raw, for the jit/metainterp/counters.py
+weakrefs stay alive longer than expected::
+    
+    y = some object that was already alive for a while
+    x = ref(y)
+    del y
+    gc.collect()        # y doesn't die: it's needed if we abort
+    assert x() is None  # so this assert fails
+
+A dying weakref might be a cross-transaction way to exchange
+information when there should be none::
+
+    thread 1:
+        if <condition>:
+            x = some_weakref()
+        ...
+
+    thread 2:
+        gc.collect()   # will kill some_weakref() but only if
+                       # thread 1 did not, so far, read it
+        if some_weakref() is None:
+            ...
 
 ------------------------------------------------------------
 
+missing recursion detection (both in interpreted and JITted mode)
+
+------------------------------------------------------------
+
+change the limit of 1 GB
+
+------------------------------------------------------------
 
 
 
