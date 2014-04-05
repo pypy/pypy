@@ -99,9 +99,11 @@ Caveats:
   programs that modify large lists or dicts, suffer from these missing
   optimizations.
 
-* The GC has no support for destructors: the ``__del__`` method is
-  never called (including on file objects, which won't be closed for
-  you).  This is of course temporary.
+* The GC has no support for destructors: the ``__del__`` method is never
+  called (including on file objects, which won't be closed for you).
+  This is of course temporary.  Also, weakrefs might appear to work a
+  bit strangely for now (staying alive even though ``gc.collect()``, or
+  even dying but then un-dying for a short time before dying again).
 
 * The STM system is based on very efficient read/write barriers, which
   are mostly done (their placement could be improved a bit in
