@@ -64,6 +64,17 @@ information when there should be none::
         if some_weakref() is None:
             ...
 
+It might be enough to apply these rules: (1) an explicit gc.collect()
+turns the transaction inevitable first; (2) if any non-inevitable
+transaction has *read* the weakref yet, then its target remains alive.
+
+This might require a tweak to consider an object as dead (for the
+purposes of weakrefs) if it's only reachable via the old version of an
+old_modified_object in the inevitable transaction: in this case,
+other transaction may still reach the objects in question, so it
+shouldn't be deallocted just now, but by doing so they will put
+themselves in a situation where they necessarily abort.
+
 ------------------------------------------------------------
 
 missing recursion detection (both in interpreted and JITted mode)
