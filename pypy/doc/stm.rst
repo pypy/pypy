@@ -80,6 +80,10 @@ Caveats:
 * So far, small examples work fine, but there are still a number of
   bugs.  We're busy fixing them.
 
+* Currently limited to 1.5 GB of RAM (this is just a parameter in
+  `core.h`__).  Memory overflows are not detected correctly, so may
+  cause segmentation faults.
+
 * The JIT warm-up time is abysmal (as opposed to the regular PyPy's,
   which is "only" bad).  Moreover, you should run it with a command like
   ``pypy-stm --jit trace_limit=60000 args...``; the default value of
@@ -120,6 +124,7 @@ Caveats:
   probably, several days or more.
 
 .. _`report bugs`: https://bugs.pypy.org/
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
 
 
 
