@@ -49,13 +49,19 @@ class AST(W_Root):
         w_type = space.type(self)
         w_fields = w_type.getdictvalue(space, "_fields")
         for w_name in space.fixedview(w_fields):
-            space.setitem(w_dict, w_name,
+            try:
+                space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
+            except OperationError:
+                pass
         w_attrs = space.findattr(w_type, space.wrap("_attributes"))
         if w_attrs:
             for w_name in space.fixedview(w_attrs):
-                space.setitem(w_dict, w_name,
+                try:
+                    space.setitem(w_dict, w_name,
                               space.getattr(self, w_name))
+                except OperationError:
+                    pass
         return space.newtuple([space.type(self),
                                space.newtuple([]),
                                w_dict])
@@ -3011,7 +3017,8 @@ def stmt_set_lineno(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'lineno', w_new_value)
         w_self.initialization_state &= ~1
         return
-    w_self.deldictvalue(space, 'lineno')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'lineno', w_new_value)
     w_self.initialization_state |= 1
 
 def stmt_del_lineno(space, w_self):
@@ -3038,7 +3045,8 @@ def stmt_set_col_offset(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         w_self.initialization_state &= ~2
         return
-    w_self.deldictvalue(space, 'col_offset')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'col_offset', w_new_value)
     w_self.initialization_state |= 2
 
 def stmt_del_col_offset(space, w_self):
@@ -3074,7 +3082,8 @@ def FunctionDef_set_name(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'name', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 'name')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'name', w_new_value)
     w_self.initialization_state |= 4
 
 def FunctionDef_del_name(space, w_self):
@@ -3201,7 +3210,8 @@ def ClassDef_set_name(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'name', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 'name')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'name', w_new_value)
     w_self.initialization_state |= 4
 
 def ClassDef_del_name(space, w_self):
@@ -3665,7 +3675,8 @@ def Print_set_nl(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'nl', w_new_value)
         w_self.initialization_state &= ~16
         return
-    w_self.deldictvalue(space, 'nl')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'nl', w_new_value)
     w_self.initialization_state |= 16
 
 def Print_del_nl(space, w_self):
@@ -4571,7 +4582,8 @@ def ImportFrom_set_module(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'module', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 'module')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'module', w_new_value)
     w_self.initialization_state |= 4
 
 def ImportFrom_del_module(space, w_self):
@@ -4620,7 +4632,8 @@ def ImportFrom_set_level(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'level', w_new_value)
         w_self.initialization_state &= ~16
         return
-    w_self.deldictvalue(space, 'level')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'level', w_new_value)
     w_self.initialization_state |= 16
 
 def ImportFrom_del_level(space, w_self):
@@ -4938,7 +4951,8 @@ def expr_set_lineno(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'lineno', w_new_value)
         w_self.initialization_state &= ~1
         return
-    w_self.deldictvalue(space, 'lineno')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'lineno', w_new_value)
     w_self.initialization_state |= 1
 
 def expr_del_lineno(space, w_self):
@@ -4965,7 +4979,8 @@ def expr_set_col_offset(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         w_self.initialization_state &= ~2
         return
-    w_self.deldictvalue(space, 'col_offset')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'col_offset', w_new_value)
     w_self.initialization_state |= 2
 
 def expr_del_col_offset(space, w_self):
@@ -6292,7 +6307,8 @@ def Num_set_n(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'n', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 'n')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'n', w_new_value)
     w_self.initialization_state |= 4
 
 def Num_del_n(space, w_self):
@@ -6343,7 +6359,8 @@ def Str_set_s(space, w_self, w_new_value):
         w_self.setdictvalue(space, 's', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 's')
+    # need to save the original object too
+    w_self.setdictvalue(space, 's', w_new_value)
     w_self.initialization_state |= 4
 
 def Str_del_s(space, w_self):
@@ -6423,7 +6440,8 @@ def Attribute_set_attr(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'attr', w_new_value)
         w_self.initialization_state &= ~8
         return
-    w_self.deldictvalue(space, 'attr')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'attr', w_new_value)
     w_self.initialization_state |= 8
 
 def Attribute_del_attr(space, w_self):
@@ -6618,7 +6636,8 @@ def Name_set_id(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'id', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 'id')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'id', w_new_value)
     w_self.initialization_state |= 4
 
 def Name_del_id(space, w_self):
@@ -6853,7 +6872,8 @@ def Const_set_value(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'value', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 'value')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'value', w_new_value)
     w_self.initialization_state |= 4
 
 def Const_del_value(space, w_self):
@@ -7521,7 +7541,8 @@ def excepthandler_set_lineno(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'lineno', w_new_value)
         w_self.initialization_state &= ~1
         return
-    w_self.deldictvalue(space, 'lineno')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'lineno', w_new_value)
     w_self.initialization_state |= 1
 
 def excepthandler_del_lineno(space, w_self):
@@ -7548,7 +7569,8 @@ def excepthandler_set_col_offset(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         w_self.initialization_state &= ~2
         return
-    w_self.deldictvalue(space, 'col_offset')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'col_offset', w_new_value)
     w_self.initialization_state |= 2
 
 def excepthandler_del_col_offset(space, w_self):
@@ -7716,7 +7738,8 @@ def arguments_set_vararg(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'vararg', w_new_value)
         w_self.initialization_state &= ~2
         return
-    w_self.deldictvalue(space, 'vararg')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'vararg', w_new_value)
     w_self.initialization_state |= 2
 
 def arguments_del_vararg(space, w_self):
@@ -7746,7 +7769,8 @@ def arguments_set_kwarg(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'kwarg', w_new_value)
         w_self.initialization_state &= ~4
         return
-    w_self.deldictvalue(space, 'kwarg')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'kwarg', w_new_value)
     w_self.initialization_state |= 4
 
 def arguments_del_kwarg(space, w_self):
@@ -7824,7 +7848,8 @@ def keyword_set_arg(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'arg', w_new_value)
         w_self.initialization_state &= ~1
         return
-    w_self.deldictvalue(space, 'arg')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'arg', w_new_value)
     w_self.initialization_state |= 1
 
 def keyword_del_arg(space, w_self):
@@ -7905,7 +7930,8 @@ def alias_set_name(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'name', w_new_value)
         w_self.initialization_state &= ~1
         return
-    w_self.deldictvalue(space, 'name')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'name', w_new_value)
     w_self.initialization_state |= 1
 
 def alias_del_name(space, w_self):
@@ -7935,7 +7961,8 @@ def alias_set_asname(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'asname', w_new_value)
         w_self.initialization_state &= ~2
         return
-    w_self.deldictvalue(space, 'asname')
+    # need to save the original object too
+    w_self.setdictvalue(space, 'asname', w_new_value)
     w_self.initialization_state |= 2
 
 def alias_del_asname(space, w_self):
