@@ -194,9 +194,9 @@ internally, together with large atomic sections to keep the behavior
 unchanged.  This capability can be hidden in a library or in the
 framework you use; the end user's code does not need to be explicitly
 aware of using threads.  For a simple example of this, see
-`lib_pypy/transaction.py`_.  The idea is that if you have a program
-where the function ``f(key, value)`` runs on every item of some big
-dictionary, you can replace the loop with::
+`transaction.py`_ in ``lib_pypy``.  The idea is that if you have a
+program where the function ``f(key, value)`` runs on every item of some
+big dictionary, you can replace the loop with::
 
     for key, value in bigdict.items():
         transaction.add(f, key, value)
@@ -217,7 +217,7 @@ only requires that the end programmer identifies where this parallelism
 is likely to be found, and communicates it to the system, using for
 example the ``transaction.add()`` scheme.
 
-.. _`lib_pypy/transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
+.. _`transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
 .. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
 ==================
