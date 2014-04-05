@@ -1049,7 +1049,6 @@ class MIFrame(object):
             # much less expensive to blackhole out of.
             saved_pc = self.pc
             self.pc = orgpc
-            self.metainterp.generate_guard(rop.GUARD_FUTURE_CONDITION, resumepc=orgpc)
             self.metainterp.reached_loop_header(greenboxes, redboxes)
             self.pc = saved_pc
             # no exception, which means that the jit_merge_point did not
@@ -2075,7 +2074,11 @@ class MetaInterp(object):
                                               duplicates)
             live_arg_boxes += self.virtualizable_boxes
             live_arg_boxes.pop()
-        #
+
+        # generate a dummy guard just before the JUMP so that unroll can use it
+        # when it's creating artificial guards.
+        self.generate_guard(rop.GUARD_FUTURE_CONDITION)
+
         assert len(self.virtualref_boxes) == 0, "missing virtual_ref_finish()?"
         # Called whenever we reach the 'loop_header' hint.
         # First, attempt to make a bridge:
