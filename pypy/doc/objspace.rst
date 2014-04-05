@@ -348,15 +348,15 @@ list, tuple, str, type, etc.) is typically implemented by two modules:
 * the *implementation* module, called ``xxxobject.py``.
 
 The ``xxxtype.py`` module basically defines the type object itself.  For
-example, `pypy/objspace/std/listtype.py`_ contains the specification of the object you get when
-you type ``list`` in a PyPy prompt.  `pypy/objspace/std/listtype.py`_ enumerates the methods
+example, `pypy/objspace/std/listobject.py`_ contains the specification of the object you get when
+you type ``list`` in a PyPy prompt.  `pypy/objspace/std/listobject.py`_ enumerates the methods
 specific to lists, like ``append()``.
 
 A particular method implemented by all types is the ``__new__()`` special
 method, which in Python's new-style-classes world is responsible for creating
 an instance of the type.  In PyPy, ``__new__()`` locates and imports the module
 implementing *instances* of the type, and creates such an instance based on the
-arguments the user supplied to the constructor.  For example, `pypy/objspace/std/tupletype.py`_
+arguments the user supplied to the constructor.  For example, `pypy/objspace/std/tupleobject.py`_
 defines ``__new__()`` to import the class ``W_TupleObject`` from
 `pypy/objspace/std/tupleobject.py`_ and instantiate it.  The `pypy/objspace/std/tupleobject.py`_ then contains a
 "real" implementation of tuples: the way the data is stored in the
@@ -374,9 +374,9 @@ classes are not visible: they are still all instances of exactly the
 same Python type.  PyPy knows that (e.g.) the application-level type of
 its interpreter-level ``W_StringObject`` instances is str because
 there is a ``typedef`` class attribute in ``W_StringObject`` which
-points back to the string type specification from `pypy/objspace/std/stringtype.py`_; all
+points back to the string type specification from `pypy/objspace/std/stringobject.py`_; all
 other implementations of strings use the same ``typedef`` from
-`pypy/objspace/std/stringtype.py`_.
+`pypy/objspace/std/stringobject.py`_.
 
 For other examples of multiple implementations of the same Python type,
 see `Standard Interpreter Optimizations`_.
@@ -491,7 +491,7 @@ The Flow Object Space
 Introduction
 ------------
 
-The task of the FlowObjSpace (the source is at `pypy/objspace/flow/`_) is to generate a control-flow graph from a
+The task of the FlowObjSpace (the source is at `rpython/flowspace/`_) is to generate a control-flow graph from a
 function.  This graph will also contain a trace of the individual operations, so
 that it is actually just an alternate representation for the function.
 
