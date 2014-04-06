@@ -811,11 +811,17 @@ class ASTBuilder(object):
                     continue
                 return self.handle_binop(expr_node)
             elif expr_node_type == syms.yield_expr:
-                if len(expr_node.children) == 2:
-                    exp = self.handle_testlist(expr_node.children[1])
+                is_from = False
+                if len(expr_node.children) > 1:
+                    arg_node = expr_node.children[1]  # yield arg
+                    if len(arg_node.children) == 2:
+                        is_from = True
+                        expr = self.handle_expr(arg_node.children[1])
+                    else:
+                        expr = self.handle_testlist(arg_node.children[0])
                 else:
-                    exp = None
-                return ast.Yield(exp, expr_node.lineno, expr_node.column)
+                    expr = None
+                return ast.Yield(is_from, expr, expr_node.lineno, expr_node.column)
             elif expr_node_type == syms.factor:
                 if len(expr_node.children) == 1:
                     expr_node = expr_node.children[0]
