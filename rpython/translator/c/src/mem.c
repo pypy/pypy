@@ -92,6 +92,7 @@ void pypy_debug_alloc_results(void)
 {
   long count = 0;
   struct pypy_debug_alloc_s *p;
+  spinlock_acquire(pypy_debug_alloc_lock, 'R');
   for (p = pypy_debug_alloc_list; p; p = p->next)
     count++;
   if (count > 0)
@@ -107,6 +108,7 @@ void pypy_debug_alloc_results(void)
       else
         fprintf(stderr, " (use PYPY_ALLOC=1 to see the list)\n");
     }
+  spinlock_release(pypy_debug_alloc_lock);
 }
 
 #endif /* RPY_ASSERT */
