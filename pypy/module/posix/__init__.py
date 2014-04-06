@@ -174,6 +174,10 @@ corresponding Unix manual entries for more information on calls."""
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
 
+    # os.py uses this list to build os.supports_dir_fd() and os.supports_fd().
+    # Fill with e.g. HAVE_FCHDIR, when os.chdir() supports file descriptors.
+    interpleveldefs['_have_functions'] = 'space.newlist([])'
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
         interp_posix.get(space).startup(space)
