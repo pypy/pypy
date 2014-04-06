@@ -157,13 +157,14 @@ class AutoCompleteWindow:
         self.start = self.widget.get(self.startindex, "insert")
         if complete:
             completed = self._complete_string(self.start)
+            start = self.start
             self._change_start(completed)
             i = self._binary_search(completed)
             if self.completions[i] == completed and \
                (i == len(self.completions)-1 or
                 self.completions[i+1][:len(completed)] != completed):
                 # There is exactly one matching completion
-                return
+                return completed == start
         self.userwantswindow = userWantsWin
         self.lasttypedstart = self.start
 
@@ -353,6 +354,15 @@ class AutoCompleteWindow:
                                        "Meta", "Command", "Option")):
             # A modifier key, so ignore
             return
+
+        elif event.char and event.char >= ' ':
+            # Regular character with a non-length-1 keycode
+            self._change_start(self.start + event.char)
+            self.lasttypedstart = self.start
+            self.listbox.select_clear(0, int(self.listbox.curselection()[0]))
+            self.listbox.select_set(self._binary_search(self.start))
+            self._selection_changed()
+            return "break"
 
         else:
             # Unknown event, close the window and let it through.

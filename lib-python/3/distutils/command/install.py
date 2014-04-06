@@ -285,8 +285,8 @@ class install(Command):
 
         if self.user and (self.prefix or self.exec_prefix or self.home or
                 self.install_base or self.install_platbase):
-            raise DistutilsOptionError("can't combine user with with prefix/"
-                                       "exec_prefix/home or install_(plat)base")
+            raise DistutilsOptionError("can't combine user with prefix, "
+                                       "exec_prefix/home, or install_(plat)base")
 
         # Next, stuff that's wrong (or dubious) only on certain platforms.
         if os.name != "posix":
@@ -555,7 +555,7 @@ class install(Command):
         self.extra_dirs = extra_dirs
 
     def change_roots(self, *names):
-        """Change the install direcories pointed by name using root."""
+        """Change the install directories pointed by name using root."""
         for name in names:
             attr = "install_" + name
             setattr(self, attr, change_root(self.root, getattr(self, attr)))

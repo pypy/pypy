@@ -23,9 +23,7 @@ Misc variables:
 
 """
 
-__version__ = "$Revision$"       # Code version
-
-from types import FunctionType, BuiltinFunctionType, ModuleType
+from types import FunctionType, BuiltinFunctionType
 from copyreg import dispatch_table
 from copyreg import _extension_registry, _inverted_registry, _extension_cache
 import marshal
@@ -265,7 +263,7 @@ class _Pickler:
             if i < 256:
                 return BINPUT + bytes([i])
             else:
-                return LONG_BINPUT + pack("<i", i)
+                return LONG_BINPUT + pack("<I", i)
 
         return PUT + repr(i).encode("ascii") + b'\n'
 
@@ -275,7 +273,7 @@ class _Pickler:
             if i < 256:
                 return BINGET + bytes([i])
             else:
-                return LONG_BINGET + pack("<i", i)
+                return LONG_BINGET + pack("<I", i)
 
         return GET + repr(i).encode("ascii") + b'\n'
 
@@ -299,8 +297,8 @@ class _Pickler:
             f(self, obj) # Call unbound method with explicit self
             return
 
-        # Check copyreg.dispatch_table
-        reduce = dispatch_table.get(t)
+        # Check private dispatch table if any, or else copyreg.dispatch_table
+        reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
         if reduce:
             rv = reduce(obj)
         else:
@@ -377,7 +375,7 @@ class _Pickler:
             # allowing protocol 0 and 1 to work normally.  For this to
             # work, the function returned by __reduce__ should be
             # called __newobj__, and its first argument should be a
-            # new-style class.  The implementation for __newobj__
+            # class.  The implementation for __newobj__
             # should be as follows, although pickle has no way to
             # verify this:
             #
@@ -440,6 +438,14 @@ class _Pickler:
         self.write(NONE)
     dispatch[type(None)] = save_none
 
+    def save_ellipsis(self, obj):
+        self.save_global(Ellipsis, 'Ellipsis')
+    dispatch[type(Ellipsis)] = save_ellipsis
+
+    def save_notimplemented(self, obj):
+        self.save_global(NotImplemented, 'NotImplemented')
+    dispatch[type(NotImplemented)] = save_notimplemented
+
     def save_bool(self, obj):
         if self.proto >= 2:
             self.write(obj and NEWTRUE or NEWFALSE)
@@ -497,7 +503,7 @@ class _Pickler:
         if n < 256:
             self.write(SHORT_BINBYTES + bytes([n]) + bytes(obj))
         else:
-            self.write(BINBYTES + pack("<i", n) + bytes(obj))
+            self.write(BINBYTES + pack("<I", n) + bytes(obj))
         self.memoize(obj)
     dispatch[bytes] = save_bytes
 
@@ -505,7 +511,7 @@ class _Pickler:
         if self.bin:
             encoded = obj.encode('utf-8', 'surrogatepass')
             n = len(encoded)
-            self.write(BINUNICODE + pack("<i", n) + encoded)
+            self.write(BINUNICODE + pack("<I", n) + encoded)
         else:
             obj = obj.replace("\\", "\\u005c")
             obj = obj.replace("\n", "\\u000a")
@@ -615,27 +621,7 @@ class _Pickler:
                 write(APPEND)
             # else tmp is empty, and we're done
 
-    def _pickle_maybe_moduledict(self, obj):
-        # save module dictionary as "getattr(module, '__dict__')"
-        try:
-            name = obj['__name__']
-            if type(name) is not str:
-                return None
-            themodule = sys.modules[name]
-            if type(themodule) is not ModuleType:
-                return None
-            if themodule.__dict__ is not obj:
-                return None
-        except (AttributeError, KeyError, TypeError):
-            return None
-
-        return getattr, (themodule, '__dict__')
-
     def save_dict(self, obj):
-        modict_saver = self._pickle_maybe_moduledict(obj)
-        if modict_saver is not None:
-            return self.save_reduce(*modict_saver)
-
         write = self.write
 
         if self.bin:
@@ -685,35 +671,6 @@ class _Pickler:
                 save(v)
                 write(SETITEM)
             # else tmp is empty, and we're done
-
-    def save_function(self, obj):
-        lasterr = None
-        try:
-            return self.save_global(obj)
-        except PicklingError as e:
-            lasterr = e
-        try:
-            # Check copy_reg.dispatch_table
-            reduce = dispatch_table.get(type(obj))
-            if reduce:
-                rv = reduce(obj)
-            else:
-                # Check for a __reduce_ex__ method, fall back to
-                # __reduce__
-                reduce = getattr(obj, "__reduce_ex__", None)
-                if reduce:
-                    rv = reduce(self.proto)
-                else:
-                    reduce = getattr(obj, "__reduce__", None)
-                    if reduce:
-                        rv = reduce()
-                    else:
-                        raise last_exc
-            return self.save_reduce(obj=obj, *rv)
-        finally:
-            if lasterr is not None:
-                del lasterr
-    dispatch[FunctionType] = save_function
 
     def save_global(self, obj, name=None, pack=struct.pack):
         write = self.write
@@ -771,8 +728,18 @@ class _Pickler:
 
         self.memoize(obj)
 
+    def save_type(self, obj):
+        if obj is type(None):
+            return self.save_reduce(type, (None,), obj=obj)
+        elif obj is type(NotImplemented):
+            return self.save_reduce(type, (NotImplemented,), obj=obj)
+        elif obj is type(...):
+            return self.save_reduce(type, (...,), obj=obj)
+        return self.save_global(obj)
+
+    dispatch[FunctionType] = save_global
     dispatch[BuiltinFunctionType] = save_global
-    dispatch[type] = save_global
+    dispatch[type] = save_type
 
 # Pickling helpers
 
@@ -973,6 +940,9 @@ class _Unpickler:
 
     def load_long4(self):
         n = mloads(b'i' + self.read(4))
+        if n < 0:
+            # Corrupt or hostile pickle -- we never write one like this
+            raise UnpicklingError("LONG pickle has negative byte count");
         data = self.read(n)
         self.append(decode_long(data))
     dispatch[LONG4[0]] = load_long4
@@ -990,7 +960,7 @@ class _Unpickler:
         rep = orig[:-1]
         for q in (b'"', b"'"): # double or single quote
             if rep.startswith(q):
-                if not rep.endswith(q):
+                if len(rep) < 2 or not rep.endswith(q):
                     raise ValueError("insecure string pickle")
                 rep = rep[len(q):-len(q)]
                 break
@@ -1001,14 +971,19 @@ class _Unpickler:
     dispatch[STRING[0]] = load_string
 
     def load_binstring(self):
+        # Deprecated BINSTRING uses signed 32-bit length
         len = mloads(b'i' + self.read(4))
+        if len < 0:
+            raise UnpicklingError("BINSTRING pickle has negative byte count");
         data = self.read(len)
         value = str(data, self.encoding, self.errors)
         self.append(value)
     dispatch[BINSTRING[0]] = load_binstring
 
-    def load_binbytes(self):
-        len = mloads(b'i' + self.read(4))
+    def load_binbytes(self, unpack=struct.unpack, maxsize=sys.maxsize):
+        len, = unpack('<I', self.read(4))
+        if len > maxsize:
+            raise UnpicklingError("BINBYTES exceeds system's maximum size of %d bytes" % maxsize);
         self.append(self.read(len))
     dispatch[BINBYTES[0]] = load_binbytes
 
@@ -1016,8 +991,10 @@ class _Unpickler:
         self.append(str(self.readline()[:-1], 'raw-unicode-escape'))
     dispatch[UNICODE[0]] = load_unicode
 
-    def load_binunicode(self):
-        len = mloads(b'i' + self.read(4))
+    def load_binunicode(self, unpack=struct.unpack, maxsize=sys.maxsize):
+        len, = unpack('<I', self.read(4))
+        if len > maxsize:
+            raise UnpicklingError("BINUNICODE exceeds system's maximum size of %d bytes" % maxsize);
         self.append(str(self.read(len), 'utf-8', 'surrogatepass'))
     dispatch[BINUNICODE[0]] = load_binunicode
 
@@ -1148,6 +1125,9 @@ class _Unpickler:
             return
         key = _inverted_registry.get(code)
         if not key:
+            if code <= 0: # note that 0 is forbidden
+                # Corrupt or hostile pickle.
+                raise UnpicklingError("EXT specifies code <= 0");
             raise ValueError("unregistered extension code %d" % code)
         obj = self.find_class(*key)
         _extension_cache[code] = obj
@@ -1201,8 +1181,8 @@ class _Unpickler:
         self.append(self.memo[i])
     dispatch[BINGET[0]] = load_binget
 
-    def load_long_binget(self):
-        i = mloads(b'i' + self.read(4))
+    def load_long_binget(self, unpack=struct.unpack):
+        i, = unpack('<I', self.read(4))
         self.append(self.memo[i])
     dispatch[LONG_BINGET[0]] = load_long_binget
 
@@ -1220,9 +1200,9 @@ class _Unpickler:
         self.memo[i] = self.stack[-1]
     dispatch[BINPUT[0]] = load_binput
 
-    def load_long_binput(self):
-        i = mloads(b'i' + self.read(4))
-        if i < 0:
+    def load_long_binput(self, unpack=struct.unpack, maxsize=sys.maxsize):
+        i, = unpack('<I', self.read(4))
+        if i > maxsize:
             raise ValueError("negative LONG_BINPUT argument")
         self.memo[i] = self.stack[-1]
     dispatch[LONG_BINPUT[0]] = load_long_binput
@@ -1237,8 +1217,14 @@ class _Unpickler:
     def load_appends(self):
         stack = self.stack
         mark = self.marker()
-        list = stack[mark - 1]
-        list.extend(stack[mark + 1:])
+        list_obj = stack[mark - 1]
+        items = stack[mark + 1:]
+        if isinstance(list_obj, list):
+            list_obj.extend(items)
+        else:
+            append = list_obj.append
+            for item in items:
+                append(item)
         del stack[mark:]
     dispatch[APPENDS[0]] = load_appends
 
@@ -1293,7 +1279,7 @@ class _Unpickler:
         raise _Stop(value)
     dispatch[STOP[0]] = load_stop
 
-# Encode/decode longs.
+# Encode/decode ints.
 
 def encode_long(x):
     r"""Encode a long to a two's complement little-endian binary string.
@@ -1326,7 +1312,7 @@ def encode_long(x):
     return result
 
 def decode_long(data):
-    r"""Decode a long from a two's complement little-endian binary string.
+    r"""Decode an int from a two's complement little-endian binary string.
 
     >>> decode_long(b'')
     0
@@ -1380,7 +1366,7 @@ def _test():
     return doctest.testmod()
 
 if __name__ == "__main__":
-    import sys, argparse
+    import argparse
     parser = argparse.ArgumentParser(
         description='display contents of the pickle files')
     parser.add_argument(

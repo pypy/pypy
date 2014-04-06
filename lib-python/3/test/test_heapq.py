@@ -2,6 +2,7 @@
 
 import sys
 import random
+import unittest
 
 from test import support
 from unittest import TestCase, skipUnless
@@ -25,8 +26,7 @@ class TestModules(TestCase):
             self.assertEqual(getattr(c_heapq, fname).__module__, '_heapq')
 
 
-class TestHeap(TestCase):
-    module = None
+class TestHeap:
 
     def test_push_pop(self):
         # 1) Push 256 random numbers and pop them off, verifying all's OK.
@@ -158,6 +158,15 @@ class TestHeap(TestCase):
         self.assertEqual(sorted(chain(*inputs)), list(self.module.merge(*inputs)))
         self.assertEqual(list(self.module.merge()), [])
 
+    def test_merge_does_not_suppress_index_error(self):
+        # Issue 19018: Heapq.merge suppresses IndexError from user generator
+        def iterable():
+            s = list(range(10))
+            for i in range(20):
+                yield s[i]       # IndexError when i > 10
+        with self.assertRaises(IndexError):
+            list(self.module.merge(iterable(), iterable()))
+
     def test_merge_stability(self):
         class Int(int):
             pass
@@ -214,12 +223,12 @@ class TestHeap(TestCase):
         self.assertRaises(TypeError, data, LE)
 
 
-class TestHeapPython(TestHeap):
+class TestHeapPython(TestHeap, TestCase):
     module = py_heapq
 
 
 @skipUnless(c_heapq, 'requires _heapq')
-class TestHeapC(TestHeap):
+class TestHeapC(TestHeap, TestCase):
     module = c_heapq
 
 
@@ -319,8 +328,17 @@ def L(seqn):
     return chain(map(lambda x:x, R(Ig(G(seqn)))))
 
 
-class TestErrorHandling(TestCase):
-    module = None
+class SideEffectLT:
+    def __init__(self, value, heap):
+        self.value = value
+        self.heap = heap
+
+    def __lt__(self, other):
+        self.heap[:] = []
+        return self.value < other.value
+
+
+class TestErrorHandling:
 
     def test_non_sequence(self):
         for f in (self.module.heapify, self.module.heappop):
@@ -370,32 +388,30 @@ class TestErrorHandling(TestCase):
                 self.assertRaises(TypeError, f, 2, N(s))
                 self.assertRaises(ZeroDivisionError, f, 2, E(s))
 
+    # Issue #17278: the heap may change size while it's being walked.
 
-class TestErrorHandlingPython(TestErrorHandling):
+    def test_heappush_mutating_heap(self):
+        heap = []
+        heap.extend(SideEffectLT(i, heap) for i in range(200))
+        # Python version raises IndexError, C version RuntimeError
+        with self.assertRaises((IndexError, RuntimeError)):
+            self.module.heappush(heap, SideEffectLT(5, heap))
+
+    def test_heappop_mutating_heap(self):
+        heap = []
+        heap.extend(SideEffectLT(i, heap) for i in range(200))
+        # Python version raises IndexError, C version RuntimeError
+        with self.assertRaises((IndexError, RuntimeError)):
+            self.module.heappop(heap)
+
+
+class TestErrorHandlingPython(TestErrorHandling, TestCase):
     module = py_heapq
 
 @skipUnless(c_heapq, 'requires _heapq')
-class TestErrorHandlingC(TestErrorHandling):
+class TestErrorHandlingC(TestErrorHandling, TestCase):
     module = c_heapq
 
 
-#==============================================================================
-
-
-def test_main(verbose=None):
-    test_classes = [TestModules, TestHeapPython, TestHeapC,
-                    TestErrorHandlingPython, TestErrorHandlingC]
-    support.run_unittest(*test_classes)
-
-    # verify reference counting
-    if verbose and hasattr(sys, "gettotalrefcount"):
-        import gc
-        counts = [None] * 5
-        for i in range(len(counts)):
-            support.run_unittest(*test_classes)
-            gc.collect()
-            counts[i] = sys.gettotalrefcount()
-        print(counts)
-
 if __name__ == "__main__":
-    test_main(verbose=True)
+    unittest.main()

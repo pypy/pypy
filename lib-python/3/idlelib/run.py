@@ -1,4 +1,5 @@
 import sys
+import io
 import linecache
 import time
 import socket
@@ -6,6 +7,7 @@ import traceback
 import _thread as thread
 import threading
 import queue
+import tkinter
 
 from idlelib import CallTips
 from idlelib import AutoComplete
@@ -14,29 +16,52 @@ from idlelib import RemoteDebugger
 from idlelib import RemoteObjectBrowser
 from idlelib import StackViewer
 from idlelib import rpc
+from idlelib import PyShell
+from idlelib import IOBinding
 
 import __main__
 
 LOCALHOST = '127.0.0.1'
 
-try:
-    import warnings
-except ImportError:
-    pass
-else:
-    def idle_formatwarning_subproc(message, category, filename, lineno,
-                                   line=None):
-        """Format warnings the IDLE way"""
-        s = "\nWarning (from warnings module):\n"
-        s += '  File \"%s\", line %s\n' % (filename, lineno)
-        if line is None:
-            line = linecache.getline(filename, lineno)
-        line = line.strip()
-        if line:
-            s += "    %s\n" % line
-        s += "%s: %s\n" % (category.__name__, message)
-        return s
-    warnings.formatwarning = idle_formatwarning_subproc
+import warnings
+
+def idle_showwarning_subproc(
+        message, category, filename, lineno, file=None, line=None):
+    """Show Idle-format warning after replacing warnings.showwarning.
+
+    The only difference is the formatter called.
+    """
+    if file is None:
+        file = sys.stderr
+    try:
+        file.write(PyShell.idle_formatwarning(
+                message, category, filename, lineno, line))
+    except IOError:
+        pass # the file (probably stderr) is invalid - this warning gets lost.
+
+_warnings_showwarning = None
+
+def capture_warnings(capture):
+    "Replace warning.showwarning with idle_showwarning_subproc, or reverse."
+
+    global _warnings_showwarning
+    if capture:
+        if _warnings_showwarning is None:
+            _warnings_showwarning = warnings.showwarning
+            warnings.showwarning = idle_showwarning_subproc
+    else:
+        if _warnings_showwarning is not None:
+            warnings.showwarning = _warnings_showwarning
+            _warnings_showwarning = None
+
+capture_warnings(True)
+tcl = tkinter.Tcl()
+
+def handle_tk_events(tcl=tcl):
+    """Process any tk events that are ready to be dispatched if tkinter
+    has been imported, a tcl interpreter has been created and tk has been
+    loaded."""
+    tcl.eval("update")
 
 # Thread shared globals: Establish a queue between a subthread (which handles
 # the socket) and the main thread (which runs user code), plus global
@@ -76,6 +101,8 @@ def main(del_exitfunc=False):
         print("IDLE Subprocess: no IP port passed in sys.argv.",
               file=sys.__stderr__)
         return
+
+    capture_warnings(True)
     sys.argv[:] = [""]
     sockthread = threading.Thread(target=manage_socket,
                                   name='SockThread',
@@ -93,6 +120,7 @@ def main(del_exitfunc=False):
             try:
                 seq, request = rpc.request_queue.get(block=True, timeout=0.05)
             except queue.Empty:
+                handle_tk_events()
                 continue
             method, args, kwargs = request
             ret = method(*args, **kwargs)
@@ -102,6 +130,7 @@ def main(del_exitfunc=False):
                 exit_now = True
             continue
         except SystemExit:
+            capture_warnings(False)
             raise
         except:
             type, value, tb = sys.exc_info()
@@ -157,15 +186,34 @@ def print_exception():
     efile = sys.stderr
     typ, val, tb = excinfo = sys.exc_info()
     sys.last_type, sys.last_value, sys.last_traceback = excinfo
-    tbe = traceback.extract_tb(tb)
-    print('Traceback (most recent call last):', file=efile)
-    exclude = ("run.py", "rpc.py", "threading.py", "queue.py",
-               "RemoteDebugger.py", "bdb.py")
-    cleanup_traceback(tbe, exclude)
-    traceback.print_list(tbe, file=efile)
-    lines = traceback.format_exception_only(typ, val)
-    for line in lines:
-        print(line, end='', file=efile)
+    seen = set()
+
+    def print_exc(typ, exc, tb):
+        seen.add(exc)
+        context = exc.__context__
+        cause = exc.__cause__
+        if cause is not None and cause not in seen:
+            print_exc(type(cause), cause, cause.__traceback__)
+            print("\nThe above exception was the direct cause "
+                  "of the following exception:\n", file=efile)
+        elif (context is not None and
+              not exc.__suppress_context__ and
+              context not in seen):
+            print_exc(type(context), context, context.__traceback__)
+            print("\nDuring handling of the above exception, "
+                  "another exception occurred:\n", file=efile)
+        if tb:
+            tbe = traceback.extract_tb(tb)
+            print('Traceback (most recent call last):', file=efile)
+            exclude = ("run.py", "rpc.py", "threading.py", "queue.py",
+                       "RemoteDebugger.py", "bdb.py")
+            cleanup_traceback(tbe, exclude)
+            traceback.print_list(tbe, file=efile)
+        lines = traceback.format_exception_only(typ, exc)
+        for line in lines:
+            print(line, end='', file=efile)
+
+    print_exc(typ, val, tb)
 
 def cleanup_traceback(tb, exclude):
     "Remove excluded traces from beginning/end of tb; get cached lines"
@@ -212,6 +260,7 @@ def exit():
     if no_exitfunc:
         import atexit
         atexit._clear()
+    capture_warnings(False)
     sys.exit(0)
 
 class MyRPCServer(rpc.RPCServer):
@@ -244,22 +293,29 @@ class MyRPCServer(rpc.RPCServer):
             quitting = True
             thread.interrupt_main()
 
-
 class MyHandler(rpc.RPCHandler):
 
     def handle(self):
         """Override base method"""
         executive = Executive(self)
         self.register("exec", executive)
-        sys.stdin = self.console = self.get_remote_proxy("stdin")
-        sys.stdout = self.get_remote_proxy("stdout")
-        sys.stderr = self.get_remote_proxy("stderr")
+        self.console = self.get_remote_proxy("console")
+        sys.stdin = PyShell.PseudoInputFile(self.console, "stdin",
+                IOBinding.encoding)
+        sys.stdout = PyShell.PseudoOutputFile(self.console, "stdout",
+                IOBinding.encoding)
+        sys.stderr = PyShell.PseudoOutputFile(self.console, "stderr",
+                IOBinding.encoding)
+
+        sys.displayhook = rpc.displayhook
         # page help() text to shell.
         import pydoc # import must be done here to capture i/o binding
         pydoc.pager = pydoc.plainpager
-        from idlelib import IOBinding
-        sys.stdin.encoding = sys.stdout.encoding = \
-                             sys.stderr.encoding = IOBinding.encoding
+
+        # Keep a reference to stdin so that it won't try to exit IDLE if
+        # sys.stdin gets changed from within IDLE's shell. See issue17838.
+        self._keep_stdin = sys.stdin
+
         self.interp = self.get_remote_proxy("interp")
         rpc.RPCHandler.getresponse(self, myseq=None, wait=0.05)
 
@@ -297,6 +353,10 @@ class Executive(object):
                 exec(code, self.locals)
             finally:
                 interruptable = False
+        except SystemExit:
+            # Scripts that raise SystemExit should just
+            # return to the interactive prompt
+            pass
         except:
             self.usr_exc_info = sys.exc_info()
             if quitting:
@@ -340,3 +400,5 @@ class Executive(object):
         sys.last_value = val
         item = StackViewer.StackTreeItem(flist, tb)
         return RemoteObjectBrowser.remote_object_tree_item(item)
+
+capture_warnings(False)  # Make sure turned off; see issue 18081

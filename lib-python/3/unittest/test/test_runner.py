@@ -139,6 +139,18 @@ class TestCleanUp(unittest.TestCase):
 class Test_TextTestRunner(unittest.TestCase):
     """Tests for TextTestRunner."""
 
+    def setUp(self):
+        # clean the environment from pre-existing PYTHONWARNINGS to make
+        # test_warnings results consistent
+        self.pythonwarnings = os.environ.get('PYTHONWARNINGS')
+        if self.pythonwarnings:
+            del os.environ['PYTHONWARNINGS']
+
+    def tearDown(self):
+        # bring back pre-existing PYTHONWARNINGS if present
+        if self.pythonwarnings:
+            os.environ['PYTHONWARNINGS'] = self.pythonwarnings
+
     def test_init(self):
         runner = unittest.TextTestRunner()
         self.assertFalse(runner.failfast)
@@ -147,6 +159,19 @@ class Test_TextTestRunner(unittest.TestCase):
         self.assertEqual(runner.warnings, None)
         self.assertTrue(runner.descriptions)
         self.assertEqual(runner.resultclass, unittest.TextTestResult)
+
+
+    def test_multiple_inheritance(self):
+        class AResult(unittest.TestResult):
+            def __init__(self, stream, descriptions, verbosity):
+                super(AResult, self).__init__(stream, descriptions, verbosity)
+
+        class ATextResult(unittest.TextTestResult, AResult):
+            pass
+
+        # This used to raise an exception due to TextTestResult not passing
+        # on arguments in its __init__ super call
+        ATextResult(None, None, 1)
 
 
     def testBufferAndFailfast(self):

@@ -50,15 +50,41 @@ class SysconfigTestCase(support.EnvironGuard,
 
     def test_get_config_vars(self):
         cvars = sysconfig.get_config_vars()
-        self.assertTrue(isinstance(cvars, dict))
+        self.assertIsInstance(cvars, dict)
         self.assertTrue(cvars)
 
+    def test_srcdir(self):
+        # See Issues #15322, #15364.
+        srcdir = sysconfig.get_config_var('srcdir')
+
+        self.assertTrue(os.path.isabs(srcdir), srcdir)
+        self.assertTrue(os.path.isdir(srcdir), srcdir)
+
+        if sysconfig.python_build:
+            # The python executable has not been installed so srcdir
+            # should be a full source checkout.
+            Python_h = os.path.join(srcdir, 'Include', 'Python.h')
+            self.assertTrue(os.path.exists(Python_h), Python_h)
+            self.assertTrue(sysconfig._is_python_source_dir(srcdir))
+        elif os.name == 'posix':
+            self.assertEqual(os.path.dirname(sysconfig.get_makefile_filename()),
+                                 srcdir)
+
+    def test_srcdir_independent_of_cwd(self):
+        # srcdir should be independent of the current working directory
+        # See Issues #15322, #15364.
+        srcdir = sysconfig.get_config_var('srcdir')
+        cwd = os.getcwd()
+        try:
+            os.chdir('..')
+            srcdir2 = sysconfig.get_config_var('srcdir')
+        finally:
+            os.chdir(cwd)
+        self.assertEqual(srcdir, srcdir2)
+
+    @unittest.skipUnless(get_default_compiler() == 'unix',
+                         'not testing if default compiler is not unix')
     def test_customize_compiler(self):
-
-        # not testing if default compiler is not unix
-        if get_default_compiler() != 'unix':
-            return
-
         os.environ['AR'] = 'my_ar'
         os.environ['ARFLAGS'] = '-arflags'
 
@@ -102,7 +128,27 @@ class SysconfigTestCase(support.EnvironGuard,
         import sysconfig as global_sysconfig
         self.assertEqual(global_sysconfig.get_config_var('CFLAGS'), sysconfig.get_config_var('CFLAGS'))
         self.assertEqual(global_sysconfig.get_config_var('LDFLAGS'), sysconfig.get_config_var('LDFLAGS'))
-        self.assertEqual(global_sysconfig.get_config_var('LDSHARED'),sysconfig.get_config_var('LDSHARED'))
+
+    @unittest.skipIf(sysconfig.get_config_var('CUSTOMIZED_OSX_COMPILER'),'compiler flags customized')
+    def test_sysconfig_compiler_vars(self):
+        # On OS X, binary installers support extension module building on
+        # various levels of the operating system with differing Xcode
+        # configurations.  This requires customization of some of the
+        # compiler configuration directives to suit the environment on
+        # the installed machine.  Some of these customizations may require
+        # running external programs and, so, are deferred until needed by
+        # the first extension module build.  With Python 3.3, only
+        # the Distutils version of sysconfig is used for extension module
+        # builds, which happens earlier in the Distutils tests.  This may
+        # cause the following tests to fail since no tests have caused
+        # the global version of sysconfig to call the customization yet.
+        # The solution for now is to simply skip this test in this case.
+        # The longer-term solution is to only have one version of sysconfig.
+
+        import sysconfig as global_sysconfig
+        if sysconfig.get_config_var('CUSTOMIZED_OSX_COMPILER'):
+            self.skipTest('compiler flags customized')
+        self.assertEqual(global_sysconfig.get_config_var('LDSHARED'), sysconfig.get_config_var('LDSHARED'))
         self.assertEqual(global_sysconfig.get_config_var('CC'), sysconfig.get_config_var('CC'))
 
 

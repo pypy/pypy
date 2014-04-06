@@ -46,23 +46,7 @@ def capwords(s, sep=None):
 
 ####################################################################
 import re as _re
-
-class _multimap:
-    """Helper class for combining multiple mappings.
-
-    Used by .{safe_,}substitute() to combine the mapping and keyword
-    arguments.
-    """
-    def __init__(self, primary, secondary):
-        self._primary = primary
-        self._secondary = secondary
-
-    def __getitem__(self, key):
-        try:
-            return self._primary[key]
-        except KeyError:
-            return self._secondary[key]
-
+from collections import ChainMap
 
 class _TemplateMetaclass(type):
     pattern = r"""
@@ -100,7 +84,7 @@ class Template(metaclass=_TemplateMetaclass):
 
     def _invalid(self, mo):
         i = mo.start('invalid')
-        lines = self.template[:i].splitlines(True)
+        lines = self.template[:i].splitlines(keepends=True)
         if not lines:
             colno = 1
             lineno = 1
@@ -116,7 +100,7 @@ class Template(metaclass=_TemplateMetaclass):
         if not args:
             mapping = kws
         elif kws:
-            mapping = _multimap(kws, args[0])
+            mapping = ChainMap(kws, args[0])
         else:
             mapping = args[0]
         # Helper function for .sub()
@@ -142,7 +126,7 @@ class Template(metaclass=_TemplateMetaclass):
         if not args:
             mapping = kws
         elif kws:
-            mapping = _multimap(kws, args[0])
+            mapping = ChainMap(kws, args[0])
         else:
             mapping = args[0]
         # Helper function for .sub()
@@ -236,12 +220,14 @@ class Formatter:
 
     def convert_field(self, value, conversion):
         # do any conversion on the resulting object
-        if conversion == 'r':
-            return repr(value)
+        if conversion is None:
+            return value
         elif conversion == 's':
             return str(value)
-        elif conversion is None:
-            return value
+        elif conversion == 'r':
+            return repr(value)
+        elif conversion == 'a':
+            return ascii(value)
         raise ValueError("Unknown conversion specifier {0!s}".format(conversion))
 
 

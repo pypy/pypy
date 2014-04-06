@@ -37,7 +37,7 @@ class IdleConfParser(ConfigParser):
         cfgFile - string, fully specified configuration file name
         """
         self.file=cfgFile
-        ConfigParser.__init__(self,defaults=cfgDefaults)
+        ConfigParser.__init__(self, defaults=cfgDefaults, strict=False)
 
     def Get(self, section, option, type=None, default=None, raw=False):
         """
@@ -142,10 +142,11 @@ class IdleUserConfParser(IdleConfParser):
             fname = self.file
             try:
                 cfgFile = open(fname, 'w')
-            except IOError:
+            except OSError:
                 os.unlink(fname)
                 cfgFile = open(fname, 'w')
-            self.write(cfgFile)
+            with cfgFile:
+                self.write(cfgFile)
         else:
             self.RemoveFile()
 
@@ -206,7 +207,7 @@ class IdleConf:
                         userDir+',\n but the path does not exist.\n')
                 try:
                     sys.stderr.write(warn)
-                except IOError:
+                except OSError:
                     pass
                 userDir = '~'
         if userDir == "~": # still no path to home!
@@ -216,7 +217,7 @@ class IdleConf:
         if not os.path.exists(userDir):
             try:
                 os.mkdir(userDir)
-            except (OSError, IOError):
+            except OSError:
                 warn = ('\n Warning: unable to create user config directory\n'+
                         userDir+'\n Check path and permissions.\n Exiting!\n\n')
                 sys.stderr.write(warn)
@@ -237,28 +238,41 @@ class IdleConf:
         printed to stderr.
 
         """
-        if self.userCfg[configType].has_option(section,option):
-            return self.userCfg[configType].Get(section, option,
-                                                type=type, raw=raw)
-        elif self.defaultCfg[configType].has_option(section,option):
-            return self.defaultCfg[configType].Get(section, option,
-                                                   type=type, raw=raw)
-        else: #returning default, print warning
-            if warn_on_default:
-                warning = ('\n Warning: configHandler.py - IdleConf.GetOption -\n'
-                           ' problem retrieving configuration option %r\n'
-                           ' from section %r.\n'
-                           ' returning default value: %r\n' %
-                           (option, section, default))
-                try:
-                    sys.stderr.write(warning)
-                except IOError:
-                    pass
-            return default
-
+        try:
+            if self.userCfg[configType].has_option(section,option):
+                return self.userCfg[configType].Get(section, option,
+                                                    type=type, raw=raw)
+        except ValueError:
+            warning = ('\n Warning: configHandler.py - IdleConf.GetOption -\n'
+                       ' invalid %r value for configuration option %r\n'
+                       ' from section %r: %r\n' %
+                       (type, option, section,
+                        self.userCfg[configType].Get(section, option,
+                                                     raw=raw)))
+            try:
+                sys.stderr.write(warning)
+            except OSError:
+                pass
+        try:
+            if self.defaultCfg[configType].has_option(section,option):
+                return self.defaultCfg[configType].Get(section, option,
+                                                       type=type, raw=raw)
+        except ValueError:
+            pass
+        #returning default, print warning
+        if warn_on_default:
+            warning = ('\n Warning: configHandler.py - IdleConf.GetOption -\n'
+                       ' problem retrieving configuration option %r\n'
+                       ' from section %r.\n'
+                       ' returning default value: %r\n' %
+                       (option, section, default))
+            try:
+                sys.stderr.write(warning)
+            except OSError:
+                pass
+        return default
     def SetOption(self, configType, section, option, value):
         """In user's config file, set section's option to value.
-
         """
         self.userCfg[configType].SetOption(section, option, value)
 
@@ -364,7 +378,7 @@ class IdleConf:
                            (element, themeName, theme[element]))
                 try:
                     sys.stderr.write(warning)
-                except IOError:
+                except OSError:
                     pass
             colour=cfgParser.Get(themeName,element,default=theme[element])
             theme[element]=colour
@@ -595,7 +609,7 @@ class IdleConf:
             '<<replace>>': ['<Control-h>'],
             '<<goto-line>>': ['<Alt-g>'],
             '<<smart-backspace>>': ['<Key-BackSpace>'],
-            '<<newline-and-indent>>': ['<Key-Return> <Key-KP_Enter>'],
+            '<<newline-and-indent>>': ['<Key-Return>', '<Key-KP_Enter>'],
             '<<smart-indent>>': ['<Key-Tab>'],
             '<<indent-region>>': ['<Control-Key-bracketright>'],
             '<<dedent-region>>': ['<Control-Key-bracketleft>'],
@@ -621,13 +635,11 @@ class IdleConf:
                                (event, keySetName, keyBindings[event]))
                     try:
                         sys.stderr.write(warning)
-                    except IOError:
+                    except OSError:
                         pass
         return keyBindings
-
     def GetExtraHelpSourceList(self,configSet):
         """Fetch list of extra help sources from a given configSet.
-
         Valid configSets are 'user' or 'default'.  Return a list of tuples of
         the form (menu_item , path_to_help_file , option), or return the empty
         list.  'option' is the sequence number of the help resource.  'option'

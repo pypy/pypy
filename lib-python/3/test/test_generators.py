@@ -383,7 +383,8 @@ From the Iterators list, about the types of these things.
 <class 'generator'>
 >>> [s for s in dir(i) if not s.startswith('_')]
 ['close', 'gi_code', 'gi_frame', 'gi_running', 'send', 'throw']
->>> print(i.__next__.__doc__)
+>>> from test.support import HAVE_DOCSTRINGS
+>>> print(i.__next__.__doc__ if HAVE_DOCSTRINGS else 'x.__next__() <==> next(x)')
 x.__next__() <==> next(x)
 >>> iter(i) is i
 True
@@ -728,29 +729,6 @@ Ye olde Fibonacci generator, tee style.
 
 syntax_tests = """
 
->>> def f():
-...     return 22
-...     yield 1
-Traceback (most recent call last):
-  ..
-SyntaxError: 'return' with argument inside generator
-
->>> def f():
-...     yield 1
-...     return 22
-Traceback (most recent call last):
-  ..
-SyntaxError: 'return' with argument inside generator
-
-"return None" is not the same as "return" in a generator:
-
->>> def f():
-...     yield 1
-...     return None
-Traceback (most recent call last):
-  ..
-SyntaxError: 'return' with argument inside generator
-
 These are fine:
 
 >>> def f():
@@ -865,20 +843,6 @@ These are fine:
 ...         yield 2
 >>> type(f())
 <class 'generator'>
-
-
->>> def f():
-...     if 0:
-...         lambda x:  x        # shouldn't trigger here
-...         return              # or here
-...         def f(i):
-...             return 2*i      # or here
-...         if 0:
-...             return 3        # but *this* sucks (line 8)
-...     if 0:
-...         yield 2             # because it's a generator (line 10)
-Traceback (most recent call last):
-SyntaxError: 'return' with argument inside generator
 
 This one caused a crash (see SF bug 567538):
 
@@ -1567,11 +1531,6 @@ Check some syntax errors for yield expressions:
 Traceback (most recent call last):
   ...
 SyntaxError: 'yield' outside function
-
->>> def f(): return lambda x=(yield): 1
-Traceback (most recent call last):
-  ...
-SyntaxError: 'return' with argument inside generator
 
 >>> def f(): x = yield = y
 Traceback (most recent call last):

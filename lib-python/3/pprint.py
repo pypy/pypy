@@ -86,7 +86,11 @@ class _safe_key:
         self.obj = obj
 
     def __lt__(self, other):
-        rv = self.obj.__lt__(other.obj)
+        try:
+            rv = self.obj.__lt__(other.obj)
+        except TypeError:
+            rv = NotImplemented
+
         if rv is NotImplemented:
             rv = (str(type(self.obj)), id(self.obj)) < \
                  (str(type(other.obj)), id(other.obj))
@@ -201,24 +205,22 @@ class PrettyPrinter:
                 if issubclass(typ, list):
                     write('[')
                     endchar = ']'
-                elif issubclass(typ, set):
-                    if not length:
-                        write('set()')
-                        return
-                    write('{')
-                    endchar = '}'
-                    object = sorted(object, key=_safe_key)
-                elif issubclass(typ, frozenset):
-                    if not length:
-                        write('frozenset()')
-                        return
-                    write('frozenset({')
-                    endchar = '})'
-                    object = sorted(object, key=_safe_key)
-                    indent += 10
-                else:
+                elif issubclass(typ, tuple):
                     write('(')
                     endchar = ')'
+                else:
+                    if not length:
+                        write(rep)
+                        return
+                    if typ is set:
+                        write('{')
+                        endchar = '}'
+                    else:
+                        write(typ.__name__)
+                        write('({')
+                        endchar = '})'
+                        indent += len(typ.__name__) + 1
+                    object = sorted(object, key=_safe_key)
                 if self._indent_per_level > 1:
                     write((self._indent_per_level - 1) * ' ')
                 if length:

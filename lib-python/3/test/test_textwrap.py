@@ -11,7 +11,7 @@
 import unittest
 from test import support
 
-from textwrap import TextWrapper, wrap, fill, dedent
+from textwrap import TextWrapper, wrap, fill, dedent, indent
 
 
 class BaseTestCase(unittest.TestCase):
@@ -22,7 +22,7 @@ class BaseTestCase(unittest.TestCase):
             result = []
             for i in range(len(textin)):
                 result.append("  %d: %r" % (i, textin[i]))
-            result = '\n'.join(result)
+            result = "\n".join(result) if result else "  no lines"
         elif isinstance(textin, str):
             result = "  %s\n" % repr(textin)
         return result
@@ -66,6 +66,15 @@ class WrapTestCase(BaseTestCase):
                          "I'm glad to hear it!"])
         self.check_wrap(text, 80, [text])
 
+    def test_empty_string(self):
+        # Check that wrapping the empty string returns an empty list.
+        self.check_wrap("", 6, [])
+        self.check_wrap("", 6, [], drop_whitespace=False)
+
+    def test_empty_string_with_initial_indent(self):
+        # Check that the empty string is not indented.
+        self.check_wrap("", 6, [], initial_indent="++")
+        self.check_wrap("", 6, [], initial_indent="++", drop_whitespace=False)
 
     def test_whitespace(self):
         # Whitespace munging and end-of-sentence detection
@@ -90,6 +99,14 @@ What a mess!
 
         result = wrapper.fill(text)
         self.check(result, '\n'.join(expect))
+
+        text = "\tTest\tdefault\t\ttabsize."
+        expect = ["        Test    default         tabsize."]
+        self.check_wrap(text, 80, expect)
+
+        text = "\tTest\tcustom\t\ttabsize."
+        expect = ["    Test    custom      tabsize."]
+        self.check_wrap(text, 80, expect, tabsize=4)
 
     def test_fix_sentence_endings(self):
         wrapper = TextWrapper(60, fix_sentence_endings=True)
@@ -323,7 +340,32 @@ What a mess!
                          ["blah", " ", "(ding", " ", "dong),",
                           " ", "wubba"])
 
-    def test_initial_whitespace(self):
+    def test_drop_whitespace_false(self):
+        # Check that drop_whitespace=False preserves whitespace.
+        # SF patch #1581073
+        text = " This is a    sentence with     much whitespace."
+        self.check_wrap(text, 10,
+                        [" This is a", "    ", "sentence ",
+                         "with     ", "much white", "space."],
+                        drop_whitespace=False)
+
+    def test_drop_whitespace_false_whitespace_only(self):
+        # Check that drop_whitespace=False preserves a whitespace-only string.
+        self.check_wrap("   ", 6, ["   "], drop_whitespace=False)
+
+    def test_drop_whitespace_false_whitespace_only_with_indent(self):
+        # Check that a whitespace-only string gets indented (when
+        # drop_whitespace is False).
+        self.check_wrap("   ", 6, ["     "], drop_whitespace=False,
+                        initial_indent="  ")
+
+    def test_drop_whitespace_whitespace_only(self):
+        # Check drop_whitespace on a whitespace-only string.
+        self.check_wrap("  ", 6, [])
+
+    def test_drop_whitespace_leading_whitespace(self):
+        # Check that drop_whitespace does not drop leading whitespace (if
+        # followed by non-whitespace).
         # SF bug #622849 reported inconsistent handling of leading
         # whitespace; let's test that a bit, shall we?
         text = " This is a sentence with leading whitespace."
@@ -332,13 +374,27 @@ What a mess!
         self.check_wrap(text, 30,
                         [" This is a sentence with", "leading whitespace."])
 
-    def test_no_drop_whitespace(self):
-        # SF patch #1581073
-        text = " This is a    sentence with     much whitespace."
-        self.check_wrap(text, 10,
-                        [" This is a", "    ", "sentence ",
-                         "with     ", "much white", "space."],
+    def test_drop_whitespace_whitespace_line(self):
+        # Check that drop_whitespace skips the whole line if a non-leading
+        # line consists only of whitespace.
+        text = "abcd    efgh"
+        # Include the result for drop_whitespace=False for comparison.
+        self.check_wrap(text, 6, ["abcd", "    ", "efgh"],
                         drop_whitespace=False)
+        self.check_wrap(text, 6, ["abcd", "efgh"])
+
+    def test_drop_whitespace_whitespace_only_with_indent(self):
+        # Check that initial_indent is not applied to a whitespace-only
+        # string.  This checks a special case of the fact that dropping
+        # whitespace occurs before indenting.
+        self.check_wrap("  ", 6, [], initial_indent="++")
+
+    def test_drop_whitespace_whitespace_indent(self):
+        # Check that drop_whitespace does not drop whitespace indents.
+        # This checks a special case of the fact that dropping whitespace
+        # occurs before indenting.
+        self.check_wrap("abcd efgh", 6, ["  abcd", "  efgh"],
+                        initial_indent="  ", subsequent_indent="  ")
 
     def test_split(self):
         # Ensure that the standard _split() method works as advertised
@@ -586,11 +642,147 @@ def foo():
         self.assertEqual(expect, dedent(text))
 
 
+# Test textwrap.indent
+class IndentTestCase(unittest.TestCase):
+    # The examples used for tests. If any of these change, the expected
+    # results in the various test cases must also be updated.
+    # The roundtrip cases are separate, because textwrap.dedent doesn't
+    # handle Windows line endings
+    ROUNDTRIP_CASES = (
+      # Basic test case
+      "Hi.\nThis is a test.\nTesting.",
+      # Include a blank line
+      "Hi.\nThis is a test.\n\nTesting.",
+      # Include leading and trailing blank lines
+      "\nHi.\nThis is a test.\nTesting.\n",
+    )
+    CASES = ROUNDTRIP_CASES + (
+      # Use Windows line endings
+      "Hi.\r\nThis is a test.\r\nTesting.\r\n",
+      # Pathological case
+      "\nHi.\r\nThis is a test.\n\r\nTesting.\r\n\n",
+    )
+
+    def test_indent_nomargin_default(self):
+        # indent should do nothing if 'prefix' is empty.
+        for text in self.CASES:
+            self.assertEqual(indent(text, ''), text)
+
+    def test_indent_nomargin_explicit_default(self):
+        # The same as test_indent_nomargin, but explicitly requesting
+        # the default behaviour by passing None as the predicate
+        for text in self.CASES:
+            self.assertEqual(indent(text, '', None), text)
+
+    def test_indent_nomargin_all_lines(self):
+        # The same as test_indent_nomargin, but using the optional
+        # predicate argument
+        predicate = lambda line: True
+        for text in self.CASES:
+            self.assertEqual(indent(text, '', predicate), text)
+
+    def test_indent_no_lines(self):
+        # Explicitly skip indenting any lines
+        predicate = lambda line: False
+        for text in self.CASES:
+            self.assertEqual(indent(text, '    ', predicate), text)
+
+    def test_roundtrip_spaces(self):
+        # A whitespace prefix should roundtrip with dedent
+        for text in self.ROUNDTRIP_CASES:
+            self.assertEqual(dedent(indent(text, '    ')), text)
+
+    def test_roundtrip_tabs(self):
+        # A whitespace prefix should roundtrip with dedent
+        for text in self.ROUNDTRIP_CASES:
+            self.assertEqual(dedent(indent(text, '\t\t')), text)
+
+    def test_roundtrip_mixed(self):
+        # A whitespace prefix should roundtrip with dedent
+        for text in self.ROUNDTRIP_CASES:
+            self.assertEqual(dedent(indent(text, ' \t  \t ')), text)
+
+    def test_indent_default(self):
+        # Test default indenting of lines that are not whitespace only
+        prefix = '  '
+        expected = (
+          # Basic test case
+          "  Hi.\n  This is a test.\n  Testing.",
+          # Include a blank line
+          "  Hi.\n  This is a test.\n\n  Testing.",
+          # Include leading and trailing blank lines
+          "\n  Hi.\n  This is a test.\n  Testing.\n",
+          # Use Windows line endings
+          "  Hi.\r\n  This is a test.\r\n  Testing.\r\n",
+          # Pathological case
+          "\n  Hi.\r\n  This is a test.\n\r\n  Testing.\r\n\n",
+        )
+        for text, expect in zip(self.CASES, expected):
+            self.assertEqual(indent(text, prefix), expect)
+
+    def test_indent_explicit_default(self):
+        # Test default indenting of lines that are not whitespace only
+        prefix = '  '
+        expected = (
+          # Basic test case
+          "  Hi.\n  This is a test.\n  Testing.",
+          # Include a blank line
+          "  Hi.\n  This is a test.\n\n  Testing.",
+          # Include leading and trailing blank lines
+          "\n  Hi.\n  This is a test.\n  Testing.\n",
+          # Use Windows line endings
+          "  Hi.\r\n  This is a test.\r\n  Testing.\r\n",
+          # Pathological case
+          "\n  Hi.\r\n  This is a test.\n\r\n  Testing.\r\n\n",
+        )
+        for text, expect in zip(self.CASES, expected):
+            self.assertEqual(indent(text, prefix, None), expect)
+
+    def test_indent_all_lines(self):
+        # Add 'prefix' to all lines, including whitespace-only ones.
+        prefix = '  '
+        expected = (
+          # Basic test case
+          "  Hi.\n  This is a test.\n  Testing.",
+          # Include a blank line
+          "  Hi.\n  This is a test.\n  \n  Testing.",
+          # Include leading and trailing blank lines
+          "  \n  Hi.\n  This is a test.\n  Testing.\n",
+          # Use Windows line endings
+          "  Hi.\r\n  This is a test.\r\n  Testing.\r\n",
+          # Pathological case
+          "  \n  Hi.\r\n  This is a test.\n  \r\n  Testing.\r\n  \n",
+        )
+        predicate = lambda line: True
+        for text, expect in zip(self.CASES, expected):
+            self.assertEqual(indent(text, prefix, predicate), expect)
+
+    def test_indent_empty_lines(self):
+        # Add 'prefix' solely to whitespace-only lines.
+        prefix = '  '
+        expected = (
+          # Basic test case
+          "Hi.\nThis is a test.\nTesting.",
+          # Include a blank line
+          "Hi.\nThis is a test.\n  \nTesting.",
+          # Include leading and trailing blank lines
+          "  \nHi.\nThis is a test.\nTesting.\n",
+          # Use Windows line endings
+          "Hi.\r\nThis is a test.\r\nTesting.\r\n",
+          # Pathological case
+          "  \nHi.\r\nThis is a test.\n  \r\nTesting.\r\n  \n",
+        )
+        predicate = lambda line: not line.strip()
+        for text, expect in zip(self.CASES, expected):
+            self.assertEqual(indent(text, prefix, predicate), expect)
+
+
 def test_main():
     support.run_unittest(WrapTestCase,
                               LongWordTestCase,
                               IndentTestCases,
-                              DedentTestCase)
+                              DedentTestCase,
+                              IndentTestCase)
 
 if __name__ == '__main__':
     test_main()

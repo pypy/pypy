@@ -71,16 +71,26 @@ def isabs(s):
 def join(a, *p):
     """Join two or more pathname components, inserting '/' as needed.
     If any component is an absolute path, all previous path components
-    will be discarded."""
+    will be discarded.  An empty last part will result in a path that
+    ends with a separator."""
     sep = _get_sep(a)
     path = a
-    for b in p:
-        if b.startswith(sep):
-            path = b
-        elif not path or path.endswith(sep):
-            path +=  b
-        else:
-            path += sep + b
+    try:
+        for b in p:
+            if b.startswith(sep):
+                path = b
+            elif not path or path.endswith(sep):
+                path += b
+            else:
+                path += sep + b
+    except TypeError:
+        valid_types = all(isinstance(s, (str, bytes, bytearray))
+                          for s in (a, ) + p)
+        if valid_types:
+            # Must have a mixture of text and binary data
+            raise TypeError("Can't mix strings and bytes in path "
+                            "components.") from None
+        raise
     return path
 
 
@@ -266,8 +276,8 @@ def expanduser(path):
         root = b'/'
     else:
         root = '/'
-    userhome = userhome.rstrip(root) or userhome
-    return userhome + path[i:]
+    userhome = userhome.rstrip(root)
+    return (userhome + path[i:]) or root
 
 
 # Expand paths containing shell variable substitutions.
@@ -290,6 +300,7 @@ def expandvars(path):
         search = _varprogb.search
         start = b'{'
         end = b'}'
+        environ = getattr(os, 'environb', None)
     else:
         if '$' not in path:
             return path
@@ -299,6 +310,7 @@ def expandvars(path):
         search = _varprog.search
         start = '{'
         end = '}'
+        environ = os.environ
     i = 0
     while True:
         m = search(path, i)
@@ -308,18 +320,18 @@ def expandvars(path):
         name = m.group(1)
         if name.startswith(start) and name.endswith(end):
             name = name[1:-1]
-        if isinstance(name, bytes):
-            name = str(name, 'ASCII')
-        if name in os.environ:
+        try:
+            if environ is None:
+                value = os.fsencode(os.environ[os.fsdecode(name)])
+            else:
+                value = environ[name]
+        except KeyError:
+            i = j
+        else:
             tail = path[j:]
-            value = os.environ[name]
-            if isinstance(path, bytes):
-                value = value.encode('ASCII')
             path = path[:i] + value
             i = len(path)
             path += tail
-        else:
-            i = j
     return path
 
 
@@ -381,51 +393,61 @@ def abspath(path):
 def realpath(filename):
     """Return the canonical path of the specified filename, eliminating any
 symbolic links encountered in the path."""
-    if isinstance(filename, bytes):
+    path, ok = _joinrealpath(filename[:0], filename, {})
+    return abspath(path)
+
+# Join two paths, normalizing ang eliminating any symbolic links
+# encountered in the second path.
+def _joinrealpath(path, rest, seen):
+    if isinstance(path, bytes):
         sep = b'/'
-        empty = b''
+        curdir = b'.'
+        pardir = b'..'
     else:
         sep = '/'
-        empty = ''
-    if isabs(filename):
-        bits = [sep] + filename.split(sep)[1:]
-    else:
-        bits = [empty] + filename.split(sep)
+        curdir = '.'
+        pardir = '..'
 
-    for i in range(2, len(bits)+1):
-        component = join(*bits[0:i])
-        # Resolve symbolic links.
-        if islink(component):
-            resolved = _resolve_link(component)
-            if resolved is None:
-                # Infinite loop -- return original component + rest of the path
-                return abspath(join(*([component] + bits[i:])))
+    if isabs(rest):
+        rest = rest[1:]
+        path = sep
+
+    while rest:
+        name, _, rest = rest.partition(sep)
+        if not name or name == curdir:
+            # current dir
+            continue
+        if name == pardir:
+            # parent dir
+            if path:
+                path, name = split(path)
+                if name == pardir:
+                    path = join(path, pardir, pardir)
             else:
-                newpath = join(*([resolved] + bits[i:]))
-                return realpath(newpath)
+                path = pardir
+            continue
+        newpath = join(path, name)
+        if not islink(newpath):
+            path = newpath
+            continue
+        # Resolve the symbolic link
+        if newpath in seen:
+            # Already seen this path
+            path = seen[newpath]
+            if path is not None:
+                # use cached value
+                continue
+            # The symlink is not resolved, so we must have a symlink loop.
+            # Return already resolved part + rest of the path unchanged.
+            return join(newpath, rest), False
+        seen[newpath] = None # not resolved symlink
+        path, ok = _joinrealpath(path, os.readlink(newpath), seen)
+        if not ok:
+            return join(path, rest), False
+        seen[newpath] = path # resolved symlink
 
-    return abspath(filename)
+    return path, True
 
-
-def _resolve_link(path):
-    """Internal helper function.  Takes a path and follows symlinks
-    until we either arrive at something that isn't a symlink, or
-    encounter a path we've seen before (meaning that there's a loop).
-    """
-    paths_seen = set()
-    while islink(path):
-        if path in paths_seen:
-            # Already seen this path, so we must have a symlink loop
-            return None
-        paths_seen.add(path)
-        # Resolve where the link points to
-        resolved = os.readlink(path)
-        if not isabs(resolved):
-            dir = dirname(path)
-            path = normpath(join(dir, resolved))
-        else:
-            path = normpath(resolved)
-    return path
 
 supports_unicode_filenames = (sys.platform == 'darwin')
 

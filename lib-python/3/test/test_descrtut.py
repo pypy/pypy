@@ -170,6 +170,7 @@ You can get the information from the list type:
      '__contains__',
      '__delattr__',
      '__delitem__',
+     '__dir__',
      '__doc__',
      '__eq__',
      '__format__',
@@ -198,6 +199,8 @@ You can get the information from the list type:
      '__str__',
      '__subclasshook__',
      'append',
+     'clear',
+     'copy',
      'count',
      'extend',
      'index',
@@ -315,7 +318,7 @@ Attributes defined by get/set methods
     ...         return self.__set(inst, value)
 
 Now let's define a class with an attribute x defined by a pair of methods,
-getx() and and setx():
+getx() and setx():
 
     >>> class C(object):
     ...

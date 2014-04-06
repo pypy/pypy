@@ -5,15 +5,15 @@ parameter and docstring information when you type an opening parenthesis, and
 which disappear when you type a closing parenthesis.
 
 """
+import __main__
+import inspect
 import re
 import sys
+import textwrap
 import types
-import inspect
 
 from idlelib import CallTipWindow
 from idlelib.HyperParser import HyperParser
-
-import __main__
 
 class CallTips:
 
@@ -67,18 +67,18 @@ class CallTips:
         if not sur_paren:
             return
         hp.set_index(sur_paren[0])
-        name = hp.get_expression()
-        if not name:
+        expression  = hp.get_expression()
+        if not expression:
             return
-        if not evalfuncs and (name.find('(') != -1):
+        if not evalfuncs and (expression.find('(') != -1):
             return
-        argspec = self.fetch_tip(name)
+        argspec = self.fetch_tip(expression)
         if not argspec:
             return
         self.active_calltip = self._calltip_window()
         self.active_calltip.showtip(argspec, sur_paren[0], sur_paren[1])
 
-    def fetch_tip(self, name):
+    def fetch_tip(self, expression):
         """Return the argument list and docstring of a function or class.
 
         If there is a Python subprocess, get the calltip there.  Otherwise,
@@ -94,110 +94,82 @@ class CallTips:
         """
         try:
             rpcclt = self.editwin.flist.pyshell.interp.rpcclt
-        except:
+        except AttributeError:
             rpcclt = None
         if rpcclt:
             return rpcclt.remotecall("exec", "get_the_calltip",
-                                     (name,), {})
+                                     (expression,), {})
         else:
-            entity = self.get_entity(name)
-            return get_argspec(entity)
+            return get_argspec(get_entity(expression))
 
-    def get_entity(self, name):
-        "Lookup name in a namespace spanning sys.modules and __main.dict__."
-        if name:
-            namespace = sys.modules.copy()
-            namespace.update(__main__.__dict__)
-            try:
-                return eval(name, namespace)
-            except (NameError, AttributeError):
-                return None
+def get_entity(expression):
+    """Return the object corresponding to expression evaluated
+    in a namespace spanning sys.modules and __main.dict__.
+    """
+    if expression:
+        namespace = sys.modules.copy()
+        namespace.update(__main__.__dict__)
+        try:
+            return eval(expression, namespace)
+        except BaseException:
+            # An uncaught exception closes idle, and eval can raise any
+            # exception, especially if user classes are involved.
+            return None
 
-def _find_constructor(class_ob):
-    "Find the nearest __init__() in the class tree."
-    try:
-        return class_ob.__init__.__func__
-    except AttributeError:
-        for base in class_ob.__bases__:
-            init = _find_constructor(base)
-            if init:
-                return init
-        return None
+# The following are used in get_argspec and some in tests
+_MAX_COLS = 85
+_MAX_LINES = 5  # enough for bytes
+_INDENT = ' '*4  # for wrapped signatures
+_first_param = re.compile('(?<=\()\w*\,?\s*')
+_default_callable_argspec = "See source or doc"
+
 
 def get_argspec(ob):
-    """Get a string describing the arguments for the given object."""
+    '''Return a string describing the signature of a callable object, or ''.
+
+    For Python-coded functions and methods, the first line is introspected.
+    Delete 'self' parameter for classes (.__init__) and bound methods.
+    The next lines are the first lines of the doc string up to the first
+    empty line or _MAX_LINES.    For builtins, this typically includes
+    the arguments in addition to the return value.
+    '''
     argspec = ""
-    if ob is not None:
-        if isinstance(ob, type):
-            fob = _find_constructor(ob)
-            if fob is None:
-                fob = lambda: None
-        elif isinstance(ob, types.MethodType):
-            fob = ob.__func__
-        else:
-            fob = ob
-        if isinstance(fob, (types.FunctionType, types.LambdaType)):
-            argspec = inspect.formatargspec(*inspect.getfullargspec(fob))
-            pat = re.compile('self\,?\s*')
-            argspec = pat.sub("", argspec)
+    try:
+        ob_call = ob.__call__
+    except BaseException:
+        return argspec
+    if isinstance(ob, type):
+        fob = ob.__init__
+    elif isinstance(ob_call, types.MethodType):
+        fob = ob_call
+    else:
+        fob = ob
+    if isinstance(fob, (types.FunctionType, types.MethodType)):
+        argspec = inspect.formatargspec(*inspect.getfullargspec(fob))
+        if (isinstance(ob, (type, types.MethodType)) or
+                isinstance(ob_call, types.MethodType)):
+            argspec = _first_param.sub("", argspec)
+
+    lines = (textwrap.wrap(argspec, _MAX_COLS, subsequent_indent=_INDENT)
+            if len(argspec) > _MAX_COLS else [argspec] if argspec else [])
+
+    if isinstance(ob_call, types.MethodType):
+        doc = ob_call.__doc__
+    else:
         doc = getattr(ob, "__doc__", "")
-        if doc:
-            doc = doc.lstrip()
-            pos = doc.find("\n")
-            if pos < 0 or pos > 70:
-                pos = 70
-            if argspec:
-                argspec += "\n"
-            argspec += doc[:pos]
+    if doc:
+        for line in doc.split('\n', _MAX_LINES)[:_MAX_LINES]:
+            line = line.strip()
+            if not line:
+                break
+            if len(line) > _MAX_COLS:
+                line = line[: _MAX_COLS - 3] + '...'
+            lines.append(line)
+        argspec = '\n'.join(lines)
+    if not argspec:
+        argspec = _default_callable_argspec
     return argspec
 
-#################################################
-#
-# Test code
-#
-def main():
-    def t1(): "()"
-    def t2(a, b=None): "(a, b=None)"
-    def t3(a, *args): "(a, *args)"
-    def t4(*args): "(*args)"
-    def t5(a, *args): "(a, *args)"
-    def t6(a, b=None, *args, **kw): "(a, b=None, *args, **kw)"
-
-    class TC(object):
-        "(ai=None, *b)"
-        def __init__(self, ai=None, *b): "(ai=None, *b)"
-        def t1(self): "()"
-        def t2(self, ai, b=None): "(ai, b=None)"
-        def t3(self, ai, *args): "(ai, *args)"
-        def t4(self, *args): "(*args)"
-        def t5(self, ai, *args): "(ai, *args)"
-        def t6(self, ai, b=None, *args, **kw): "(ai, b=None, *args, **kw)"
-
-    __main__.__dict__.update(locals())
-
-    def test(tests):
-        ct = CallTips()
-        failed=[]
-        for t in tests:
-            expected = t.__doc__ + "\n" + t.__doc__
-            name = t.__name__
-            # exercise fetch_tip(), not just get_argspec()
-            try:
-                qualified_name = "%s.%s" % (t.__self__.__class__.__name__, name)
-            except AttributeError:
-                qualified_name = name
-            argspec = ct.fetch_tip(qualified_name)
-            if argspec != expected:
-                failed.append(t)
-                fmt = "%s - expected %s, but got %s"
-                print(fmt % (t.__name__, expected, get_argspec(t)))
-        print("%d of %d tests failed" % (len(failed), len(tests)))
-
-    tc = TC()
-    tests = (t1, t2, t3, t4, t5, t6,
-             TC, tc.t1, tc.t2, tc.t3, tc.t4, tc.t5, tc.t6)
-
-    test(tests)
-
 if __name__ == '__main__':
-    main()
+    from unittest import main
+    main('idlelib.idle_test.test_calltips', verbosity=2)

@@ -194,7 +194,7 @@ class Charset:
                    header encoding.  Charset.SHORTEST is not allowed for
                    body_encoding.
 
-    output_charset: Some character sets must be converted before the can be
+    output_charset: Some character sets must be converted before they can be
                     used in email headers or bodies.  If the input_charset is
                     one of them, this attribute will contain the name of the
                     charset output will be converted to.  Otherwise, it will
@@ -386,12 +386,22 @@ class Charset:
         string using the ascii codec produces the correct string version
         of the content.
         """
-        # 7bit/8bit encodings return the string unchanged (module conversions)
+        if not string:
+            return string
         if self.body_encoding is BASE64:
             if isinstance(string, str):
                 string = string.encode(self.output_charset)
             return email.base64mime.body_encode(string)
         elif self.body_encoding is QP:
+            # quopromime.body_encode takes a string, but operates on it as if
+            # it were a list of byte codes.  For a (minimal) history on why
+            # this is so, see changeset 0cf700464177.  To correctly encode a
+            # character set, then, we must turn it into pseudo bytes via the
+            # latin1 charset, which will encode any byte as a single code point
+            # between 0 and 255, which is what body_encode is expecting.
+            if isinstance(string, str):
+                string = string.encode(self.output_charset)
+            string = string.decode('latin1')
             return email.quoprimime.body_encode(string)
         else:
             if isinstance(string, str):

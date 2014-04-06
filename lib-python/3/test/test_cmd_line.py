@@ -7,8 +7,8 @@ import os
 import sys
 import subprocess
 import tempfile
-from test.script_helper import spawn_python, kill_python, assert_python_ok, assert_python_failure
-from test.support import check_impl_detail
+from test.script_helper import (spawn_python, kill_python, assert_python_ok,
+    assert_python_failure)
 
 
 # XXX (ncoghlan): Move to script_helper and make consistent with run_python
@@ -31,12 +31,6 @@ class CmdLineTest(unittest.TestCase):
     def test_optimize(self):
         self.verify_valid_flag('-O')
         self.verify_valid_flag('-OO')
-
-    def test_q(self):
-        self.verify_valid_flag('-Qold')
-        self.verify_valid_flag('-Qnew')
-        self.verify_valid_flag('-Qwarn')
-        self.verify_valid_flag('-Qwarnall')
 
     def test_site_flag(self):
         self.verify_valid_flag('-S')
@@ -100,15 +94,11 @@ class CmdLineTest(unittest.TestCase):
         # All good if execution is successful
         assert_python_ok('-c', 'pass')
 
-    @unittest.skipIf(sys.getfilesystemencoding() == 'ascii',
-                     'need a filesystem encoding different than ASCII')
+    @unittest.skipUnless(test.support.FS_NONASCII, 'need support.FS_NONASCII')
     def test_non_ascii(self):
         # Test handling of non-ascii data
-        if test.support.verbose:
-            import locale
-            print('locale encoding = %s, filesystem encoding = %s'
-                  % (locale.getpreferredencoding(), sys.getfilesystemencoding()))
-        command = "assert(ord('\xe9') == 0xe9)"
+        command = ("assert(ord(%r) == %s)"
+                   % (test.support.FS_NONASCII, ord(test.support.FS_NONASCII)))
         assert_python_ok('-c', command)
 
     # On Windows, pass bytes to subprocess doesn't test how Python decodes the
@@ -152,7 +142,7 @@ class CmdLineTest(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'darwin', 'test specific to Mac OS X')
     def test_osx_utf8(self):
         def check_output(text):
-            decoded = text.decode('utf8', 'surrogateescape')
+            decoded = text.decode('utf-8', 'surrogateescape')
             expected = ascii(decoded).encode('ascii') + b'\n'
 
             env = os.environ.copy()
@@ -224,7 +214,7 @@ class CmdLineTest(unittest.TestCase):
         self.assertIn(path2.encode('ascii'), out)
 
     def test_displayhook_unencodable(self):
-        for encoding in ('ascii', 'latin1', 'utf8'):
+        for encoding in ('ascii', 'latin-1', 'utf-8'):
             env = os.environ.copy()
             env['PYTHONIOENCODING'] = encoding
             p = subprocess.Popen(
@@ -266,6 +256,23 @@ class CmdLineTest(unittest.TestCase):
             "print(repr(input()))",
             b"'abc'")
 
+    def test_output_newline(self):
+        # Issue 13119 Newline for print() should be \r\n on Windows.
+        code = """if 1:
+            import sys
+            print(1)
+            print(2)
+            print(3, file=sys.stderr)
+            print(4, file=sys.stderr)"""
+        rc, out, err = assert_python_ok('-c', code)
+
+        if sys.platform == 'win32':
+            self.assertEqual(b'1\r\n2\r\n', out)
+            self.assertEqual(b'3\r\n4', err)
+        else:
+            self.assertEqual(b'1\n2\n', out)
+            self.assertEqual(b'3\n4', err)
+
     def test_unmached_quote(self):
         # Issue #10206: python program starting with unmatched quote
         # spewed spaces to stdout
@@ -283,7 +290,7 @@ class CmdLineTest(unittest.TestCase):
         rc, out, err = assert_python_ok('-c', code)
         self.assertEqual(b'', out)
         self.assertRegex(err.decode('ascii', 'ignore'),
-                         'Exception IOError: .* ignored')
+                         'Exception OSError: .* ignored')
 
     def test_closed_stdout(self):
         # Issue #13444: if stdout has been explicitly closed, we should
@@ -337,17 +344,46 @@ class CmdLineTest(unittest.TestCase):
         hashes = []
         for i in range(2):
             code = 'print(hash("spam"))'
-            rc, out, err = assert_python_ok('-R', '-c', code)
+            rc, out, err = assert_python_ok('-c', code)
             self.assertEqual(rc, 0)
             hashes.append(out)
-        if check_impl_detail(pypy=False):  # PyPy does not really implement it!
-            self.assertNotEqual(hashes[0], hashes[1])
+        self.assertNotEqual(hashes[0], hashes[1])
 
         # Verify that sys.flags contains hash_randomization
         code = 'import sys; print("random is", sys.flags.hash_randomization)'
-        rc, out, err = assert_python_ok('-R', '-c', code)
+        rc, out, err = assert_python_ok('-c', code)
         self.assertEqual(rc, 0)
         self.assertIn(b'random is 1', out)
+
+    def test_del___main__(self):
+        # Issue #15001: PyRun_SimpleFileExFlags() did crash because it kept a
+        # borrowed reference to the dict of __main__ module and later modify
+        # the dict whereas the module was destroyed
+        filename = test.support.TESTFN
+        self.addCleanup(test.support.unlink, filename)
+        with open(filename, "w") as script:
+            print("import sys", file=script)
+            print("del sys.modules['__main__']", file=script)
+        assert_python_ok(filename)
+
+    def test_unknown_options(self):
+        rc, out, err = assert_python_failure('-E', '-z')
+        self.assertIn(b'Unknown option: -z', err)
+        self.assertEqual(err.splitlines().count(b'Unknown option: -z'), 1)
+        self.assertEqual(b'', out)
+        # Add "without='-E'" to prevent _assert_python to append -E
+        # to env_vars and change the output of stderr
+        rc, out, err = assert_python_failure('-z', without='-E')
+        self.assertIn(b'Unknown option: -z', err)
+        self.assertEqual(err.splitlines().count(b'Unknown option: -z'), 1)
+        self.assertEqual(b'', out)
+        rc, out, err = assert_python_failure('-a', '-z', without='-E')
+        self.assertIn(b'Unknown option: -a', err)
+        # only the first unknown option is reported
+        self.assertNotIn(b'Unknown option: -z', err)
+        self.assertEqual(err.splitlines().count(b'Unknown option: -a'), 1)
+        self.assertEqual(b'', out)
+
 
 def test_main():
     test.support.run_unittest(CmdLineTest)

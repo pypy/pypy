@@ -9,6 +9,8 @@ from wsgiref.simple_server import WSGIServer, WSGIRequestHandler, demo_app
 from wsgiref.simple_server import make_server
 from io import StringIO, BytesIO, BufferedReader
 from socketserver import BaseServer
+from platform import python_implementation
+
 import os
 import re
 import sys
@@ -39,9 +41,6 @@ class MockHandler(WSGIRequestHandler):
         pass
 
 
-
-
-
 def hello_app(environ,start_response):
     start_response("200 OK", [
         ('Content-Type','text/plain'),
@@ -62,28 +61,6 @@ def run_amock(app=hello_app, data=b"GET / HTTP/1.0\n\n"):
         sys.stderr = olderr
 
     return out.getvalue(), err.getvalue()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def compare_generic_iter(make_it,match):
     """Utility to compare a generic 2.1/2.2+ iterator with an iterable
@@ -122,16 +99,14 @@ def compare_generic_iter(make_it,match):
             raise AssertionError("Too many items from .__next__()", it)
 
 
-
-
-
-
 class IntegrationTests(TestCase):
 
     def check_hello(self, out, has_length=True):
+        pyver = (python_implementation() + "/" +
+                sys.version.split()[0])
         self.assertEqual(out,
             ("HTTP/1.0 200 OK\r\n"
-            "Server: WSGIServer/0.2 Python/"+sys.version.split()[0]+"\r\n"
+            "Server: WSGIServer/0.2 " + pyver +"\r\n"
             "Content-Type: text/plain\r\n"
             "Date: Mon, 05 Jun 2006 18:49:54 GMT\r\n" +
             (has_length and  "Content-Length: 13\r\n" or "") +
@@ -185,16 +160,16 @@ class IntegrationTests(TestCase):
         out, err = run_amock(validator(app))
         self.assertTrue(err.endswith('"GET / HTTP/1.0" 200 4\n'))
         ver = sys.version.split()[0].encode('ascii')
+        py  = python_implementation().encode('ascii')
+        pyver = py + b"/" + ver
         self.assertEqual(
                 b"HTTP/1.0 200 OK\r\n"
-                b"Server: WSGIServer/0.2 Python/" + ver + b"\r\n"
+                b"Server: WSGIServer/0.2 "+ pyver + b"\r\n"
                 b"Content-Type: text/plain; charset=utf-8\r\n"
                 b"Date: Wed, 24 Dec 2008 13:29:32 GMT\r\n"
                 b"\r\n"
                 b"data",
                 out)
-
-
 
 
 class UtilityTests(TestCase):
@@ -221,7 +196,7 @@ class UtilityTests(TestCase):
         # Check existing value
         env = {key:alt}
         util.setup_testing_defaults(env)
-        self.assertTrue(env[key] is alt)
+        self.assertIs(env[key], alt)
 
     def checkCrossDefault(self,key,value,**kw):
         util.setup_testing_defaults(kw)
@@ -234,11 +209,6 @@ class UtilityTests(TestCase):
     def checkReqURI(self,uri,query=1,**kw):
         util.setup_testing_defaults(kw)
         self.assertEqual(util.request_uri(kw,query),uri)
-
-
-
-
-
 
     def checkFW(self,text,size,match):
 
@@ -258,14 +228,12 @@ class UtilityTests(TestCase):
         it.close()
         self.assertTrue(it.filelike.closed)
 
-
     def testSimpleShifts(self):
         self.checkShift('','/', '', '/', '')
         self.checkShift('','/x', 'x', '/x', '')
         self.checkShift('/','', None, '/', '')
         self.checkShift('/a','/x/y', 'x', '/a/x', '/y')
         self.checkShift('/a','/x/',  'x', '/a/x', '/')
-
 
     def testNormalizedShifts(self):
         self.checkShift('/a/b', '/../y', '..', '/a', '/y')
@@ -279,7 +247,6 @@ class UtilityTests(TestCase):
         self.checkShift('/a/b', '/.//', '', '/a/b/', '')
         self.checkShift('/a/b', '/x//', 'x', '/a/b/x', '/')
         self.checkShift('/a/b', '/.', None, '/a/b', '')
-
 
     def testDefaults(self):
         for key, value in [
@@ -300,7 +267,6 @@ class UtilityTests(TestCase):
         ]:
             self.checkDefault(key,value)
 
-
     def testCrossDefaults(self):
         self.checkCrossDefault('HTTP_HOST',"foo.bar",SERVER_NAME="foo.bar")
         self.checkCrossDefault('wsgi.url_scheme',"https",HTTPS="on")
@@ -310,7 +276,6 @@ class UtilityTests(TestCase):
         self.checkCrossDefault('SERVER_PORT',"80",HTTPS="foo")
         self.checkCrossDefault('SERVER_PORT',"443",HTTPS="on")
 
-
     def testGuessScheme(self):
         self.assertEqual(util.guess_scheme({}), "http")
         self.assertEqual(util.guess_scheme({'HTTPS':"foo"}), "http")
@@ -318,14 +283,10 @@ class UtilityTests(TestCase):
         self.assertEqual(util.guess_scheme({'HTTPS':"yes"}), "https")
         self.assertEqual(util.guess_scheme({'HTTPS':"1"}), "https")
 
-
-
-
-
     def testAppURIs(self):
         self.checkAppURI("http://127.0.0.1/")
         self.checkAppURI("http://127.0.0.1/spam", SCRIPT_NAME="/spam")
-        self.checkAppURI("http://127.0.0.1/sp%C3%A4m", SCRIPT_NAME="/späm")
+        self.checkAppURI("http://127.0.0.1/sp%E4m", SCRIPT_NAME="/sp\xe4m")
         self.checkAppURI("http://spam.example.com:2071/",
             HTTP_HOST="spam.example.com:2071", SERVER_PORT="2071")
         self.checkAppURI("http://spam.example.com/",
@@ -339,15 +300,19 @@ class UtilityTests(TestCase):
     def testReqURIs(self):
         self.checkReqURI("http://127.0.0.1/")
         self.checkReqURI("http://127.0.0.1/spam", SCRIPT_NAME="/spam")
-        self.checkReqURI("http://127.0.0.1/sp%C3%A4m", SCRIPT_NAME="/späm")
+        self.checkReqURI("http://127.0.0.1/sp%E4m", SCRIPT_NAME="/sp\xe4m")
         self.checkReqURI("http://127.0.0.1/spammity/spam",
             SCRIPT_NAME="/spammity", PATH_INFO="/spam")
+        self.checkReqURI("http://127.0.0.1/spammity/sp%E4m",
+            SCRIPT_NAME="/spammity", PATH_INFO="/sp\xe4m")
         self.checkReqURI("http://127.0.0.1/spammity/spam;ham",
             SCRIPT_NAME="/spammity", PATH_INFO="/spam;ham")
         self.checkReqURI("http://127.0.0.1/spammity/spam;cookie=1234,5678",
             SCRIPT_NAME="/spammity", PATH_INFO="/spam;cookie=1234,5678")
         self.checkReqURI("http://127.0.0.1/spammity/spam?say=ni",
             SCRIPT_NAME="/spammity", PATH_INFO="/spam",QUERY_STRING="say=ni")
+        self.checkReqURI("http://127.0.0.1/spammity/spam?s%E4y=ni",
+            SCRIPT_NAME="/spammity", PATH_INFO="/spam",QUERY_STRING="s%E4y=ni")
         self.checkReqURI("http://127.0.0.1/spammity/spam", 0,
             SCRIPT_NAME="/spammity", PATH_INFO="/spam",QUERY_STRING="say=ni")
 
@@ -378,7 +343,7 @@ class HeaderTests(TestCase):
         self.assertEqual(Headers(test[:]).keys(), ['x'])
         self.assertEqual(Headers(test[:]).values(), ['y'])
         self.assertEqual(Headers(test[:]).items(), test)
-        self.assertFalse(Headers(test).items() is test)  # must be copy!
+        self.assertIsNot(Headers(test).items(), test)  # must be copy!
 
         h=Headers([])
         del h['foo']   # should not raise an error
@@ -446,15 +411,6 @@ class TestHandler(ErrorHandler):
         raise   # for testing, we want to see what's happening
 
 
-
-
-
-
-
-
-
-
-
 class HandlerTests(TestCase):
 
     def checkEnvironAttrs(self, handler):
@@ -495,7 +451,6 @@ class HandlerTests(TestCase):
         h=TestHandler(); h.setup_environ()
         self.assertEqual(h.environ['wsgi.url_scheme'],'http')
 
-
     def testAbstractMethods(self):
         h = BaseHandler()
         for name in [
@@ -503,7 +458,6 @@ class HandlerTests(TestCase):
         ]:
             self.assertRaises(NotImplementedError, getattr(h,name))
         self.assertRaises(NotImplementedError, h._write, "test")
-
 
     def testContentLength(self):
         # Demo one reason iteration is better than write()...  ;)
@@ -596,7 +550,6 @@ class HandlerTests(TestCase):
             "\r\n".encode("iso-8859-1")+MSG))
         self.assertIn("AssertionError", h.stderr.getvalue())
 
-
     def testHeaderFormats(self):
 
         def non_error_app(e,s):
@@ -656,40 +609,27 @@ class HandlerTests(TestCase):
             b"data",
             h.stdout.getvalue())
 
-# This epilogue is needed for compatibility with the Python 2.5 regrtest module
+    def testCloseOnError(self):
+        side_effects = {'close_called': False}
+        MSG = b"Some output has been sent"
+        def error_app(e,s):
+            s("200 OK",[])(MSG)
+            class CrashyIterable(object):
+                def __iter__(self):
+                    while True:
+                        yield b'blah'
+                        raise AssertionError("This should be caught by handler")
+                def close(self):
+                    side_effects['close_called'] = True
+            return CrashyIterable()
+
+        h = ErrorHandler()
+        h.run(error_app)
+        self.assertEqual(side_effects['close_called'], True)
+
 
 def test_main():
     support.run_unittest(__name__)
 
 if __name__ == "__main__":
     test_main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# the above lines intentionally left blank

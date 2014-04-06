@@ -4,6 +4,7 @@ Implements the HMAC algorithm as described by RFC 2104.
 """
 
 import warnings as _warnings
+from operator import _compare_digest as compare_digest
 
 trans_5C = bytes((x ^ 0x5C) for x in range(256))
 trans_36 = bytes((x ^ 0x36) for x in range(256))
@@ -11,6 +12,7 @@ trans_36 = bytes((x ^ 0x36) for x in range(256))
 # The size of the digests returned by HMAC depends on the underlying
 # hashing module used.  Use digest_size from the instance of HMAC instead.
 digest_size = None
+
 
 
 class HMAC:
@@ -33,7 +35,7 @@ class HMAC:
         """
 
         if not isinstance(key, bytes):
-            raise TypeError("expected bytes, but got %r" % type(key).__name__)
+            raise TypeError("key: expected bytes, but got %r" % type(key).__name__)
 
         if digestmod is None:
             import hashlib

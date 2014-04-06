@@ -37,12 +37,15 @@ class addbase(object):
                                              id(self), self.fp)
 
     def close(self):
+        if self.fp:
+            self.fp.close()
+        self.fp = None
         self.read = None
         self.readline = None
         self.readlines = None
         self.fileno = None
-        if self.fp: self.fp.close()
-        self.fp = None
+        self.__iter__ = None
+        self.__next__ = None
 
     def __enter__(self):
         if self.fp is None:
@@ -61,11 +64,11 @@ class addclosehook(addbase):
         self.hookargs = hookargs
 
     def close(self):
-        addbase.close(self)
         if self.closehook:
             self.closehook(*self.hookargs)
             self.closehook = None
             self.hookargs = None
+        addbase.close(self)
 
 class addinfo(addbase):
     """class to add an info() method to an open file."""

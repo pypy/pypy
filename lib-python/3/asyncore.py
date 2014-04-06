@@ -54,7 +54,7 @@ import warnings
 
 import os
 from errno import EALREADY, EINPROGRESS, EWOULDBLOCK, ECONNRESET, EINVAL, \
-     ENOTCONN, ESHUTDOWN, EINTR, EISCONN, EBADF, ECONNABORTED, EPIPE, EAGAIN, \
+     ENOTCONN, ESHUTDOWN, EISCONN, EBADF, ECONNABORTED, EPIPE, EAGAIN, \
      errorcode
 
 _DISCONNECTED = frozenset((ECONNRESET, ENOTCONN, ESHUTDOWN, ECONNABORTED, EPIPE,
@@ -143,11 +143,8 @@ def poll(timeout=0.0, map=None):
 
         try:
             r, w, e = select.select(r, w, e, timeout)
-        except select.error as err:
-            if err.args[0] != EINTR:
-                raise
-            else:
-                return
+        except InterruptedError:
+            return
 
         for fd in r:
             obj = map.get(fd)
@@ -184,15 +181,10 @@ def poll2(timeout=0.0, map=None):
             if obj.writable() and not obj.accepting:
                 flags |= select.POLLOUT
             if flags:
-                # Only check for exceptions if object was either readable
-                # or writable.
-                flags |= select.POLLERR | select.POLLHUP | select.POLLNVAL
                 pollster.register(fd, flags)
         try:
             r = pollster.poll(timeout)
-        except select.error as err:
-            if err.args[0] != EINTR:
-                raise
+        except InterruptedError:
             r = []
         for fd, flags in r:
             obj = map.get(fd)
@@ -225,6 +217,7 @@ class dispatcher:
     debug = False
     connected = False
     accepting = False
+    connecting = False
     closing = False
     addr = None
     ignore_log_types = frozenset(['warning'])
@@ -248,7 +241,7 @@ class dispatcher:
             try:
                 self.addr = sock.getpeername()
             except socket.error as err:
-                if err.args[0] == ENOTCONN:
+                if err.args[0] in (ENOTCONN, EINVAL):
                     # To handle the case where we got an unconnected
                     # socket.
                     self.connected = False
@@ -291,7 +284,7 @@ class dispatcher:
             del map[fd]
         self._fileno = None
 
-    def create_socket(self, family, type):
+    def create_socket(self, family=socket.AF_INET, type=socket.SOCK_STREAM):
         self.family_and_type = family, type
         sock = socket.socket(family, type)
         sock.setblocking(0)
@@ -342,9 +335,11 @@ class dispatcher:
 
     def connect(self, address):
         self.connected = False
+        self.connecting = True
         err = self.socket.connect_ex(address)
         if err in (EINPROGRESS, EALREADY, EWOULDBLOCK) \
         or err == EINVAL and os.name in ('nt', 'ce'):
+            self.addr = address
             return
         if err in (0, EISCONN):
             self.addr = address
@@ -390,7 +385,7 @@ class dispatcher:
             else:
                 return data
         except socket.error as why:
-            # winsock sometimes throws ENOTCONN
+            # winsock sometimes raises ENOTCONN
             if why.args[0] in _DISCONNECTED:
                 self.handle_close()
                 return b''
@@ -400,6 +395,7 @@ class dispatcher:
     def close(self):
         self.connected = False
         self.accepting = False
+        self.connecting = False
         self.del_channel()
         try:
             self.socket.close()
@@ -438,7 +434,8 @@ class dispatcher:
             # sockets that are connected
             self.handle_accept()
         elif not self.connected:
-            self.handle_connect_event()
+            if self.connecting:
+                self.handle_connect_event()
             self.handle_read()
         else:
             self.handle_read()
@@ -449,6 +446,7 @@ class dispatcher:
             raise socket.error(err, _strerror(err))
         self.handle_connect()
         self.connected = True
+        self.connecting = False
 
     def handle_write_event(self):
         if self.accepting:
@@ -457,12 +455,8 @@ class dispatcher:
             return
 
         if not self.connected:
-            #check for errors
-            err = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            if err != 0:
-                raise socket.error(err, _strerror(err))
-
-            self.handle_connect_event()
+            if self.connecting:
+                self.handle_connect_event()
         self.handle_write()
 
     def handle_expt_event(self):

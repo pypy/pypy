@@ -26,8 +26,7 @@ __all__ = ["Button", "Checkbutton", "Combobox", "Entry", "Frame", "Label",
            "tclobjs_to_py", "setup_master"]
 
 import tkinter
-
-_flatten = tkinter._flatten
+from tkinter import _flatten, _join, _stringify
 
 # Verify if Tk is new enough to not need the Tile package
 _REQUIRE_TILE = True if tkinter.TkVersion < 8.5 else False
@@ -47,39 +46,54 @@ def _load_tile(master):
         master.tk.eval('package require tile') # TclError may be raised here
         master._tile_loaded = True
 
+def _format_optvalue(value, script=False):
+    """Internal function."""
+    if script:
+        # if caller passes a Tcl script to tk.call, all the values need to
+        # be grouped into words (arguments to a command in Tcl dialect)
+        value = _stringify(value)
+    elif isinstance(value, (list, tuple)):
+        value = _join(value)
+    return value
+
 def _format_optdict(optdict, script=False, ignore=None):
     """Formats optdict to a tuple to pass it to tk.call.
 
     E.g. (script=False):
       {'foreground': 'blue', 'padding': [1, 2, 3, 4]} returns:
       ('-foreground', 'blue', '-padding', '1 2 3 4')"""
-    format = "%s" if not script else "{%s}"
 
     opts = []
     for opt, value in optdict.items():
-        if ignore and opt in ignore:
-            continue
+        if not ignore or opt not in ignore:
+            opts.append("-%s" % opt)
+            if value is not None:
+                opts.append(_format_optvalue(value, script))
 
-        if isinstance(value, (list, tuple)):
-            v = []
-            for val in value:
-                if isinstance(val, str):
-                    v.append(str(val) if val else '{}')
-                else:
-                    v.append(str(val))
-
-            # format v according to the script option, but also check for
-            # space in any value in v in order to group them correctly
-            value = format % ' '.join(
-                ('{%s}' if ' ' in val else '%s') % val for val in v)
-
-        if script and value == '':
-            value = '{}' # empty string in Python is equivalent to {} in Tcl
-
-        opts.append(("-%s" % opt, value))
-
-    # Remember: _flatten skips over None
     return _flatten(opts)
+
+def _mapdict_values(items):
+    # each value in mapdict is expected to be a sequence, where each item
+    # is another sequence containing a state (or several) and a value
+    # E.g. (script=False):
+    #   [('active', 'selected', 'grey'), ('focus', [1, 2, 3, 4])]
+    #   returns:
+    #   ['active selected', 'grey', 'focus', [1, 2, 3, 4]]
+    opt_val = []
+    for *state, val in items:
+        # hacks for bakward compatibility
+        state[0] # raise IndexError if empty
+        if len(state) == 1:
+            # if it is empty (something that evaluates to False), then
+            # format it to Tcl code to denote the "normal" state
+            state = state[0] or ''
+        else:
+            # group multiple states
+            state = ' '.join(state) # raise TypeError if not str
+        opt_val.append(state)
+        if val is not None:
+            opt_val.append(val)
+    return opt_val
 
 def _format_mapdict(mapdict, script=False):
     """Formats mapdict to pass it to tk.call.
@@ -90,32 +104,11 @@ def _format_mapdict(mapdict, script=False):
       returns:
 
       ('-expand', '{active selected} grey focus {1, 2, 3, 4}')"""
-    # if caller passes a Tcl script to tk.call, all the values need to
-    # be grouped into words (arguments to a command in Tcl dialect)
-    format = "%s" if not script else "{%s}"
 
     opts = []
     for opt, value in mapdict.items():
-
-        opt_val = []
-        # each value in mapdict is expected to be a sequence, where each item
-        # is another sequence containing a state (or several) and a value
-        for statespec in value:
-            state, val = statespec[:-1], statespec[-1]
-
-            if len(state) > 1: # group multiple states
-                state = "{%s}" % ' '.join(state)
-            else: # single state
-                # if it is empty (something that evaluates to False), then
-                # format it to Tcl code to denote the "normal" state
-                state = state[0] or '{}'
-
-            if isinstance(val, (list, tuple)): # val needs to be grouped
-                val = "{%s}" % ' '.join(map(str, val))
-
-            opt_val.append("%s %s" % (state, val))
-
-        opts.append(("-%s" % opt, format % ' '.join(opt_val)))
+        opts.extend(("-%s" % opt,
+                     _format_optvalue(_mapdict_values(value), script)))
 
     return _flatten(opts)
 
@@ -129,7 +122,7 @@ def _format_elemcreate(etype, script=False, *args, **kw):
             iname = args[0]
             # next args, if any, are statespec/value pairs which is almost
             # a mapdict, but we just need the value
-            imagespec = _format_mapdict({None: args[1:]})[1]
+            imagespec = _join(_mapdict_values(args[1:]))
             spec = "%s %s" % (iname, imagespec)
 
         else:
@@ -138,7 +131,7 @@ def _format_elemcreate(etype, script=False, *args, **kw):
             # themed styles on Windows XP and Vista.
             # Availability: Tk 8.6, Windows XP and Vista.
             class_name, part_id = args[:2]
-            statemap = _format_mapdict({None: args[2:]})[1]
+            statemap = _join(_mapdict_values(args[2:]))
             spec = "%s %s %s" % (class_name, part_id, statemap)
 
         opts = _format_optdict(kw, script)
@@ -148,11 +141,11 @@ def _format_elemcreate(etype, script=False, *args, **kw):
         # otherwise it will clone {} (empty element)
         spec = args[0] # theme name
         if len(args) > 1: # elementfrom specified
-            opts = (args[1], )
+            opts = (_format_optvalue(args[1], script),)
 
     if script:
         spec = '{%s}' % spec
-        opts = ' '.join(map(str, opts))
+        opts = ' '.join(opts)
 
     return spec, opts
 
@@ -189,7 +182,7 @@ def _format_layoutlist(layout, indent=0, indent_size=2):
     for layout_elem in layout:
         elem, opts = layout_elem
         opts = opts or {}
-        fopts = ' '.join(map(str, _format_optdict(opts, True, "children")))
+        fopts = ' '.join(_format_optdict(opts, True, ("children",)))
         head = "%s%s%s" % (' ' * indent, elem, (" %s" % fopts) if fopts else '')
 
         if "children" in opts:
@@ -215,11 +208,11 @@ def _script_from_settings(settings):
     for name, opts in settings.items():
         # will format specific keys according to Tcl code
         if opts.get('configure'): # format 'configure'
-            s = ' '.join(map(str, _format_optdict(opts['configure'], True)))
+            s = ' '.join(_format_optdict(opts['configure'], True))
             script.append("ttk::style configure %s %s;" % (name, s))
 
         if opts.get('map'): # format 'map'
-            s = ' '.join(map(str, _format_mapdict(opts['map'], True)))
+            s = ' '.join(_format_mapdict(opts['map'], True))
             script.append("ttk::style map %s %s;" % (name, s))
 
         if 'layout' in opts: # format 'layout' which may be empty
@@ -300,6 +293,9 @@ def _list_from_layouttuple(ltuple):
             indx += 2
 
             if opt == 'children':
+                if (tkinter._default_root and
+                    not tkinter._default_root.wantobjects()):
+                    val = tkinter._default_root.splitlist(val)
                 val = _list_from_layouttuple(val)
 
             opts[opt] = val
@@ -320,6 +316,8 @@ def _val_or_dict(options, func, *args):
     if len(options) % 2: # option specified without a value, return its value
         return res
 
+    if tkinter._default_root:
+        res = tkinter._default_root.splitlist(res)
     return _dict_from_tcltuple(res)
 
 def _convert_stringval(value):
@@ -331,6 +329,14 @@ def _convert_stringval(value):
         pass
 
     return value
+
+def _to_number(x):
+    if isinstance(x, str):
+        if '.' in x:
+            x = float(x)
+        else:
+            x = int(x)
+    return x
 
 def tclobjs_to_py(adict):
     """Returns adict with its values converted from Tcl objects to Python
@@ -402,8 +408,8 @@ class Style(object):
         or something else of your preference. A statespec is compound of
         one or more states and then a value."""
         if query_opt is not None:
-            return _list_from_statespec(
-                self.tk.call(self._name, "map", style, '-%s' % query_opt))
+            return _list_from_statespec(self.tk.splitlist(
+                self.tk.call(self._name, "map", style, '-%s' % query_opt)))
 
         return _dict_from_tcltuple(
             self.tk.call(self._name, "map", style, *(_format_mapdict(kw))))
@@ -460,8 +466,8 @@ class Style(object):
             lspec = "null" # could be any other word, but this may make sense
                            # when calling layout(style) later
 
-        return _list_from_layouttuple(
-            self.tk.call(self._name, "layout", style, lspec))
+        return _list_from_layouttuple(self.tk.splitlist(
+            self.tk.call(self._name, "layout", style, lspec)))
 
 
     def element_create(self, elementname, etype, *args, **kw):
@@ -473,12 +479,12 @@ class Style(object):
 
     def element_names(self):
         """Returns the list of elements defined in the current theme."""
-        return self.tk.call(self._name, "element", "names")
+        return self.tk.splitlist(self.tk.call(self._name, "element", "names"))
 
 
     def element_options(self, elementname):
         """Return the list of elementname's options."""
-        return self.tk.call(self._name, "element", "options", elementname)
+        return self.tk.splitlist(self.tk.call(self._name, "element", "options", elementname))
 
 
     def theme_create(self, themename, parent=None, settings=None):
@@ -512,7 +518,7 @@ class Style(object):
 
     def theme_names(self):
         """Returns a list of all known themes."""
-        return self.tk.call(self._name, "theme", "names")
+        return self.tk.splitlist(self.tk.call(self._name, "theme", "names"))
 
 
     def theme_use(self, themename=None):
@@ -575,7 +581,8 @@ class Widget(tkinter.Widget):
         matches statespec and False otherwise. If callback is specified,
         then it will be invoked with *args, **kw if the widget state
         matches statespec. statespec is expected to be a sequence."""
-        ret = self.tk.call(self._w, "instate", ' '.join(statespec))
+        ret = self.tk.getboolean(
+                self.tk.call(self._w, "instate", ' '.join(statespec)))
         if ret and callback:
             return callback(*args, **kw)
 
@@ -674,7 +681,7 @@ class Entry(Widget, tkinter.Entry):
     def bbox(self, index):
         """Return a tuple of (x, y, width, height) which describes the
         bounding box of the character given by index."""
-        return self.tk.call(self._w, "bbox", index)
+        return self._getints(self.tk.call(self._w, "bbox", index))
 
 
     def identify(self, x, y):
@@ -687,7 +694,7 @@ class Entry(Widget, tkinter.Entry):
         """Force revalidation, independent of the conditions specified
         by the validate option. Returns False if validation fails, True
         if it succeeds. Sets or clears the invalid state accordingly."""
-        return bool(self.tk.call(self._w, "validate"))
+        return bool(self.tk.getboolean(self.tk.call(self._w, "validate")))
 
 
 class Combobox(Entry):
@@ -706,28 +713,7 @@ class Combobox(Entry):
             exportselection, justify, height, postcommand, state,
             textvariable, values, width
         """
-        # The "values" option may need special formatting, so leave to
-        # _format_optdict the responsibility to format it
-        if "values" in kw:
-            kw["values"] = _format_optdict({'v': kw["values"]})[1]
-
         Entry.__init__(self, master, "ttk::combobox", **kw)
-
-
-    def __setitem__(self, item, value):
-        if item == "values":
-            value = _format_optdict({item: value})[1]
-
-        Entry.__setitem__(self, item, value)
-
-
-    def configure(self, cnf=None, **kw):
-        """Custom Combobox configure, created to properly format the values
-        option."""
-        if "values" in kw:
-            kw["values"] = _format_optdict({'v': kw["values"]})[1]
-
-        return Entry.configure(self, cnf, **kw)
 
 
     def current(self, newindex=None):
@@ -735,6 +721,8 @@ class Combobox(Entry):
         element at position newindex in the list of values. Otherwise,
         returns the index of the current value in the list of values
         or -1 if the current value does not appear in the list."""
+        if newindex is None:
+            return self.tk.getint(self.tk.call(self._w, "current"))
         return self.tk.call(self._w, "current", newindex)
 
 
@@ -889,7 +877,7 @@ class Notebook(Widget):
     def index(self, tab_id):
         """Returns the numeric index of the tab specified by tab_id, or
         the total number of tabs if tab_id is the string "end"."""
-        return self.tk.call(self._w, "index", tab_id)
+        return self.tk.getint(self.tk.call(self._w, "index", tab_id))
 
 
     def insert(self, pos, child, **kw):
@@ -924,7 +912,7 @@ class Notebook(Widget):
 
     def tabs(self):
         """Returns a list of windows managed by the notebook."""
-        return self.tk.call(self._w, "tabs") or ()
+        return self.tk.splitlist(self.tk.call(self._w, "tabs") or ())
 
 
     def enable_traversal(self):
@@ -1007,7 +995,7 @@ class Panedwindow(Widget, tkinter.PanedWindow):
         constrained to be between 0 and the total size of the widget.
 
         Returns the new position of sash number index."""
-        return self.tk.call(self._w, "sashpos", index, newpos)
+        return self.tk.getint(self.tk.call(self._w, "sashpos", index, newpos))
 
 PanedWindow = Panedwindow # tkinter name compatibility
 
@@ -1207,14 +1195,15 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         If column is specified, returns the bounding box of that cell.
         If the item is not visible (i.e., if it is a descendant of a
         closed item or is scrolled offscreen), returns an empty string."""
-        return self.tk.call(self._w, "bbox", item, column)
+        return self._getints(self.tk.call(self._w, "bbox", item, column)) or ''
 
 
     def get_children(self, item=None):
         """Returns a tuple of children belonging to item.
 
         If item is not specified, returns root children."""
-        return self.tk.call(self._w, "children", item or '') or ()
+        return self.tk.splitlist(
+                self.tk.call(self._w, "children", item or '') or ())
 
 
     def set_children(self, item, *newchildren):
@@ -1253,9 +1242,9 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
 
 
     def exists(self, item):
-        """Returns True if the specified item is present in the three,
+        """Returns True if the specified item is present in the tree,
         False otherwise."""
-        return bool(self.tk.call(self._w, "exists", item))
+        return bool(self.tk.getboolean(self.tk.call(self._w, "exists", item)))
 
 
     def focus(self, item=None):
@@ -1337,7 +1326,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
     def index(self, item):
         """Returns the integer index of item within its parent's list
         of children."""
-        return self.tk.call(self._w, "index", item)
+        return self.tk.getint(self.tk.call(self._w, "index", item))
 
 
     def insert(self, parent, index, iid=None, **kw):
@@ -1446,7 +1435,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         value of given column in given item to the specified value."""
         res = self.tk.call(self._w, "set", item, column, value)
         if column is None and value is None:
-            return _dict_from_tcltuple(res, False)
+            return _dict_from_tcltuple(self.tk.splitlist(res), False)
         else:
             return res
 
@@ -1477,7 +1466,8 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         all items which have the specified tag.
 
         * Availability: Tk 8.6"""
-        return self.tk.call(self._w, "tag", "has", tagname, item)
+        return self.tk.getboolean(
+                self.tk.call(self._w, "tag", "has", tagname, item))
 
 
 # Extensions
@@ -1549,7 +1539,8 @@ class LabeledScale(Frame):
 
             self.label.place_configure(x=x, y=y)
 
-        from_, to = self.scale['from'], self.scale['to']
+        from_ = _to_number(self.scale['from'])
+        to = _to_number(self.scale['to'])
         if to < from_:
             from_, to = to, from_
         newval = self._variable.get()

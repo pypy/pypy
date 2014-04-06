@@ -34,9 +34,14 @@ To do:
 
 
 # Imported modules
+import errno
 import sys
 import socket
 import select
+try:
+    from time import monotonic as _time
+except ImportError:
+    from time import time as _time
 
 __all__ = ["Telnet"]
 
@@ -205,6 +210,7 @@ class Telnet:
         self.sb = 0 # flag for SB and SE sequence.
         self.sbdataq = b''
         self.option_callback = None
+        self._has_poll = hasattr(select, 'poll')
         if host is not None:
             self.open(host, port, timeout)
 
@@ -287,6 +293,61 @@ class Telnet:
         is closed and no cooked data is available.
 
         """
+        if self._has_poll:
+            return self._read_until_with_poll(match, timeout)
+        else:
+            return self._read_until_with_select(match, timeout)
+
+    def _read_until_with_poll(self, match, timeout):
+        """Read until a given string is encountered or until timeout.
+
+        This method uses select.poll() to implement the timeout.
+        """
+        n = len(match)
+        call_timeout = timeout
+        if timeout is not None:
+            time_start = _time()
+        self.process_rawq()
+        i = self.cookedq.find(match)
+        if i < 0:
+            poller = select.poll()
+            poll_in_or_priority_flags = select.POLLIN | select.POLLPRI
+            poller.register(self, poll_in_or_priority_flags)
+            while i < 0 and not self.eof:
+                try:
+                    ready = poller.poll(None if timeout is None
+                                        else 1000 * call_timeout)
+                except select.error as e:
+                    if e.errno == errno.EINTR:
+                        if timeout is not None:
+                            elapsed = _time() - time_start
+                            call_timeout = timeout-elapsed
+                        continue
+                    raise
+                for fd, mode in ready:
+                    if mode & poll_in_or_priority_flags:
+                        i = max(0, len(self.cookedq)-n)
+                        self.fill_rawq()
+                        self.process_rawq()
+                        i = self.cookedq.find(match, i)
+                if timeout is not None:
+                    elapsed = _time() - time_start
+                    if elapsed >= timeout:
+                        break
+                    call_timeout = timeout-elapsed
+            poller.unregister(self)
+        if i >= 0:
+            i = i + n
+            buf = self.cookedq[:i]
+            self.cookedq = self.cookedq[i:]
+            return buf
+        return self.read_very_lazy()
+
+    def _read_until_with_select(self, match, timeout=None):
+        """Read until a given string is encountered or until timeout.
+
+        The timeout is implemented using select.select().
+        """
         n = len(match)
         self.process_rawq()
         i = self.cookedq.find(match)
@@ -299,8 +360,7 @@ class Telnet:
         s_args = s_reply
         if timeout is not None:
             s_args = s_args + (timeout,)
-            from time import time
-            time_start = time()
+            time_start = _time()
         while not self.eof and select.select(*s_args) == s_reply:
             i = max(0, len(self.cookedq)-n)
             self.fill_rawq()
@@ -312,7 +372,7 @@ class Telnet:
                 self.cookedq = self.cookedq[i:]
                 return buf
             if timeout is not None:
-                elapsed = time() - time_start
+                elapsed = _time() - time_start
                 if elapsed >= timeout:
                     break
                 s_args = s_reply + (timeout-elapsed,)
@@ -589,6 +649,79 @@ class Telnet:
         results are undeterministic, and may depend on the I/O timing.
 
         """
+        if self._has_poll:
+            return self._expect_with_poll(list, timeout)
+        else:
+            return self._expect_with_select(list, timeout)
+
+    def _expect_with_poll(self, expect_list, timeout=None):
+        """Read until one from a list of a regular expressions matches.
+
+        This method uses select.poll() to implement the timeout.
+        """
+        re = None
+        expect_list = expect_list[:]
+        indices = range(len(expect_list))
+        for i in indices:
+            if not hasattr(expect_list[i], "search"):
+                if not re: import re
+                expect_list[i] = re.compile(expect_list[i])
+        call_timeout = timeout
+        if timeout is not None:
+            time_start = _time()
+        self.process_rawq()
+        m = None
+        for i in indices:
+            m = expect_list[i].search(self.cookedq)
+            if m:
+                e = m.end()
+                text = self.cookedq[:e]
+                self.cookedq = self.cookedq[e:]
+                break
+        if not m:
+            poller = select.poll()
+            poll_in_or_priority_flags = select.POLLIN | select.POLLPRI
+            poller.register(self, poll_in_or_priority_flags)
+            while not m and not self.eof:
+                try:
+                    ready = poller.poll(None if timeout is None
+                                        else 1000 * call_timeout)
+                except select.error as e:
+                    if e.errno == errno.EINTR:
+                        if timeout is not None:
+                            elapsed = _time() - time_start
+                            call_timeout = timeout-elapsed
+                        continue
+                    raise
+                for fd, mode in ready:
+                    if mode & poll_in_or_priority_flags:
+                        self.fill_rawq()
+                        self.process_rawq()
+                        for i in indices:
+                            m = expect_list[i].search(self.cookedq)
+                            if m:
+                                e = m.end()
+                                text = self.cookedq[:e]
+                                self.cookedq = self.cookedq[e:]
+                                break
+                if timeout is not None:
+                    elapsed = _time() - time_start
+                    if elapsed >= timeout:
+                        break
+                    call_timeout = timeout-elapsed
+            poller.unregister(self)
+        if m:
+            return (i, m, text)
+        text = self.read_very_lazy()
+        if not text and self.eof:
+            raise EOFError
+        return (-1, None, text)
+
+    def _expect_with_select(self, list, timeout=None):
+        """Read until one from a list of a regular expressions matches.
+
+        The timeout is implemented using select.select().
+        """
         re = None
         list = list[:]
         indices = range(len(list))
@@ -597,8 +730,7 @@ class Telnet:
                 if not re: import re
                 list[i] = re.compile(list[i])
         if timeout is not None:
-            from time import time
-            time_start = time()
+            time_start = _time()
         while 1:
             self.process_rawq()
             for i in indices:
@@ -611,7 +743,7 @@ class Telnet:
             if self.eof:
                 break
             if timeout is not None:
-                elapsed = time() - time_start
+                elapsed = _time() - time_start
                 if elapsed >= timeout:
                     break
                 s_args = ([self.fileno()], [], [], timeout-elapsed)

@@ -10,7 +10,7 @@ import _pyio as pyio
 from test.support import TESTFN, run_unittest, gc_collect
 from collections import UserList
 
-class AutoFileTests(unittest.TestCase):
+class AutoFileTests:
     # file tests for which a test file is automatically set up
 
     def setUp(self):
@@ -129,14 +129,14 @@ class AutoFileTests(unittest.TestCase):
     def testReadWhenWriting(self):
         self.assertRaises(IOError, self.f.read)
 
-class CAutoFileTests(AutoFileTests):
+class CAutoFileTests(AutoFileTests, unittest.TestCase):
     open = io.open
 
-class PyAutoFileTests(AutoFileTests):
+class PyAutoFileTests(AutoFileTests, unittest.TestCase):
     open = staticmethod(pyio.open)
 
 
-class OtherFileTests(unittest.TestCase):
+class OtherFileTests:
 
     def testModeStrings(self):
         # check invalid mode strings
@@ -148,16 +148,6 @@ class OtherFileTests(unittest.TestCase):
             else:
                 f.close()
                 self.fail('%r is an invalid file mode' % mode)
-
-    def testStdin(self):
-        # This causes the interpreter to exit on OSF1 v5.1.
-        if sys.platform != 'osf1V5':
-            self.assertRaises((IOError, ValueError), sys.stdin.seek, -1)
-        else:
-            print((
-                '  Skipping sys.stdin.seek(-1), it may crash the interpreter.'
-                ' Test manually.'), file=sys.__stdout__)
-        self.assertRaises((IOError, ValueError), sys.stdin.truncate)
 
     def testBadModeArgument(self):
         # verify that we get a sensible error message for bad mode argument
@@ -323,22 +313,18 @@ class OtherFileTests(unittest.TestCase):
         finally:
             os.unlink(TESTFN)
 
-class COtherFileTests(OtherFileTests):
+class COtherFileTests(OtherFileTests, unittest.TestCase):
     open = io.open
 
-class PyOtherFileTests(OtherFileTests):
+class PyOtherFileTests(OtherFileTests, unittest.TestCase):
     open = staticmethod(pyio.open)
 
 
-def test_main():
+def tearDownModule():
     # Historically, these tests have been sloppy about removing TESTFN.
     # So get rid of it no matter what.
-    try:
-        run_unittest(CAutoFileTests, PyAutoFileTests,
-                     COtherFileTests, PyOtherFileTests)
-    finally:
-        if os.path.exists(TESTFN):
-            os.unlink(TESTFN)
+    if os.path.exists(TESTFN):
+        os.unlink(TESTFN)
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

@@ -1,5 +1,4 @@
 """Tests for distutils.command.register."""
-import sys
 import os
 import unittest
 import getpass
@@ -10,11 +9,15 @@ from test.support import check_warnings, run_unittest
 
 from distutils.command import register as register_module
 from distutils.command.register import register
-from distutils.core import Distribution
 from distutils.errors import DistutilsSetupError
+from distutils.log import INFO
 
-from distutils.tests import support
-from distutils.tests.test_config import PYPIRC, PyPIRCCommandTestCase
+from distutils.tests.test_config import PyPIRCCommandTestCase
+
+try:
+    import docutils
+except ImportError:
+    docutils = None
 
 PYPIRC_NOPASSWORD = """\
 [distutils]
@@ -56,12 +59,18 @@ class FakeOpener(object):
     def __call__(self, *args):
         return self
 
-    def open(self, req):
+    def open(self, req, data=None, timeout=None):
         self.reqs.append(req)
         return self
 
     def read(self):
-        return 'xxx'
+        return b'xxx'
+
+    def getheader(self, name, default=None):
+        return {
+            'content-type': 'text/plain; charset=utf-8',
+            }.get(name.lower(), default)
+
 
 class RegisterTestCase(PyPIRCCommandTestCase):
 
@@ -72,11 +81,13 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         def _getpass(prompt):
             return 'password'
         getpass.getpass = _getpass
+        urllib.request._opener = None
         self.old_opener = urllib.request.build_opener
         self.conn = urllib.request.build_opener = FakeOpener()
 
     def tearDown(self):
         getpass.getpass = self._old_getpass
+        urllib.request._opener = None
         urllib.request.build_opener = self.old_opener
         super(RegisterTestCase, self).tearDown()
 
@@ -96,7 +107,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         cmd = self._get_cmd()
 
         # we shouldn't have a .pypirc file yet
-        self.assertTrue(not os.path.exists(self.rc))
+        self.assertFalse(os.path.exists(self.rc))
 
         # patching input and getpass.getpass
         # so register gets happy
@@ -143,7 +154,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
 
         self.assertEqual(req1['Content-length'], '1374')
         self.assertEqual(req2['Content-length'], '1374')
-        self.assertTrue((b'xxx') in self.conn.reqs[1].data)
+        self.assertIn(b'xxx', self.conn.reqs[1].data)
 
     def test_password_not_in_file(self):
 
@@ -173,7 +184,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         req = self.conn.reqs[0]
         headers = dict(req.headers)
         self.assertEqual(headers['Content-length'], '608')
-        self.assertTrue((b'tarek') in req.data)
+        self.assertIn(b'tarek', req.data)
 
     def test_password_reset(self):
         # this test runs choice 3
@@ -191,8 +202,9 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         req = self.conn.reqs[0]
         headers = dict(req.headers)
         self.assertEqual(headers['Content-length'], '290')
-        self.assertTrue((b'tarek') in req.data)
+        self.assertIn(b'tarek', req.data)
 
+    @unittest.skipUnless(docutils is not None, 'needs docutils')
     def test_strict(self):
         # testing the script option
         # when on, the register command stops if
@@ -204,13 +216,6 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         cmd.ensure_finalized()
         cmd.strict = 1
         self.assertRaises(DistutilsSetupError, cmd.run)
-
-        # we don't test the reSt feature if docutils
-        # is not installed
-        try:
-            import docutils
-        except ImportError:
-            return
 
         # metadata are OK but long_description is broken
         metadata = {'url': 'xxx', 'author': 'xxx',
@@ -265,6 +270,22 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         finally:
             del register_module.input
 
+    @unittest.skipUnless(docutils is not None, 'needs docutils')
+    def test_register_invalid_long_description(self):
+        description = ':funkie:`str`'  # mimic Sphinx-specific markup
+        metadata = {'url': 'xxx', 'author': 'xxx',
+                    'author_email': 'xxx',
+                    'name': 'xxx', 'version': 'xxx',
+                    'long_description': description}
+        cmd = self._get_cmd(metadata)
+        cmd.ensure_finalized()
+        cmd.strict = True
+        inputs = Inputs('2', 'tarek', 'tarek@ziade.org')
+        register_module.input = inputs
+        self.addCleanup(delattr, register_module, 'input')
+
+        self.assertRaises(DistutilsSetupError, cmd.run)
+
     def test_check_metadata_deprecated(self):
         # makes sure make_metadata is deprecated
         cmd = self._get_cmd()
@@ -272,6 +293,14 @@ class RegisterTestCase(PyPIRCCommandTestCase):
             warnings.simplefilter("always")
             cmd.check_metadata()
             self.assertEqual(len(w.warnings), 1)
+
+    def test_list_classifiers(self):
+        cmd = self._get_cmd()
+        cmd.list_classifiers = 1
+        cmd.run()
+        results = self.get_logs(INFO)
+        self.assertEqual(results, ['running check', 'xxx'])
+
 
 def test_suite():
     return unittest.makeSuite(RegisterTestCase)

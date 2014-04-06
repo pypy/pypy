@@ -12,12 +12,22 @@ _appbundle = None
 def runningAsOSXApp():
     """
     Returns True if Python is running from within an app on OSX.
-    If so, assume that Python was built with Aqua Tcl/Tk rather than
-    X11 Tcl/Tk.
+    If so, the various OS X customizations will be triggered later (menu
+    fixup, et al).  (Originally, this test was supposed to condition
+    behavior on whether IDLE was running under Aqua Tk rather than
+    under X11 Tk but that does not work since a framework build
+    could be linked with X11.  For several releases, this test actually
+    differentiates between whether IDLE is running from a framework or
+    not.  As a future enhancement, it should be considered whether there
+    should be a difference based on framework and any needed X11 adaptions
+    should be made dependent on a new function that actually tests for X11.)
     """
     global _appbundle
     if _appbundle is None:
-        _appbundle = (sys.platform == 'darwin' and '.app' in sys.executable)
+        _appbundle = sys.platform == 'darwin'
+        if _appbundle:
+            import sysconfig
+            _appbundle = bool(sysconfig.get_config_var('PYTHONFRAMEWORK'))
     return _appbundle
 
 _carbonaquatk = None
@@ -37,17 +47,21 @@ def isCarbonAquaTk(root):
 def tkVersionWarning(root):
     """
     Returns a string warning message if the Tk version in use appears to
-    be one known to cause problems with IDLE.  The Apple Cocoa-based Tk 8.5
-    that was shipped with Mac OS X 10.6.
+    be one known to cause problems with IDLE.
+    1. Apple Cocoa-based Tk 8.5.7 shipped with Mac OS X 10.6 is unusable.
+    2. Apple Cocoa-based Tk 8.5.9 in OS X 10.7 and 10.8 is better but
+        can still crash unexpectedly.
     """
 
     if (runningAsOSXApp() and
-            ('AppKit' in root.tk.call('winfo', 'server', '.')) and
-            (root.tk.call('info', 'patchlevel') == '8.5.7') ):
-        return (r"WARNING: The version of Tcl/Tk (8.5.7) in use may"
+            ('AppKit' in root.tk.call('winfo', 'server', '.')) ):
+        patchlevel = root.tk.call('info', 'patchlevel')
+        if patchlevel not in ('8.5.7', '8.5.9'):
+            return False
+        return (r"WARNING: The version of Tcl/Tk ({0}) in use may"
                 r" be unstable.\n"
                 r"Visit http://www.python.org/download/mac/tcltk/"
-                r" for current information.")
+                r" for current information.".format(patchlevel))
     else:
         return False
 

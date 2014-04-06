@@ -22,28 +22,33 @@ Here are some of the useful functions provided by this module:
     getouterframes(), getinnerframes() - get info about frames
     currentframe() - get the current stack frame
     stack(), trace() - get info about frames on the stack or in a traceback
+
+    signature() - get a Signature object for the callable
 """
 
 # This module is in the public domain.  No warranties.
 
-__author__ = 'Ka-Ping Yee <ping@lfw.org>'
-__date__ = '1 Jan 2001'
+__author__ = ('Ka-Ping Yee <ping@lfw.org>',
+              'Yury Selivanov <yselivanov@sprymix.com>')
 
-import sys
-import os
-import types
-import itertools
-import string
-import re
 import imp
-import tokenize
+import importlib.machinery
+import itertools
 import linecache
+import os
+import re
+import sys
+import tokenize
+import types
+import warnings
+import functools
+import builtins
 from operator import attrgetter
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication, but fall
-# back to hardcording so the dependency is optional
+# back to hardcoding so the dependency is optional
 try:
     from dis import COMPILER_FLAG_NAMES as _flag_names
 except ImportError:
@@ -180,7 +185,7 @@ def isgenerator(object):
     """Return true if the object is a generator.
 
     Generator objects provide these attributes:
-        __iter__        defined to support interation over container
+        __iter__        defined to support iteration over container
         close           raises a new GeneratorExit exception inside the
                         generator to terminate the iteration
         gi_code         code object
@@ -433,6 +438,8 @@ ModuleInfo = namedtuple('ModuleInfo', 'name suffix mode module_type')
 
 def getmoduleinfo(path):
     """Get the module name, suffix, mode, and module type for a given file."""
+    warnings.warn('inspect.getmoduleinfo() is deprecated', DeprecationWarning,
+                  2)
     filename = os.path.basename(path)
     suffixes = [(-len(suffix), suffix, mode, mtype)
                     for suffix, mode, mtype in imp.get_suffixes()]
@@ -443,20 +450,29 @@ def getmoduleinfo(path):
 
 def getmodulename(path):
     """Return the module name for a given file, or None."""
-    info = getmoduleinfo(path)
-    if info: return info[0]
+    fname = os.path.basename(path)
+    # Check for paths that look like an actual module file
+    suffixes = [(-len(suffix), suffix)
+                    for suffix in importlib.machinery.all_suffixes()]
+    suffixes.sort() # try longest suffixes first, in case they overlap
+    for neglen, suffix in suffixes:
+        if fname.endswith(suffix):
+            return fname[:neglen]
+    return None
 
 def getsourcefile(object):
     """Return the filename that can be used to locate an object's source.
     Return None if no way can be identified to get the source.
     """
     filename = getfile(object)
-    if filename[-4:].lower() in ('.pyc', '.pyo'):
-        filename = filename[:-4] + '.py'
-    for suffix, mode, kind in imp.get_suffixes():
-        if 'b' in mode and filename[-len(suffix):].lower() == suffix:
-            # Looks like a binary file.  We want to only return a text file.
-            return None
+    all_bytecode_suffixes = importlib.machinery.DEBUG_BYTECODE_SUFFIXES[:]
+    all_bytecode_suffixes += importlib.machinery.OPTIMIZED_BYTECODE_SUFFIXES[:]
+    if any(filename.endswith(s) for s in all_bytecode_suffixes):
+        filename = (os.path.splitext(filename)[0] +
+                    importlib.machinery.SOURCE_SUFFIXES[0])
+    elif any(filename.endswith(s) for s in
+                 importlib.machinery.EXTENSION_SUFFIXES):
+        return None
     if os.path.exists(filename):
         return filename
     # only return a non-existent filename if the module has a PEP 302 loader
@@ -534,7 +550,7 @@ def findsource(object):
 
     file = getfile(object)
     sourcefile = getsourcefile(object)
-    if not sourcefile and file[0] + file[-1] != '<>':
+    if not sourcefile and file[:1] + file[-1:] != '<>':
         raise IOError('source code not available')
     file = sourcefile if sourcefile else file
 
@@ -737,7 +753,8 @@ def getclasstree(classes, unique=False):
             for parent in c.__bases__:
                 if not parent in children:
                     children[parent] = []
-                children[parent].append(c)
+                if c not in children[parent]:
+                    children[parent].append(c)
                 if unique and parent in classes: break
         elif c not in roots:
             roots.append(c)
@@ -937,76 +954,157 @@ def formatargvalues(args, varargs, varkw, locals,
         specs.append(formatvarkw(varkw) + formatvalue(locals[varkw]))
     return '(' + ', '.join(specs) + ')'
 
-def getcallargs(func, *positional, **named):
+def _missing_arguments(f_name, argnames, pos, values):
+    names = [repr(name) for name in argnames if name not in values]
+    missing = len(names)
+    if missing == 1:
+        s = names[0]
+    elif missing == 2:
+        s = "{} and {}".format(*names)
+    else:
+        tail = ", {} and {}".format(names[-2:])
+        del names[-2:]
+        s = ", ".join(names) + tail
+    raise TypeError("%s() missing %i required %s argument%s: %s" %
+                    (f_name, missing,
+                      "positional" if pos else "keyword-only",
+                      "" if missing == 1 else "s", s))
+
+def _too_many(f_name, args, kwonly, varargs, defcount, given, values):
+    atleast = len(args) - defcount
+    kwonly_given = len([arg for arg in kwonly if arg in values])
+    if varargs:
+        plural = atleast != 1
+        sig = "at least %d" % (atleast,)
+    elif defcount:
+        plural = True
+        sig = "from %d to %d" % (atleast, len(args))
+    else:
+        plural = len(args) != 1
+        sig = str(len(args))
+    kwonly_sig = ""
+    if kwonly_given:
+        msg = " positional argument%s (and %d keyword-only argument%s)"
+        kwonly_sig = (msg % ("s" if given != 1 else "", kwonly_given,
+                             "s" if kwonly_given != 1 else ""))
+    raise TypeError("%s() takes %s positional argument%s but %d%s %s given" %
+            (f_name, sig, "s" if plural else "", given, kwonly_sig,
+             "was" if given == 1 and not kwonly_given else "were"))
+
+def getcallargs(*func_and_positional, **named):
     """Get the mapping of arguments to values.
 
     A dict is returned, with keys the function argument names (including the
     names of the * and ** arguments, if any), and values the respective bound
     values from 'positional' and 'named'."""
+    func = func_and_positional[0]
+    positional = func_and_positional[1:]
     spec = getfullargspec(func)
     args, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, ann = spec
     f_name = func.__name__
     arg2value = {}
 
+
     if ismethod(func) and func.__self__ is not None:
         # implicit 'self' (or 'cls' for classmethods) argument
         positional = (func.__self__,) + positional
     num_pos = len(positional)
-    num_total = num_pos + len(named)
     num_args = len(args)
     num_defaults = len(defaults) if defaults else 0
-    for arg, value in zip(args, positional):
-        arg2value[arg] = value
-    if varargs:
-        if num_pos > num_args:
-            arg2value[varargs] = positional[-(num_pos-num_args):]
-        else:
-            arg2value[varargs] = ()
-    elif 0 < num_args < num_pos:
-        raise TypeError('%s() takes %s %d positional %s (%d given)' % (
-            f_name, 'at most' if defaults else 'exactly', num_args,
-            'arguments' if num_args > 1 else 'argument', num_total))
-    elif num_args == 0 and num_total:
-        if varkw or kwonlyargs:
-            if num_pos:
-                # XXX: We should use num_pos, but Python also uses num_total:
-                raise TypeError('%s() takes exactly 0 positional arguments '
-                                '(%d given)' % (f_name, num_total))
-        else:
-            raise TypeError('%s() takes no arguments (%d given)' %
-                            (f_name, num_total))
 
-    for arg in itertools.chain(args, kwonlyargs):
-        if arg in named:
-            if arg in arg2value:
-                raise TypeError("%s() got multiple values for keyword "
-                                "argument '%s'" % (f_name, arg))
-            else:
-                arg2value[arg] = named.pop(arg)
-    for kwonlyarg in kwonlyargs:
-        if kwonlyarg not in arg2value:
-            try:
-                arg2value[kwonlyarg] = kwonlydefaults[kwonlyarg]
-            except KeyError:
-                raise TypeError("%s() needs keyword-only argument %s" %
-                                (f_name, kwonlyarg))
-    if defaults:    # fill in any missing values with the defaults
-        for arg, value in zip(args[-num_defaults:], defaults):
-            if arg not in arg2value:
-                arg2value[arg] = value
+    n = min(num_pos, num_args)
+    for i in range(n):
+        arg2value[args[i]] = positional[i]
+    if varargs:
+        arg2value[varargs] = tuple(positional[n:])
+    possible_kwargs = set(args + kwonlyargs)
     if varkw:
-        arg2value[varkw] = named
-    elif named:
-        unexpected = next(iter(named))
-        raise TypeError("%s() got an unexpected keyword argument '%s'" %
-                        (f_name, unexpected))
-    unassigned = num_args - len([arg for arg in args if arg in arg2value])
-    if unassigned:
-        num_required = num_args - num_defaults
-        raise TypeError('%s() takes %s %d %s (%d given)' % (
-            f_name, 'at least' if defaults else 'exactly', num_required,
-            'arguments' if num_required > 1 else 'argument', num_total))
+        arg2value[varkw] = {}
+    for kw, value in named.items():
+        if kw not in possible_kwargs:
+            if not varkw:
+                raise TypeError("%s() got an unexpected keyword argument %r" %
+                                (f_name, kw))
+            arg2value[varkw][kw] = value
+            continue
+        if kw in arg2value:
+            raise TypeError("%s() got multiple values for argument %r" %
+                            (f_name, kw))
+        arg2value[kw] = value
+    if num_pos > num_args and not varargs:
+        _too_many(f_name, args, kwonlyargs, varargs, num_defaults,
+                   num_pos, arg2value)
+    if num_pos < num_args:
+        req = args[:num_args - num_defaults]
+        for arg in req:
+            if arg not in arg2value:
+                _missing_arguments(f_name, req, True, arg2value)
+        for i, arg in enumerate(args[num_args - num_defaults:]):
+            if arg not in arg2value:
+                arg2value[arg] = defaults[i]
+    missing = 0
+    for kwarg in kwonlyargs:
+        if kwarg not in arg2value:
+            if kwarg in kwonlydefaults:
+                arg2value[kwarg] = kwonlydefaults[kwarg]
+            else:
+                missing += 1
+    if missing:
+        _missing_arguments(f_name, kwonlyargs, False, arg2value)
     return arg2value
+
+ClosureVars = namedtuple('ClosureVars', 'nonlocals globals builtins unbound')
+
+def getclosurevars(func):
+    """
+    Get the mapping of free variables to their current values.
+
+    Returns a named tuple of dicts mapping the current nonlocal, global
+    and builtin references as seen by the body of the function. A final
+    set of unbound names that could not be resolved is also provided.
+    """
+
+    if ismethod(func):
+        func = func.__func__
+
+    if not isfunction(func):
+        raise TypeError("'{!r}' is not a Python function".format(func))
+
+    code = func.__code__
+    # Nonlocal references are named in co_freevars and resolved
+    # by looking them up in __closure__ by positional index
+    if func.__closure__ is None:
+        nonlocal_vars = {}
+    else:
+        nonlocal_vars = {
+            var : cell.cell_contents
+            for var, cell in zip(code.co_freevars, func.__closure__)
+       }
+
+    # Global and builtin references are named in co_names and resolved
+    # by looking them up in __globals__ or __builtins__
+    global_ns = func.__globals__
+    builtin_ns = global_ns.get("__builtins__", builtins.__dict__)
+    if ismodule(builtin_ns):
+        builtin_ns = builtin_ns.__dict__
+    global_vars = {}
+    builtin_vars = {}
+    unbound_names = set()
+    for name in code.co_names:
+        if name in ("None", "True", "False"):
+            # Because these used to be builtins instead of keywords, they
+            # may still show up as name references. We ignore them.
+            continue
+        try:
+            global_vars[name] = global_ns[name]
+        except KeyError:
+            try:
+                builtin_vars[name] = builtin_ns[name]
+            except KeyError:
+                unbound_names.add(name)
+
+    return ClosureVars(nonlocal_vars, global_vars,
+                       builtin_vars, unbound_names)
 
 # -------------------------------------------------- stack frame extraction
 
@@ -1183,6 +1281,8 @@ def getattr_static(obj, attr, default=_sentinel):
     raise AttributeError(attr)
 
 
+# ------------------------------------------------ generator introspection
+
 GEN_CREATED = 'GEN_CREATED'
 GEN_RUNNING = 'GEN_RUNNING'
 GEN_SUSPENDED = 'GEN_SUSPENDED'
@@ -1204,3 +1304,785 @@ def getgeneratorstate(generator):
     if generator.gi_frame.f_lasti == -1:
         return GEN_CREATED
     return GEN_SUSPENDED
+
+
+def getgeneratorlocals(generator):
+    """
+    Get the mapping of generator local variables to their current values.
+
+    A dict is returned, with the keys the local variable names and values the
+    bound values."""
+
+    if not isgenerator(generator):
+        raise TypeError("'{!r}' is not a Python generator".format(generator))
+
+    frame = getattr(generator, "gi_frame", None)
+    if frame is not None:
+        return generator.gi_frame.f_locals
+    else:
+        return {}
+
+###############################################################################
+### Function Signature Object (PEP 362)
+###############################################################################
+
+
+_WrapperDescriptor = type(type.__call__)
+_MethodWrapper = type(all.__call__)
+
+_NonUserDefinedCallables = (_WrapperDescriptor,
+                            _MethodWrapper,
+                            types.BuiltinFunctionType)
+
+
+def _get_user_defined_method(cls, method_name):
+    try:
+        meth = getattr(cls, method_name)
+    except AttributeError:
+        return
+    else:
+        if not isinstance(meth, _NonUserDefinedCallables):
+            # Once '__signature__' will be added to 'C'-level
+            # callables, this check won't be necessary
+            return meth
+
+
+def signature(obj):
+    '''Get a signature object for the passed callable.'''
+
+    if not callable(obj):
+        raise TypeError('{!r} is not a callable object'.format(obj))
+
+    if isinstance(obj, types.MethodType):
+        # In this case we skip the first parameter of the underlying
+        # function (usually `self` or `cls`).
+        sig = signature(obj.__func__)
+        return sig.replace(parameters=tuple(sig.parameters.values())[1:])
+
+    try:
+        sig = obj.__signature__
+    except AttributeError:
+        pass
+    else:
+        if sig is not None:
+            return sig
+
+    try:
+        # Was this function wrapped by a decorator?
+        wrapped = obj.__wrapped__
+    except AttributeError:
+        pass
+    else:
+        return signature(wrapped)
+
+    if isinstance(obj, types.FunctionType):
+        return Signature.from_function(obj)
+
+    if isinstance(obj, functools.partial):
+        sig = signature(obj.func)
+
+        new_params = OrderedDict(sig.parameters.items())
+
+        partial_args = obj.args or ()
+        partial_keywords = obj.keywords or {}
+        try:
+            ba = sig.bind_partial(*partial_args, **partial_keywords)
+        except TypeError as ex:
+            msg = 'partial object {!r} has incorrect arguments'.format(obj)
+            raise ValueError(msg) from ex
+
+        for arg_name, arg_value in ba.arguments.items():
+            param = new_params[arg_name]
+            if arg_name in partial_keywords:
+                # We set a new default value, because the following code
+                # is correct:
+                #
+                #   >>> def foo(a): print(a)
+                #   >>> print(partial(partial(foo, a=10), a=20)())
+                #   20
+                #   >>> print(partial(partial(foo, a=10), a=20)(a=30))
+                #   30
+                #
+                # So, with 'partial' objects, passing a keyword argument is
+                # like setting a new default value for the corresponding
+                # parameter
+                #
+                # We also mark this parameter with '_partial_kwarg'
+                # flag.  Later, in '_bind', the 'default' value of this
+                # parameter will be added to 'kwargs', to simulate
+                # the 'functools.partial' real call.
+                new_params[arg_name] = param.replace(default=arg_value,
+                                                     _partial_kwarg=True)
+
+            elif (param.kind not in (_VAR_KEYWORD, _VAR_POSITIONAL) and
+                            not param._partial_kwarg):
+                new_params.pop(arg_name)
+
+        return sig.replace(parameters=new_params.values())
+
+    sig = None
+    if isinstance(obj, type):
+        # obj is a class or a metaclass
+
+        # First, let's see if it has an overloaded __call__ defined
+        # in its metaclass
+        call = _get_user_defined_method(type(obj), '__call__')
+        if call is not None:
+            sig = signature(call)
+        else:
+            # Now we check if the 'obj' class has a '__new__' method
+            new = _get_user_defined_method(obj, '__new__')
+            if new is not None:
+                sig = signature(new)
+            else:
+                # Finally, we should have at least __init__ implemented
+                init = _get_user_defined_method(obj, '__init__')
+                if init is not None:
+                    sig = signature(init)
+    elif not isinstance(obj, _NonUserDefinedCallables):
+        # An object with __call__
+        # We also check that the 'obj' is not an instance of
+        # _WrapperDescriptor or _MethodWrapper to avoid
+        # infinite recursion (and even potential segfault)
+        call = _get_user_defined_method(type(obj), '__call__')
+        if call is not None:
+            sig = signature(call)
+
+    if sig is not None:
+        # For classes and objects we skip the first parameter of their
+        # __call__, __new__, or __init__ methods
+        return sig.replace(parameters=tuple(sig.parameters.values())[1:])
+
+    if isinstance(obj, types.BuiltinFunctionType):
+        # Raise a nicer error message for builtins
+        msg = 'no signature found for builtin function {!r}'.format(obj)
+        raise ValueError(msg)
+
+    raise ValueError('callable {!r} is not supported by signature'.format(obj))
+
+
+class _void:
+    '''A private marker - used in Parameter & Signature'''
+
+
+class _empty:
+    pass
+
+
+class _ParameterKind(int):
+    def __new__(self, *args, name):
+        obj = int.__new__(self, *args)
+        obj._name = name
+        return obj
+
+    def __str__(self):
+        return self._name
+
+    def __repr__(self):
+        return '<_ParameterKind: {!r}>'.format(self._name)
+
+
+_POSITIONAL_ONLY        = _ParameterKind(0, name='POSITIONAL_ONLY')
+_POSITIONAL_OR_KEYWORD  = _ParameterKind(1, name='POSITIONAL_OR_KEYWORD')
+_VAR_POSITIONAL         = _ParameterKind(2, name='VAR_POSITIONAL')
+_KEYWORD_ONLY           = _ParameterKind(3, name='KEYWORD_ONLY')
+_VAR_KEYWORD            = _ParameterKind(4, name='VAR_KEYWORD')
+
+
+class Parameter:
+    '''Represents a parameter in a function signature.
+
+    Has the following public attributes:
+
+    * name : str
+        The name of the parameter as a string.
+    * default : object
+        The default value for the parameter if specified.  If the
+        parameter has no default value, this attribute is not set.
+    * annotation
+        The annotation for the parameter if specified.  If the
+        parameter has no annotation, this attribute is not set.
+    * kind : str
+        Describes how argument values are bound to the parameter.
+        Possible values: `Parameter.POSITIONAL_ONLY`,
+        `Parameter.POSITIONAL_OR_KEYWORD`, `Parameter.VAR_POSITIONAL`,
+        `Parameter.KEYWORD_ONLY`, `Parameter.VAR_KEYWORD`.
+    '''
+
+    __slots__ = ('_name', '_kind', '_default', '_annotation', '_partial_kwarg')
+
+    POSITIONAL_ONLY         = _POSITIONAL_ONLY
+    POSITIONAL_OR_KEYWORD   = _POSITIONAL_OR_KEYWORD
+    VAR_POSITIONAL          = _VAR_POSITIONAL
+    KEYWORD_ONLY            = _KEYWORD_ONLY
+    VAR_KEYWORD             = _VAR_KEYWORD
+
+    empty = _empty
+
+    def __init__(self, name, kind, *, default=_empty, annotation=_empty,
+                 _partial_kwarg=False):
+
+        if kind not in (_POSITIONAL_ONLY, _POSITIONAL_OR_KEYWORD,
+                        _VAR_POSITIONAL, _KEYWORD_ONLY, _VAR_KEYWORD):
+            raise ValueError("invalid value for 'Parameter.kind' attribute")
+        self._kind = kind
+
+        if default is not _empty:
+            if kind in (_VAR_POSITIONAL, _VAR_KEYWORD):
+                msg = '{} parameters cannot have default values'.format(kind)
+                raise ValueError(msg)
+        self._default = default
+        self._annotation = annotation
+
+        if name is None:
+            if kind != _POSITIONAL_ONLY:
+                raise ValueError("None is not a valid name for a "
+                                 "non-positional-only parameter")
+            self._name = name
+        else:
+            name = str(name)
+            if kind != _POSITIONAL_ONLY and not name.isidentifier():
+                msg = '{!r} is not a valid parameter name'.format(name)
+                raise ValueError(msg)
+            self._name = name
+
+        self._partial_kwarg = _partial_kwarg
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def default(self):
+        return self._default
+
+    @property
+    def annotation(self):
+        return self._annotation
+
+    @property
+    def kind(self):
+        return self._kind
+
+    def replace(self, *, name=_void, kind=_void, annotation=_void,
+                default=_void, _partial_kwarg=_void):
+        '''Creates a customized copy of the Parameter.'''
+
+        if name is _void:
+            name = self._name
+
+        if kind is _void:
+            kind = self._kind
+
+        if annotation is _void:
+            annotation = self._annotation
+
+        if default is _void:
+            default = self._default
+
+        if _partial_kwarg is _void:
+            _partial_kwarg = self._partial_kwarg
+
+        return type(self)(name, kind, default=default, annotation=annotation,
+                          _partial_kwarg=_partial_kwarg)
+
+    def __str__(self):
+        kind = self.kind
+
+        formatted = self._name
+        if kind == _POSITIONAL_ONLY:
+            if formatted is None:
+                formatted = ''
+            formatted = '<{}>'.format(formatted)
+
+        # Add annotation and default value
+        if self._annotation is not _empty:
+            formatted = '{}:{}'.format(formatted,
+                                       formatannotation(self._annotation))
+
+        if self._default is not _empty:
+            formatted = '{}={}'.format(formatted, repr(self._default))
+
+        if kind == _VAR_POSITIONAL:
+            formatted = '*' + formatted
+        elif kind == _VAR_KEYWORD:
+            formatted = '**' + formatted
+
+        return formatted
+
+    def __repr__(self):
+        return '<{} at {:#x} {!r}>'.format(self.__class__.__name__,
+                                           id(self), self.name)
+
+    def __eq__(self, other):
+        return (issubclass(other.__class__, Parameter) and
+                self._name == other._name and
+                self._kind == other._kind and
+                self._default == other._default and
+                self._annotation == other._annotation)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+class BoundArguments:
+    '''Result of `Signature.bind` call.  Holds the mapping of arguments
+    to the function's parameters.
+
+    Has the following public attributes:
+
+    * arguments : OrderedDict
+        An ordered mutable mapping of parameters' names to arguments' values.
+        Does not contain arguments' default values.
+    * signature : Signature
+        The Signature object that created this instance.
+    * args : tuple
+        Tuple of positional arguments values.
+    * kwargs : dict
+        Dict of keyword arguments values.
+    '''
+
+    def __init__(self, signature, arguments):
+        self.arguments = arguments
+        self._signature = signature
+
+    @property
+    def signature(self):
+        return self._signature
+
+    @property
+    def args(self):
+        args = []
+        for param_name, param in self._signature.parameters.items():
+            if (param.kind in (_VAR_KEYWORD, _KEYWORD_ONLY) or
+                                                    param._partial_kwarg):
+                # Keyword arguments mapped by 'functools.partial'
+                # (Parameter._partial_kwarg is True) are mapped
+                # in 'BoundArguments.kwargs', along with VAR_KEYWORD &
+                # KEYWORD_ONLY
+                break
+
+            try:
+                arg = self.arguments[param_name]
+            except KeyError:
+                # We're done here. Other arguments
+                # will be mapped in 'BoundArguments.kwargs'
+                break
+            else:
+                if param.kind == _VAR_POSITIONAL:
+                    # *args
+                    args.extend(arg)
+                else:
+                    # plain argument
+                    args.append(arg)
+
+        return tuple(args)
+
+    @property
+    def kwargs(self):
+        kwargs = {}
+        kwargs_started = False
+        for param_name, param in self._signature.parameters.items():
+            if not kwargs_started:
+                if (param.kind in (_VAR_KEYWORD, _KEYWORD_ONLY) or
+                                                param._partial_kwarg):
+                    kwargs_started = True
+                else:
+                    if param_name not in self.arguments:
+                        kwargs_started = True
+                        continue
+
+            if not kwargs_started:
+                continue
+
+            try:
+                arg = self.arguments[param_name]
+            except KeyError:
+                pass
+            else:
+                if param.kind == _VAR_KEYWORD:
+                    # **kwargs
+                    kwargs.update(arg)
+                else:
+                    # plain keyword argument
+                    kwargs[param_name] = arg
+
+        return kwargs
+
+    def __eq__(self, other):
+        return (issubclass(other.__class__, BoundArguments) and
+                self.signature == other.signature and
+                self.arguments == other.arguments)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+class Signature:
+    '''A Signature object represents the overall signature of a function.
+    It stores a Parameter object for each parameter accepted by the
+    function, as well as information specific to the function itself.
+
+    A Signature object has the following public attributes and methods:
+
+    * parameters : OrderedDict
+        An ordered mapping of parameters' names to the corresponding
+        Parameter objects (keyword-only arguments are in the same order
+        as listed in `code.co_varnames`).
+    * return_annotation : object
+        The annotation for the return type of the function if specified.
+        If the function has no annotation for its return type, this
+        attribute is not set.
+    * bind(*args, **kwargs) -> BoundArguments
+        Creates a mapping from positional and keyword arguments to
+        parameters.
+    * bind_partial(*args, **kwargs) -> BoundArguments
+        Creates a partial mapping from positional and keyword arguments
+        to parameters (simulating 'functools.partial' behavior.)
+    '''
+
+    __slots__ = ('_return_annotation', '_parameters')
+
+    _parameter_cls = Parameter
+    _bound_arguments_cls = BoundArguments
+
+    empty = _empty
+
+    def __init__(self, parameters=None, *, return_annotation=_empty,
+                 __validate_parameters__=True):
+        '''Constructs Signature from the given list of Parameter
+        objects and 'return_annotation'.  All arguments are optional.
+        '''
+
+        if parameters is None:
+            params = OrderedDict()
+        else:
+            if __validate_parameters__:
+                params = OrderedDict()
+                top_kind = _POSITIONAL_ONLY
+
+                for idx, param in enumerate(parameters):
+                    kind = param.kind
+                    if kind < top_kind:
+                        msg = 'wrong parameter order: {} before {}'
+                        msg = msg.format(top_kind, param.kind)
+                        raise ValueError(msg)
+                    else:
+                        top_kind = kind
+
+                    name = param.name
+                    if name is None:
+                        name = str(idx)
+                        param = param.replace(name=name)
+
+                    if name in params:
+                        msg = 'duplicate parameter name: {!r}'.format(name)
+                        raise ValueError(msg)
+                    params[name] = param
+            else:
+                params = OrderedDict(((param.name, param)
+                                                for param in parameters))
+
+        self._parameters = types.MappingProxyType(params)
+        self._return_annotation = return_annotation
+
+    @classmethod
+    def from_function(cls, func):
+        '''Constructs Signature for the given python function'''
+
+        if not isinstance(func, types.FunctionType):
+            raise TypeError('{!r} is not a Python function'.format(func))
+
+        Parameter = cls._parameter_cls
+
+        # Parameter information.
+        func_code = func.__code__
+        pos_count = func_code.co_argcount
+        arg_names = func_code.co_varnames
+        positional = tuple(arg_names[:pos_count])
+        keyword_only_count = func_code.co_kwonlyargcount
+        keyword_only = arg_names[pos_count:(pos_count + keyword_only_count)]
+        annotations = func.__annotations__
+        defaults = func.__defaults__
+        kwdefaults = func.__kwdefaults__
+
+        if defaults:
+            pos_default_count = len(defaults)
+        else:
+            pos_default_count = 0
+
+        parameters = []
+
+        # Non-keyword-only parameters w/o defaults.
+        non_default_count = pos_count - pos_default_count
+        for name in positional[:non_default_count]:
+            annotation = annotations.get(name, _empty)
+            parameters.append(Parameter(name, annotation=annotation,
+                                        kind=_POSITIONAL_OR_KEYWORD))
+
+        # ... w/ defaults.
+        for offset, name in enumerate(positional[non_default_count:]):
+            annotation = annotations.get(name, _empty)
+            parameters.append(Parameter(name, annotation=annotation,
+                                        kind=_POSITIONAL_OR_KEYWORD,
+                                        default=defaults[offset]))
+
+        # *args
+        if func_code.co_flags & 0x04:
+            name = arg_names[pos_count + keyword_only_count]
+            annotation = annotations.get(name, _empty)
+            parameters.append(Parameter(name, annotation=annotation,
+                                        kind=_VAR_POSITIONAL))
+
+        # Keyword-only parameters.
+        for name in keyword_only:
+            default = _empty
+            if kwdefaults is not None:
+                default = kwdefaults.get(name, _empty)
+
+            annotation = annotations.get(name, _empty)
+            parameters.append(Parameter(name, annotation=annotation,
+                                        kind=_KEYWORD_ONLY,
+                                        default=default))
+        # **kwargs
+        if func_code.co_flags & 0x08:
+            index = pos_count + keyword_only_count
+            if func_code.co_flags & 0x04:
+                index += 1
+
+            name = arg_names[index]
+            annotation = annotations.get(name, _empty)
+            parameters.append(Parameter(name, annotation=annotation,
+                                        kind=_VAR_KEYWORD))
+
+        return cls(parameters,
+                   return_annotation=annotations.get('return', _empty),
+                   __validate_parameters__=False)
+
+    @property
+    def parameters(self):
+        return self._parameters
+
+    @property
+    def return_annotation(self):
+        return self._return_annotation
+
+    def replace(self, *, parameters=_void, return_annotation=_void):
+        '''Creates a customized copy of the Signature.
+        Pass 'parameters' and/or 'return_annotation' arguments
+        to override them in the new copy.
+        '''
+
+        if parameters is _void:
+            parameters = self.parameters.values()
+
+        if return_annotation is _void:
+            return_annotation = self._return_annotation
+
+        return type(self)(parameters,
+                          return_annotation=return_annotation)
+
+    def __eq__(self, other):
+        if (not issubclass(type(other), Signature) or
+                    self.return_annotation != other.return_annotation or
+                    len(self.parameters) != len(other.parameters)):
+            return False
+
+        other_positions = {param: idx
+                           for idx, param in enumerate(other.parameters.keys())}
+
+        for idx, (param_name, param) in enumerate(self.parameters.items()):
+            if param.kind == _KEYWORD_ONLY:
+                try:
+                    other_param = other.parameters[param_name]
+                except KeyError:
+                    return False
+                else:
+                    if param != other_param:
+                        return False
+            else:
+                try:
+                    other_idx = other_positions[param_name]
+                except KeyError:
+                    return False
+                else:
+                    if (idx != other_idx or
+                                    param != other.parameters[param_name]):
+                        return False
+
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def _bind(self, args, kwargs, *, partial=False):
+        '''Private method.  Don't use directly.'''
+
+        arguments = OrderedDict()
+
+        parameters = iter(self.parameters.values())
+        parameters_ex = ()
+        arg_vals = iter(args)
+
+        if partial:
+            # Support for binding arguments to 'functools.partial' objects.
+            # See 'functools.partial' case in 'signature()' implementation
+            # for details.
+            for param_name, param in self.parameters.items():
+                if (param._partial_kwarg and param_name not in kwargs):
+                    # Simulating 'functools.partial' behavior
+                    kwargs[param_name] = param.default
+
+        while True:
+            # Let's iterate through the positional arguments and corresponding
+            # parameters
+            try:
+                arg_val = next(arg_vals)
+            except StopIteration:
+                # No more positional arguments
+                try:
+                    param = next(parameters)
+                except StopIteration:
+                    # No more parameters. That's it. Just need to check that
+                    # we have no `kwargs` after this while loop
+                    break
+                else:
+                    if param.kind == _VAR_POSITIONAL:
+                        # That's OK, just empty *args.  Let's start parsing
+                        # kwargs
+                        break
+                    elif param.name in kwargs:
+                        if param.kind == _POSITIONAL_ONLY:
+                            msg = '{arg!r} parameter is positional only, ' \
+                                  'but was passed as a keyword'
+                            msg = msg.format(arg=param.name)
+                            raise TypeError(msg) from None
+                        parameters_ex = (param,)
+                        break
+                    elif (param.kind == _VAR_KEYWORD or
+                                                param.default is not _empty):
+                        # That's fine too - we have a default value for this
+                        # parameter.  So, lets start parsing `kwargs`, starting
+                        # with the current parameter
+                        parameters_ex = (param,)
+                        break
+                    else:
+                        if partial:
+                            parameters_ex = (param,)
+                            break
+                        else:
+                            msg = '{arg!r} parameter lacking default value'
+                            msg = msg.format(arg=param.name)
+                            raise TypeError(msg) from None
+            else:
+                # We have a positional argument to process
+                try:
+                    param = next(parameters)
+                except StopIteration:
+                    raise TypeError('too many positional arguments') from None
+                else:
+                    if param.kind in (_VAR_KEYWORD, _KEYWORD_ONLY):
+                        # Looks like we have no parameter for this positional
+                        # argument
+                        raise TypeError('too many positional arguments')
+
+                    if param.kind == _VAR_POSITIONAL:
+                        # We have an '*args'-like argument, let's fill it with
+                        # all positional arguments we have left and move on to
+                        # the next phase
+                        values = [arg_val]
+                        values.extend(arg_vals)
+                        arguments[param.name] = tuple(values)
+                        break
+
+                    if param.name in kwargs:
+                        raise TypeError('multiple values for argument '
+                                        '{arg!r}'.format(arg=param.name))
+
+                    arguments[param.name] = arg_val
+
+        # Now, we iterate through the remaining parameters to process
+        # keyword arguments
+        kwargs_param = None
+        for param in itertools.chain(parameters_ex, parameters):
+            if param.kind == _POSITIONAL_ONLY:
+                # This should never happen in case of a properly built
+                # Signature object (but let's have this check here
+                # to ensure correct behaviour just in case)
+                raise TypeError('{arg!r} parameter is positional only, '
+                                'but was passed as a keyword'. \
+                                format(arg=param.name))
+
+            if param.kind == _VAR_KEYWORD:
+                # Memorize that we have a '**kwargs'-like parameter
+                kwargs_param = param
+                continue
+
+            param_name = param.name
+            try:
+                arg_val = kwargs.pop(param_name)
+            except KeyError:
+                # We have no value for this parameter.  It's fine though,
+                # if it has a default value, or it is an '*args'-like
+                # parameter, left alone by the processing of positional
+                # arguments.
+                if (not partial and param.kind != _VAR_POSITIONAL and
+                                                    param.default is _empty):
+                    raise TypeError('{arg!r} parameter lacking default value'. \
+                                    format(arg=param_name)) from None
+
+            else:
+                arguments[param_name] = arg_val
+
+        if kwargs:
+            if kwargs_param is not None:
+                # Process our '**kwargs'-like parameter
+                arguments[kwargs_param.name] = kwargs
+            else:
+                raise TypeError('too many keyword arguments')
+
+        return self._bound_arguments_cls(self, arguments)
+
+    def bind(__bind_self, *args, **kwargs):
+        '''Get a BoundArguments object, that maps the passed `args`
+        and `kwargs` to the function's signature.  Raises `TypeError`
+        if the passed arguments can not be bound.
+        '''
+        return __bind_self._bind(args, kwargs)
+
+    def bind_partial(__bind_self, *args, **kwargs):
+        '''Get a BoundArguments object, that partially maps the
+        passed `args` and `kwargs` to the function's signature.
+        Raises `TypeError` if the passed arguments can not be bound.
+        '''
+        return __bind_self._bind(args, kwargs, partial=True)
+
+    def __str__(self):
+        result = []
+        render_kw_only_separator = True
+        for idx, param in enumerate(self.parameters.values()):
+            formatted = str(param)
+
+            kind = param.kind
+            if kind == _VAR_POSITIONAL:
+                # OK, we have an '*args'-like parameter, so we won't need
+                # a '*' to separate keyword-only arguments
+                render_kw_only_separator = False
+            elif kind == _KEYWORD_ONLY and render_kw_only_separator:
+                # We have a keyword-only parameter to render and we haven't
+                # rendered an '*args'-like parameter before, so add a '*'
+                # separator to the parameters list ("foo(arg1, *, arg2)" case)
+                result.append('*')
+                # This condition should be only triggered once, so
+                # reset the flag
+                render_kw_only_separator = False
+
+            result.append(formatted)
+
+        rendered = '({})'.format(', '.join(result))
+
+        if self.return_annotation is not _empty:
+            anno = formatannotation(self.return_annotation)
+            rendered += ' -> {}'.format(anno)
+
+        return rendered

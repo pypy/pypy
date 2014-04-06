@@ -222,7 +222,8 @@ Check that generator attributes are present
     >>> set(attr for attr in dir(g) if not attr.startswith('__')) >= expected
     True
 
-    >>> print(g.__next__.__doc__)
+    >>> from test.support import HAVE_DOCSTRINGS
+    >>> print(g.__next__.__doc__ if HAVE_DOCSTRINGS else 'x.__next__() <==> next(x)')
     x.__next__() <==> next(x)
     >>> import types
     >>> isinstance(g, types.GeneratorType)
@@ -258,11 +259,15 @@ Verify that genexps are weakly referencable
 
 """
 
+import sys
 
-__test__ = {'doctests' : doctests}
+# Trace function can throw off the tuple reuse test.
+if hasattr(sys, 'gettrace') and sys.gettrace():
+    __test__ = {}
+else:
+    __test__ = {'doctests' : doctests}
 
 def test_main(verbose=None):
-    import sys
     from test import support
     from test import test_genexps
     support.run_doctest(test_genexps, verbose)

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import unittest
 import random
 import time
@@ -8,7 +6,7 @@ import warnings
 from math import log, exp, pi, fsum, sin
 from test import support
 
-class TestBasicOps(unittest.TestCase):
+class TestBasicOps:
     # Superclass with tests common to all generators.
     # Subclasses must arrange for self.gen to retrieve the Random instance
     # to be tested.
@@ -34,8 +32,12 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(randseq, self.randomlist(N))
 
     def test_seedargs(self):
+        # Seed value with a negative hash.
+        class MySeed(object):
+            def __hash__(self):
+                return -1729
         for arg in [None, 0, 0, 1, 1, -1, -1, 10**20, -(10**20),
-                    3.14, 1+2j, 'a', tuple('abc')]:
+                    3.14, 1+2j, 'a', tuple('abc'), MySeed()]:
             self.gen.seed(arg)
         for arg in [list(range(3)), dict(one=1)]:
             self.assertRaises(TypeError, self.gen.seed, arg)
@@ -138,7 +140,15 @@ class TestBasicOps(unittest.TestCase):
         k = sum(randrange(6755399441055744) % 3 == 2 for i in range(n))
         self.assertTrue(0.30 < k/n < .37, (k/n))
 
-class SystemRandom_TestBasicOps(TestBasicOps):
+try:
+    random.SystemRandom().random()
+except NotImplementedError:
+    SystemRandom_available = False
+else:
+    SystemRandom_available = True
+
+@unittest.skipUnless(SystemRandom_available, "random.SystemRandom not available")
+class SystemRandom_TestBasicOps(TestBasicOps, unittest.TestCase):
     gen = random.SystemRandom()
 
     def test_autoseed(self):
@@ -182,10 +192,10 @@ class SystemRandom_TestBasicOps(TestBasicOps):
 
     def test_bigrand_ranges(self):
         for i in [40,80, 160, 200, 211, 250, 375, 512, 550]:
-            start = self.gen.randrange(2 ** i)
-            stop = self.gen.randrange(2 ** (i-2))
+            start = self.gen.randrange(2 ** (i-2))
+            stop = self.gen.randrange(2 ** i)
             if stop <= start:
-                return
+                continue
             self.assertTrue(start <= self.gen.randrange(start, stop) < stop)
 
     def test_rangelimits(self):
@@ -235,7 +245,7 @@ class SystemRandom_TestBasicOps(TestBasicOps):
             self.assertTrue(2**k > n > 2**(k-1))   # note the stronger assertion
 
 
-class MersenneTwister_TestBasicOps(TestBasicOps):
+class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
     gen = random.Random()
 
     def test_guaranteed_stable(self):
@@ -345,10 +355,10 @@ class MersenneTwister_TestBasicOps(TestBasicOps):
 
     def test_bigrand_ranges(self):
         for i in [40,80, 160, 200, 211, 250, 375, 512, 550]:
-            start = self.gen.randrange(2 ** i)
-            stop = self.gen.randrange(2 ** (i-2))
+            start = self.gen.randrange(2 ** (i-2))
+            stop = self.gen.randrange(2 ** i)
             if stop <= start:
-                return
+                continue
             self.assertTrue(start <= self.gen.randrange(start, stop) < stop)
 
     def test_rangelimits(self):
@@ -436,6 +446,7 @@ class TestDistributions(unittest.TestCase):
         g.random = x[:].pop; g.paretovariate(1.0)
         g.random = x[:].pop; g.expovariate(1.0)
         g.random = x[:].pop; g.weibullvariate(1.0, 1.0)
+        g.random = x[:].pop; g.vonmisesvariate(1.0, 1.0)
         g.random = x[:].pop; g.normalvariate(0.0, 1.0)
         g.random = x[:].pop; g.gauss(0.0, 1.0)
         g.random = x[:].pop; g.lognormvariate(0.0, 1.0)
@@ -456,6 +467,7 @@ class TestDistributions(unittest.TestCase):
                 (g.uniform, (1.0,10.0), (10.0+1.0)/2, (10.0-1.0)**2/12),
                 (g.triangular, (0.0, 1.0, 1.0/3.0), 4.0/9.0, 7.0/9.0/18.0),
                 (g.expovariate, (1.5,), 1/1.5, 1/1.5**2),
+                (g.vonmisesvariate, (1.23, 0), pi, pi**2/3),
                 (g.paretovariate, (5.0,), 5.0/(5.0-1),
                                   5.0/((5.0-1)**2*(5.0-2))),
                 (g.weibullvariate, (1.0, 3.0), gamma(1+1/3.0),
@@ -472,8 +484,50 @@ class TestDistributions(unittest.TestCase):
                 s1 += e
                 s2 += (e - mu) ** 2
             N = len(y)
-            self.assertAlmostEqual(s1/N, mu, places=2)
-            self.assertAlmostEqual(s2/(N-1), sigmasqrd, places=2)
+            self.assertAlmostEqual(s1/N, mu, places=2,
+                                   msg='%s%r' % (variate.__name__, args))
+            self.assertAlmostEqual(s2/(N-1), sigmasqrd, places=2,
+                                   msg='%s%r' % (variate.__name__, args))
+
+    def test_constant(self):
+        g = random.Random()
+        N = 100
+        for variate, args, expected in [
+                (g.uniform, (10.0, 10.0), 10.0),
+                (g.triangular, (10.0, 10.0), 10.0),
+                #(g.triangular, (10.0, 10.0, 10.0), 10.0),
+                (g.expovariate, (float('inf'),), 0.0),
+                (g.vonmisesvariate, (3.0, float('inf')), 3.0),
+                (g.gauss, (10.0, 0.0), 10.0),
+                (g.lognormvariate, (0.0, 0.0), 1.0),
+                (g.lognormvariate, (-float('inf'), 0.0), 0.0),
+                (g.normalvariate, (10.0, 0.0), 10.0),
+                (g.paretovariate, (float('inf'),), 1.0),
+                (g.weibullvariate, (10.0, float('inf')), 10.0),
+                (g.weibullvariate, (0.0, 10.0), 0.0),
+            ]:
+            for i in range(N):
+                self.assertEqual(variate(*args), expected)
+
+    def test_von_mises_range(self):
+        # Issue 17149: von mises variates were not consistently in the
+        # range [0, 2*PI].
+        g = random.Random()
+        N = 100
+        for mu in 0.0, 0.1, 3.1, 6.2:
+            for kappa in 0.0, 2.3, 500.0:
+                for _ in range(N):
+                    sample = g.vonmisesvariate(mu, kappa)
+                    self.assertTrue(
+                        0 <= sample <= random.TWOPI,
+                        msg=("vonmisesvariate({}, {}) produced a result {} out"
+                             " of range [0, 2*pi]").format(mu, kappa, sample))
+
+    def test_von_mises_large_kappa(self):
+        # Issue #17141: vonmisesvariate() was hang for large kappas
+        random.vonmisesvariate(0, 1e15)
+        random.vonmisesvariate(0, 1e100)
+
 
 class TestModule(unittest.TestCase):
     def testMagicConstants(self):
@@ -494,28 +548,5 @@ class TestModule(unittest.TestCase):
         Subclass(newarg=1)
 
 
-def test_main(verbose=None):
-    testclasses =    [MersenneTwister_TestBasicOps,
-                      TestDistributions,
-                      TestModule]
-
-    try:
-        random.SystemRandom().random()
-    except NotImplementedError:
-        pass
-    else:
-        testclasses.append(SystemRandom_TestBasicOps)
-
-    support.run_unittest(*testclasses)
-
-    # verify reference counting
-    import sys
-    if verbose and hasattr(sys, "gettotalrefcount"):
-        counts = [None] * 5
-        for i in range(len(counts)):
-            support.run_unittest(*testclasses)
-            counts[i] = sys.gettotalrefcount()
-        print(counts)
-
 if __name__ == "__main__":
-    test_main(verbose=True)
+    unittest.main()

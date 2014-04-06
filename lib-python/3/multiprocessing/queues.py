@@ -4,32 +4,7 @@
 # multiprocessing/queues.py
 #
 # Copyright (c) 2006-2008, R Oudkerk
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of author nor the names of any contributors may be
-#    used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
+# Licensed to PSF under a Contributor Agreement.
 #
 
 __all__ = ['Queue', 'SimpleQueue', 'JoinableQueue']
@@ -39,12 +14,12 @@ import os
 import threading
 import collections
 import time
-import atexit
 import weakref
+import errno
 
 from queue import Empty, Full
 import _multiprocessing
-from multiprocessing import Pipe
+from multiprocessing.connection import Pipe
 from multiprocessing.synchronize import Lock, BoundedSemaphore, Semaphore, Condition
 from multiprocessing.util import debug, info, Finalize, register_after_fork
 from multiprocessing.forking import assert_spawning
@@ -67,6 +42,8 @@ class Queue(object):
         else:
             self._wlock = Lock()
         self._sem = BoundedSemaphore(maxsize)
+        # For use by concurrent.futures
+        self._ignore_epipe = False
 
         self._after_fork()
 
@@ -75,11 +52,11 @@ class Queue(object):
 
     def __getstate__(self):
         assert_spawning(self)
-        return (self._maxsize, self._reader, self._writer,
+        return (self._ignore_epipe, self._maxsize, self._reader, self._writer,
                 self._rlock, self._wlock, self._sem, self._opid)
 
     def __setstate__(self, state):
-        (self._maxsize, self._reader, self._writer,
+        (self._ignore_epipe, self._maxsize, self._reader, self._writer,
          self._rlock, self._wlock, self._sem, self._opid) = state
         self._after_fork()
 
@@ -182,7 +159,7 @@ class Queue(object):
         self._thread = threading.Thread(
             target=Queue._feed,
             args=(self._buffer, self._notempty, self._send,
-                  self._wlock, self._writer.close),
+                  self._wlock, self._writer.close, self._ignore_epipe),
             name='QueueFeederThread'
             )
         self._thread.daemon = True
@@ -233,7 +210,7 @@ class Queue(object):
             notempty.release()
 
     @staticmethod
-    def _feed(buffer, notempty, send, writelock, close):
+    def _feed(buffer, notempty, send, writelock, close, ignore_epipe):
         debug('starting thread to feed data to pipe')
         from .util import is_exiting
 
@@ -275,6 +252,8 @@ class Queue(object):
                 except IndexError:
                     pass
         except Exception as e:
+            if ignore_epipe and getattr(e, 'errno', 0) == errno.EPIPE:
+                return
             # Since this runs in a daemon thread the resources it uses
             # may be become unusable while the process is cleaning up.
             # We ignore errors which happen after the process has
@@ -356,6 +335,7 @@ class SimpleQueue(object):
     def __init__(self):
         self._reader, self._writer = Pipe(duplex=False)
         self._rlock = Lock()
+        self._poll = self._reader.poll
         if sys.platform == 'win32':
             self._wlock = None
         else:
@@ -363,7 +343,7 @@ class SimpleQueue(object):
         self._make_methods()
 
     def empty(self):
-        return not self._reader.poll()
+        return not self._poll()
 
     def __getstate__(self):
         assert_spawning(self)

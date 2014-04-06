@@ -100,11 +100,14 @@ import sys
 import time
 import urllib.parse
 import copy
+import argparse
+
 
 # Default error message template
 DEFAULT_ERROR_MESSAGE = """\
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
         "http://www.w3.org/TR/html4/strict.dtd">
+<html>
     <head>
         <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
         <title>Error response</title>
@@ -352,6 +355,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
         """
         self.send_response_only(100)
+        self.end_headers()
         return True
 
     def handle_one_request(self):
@@ -429,7 +433,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
             self.wfile.write(content.encode('UTF-8', 'replace'))
 
     def send_response(self, code, message=None):
-        """Send the response header and log the response code.
+        """Add the response header to the headers buffer and log the
+        response code.
 
         Also send two standard headers with the server software
         version and the current date.
@@ -448,16 +453,19 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
             else:
                 message = ''
         if self.request_version != 'HTTP/0.9':
-            self.wfile.write(("%s %d %s\r\n" %
-                              (self.protocol_version, code, message)).encode('latin1', 'strict'))
+            if not hasattr(self, '_headers_buffer'):
+                self._headers_buffer = []
+            self._headers_buffer.append(("%s %d %s\r\n" %
+                    (self.protocol_version, code, message)).encode(
+                        'latin-1', 'strict'))
 
     def send_header(self, keyword, value):
-        """Send a MIME header."""
+        """Send a MIME header to the headers buffer."""
         if self.request_version != 'HTTP/0.9':
             if not hasattr(self, '_headers_buffer'):
                 self._headers_buffer = []
             self._headers_buffer.append(
-                ("%s: %s\r\n" % (keyword, value)).encode('latin1', 'strict'))
+                ("%s: %s\r\n" % (keyword, value)).encode('latin-1', 'strict'))
 
         if keyword.lower() == 'connection':
             if value.lower() == 'close':
@@ -469,6 +477,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         """Send the blank line ending the MIME headers."""
         if self.request_version != 'HTTP/0.9':
             self._headers_buffer.append(b"\r\n")
+            self.flush_headers()
+
+    def flush_headers(self):
+        if hasattr(self, '_headers_buffer'):
             self.wfile.write(b"".join(self._headers_buffer))
             self._headers_buffer = []
 
@@ -508,7 +520,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         specified as subsequent arguments (it's just like
         printf!).
 
-        The client host and current date/time are prefixed to
+        The client ip and current date/time are prefixed to
         every message.
 
         """
@@ -548,15 +560,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     def address_string(self):
-        """Return the client address formatted for logging.
+        """Return the client address."""
 
-        This version looks up the full hostname using gethostbyaddr(),
-        and tries to find a name that contains at least one dot.
-
-        """
-
-        host, port = self.client_address[:2]
-        return socket.getfqdn(host)
+        return self.client_address[0]
 
     # Essentially static class variables
 
@@ -569,7 +575,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
     # Table mapping response codes to messages; entries have the
     # form {code: (shortmessage, longmessage)}.
-    # See RFC 2616.
+    # See RFC 2616 and 6585.
     responses = {
         100: ('Continue', 'Request received, please continue'),
         101: ('Switching Protocols',
@@ -624,6 +630,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
               'Cannot satisfy request range.'),
         417: ('Expectation Failed',
               'Expect condition could not be satisfied.'),
+        428: ('Precondition Required',
+              'The origin server requires the request to be conditional.'),
+        429: ('Too Many Requests', 'The user has sent too many requests '
+              'in a given amount of time ("rate limiting").'),
+        431: ('Request Header Fields Too Large', 'The server is unwilling to '
+              'process the request because its header fields are too large.'),
 
         500: ('Internal Server Error', 'Server got itself in trouble'),
         501: ('Not Implemented',
@@ -634,6 +646,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         504: ('Gateway Timeout',
               'The gateway server did not receive a timely response'),
         505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
+        511: ('Network Authentication Required',
+              'The client needs to authenticate to gain network access.'),
         }
 
 
@@ -656,8 +670,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         """Serve a GET request."""
         f = self.send_head()
         if f:
-            self.copyfile(f, self.wfile)
-            f.close()
+            try:
+                self.copyfile(f, self.wfile)
+            finally:
+                f.close()
 
     def do_HEAD(self):
         """Serve a HEAD request."""
@@ -698,13 +714,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         except IOError:
             self.send_error(404, "File not found")
             return None
-        self.send_response(200)
-        self.send_header("Content-type", ctype)
-        fs = os.fstat(f.fileno())
-        self.send_header("Content-Length", str(fs[6]))
-        self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
-        self.end_headers()
-        return f
+        try:
+            self.send_response(200)
+            self.send_header("Content-type", ctype)
+            fs = os.fstat(f.fileno())
+            self.send_header("Content-Length", str(fs[6]))
+            self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+            self.end_headers()
+            return f
+        except:
+            f.close()
+            raise
 
     def list_directory(self, path):
         """Helper to produce a directory listing (absent index.html).
@@ -722,10 +742,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         list.sort(key=lambda a: a.lower())
         r = []
         displaypath = html.escape(urllib.parse.unquote(self.path))
-        r.append('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        r.append("<html>\n<title>Directory listing for %s</title>\n" % displaypath)
-        r.append("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath)
-        r.append("<hr>\n<ul>\n")
+        enc = sys.getfilesystemencoding()
+        title = 'Directory listing for %s' % displaypath
+        r.append('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" '
+                 '"http://www.w3.org/TR/html4/strict.dtd">')
+        r.append('<html>\n<head>')
+        r.append('<meta http-equiv="Content-Type" '
+                 'content="text/html; charset=%s">' % enc)
+        r.append('<title>%s</title>\n</head>' % title)
+        r.append('<body>\n<h1>%s</h1>' % title)
+        r.append('<hr>\n<ul>')
         for name in list:
             fullname = os.path.join(path, name)
             displayname = linkname = name
@@ -736,11 +762,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             if os.path.islink(fullname):
                 displayname = name + "@"
                 # Note: a link to a directory displays with @ and links with /
-            r.append('<li><a href="%s">%s</a>\n'
+            r.append('<li><a href="%s">%s</a></li>'
                     % (urllib.parse.quote(linkname), html.escape(displayname)))
-        r.append("</ul>\n<hr>\n</body>\n</html>\n")
-        enc = sys.getfilesystemencoding()
-        encoded = ''.join(r).encode(enc)
+        r.append('</ul>\n<hr>\n</body>\n</html>\n')
+        encoded = '\n'.join(r).encode(enc)
         f = io.BytesIO()
         f.write(encoded)
         f.seek(0)
@@ -761,6 +786,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         # abandon query parameters
         path = path.split('?',1)[0]
         path = path.split('#',1)[0]
+        # Don't forget explicit trailing slash when normalizing. Issue17324
+        trailing_slash = path.rstrip().endswith('/')
         path = posixpath.normpath(urllib.parse.unquote(path))
         words = path.split('/')
         words = filter(None, words)
@@ -770,6 +797,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             head, word = os.path.split(word)
             if word in (os.curdir, os.pardir): continue
             path = os.path.join(path, word)
+        if trailing_slash:
+            path += '/'
         return path
 
     def copyfile(self, source, outputfile):
@@ -825,44 +854,47 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 # Utilities for CGIHTTPRequestHandler
 
-# TODO(gregory.p.smith): Move this into an appropriate library.
-def _url_collapse_path_split(path):
+def _url_collapse_path(path):
     """
     Given a URL path, remove extra '/'s and '.' path elements and collapse
-    any '..' references.
+    any '..' references and returns a colllapsed path.
 
     Implements something akin to RFC-2396 5.2 step 6 to parse relative paths.
+    The utility of this function is limited to is_cgi method and helps
+    preventing some security attacks.
 
     Returns: A tuple of (head, tail) where tail is everything after the final /
     and head is everything before it.  Head will always start with a '/' and,
     if it contains anything else, never have a trailing '/'.
 
     Raises: IndexError if too many '..' occur within the path.
+
     """
     # Similar to os.path.split(os.path.normpath(path)) but specific to URL
     # path semantics rather than local operating system semantics.
-    path_parts = []
-    for part in path.split('/'):
-        if part == '.':
-            path_parts.append('')
-        else:
-            path_parts.append(part)
-    # Filter out blank non trailing parts before consuming the '..'.
-    path_parts = [part for part in path_parts[:-1] if part] + path_parts[-1:]
+    path_parts = path.split('/')
+    head_parts = []
+    for part in path_parts[:-1]:
+        if part == '..':
+            head_parts.pop() # IndexError if more '..' than prior parts
+        elif part and part != '.':
+            head_parts.append( part )
     if path_parts:
         tail_part = path_parts.pop()
+        if tail_part:
+            if tail_part == '..':
+                head_parts.pop()
+                tail_part = ''
+            elif tail_part == '.':
+                tail_part = ''
     else:
         tail_part = ''
-    head_parts = []
-    for part in path_parts:
-        if part == '..':
-            head_parts.pop()
-        else:
-            head_parts.append(part)
-    if tail_part and tail_part == '..':
-        head_parts.pop()
-        tail_part = ''
-    return ('/' + '/'.join(head_parts), tail_part)
+
+    splitpath = ('/' + '/'.join(head_parts), tail_part)
+    collapsed_path = "/".join(splitpath)
+
+    return collapsed_path
+
 
 
 nobody = None
@@ -885,11 +917,7 @@ def nobody_uid():
 
 def executable(path):
     """Test for executable file."""
-    try:
-        st = os.stat(path)
-    except os.error:
-        return False
-    return st.st_mode & 0o111 != 0
+    return os.access(path, os.X_OK)
 
 
 class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -943,12 +971,14 @@ class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
         (and the next character is a '/' or the end of the string).
 
         """
-
-        splitpath = _url_collapse_path_split(self.path)
-        if splitpath[0] in self.cgi_directories:
-            self.cgi_info = splitpath
+        collapsed_path = _url_collapse_path(self.path)
+        dir_sep = collapsed_path.find('/', 1)
+        head, tail = collapsed_path[:dir_sep], collapsed_path[dir_sep+1:]
+        if head in self.cgi_directories:
+            self.cgi_info = head, tail
             return True
         return False
+
 
     cgi_directories = ['/cgi-bin', '/htbin']
 
@@ -963,18 +993,17 @@ class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def run_cgi(self):
         """Execute a CGI script."""
-        path = self.path
         dir, rest = self.cgi_info
 
-        i = path.find('/', len(dir) + 1)
+        i = rest.find('/')
         while i >= 0:
-            nextdir = path[:i]
-            nextrest = path[i+1:]
+            nextdir = rest[:i]
+            nextrest = rest[i+1:]
 
             scriptdir = self.translate_path(nextdir)
             if os.path.isdir(scriptdir):
                 dir, rest = nextdir, nextrest
-                i = path.find('/', len(dir) + 1)
+                i = rest.find('/')
             else:
                 break
 
@@ -1003,7 +1032,7 @@ class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
                             scriptname)
             return
         ispy = self.is_python(scriptname)
-        if not ispy:
+        if self.have_fork or not ispy:
             if not self.is_executable(scriptfile):
                 self.send_error(403, "CGI script is not executable (%r)" %
                                 scriptname)
@@ -1024,9 +1053,6 @@ class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
         env['SCRIPT_NAME'] = scriptname
         if query:
             env['QUERY_STRING'] = query
-        host = self.address_string()
-        if host != self.client_address[0]:
-            env['REMOTE_HOST'] = host
         env['REMOTE_ADDR'] = self.client_address[0]
         authorization = self.headers.get("authorization")
         if authorization:
@@ -1078,6 +1104,7 @@ class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
             env.setdefault(k, "")
 
         self.send_response(200, "Script output follows")
+        self.flush_headers()
 
         decoded_query = query.replace('+', ' ')
 
@@ -1157,18 +1184,13 @@ class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 
 def test(HandlerClass = BaseHTTPRequestHandler,
-         ServerClass = HTTPServer, protocol="HTTP/1.0"):
+         ServerClass = HTTPServer, protocol="HTTP/1.0", port=8000):
     """Test the HTTP request handler class.
 
     This runs an HTTP server on port 8000 (or the first command line
     argument).
 
     """
-
-    if sys.argv[1:]:
-        port = int(sys.argv[1])
-    else:
-        port = 8000
     server_address = ('', port)
 
     HandlerClass.protocol_version = protocol
@@ -1184,4 +1206,15 @@ def test(HandlerClass = BaseHTTPRequestHandler,
         sys.exit(0)
 
 if __name__ == '__main__':
-    test(HandlerClass=SimpleHTTPRequestHandler)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cgi', action='store_true',
+                       help='Run as CGI Server')
+    parser.add_argument('port', action='store',
+                        default=8000, type=int,
+                        nargs='?',
+                        help='Specify alternate port [default: 8000]')
+    args = parser.parse_args()
+    if args.cgi:
+        test(HandlerClass=CGIHTTPRequestHandler, port=args.port)
+    else:
+        test(HandlerClass=SimpleHTTPRequestHandler, port=args.port)

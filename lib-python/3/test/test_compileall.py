@@ -39,11 +39,10 @@ class CompileallTests(unittest.TestCase):
         compare = struct.pack('<4sl', imp.get_magic(), mtime)
         return data, compare
 
+    @unittest.skipUnless(hasattr(os, 'stat'), 'test needs os.stat()')
     def recreation_check(self, metadata):
         """Check that compileall recreates bytecode when the new metadata is
         used."""
-        if not hasattr(os, 'stat'):
-            return
         py_compile.compile(self.source_path)
         self.assertEqual(*self.data())
         with open(self.bc_path, 'rb') as file:
@@ -134,15 +133,21 @@ class EncodingTest(unittest.TestCase):
 class CommandLineTests(unittest.TestCase):
     """Test compileall's CLI."""
 
+    def _get_run_args(self, args):
+        interp_args = ['-S']
+        if sys.flags.optimize:
+            interp_args.append({1 : '-O', 2 : '-OO'}[sys.flags.optimize])
+        return interp_args + ['-m', 'compileall'] + list(args)
+
     def assertRunOK(self, *args, **env_vars):
         rc, out, err = script_helper.assert_python_ok(
-                        '-S', '-m', 'compileall', *args, **env_vars)
+                         *self._get_run_args(args), **env_vars)
         self.assertEqual(b'', err)
         return out
 
     def assertRunNotOK(self, *args, **env_vars):
         rc, out, err = script_helper.assert_python_failure(
-                        '-S', '-m', 'compileall', *args, **env_vars)
+                        *self._get_run_args(args), **env_vars)
         return rc, out, err
 
     def assertCompiled(self, fn):
@@ -172,6 +177,29 @@ class CommandLineTests(unittest.TestCase):
         self.assertNotCompiled(self.initfn)
         self.assertNotCompiled(self.barfn)
 
+    def test_no_args_respects_force_flag(self):
+        bazfn = script_helper.make_script(self.directory, 'baz', '')
+        self.assertRunOK(PYTHONPATH=self.directory)
+        pycpath = imp.cache_from_source(bazfn)
+        # Set atime/mtime backward to avoid file timestamp resolution issues
+        os.utime(pycpath, (time.time()-60,)*2)
+        mtime = os.stat(pycpath).st_mtime
+        # Without force, no recompilation
+        self.assertRunOK(PYTHONPATH=self.directory)
+        mtime2 = os.stat(pycpath).st_mtime
+        self.assertEqual(mtime, mtime2)
+        # Now force it.
+        self.assertRunOK('-f', PYTHONPATH=self.directory)
+        mtime2 = os.stat(pycpath).st_mtime
+        self.assertNotEqual(mtime, mtime2)
+
+    def test_no_args_respects_quiet_flag(self):
+        script_helper.make_script(self.directory, 'baz', '')
+        noisy = self.assertRunOK(PYTHONPATH=self.directory)
+        self.assertIn(b'Listing ', noisy)
+        quiet = self.assertRunOK('-q', PYTHONPATH=self.directory)
+        self.assertNotIn(b'Listing ', quiet)
+
     # Ensure that the default behavior of compileall's CLI is to create
     # PEP 3147 pyc/pyo files.
     _pyo = 'pyo' if support.check_impl_detail() else 'pyc'
@@ -199,7 +227,9 @@ class CommandLineTests(unittest.TestCase):
         self.assertRunOK('-b', '-q', self.pkgdir)
         # Verify the __pycache__ directory contents.
         self.assertFalse(os.path.exists(self.pkgdir_cachedir))
-        expected = sorted(['__init__.py', '__init__.pyc', 'bar.py', 'bar.pyc'])
+        opt = 'c' if __debug__ else 'o'
+        expected = sorted(['__init__.py', '__init__.py' + opt, 'bar.py',
+                           'bar.py' + opt])
         self.assertEqual(sorted(os.listdir(self.pkgdir)), expected)
 
     def test_multiple_runs(self):
@@ -327,7 +357,7 @@ class CommandLineTests(unittest.TestCase):
         f2 = script_helper.make_script(self.pkgdir, 'f2', '')
         f3 = script_helper.make_script(self.pkgdir, 'f3', '')
         f4 = script_helper.make_script(self.pkgdir, 'f4', '')
-        p = script_helper.spawn_python('-m', 'compileall', '-i', '-')
+        p = script_helper.spawn_python(*(self._get_run_args(()) + ['-i', '-']))
         p.stdin.write((f3+os.linesep).encode('ascii'))
         script_helper.kill_python(p)
         self.assertNotCompiled(f1)

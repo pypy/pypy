@@ -3,29 +3,32 @@ import unittest
 from test import support
 from collections import UserList
 
-# We do a bit of trickery here to be able to test both the C implementation
-# and the Python implementation of the module.
+py_bisect = support.import_fresh_module('bisect', blocked=['_bisect'])
+c_bisect = support.import_fresh_module('bisect', fresh=['_bisect'])
 
-# Make it impossible to import the C implementation anymore.
-sys.modules['_bisect'] = 0
-# We must also handle the case that bisect was imported before.
-if 'bisect' in sys.modules:
-    del sys.modules['bisect']
+class Range(object):
+    """A trivial range()-like object without any integer width limitations."""
+    def __init__(self, start, stop):
+        self.start = start
+        self.stop = stop
+        self.last_insert = None
 
-# Now we can import the module and get the pure Python implementation.
-import bisect as py_bisect
+    def __len__(self):
+        return self.stop - self.start
 
-# Restore everything to normal.
-del sys.modules['_bisect']
-del sys.modules['bisect']
+    def __getitem__(self, idx):
+        n = self.stop - self.start
+        if idx < 0:
+            idx += n
+        if idx >= n:
+            raise IndexError(idx)
+        return self.start + idx
 
-# This is now the module with the C implementation.
-import bisect as c_bisect
+    def insert(self, idx, item):
+        self.last_insert = idx, item
 
 
-class TestBisect(unittest.TestCase):
-    module = None
-
+class TestBisect:
     def setUp(self):
         self.precomputedCases = [
             (self.module.bisect_right, [], 1, 0),
@@ -122,6 +125,32 @@ class TestBisect(unittest.TestCase):
         self.assertRaises(ValueError, mod.insort_left, [1, 2, 3], 5, -1, 3),
         self.assertRaises(ValueError, mod.insort_right, [1, 2, 3], 5, -1, 3),
 
+    def test_large_range(self):
+        # Issue 13496
+        mod = self.module
+        n = sys.maxsize
+        data = range(n-1)
+        self.assertEqual(mod.bisect_left(data, n-3), n-3)
+        self.assertEqual(mod.bisect_right(data, n-3), n-2)
+        self.assertEqual(mod.bisect_left(data, n-3, n-10, n), n-3)
+        self.assertEqual(mod.bisect_right(data, n-3, n-10, n), n-2)
+
+    def test_large_pyrange(self):
+        # Same as above, but without C-imposed limits on range() parameters
+        mod = self.module
+        n = sys.maxsize
+        data = Range(0, n-1)
+        self.assertEqual(mod.bisect_left(data, n-3), n-3)
+        self.assertEqual(mod.bisect_right(data, n-3), n-2)
+        self.assertEqual(mod.bisect_left(data, n-3, n-10, n), n-3)
+        self.assertEqual(mod.bisect_right(data, n-3, n-10, n), n-2)
+        x = n - 100
+        mod.insort_left(data, x, x - 50, x + 50)
+        self.assertEqual(data.last_insert, (x, x))
+        x = n - 200
+        mod.insort_right(data, x, x - 50, x + 50)
+        self.assertEqual(data.last_insert, (x + 1, x))
+
     def test_random(self, n=25):
         from random import randrange
         for i in range(n):
@@ -170,17 +199,15 @@ class TestBisect(unittest.TestCase):
         self.module.insort(a=data, x=25, lo=1, hi=3)
         self.assertEqual(data, [10, 20, 25, 25, 25, 30, 40, 50])
 
-class TestBisectPython(TestBisect):
+class TestBisectPython(TestBisect, unittest.TestCase):
     module = py_bisect
 
-class TestBisectC(TestBisect):
+class TestBisectC(TestBisect, unittest.TestCase):
     module = c_bisect
 
 #==============================================================================
 
-class TestInsort(unittest.TestCase):
-    module = None
-
+class TestInsort:
     def test_vsBuiltinSort(self, n=500):
         from random import choice
         for insorted in (list(), UserList()):
@@ -191,7 +218,7 @@ class TestInsort(unittest.TestCase):
                 else:
                     f = self.module.insort_right
                 f(insorted, digit)
-        self.assertEqual(sorted(insorted), insorted)
+            self.assertEqual(sorted(insorted), insorted)
 
     def test_backcompatibility(self):
         self.assertEqual(self.module.insort, self.module.insort_right)
@@ -207,14 +234,13 @@ class TestInsort(unittest.TestCase):
         self.module.insort_right(lst, 5)
         self.assertEqual([5, 10], lst.data)
 
-class TestInsortPython(TestInsort):
+class TestInsortPython(TestInsort, unittest.TestCase):
     module = py_bisect
 
-class TestInsortC(TestInsort):
+class TestInsortC(TestInsort, unittest.TestCase):
     module = c_bisect
 
 #==============================================================================
-
 
 class LenOnly:
     "Dummy sequence class defining __len__ but not __getitem__."
@@ -236,9 +262,7 @@ class CmpErr:
     __eq__ = __lt__
     __ne__ = __lt__
 
-class TestErrorHandling(unittest.TestCase):
-    module = None
-
+class TestErrorHandling:
     def test_non_sequence(self):
         for f in (self.module.bisect_left, self.module.bisect_right,
                   self.module.insort_left, self.module.insort_right):
@@ -265,58 +289,40 @@ class TestErrorHandling(unittest.TestCase):
                   self.module.insort_left, self.module.insort_right):
             self.assertRaises(TypeError, f, 10)
 
-class TestErrorHandlingPython(TestErrorHandling):
+class TestErrorHandlingPython(TestErrorHandling, unittest.TestCase):
     module = py_bisect
 
-class TestErrorHandlingC(TestErrorHandling):
+class TestErrorHandlingC(TestErrorHandling, unittest.TestCase):
     module = c_bisect
 
 #==============================================================================
 
-libreftest = """
-Example from the Library Reference:  Doc/library/bisect.rst
+class TestDocExample:
+    def test_grades(self):
+        def grade(score, breakpoints=[60, 70, 80, 90], grades='FDCBA'):
+            i = self.module.bisect(breakpoints, score)
+            return grades[i]
 
-The bisect() function is generally useful for categorizing numeric data.
-This example uses bisect() to look up a letter grade for an exam total
-(say) based on a set of ordered numeric breakpoints: 85 and up is an `A',
-75..84 is a `B', etc.
+        result = [grade(score) for score in [33, 99, 77, 70, 89, 90, 100]]
+        self.assertEqual(result, ['F', 'A', 'C', 'C', 'B', 'A', 'A'])
 
-    >>> grades = "FEDCBA"
-    >>> breakpoints = [30, 44, 66, 75, 85]
-    >>> from bisect import bisect
-    >>> def grade(total):
-    ...           return grades[bisect(breakpoints, total)]
-    ...
-    >>> grade(66)
-    'C'
-    >>> list(map(grade, [33, 99, 77, 44, 12, 88]))
-    ['E', 'A', 'B', 'D', 'F', 'A']
+    def test_colors(self):
+        data = [('red', 5), ('blue', 1), ('yellow', 8), ('black', 0)]
+        data.sort(key=lambda r: r[1])
+        keys = [r[1] for r in data]
+        bisect_left = self.module.bisect_left
+        self.assertEqual(data[bisect_left(keys, 0)], ('black', 0))
+        self.assertEqual(data[bisect_left(keys, 1)], ('blue', 1))
+        self.assertEqual(data[bisect_left(keys, 5)], ('red', 5))
+        self.assertEqual(data[bisect_left(keys, 8)], ('yellow', 8))
 
-"""
+class TestDocExamplePython(TestDocExample, unittest.TestCase):
+    module = py_bisect
+
+class TestDocExampleC(TestDocExample, unittest.TestCase):
+    module = c_bisect
 
 #------------------------------------------------------------------------------
 
-__test__ = {'libreftest' : libreftest}
-
-def test_main(verbose=None):
-    from test import test_bisect
-
-    test_classes = [TestBisectPython, TestBisectC,
-                    TestInsortPython, TestInsortC,
-                    TestErrorHandlingPython, TestErrorHandlingC]
-
-    support.run_unittest(*test_classes)
-    support.run_doctest(test_bisect, verbose)
-
-    # verify reference counting
-    if verbose and hasattr(sys, "gettotalrefcount"):
-        import gc
-        counts = [None] * 5
-        for i in range(len(counts)):
-            support.run_unittest(*test_classes)
-            gc.collect()
-            counts[i] = sys.gettotalrefcount()
-        print(counts)
-
 if __name__ == "__main__":
-    test_main(verbose=True)
+    unittest.main()

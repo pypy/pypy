@@ -318,6 +318,22 @@ class TestOptionChecks(BaseTest):
             ["-b"], {'action': 'store',
                      'callback_kwargs': 'foo'})
 
+    def test_no_single_dash(self):
+        self.assertOptionError(
+            "invalid long option string '-debug': "
+            "must start with --, followed by non-dash",
+            ["-debug"])
+
+        self.assertOptionError(
+            "option -d: invalid long option string '-debug': must start with"
+            " --, followed by non-dash",
+            ["-d", "-debug"])
+
+        self.assertOptionError(
+            "invalid long option string '-debug': "
+            "must start with --, followed by non-dash",
+            ["-debug", "--debug"])
+
 class TestOptionParser(BaseTest):
     def setUp(self):
         self.parser = OptionParser()
@@ -633,7 +649,7 @@ class TestStandard(BaseTest):
                                                option_list=options)
 
     def test_required_value(self):
-        self.assertParseFail(["-a"], "-a option requires an argument")
+        self.assertParseFail(["-a"], "-a option requires 1 argument")
 
     def test_invalid_integer(self):
         self.assertParseFail(["-b", "5x"],
@@ -1025,7 +1041,7 @@ class TestExtendAddTypes(BaseTest):
         TYPE_CHECKER["file"] = check_file
 
     def test_filetype_ok(self):
-        open(support.TESTFN, "w").close()
+        support.create_empty_file(support.TESTFN)
         self.assertParseOK(["--file", support.TESTFN, "-afoo"],
                            {'file': support.TESTFN, 'a': 'foo'},
                            [])
@@ -1429,6 +1445,39 @@ Options:
   -h, --help         show this help message and exit
 """
 
+_expected_very_help_short_lines = """\
+Usage: bar.py [options]
+
+Options:
+  -a APPLE
+    throw
+    APPLEs at
+    basket
+  -b NUM, --boo=NUM
+    shout
+    "boo!" NUM
+    times (in
+    order to
+    frighten
+    away all
+    the evil
+    spirits
+    that cause
+    trouble and
+    mayhem)
+  --foo=FOO
+    store FOO
+    in the foo
+    list for
+    later
+    fooing
+  -h, --help
+    show this
+    help
+    message and
+    exit
+"""
+
 class TestHelp(BaseTest):
     def setUp(self):
         self.parser = self.make_parser(80)
@@ -1486,6 +1535,8 @@ class TestHelp(BaseTest):
         # we look at $COLUMNS.
         self.parser = self.make_parser(60)
         self.assertHelpEquals(_expected_help_short_lines)
+        self.parser = self.make_parser(0)
+        self.assertHelpEquals(_expected_very_help_short_lines)
 
     def test_help_unicode(self):
         self.parser = InterceptingOptionParser(usage=SUPPRESS_USAGE)

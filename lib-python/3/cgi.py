@@ -32,10 +32,12 @@ __version__ = "2.6"
 # =======
 
 from io import StringIO, BytesIO, TextIOWrapper
+from collections import Mapping
 import sys
 import os
 import urllib.parse
 from email.parser import FeedParser
+from email.message import Message
 from warnings import warn
 import html
 import locale
@@ -76,7 +78,7 @@ def initlog(*allargs):
     send an error message).
 
     """
-    global logfp, log
+    global log, logfile, logfp
     if logfile and not logfp:
         try:
             logfp = open(logfile, "a")
@@ -95,6 +97,15 @@ def dolog(fmt, *args):
 def nolog(*allargs):
     """Dummy function, assigned to log when logging is disabled."""
     pass
+
+def closelog():
+    """Close the log file."""
+    global log, logfile, logfp
+    logfile = ''
+    if logfp:
+        logfp.close()
+        logfp = None
+    log = initlog
 
 log = initlog           # The current logging function
 
@@ -214,17 +225,17 @@ def parse_multipart(fp, pdict):
     """
     import http.client
 
-    boundary = ""
+    boundary = b""
     if 'boundary' in pdict:
         boundary = pdict['boundary']
     if not valid_boundary(boundary):
         raise ValueError('Invalid boundary in multipart form: %r'
                             % (boundary,))
 
-    nextpart = "--" + boundary
-    lastpart = "--" + boundary + "--"
+    nextpart = b"--" + boundary
+    lastpart = b"--" + boundary + b"--"
     partdict = {}
-    terminator = ""
+    terminator = b""
 
     while terminator != lastpart:
         bytes = -1
@@ -243,7 +254,7 @@ def parse_multipart(fp, pdict):
                     raise ValueError('Maximum content length exceeded')
                 data = fp.read(bytes)
             else:
-                data = ""
+                data = b""
         # Read lines until end of part.
         lines = []
         while 1:
@@ -251,7 +262,7 @@ def parse_multipart(fp, pdict):
             if not line:
                 terminator = lastpart # End outer loop
                 break
-            if line.startswith("--"):
+            if line.startswith(b"--"):
                 terminator = line.rstrip()
                 if terminator in (nextpart, lastpart):
                     break
@@ -263,12 +274,12 @@ def parse_multipart(fp, pdict):
             if lines:
                 # Strip final line terminator
                 line = lines[-1]
-                if line[-2:] == "\r\n":
+                if line[-2:] == b"\r\n":
                     line = line[:-2]
-                elif line[-1:] == "\n":
+                elif line[-1:] == b"\n":
                     line = line[:-1]
                 lines[-1] = line
-                data = "".join(lines)
+                data = b"".join(lines)
         line = headers['content-disposition']
         if not line:
             continue
@@ -463,18 +474,24 @@ class FieldStorage:
                 self.qs_on_post = environ['QUERY_STRING']
             if 'CONTENT_LENGTH' in environ:
                 headers['content-length'] = environ['CONTENT_LENGTH']
+        else:
+            if not (isinstance(headers, (Mapping, Message))):
+                raise TypeError("headers must be mapping or an instance of "
+                                "email.message.Message")
+        self.headers = headers
         if fp is None:
             self.fp = sys.stdin.buffer
         # self.fp.read() must return bytes
         elif isinstance(fp, TextIOWrapper):
             self.fp = fp.buffer
         else:
+            if not (hasattr(fp, 'read') and hasattr(fp, 'readline')):
+                raise TypeError("fp must be file pointer")
             self.fp = fp
 
         self.encoding = encoding
         self.errors = errors
 
-        self.headers = headers
         if not isinstance(outerboundary, bytes):
             raise TypeError('outerboundary must be bytes, not %s'
                             % type(outerboundary).__name__)
@@ -627,7 +644,9 @@ class FieldStorage:
         """Dictionary style len(x) support."""
         return len(self.keys())
 
-    def __nonzero__(self):
+    def __bool__(self):
+        if self.list is None:
+            raise TypeError("Cannot be converted to bool.")
         return bool(self.list)
 
     def read_urlencoded(self):
@@ -690,7 +709,7 @@ class FieldStorage:
                          self.encoding, self.errors)
             self.bytes_read += part.bytes_read
             self.list.append(part)
-            if self.bytes_read >= self.length:
+            if part.done or self.bytes_read >= self.length > 0:
                 break
         self.skip_lines()
 
@@ -777,6 +796,9 @@ class FieldStorage:
             if not line:
                 self.done = -1
                 break
+            if delim == b"\r":
+                line = delim + line
+                delim = b""
             if line.startswith(b"--") and last_line_lfend:
                 strippedline = line.rstrip()
                 if strippedline == next_boundary:
@@ -793,6 +815,12 @@ class FieldStorage:
                 delim = b"\n"
                 line = line[:-1]
                 last_line_lfend = True
+            elif line.endswith(b"\r"):
+                # We may interrupt \r\n sequences if they span the 2**16
+                # byte boundary
+                delim = b"\r"
+                line = line[:-1]
+                last_line_lfend = False
             else:
                 delim = b""
                 last_line_lfend = False
@@ -1003,7 +1031,7 @@ environment as well.  Here are some common variable names:
 def escape(s, quote=None):
     """Deprecated API."""
     warn("cgi.escape is deprecated, use html.escape instead",
-         PendingDeprecationWarning, stacklevel=2)
+         DeprecationWarning, stacklevel=2)
     s = s.replace("&", "&amp;") # Must be done first!
     s = s.replace("<", "&lt;")
     s = s.replace(">", "&gt;")

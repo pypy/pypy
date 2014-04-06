@@ -105,9 +105,10 @@ class InteractiveInterpreter:
         The output is written by self.write(), below.
 
         """
-        type, value, sys.last_traceback = sys.exc_info()
+        type, value, tb = sys.exc_info()
         sys.last_type = type
         sys.last_value = value
+        sys.last_traceback = tb
         if filename and type is SyntaxError:
             # Work hard to stuff the correct filename in the exception
             try:
@@ -119,8 +120,13 @@ class InteractiveInterpreter:
                 # Stuff in the right filename
                 value = SyntaxError(msg, (filename, lineno, offset, line))
                 sys.last_value = value
-        lines = traceback.format_exception_only(type, value)
-        self.write(''.join(lines))
+        if sys.excepthook is sys.__excepthook__:
+            lines = traceback.format_exception_only(type, value)
+            self.write(''.join(lines))
+        else:
+            # If someone has set sys.excepthook, we let that take precedence
+            # over self.write
+            sys.excepthook(type, value, tb)
 
     def showtraceback(self):
         """Display the exception that just occurred.
@@ -130,30 +136,25 @@ class InteractiveInterpreter:
         The output is written by self.write(), below.
 
         """
-        sys.last_type, sys.last_value, last_tb = ei = sys.exc_info()
-        sys.last_traceback = last_tb
         try:
-            lines = []
-            for value, tb in traceback._iter_chain(*ei[1:]):
-                if isinstance(value, str):
-                    lines.append(value)
-                    lines.append('\n')
-                    continue
-                if tb:
-                    tblist = traceback.extract_tb(tb)
-                    if tb is last_tb:
-                        # The last traceback includes the frame we
-                        # exec'd in
-                        del tblist[:1]
-                    tblines = traceback.format_list(tblist)
-                    if tblines:
-                        lines.append("Traceback (most recent call last):\n")
-                        lines.extend(tblines)
-                lines.extend(traceback.format_exception_only(type(value),
-                                                             value))
+            type, value, tb = sys.exc_info()
+            sys.last_type = type
+            sys.last_value = value
+            sys.last_traceback = tb
+            tblist = traceback.extract_tb(tb)
+            del tblist[:1]
+            lines = traceback.format_list(tblist)
+            if lines:
+                lines.insert(0, "Traceback (most recent call last):\n")
+            lines.extend(traceback.format_exception_only(type, value))
         finally:
-            tblist = last_tb = ei = None
-        self.write(''.join(lines))
+            tblist = tb = None
+        if sys.excepthook is sys.__excepthook__:
+            self.write(''.join(lines))
+        else:
+            # If someone has set sys.excepthook, we let that take precedence
+            # over self.write
+            sys.excepthook(type, value, tb)
 
     def write(self, data):
         """Write a string.

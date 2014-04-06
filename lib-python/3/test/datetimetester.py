@@ -49,17 +49,6 @@ class TestModule(unittest.TestCase):
         self.assertEqual(datetime.MINYEAR, 1)
         self.assertEqual(datetime.MAXYEAR, 9999)
 
-    def test_name_cleanup(self):
-        if '_Fast' not in str(self):
-            return
-        datetime = datetime_module
-        names = set(name for name in dir(datetime)
-                    if not name.startswith('__') and not name.endswith('__'))
-        allowed = set(['MAXYEAR', 'MINYEAR', 'date', 'datetime',
-                       'datetime_CAPI', 'time', 'timedelta', 'timezone',
-                       'tzinfo'])
-        self.assertEqual(names - allowed, set([]))
-
 #############################################################################
 # tzinfo tests
 
@@ -616,12 +605,8 @@ class TestTimeDelta(HarmlessMixedComparison, unittest.TestCase):
         # Single-field rounding.
         eq(td(milliseconds=0.4/1000), td(0))    # rounds to 0
         eq(td(milliseconds=-0.4/1000), td(0))    # rounds to 0
-        eq(td(milliseconds=0.5/1000), td(microseconds=1))
-        eq(td(milliseconds=-0.5/1000), td(microseconds=-1))
         eq(td(milliseconds=0.6/1000), td(microseconds=1))
         eq(td(milliseconds=-0.6/1000), td(microseconds=-1))
-        eq(td(seconds=0.5/10**6), td(microseconds=1))
-        eq(td(seconds=-0.5/10**6), td(microseconds=-1))
 
         # Rounding due to contributions from more than one field.
         us_per_hour = 3600e6
@@ -994,7 +979,7 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         # exempt such platforms (provided they return reasonable
         # results!).
         for insane in -1e200, 1e200:
-            self.assertRaises(ValueError, self.theclass.fromtimestamp,
+            self.assertRaises(OverflowError, self.theclass.fromtimestamp,
                               insane)
 
     def test_today(self):
@@ -1131,12 +1116,10 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         #check that this standard extension works
         t.strftime("%f")
 
+
     def test_format(self):
         dt = self.theclass(2007, 9, 10)
         self.assertEqual(dt.__format__(''), str(dt))
-
-        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
-            dt.__format__(123)
 
         # check that a derived class's __str__() gets called
         class A(self.theclass):
@@ -1309,12 +1292,18 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         self.assertTrue(self.theclass.min)
         self.assertTrue(self.theclass.max)
 
-    def test_strftime_out_of_range(self):
-        # For nasty technical reasons, we can't handle years before 1000.
-        cls = self.theclass
-        self.assertEqual(cls(1000, 1, 1).strftime("%Y"), "1000")
-        for y in 1, 49, 51, 99, 100, 999:
-            self.assertRaises(ValueError, cls(y, 1, 1).strftime, "%Y")
+    def test_strftime_y2k(self):
+        for y in (1, 49, 70, 99, 100, 999, 1000, 1970):
+            d = self.theclass(y, 1, 1)
+            # Issue 13305:  For years < 1000, the value is not always
+            # padded to 4 digits across platforms.  The C standard
+            # assumes year >= 1900, so it does not specify the number
+            # of digits.
+            if d.strftime("%Y") != '%04d' % y:
+                # Year 42 returns '42', not padded
+                self.assertEqual(d.strftime("%Y"), '%d' % y)
+                # '0042' is obtained anyway
+                self.assertEqual(d.strftime("%4Y"), '%04d' % y)
 
     def test_replace(self):
         cls = self.theclass
@@ -1387,10 +1376,9 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         for month_byte in b'9', b'\0', b'\r', b'\xff':
             self.assertRaises(TypeError, self.theclass,
                                          base[:2] + month_byte + base[3:])
-        if issubclass(self.theclass, datetime):
-            # Good bytes, but bad tzinfo:
-            with self.assertRaisesRegex(TypeError, '^bad tzinfo state arg$'):
-                self.theclass(bytes([1] * len(base)), 'EST')
+        # Good bytes, but bad tzinfo:
+        self.assertRaises(TypeError, self.theclass,
+                          bytes([1] * len(base)), 'EST')
 
         for ord_byte in range(1, 13):
             # This shouldn't blow up because of the month byte alone.  If
@@ -1465,9 +1453,6 @@ class TestDateTime(TestDate):
     def test_format(self):
         dt = self.theclass(2007, 9, 10, 4, 5, 1, 123)
         self.assertEqual(dt.__format__(''), str(dt))
-
-        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
-            dt.__format__(123)
 
         # check that a derived class's __str__() gets called
         class A(self.theclass):
@@ -1753,15 +1738,74 @@ class TestDateTime(TestDate):
         got = self.theclass.utcfromtimestamp(ts)
         self.verify_field_equality(expected, got)
 
+    # Run with US-style DST rules: DST begins 2 a.m. on second Sunday in
+    # March (M3.2.0) and ends 2 a.m. on first Sunday in November (M11.1.0).
+    @support.run_with_tz('EST+05EDT,M3.2.0,M11.1.0')
+    def test_timestamp_naive(self):
+        t = self.theclass(1970, 1, 1)
+        self.assertEqual(t.timestamp(), 18000.0)
+        t = self.theclass(1970, 1, 1, 1, 2, 3, 4)
+        self.assertEqual(t.timestamp(),
+                         18000.0 + 3600 + 2*60 + 3 + 4*1e-6)
+        # Missing hour may produce platform-dependent result
+        t = self.theclass(2012, 3, 11, 2, 30)
+        self.assertIn(self.theclass.fromtimestamp(t.timestamp()),
+                      [t - timedelta(hours=1), t + timedelta(hours=1)])
+        # Ambiguous hour defaults to DST
+        t = self.theclass(2012, 11, 4, 1, 30)
+        self.assertEqual(self.theclass.fromtimestamp(t.timestamp()), t)
+
+        # Timestamp may raise an overflow error on some platforms
+        for t in [self.theclass(1,1,1), self.theclass(9999,12,12)]:
+            try:
+                s = t.timestamp()
+            except OverflowError:
+                pass
+            else:
+                self.assertEqual(self.theclass.fromtimestamp(s), t)
+
+    def test_timestamp_aware(self):
+        t = self.theclass(1970, 1, 1, tzinfo=timezone.utc)
+        self.assertEqual(t.timestamp(), 0.0)
+        t = self.theclass(1970, 1, 1, 1, 2, 3, 4, tzinfo=timezone.utc)
+        self.assertEqual(t.timestamp(),
+                         3600 + 2*60 + 3 + 4*1e-6)
+        t = self.theclass(1970, 1, 1, 1, 2, 3, 4,
+                          tzinfo=timezone(timedelta(hours=-5), 'EST'))
+        self.assertEqual(t.timestamp(),
+                         18000 + 3600 + 2*60 + 3 + 4*1e-6)
     def test_microsecond_rounding(self):
-        # Test whether fromtimestamp "rounds up" floats that are less
-        # than 1/2 microsecond smaller than an integer.
         for fts in [self.theclass.fromtimestamp,
                     self.theclass.utcfromtimestamp]:
-            self.assertEqual(fts(0.9999999), fts(1))
-            self.assertEqual(fts(0.99999949).microsecond, 999999)
-            self.assertEqual(fts(0.0000005).microsecond, 1)
-            self.assertEqual(fts(0.0000015).microsecond, 2)
+            zero = fts(0)
+            self.assertEqual(zero.second, 0)
+            self.assertEqual(zero.microsecond, 0)
+            try:
+                minus_one = fts(-1e-6)
+            except OSError:
+                # localtime(-1) and gmtime(-1) is not supported on Windows
+                pass
+            else:
+                self.assertEqual(minus_one.second, 59)
+                self.assertEqual(minus_one.microsecond, 999999)
+
+                t = fts(-1e-8)
+                self.assertEqual(t, minus_one)
+                t = fts(-9e-7)
+                self.assertEqual(t, minus_one)
+                t = fts(-1e-7)
+                self.assertEqual(t, minus_one)
+
+            t = fts(1e-7)
+            self.assertEqual(t, zero)
+            t = fts(9e-7)
+            self.assertEqual(t, zero)
+            t = fts(0.99999949)
+            self.assertEqual(t.second, 0)
+            self.assertEqual(t.microsecond, 999999)
+            t = fts(0.9999999)
+            self.assertEqual(t.second, 0)
+            self.assertEqual(t.microsecond, 999999)
 
     def test_insane_fromtimestamp(self):
         # It's possible that some platform maps time_t to double,
@@ -1769,7 +1813,7 @@ class TestDateTime(TestDate):
         # exempt such platforms (provided they return reasonable
         # results!).
         for insane in -1e200, 1e200:
-            self.assertRaises(ValueError, self.theclass.fromtimestamp,
+            self.assertRaises(OverflowError, self.theclass.fromtimestamp,
                               insane)
 
     def test_insane_utcfromtimestamp(self):
@@ -1778,9 +1822,8 @@ class TestDateTime(TestDate):
         # exempt such platforms (provided they return reasonable
         # results!).
         for insane in -1e200, 1e200:
-            self.assertRaises(ValueError, self.theclass.utcfromtimestamp,
+            self.assertRaises(OverflowError, self.theclass.utcfromtimestamp,
                               insane)
-
     @unittest.skipIf(sys.platform == "win32", "Windows doesn't accept negative timestamps")
     def test_negative_float_fromtimestamp(self):
         # The result is tz-dependent; at least test that this doesn't
@@ -1932,7 +1975,7 @@ class TestDateTime(TestDate):
         # simply can't be applied to a naive object.
         dt = self.theclass.now()
         f = FixedOffset(44, "")
-        self.assertRaises(TypeError, dt.astimezone) # not enough args
+        self.assertRaises(ValueError, dt.astimezone) # naive
         self.assertRaises(TypeError, dt.astimezone, f, f) # too many args
         self.assertRaises(TypeError, dt.astimezone, dt) # arg wrong type
         self.assertRaises(ValueError, dt.astimezone, f) # naive
@@ -1982,6 +2025,7 @@ class TestDateTime(TestDate):
 class TestSubclassDateTime(TestDateTime):
     theclass = SubclassDatetime
     # Override tests not designed for subclass
+    @unittest.skip('not appropriate for subclasses')
     def test_roundtrip(self):
         pass
 
@@ -2159,9 +2203,6 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
         t = self.theclass(1, 2, 3, 4)
         self.assertEqual(t.__format__(''), str(t))
 
-        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
-            t.__format__(123)
-
         # check that a derived class's __str__() gets called
         class A(self.theclass):
             def __str__(self):
@@ -2290,9 +2331,6 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
         for hour_byte in ' ', '9', chr(24), '\xff':
             self.assertRaises(TypeError, self.theclass,
                                          hour_byte + base[1:])
-        # Good bytes, but bad tzinfo:
-        with self.assertRaisesRegex(TypeError, '^bad tzinfo state arg$'):
-            self.theclass(bytes([1] * len(base)), 'EST')
 
 # A mixin for classes with a tzinfo= argument.  Subclasses must define
 # theclass as a class atribute, and theclass(1, 1, 1, tzinfo=whatever)
@@ -2510,7 +2548,7 @@ class TestTimeTZ(TestTime, TZInfoBase, unittest.TestCase):
         self.assertEqual(t1, t2)
         self.assertEqual(t1, t3)
         self.assertEqual(t2, t3)
-        self.assertRaises(TypeError, lambda: t4 == t5) # mixed tz-aware & naive
+        self.assertNotEqual(t4, t5) # mixed tz-aware & naive
         self.assertRaises(TypeError, lambda: t4 < t5) # mixed tz-aware & naive
         self.assertRaises(TypeError, lambda: t5 < t4) # mixed tz-aware & naive
 
@@ -2552,7 +2590,7 @@ class TestTimeTZ(TestTime, TZInfoBase, unittest.TestCase):
         self.assertRaises(TypeError, t.strftime, "%Z")
 
         # Issue #6697:
-        if '_Fast' in str(self):
+        if '_Fast' in str(type(self)):
             Badtzname.tz = '\ud800'
             self.assertRaises(ValueError, t.strftime, "%Z")
 
@@ -2662,7 +2700,7 @@ class TestTimeTZ(TestTime, TZInfoBase, unittest.TestCase):
         t2 = t2.replace(tzinfo=FixedOffset(None, ""))
         self.assertEqual(t1, t2)
         t2 = t2.replace(tzinfo=FixedOffset(0, ""))
-        self.assertRaises(TypeError, lambda: t1 == t2)
+        self.assertNotEqual(t1, t2)
 
         # In time w/ identical tzinfo objects, utcoffset is ignored.
         class Varies(tzinfo):
@@ -2767,16 +2805,16 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
                            microsecond=1)
         self.assertTrue(t1 > t2)
 
-        # Make t2 naive and it should fail.
+        # Make t2 naive and it should differ.
         t2 = self.theclass.min
-        self.assertRaises(TypeError, lambda: t1 == t2)
+        self.assertNotEqual(t1, t2)
         self.assertEqual(t2, t2)
 
         # It's also naive if it has tzinfo but tzinfo.utcoffset() is None.
         class Naive(tzinfo):
             def utcoffset(self, dt): return None
         t2 = self.theclass(5, 6, 7, tzinfo=Naive())
-        self.assertRaises(TypeError, lambda: t1 == t2)
+        self.assertNotEqual(t1, t2)
         self.assertEqual(t2, t2)
 
         # OTOH, it's OK to compare two of these mixing the two ways of being
@@ -3219,8 +3257,6 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
         self.assertIs(dt.tzinfo, f44m)
         # Replacing with degenerate tzinfo raises an exception.
         self.assertRaises(ValueError, dt.astimezone, fnone)
-        # Ditto with None tz.
-        self.assertRaises(TypeError, dt.astimezone, None)
         # Replacing with same tzinfo makes no change.
         x = dt.astimezone(dt.tzinfo)
         self.assertIs(x.tzinfo, f44m)
@@ -3239,6 +3275,25 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
         self.assertEqual(got.timetz(), expected.timetz())
         self.assertIs(got.tzinfo, expected.tzinfo)
         self.assertEqual(got, expected)
+
+    @support.run_with_tz('UTC')
+    def test_astimezone_default_utc(self):
+        dt = self.theclass.now(timezone.utc)
+        self.assertEqual(dt.astimezone(None), dt)
+        self.assertEqual(dt.astimezone(), dt)
+
+    # Note that offset in TZ variable has the opposite sign to that
+    # produced by %z directive.
+    @support.run_with_tz('EST+05EDT,M3.2.0,M11.1.0')
+    def test_astimezone_default_eastern(self):
+        dt = self.theclass(2012, 11, 4, 6, 30, tzinfo=timezone.utc)
+        local = dt.astimezone()
+        self.assertEqual(dt, local)
+        self.assertEqual(local.strftime("%z %Z"), "-0500 EST")
+        dt = self.theclass(2012, 11, 4, 5, 30, tzinfo=timezone.utc)
+        local = dt.astimezone()
+        self.assertEqual(dt, local)
+        self.assertEqual(local.strftime("%z %Z"), "-0400 EDT")
 
     def test_aware_subtract(self):
         cls = self.theclass
@@ -3293,7 +3348,7 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
         t2 = t2.replace(tzinfo=FixedOffset(None, ""))
         self.assertEqual(t1, t2)
         t2 = t2.replace(tzinfo=FixedOffset(0, ""))
-        self.assertRaises(TypeError, lambda: t1 == t2)
+        self.assertNotEqual(t1, t2)
 
         # In datetime w/ identical tzinfo objects, utcoffset is ignored.
         class Varies(tzinfo):
@@ -3708,60 +3763,6 @@ class Oddballs(unittest.TestCase):
                                        as_date.day, 0, 0, 0)
         self.assertEqual(as_datetime, datetime_sc)
         self.assertEqual(datetime_sc, as_datetime)
-
-    def test_extra_attributes(self):
-        for x in [date.today(),
-                  time(),
-                  datetime.utcnow(),
-                  timedelta(),
-                  tzinfo(),
-                  timezone(timedelta())]:
-            with self.assertRaises(AttributeError):
-                x.abc = 1
-
-    def test_check_arg_types(self):
-        import decimal
-        class Number:
-            def __init__(self, value):
-                self.value = value
-            def __int__(self):
-                return self.value
-
-        for xx in [decimal.Decimal(10),
-                   decimal.Decimal('10.9'),
-                   Number(10)]:
-            self.assertEqual(datetime(10, 10, 10, 10, 10, 10, 10),
-                             datetime(xx, xx, xx, xx, xx, xx, xx))
-
-        with self.assertRaisesRegex(TypeError, '^an integer is required$'):
-            datetime(10, 10, '10')
-
-        f10 = Number(10.9)
-        with self.assertRaisesRegex(TypeError, '^nb_int should return int '
-                                               'object$'):
-            datetime(10, 10, f10)
-
-        class Float(float):
-            pass
-        s10 = Float(10.9)
-        with self.assertRaisesRegex(TypeError, '^integer argument expected, '
-                                               'got float$'):
-            datetime(10, 10, s10)
-
-        with self.assertRaises(TypeError):
-            datetime(10., 10, 10)
-        with self.assertRaises(TypeError):
-            datetime(10, 10., 10)
-        with self.assertRaises(TypeError):
-            datetime(10, 10, 10.)
-        with self.assertRaises(TypeError):
-            datetime(10, 10, 10, 10.)
-        with self.assertRaises(TypeError):
-            datetime(10, 10, 10, 10, 10.)
-        with self.assertRaises(TypeError):
-            datetime(10, 10, 10, 10, 10, 10.)
-        with self.assertRaises(TypeError):
-            datetime(10, 10, 10, 10, 10, 10, 10.)
 
 def test_main():
     support.run_unittest(__name__)

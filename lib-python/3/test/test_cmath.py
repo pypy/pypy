@@ -253,7 +253,7 @@ class CMathTests(unittest.TestCase):
             self.assertRaises(SomeException, f, MyComplexExceptionOS())
 
     def test_input_type(self):
-        # ints and longs should be acceptable inputs to all cmath
+        # ints should be acceptable inputs to all cmath
         # functions, by virtue of providing a __float__ method
         for f in self.test_functions:
             for arg in [2, 2.]:
@@ -519,15 +519,11 @@ class CMathTests(unittest.TestCase):
     # of zero, then atan and atanh will also have difficulties with
     # the sign of complex zeros.
     @requires_IEEE_754
-    @unittest.skipIf(sysconfig.get_config_var('LOG1P_DROPS_ZERO_SIGN'),
-                     "system log1p() function doesn't preserve the sign")
     def testAtanSign(self):
         for z in complex_zeros:
             self.assertComplexIdentical(cmath.atan(z), z)
 
     @requires_IEEE_754
-    @unittest.skipIf(sysconfig.get_config_var('LOG1P_DROPS_ZERO_SIGN'),
-                     "system log1p() function doesn't preserve the sign")
     def testAtanhSign(self):
         for z in complex_zeros:
             self.assertComplexIdentical(cmath.atanh(z), z)

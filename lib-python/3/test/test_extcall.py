@@ -66,17 +66,17 @@ Verify clearing of SF bug #733667
     >>> g()
     Traceback (most recent call last):
       ...
-    TypeError: g() takes at least 1 argument (0 given)
+    TypeError: g() missing 1 required positional argument: 'x'
 
     >>> g(*())
     Traceback (most recent call last):
       ...
-    TypeError: g() takes at least 1 argument (0 given)
+    TypeError: g() missing 1 required positional argument: 'x'
 
     >>> g(*(), **{})
     Traceback (most recent call last):
       ...
-    TypeError: g() takes at least 1 argument (0 given)
+    TypeError: g() missing 1 required positional argument: 'x'
 
     >>> g(1)
     1 () {}
@@ -89,19 +89,19 @@ Verify clearing of SF bug #733667
 
     >>> class Nothing: pass
     ...
-    >>> g(*Nothing())  #doctest: +ELLIPSIS
+    >>> g(*Nothing())
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not Nothing
+    TypeError: g() argument after * must be a sequence, not Nothing
 
     >>> class Nothing:
     ...     def __len__(self): return 5
     ...
 
-    >>> g(*Nothing())  #doctest: +ELLIPSIS
+    >>> g(*Nothing())
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not Nothing
+    TypeError: g() argument after * must be a sequence, not Nothing
 
     >>> class Nothing():
     ...     def __len__(self): return 5
@@ -151,54 +151,54 @@ What about willful misconduct?
     >>> g(1, 2, 3, **{'x': 4, 'y': 5})
     Traceback (most recent call last):
       ...
-    TypeError: g() got multiple values for keyword argument 'x'
+    TypeError: g() got multiple values for argument 'x'
 
-    >>> f(**{1:2})  #doctest: +ELLIPSIS
+    >>> f(**{1:2})
     Traceback (most recent call last):
       ...
-    TypeError: ...keywords must be strings
+    TypeError: f() keywords must be strings
 
     >>> h(**{'e': 2})
     Traceback (most recent call last):
       ...
     TypeError: h() got an unexpected keyword argument 'e'
 
-    >>> h(*h)  #doctest: +ELLIPSIS
+    >>> h(*h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: h() argument after * must be a sequence, not function
 
-    >>> dir(*h)  #doctest: +ELLIPSIS
+    >>> dir(*h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: dir() argument after * must be a sequence, not function
 
-    >>> None(*h)  #doctest: +ELLIPSIS
+    >>> None(*h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, \
+    TypeError: NoneType object argument after * must be a sequence, \
 not function
 
-    >>> h(**h)  #doctest: +ELLIPSIS
+    >>> h(**h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after ** must be a mapping, not function
+    TypeError: h() argument after ** must be a mapping, not function
 
-    >>> dir(**h)  #doctest: +ELLIPSIS
+    >>> dir(**h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after ** must be a mapping, not function
+    TypeError: dir() argument after ** must be a mapping, not function
 
-    >>> None(**h)  #doctest: +ELLIPSIS
+    >>> None(**h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after ** must be a mapping, \
+    TypeError: NoneType object argument after ** must be a mapping, \
 not function
 
-    >>> dir(b=1, **{'b': 1})  #doctest: +ELLIPSIS
+    >>> dir(b=1, **{'b': 1})
     Traceback (most recent call last):
       ...
-    TypeError: ...got multiple values for keyword argument 'b'
+    TypeError: dir() got multiple values for keyword argument 'b'
 
 Another helper function
 
@@ -239,10 +239,10 @@ TypeError if te dictionary is not empty
     ...     False
     True
 
-    >>> id(1, **{'foo': 1})  #doctest: +ELLIPSIS
+    >>> id(1, **{'foo': 1})
     Traceback (most recent call last):
       ...
-    TypeError: id() ... keyword argument...
+    TypeError: id() takes no keyword arguments
 
 A corner case of keyword dictionary items being deleted during
 the function call setup. See <http://bugs.python.org/issue2016>.
@@ -263,29 +263,80 @@ the function call setup. See <http://bugs.python.org/issue2016>.
     >>> f(**x)
     1 2
 
-A obscure message:
+Too many arguments:
 
-    >>> def f(a, b):
-    ...    pass
-    >>> f(b=1)
+    >>> def f(): pass
+    >>> f(1)
     Traceback (most recent call last):
       ...
-    TypeError: f() takes exactly 2 arguments (1 given)
-
-The number of arguments passed in includes keywords:
-
-    >>> def f(a):
-    ...    pass
-    >>> f(6, a=4, *(1, 2, 3))  #doctest: +ELLIPSIS
+    TypeError: f() takes 0 positional arguments but 1 was given
+    >>> def f(a): pass
+    >>> f(1, 2)
     Traceback (most recent call last):
       ...
-    TypeError: f() takes exactly 1 ...argument (5 given)
-    >>> def f(a, *, kw):
-    ...    pass
-    >>> f(6, 4, kw=4)  #doctest: +ELLIPSIS
+    TypeError: f() takes 1 positional argument but 2 were given
+    >>> def f(a, b=1): pass
+    >>> f(1, 2, 3)
     Traceback (most recent call last):
       ...
-    TypeError: f() takes exactly 1 ...argument (3 given)
+    TypeError: f() takes from 1 to 2 positional arguments but 3 were given
+    >>> def f(*, kw): pass
+    >>> f(1, kw=3)
+    Traceback (most recent call last):
+      ...
+    TypeError: f() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given
+    >>> def f(*, kw, b): pass
+    >>> f(1, 2, 3, b=3, kw=3)
+    Traceback (most recent call last):
+      ...
+    TypeError: f() takes 0 positional arguments but 3 positional arguments (and 2 keyword-only arguments) were given
+    >>> def f(a, b=2, *, kw): pass
+    >>> f(2, 3, 4, kw=4)
+    Traceback (most recent call last):
+      ...
+    TypeError: f() takes from 1 to 2 positional arguments but 3 positional arguments (and 1 keyword-only argument) were given
+
+Too few and missing arguments:
+
+    >>> def f(a): pass
+    >>> f()
+    Traceback (most recent call last):
+      ...
+    TypeError: f() missing 1 required positional argument: 'a'
+    >>> def f(a, b): pass
+    >>> f()
+    Traceback (most recent call last):
+      ...
+    TypeError: f() missing 2 required positional arguments: 'a' and 'b'
+    >>> def f(a, b, c): pass
+    >>> f()
+    Traceback (most recent call last):
+      ...
+    TypeError: f() missing 3 required positional arguments: 'a', 'b', and 'c'
+    >>> def f(a, b, c, d, e): pass
+    >>> f()
+    Traceback (most recent call last):
+      ...
+    TypeError: f() missing 5 required positional arguments: 'a', 'b', 'c', 'd', and 'e'
+    >>> def f(a, b=4, c=5, d=5): pass
+    >>> f(c=12, b=9)
+    Traceback (most recent call last):
+      ...
+    TypeError: f() missing 1 required positional argument: 'a'
+
+Same with keyword only args:
+
+    >>> def f(*, w): pass
+    >>> f()
+    Traceback (most recent call last):
+      ...
+    TypeError: f() missing 1 required keyword-only argument: 'w'
+    >>> def f(*, a, b, c, d, e): pass
+    >>> f()
+    Traceback (most recent call last):
+      ...
+    TypeError: f() missing 5 required keyword-only arguments: 'a', 'b', 'c', 'd', and 'e'
+
 """
 
 import sys

@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 """Read/write support for Maildir, mbox, MH, Babyl, and MMDF mailboxes."""
 
 # Notes for authors of new mailbox subclasses:
@@ -208,6 +206,9 @@ class Mailbox:
             raise ValueError("String input must be ASCII-only; "
                 "use bytes or a Message instead")
 
+    # Whether each message must end in a newline
+    _append_newline = False
+
     def _dump_message(self, message, target, mangle_from_=False):
         # This assumes the target file is open in binary mode.
         """Dump message contents to target file."""
@@ -219,6 +220,9 @@ class Mailbox:
             data = buffer.read()
             data = data.replace(b'\n', linesep)
             target.write(data)
+            if self._append_newline and not data.endswith(linesep):
+                # Make sure the message ends with a newline
+                target.write(linesep)
         elif isinstance(message, (str, bytes, io.StringIO)):
             if isinstance(message, io.StringIO):
                 warnings.warn("Use of StringIO input is deprecated, "
@@ -230,11 +234,15 @@ class Mailbox:
                 message = message.replace(b'\nFrom ', b'\n>From ')
             message = message.replace(b'\n', linesep)
             target.write(message)
+            if self._append_newline and not message.endswith(linesep):
+                # Make sure the message ends with a newline
+                target.write(linesep)
         elif hasattr(message, 'read'):
             if hasattr(message, 'buffer'):
                 warnings.warn("Use of text mode files is deprecated, "
                     "use a binary mode file instead", DeprecationWarning, 3)
                 message = message.buffer
+            lastline = None
             while True:
                 line = message.readline()
                 # Universal newline support.
@@ -248,6 +256,10 @@ class Mailbox:
                     line = b'>From ' + line[5:]
                 line = line.replace(b'\n', linesep)
                 target.write(line)
+                lastline = line
+            if self._append_newline and lastline and not lastline.endswith(linesep):
+                # Make sure the message ends with a newline
+                target.write(linesep)
         else:
             raise TypeError('Invalid message type: %s' % type(message))
 
@@ -297,6 +309,12 @@ class Maildir(Mailbox):
             suffix = ''
         uniq = os.path.basename(tmp_file.name).split(self.colon)[0]
         dest = os.path.join(self._path, subdir, uniq + suffix)
+        if isinstance(message, MaildirMessage):
+            os.utime(tmp_file.name,
+                     (os.path.getatime(tmp_file.name), message.get_date()))
+        # No file modification should be done after the file is moved to its
+        # final position in order to prevent race conditions with changes
+        # from other programs
         try:
             if hasattr(os, 'link'):
                 os.link(tmp_file.name, dest)
@@ -310,8 +328,6 @@ class Maildir(Mailbox):
                                          % dest)
             else:
                 raise
-        if isinstance(message, MaildirMessage):
-            os.utime(dest, (os.path.getatime(dest), message.get_date()))
         return uniq
 
     def remove(self, key):
@@ -346,11 +362,15 @@ class Maildir(Mailbox):
         else:
             suffix = ''
         self.discard(key)
+        tmp_path = os.path.join(self._path, temp_subpath)
         new_path = os.path.join(self._path, subdir, key + suffix)
-        os.rename(os.path.join(self._path, temp_subpath), new_path)
         if isinstance(message, MaildirMessage):
-            os.utime(new_path, (os.path.getatime(new_path),
-                                message.get_date()))
+            os.utime(tmp_path,
+                     (os.path.getatime(tmp_path), message.get_date()))
+        # No file modification should be done after the file is moved to its
+        # final position in order to prevent race conditions with changes
+        # from other programs
+        os.rename(tmp_path, new_path)
 
     def get_message(self, key):
         """Return a Message representation or raise a KeyError."""
@@ -587,16 +607,19 @@ class _singlefileMailbox(Mailbox):
         self._file = f
         self._toc = None
         self._next_key = 0
-        self._pending = False   # No changes require rewriting the file.
+        self._pending = False       # No changes require rewriting the file.
+        self._pending_sync = False  # No need to sync the file
         self._locked = False
-        self._file_length = None        # Used to record mailbox size
+        self._file_length = None    # Used to record mailbox size
 
     def add(self, message):
         """Add message and return assigned key."""
         self._lookup()
         self._toc[self._next_key] = self._append_message(message)
         self._next_key += 1
-        self._pending = True
+        # _append_message appends the message to the mailbox file. We
+        # don't need a full rewrite + rename, sync is enough.
+        self._pending_sync = True
         return self._next_key - 1
 
     def remove(self, key):
@@ -642,6 +665,11 @@ class _singlefileMailbox(Mailbox):
     def flush(self):
         """Write any pending changes to disk."""
         if not self._pending:
+            if self._pending_sync:
+                # Messages have only been added, so syncing the file
+                # is enough.
+                _sync_flush(self._file)
+                self._pending_sync = False
             return
 
         # In order to be writing anything out at all, self._toc must
@@ -675,6 +703,7 @@ class _singlefileMailbox(Mailbox):
                     new_file.write(buffer)
                 new_toc[key] = (new_start, new_file.tell())
                 self._post_message_hook(new_file)
+            self._file_length = new_file.tell()
         except:
             new_file.close()
             os.remove(new_file.name)
@@ -682,6 +711,9 @@ class _singlefileMailbox(Mailbox):
         _sync_close(new_file)
         # self._file is about to get replaced, so no need to sync.
         self._file.close()
+        # Make sure the new file's mode is the same as the old file's
+        mode = os.stat(self._path).st_mode
+        os.chmod(new_file.name, mode)
         try:
             os.rename(new_file.name, self._path)
         except OSError as e:
@@ -694,6 +726,7 @@ class _singlefileMailbox(Mailbox):
         self._file = open(self._path, 'rb+')
         self._toc = new_toc
         self._pending = False
+        self._pending_sync = False
         if self._locked:
             _lock_file(self._file, dotlock=False)
 
@@ -730,6 +763,12 @@ class _singlefileMailbox(Mailbox):
         """Append message to mailbox and return (start, stop) offsets."""
         self._file.seek(0, 2)
         before = self._file.tell()
+        if len(self._toc) == 0 and not self._pending:
+            # This is the first message, and the _pre_mailbox_hook
+            # hasn't yet been called. If self._pending is True,
+            # messages have been removed, so _pre_mailbox_hook must
+            # have been called already.
+            self._pre_mailbox_hook(self._file)
         try:
             self._pre_message_hook(self._file)
             offsets = self._install_message(message)
@@ -814,30 +853,48 @@ class mbox(_mboxMMDF):
 
     _mangle_from_ = True
 
+    # All messages must end in a newline character, and
+    # _post_message_hooks outputs an empty line between messages.
+    _append_newline = True
+
     def __init__(self, path, factory=None, create=True):
         """Initialize an mbox mailbox."""
         self._message_factory = mboxMessage
         _mboxMMDF.__init__(self, path, factory, create)
 
-    def _pre_message_hook(self, f):
-        """Called before writing each message to file f."""
-        if f.tell() != 0:
-            f.write(linesep)
+    def _post_message_hook(self, f):
+        """Called after writing each message to file f."""
+        f.write(linesep)
 
     def _generate_toc(self):
         """Generate key-to-(start, stop) table of contents."""
         starts, stops = [], []
+        last_was_empty = False
         self._file.seek(0)
         while True:
             line_pos = self._file.tell()
             line = self._file.readline()
             if line.startswith(b'From '):
                 if len(stops) < len(starts):
-                    stops.append(line_pos - len(linesep))
+                    if last_was_empty:
+                        stops.append(line_pos - len(linesep))
+                    else:
+                        # The last line before the "From " line wasn't
+                        # blank, but we consider it a start of a
+                        # message anyway.
+                        stops.append(line_pos)
                 starts.append(line_pos)
+                last_was_empty = False
             elif not line:
-                stops.append(line_pos)
+                if last_was_empty:
+                    stops.append(line_pos - len(linesep))
+                else:
+                    stops.append(line_pos)
                 break
+            elif line == linesep:
+                last_was_empty = True
+            else:
+                last_was_empty = False
         self._toc = dict(enumerate(zip(starts, stops)))
         self._next_key = len(self._toc)
         self._file_length = self._file.tell()
@@ -1106,8 +1163,7 @@ class MH(Mailbox):
     def get_sequences(self):
         """Return a name-to-key-list dictionary to define each sequence."""
         results = {}
-        f = open(os.path.join(self._path, '.mh_sequences'), 'r')
-        try:
+        with open(os.path.join(self._path, '.mh_sequences'), 'r', encoding='ASCII') as f:
             all_keys = set(self.keys())
             for line in f:
                 try:
@@ -1126,13 +1182,11 @@ class MH(Mailbox):
                 except ValueError:
                     raise FormatError('Invalid sequence specification: %s' %
                                       line.rstrip())
-        finally:
-            f.close()
         return results
 
     def set_sequences(self, sequences):
         """Set sequences using the given name-to-key-list dictionary."""
-        f = open(os.path.join(self._path, '.mh_sequences'), 'r+')
+        f = open(os.path.join(self._path, '.mh_sequences'), 'r+', encoding='ASCII')
         try:
             os.close(os.open(f.name, os.O_WRONLY | os.O_TRUNC))
             for name, keys in sequences.items():
@@ -1424,17 +1478,24 @@ class Babyl(_singlefileMailbox):
                     line = line[:-1] + b'\n'
                 self._file.write(line.replace(b'\n', linesep))
                 if line == b'\n' or not line:
-                    self._file.write(b'*** EOOH ***' + linesep)
                     if first_pass:
                         first_pass = False
+                        self._file.write(b'*** EOOH ***' + linesep)
                         message.seek(original_pos)
                     else:
                         break
             while True:
-                buffer = message.read(4096)     # Buffer size is arbitrary.
-                if not buffer:
+                line = message.readline()
+                if not line:
                     break
-                self._file.write(buffer.replace(b'\n', linesep))
+                # Universal newline support.
+                if line.endswith(b'\r\n'):
+                    line = line[:-2] + linesep
+                elif line.endswith(b'\r'):
+                    line = line[:-1] + linesep
+                elif line.endswith(b'\n'):
+                    line = line[:-1] + linesep
+                self._file.write(line)
         else:
             raise TypeError('Invalid message type: %s' % type(message))
         stop = self._file.tell()
@@ -1465,9 +1526,10 @@ class Message(email.message.Message):
 
     def _become_message(self, message):
         """Assume the non-format-specific state of message."""
-        for name in ('_headers', '_unixfrom', '_payload', '_charset',
-                     'preamble', 'epilogue', 'defects', '_default_type'):
-            self.__dict__[name] = message.__dict__[name]
+        type_specific = getattr(message, '_type_specific_attributes', [])
+        for name in message.__dict__:
+            if name not in type_specific:
+                self.__dict__[name] = message.__dict__[name]
 
     def _explain_to(self, message):
         """Copy format-specific state to message insofar as possible."""
@@ -1479,6 +1541,8 @@ class Message(email.message.Message):
 
 class MaildirMessage(Message):
     """Message with Maildir-specific properties."""
+
+    _type_specific_attributes = ['_subdir', '_info', '_date']
 
     def __init__(self, message=None):
         """Initialize a MaildirMessage instance."""
@@ -1586,6 +1650,8 @@ class MaildirMessage(Message):
 
 class _mboxMMDFMessage(Message):
     """Message with mbox- or MMDF-specific properties."""
+
+    _type_specific_attributes = ['_from']
 
     def __init__(self, message=None):
         """Initialize an mboxMMDFMessage instance."""
@@ -1702,6 +1768,8 @@ class mboxMessage(_mboxMMDFMessage):
 class MHMessage(Message):
     """Message with MH-specific properties."""
 
+    _type_specific_attributes = ['_sequences']
+
     def __init__(self, message=None):
         """Initialize an MHMessage instance."""
         self._sequences = []
@@ -1771,6 +1839,8 @@ class MHMessage(Message):
 
 class BabylMessage(Message):
     """Message with Babyl-specific properties."""
+
+    _type_specific_attributes = ['_labels', '_visible']
 
     def __init__(self, message=None):
         """Initialize an BabylMessage instance."""

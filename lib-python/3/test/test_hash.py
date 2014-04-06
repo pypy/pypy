@@ -7,8 +7,6 @@ import datetime
 import os
 import sys
 import unittest
-from test import support
-from test.support import impl_detail, check_impl_detail
 from test.script_helper import assert_python_ok
 from collections import Hashable
 
@@ -45,6 +43,16 @@ class HashEqualityTestCase(unittest.TestCase):
     def test_coerced_floats(self):
         self.same_hash(int(1.23e300), float(1.23e300))
         self.same_hash(float(0.5), complex(0.5, 0.0))
+
+    def test_unaligned_buffers(self):
+        # The hash function for bytes-like objects shouldn't have
+        # alignment-dependent results (example in issue #16427).
+        b = b"123456789abcdefghijklmnopqrstuvwxyz" * 128
+        for i in range(16):
+            for j in range(16):
+                aligned = b[i:128+j]
+                unaligned = memoryview(b)[i:128+j]
+                self.assertEqual(hash(aligned), hash(unaligned))
 
 
 _default_hash = object.__hash__
@@ -114,8 +122,7 @@ class DefaultIterSeq(object):
         return self.seq[index]
 
 class HashBuiltinsTestCase(unittest.TestCase):
-    hashes_to_check = [range(10),
-                       enumerate(range(10)),
+    hashes_to_check = [enumerate(range(10)),
                        iter(DefaultIterSeq()),
                        iter(lambda: 0, 0),
                       ]
@@ -125,15 +132,14 @@ class HashBuiltinsTestCase(unittest.TestCase):
         for obj in self.hashes_to_check:
             self.assertEqual(hash(obj), _default_hash(obj))
 
-class HashRandomizationTests(unittest.TestCase):
+class HashRandomizationTests:
 
     # Each subclass should define a field "repr_", containing the repr() of
     # an object to be tested
 
     def get_hash_command(self, repr_):
-        return 'print(hash(%s))' % repr_
+        return 'print(hash(eval(%a)))' % repr_
 
-    @impl_detail("PyPy does not support hash randomization", pypy=False)
     def get_hash(self, repr_, seed=None):
         env = os.environ.copy()
         env['__cleanenv'] = True  # signal to assert_python not to do a copy
@@ -155,11 +161,6 @@ class HashRandomizationTests(unittest.TestCase):
         self.assertNotEqual(run1, run2)
 
 class StringlikeHashRandomizationTests(HashRandomizationTests):
-    if check_impl_detail(pypy=True):
-        EMPTY_STRING_HASH = -1
-    else:
-        EMPTY_STRING_HASH = 0
-
     def test_null_hash(self):
         # PYTHONHASHSEED=0 disables the randomized hash
         if IS_64BIT:
@@ -167,8 +168,8 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
         else:
             known_hash_of_obj = -1600925533
 
-        # Randomization is disabled by default:
-        self.assertEqual(self.get_hash(self.repr_), known_hash_of_obj)
+        # Randomization is enabled by default:
+        self.assertNotEqual(self.get_hash(self.repr_), known_hash_of_obj)
 
         # It can also be disabled by setting the seed to 0:
         self.assertEqual(self.get_hash(self.repr_, seed=0), known_hash_of_obj)
@@ -188,42 +189,40 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
                 h = -1024014457
         self.assertEqual(self.get_hash(self.repr_, seed=42), h)
 
-class StrHashRandomizationTests(StringlikeHashRandomizationTests):
+class StrHashRandomizationTests(StringlikeHashRandomizationTests,
+                                unittest.TestCase):
     repr_ = repr('abc')
 
     def test_empty_string(self):
-        self.assertEqual(hash(""), self.EMPTY_STRING_HASH)
+        self.assertEqual(hash(""), 0)
 
-class BytesHashRandomizationTests(StringlikeHashRandomizationTests):
+class BytesHashRandomizationTests(StringlikeHashRandomizationTests,
+                                  unittest.TestCase):
     repr_ = repr(b'abc')
 
     def test_empty_string(self):
-        self.assertEqual(hash(b""), self.EMPTY_STRING_HASH)
+        self.assertEqual(hash(b""), 0)
+
+class MemoryviewHashRandomizationTests(StringlikeHashRandomizationTests,
+                                       unittest.TestCase):
+    repr_ = "memoryview(b'abc')"
+
+    def test_empty_string(self):
+        self.assertEqual(hash(memoryview(b"")), 0)
 
 class DatetimeTests(HashRandomizationTests):
     def get_hash_command(self, repr_):
         return 'import datetime; print(hash(%s))' % repr_
 
-class DatetimeDateTests(DatetimeTests):
+class DatetimeDateTests(DatetimeTests, unittest.TestCase):
     repr_ = repr(datetime.date(1066, 10, 14))
 
-class DatetimeDatetimeTests(DatetimeTests):
+class DatetimeDatetimeTests(DatetimeTests, unittest.TestCase):
     repr_ = repr(datetime.datetime(1, 2, 3, 4, 5, 6, 7))
 
-class DatetimeTimeTests(DatetimeTests):
+class DatetimeTimeTests(DatetimeTests, unittest.TestCase):
     repr_ = repr(datetime.time(0))
 
 
-def test_main():
-    support.run_unittest(HashEqualityTestCase,
-                         HashInheritanceTestCase,
-                         HashBuiltinsTestCase,
-                         StrHashRandomizationTests,
-                         BytesHashRandomizationTests,
-                         DatetimeDateTests,
-                         DatetimeDatetimeTests,
-                         DatetimeTimeTests)
-
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

@@ -1,7 +1,6 @@
-
-import test.support, unittest
+import unittest
 from test.support import TESTFN, unlink, unload
-import os, sys
+import importlib, os, sys, subprocess
 
 class CodingTest(unittest.TestCase):
     def test_bad_coding(self):
@@ -23,30 +22,31 @@ class CodingTest(unittest.TestCase):
 
     def test_exec_valid_coding(self):
         d = {}
-        exec('# coding: cp949\na = 5\n', d)
-        self.assertEqual(d['a'], 5)
+        exec(b'# coding: cp949\na = "\xaa\xa7"\n', d)
+        self.assertEqual(d['a'], '\u3047')
 
     def test_file_parse(self):
         # issue1134: all encodings outside latin-1 and utf-8 fail on
         # multiline strings and long lines (>512 columns)
         unload(TESTFN)
-        sys.path.insert(0, os.curdir)
         filename = TESTFN + ".py"
-        f = open(filename, "w")
+        f = open(filename, "w", encoding="cp1252")
+        sys.path.insert(0, os.curdir)
         try:
-            f.write("# -*- coding: cp1252 -*-\n")
-            f.write("'''A short string\n")
-            f.write("'''\n")
-            f.write("'A very long string %s'\n" % ("X" * 1000))
-            f.close()
+            with f:
+                f.write("# -*- coding: cp1252 -*-\n")
+                f.write("'''A short string\n")
+                f.write("'''\n")
+                f.write("'A very long string %s'\n" % ("X" * 1000))
 
+            importlib.invalidate_caches()
             __import__(TESTFN)
         finally:
-            f.close()
+            del sys.path[0]
             unlink(filename)
             unlink(filename + "c")
+            unlink(filename + "o")
             unload(TESTFN)
-            del sys.path[0]
 
     def test_error_from_string(self):
         # See http://bugs.python.org/issue6289
@@ -55,11 +55,17 @@ class CodingTest(unittest.TestCase):
             compile(input, "<string>", "exec")
         expected = "'ascii' codec can't decode byte 0xe2 in position 16: " \
                    "ordinal not in range(128)"
-        self.assertTrue(c.exception.args[0].startswith(expected))
+        self.assertTrue(c.exception.args[0].startswith(expected),
+                        msg=c.exception.args[0])
 
-
-def test_main():
-    test.support.run_unittest(CodingTest)
+    def test_20731(self):
+        sub = subprocess.Popen([sys.executable,
+                        os.path.join(os.path.dirname(__file__),
+                                     'coding20731.py')],
+                        stderr=subprocess.PIPE)
+        err = sub.communicate()[1]
+        self.assertEqual(sub.returncode, 0)
+        self.assertNotIn(b'SyntaxError', err)
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

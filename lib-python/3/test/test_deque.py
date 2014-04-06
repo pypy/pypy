@@ -7,6 +7,7 @@ import copy
 import pickle
 from io import StringIO
 import random
+import struct
 
 BIG = 100000
 
@@ -474,6 +475,19 @@ class TestBasic(unittest.TestCase):
 ##            self.assertNotEqual(id(d), id(e))
 ##            self.assertEqual(id(e), id(e[-1]))
 
+    def test_iterator_pickle(self):
+        data = deque(range(200))
+        it = itorg = iter(data)
+        d = pickle.dumps(it)
+        it = pickle.loads(d)
+        self.assertEqual(type(itorg), type(it))
+        self.assertEqual(list(it), list(data))
+
+        it = pickle.loads(d)
+        next(it)
+        d = pickle.dumps(it)
+        self.assertEqual(list(it), list(data)[1:])
+
     def test_deepcopy(self):
         mut = [10]
         d = deque([mut])
@@ -520,6 +534,21 @@ class TestBasic(unittest.TestCase):
             del obj, container
             gc.collect()
             self.assertTrue(ref() is None, "Cycle was not collected")
+
+    check_sizeof = support.check_sizeof
+
+    @support.cpython_only
+    def test_sizeof(self):
+        BLOCKLEN = 62
+        basesize = support.calcobjsize('2P4nlP')
+        blocksize = struct.calcsize('2P%dP' % BLOCKLEN)
+        self.assertEqual(object.__sizeof__(deque()), basesize)
+        check = self.check_sizeof
+        check(deque(), basesize + blocksize)
+        check(deque('a'), basesize + blocksize)
+        check(deque('a' * (BLOCKLEN // 2)), basesize + blocksize)
+        check(deque('a' * (BLOCKLEN // 2 + 1)), basesize + 2 * blocksize)
+        check(deque('a' * (42 * BLOCKLEN)), basesize + 43 * blocksize)
 
 class TestVariousIteratorArgs(unittest.TestCase):
 

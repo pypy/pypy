@@ -1,6 +1,7 @@
 import unittest
 from ctypes import *
 from struct import calcsize
+import _testcapi
 
 class SubclassesTest(unittest.TestCase):
     def test_subclass(self):
@@ -107,7 +108,7 @@ class StructureTestCase(unittest.TestCase):
     def test_emtpy(self):
         # I had problems with these
         #
-        # Although these are patological cases: Empty Structures!
+        # Although these are pathological cases: Empty Structures!
         class X(Structure):
             _fields_ = []
 
@@ -197,6 +198,14 @@ class StructureTestCase(unittest.TestCase):
         d = {"_fields_": [("a", c_byte),
                           ("b", c_longlong)],
              "_pack_": -1}
+        self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
+
+        # Issue 15989
+        d = {"_fields_": [("a", c_byte)],
+             "_pack_": _testcapi.INT_MAX + 1}
+        self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
+        d = {"_fields_": [("a", c_byte)],
+             "_pack_": _testcapi.UINT_MAX + 2}
         self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
 
     def test_initializers(self):
@@ -365,9 +374,9 @@ class StructureTestCase(unittest.TestCase):
 ##        class X(Structure):
 ##            _fields_ = []
 
-        self.assertTrue("in_dll" in dir(type(Structure)))
-        self.assertTrue("from_address" in dir(type(Structure)))
-        self.assertTrue("in_dll" in dir(type(Structure)))
+        self.assertIn("in_dll", dir(type(Structure)))
+        self.assertIn("from_address", dir(type(Structure)))
+        self.assertIn("in_dll", dir(type(Structure)))
 
     def test_positional_args(self):
         # see also http://bugs.python.org/issue5042
@@ -437,8 +446,8 @@ class TestRecursiveStructure(unittest.TestCase):
         try:
             Recursive._fields_ = [("next", Recursive)]
         except AttributeError as details:
-            self.assertTrue("Structure or union cannot contain itself" in
-                            str(details))
+            self.assertIn("Structure or union cannot contain itself",
+                          str(details))
         else:
             self.fail("Structure or union cannot contain itself")
 
@@ -454,8 +463,7 @@ class TestRecursiveStructure(unittest.TestCase):
         try:
             Second._fields_ = [("first", First)]
         except AttributeError as details:
-            self.assertTrue("_fields_ is final" in
-                            str(details))
+            self.assertIn("_fields_ is final", str(details))
         else:
             self.fail("AttributeError not raised")
 
