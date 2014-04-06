@@ -81,7 +81,9 @@ uint64_t _stm_total_allocated(void)
     mutex_pages_unlock();
     return result;
 }
+#endif
 
+#ifdef STM_LARGEMALLOC_TEST
 void _stm_mutex_pages_lock(void)
 {
     mutex_pages_lock();

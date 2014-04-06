@@ -294,8 +294,7 @@ static void major_reshare_pages(void)
                 break;   /* done */
             pagenum = (uninitialized_page_stop - stm_object_pages) / 4096UL;
             endpagenum = NB_PAGES;
-            if (pagenum == endpagenum)
-                break;   /* no pages in the 2nd section, so done too */
+            continue;
         }
 
         page_check_and_reshare(pagenum);
