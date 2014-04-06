@@ -369,8 +369,6 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
-            elif opcode == opcodedesc.STOP_CODE.index:
-                self.STOP_CODE(oparg, next_instr)
             elif opcode == opcodedesc.STORE_ATTR.index:
                 self.STORE_ATTR(oparg, next_instr)
             elif opcode == opcodedesc.STORE_DEREF.index:
@@ -1258,8 +1256,6 @@ class __extend__(pyframe.PyFrame):
         name = self.pycode.co_name
         raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                  (ofs, ord(c), name) )
-
-    STOP_CODE = MISSING_OPCODE
 
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
