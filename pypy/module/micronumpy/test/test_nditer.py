@@ -211,7 +211,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (c == [1., 4., 9.]).all()
         assert (b == c).all()
         exc = raises(ValueError, square2, arange(6).reshape(2, 3), out=b)
-        assert str(exc.value).startswith('non-broadcastable output')
+        assert str(exc.value).find('cannot be broadcasted') > 0
 
     def test_outer_product(self):
         from numpy import nditer, arange

@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
-                                             shape_agreement_multiple)
+                                             shape_agreement, shape_agreement_multiple)
 from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
 from pypy.module.micronumpy.concrete import SliceArray
 from pypy.module.micronumpy import ufuncs
@@ -134,6 +134,9 @@ def parse_op_flag(space, lst):
             op_flag.get_it_item = (get_readonly_item, get_readonly_slice)
         elif op_flag.rw == 'rw':
             op_flag.get_it_item = (get_readwrite_item, get_readwrite_slice)
+        elif op_flag.rw == 'w':
+            # XXX Extra logic needed to make sure writeonly
+            op_flag.get_it_item = (get_readwrite_item, get_readwrite_slice)
     return op_flag
 
 def parse_func_flags(space, nditer, w_flags):
@@ -154,8 +157,7 @@ def parse_func_flags(space, nditer, w_flags):
         if item == 'external_loop':
             nditer.external_loop = True
         elif item == 'buffered':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                'nditer buffered not implemented yet'))
+            # For numpy compatability
             nditer.buffered = True
         elif item == 'c_index':
             nditer.tracked_index = 'C'
@@ -293,24 +295,35 @@ class W_NDIter(W_Root):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 'nditer op_dtypes kwarg not implemented yet'))
         self.iters=[]
-        self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
-        outarg = [i for i in range(len(self.seq)) if self.seq[i] is None]
-        if len(outarg) > 0:
-            # Make None operands writeonly and flagged for
-            # allocation, and everything else defaults to readonly.  To write
-            # to a provided operand, you must specify the write flag manually.
+        outargs = [i for i in range(len(self.seq)) \
+                        if self.seq[i] is None or self.op_flags[i].rw == 'w']
+        if len(outargs) > 0:
+            out_shape = shape_agreement_multiple(space, [self.seq[i] for i in outargs])
+        else:
+            out_shape = None
+        self.shape = iter_shape = shape_agreement_multiple(space, self.seq,
+                                                           shape=out_shape)
+        if len(outargs) > 0:
+            # Make None operands writeonly and flagged for allocation
             out_dtype = None
-            for elem in self.seq:
-                if elem is None:
+            for i in range(len(self.seq)):
+                if self.seq[i] is None:
+                    self.op_flags[i].get_it_item = (get_readwrite_item,
+                                                    get_readwrite_slice)
+                    self.op_flags[i].allocate = True
+                    continue
+                if self.op_flags[i] == 'w':
                     continue
                 out_dtype = ufuncs.find_binop_result_dtype(space,
-                                                elem.get_dtype(), out_dtype)
-            for i in outarg:
-                self.op_flags[i].get_it_item = (get_readwrite_item,
-                                                get_readwrite_slice)
-                self.op_flags[i].allocate = True
-                # XXX can we postpone allocation to later?
-                self.seq[i] = W_NDimArray.from_shape(space, iter_shape, out_dtype)
+                                                self.seq[i].get_dtype(), out_dtype)
+            for i in outargs:
+                if self.seq[i] is None:
+                    # XXX can we postpone allocation to later?
+                    self.seq[i] = W_NDimArray.from_shape(space, iter_shape, out_dtype)
+                else:
+                    if not self.op_flags[i].broadcast:
+                        # Raises if ooutput cannot be broadcast
+                        shape_agreement(space, iter_shape, self.seq[i], False)
         if self.tracked_index != "":
             if self.order == "K":
                 self.order = self.seq[0].implementation.order
@@ -430,8 +443,10 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_get_operands(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        l_w = []
+        for op in self.seq:
+            l_w.append(op.descr_view(space))
+        return space.newlist(l_w)            
 
     def descr_get_dtypes(self, space):
         res = [None] * len(self.seq)
