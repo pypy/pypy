@@ -26,7 +26,7 @@ if _os.name == "posix" and _sys.platform == "darwin":
     # libraries.  OS X 10.3 is Darwin 7, so we check for
     # that.
 
-    if int(_os.uname()[2].split('.')[0]) < 8:
+    if int(_os.uname().release.split('.')[0]) < 8:
         DEFAULT_MODE = RTLD_GLOBAL
 
 from _ctypes import FUNCFLAG_CDECL as _FUNCFLAG_CDECL, \
@@ -456,7 +456,7 @@ if _os.name in ("nt", "ce"):
             code = GetLastError()
         if descr is None:
             descr = FormatError(code).strip()
-        return WindowsError(code, descr)
+        return WindowsError(None, descr, None, code)
 
 if sizeof(c_uint) == sizeof(c_void_p):
     c_size_t = c_uint

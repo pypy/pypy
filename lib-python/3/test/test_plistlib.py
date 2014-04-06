@@ -55,6 +55,10 @@ TESTDATA = b"""<?xml version="1.0" encoding="UTF-8"?>
         </array>
         <key>aString</key>
         <string>Doodah</string>
+        <key>anEmptyDict</key>
+        <dict/>
+        <key>anEmptyList</key>
+        <array/>
         <key>anInt</key>
         <integer>728</integer>
         <key>nestedData</key>
@@ -112,6 +116,8 @@ class TestPlistlib(unittest.TestCase):
             someMoreData = plistlib.Data(b"<lots of binary gunk>\0\1\2\3" * 10),
             nestedData = [plistlib.Data(b"<lots of binary gunk>\0\1\2\3" * 10)],
             aDate = datetime.datetime(2004, 10, 26, 10, 33, 33),
+            anEmptyDict = dict(),
+            anEmptyList = list()
         )
         pl['\xc5benraa'] = "That was a unicode key."
         return pl
@@ -134,6 +140,18 @@ class TestPlistlib(unittest.TestCase):
         self.assertEqual(dict(pl), dict(pl2))
         data2 = plistlib.writePlistToBytes(pl2)
         self.assertEqual(data, data2)
+
+    def test_indentation_array(self):
+        data = [[[[[[[[{'test': plistlib.Data(b'aaaaaa')}]]]]]]]]
+        self.assertEqual(plistlib.readPlistFromBytes(plistlib.writePlistToBytes(data)), data)
+
+    def test_indentation_dict(self):
+        data = {'1': {'2': {'3': {'4': {'5': {'6': {'7': {'8': {'9': plistlib.Data(b'aaaaaa')}}}}}}}}}
+        self.assertEqual(plistlib.readPlistFromBytes(plistlib.writePlistToBytes(data)), data)
+
+    def test_indentation_dict_mix(self):
+        data = {'1': {'2': [{'3': [[[[[{'test': plistlib.Data(b'aaaaaa')}]]]]]}]}}
+        self.assertEqual(plistlib.readPlistFromBytes(plistlib.writePlistToBytes(data)), data)
 
     def test_appleformatting(self):
         pl = plistlib.readPlistFromBytes(TESTDATA)

@@ -24,13 +24,18 @@ and opendir), and leave all pathname manipulation to os.path
 #'
 
 import sys, errno
+import stat as st
 
 _names = sys.builtin_module_names
 
 # Note:  more names are added to __all__ later.
 __all__ = ["altsep", "curdir", "pardir", "sep", "pathsep", "linesep",
-           "defpath", "name", "path", "devnull",
-           "SEEK_SET", "SEEK_CUR", "SEEK_END"]
+           "defpath", "name", "path", "devnull", "SEEK_SET", "SEEK_CUR",
+           "SEEK_END", "fsencode", "fsdecode", "get_exec_path", "fdopen",
+           "popen", "extsep"]
+
+def _exists(name):
+    return name in globals()
 
 def _get_exports_list(module):
     try:
@@ -38,19 +43,23 @@ def _get_exports_list(module):
     except AttributeError:
         return [n for n in dir(module) if n[0] != '_']
 
+# Any new dependencies of the os module and/or changes in path separator
+# requires updating importlib as well.
 if 'posix' in _names:
     name = 'posix'
     linesep = '\n'
     from posix import *
     try:
         from posix import _exit
+        __all__.append('_exit')
     except ImportError:
         pass
     import posixpath as path
 
-    import posix
-    __all__.extend(_get_exports_list(posix))
-    del posix
+    try:
+        from posix import _have_functions
+    except ImportError:
+        pass
 
 elif 'nt' in _names:
     name = 'nt'
@@ -58,6 +67,7 @@ elif 'nt' in _names:
     from nt import *
     try:
         from nt import _exit
+        __all__.append('_exit')
     except ImportError:
         pass
     import ntpath as path
@@ -66,12 +76,18 @@ elif 'nt' in _names:
     __all__.extend(_get_exports_list(nt))
     del nt
 
+    try:
+        from nt import _have_functions
+    except ImportError:
+        pass
+
 elif 'os2' in _names:
     name = 'os2'
     linesep = '\r\n'
     from os2 import *
     try:
         from os2 import _exit
+        __all__.append('_exit')
     except ImportError:
         pass
     if sys.version.find('EMX GCC') == -1:
@@ -84,12 +100,18 @@ elif 'os2' in _names:
     __all__.extend(_get_exports_list(os2))
     del os2
 
+    try:
+        from os2 import _have_functions
+    except ImportError:
+        pass
+
 elif 'ce' in _names:
     name = 'ce'
     linesep = '\r\n'
     from ce import *
     try:
         from ce import _exit
+        __all__.append('_exit')
     except ImportError:
         pass
     # We can use the standard Windows path.
@@ -98,6 +120,11 @@ elif 'ce' in _names:
     import ce
     __all__.extend(_get_exports_list(ce))
     del ce
+
+    try:
+        from ce import _have_functions
+    except ImportError:
+        pass
 
 else:
     raise ImportError('no os specific module found')
@@ -108,8 +135,97 @@ from os.path import (curdir, pardir, sep, pathsep, defpath, extsep, altsep,
 
 del _names
 
+
+if _exists("_have_functions"):
+    _globals = globals()
+    def _add(str, fn):
+        if (fn in _globals) and (str in _have_functions):
+            _set.add(_globals[fn])
+
+    _set = set()
+    _add("HAVE_FACCESSAT",  "access")
+    _add("HAVE_FCHMODAT",   "chmod")
+    _add("HAVE_FCHOWNAT",   "chown")
+    _add("HAVE_FSTATAT",    "stat")
+    _add("HAVE_FUTIMESAT",  "utime")
+    _add("HAVE_LINKAT",     "link")
+    _add("HAVE_MKDIRAT",    "mkdir")
+    _add("HAVE_MKFIFOAT",   "mkfifo")
+    _add("HAVE_MKNODAT",    "mknod")
+    _add("HAVE_OPENAT",     "open")
+    _add("HAVE_READLINKAT", "readlink")
+    _add("HAVE_RENAMEAT",   "rename")
+    _add("HAVE_SYMLINKAT",  "symlink")
+    _add("HAVE_UNLINKAT",   "unlink")
+    _add("HAVE_UNLINKAT",   "rmdir")
+    _add("HAVE_UTIMENSAT",  "utime")
+    supports_dir_fd = _set
+
+    _set = set()
+    _add("HAVE_FACCESSAT",  "access")
+    supports_effective_ids = _set
+
+    _set = set()
+    _add("HAVE_FCHDIR",     "chdir")
+    _add("HAVE_FCHMOD",     "chmod")
+    _add("HAVE_FCHOWN",     "chown")
+    _add("HAVE_FDOPENDIR",  "listdir")
+    _add("HAVE_FEXECVE",    "execve")
+    _set.add(stat) # fstat always works
+    _add("HAVE_FTRUNCATE",  "truncate")
+    _add("HAVE_FUTIMENS",   "utime")
+    _add("HAVE_FUTIMES",    "utime")
+    _add("HAVE_FPATHCONF",  "pathconf")
+    if _exists("statvfs") and _exists("fstatvfs"): # mac os x10.3
+        _add("HAVE_FSTATVFS", "statvfs")
+    supports_fd = _set
+
+    _set = set()
+    _add("HAVE_FACCESSAT",  "access")
+    # Some platforms don't support lchmod().  Often the function exists
+    # anyway, as a stub that always returns ENOSUP or perhaps EOPNOTSUPP.
+    # (No, I don't know why that's a good design.)  ./configure will detect
+    # this and reject it--so HAVE_LCHMOD still won't be defined on such
+    # platforms.  This is Very Helpful.
+    #
+    # However, sometimes platforms without a working lchmod() *do* have
+    # fchmodat().  (Examples: Linux kernel 3.2 with glibc 2.15,
+    # OpenIndiana 3.x.)  And fchmodat() has a flag that theoretically makes
+    # it behave like lchmod().  So in theory it would be a suitable
+    # replacement for lchmod().  But when lchmod() doesn't work, fchmodat()'s
+    # flag doesn't work *either*.  Sadly ./configure isn't sophisticated
+    # enough to detect this condition--it only determines whether or not
+    # fchmodat() minimally works.
+    #
+    # Therefore we simply ignore fchmodat() when deciding whether or not
+    # os.chmod supports follow_symlinks.  Just checking lchmod() is
+    # sufficient.  After all--if you have a working fchmodat(), your
+    # lchmod() almost certainly works too.
+    #
+    # _add("HAVE_FCHMODAT",   "chmod")
+    _add("HAVE_FCHOWNAT",   "chown")
+    _add("HAVE_FSTATAT",    "stat")
+    _add("HAVE_LCHFLAGS",   "chflags")
+    _add("HAVE_LCHMOD",     "chmod")
+    if _exists("lchown"): # mac os x10.3
+        _add("HAVE_LCHOWN", "chown")
+    _add("HAVE_LINKAT",     "link")
+    _add("HAVE_LUTIMES",    "utime")
+    _add("HAVE_LSTAT",      "stat")
+    _add("HAVE_FSTATAT",    "stat")
+    _add("HAVE_UTIMENSAT",  "utime")
+    _add("MS_WINDOWS",      "stat")
+    supports_follow_symlinks = _set
+
+    del _set
+    del _have_functions
+    del _globals
+    del _add
+
+
 # Python uses fixed values for the SEEK_ constants; they are mapped
 # to native constants if necessary in posixmodule.c
+# Other possible SEEK values are directly imported from posixmodule.c
 SEEK_SET = 0
 SEEK_CUR = 1
 SEEK_END = 2
@@ -119,8 +235,6 @@ def _get_masked_mode(mode):
     mask = umask(0)
     umask(mask)
     return mode & ~mask
-
-#'
 
 # Super directory utilities.
 # (Inspired by Eric Raymond; the doc strings are mostly his)
@@ -154,7 +268,6 @@ def makedirs(name, mode=0o777, exist_ok=False):
     try:
         mkdir(name, mode)
     except OSError as e:
-        import stat as st
         dir_exists = path.isdir(name)
         expected_mode = _get_masked_mode(mode)
         if dir_exists:
@@ -166,6 +279,9 @@ def makedirs(name, mode=0o777, exist_ok=False):
             actual_mode = -1
         if not (e.errno == errno.EEXIST and exist_ok and dir_exists and
                 actual_mode == expected_mode):
+            if dir_exists and actual_mode != expected_mode:
+                e.strerror += ' (mode %o != expected mode %o)' % (
+                        actual_mode, expected_mode)
             raise
 
 def removedirs(name):
@@ -303,12 +419,106 @@ def walk(top, topdown=True, onerror=None, followlinks=False):
     for name in dirs:
         new_path = join(top, name)
         if followlinks or not islink(new_path):
-            for x in walk(new_path, topdown, onerror, followlinks):
-                yield x
+            yield from walk(new_path, topdown, onerror, followlinks)
     if not topdown:
         yield top, dirs, nondirs
 
 __all__.append("walk")
+
+if {open, stat} <= supports_dir_fd and {listdir, stat} <= supports_fd:
+
+    def fwalk(top=".", topdown=True, onerror=None, *, follow_symlinks=False, dir_fd=None):
+        """Directory tree generator.
+
+        This behaves exactly like walk(), except that it yields a 4-tuple
+
+            dirpath, dirnames, filenames, dirfd
+
+        `dirpath`, `dirnames` and `filenames` are identical to walk() output,
+        and `dirfd` is a file descriptor referring to the directory `dirpath`.
+
+        The advantage of fwalk() over walk() is that it's safe against symlink
+        races (when follow_symlinks is False).
+
+        If dir_fd is not None, it should be a file descriptor open to a directory,
+          and top should be relative; top will then be relative to that directory.
+          (dir_fd is always supported for fwalk.)
+
+        Caution:
+        Since fwalk() yields file descriptors, those are only valid until the
+        next iteration step, so you should dup() them if you want to keep them
+        for a longer period.
+
+        Example:
+
+        import os
+        for root, dirs, files, rootfd in os.fwalk('python/Lib/email'):
+            print(root, "consumes", end="")
+            print(sum([os.stat(name, dir_fd=rootfd).st_size for name in files]),
+                  end="")
+            print("bytes in", len(files), "non-directory files")
+            if 'CVS' in dirs:
+                dirs.remove('CVS')  # don't visit CVS directories
+        """
+        # Note: To guard against symlink races, we use the standard
+        # lstat()/open()/fstat() trick.
+        orig_st = stat(top, follow_symlinks=False, dir_fd=dir_fd)
+        topfd = open(top, O_RDONLY, dir_fd=dir_fd)
+        try:
+            if (follow_symlinks or (st.S_ISDIR(orig_st.st_mode) and
+                                    path.samestat(orig_st, stat(topfd)))):
+                yield from _fwalk(topfd, top, topdown, onerror, follow_symlinks)
+        finally:
+            close(topfd)
+
+    def _fwalk(topfd, toppath, topdown, onerror, follow_symlinks):
+        # Note: This uses O(depth of the directory tree) file descriptors: if
+        # necessary, it can be adapted to only require O(1) FDs, see issue
+        # #13734.
+
+        names = listdir(topfd)
+        dirs, nondirs = [], []
+        for name in names:
+            try:
+                # Here, we don't use AT_SYMLINK_NOFOLLOW to be consistent with
+                # walk() which reports symlinks to directories as directories.
+                # We do however check for symlinks before recursing into
+                # a subdirectory.
+                if st.S_ISDIR(stat(name, dir_fd=topfd).st_mode):
+                    dirs.append(name)
+                else:
+                    nondirs.append(name)
+            except FileNotFoundError:
+                try:
+                    # Add dangling symlinks, ignore disappeared files
+                    if st.S_ISLNK(stat(name, dir_fd=topfd, follow_symlinks=False)
+                                .st_mode):
+                        nondirs.append(name)
+                except FileNotFoundError:
+                    continue
+
+        if topdown:
+            yield toppath, dirs, nondirs, topfd
+
+        for name in dirs:
+            try:
+                orig_st = stat(name, dir_fd=topfd, follow_symlinks=follow_symlinks)
+                dirfd = open(name, O_RDONLY, dir_fd=topfd)
+            except error as err:
+                if onerror is not None:
+                    onerror(err)
+                return
+            try:
+                if follow_symlinks or path.samestat(orig_st, stat(dirfd)):
+                    dirpath = path.join(toppath, name)
+                    yield from _fwalk(dirfd, dirpath, topdown, onerror, follow_symlinks)
+            finally:
+                close(dirfd)
+
+        if not topdown:
+            yield toppath, dirs, nondirs, topfd
+
+    __all__.append("fwalk")
 
 # Make sure os.environ exists, at least
 try:
@@ -446,7 +656,7 @@ def get_exec_path(env=None):
 
 
 # Change environ to automatically call putenv(), unsetenv if they exist.
-from _abcoll import MutableMapping  # Can't use collections (bootstrap)
+from collections.abc import MutableMapping
 
 class _Environ(MutableMapping):
     def __init__(self, data, encodekey, decodekey, encodevalue, decodevalue, putenv, unsetenv):
@@ -459,7 +669,11 @@ class _Environ(MutableMapping):
         self._data = data
 
     def __getitem__(self, key):
-        value = self._data[self.encodekey(key)]
+        try:
+            value = self._data[self.encodekey(key)]
+        except KeyError:
+            # raise KeyError with the original key value
+            raise KeyError(key) from None
         return self.decodevalue(value)
 
     def __setitem__(self, key, value):
@@ -469,9 +683,13 @@ class _Environ(MutableMapping):
         self._data[key] = value
 
     def __delitem__(self, key):
-        key = self.encodekey(key)
-        self.unsetenv(key)
-        del self._data[key]
+        encodedkey = self.encodekey(key)
+        self.unsetenv(encodedkey)
+        try:
+            del self._data[encodedkey]
+        except KeyError:
+            # raise KeyError with the original key value
+            raise KeyError(key) from None
 
     def __iter__(self):
         for key in self._data:
@@ -610,14 +828,13 @@ def _fscodec():
 fsencode, fsdecode = _fscodec()
 del _fscodec
 
-def _exists(name):
-    return name in globals()
-
 # Supply spawn*() (probably only for Unix)
 if _exists("fork") and not _exists("spawnv") and _exists("execv"):
 
     P_WAIT = 0
     P_NOWAIT = P_NOWAITO = 1
+
+    __all__.extend(["P_WAIT", "P_NOWAIT", "P_NOWAITO"])
 
     # XXX Should we support P_DETACH?  I suppose it could fork()**2
     # and close the std I/O streams.  Also, P_OVERLAY is the same
@@ -779,7 +996,7 @@ def popen(cmd, mode="r", buffering=-1):
         raise TypeError("invalid cmd type (%s, expected string)" % type(cmd))
     if mode not in ("r", "w"):
         raise ValueError("invalid mode %r" % mode)
-    if buffering == 0 or buffering == None:
+    if buffering == 0 or buffering is None:
         raise ValueError("popen() does not support unbuffered streams")
     import subprocess, io
     if mode == "r":

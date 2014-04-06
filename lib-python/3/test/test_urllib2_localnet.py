@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import email
 import urllib.parse
@@ -353,12 +351,15 @@ class TestUrlopen(unittest.TestCase):
     def setUp(self):
         super(TestUrlopen, self).setUp()
         # Ignore proxies for localhost tests.
+        self.old_environ = os.environ.copy()
         os.environ['NO_PROXY'] = '*'
         self.server = None
 
     def tearDown(self):
         if self.server is not None:
             self.server.stop()
+        os.environ.clear()
+        os.environ.update(self.old_environ)
         super(TestUrlopen, self).tearDown()
 
     def urlopen(self, url, data=None, **kwargs):
@@ -476,6 +477,13 @@ class TestUrlopen(unittest.TestCase):
             self.urlopen("https://localhost:%s/bizarre" % handler.port,
                          cafile=CERT_fakehostname)
 
+    def test_https_with_cadefault(self):
+        handler = self.start_https_server(certfile=CERT_localhost)
+        # Self-signed cert should fail verification with system certificate store
+        with self.assertRaises(urllib.error.URLError) as cm:
+            self.urlopen("https://localhost:%s/bizarre" % handler.port,
+                         cadefault=True)
+
     def test_sending_headers(self):
         handler = self.start_server()
         req = urllib.request.Request("http://localhost:%s/" % handler.port,
@@ -517,6 +525,11 @@ class TestUrlopen(unittest.TestCase):
     def test_bad_address(self):
         # Make sure proper exception is raised when connecting to a bogus
         # address.
+
+        # as indicated by the comment below, this might fail with some ISP,
+        # so we run the test only when -unetwork/-uall is specified to
+        # mitigate the problem a bit (see #17564)
+        support.requires('network')
         self.assertRaises(IOError,
                           # Given that both VeriSign and various ISPs have in
                           # the past or are presently hijacking various invalid

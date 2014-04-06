@@ -26,7 +26,8 @@ def abstractmethod(funcobj):
 
 
 class abstractclassmethod(classmethod):
-    """A decorator indicating abstract classmethods.
+    """
+    A decorator indicating abstract classmethods.
 
     Similar to abstractmethod.
 
@@ -36,6 +37,9 @@ class abstractclassmethod(classmethod):
             @abstractclassmethod
             def my_abstract_classmethod(cls, ...):
                 ...
+
+    'abstractclassmethod' is deprecated. Use 'classmethod' with
+    'abstractmethod' instead.
     """
 
     __isabstractmethod__ = True
@@ -46,7 +50,8 @@ class abstractclassmethod(classmethod):
 
 
 class abstractstaticmethod(staticmethod):
-    """A decorator indicating abstract staticmethods.
+    """
+    A decorator indicating abstract staticmethods.
 
     Similar to abstractmethod.
 
@@ -56,6 +61,9 @@ class abstractstaticmethod(staticmethod):
             @abstractstaticmethod
             def my_abstract_staticmethod(...):
                 ...
+
+    'abstractstaticmethod' is deprecated. Use 'staticmethod' with
+    'abstractmethod' instead.
     """
 
     __isabstractmethod__ = True
@@ -66,7 +74,8 @@ class abstractstaticmethod(staticmethod):
 
 
 class abstractproperty(property):
-    """A decorator indicating abstract properties.
+    """
+    A decorator indicating abstract properties.
 
     Requires that the metaclass is ABCMeta or derived from it.  A
     class that has a metaclass derived from ABCMeta cannot be
@@ -88,7 +97,11 @@ class abstractproperty(property):
             def getx(self): ...
             def setx(self, value): ...
             x = abstractproperty(getx, setx)
+
+    'abstractproperty' is deprecated. Use 'property' with 'abstractmethod'
+    instead.
     """
+
     __isabstractmethod__ = True
 
 
@@ -133,11 +146,14 @@ class ABCMeta(type):
         return cls
 
     def register(cls, subclass):
-        """Register a virtual subclass of an ABC."""
+        """Register a virtual subclass of an ABC.
+
+        Returns the subclass, to allow usage as a class decorator.
+        """
         if not isinstance(subclass, type):
             raise TypeError("Can only register classes")
         if issubclass(subclass, cls):
-            return  # Already a subclass
+            return subclass  # Already a subclass
         # Subtle: test for cycles *after* testing for "already a subclass";
         # this means we allow X.register(X) and interpret it as a no-op.
         if issubclass(cls, subclass):
@@ -145,6 +161,7 @@ class ABCMeta(type):
             raise RuntimeError("Refusing to create an inheritance cycle")
         cls._abc_registry.add(subclass)
         ABCMeta._abc_invalidation_counter += 1  # Invalidate negative cache
+        return subclass
 
     def _dump_registry(cls, file=None):
         """Debug helper to print the ABC registry."""

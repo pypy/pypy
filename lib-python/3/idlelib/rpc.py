@@ -40,6 +40,7 @@ import traceback
 import copyreg
 import types
 import marshal
+import builtins
 
 
 def unpickle_code(ms):
@@ -144,7 +145,7 @@ class SocketIO(object):
 
     def exithook(self):
         "override for specific exit action"
-        os._exit()
+        os._exit(0)
 
     def debug(self, *args):
         if not self.debugging:
@@ -196,8 +197,12 @@ class SocketIO(object):
                 return ("ERROR", "Unsupported message type: %s" % how)
         except SystemExit:
             raise
+        except KeyboardInterrupt:
+            raise
         except socket.error:
             raise
+        except Exception as ex:
+            return ("CALLEXC", ex)
         except:
             msg = "*** Internal Error: rpc.py:SocketIO.localcall()\n\n"\
                   " Object: %s \n Method: %s \n Args: %s\n"
@@ -257,6 +262,9 @@ class SocketIO(object):
         if how == "ERROR":
             self.debug("decoderesponse: Internal ERROR:", what)
             raise RuntimeError(what)
+        if how == "CALLEXC":
+            self.debug("decoderesponse: Call Exception:", what)
+            raise what
         raise SystemError(how, what)
 
     def decode_interrupthook(self):
@@ -331,7 +339,7 @@ class SocketIO(object):
                 r, w, x = select.select([], [self.sock], [])
                 n = self.sock.send(s[:BUFSIZE])
             except (AttributeError, TypeError):
-                raise IOError("socket no longer exists")
+                raise OSError("socket no longer exists")
             except socket.error:
                 raise
             else:
@@ -596,3 +604,21 @@ class MethodProxy(object):
 
 # XXX KBK 09Sep03  We need a proper unit test for this module.  Previously
 #                  existing test code was removed at Rev 1.27 (r34098).
+
+def displayhook(value):
+    """Override standard display hook to use non-locale encoding"""
+    if value is None:
+        return
+    # Set '_' to None to avoid recursion
+    builtins._ = None
+    text = repr(value)
+    try:
+        sys.stdout.write(text)
+    except UnicodeEncodeError:
+        # let's use ascii while utf8-bmp codec doesn't present
+        encoding = 'ascii'
+        bytes = text.encode(encoding, 'backslashreplace')
+        text = bytes.decode(encoding, 'strict')
+        sys.stdout.write(text)
+    sys.stdout.write("\n")
+    builtins._ = value

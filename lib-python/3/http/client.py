@@ -141,6 +141,9 @@ UNPROCESSABLE_ENTITY = 422
 LOCKED = 423
 FAILED_DEPENDENCY = 424
 UPGRADE_REQUIRED = 426
+PRECONDITION_REQUIRED = 428
+TOO_MANY_REQUESTS = 429
+REQUEST_HEADER_FIELDS_TOO_LARGE = 431
 
 # server error
 INTERNAL_SERVER_ERROR = 500
@@ -151,6 +154,7 @@ GATEWAY_TIMEOUT = 504
 HTTP_VERSION_NOT_SUPPORTED = 505
 INSUFFICIENT_STORAGE = 507
 NOT_EXTENDED = 510
+NETWORK_AUTHENTICATION_REQUIRED = 511
 
 # Mapping status codes to official W3C names
 responses = {
@@ -192,6 +196,9 @@ responses = {
     415: 'Unsupported Media Type',
     416: 'Requested Range Not Satisfiable',
     417: 'Expectation Failed',
+    428: 'Precondition Required',
+    429: 'Too Many Requests',
+    431: 'Request Header Fields Too Large',
 
     500: 'Internal Server Error',
     501: 'Not Implemented',
@@ -199,6 +206,7 @@ responses = {
     503: 'Service Unavailable',
     504: 'Gateway Timeout',
     505: 'HTTP Version Not Supported',
+    511: 'Network Authentication Required',
 }
 
 # maximal amount of data to read at one time in _safe_read
@@ -206,6 +214,8 @@ MAXAMOUNT = 1048576
 
 # maximal line length when calling readline().
 _MAXLINE = 65536
+_MAXHEADERS = 100
+
 
 class HTTPMessage(email.message.Message):
     # XXX The only usage of this method is in
@@ -253,6 +263,8 @@ def parse_headers(fp, _class=HTTPMessage):
         if len(line) > _MAXLINE:
             raise LineTooLong("header line")
         headers.append(line)
+        if len(headers) > _MAXHEADERS:
+            raise HTTPException("got more than %d headers" % _MAXHEADERS)
         if line in (b'\r\n', b'\n', b''):
             break
     hstring = b''.join(headers).decode('iso-8859-1')
@@ -489,11 +501,17 @@ class HTTPResponse(io.RawIOBase):
             self._close_conn()
             return b""
 
-        if self.chunked:
-            return self._read_chunked(amt)
+        if amt is not None:
+            # Amount is given, so call base class version
+            # (which is implemented in terms of self.readinto)
+            return super(HTTPResponse, self).read(amt)
+        else:
+            # Amount is not given (unbounded read) so we must check self.length
+            # and self.chunked
 
-        if amt is None:
-            # unbounded read
+            if self.chunked:
+                return self._readall_chunked()
+
             if self.length is None:
                 s = self.fp.read()
             else:
@@ -506,66 +524,53 @@ class HTTPResponse(io.RawIOBase):
             self._close_conn()        # we read everything
             return s
 
+    def readinto(self, b):
+        if self.fp is None:
+            return 0
+
+        if self._method == "HEAD":
+            self._close_conn()
+            return 0
+
+        if self.chunked:
+            return self._readinto_chunked(b)
+
         if self.length is not None:
-            if amt > self.length:
+            if len(b) > self.length:
                 # clip the read to the "end of response"
-                amt = self.length
+                b = memoryview(b)[0:self.length]
 
         # we do not use _safe_read() here because this may be a .will_close
         # connection, and the user is reading more bytes than will be provided
         # (for example, reading in 1k chunks)
-        s = self.fp.read(amt)
-        if not s:
+        n = self.fp.readinto(b)
+        if not n and b:
             # Ideally, we would raise IncompleteRead if the content-length
             # wasn't satisfied, but it might break compatibility.
             self._close_conn()
         elif self.length is not None:
-            self.length -= len(s)
+            self.length -= n
             if not self.length:
                 self._close_conn()
+        return n
 
-        return s
+    def _read_next_chunk_size(self):
+        # Read the next chunk size from the file
+        line = self.fp.readline(_MAXLINE + 1)
+        if len(line) > _MAXLINE:
+            raise LineTooLong("chunk size")
+        i = line.find(b";")
+        if i >= 0:
+            line = line[:i] # strip chunk-extensions
+        try:
+            return int(line, 16)
+        except ValueError:
+            # close the connection as protocol synchronisation is
+            # probably lost
+            self._close_conn()
+            raise
 
-    def _read_chunked(self, amt):
-        assert self.chunked != _UNKNOWN
-        chunk_left = self.chunk_left
-        value = []
-        while True:
-            if chunk_left is None:
-                line = self.fp.readline(_MAXLINE + 1)
-                if len(line) > _MAXLINE:
-                    raise LineTooLong("chunk size")
-                i = line.find(b";")
-                if i >= 0:
-                    line = line[:i] # strip chunk-extensions
-                try:
-                    chunk_left = int(line, 16)
-                except ValueError:
-                    # close the connection as protocol synchronisation is
-                    # probably lost
-                    self._close_conn()
-                    raise IncompleteRead(b''.join(value))
-                if chunk_left == 0:
-                    break
-            if amt is None:
-                value.append(self._safe_read(chunk_left))
-            elif amt < chunk_left:
-                value.append(self._safe_read(amt))
-                self.chunk_left = chunk_left - amt
-                return b''.join(value)
-            elif amt == chunk_left:
-                value.append(self._safe_read(amt))
-                self._safe_read(2)  # toss the CRLF at the end of the chunk
-                self.chunk_left = None
-                return b''.join(value)
-            else:
-                value.append(self._safe_read(chunk_left))
-                amt -= chunk_left
-
-            # we read the whole chunk, get another
-            self._safe_read(2)      # toss the CRLF at the end of the chunk
-            chunk_left = None
-
+    def _read_and_discard_trailer(self):
         # read and discard trailer up to the CRLF terminator
         ### note: we shouldn't have any trailers!
         while True:
@@ -579,10 +584,71 @@ class HTTPResponse(io.RawIOBase):
             if line in (b'\r\n', b'\n', b''):
                 break
 
+    def _readall_chunked(self):
+        assert self.chunked != _UNKNOWN
+        chunk_left = self.chunk_left
+        value = []
+        while True:
+            if chunk_left is None:
+                try:
+                    chunk_left = self._read_next_chunk_size()
+                    if chunk_left == 0:
+                        break
+                except ValueError:
+                    raise IncompleteRead(b''.join(value))
+            value.append(self._safe_read(chunk_left))
+
+            # we read the whole chunk, get another
+            self._safe_read(2)      # toss the CRLF at the end of the chunk
+            chunk_left = None
+
+        self._read_and_discard_trailer()
+
         # we read everything; close the "file"
         self._close_conn()
 
         return b''.join(value)
+
+    def _readinto_chunked(self, b):
+        assert self.chunked != _UNKNOWN
+        chunk_left = self.chunk_left
+
+        total_bytes = 0
+        mvb = memoryview(b)
+        while True:
+            if chunk_left is None:
+                try:
+                    chunk_left = self._read_next_chunk_size()
+                    if chunk_left == 0:
+                        break
+                except ValueError:
+                    raise IncompleteRead(bytes(b[0:total_bytes]))
+
+            if len(mvb) < chunk_left:
+                n = self._safe_readinto(mvb)
+                self.chunk_left = chunk_left - n
+                return total_bytes + n
+            elif len(mvb) == chunk_left:
+                n = self._safe_readinto(mvb)
+                self._safe_read(2)  # toss the CRLF at the end of the chunk
+                self.chunk_left = None
+                return total_bytes + n
+            else:
+                temp_mvb = mvb[0:chunk_left]
+                n = self._safe_readinto(temp_mvb)
+                mvb = mvb[n:]
+                total_bytes += n
+
+            # we read the whole chunk, get another
+            self._safe_read(2)      # toss the CRLF at the end of the chunk
+            chunk_left = None
+
+        self._read_and_discard_trailer()
+
+        # we read everything; close the "file"
+        self._close_conn()
+
+        return total_bytes
 
     def _safe_read(self, amt):
         """Read the number of bytes requested, compensating for partial reads.
@@ -606,6 +672,22 @@ class HTTPResponse(io.RawIOBase):
             s.append(chunk)
             amt -= len(chunk)
         return b"".join(s)
+
+    def _safe_readinto(self, b):
+        """Same as _safe_read, but for reading into a buffer."""
+        total_bytes = 0
+        mvb = memoryview(b)
+        while total_bytes < len(b):
+            if MAXAMOUNT < len(mvb):
+                temp_mvb = mvb[0:MAXAMOUNT]
+                n = self.fp.readinto(temp_mvb)
+            else:
+                n = self.fp.readinto(mvb)
+            if not n:
+                raise IncompleteRead(bytes(mvb[0:total_bytes]), len(b))
+            mvb = mvb[n:]
+            total_bytes += n
+        return total_bytes
 
     def fileno(self):
         return self.fp.fileno()
@@ -713,7 +795,7 @@ class HTTPConnection:
         self.send(connect_bytes)
         for header, value in self._tunnel_headers.items():
             header_str = "%s: %s\r\n" % (header, value)
-            header_bytes = header_str.encode("latin1")
+            header_bytes = header_str.encode("latin-1")
             self.send(header_bytes)
         self.send(b'\r\n')
 
@@ -788,7 +870,7 @@ class HTTPConnection:
                 if encode:
                     datablock = datablock.encode("iso-8859-1")
                 self.sock.sendall(datablock)
-
+            return
         try:
             self.sock.sendall(data)
         except TypeError:
@@ -956,7 +1038,7 @@ class HTTPConnection:
         values = list(values)
         for i, one_value in enumerate(values):
             if hasattr(one_value, 'encode'):
-                values[i] = one_value.encode('latin1')
+                values[i] = one_value.encode('latin-1')
             elif isinstance(one_value, int):
                 values[i] = str(one_value).encode('ascii')
         value = b'\r\n\t'.join(values)

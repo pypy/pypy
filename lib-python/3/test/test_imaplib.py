@@ -11,9 +11,9 @@ import socketserver
 import time
 import calendar
 
-from test.support import reap_threads, verbose, transient_internet, run_with_tz
+from test.support import reap_threads, verbose, transient_internet, run_with_tz, run_with_locale
 import unittest
-
+from datetime import datetime, timezone, timedelta
 try:
     import ssl
 except ImportError:
@@ -43,14 +43,30 @@ class TestImaplib(unittest.TestCase):
                             imaplib.Internaldate2tuple(
             b'25 (INTERNALDATE "02-Apr-2000 03:30:00 +0000")'))
 
-    def test_that_Time2Internaldate_returns_a_result(self):
-        # We can check only that it successfully produces a result,
-        # not the correctness of the result itself, since the result
-        # depends on the timezone the machine is in.
-        timevalues = [2000000000, 2000000000.0, time.localtime(2000000000),
-                      '"18-May-2033 05:33:20 +0200"']
 
-        for t in timevalues:
+
+    def timevalues(self):
+        return [2000000000, 2000000000.0, time.localtime(2000000000),
+                (2033, 5, 18, 5, 33, 20, -1, -1, -1),
+                (2033, 5, 18, 5, 33, 20, -1, -1, 1),
+                datetime.fromtimestamp(2000000000,
+                                       timezone(timedelta(0, 2*60*60))),
+                '"18-May-2033 05:33:20 +0200"']
+
+    @run_with_locale('LC_ALL', 'de_DE', 'fr_FR')
+    @run_with_tz('STD-1DST')
+    def test_Time2Internaldate(self):
+        expected = '"18-May-2033 05:33:20 +0200"'
+
+        for t in self.timevalues():
+            internal = imaplib.Time2Internaldate(t)
+            self.assertEqual(internal, expected)
+
+    def test_that_Time2Internaldate_returns_a_result(self):
+        # Without tzset, we can check only that it successfully
+        # produces a result, not the correctness of the result itself,
+        # since the result depends on the timezone the machine is in.
+        for t in self.timevalues():
             imaplib.Time2Internaldate(t)
 
 
@@ -194,13 +210,12 @@ class BaseThreadedNetworkedTests(unittest.TestCase):
 
     @contextmanager
     def reaped_pair(self, hdlr):
-        server, thread = self.make_server((support.HOST, 0), hdlr)
-        client = self.imap_class(*server.server_address)
-        try:
-            yield server, client
-        finally:
-            client.logout()
-            self.reap_server(server, thread)
+        with self.reaped_server(hdlr) as server:
+            client = self.imap_class(*server.server_address)
+            try:
+                yield server, client
+            finally:
+                client.logout()
 
     @reap_threads
     def test_connect(self):
@@ -309,6 +324,17 @@ class BaseThreadedNetworkedTests(unittest.TestCase):
             self.assertEqual(ret, "OK")
 
 
+    def test_linetoolong(self):
+        class TooLongHandler(SimpleIMAPHandler):
+            def handle(self):
+                # Send a very long response line
+                self.wfile.write(b'* OK ' + imaplib._MAXLINE*b'x' + b'\r\n')
+
+        with self.reaped_server(TooLongHandler) as server:
+            self.assertRaises(imaplib.IMAP4.error,
+                              self.imap_class, *server.server_address)
+
+
 class ThreadedNetworkedTests(BaseThreadedNetworkedTests):
 
     server_class = socketserver.TCPServer
@@ -374,14 +400,61 @@ class RemoteIMAP_SSLTest(RemoteIMAPTest):
     port = 993
     imap_class = IMAP4_SSL
 
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def create_ssl_context(self):
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        ssl_context.load_cert_chain(CERTFILE)
+        return ssl_context
+
+    def check_logincapa(self, server):
+        try:
+            for cap in server.capabilities:
+                self.assertIsInstance(cap, str)
+            self.assertNotIn('LOGINDISABLED', server.capabilities)
+            self.assertIn('AUTH=PLAIN', server.capabilities)
+            rs = server.login(self.username, self.password)
+            self.assertEqual(rs[0], 'OK')
+        finally:
+            server.logout()
+
     def test_logincapa(self):
-        for cap in self.server.capabilities:
-            self.assertIsInstance(cap, str)
-        self.assertNotIn('LOGINDISABLED', self.server.capabilities)
-        self.assertIn('AUTH=PLAIN', self.server.capabilities)
+        with transient_internet(self.host):
+            _server = self.imap_class(self.host, self.port)
+            self.check_logincapa(_server)
+
+    def test_logincapa_with_client_certfile(self):
+        with transient_internet(self.host):
+            _server = self.imap_class(self.host, self.port, certfile=CERTFILE)
+            self.check_logincapa(_server)
+
+    def test_logincapa_with_client_ssl_context(self):
+        with transient_internet(self.host):
+            _server = self.imap_class(self.host, self.port, ssl_context=self.create_ssl_context())
+            self.check_logincapa(_server)
+
+    def test_logout(self):
+        with transient_internet(self.host):
+            _server = self.imap_class(self.host, self.port)
+            rs = _server.logout()
+            self.assertEqual(rs[0], 'BYE')
+
+    def test_ssl_context_certfile_exclusive(self):
+        with transient_internet(self.host):
+            self.assertRaises(ValueError, self.imap_class, self.host, self.port,
+                              certfile=CERTFILE, ssl_context=self.create_ssl_context())
+
+    def test_ssl_context_keyfile_exclusive(self):
+        with transient_internet(self.host):
+            self.assertRaises(ValueError, self.imap_class, self.host, self.port,
+                              keyfile=CERTFILE, ssl_context=self.create_ssl_context())
 
 
-def test_main():
+def load_tests(*args):
     tests = [TestImaplib]
 
     if support.is_resource_enabled('network'):
@@ -396,9 +469,9 @@ def test_main():
             RemoteIMAPTest, RemoteIMAP_SSLTest, RemoteIMAP_STARTTLSTest,
         ])
 
-    support.run_unittest(*tests)
+    return unittest.TestSuite([unittest.makeSuite(test) for test in tests])
 
 
 if __name__ == "__main__":
     support.use_resources = ['network']
-    test_main()
+    unittest.main()

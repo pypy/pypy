@@ -8,6 +8,7 @@ import sys, os, re
 from distutils.core import Command
 from distutils.errors import *
 from distutils.sysconfig import customize_compiler, get_python_version
+from distutils.sysconfig import get_config_h_filename
 from distutils.dep_util import newer_group
 from distutils.extension import Extension
 from distutils.util import get_platform
@@ -159,6 +160,11 @@ class build_ext(Command):
         if isinstance(self.include_dirs, str):
             self.include_dirs = self.include_dirs.split(os.pathsep)
 
+        # If in a virtualenv, add its include directory
+        # Issue 16116
+        if sys.exec_prefix != sys.base_exec_prefix:
+            self.include_dirs.append(os.path.join(sys.exec_prefix, 'include'))
+
         # Put the Python "system" include dir at the end, so that
         # any local include dirs take precedence.
         self.include_dirs.append(py_include)
@@ -189,6 +195,8 @@ class build_ext(Command):
             # must be the *native* platform.  But we don't really support
             # cross-compiling via a binary install anyway, so we let it go.
             self.library_dirs.append(os.path.join(sys.exec_prefix, 'libs'))
+            if sys.base_exec_prefix != sys.prefix:  # Issue 16116
+                self.library_dirs.append(os.path.join(sys.base_exec_prefix, 'libs'))
             if self.debug:
                 self.build_temp = os.path.join(self.build_temp, "Debug")
             else:
@@ -196,8 +204,11 @@ class build_ext(Command):
 
             # Append the source distribution include and library directories,
             # this allows distutils on windows to work in the source tree
-            self.include_dirs.append(os.path.join(sys.exec_prefix, 'PC'))
-            if MSVC_VERSION == 9:
+            self.include_dirs.append(os.path.dirname(get_config_h_filename()))
+            _sys_home = getattr(sys, '_home', None)
+            if _sys_home:
+                self.library_dirs.append(_sys_home)
+            if MSVC_VERSION >= 9:
                 # Use the .lib files for the correct architecture
                 if self.plat_name == 'win32':
                     suffix = ''
@@ -236,12 +247,10 @@ class build_ext(Command):
                 # building python standard extensions
                 self.library_dirs.append('.')
 
-        # for extensions under Linux or Solaris with a shared Python library,
+        # For building extensions with a shared Python library,
         # Python's library directory must be appended to library_dirs
-        sysconfig.get_config_var('Py_ENABLE_SHARED')
-        if ((sys.platform.startswith('linux') or sys.platform.startswith('gnu')
-             or sys.platform.startswith('sunos'))
-            and sysconfig.get_config_var('Py_ENABLE_SHARED')):
+        # See Issues: #1600860, #4366
+        if (sysconfig.get_config_var('Py_ENABLE_SHARED')):
             if sys.executable.startswith(os.path.join(sys.exec_prefix, "bin")):
                 # building third party extensions
                 self.library_dirs.append(sysconfig.get_config_var('LIBDIR'))

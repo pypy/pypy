@@ -4,39 +4,18 @@
 # multiprocessing/util.py
 #
 # Copyright (c) 2006-2008, R Oudkerk
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of author nor the names of any contributors may be
-#    used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
+# Licensed to PSF under a Contributor Agreement.
 #
 
+import sys
+import functools
+import os
 import itertools
 import weakref
 import atexit
 import threading        # we want threading to install it's
                         # cleanup function before multiprocessing does
+from subprocess import _args_from_interpreter_flags
 
 from multiprocessing.process import current_process, active_children
 
@@ -84,7 +63,7 @@ def get_logger():
     Returns logger used by multiprocessing
     '''
     global _logger
-    import logging, atexit
+    import logging
 
     logging._acquireLock()
     try:
@@ -183,10 +162,15 @@ class Finalize(object):
         self._args = args
         self._kwargs = kwargs or {}
         self._key = (exitpriority, next(_finalizer_counter))
+        self._pid = os.getpid()
 
         _finalizer_registry[self._key] = self
 
-    def __call__(self, wr=None):
+    def __call__(self, wr=None,
+                 # Need to bind these locally because the globals can have
+                 # been cleared at shutdown
+                 _finalizer_registry=_finalizer_registry,
+                 sub_debug=sub_debug, getpid=os.getpid):
         '''
         Run the callback unless it has already been called or cancelled
         '''
@@ -195,9 +179,13 @@ class Finalize(object):
         except KeyError:
             sub_debug('finalizer no longer registered')
         else:
-            sub_debug('finalizer calling %s with args %s and kwargs %s',
-                     self._callback, self._args, self._kwargs)
-            res = self._callback(*self._args, **self._kwargs)
+            if self._pid != getpid():
+                sub_debug('finalizer ignored because different process')
+                res = None
+            else:
+                sub_debug('finalizer calling %s with args %s and kwargs %s',
+                          self._callback, self._args, self._kwargs)
+                res = self._callback(*self._args, **self._kwargs)
             self._weakref = self._callback = self._args = \
                             self._kwargs = self._key = None
             return res
@@ -299,16 +287,21 @@ def _exit_function(info=info, debug=debug, _run_finalizers=_run_finalizers,
         info('process shutting down')
         debug('running all "atexit" finalizers with priority >= 0')
         _run_finalizers(0)
+
         if current_process() is not None:
             # We check if the current process is None here because if
-            # it's None, any call to ``active_children()`` will raise an
-            # AttributeError (active_children winds up trying to get
-            # attributes from util._current_process).  This happens in a
-            # variety of shutdown circumstances that are not well-understood
-            # because module-scope variables are not apparently supposed to
-            # be destroyed until after this function is called.  However,
-            # they are indeed destroyed before this function is called.  See
-            # issues #9775 and #15881.  Also related: #4106, #9205, and #9207.
+            # it's None, any call to ``active_children()`` will raise
+            # an AttributeError (active_children winds up trying to
+            # get attributes from util._current_process).  One
+            # situation where this can happen is if someone has
+            # manipulated sys.modules, causing this module to be
+            # garbage collected.  The destructor for the module type
+            # then replaces all values in the module dict with None.
+            # For instance, after setuptools runs a test it replaces
+            # sys.modules with a copy created earlier.  See issues
+            # #9775 and #15881.  Also related: #4106, #9205, and
+            # #9207.
+
             for p in active_children():
                 if p._daemonic:
                     info('calling terminate() for daemon %s', p.name)
@@ -329,10 +322,13 @@ atexit.register(_exit_function)
 
 class ForkAwareThreadLock(object):
     def __init__(self):
+        self._reset()
+        register_after_fork(self, ForkAwareThreadLock._reset)
+
+    def _reset(self):
         self._lock = threading.Lock()
         self.acquire = self._lock.acquire
         self.release = self._lock.release
-        register_after_fork(self, ForkAwareThreadLock.__init__)
 
 class ForkAwareLocal(threading.local):
     def __init__(self):

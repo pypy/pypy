@@ -28,9 +28,12 @@ WIN64_MACHINE = True if machine() == "AMD64" else False
 # tests are only valid up until 6.1
 HAS_REFLECTION = True if WIN_VER < (6, 1) else False
 
-test_key_name = "SOFTWARE\\Python Registry Test Key - Delete Me"
+# Use a per-process key to prevent concurrent test runs (buildbot!) from
+# stomping on each other.
+test_key_base = "Python Test Key [%d] - Delete Me" % (os.getpid(),)
+test_key_name = "SOFTWARE\\" + test_key_base
 # On OS'es that support reflection we should test with a reflected key
-test_reflect_key_name = "SOFTWARE\\Classes\\Python Test Key - Delete Me"
+test_reflect_key_name = "SOFTWARE\\Classes\\" + test_key_base
 
 test_data = [
     ("Int Value",     45,                                      REG_DWORD),
@@ -454,6 +457,9 @@ class Win64WinregTests(BaseWinregTests):
             DeleteKeyEx(HKEY_CURRENT_USER, test_reflect_key_name,
                         KEY_WOW64_32KEY, 0)
 
+    def test_exception_numbers(self):
+        with self.assertRaises(FileNotFoundError) as ctx:
+            QueryValue(HKEY_CLASSES_ROOT, 'some_value_that_does_not_exist')
 
 def test_main():
     support.run_unittest(LocalWinregTests, RemoteWinregTests,

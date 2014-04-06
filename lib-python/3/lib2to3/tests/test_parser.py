@@ -77,7 +77,7 @@ class TestRaiseChanges(GrammarTest):
         self.invalid_syntax("raise E from")
 
 
-# Adapated from Python 3's Lib/test/test_grammar.py:GrammarTests.testFuncdef
+# Adaptated from Python 3's Lib/test/test_grammar.py:GrammarTests.testFuncdef
 class TestFunctionAnnotations(GrammarTest):
     def test_1(self):
         self.validate("""def f(x) -> list: pass""")
@@ -168,8 +168,8 @@ class TestParserIdempotency(support.TestCase):
         for filepath in support.all_project_files():
             with open(filepath, "rb") as fp:
                 encoding = tokenize.detect_encoding(fp.readline)[0]
-            self.assertTrue(encoding is not None,
-                            "can't detect encoding for %s" % filepath)
+            self.assertIsNotNone(encoding,
+                                 "can't detect encoding for %s" % filepath)
             with open(filepath, "r", encoding=encoding) as fp:
                 source = fp.read()
             try:

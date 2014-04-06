@@ -13,32 +13,7 @@
 #
 #
 # Copyright (c) 2006-2008, R Oudkerk
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of author nor the names of any contributors may be
-#    used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
+# Licensed to PSF under a Contributor Agreement.
 #
 
 __version__ = '0.70a1'
@@ -48,8 +23,8 @@ __all__ = [
     'Manager', 'Pipe', 'cpu_count', 'log_to_stderr', 'get_logger',
     'allow_connection_pickling', 'BufferTooShort', 'TimeoutError',
     'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore', 'Condition',
-    'Event', 'Queue', 'JoinableQueue', 'Pool', 'Value', 'Array',
-    'RawValue', 'RawArray', 'SUBDEBUG', 'SUBWARNING',
+    'Event', 'Barrier', 'Queue', 'SimpleQueue', 'JoinableQueue', 'Pool',
+    'Value', 'Array', 'RawValue', 'RawArray', 'SUBDEBUG', 'SUBWARNING',
     ]
 
 __author__ = 'R. Oudkerk (r.m.oudkerk@gmail.com)'
@@ -161,7 +136,9 @@ def allow_connection_pickling():
     '''
     Install support for sending connections and sockets between processes
     '''
-    from multiprocessing import reduction
+    # This is undocumented.  In previous versions of multiprocessing
+    # its only effect was to make socket objects inheritable on Windows.
+    import multiprocessing.connection
 
 #
 # Definitions depending on native semaphores
@@ -209,6 +186,13 @@ def Event():
     from multiprocessing.synchronize import Event
     return Event()
 
+def Barrier(parties, action=None, timeout=None):
+    '''
+    Returns a barrier object
+    '''
+    from multiprocessing.synchronize import Barrier
+    return Barrier(parties, action, timeout)
+
 def Queue(maxsize=0):
     '''
     Returns a queue object
@@ -222,6 +206,13 @@ def JoinableQueue(maxsize=0):
     '''
     from multiprocessing.queues import JoinableQueue
     return JoinableQueue(maxsize)
+
+def SimpleQueue():
+    '''
+    Returns a queue object
+    '''
+    from multiprocessing.queues import SimpleQueue
+    return SimpleQueue()
 
 def Pool(processes=None, initializer=None, initargs=(), maxtasksperchild=None):
     '''
@@ -244,19 +235,19 @@ def RawArray(typecode_or_type, size_or_initializer):
     from multiprocessing.sharedctypes import RawArray
     return RawArray(typecode_or_type, size_or_initializer)
 
-def Value(typecode_or_type, *args, **kwds):
+def Value(typecode_or_type, *args, lock=True):
     '''
     Returns a synchronized shared object
     '''
     from multiprocessing.sharedctypes import Value
-    return Value(typecode_or_type, *args, **kwds)
+    return Value(typecode_or_type, *args, lock=lock)
 
-def Array(typecode_or_type, size_or_initializer, **kwds):
+def Array(typecode_or_type, size_or_initializer, *, lock=True):
     '''
     Returns a synchronized shared array
     '''
     from multiprocessing.sharedctypes import Array
-    return Array(typecode_or_type, size_or_initializer, **kwds)
+    return Array(typecode_or_type, size_or_initializer, lock=lock)
 
 #
 #

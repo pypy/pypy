@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import unittest
 import random
 import time
@@ -8,7 +6,7 @@ import warnings
 from math import log, exp, pi, fsum, sin
 from test import support
 
-class TestBasicOps(unittest.TestCase):
+class TestBasicOps:
     # Superclass with tests common to all generators.
     # Subclasses must arrange for self.gen to retrieve the Random instance
     # to be tested.
@@ -34,8 +32,12 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(randseq, self.randomlist(N))
 
     def test_seedargs(self):
+        # Seed value with a negative hash.
+        class MySeed(object):
+            def __hash__(self):
+                return -1729
         for arg in [None, 0, 0, 1, 1, -1, -1, 10**20, -(10**20),
-                    3.14, 1+2j, 'a', tuple('abc')]:
+                    3.14, 1+2j, 'a', tuple('abc'), MySeed()]:
             self.gen.seed(arg)
         for arg in [list(range(3)), dict(one=1)]:
             self.assertRaises(TypeError, self.gen.seed, arg)
@@ -138,7 +140,15 @@ class TestBasicOps(unittest.TestCase):
         k = sum(randrange(6755399441055744) % 3 == 2 for i in range(n))
         self.assertTrue(0.30 < k/n < .37, (k/n))
 
-class SystemRandom_TestBasicOps(TestBasicOps):
+try:
+    random.SystemRandom().random()
+except NotImplementedError:
+    SystemRandom_available = False
+else:
+    SystemRandom_available = True
+
+@unittest.skipUnless(SystemRandom_available, "random.SystemRandom not available")
+class SystemRandom_TestBasicOps(TestBasicOps, unittest.TestCase):
     gen = random.SystemRandom()
 
     def test_autoseed(self):
@@ -182,10 +192,10 @@ class SystemRandom_TestBasicOps(TestBasicOps):
 
     def test_bigrand_ranges(self):
         for i in [40,80, 160, 200, 211, 250, 375, 512, 550]:
-            start = self.gen.randrange(2 ** i)
-            stop = self.gen.randrange(2 ** (i-2))
+            start = self.gen.randrange(2 ** (i-2))
+            stop = self.gen.randrange(2 ** i)
             if stop <= start:
-                return
+                continue
             self.assertTrue(start <= self.gen.randrange(start, stop) < stop)
 
     def test_rangelimits(self):
@@ -235,7 +245,7 @@ class SystemRandom_TestBasicOps(TestBasicOps):
             self.assertTrue(2**k > n > 2**(k-1))   # note the stronger assertion
 
 
-class MersenneTwister_TestBasicOps(TestBasicOps):
+class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
     gen = random.Random()
 
     def test_guaranteed_stable(self):
@@ -345,10 +355,10 @@ class MersenneTwister_TestBasicOps(TestBasicOps):
 
     def test_bigrand_ranges(self):
         for i in [40,80, 160, 200, 211, 250, 375, 512, 550]:
-            start = self.gen.randrange(2 ** i)
-            stop = self.gen.randrange(2 ** (i-2))
+            start = self.gen.randrange(2 ** (i-2))
+            stop = self.gen.randrange(2 ** i)
             if stop <= start:
-                return
+                continue
             self.assertTrue(start <= self.gen.randrange(start, stop) < stop)
 
     def test_rangelimits(self):
@@ -538,28 +548,5 @@ class TestModule(unittest.TestCase):
         Subclass(newarg=1)
 
 
-def test_main(verbose=None):
-    testclasses =    [MersenneTwister_TestBasicOps,
-                      TestDistributions,
-                      TestModule]
-
-    try:
-        random.SystemRandom().random()
-    except NotImplementedError:
-        pass
-    else:
-        testclasses.append(SystemRandom_TestBasicOps)
-
-    support.run_unittest(*testclasses)
-
-    # verify reference counting
-    import sys
-    if verbose and hasattr(sys, "gettotalrefcount"):
-        counts = [None] * 5
-        for i in range(len(counts)):
-            support.run_unittest(*testclasses)
-            counts[i] = sys.gettotalrefcount()
-        print(counts)
-
 if __name__ == "__main__":
-    test_main(verbose=True)
+    unittest.main()

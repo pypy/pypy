@@ -1,19 +1,7 @@
-"""Concrete date/time and related types -- prototype implemented in Python.
+"""Concrete date/time and related types.
 
-See http://www.zope.org/Members/fdrake/DateTimeWiki/FrontPage
-
-See also http://dir.yahoo.com/Reference/calendars/
-
-For a primer on DST, including many current DST rules, see
-http://webexhibits.org/daylightsaving/
-
-For more about DST than you ever wanted to know, see
-ftp://elsie.nci.nih.gov/pub/
-
-Sources for time zone and DST data: http://www.twinsun.com/tz/tz-link.htm
-
-This was originally copied from the sandbox of the CPython CVS repository.
-Thanks to Tim Peters for suggesting using it.
+See http://www.iana.org/time-zones/repository/tz-link.html for
+time zone and DST data sources.
 """
 
 import time as _time
@@ -61,7 +49,7 @@ def _days_in_month(year, month):
     return _DAYS_IN_MONTH[month]
 
 def _days_before_month(year, month):
-    "year, month -> number of days in year preceeding first day of month."
+    "year, month -> number of days in year preceding first day of month."
     assert 1 <= month <= 12, 'month must be in 1..12'
     return _DAYS_BEFORE_MONTH[month] + (month > 2 and _is_leap(year))
 
@@ -172,10 +160,6 @@ def _format_time(hh, mm, ss, us):
 
 # Correctly substitute for %z and %Z escapes in strftime formats.
 def _wrap_strftime(object, format, timetuple):
-    year = timetuple[0]
-    if year < 1000:
-        raise ValueError("year=%d is before 1000; the datetime strftime() "
-                         "methods require year >= 1000" % year)
     # Don't call utcoffset() or tzname() unless actually needed.
     freplace = None # the string to use for %f
     zreplace = None # the string to use for %z
@@ -303,7 +287,7 @@ class timedelta:
     - add, subtract timedelta
     - unary plus, minus, abs
     - compare to timedelta
-    - multiply, divide by int/long
+    - multiply, divide by int
 
     In addition, datetime supports subtraction of two datetime objects
     returning a timedelta, and addition or subtraction of a datetime
@@ -1069,13 +1053,13 @@ class time:
 
     def __eq__(self, other):
         if isinstance(other, time):
-            return self._cmp(other) == 0
+            return self._cmp(other, allow_mixed=True) == 0
         else:
             return False
 
     def __ne__(self, other):
         if isinstance(other, time):
-            return self._cmp(other) != 0
+            return self._cmp(other, allow_mixed=True) != 0
         else:
             return True
 
@@ -1103,7 +1087,7 @@ class time:
         else:
             _cmperror(self, other)
 
-    def _cmp(self, other):
+    def _cmp(self, other, allow_mixed=False):
         assert isinstance(other, time)
         mytz = self._tzinfo
         ottz = other._tzinfo
@@ -1122,7 +1106,10 @@ class time:
                        (other._hour, other._minute, other._second,
                         other._microsecond))
         if myoff is None or otoff is None:
-            raise TypeError("cannot compare naive and aware times")
+            if allow_mixed:
+                return 2 # arbitrary non-zero value
+            else:
+                raise TypeError("cannot compare naive and aware times")
         myhhmm = self._hour * 60 + self._minute - myoff//timedelta(minutes=1)
         othhmm = other._hour * 60 + other._minute - otoff//timedelta(minutes=1)
         return _cmp((myhhmm, self._second, self._microsecond),
@@ -1303,7 +1290,7 @@ class datetime(date):
     """datetime(year, month, day[, hour[, minute[, second[, microsecond[,tzinfo]]]]])
 
     The year, month and day arguments are required. tzinfo may be None, or an
-    instance of a tzinfo subclass. The remaining arguments may be ints or longs.
+    instance of a tzinfo subclass. The remaining arguments may be ints.
     """
 
     __slots__ = date.__slots__ + (
@@ -1364,7 +1351,7 @@ class datetime(date):
         converter = _time.localtime if tz is None else _time.gmtime
 
         t, frac = divmod(t, 1.0)
-        us = round(frac * 1e6)
+        us = int(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
@@ -1384,7 +1371,7 @@ class datetime(date):
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
         t, frac = divmod(t, 1.0)
-        us = round(frac * 1e6)
+        us = int(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
@@ -1438,6 +1425,15 @@ class datetime(date):
                                   self.hour, self.minute, self.second,
                                   dst)
 
+    def timestamp(self):
+        "Return POSIX timestamp as float"
+        if self._tzinfo is None:
+            return _time.mktime((self.year, self.month, self.day,
+                                 self.hour, self.minute, self.second,
+                                 -1, -1, -1)) + self.microsecond / 1e6
+        else:
+            return (self - _EPOCH).total_seconds()
+
     def utctimetuple(self):
         "Return UTC time tuple compatible with time.gmtime()."
         offset = self.utcoffset()
@@ -1485,8 +1481,32 @@ class datetime(date):
         return datetime(year, month, day, hour, minute, second,
                           microsecond, tzinfo)
 
-    def astimezone(self, tz):
-        if not isinstance(tz, tzinfo):
+    def astimezone(self, tz=None):
+        if tz is None:
+            if self.tzinfo is None:
+                raise ValueError("astimezone() requires an aware datetime")
+            ts = (self - _EPOCH) // timedelta(seconds=1)
+            localtm = _time.localtime(ts)
+            local = datetime(*localtm[:6])
+            try:
+                # Extract TZ data if available
+                gmtoff = localtm.tm_gmtoff
+                zone = localtm.tm_zone
+            except AttributeError:
+                # Compute UTC offset and compare with the value implied
+                # by tm_isdst.  If the values match, use the zone name
+                # implied by tm_isdst.
+                delta = local - datetime(*_time.gmtime(ts)[:6])
+                dst = _time.daylight and localtm.tm_isdst > 0
+                gmtoff = -(_time.altzone if dst else _time.timezone)
+                if delta == timedelta(seconds=gmtoff):
+                    tz = timezone(delta, _time.tzname[dst])
+                else:
+                    tz = timezone(delta)
+            else:
+                tz = timezone(timedelta(seconds=gmtoff), zone)
+
+        elif not isinstance(tz, tzinfo):
             raise TypeError("tz argument must be an instance of tzinfo")
 
         mytz = self.tzinfo
@@ -1610,7 +1630,7 @@ class datetime(date):
 
     def __eq__(self, other):
         if isinstance(other, datetime):
-            return self._cmp(other) == 0
+            return self._cmp(other, allow_mixed=True) == 0
         elif not isinstance(other, date):
             return NotImplemented
         else:
@@ -1618,7 +1638,7 @@ class datetime(date):
 
     def __ne__(self, other):
         if isinstance(other, datetime):
-            return self._cmp(other) != 0
+            return self._cmp(other, allow_mixed=True) != 0
         elif not isinstance(other, date):
             return NotImplemented
         else:
@@ -1656,7 +1676,7 @@ class datetime(date):
         else:
             _cmperror(self, other)
 
-    def _cmp(self, other):
+    def _cmp(self, other, allow_mixed=False):
         assert isinstance(other, datetime)
         mytz = self._tzinfo
         ottz = other._tzinfo
@@ -1665,10 +1685,8 @@ class datetime(date):
         if mytz is ottz:
             base_compare = True
         else:
-            if mytz is not None:
-                myoff = self.utcoffset()
-            if ottz is not None:
-                otoff = other.utcoffset()
+            myoff = self.utcoffset()
+            otoff = other.utcoffset()
             base_compare = myoff == otoff
 
         if base_compare:
@@ -1679,7 +1697,10 @@ class datetime(date):
                         other._hour, other._minute, other._second,
                         other._microsecond))
         if myoff is None or otoff is None:
-            raise TypeError("cannot compare naive and aware datetimes")
+            if allow_mixed:
+                return 2 # arbitrary non-zero value
+            else:
+                raise TypeError("cannot compare naive and aware datetimes")
         # XXX What follows could be done more efficiently...
         diff = self - other     # this will take offsets into account
         if diff.days < 0:
@@ -1895,7 +1916,7 @@ class timezone(tzinfo):
 timezone.utc = timezone._create(timedelta(0))
 timezone.min = timezone._create(timezone._minoffset)
 timezone.max = timezone._create(timezone._maxoffset)
-
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 """
 Some time zone algebra.  For a datetime x, let
     x.n = x stripped of its timezone -- its naive time.

@@ -9,7 +9,6 @@ class TestUntestedModules(unittest.TestCase):
         with support.check_warnings(quiet=True):
             import bdb
             import cgitb
-            import code
 
             import distutils.bcppcompiler
             import distutils.ccompiler
@@ -42,11 +41,8 @@ class TestUntestedModules(unittest.TestCase):
 
             import encodings
             import formatter
-            import getpass
             import html.entities
-            import imghdr
             import keyword
-            import macurl2path
             import mailcap
             import nturl2path
             import os2emxpath

@@ -10,6 +10,7 @@
 
 import _markupbase
 import re
+import warnings
 
 # Regular expressions used for parsing
 
@@ -22,16 +23,16 @@ charref = re.compile('&#(?:[0-9]+|[xX][0-9a-fA-F]+)[^0-9a-fA-F]')
 starttagopen = re.compile('<[a-zA-Z]')
 piclose = re.compile('>')
 commentclose = re.compile(r'--\s*>')
-tagfind = re.compile('([a-zA-Z][-.a-zA-Z0-9:_]*)(?:\s|/(?!>))*')
-# see http://www.w3.org/TR/html5/tokenization.html#tag-open-state
-# and http://www.w3.org/TR/html5/tokenization.html#tag-name-state
-tagfind_tolerant = re.compile('[a-zA-Z][^\t\n\r\f />\x00]*')
 # Note:
 #  1) the strict attrfind isn't really strict, but we can't make it
 #     correctly strict without breaking backward compatibility;
-#  2) if you change attrfind remember to update locatestarttagend too;
-#  3) if you change attrfind and/or locatestarttagend the parser will
+#  2) if you change tagfind/attrfind remember to update locatestarttagend too;
+#  3) if you change tagfind/attrfind and/or locatestarttagend the parser will
 #     explode, so don't do it.
+tagfind = re.compile('([a-zA-Z][-.a-zA-Z0-9:_]*)(?:\s|/(?!>))*')
+# see http://www.w3.org/TR/html5/tokenization.html#tag-open-state
+# and http://www.w3.org/TR/html5/tokenization.html#tag-name-state
+tagfind_tolerant = re.compile('([a-zA-Z][^\t\n\r\f />\x00]*)(?:\s|/(?!>))*')
 attrfind = re.compile(
     r'\s*([a-zA-Z_][-.:a-zA-Z_0-9]*)(\s*=\s*'
     r'(\'[^\']*\'|"[^"]*"|[^\s"\'=<>`]*))?')
@@ -53,7 +54,7 @@ locatestarttagend = re.compile(r"""
   \s*                                # trailing whitespace
 """, re.VERBOSE)
 locatestarttagend_tolerant = re.compile(r"""
-  <[a-zA-Z][-.a-zA-Z0-9:_]*          # tag name
+  <[a-zA-Z][^\t\n\r\f />\x00]*       # tag name
   (?:[\s/]*                          # optional whitespace before attribute name
     (?:(?<=['"\s/])[^\s/>][^\s/=>]*  # attribute name
       (?:\s*=+\s*                    # value indicator
@@ -113,14 +114,16 @@ class HTMLParser(_markupbase.ParserBase):
 
     CDATA_CONTENT_ELEMENTS = ("script", "style")
 
-    def __init__(self, strict=True):
+    def __init__(self, strict=False):
         """Initialize and reset this instance.
 
-        If strict is set to True (the default), errors are raised when invalid
-        HTML is encountered.  If set to False, an attempt is instead made to
-        continue parsing, making "best guesses" about the intended meaning, in
-        a fashion similar to what browsers typically do.
+        If strict is set to False (the default) the parser will parse invalid
+        markup, otherwise it will raise an error.  Note that the strict mode
+        is deprecated.
         """
+        if strict:
+            warnings.warn("The strict mode is deprecated.",
+                          DeprecationWarning, stacklevel=2)
         self.strict = strict
         self.reset()
 
@@ -225,9 +228,9 @@ class HTMLParser(_markupbase.ParserBase):
                     i = self.updatepos(i, k)
                     continue
                 else:
-                    if ";" in rawdata[i:]: #bail by consuming &#
-                        self.handle_data(rawdata[0:2])
-                        i = self.updatepos(i, 2)
+                    if ";" in rawdata[i:]:  # bail by consuming &#
+                        self.handle_data(rawdata[i:i+2])
+                        i = self.updatepos(i, i+2)
                     break
             elif startswith('&', i):
                 match = entityref.match(rawdata, i)
@@ -246,6 +249,7 @@ class HTMLParser(_markupbase.ParserBase):
                         if self.strict:
                             self.error("EOF in middle of entity or char ref")
                         else:
+                            k = match.end()
                             if k <= i:
                                 k = n
                             i = self.updatepos(i, i + 1)
@@ -271,8 +275,8 @@ class HTMLParser(_markupbase.ParserBase):
     # See also parse_declaration in _markupbase
     def parse_html_declaration(self, i):
         rawdata = self.rawdata
-        if rawdata[i:i+2] != '<!':
-            self.error('unexpected call to parse_html_declaration()')
+        assert rawdata[i:i+2] == '<!', ('unexpected call to '
+                                        'parse_html_declaration()')
         if rawdata[i:i+4] == '<!--':
             # this case is actually already handled in goahead()
             return self.parse_comment(i)
@@ -292,8 +296,8 @@ class HTMLParser(_markupbase.ParserBase):
     # see http://www.w3.org/TR/html5/tokenization.html#bogus-comment-state
     def parse_bogus_comment(self, i, report=1):
         rawdata = self.rawdata
-        if rawdata[i:i+2] not in ('<!', '</'):
-            self.error('unexpected call to parse_comment()')
+        assert rawdata[i:i+2] in ('<!', '</'), ('unexpected call to '
+                                                'parse_comment()')
         pos = rawdata.find('>', i+2)
         if pos == -1:
             return -1
@@ -324,7 +328,10 @@ class HTMLParser(_markupbase.ParserBase):
 
         # Now parse the data between i+1 and j into a tag and attrs
         attrs = []
-        match = tagfind.match(rawdata, i+1)
+        if self.strict:
+            match = tagfind.match(rawdata, i+1)
+        else:
+            match = tagfind_tolerant.match(rawdata, i+1)
         assert match, 'unexpected call to parse_starttag()'
         k = match.end()
         self.lasttag = tag = match.group(1).lower()
@@ -436,7 +443,7 @@ class HTMLParser(_markupbase.ParserBase):
                     return i+3
                 else:
                     return self.parse_bogus_comment(i)
-            tagname = namematch.group().lower()
+            tagname = namematch.group(1).lower()
             # consume and ignore other stuff between the name and the >
             # Note: this is not 100% correct, since we might have things like
             # </tag attr=">">, but looking for > after tha name should cover
@@ -497,7 +504,6 @@ class HTMLParser(_markupbase.ParserBase):
             self.error("unknown declaration: %r" % (data,))
 
     # Internal -- helper to remove special character quoting
-    entitydefs = None
     def unescape(self, s):
         if '&' not in s:
             return s
@@ -507,24 +513,23 @@ class HTMLParser(_markupbase.ParserBase):
                 if s[0] == "#":
                     s = s[1:]
                     if s[0] in ['x','X']:
-                        c = int(s[1:], 16)
+                        c = int(s[1:].rstrip(';'), 16)
                     else:
-                        c = int(s)
+                        c = int(s.rstrip(';'))
                     return chr(c)
             except ValueError:
-                return '&#'+ s +';'
+                return '&#' + s
             else:
-                # Cannot use name2codepoint directly, because HTMLParser
-                # supports apos, which is not part of HTML 4
-                import html.entities
-                if HTMLParser.entitydefs is None:
-                    entitydefs = HTMLParser.entitydefs = {'apos':"'"}
-                    for k, v in html.entities.name2codepoint.items():
-                        entitydefs[k] = chr(v)
-                try:
-                    return self.entitydefs[s]
-                except KeyError:
-                    return '&'+s+';'
+                from html.entities import html5
+                if s in html5:
+                    return html5[s]
+                elif s.endswith(';'):
+                    return '&' + s
+                for x in range(2, len(s)):
+                    if s[:x] in html5:
+                        return html5[s[:x]] + s[x:]
+                else:
+                    return '&' + s
 
-        return re.sub(r"&(#?[xX]?(?:[0-9a-fA-F]+|\w{1,8}));",
+        return re.sub(r"&(#?[xX]?(?:[0-9a-fA-F]+;|\w{1,32};?))",
                       replaceEntities, s, flags=re.ASCII)

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import unittest
 from test import support
 
@@ -98,15 +96,14 @@ class urlopenNetworkTests(unittest.TestCase):
                 open_url.close()
             self.assertEqual(code, 404)
 
+    # On Windows, socket handles are not file descriptors; this
+    # test can't pass on Windows.
+    @unittest.skipIf(sys.platform in ('win32',), 'not appropriate for Windows')
     def test_fileno(self):
-        if sys.platform in ('win32',):
-            # On Windows, socket handles are not file descriptors; this
-            # test can't pass on Windows.
-            return
         # Make sure fd returned by fileno is valid.
         with self.urlopen("http://www.python.org/", timeout=None) as open_url:
             fd = open_url.fileno()
-            with os.fdopen(fd, encoding='utf-8') as f:
+            with os.fdopen(fd, 'rb') as f:
                 self.assertTrue(f.read(), "reading from file created using fd "
                                           "returned by fileno failed")
 
@@ -116,7 +113,10 @@ class urlopenNetworkTests(unittest.TestCase):
         bogus_domain = "sadflkjsasf.i.nvali.d"
         try:
             socket.gethostbyname(bogus_domain)
-        except socket.gaierror:
+        except OSError:
+            # socket.gaierror is too narrow, since getaddrinfo() may also
+            # fail with EAI_SYSTEM and ETIMEDOUT (seen on Ubuntu 13.04),
+            # i.e. Python's TimeoutError.
             pass
         else:
             # This happens with some overzealous DNS providers such as OpenDNS
@@ -137,10 +137,10 @@ class urlretrieveNetworkTests(unittest.TestCase):
     """Tests urllib.request.urlretrieve using the network."""
 
     @contextlib.contextmanager
-    def urlretrieve(self, *args):
+    def urlretrieve(self, *args, **kwargs):
         resource = args[0]
         with support.transient_internet(resource):
-            file_location, info = urllib.request.urlretrieve(*args)
+            file_location, info = urllib.request.urlretrieve(*args, **kwargs)
             try:
                 yield file_location, info
             finally:
@@ -151,7 +151,7 @@ class urlretrieveNetworkTests(unittest.TestCase):
         with self.urlretrieve("http://www.python.org/") as (file_location, info):
             self.assertTrue(os.path.exists(file_location), "file location returned by"
                             " urlretrieve is not a valid path")
-            with open(file_location, encoding='utf-8') as f:
+            with open(file_location, 'rb') as f:
                 self.assertTrue(f.read(), "reading from the file location returned"
                                 " by urlretrieve failed")
 
@@ -161,7 +161,7 @@ class urlretrieveNetworkTests(unittest.TestCase):
                               support.TESTFN) as (file_location, info):
             self.assertEqual(file_location, support.TESTFN)
             self.assertTrue(os.path.exists(file_location))
-            with open(file_location, encoding='utf-8') as f:
+            with open(file_location, 'rb') as f:
                 self.assertTrue(f.read(), "reading from temporary file failed")
 
     def test_header(self):
@@ -170,15 +170,41 @@ class urlretrieveNetworkTests(unittest.TestCase):
             self.assertIsInstance(info, email.message.Message,
                                   "info is not an instance of email.message.Message")
 
+    logo = "http://www.python.org/static/community_logos/python-logo-master-v3-TM.png"
+
     def test_data_header(self):
-        logo = "http://www.python.org/community/logos/python-logo-master-v3-TM.png"
-        with self.urlretrieve(logo) as (file_location, fileheaders):
+        with self.urlretrieve(self.logo) as (file_location, fileheaders):
             datevalue = fileheaders.get('Date')
             dateformat = '%a, %d %b %Y %H:%M:%S GMT'
             try:
                 time.strptime(datevalue, dateformat)
             except ValueError:
                 self.fail('Date value not in %r format', dateformat)
+
+    def test_reporthook(self):
+        records = []
+        def recording_reporthook(blocks, block_size, total_size):
+            records.append((blocks, block_size, total_size))
+
+        with self.urlretrieve(self.logo, reporthook=recording_reporthook) as (
+                file_location, fileheaders):
+            expected_size = int(fileheaders['Content-Length'])
+
+        records_repr = repr(records)  # For use in error messages.
+        self.assertGreater(len(records), 1, msg="There should always be two "
+                           "calls; the first one before the transfer starts.")
+        self.assertEqual(records[0][0], 0)
+        self.assertGreater(records[0][1], 0,
+                           msg="block size can't be 0 in %s" % records_repr)
+        self.assertEqual(records[0][2], expected_size)
+        self.assertEqual(records[-1][2], expected_size)
+
+        block_sizes = {block_size for _, block_size, _ in records}
+        self.assertEqual({records[0][1]}, block_sizes,
+                         msg="block sizes in %s must be equal" % records_repr)
+        self.assertGreaterEqual(records[-1][0]*records[0][1], expected_size,
+                                msg="number of blocks * block size must be"
+                                " >= total size in %s" % records_repr)
 
 
 def test_main():

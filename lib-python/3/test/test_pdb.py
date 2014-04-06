@@ -1,5 +1,6 @@
 # A test suite for pdb; not very comprehensive at the moment.
 
+import doctest
 import imp
 import pdb
 import sys
@@ -21,9 +22,12 @@ class PdbTestInput(object):
     def __enter__(self):
         self.real_stdin = sys.stdin
         sys.stdin = _FakeInput(self.input)
+        self.orig_trace = sys.gettrace() if hasattr(sys, 'gettrace') else None
 
     def __exit__(self, *exc):
         sys.stdin = self.real_stdin
+        if self.orig_trace:
+            sys.settrace(self.orig_trace)
 
 
 def test_pdb_displayhook():
@@ -698,11 +702,11 @@ class PdbTestCase(unittest.TestCase):
         support.unlink(support.TESTFN)
 
 
-def test_main():
+def load_tests(*args):
     from test import test_pdb
-    support.run_doctest(test_pdb, verbosity=True)
-    support.run_unittest(PdbTestCase)
+    suites = [unittest.makeSuite(PdbTestCase), doctest.DocTestSuite(test_pdb)]
+    return unittest.TestSuite(suites)
 
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

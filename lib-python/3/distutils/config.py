@@ -21,7 +21,7 @@ password:%s
 class PyPIRCCommand(Command):
     """Base command that knows how to handle the .pypirc file
     """
-    DEFAULT_REPOSITORY = 'http://pypi.python.org/pypi'
+    DEFAULT_REPOSITORY = 'https://pypi.python.org/pypi'
     DEFAULT_REALM = 'pypi'
     repository = None
     realm = None
@@ -100,6 +100,13 @@ class PyPIRCCommand(Command):
                         'realm': self.DEFAULT_REALM}
 
         return {}
+
+    def _read_pypi_response(self, response):
+        """Read and decode a PyPI HTTP response."""
+        import cgi
+        content_type = response.getheader('content-type', 'text/plain')
+        encoding = cgi.parse_header(content_type)[1].get('charset', 'ascii')
+        return response.read().decode(encoding)
 
     def initialize_options(self):
         """Initialize options."""

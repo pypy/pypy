@@ -678,13 +678,14 @@ if __name__ == '__main__':
                 return stop
             return None
 
-    import sys
     if len(sys.argv) > 1:
         initprofile = sys.argv[1]
     else:
         initprofile = None
     try:
         browser = ProfileBrowser(initprofile)
+        for profile in sys.argv[2:]:
+            browser.do_add(profile)
         print("Welcome to the profile statistics browser.", file=browser.stream)
         browser.cmdloop()
         print("Goodbye.", file=browser.stream)

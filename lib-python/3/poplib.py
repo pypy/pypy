@@ -32,6 +32,12 @@ CR = b'\r'
 LF = b'\n'
 CRLF = CR+LF
 
+# maximal line length when calling readline(). This is to prevent
+# reading arbitrary lenght lines. RFC 1939 limits POP3 line length to
+# 512 characters, including CRLF. We have selected 2048 just to be on
+# the safe side.
+_MAXLINE = 2048
+
 
 class POP3:
 
@@ -107,7 +113,10 @@ class POP3:
     # Raise error_proto('-ERR EOF') if the connection is closed.
 
     def _getline(self):
-        line = self.file.readline()
+        line = self.file.readline(_MAXLINE + 1)
+        if len(line) > _MAXLINE:
+            raise error_proto('line too long')
+
         if self._debugging > 1: print('*get*', repr(line))
         if not line: raise error_proto('-ERR EOF')
         octets = len(line)
@@ -250,14 +259,17 @@ class POP3:
 
     def quit(self):
         """Signoff: commit changes on server, unlock mailbox, close connection."""
-        try:
-            resp = self._shortcmd('QUIT')
-        except error_proto as val:
-            resp = val
-        self.file.close()
-        self.sock.close()
-        del self.file, self.sock
+        resp = self._shortcmd('QUIT')
+        self.close()
         return resp
+
+    def close(self):
+        """Close the connection without assuming anything about it."""
+        if self.file is not None:
+            self.file.close()
+        if self.sock is not None:
+            self.sock.close()
+        self.file = self.sock = None
 
     #__del__ = quit
 
@@ -325,7 +337,7 @@ else:
 
                hostname - the hostname of the pop3 over ssl server
                port - port number
-               keyfile - PEM formatted file that countains your private key
+               keyfile - PEM formatted file that contains your private key
                certfile - PEM formatted certificate chain file
 
         See the methods of the parent class POP3 for more documentation.
