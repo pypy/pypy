@@ -1468,10 +1468,11 @@ class GeneratorExp(expr):
 
 class Yield(expr):
 
-    def __init__(self, value, lineno, col_offset):
+    def __init__(self, is_from, value, lineno, col_offset):
+        self.is_from = is_from
         self.value = value
         expr.__init__(self, lineno, col_offset)
-        self.initialization_state = 7
+        self.initialization_state = 15
 
     def walkabout(self, visitor):
         visitor.visit_Yield(self)
@@ -1482,10 +1483,10 @@ class Yield(expr):
         return visitor.visit_Yield(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~4) ^ 3:
-            self.missing_field(space, ['lineno', 'col_offset', None], 'Yield')
+        if (self.initialization_state & ~8) ^ 7:
+            self.missing_field(space, ['lineno', 'col_offset', 'is_from', None], 'Yield')
         else:
-            if not self.initialization_state & 4:
+            if not self.initialization_state & 8:
                 self.value = None
         if self.value:
             self.value.sync_app_attrs(space)
@@ -5918,12 +5919,40 @@ GeneratorExp.typedef = typedef.TypeDef("GeneratorExp",
     __init__=interp2app(GeneratorExp_init),
 )
 
+def Yield_get_is_from(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'is_from')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 4:
+        raise_attriberr(space, w_self, 'is_from')
+    return space.wrap(w_self.is_from)
+
+def Yield_set_is_from(space, w_self, w_new_value):
+    try:
+        w_self.is_from = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'is_from', w_new_value)
+        w_self.initialization_state &= ~4
+        return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'is_from', w_new_value)
+    w_self.initialization_state |= 4
+
+def Yield_del_is_from(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    Yield_get_is_from(space, w_self)
+    w_self.deldictvalue(space, 'is_from')
+    w_self.initialization_state &= ~4
+
 def Yield_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'value')
     return space.wrap(w_self.value)
 
@@ -5936,24 +5965,24 @@ def Yield_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
-        w_self.initialization_state &= ~4
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 8
 
 def Yield_del_value(space, w_self):
     # Check if the element exists, raise appropriate exceptions
     Yield_get_value(space, w_self)
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state &= ~4
+    w_self.initialization_state &= ~8
 
-_Yield_field_unroller = unrolling_iterable(['value'])
+_Yield_field_unroller = unrolling_iterable(['is_from', 'value'])
 def Yield_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Yield, w_self)
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        if len(args_w) != 1:
-            w_err = space.wrap("Yield constructor takes either 0 or 1 positional argument")
+        if len(args_w) != 2:
+            w_err = space.wrap("Yield constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Yield_field_unroller:
@@ -5965,7 +5994,8 @@ def Yield_init(space, w_self, __args__):
 Yield.typedef = typedef.TypeDef("Yield",
     expr.typedef,
     __module__='_ast',
-    _fields=_FieldsWrapper(['value']),
+    _fields=_FieldsWrapper(['is_from', 'value']),
+    is_from=typedef.GetSetProperty(Yield_get_is_from, Yield_set_is_from, Yield_del_is_from, cls=Yield),
     value=typedef.GetSetProperty(Yield_get_value, Yield_set_value, Yield_del_value, cls=Yield),
     __new__=interp2app(get_AST_new(Yield)),
     __init__=interp2app(Yield_init),
