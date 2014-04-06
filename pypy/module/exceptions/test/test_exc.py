@@ -271,3 +271,9 @@ class AppTestExc(object):
             pass
         assert '日本2' in repr(日本2)
         """
+
+    def test_stopiteration(self):
+        assert StopIteration().value is None
+        assert StopIteration(42).value == 42
+        assert StopIteration(42, 5).value == 42
+

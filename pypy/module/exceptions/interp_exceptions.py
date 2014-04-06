@@ -348,8 +348,28 @@ W_KeyError = _new_exception('KeyError', W_LookupError,
                             """Mapping key not found.""",
                             __str__ = key_error_str)
 
-W_StopIteration = _new_exception('StopIteration', W_Exception,
-                                 """Signal the end from iterator.__next__().""")
+
+class W_StopIteration(W_Exception):
+    """Signal the end from iterator.__next__()."""
+    def __init__(self, space):
+        self.w_value = space.w_None
+        W_Exception.__init__(self, space)
+
+    def descr_init(self, space, args_w):
+        if len(args_w) > 0:
+            self.w_value = args_w[0]
+        W_Exception.descr_init(self, space, args_w)
+
+W_StopIteration.typedef = TypeDef(
+    'StopIteration',
+    W_Exception.typedef,
+    __doc__ = W_StopIteration.__doc__,
+    __module__ = 'builtins',
+    __new__ = _new(W_StopIteration),
+    __init__ = interp2app(W_StopIteration.descr_init),
+    value = readwrite_attrproperty_w('w_value', W_StopIteration),
+)
+
 
 W_Warning = _new_exception('Warning', W_Exception,
                            """Base class for warning categories.""")
