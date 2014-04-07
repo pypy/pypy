@@ -276,8 +276,34 @@ W_BufferError = _new_exception('BufferError', W_Exception,
 W_ValueError = _new_exception('ValueError', W_Exception,
                          """Inappropriate argument value (of correct type).""")
 
-W_ImportError = _new_exception('ImportError', W_Exception,
-                  """Import can't find module, or can't find name in module.""")
+
+class W_ImportError(W_Exception):
+    """Import can't find module, or can't find name in module."""
+    w_name = None
+    w_path = None
+
+    def descr_init(self, space, __args__):
+        args_w, kw_w = __args__.unpack()
+        self.w_name = kw_w.pop('name', space.w_None)
+        self.w_path = kw_w.pop('path', space.w_None)
+        if kw_w:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    # CPython displays this, but it's not quite right.
+                    "ImportError does not take keyword arguments"))
+        W_Exception.descr_init(self, space, args_w)
+
+
+W_ImportError.typedef = TypeDef(
+    'ImportError',
+    W_Exception.typedef,
+    __doc__ = W_ImportError.__doc__,
+    __module__ = 'builtins',
+    __new__ = _new(W_ImportError),
+    __init__ = interp2app(W_ImportError.descr_init),
+    name = readwrite_attrproperty_w('w_name', W_ImportError),
+    path = readwrite_attrproperty_w('w_path', W_ImportError),
+)
+
 
 W_RuntimeError = _new_exception('RuntimeError', W_Exception,
                      """Unspecified run-time error.""")

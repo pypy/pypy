@@ -277,3 +277,10 @@ class AppTestExc(object):
         assert StopIteration(42).value == 42
         assert StopIteration(42, 5).value == 42
 
+    def test_importerror(self):
+        assert ImportError("message").name is None
+        assert ImportError("message").path is None
+        assert ImportError("message", name="x").name == "x"
+        assert ImportError("message", path="y").path == "y"
+        raises(TypeError, ImportError, invalid="z")
+
