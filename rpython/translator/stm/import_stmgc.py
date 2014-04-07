@@ -26,6 +26,8 @@ def main(stmgc_dir):
     for p in sorted(plist):
         if not (p.basename.endswith('.c') or p.basename.endswith('.h')):
             continue
+        if p.basename.startswith('.'):
+            continue        
         if p.basename.startswith('demo'):
             continue
         path = stmgc_dest.join(p.relto(stmgc_dir))

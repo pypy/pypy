@@ -53,6 +53,7 @@ typedef struct malloc_chunk {
 #define BOTH_CHUNKS_USED     0
 #define CHUNK_HEADER_SIZE    offsetof(struct malloc_chunk, d)
 #define END_MARKER           0xDEADBEEF
+#define MIN_ALLOC_SIZE       (sizeof(struct malloc_chunk) - CHUNK_HEADER_SIZE)
 
 #define chunk_at_offset(p, ofs)  ((mchunk_t *)(((char *)(p)) + (ofs)))
 #define data2chunk(p)            chunk_at_offset(p, -CHUNK_HEADER_SIZE)
@@ -89,7 +90,7 @@ static mchunk_t *next_chunk(mchunk_t *p)
    The additional chunks of a given size are linked "vertically" in
    the secondary 'u' doubly-linked list.
 
-   
+
                             +-----+
                             | 296 |
                             +-----+
@@ -259,8 +260,8 @@ char *_stm_large_malloc(size_t request_size)
 
     /* it can be very small, but we need to ensure a minimal size
        (currently 32 bytes) */
-    if (request_size < sizeof(struct malloc_chunk) - CHUNK_HEADER_SIZE)
-        request_size = sizeof(struct malloc_chunk) - CHUNK_HEADER_SIZE;
+    if (request_size < MIN_ALLOC_SIZE)
+        request_size = MIN_ALLOC_SIZE;
 
     size_t index = largebin_index(request_size);
     sort_bin(index);
@@ -334,6 +335,7 @@ char *_stm_large_malloc(size_t request_size)
     }
     mscan->size = request_size;
     mscan->prev_size = BOTH_CHUNKS_USED;
+    increment_total_allocated(request_size + LARGE_MALLOC_OVERHEAD);
 
     return (char *)&mscan->d;
 }
@@ -343,6 +345,9 @@ void _stm_large_free(char *data)
     mchunk_t *chunk = data2chunk(data);
     assert((chunk->size & (sizeof(char *) - 1)) == 0);
     assert(chunk->prev_size != THIS_CHUNK_FREE);
+
+    /* 'size' is at least MIN_ALLOC_SIZE */
+    increment_total_allocated(-(chunk->size + LARGE_MALLOC_OVERHEAD));
 
 #ifndef NDEBUG
     assert(chunk->size >= sizeof(dlist_t));
@@ -555,7 +560,6 @@ void _stm_largemalloc_sweep(void)
         chunk = next_chunk(chunk);   /* go to the first non-free chunk */
 
     while (chunk != last_chunk) {
-
         /* here, the chunk we're pointing to is not free */
         assert(chunk->prev_size != THIS_CHUNK_FREE);
 
@@ -567,8 +571,6 @@ void _stm_largemalloc_sweep(void)
         /* use the callback to know if 'chunk' contains an object that
            survives or dies */
         if (!_largemalloc_sweep_keep(chunk)) {
-            size_t size = chunk->size;
-            increment_total_allocated(-(size + LARGE_MALLOC_OVERHEAD));
             _stm_large_free((char *)&chunk->d);     /* dies */
         }
         chunk = mnext;
