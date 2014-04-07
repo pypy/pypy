@@ -18,7 +18,6 @@ SHARED_REPO = "git@bitbucket.org:softdevteam/unipycation-shared.git"
 DEFAULT_SHARED_DIR = os.path.join(DEPS_DIR, "unipycation-shared")
 
 PATHS_CONF = os.path.join(SCRIPT_DIR, "paths.conf")
-ENV_SH = os.path.join(SCRIPT_DIR, "env.sh")
 
 #
 # FETCH
@@ -67,25 +66,7 @@ def build_unipycation(shared_dir):
 #
 
 def configure(shared_dir=DEFAULT_SHARED_DIR):
-    gen_env_sh(shared_dir)
     gen_uni_symlink(shared_dir)
-
-def gen_env_sh(shared_dir):
-    print("Generating env.sh...")
-    with open(ENV_SH, "w") as f:
-        f.write("#!/bin/sh\n")
-        f.write("export PYTHONPATH=${PYTHONPATH}:%s:%s\n" % (PYRO_DIR, shared_dir))
-        f.write("export PATH=%s:${PATH}\n" % UNIPY_BIN_DIR)
-        f.write("alias pypytest='%s %s'\n" %
-                (sys.executable, os.path.join(SCRIPT_DIR, "pytest.py")))
-
-        cc=""
-        if sys.platform.startswith("openbsd"):
-            cc="CC=egcc"
-
-        f.write("alias rpython='%s %s %s'\n" %
-                (cc, sys.executable,
-                os.path.join(SCRIPT_DIR, "rpython", "bin", "rpython")))
 
 def force_symlink(src, dest):
     if os.path.islink(dest):

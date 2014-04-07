@@ -94,5 +94,4 @@ syntax: regexp
 ^release/
 ^rpython/_cache$
 lib_pypy/uni.py
-env.sh
 deps/
