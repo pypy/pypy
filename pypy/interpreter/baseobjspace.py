@@ -524,7 +524,7 @@ class ObjSpace(object):
         self.exceptions_module.install()
 
         from pypy.module.imp import Module
-        w_name = self.wrap('imp')
+        w_name = self.wrap('_imp')
         mod = Module(self, w_name)
         mod.install()
 
@@ -609,7 +609,7 @@ class ObjSpace(object):
             from pypy.module.cpyext.state import State
             self.fromcache(State).build_api(self)
         self.getbuiltinmodule('sys')
-        self.getbuiltinmodule('imp')
+        self.getbuiltinmodule('_imp')
         self.getbuiltinmodule('builtins')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()

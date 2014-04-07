@@ -5,6 +5,8 @@ class Module(MixedModule):
     This module provides the components needed to build your own
     __import__ function.
     """
+    applevel_name = '_imp'
+
     interpleveldefs = {
         'SEARCH_ERROR':    'space.wrap(importing.SEARCH_ERROR)',
         'PY_SOURCE':       'space.wrap(importing.PY_SOURCE)',

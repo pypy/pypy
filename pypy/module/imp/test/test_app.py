@@ -8,7 +8,7 @@ class AppTestImpModule:
     }
 
     def setup_class(cls):
-        cls.w_imp = cls.space.getbuiltinmodule('imp')
+        cls.w_imp = cls.space.getbuiltinmodule('_imp')
         cls.w_file_module = cls.space.wrap(__file__)
         latin1 = udir.join('latin1.py')
         latin1.write("# -*- coding: iso-8859-1 -*\n")
