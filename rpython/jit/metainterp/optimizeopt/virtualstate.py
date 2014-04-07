@@ -76,7 +76,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs
 
     def generalization_of_renumbering_done(self, other, renum, bad):
-        if not self._generalization_of(other):
+        if not self._generalization_of_structpart(other):
             return False
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
@@ -94,7 +94,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
         return True
 
-    def _generalization_of(self, other):
+    def _generalization_of_structpart(self, other):
         raise NotImplementedError
 
     def enum_forced_boxes(self, boxes, value, optimizer):
@@ -121,7 +121,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
         self.known_class = known_class
 
-    def _generalization_of(self, other):
+    def _generalization_of_structpart(self, other):
         return (isinstance(other, VirtualStateInfo) and
                 self.known_class.same_constant(other.known_class))
 
@@ -134,7 +134,7 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
         self.typedescr = typedescr
 
-    def _generalization_of(self, other):
+    def _generalization_of_structpart(self, other):
         return (isinstance(other, VStructStateInfo) and
                 self.typedescr is other.typedescr)
 
@@ -147,12 +147,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
-    def _generalization_of(self, other):
-        return (isinstance(other, VArrayStateInfo) and
-            self.arraydescr is other.arraydescr)
-
     def generalization_of_renumbering_done(self, other, renum, bad):
-        if not self._generalization_of(other):
+        if not isinstance(other, VArrayStateInfo):
+            return False
+        if self.arraydescr is not other.arraydescr:
             return False
         if len(self.fieldstate) != len(other.fieldstate):
             return False
@@ -189,10 +187,11 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs
 
     def generalization_of_renumbering_done(self, other, renum, bad):
-        if not self._generalization_of(other):
+        if not isinstance(other, VArrayStructStateInfo):
+            return False
+        if not self.arraydescr is not other.arraydescr:
             return False
 
-        assert isinstance(other, VArrayStructStateInfo)
         if len(self.fielddescrs) != len(other.fielddescrs):
             return False
 
@@ -208,10 +207,6 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                     return False
                 p += 1
         return True
-
-    def _generalization_of(self, other):
-        return (isinstance(other, VArrayStructStateInfo) and
-            self.arraydescr is other.arraydescr)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
