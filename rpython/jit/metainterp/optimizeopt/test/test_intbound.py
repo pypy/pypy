@@ -1,5 +1,7 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded
+from rpython.jit.metainterp.optimizeopt.intbounds import next_pow2_m1
+
 from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT
@@ -235,8 +237,8 @@ def test_shift_overflow():
         for shift_count_bound in (IntBound(7, LONG_BIT), IntBound(-7, 7)):
             #assert not b.lshift_bound(shift_count_bound).has_upper
             assert not b.rshift_bound(shift_count_bound).has_upper
-        
-    
+
+
 def test_div_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
@@ -258,7 +260,6 @@ def test_div_bound():
     assert a.contains(0)
 
 
-
 def test_sub_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
@@ -271,3 +272,14 @@ def test_sub_bound():
     a=bound(2, 4).sub_bound(bound(1, 2))
     assert not a.contains(-1)
     assert not a.contains(4)
+
+
+def test_next_pow2_m1():
+    assert next_pow2_m1(0) == 0
+    assert next_pow2_m1(1) == 1
+    assert next_pow2_m1(7) == 7
+    assert next_pow2_m1(256) == 511
+    assert next_pow2_m1(255) == 255
+    assert next_pow2_m1(80) == 127
+    assert next_pow2_m1((1 << 32) - 5) == (1 << 32) - 1
+    assert next_pow2_m1((1 << 64) - 1) == (1 << 64) - 1
