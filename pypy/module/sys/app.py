@@ -108,3 +108,27 @@ class sysflags(metaclass=structseqtype):
 
 null_sysflags = sysflags((0,)*13)
 null__xoptions = {}
+
+
+class SimpleNamespace:
+    def __new__(cls, **kwargs):
+        self = super().__new__(cls)
+        self._ns = {}
+        return self
+
+    def __init__(self, **kwargs):
+        self._ns.update(kwargs)
+
+    def __getattr__(self, name):
+        try:
+            return self._ns[name]
+        except KeyError:
+            raise AttributeError(name)
+
+    @property
+    def __dict__(self):
+        return self._ns
+
+
+implementation = SimpleNamespace(
+    name='pypy')

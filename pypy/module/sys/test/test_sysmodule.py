@@ -169,6 +169,7 @@ class AppTestAppSysTests:
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
 
+
 class AppTestSysModulePortedFromCPython:
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
@@ -489,6 +490,10 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+
+    def test_implementation(self):
+        import sys
+        assert sys.implementation.name == 'pypy'
 
     def test_settrace(self):
         import sys

@@ -94,6 +94,7 @@ class Module(MixedModule):
         'copyright'             : 'app.copyright_str',
         'flags'                 : 'app.null_sysflags',
         '_xoptions'             : 'app.null__xoptions',
+        'implementation'        : 'app.implementation',
     }
 
     def startup(self, space):
