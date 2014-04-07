@@ -66,6 +66,7 @@ corresponding Unix manual entries for more information on calls."""
         'pipe': 'interp_posix.pipe',
         'chmod': 'interp_posix.chmod',
         'rename': 'interp_posix.rename',
+        'replace': 'interp_posix.replace',
         'umask': 'interp_posix.umask',
         '_exit': 'interp_posix._exit',
         'utime': 'interp_posix.utime',

@@ -620,6 +620,13 @@ def rename(space, w_old, w_new):
     except OSError, e:
         raise wrap_oserror(space, e)
 
+def replace(space, w_old, w_new):
+    "Replace a file or directory, overwriting the destination."
+    try:
+        dispatch_filename_2(rposix.replace)(space, w_old, w_new)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 @unwrap_spec(mode=c_int)
 def mkfifo(space, w_filename, mode=0666):
     """Create a FIFO (a POSIX named pipe)."""

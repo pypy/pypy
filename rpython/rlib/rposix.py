@@ -169,6 +169,13 @@ def unlink(path):
 def rename(path1, path2):
     return os.rename(_as_bytes(path1), _as_bytes(path2))
 
+@specialize.argtype(0, 1)
+def replace(path1, path2):
+    if os.name == 'nt':
+        raise NotImplementedError(
+            'On windows, os.replace() should overwrite the destination')
+    return os.rename(_as_bytes(path1), _as_bytes(path2))
+
 @specialize.argtype(0)
 def listdir(dirname):
     return os.listdir(_as_bytes(dirname))
