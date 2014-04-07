@@ -58,7 +58,8 @@ Unit Tests
 ==========
 
 Unit tests are run as per the normal PyPy procedure. Please refer to
-the PyPy docs.
+the PyPy docs. In particular, note that the unipycation-shaered an
+pyrolog source trees must be in `PYTHONPATH`.
 
 Authors
 =======
