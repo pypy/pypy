@@ -128,7 +128,7 @@ class TestTypeConversion(object):
         w_term = conv.w_term_of_p_callable(space, p_callable)
 
         term_len = space.int_w(w_term.descr_len(space))
-        unwrap = space.listview_str(w_term.prop_getargs(space))
+        unwrap = space.listview_bytes(w_term.prop_getargs(space))
         unwrap2 = [ space.str_w(w_term.descr_getitem(space, space.newint(x))) \
                 for x in range(term_len) ]
 
