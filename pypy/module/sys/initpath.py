@@ -147,4 +147,8 @@ def pypy_find_stdlib(space, executable):
                                         space.wrap(prefix))
         space.setitem(space.sys.w_dict, space.wrap('exec_prefix'),
                                         space.wrap(prefix))
+        space.setitem(space.sys.w_dict, space.wrap('base_prefix'),
+                                        space.wrap(prefix))
+        space.setitem(space.sys.w_dict, space.wrap('base_exec_prefix'),
+                                        space.wrap(prefix))
         return space.newlist([space.wrap(p) for p in path])
