@@ -34,11 +34,7 @@ https://bitbucket.org/softdevteam/unipycation-shared
 Running
 =======
 
-First source `env.sh`:
-
-    $ . ./env.sh
-
-Then you can simply run `unipycation`.
+To run unipycation, run `pypy/goal/unipycation`.
 
 Using Unipycation
 =================
