@@ -5,6 +5,7 @@ The 'sys' module.
 
 from _structseq import structseqtype, structseqfield
 import sys
+import _imp
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
@@ -131,4 +132,6 @@ class SimpleNamespace:
 
 
 implementation = SimpleNamespace(
-    name='pypy')
+    name='pypy',
+    cache_tag=_imp.get_tag(),
+    )
