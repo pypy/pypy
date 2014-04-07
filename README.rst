@@ -20,6 +20,9 @@ Run the setup script:
 
 You will need hg, git and the python modules 'sh' and 'vcstools'.
 
+If you have PyPy installed, you can bootstrap unipycation faster by setting
+the environment variable `TRANSLATE_WITH` to your PyPy binary.
+
 On a 64-bit architecture the translation process will consume about 8GB of
 memory at peak. The resulting pypy-c binary is the composed Python/Prolog
 compiler.
