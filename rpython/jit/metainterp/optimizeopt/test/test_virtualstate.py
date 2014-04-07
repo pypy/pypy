@@ -89,6 +89,11 @@ class TestBasic:
         assert isgeneral(OptValue(ConstPtr(fooref)),
                          OptValue(ConstPtr(fooref)))
 
+        value1 = OptValue(BoxPtr())
+        value1.make_nonnull(None)
+        value2 = OptValue(ConstPtr(LLtypeMixin.nullptr))
+        assert not isgeneral(value1, value2)
+
     def test_field_matching_generalization(self):
         const1 = NotVirtualStateInfo(OptValue(ConstInt(1)))
         const2 = NotVirtualStateInfo(OptValue(ConstInt(2)))
@@ -199,6 +204,17 @@ class BaseTestGenerateGuards(BaseTest):
         [p0]
         guard_nonnull(p0) []        
         guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.compare(guards, expected, [box])
+
+    def test_known_value(self):
+        value1 = OptValue(self.nodebox)
+        value1.make_constant(ConstInt(1))
+        box = self.nodebox
+        guards = value1.make_guards(box)
+        expected = """
+        [i0]
+        guard_value(i0, 1) []
         """
         self.compare(guards, expected, [box])
 

@@ -15,25 +15,49 @@ internally.  This page describes ``pypy-stm`` from the perspective of a
 user, describes work in progress, and finally gives references to more
 implementation details.
 
-This work was done by Remi Meier and Armin Rigo.
+This work was done by Remi Meier and Armin Rigo.  Thanks to all donors
+for crowd-funding the work so far!  Please have a look at the 2nd call
+for donation (*not ready yet*)
+
+.. .. _`2nd call for donation`: http://pypy.org/tmdonate2.html
 
 
-Introduction and current status
-===============================
+Introduction
+============
 
 ``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats
-listed below, it should be in theory within 25%-50% of the speed of
-PyPy, comparing the JITting version in both cases.  It is called STM for
-Software Transactional Memory, which is the internal technique used (see
-`Reference to implementation details`_).
+listed below, it should be in theory within 25%-50% of the speed of a
+regular PyPy, comparing the JITting version in both cases.  It is called
+STM for Software Transactional Memory, which is the internal technique
+used (see `Reference to implementation details`_).
+
+What you get in exchange for this slow-down is that ``pypy-stm`` runs
+any multithreaded Python program on multiple CPUs at once.  Programs
+running two threads or more in parallel should ideally run faster than
+in a regular PyPy, either now or soon as issues are fixed.  In one way,
+that's all there is to it: this is a GIL-less Python, feel free to
+`download and try it`__.  However, the deeper idea behind the
+``pypy-stm`` project is to improve what is so far the state-of-the-art
+for using multiple CPUs, which for cases where separate processes don't
+work is done by writing explicitly multi-threaded programs.  Instead,
+``pypy-stm`` is flushing forward an approach to *hide* the threads, as
+described below in `atomic sections`_.
+
+
+.. __:
+
+Current status
+==============
 
 **pypy-stm requires 64-bit Linux for now.**
 
 Development is done in the branch `stmgc-c7`_.  If you are only
 interested in trying it out, you can download a Ubuntu 12.04 binary
-here__.  The current version supports four "segments", which means that
-it will run up to four threads in parallel (in other words, you get a
-GIL effect again, but only if trying to execute more than 4 threads).
+here__ (``pypy-2.2.x-stm*.tar.bz2``; this version is a release mode,
+but not stripped of debug symbols).  The current version supports four
+"segments", which means that it will run up to four threads in parallel
+(in other words, you get a GIL effect again, but only if trying to
+execute more than 4 threads).
 
 To build a version from sources, you first need to compile a custom
 version of clang; we recommend downloading `llvm and clang like
@@ -46,17 +70,19 @@ the branch `stmgc-c7`_ of PyPy and run::
    rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
 
 .. _`stmgc-c7`: https://bitbucket.org/pypy/pypy/src/stmgc-c7/
-.. __: http://buildbot.pypy.org/nightly/stmgc-c7/
+.. __: http://cobra.cs.uni-duesseldorf.de/~buildmaster/misc/
 .. __: http://clang.llvm.org/get_started.html
 .. __: https://bitbucket.org/pypy/stmgc/src/default/c7/llvmfix/
 
 
 Caveats:
 
-* It should generally work.  Please do `report bugs`_ that manifest as a
-  crash or wrong behavior (markedly different from the behavior of a
-  regular PyPy).  Performance bugs are likely to be known issues; we're
-  working on them.
+* So far, small examples work fine, but there are still a number of
+  bugs.  We're busy fixing them.
+
+* Currently limited to 1.5 GB of RAM (this is just a parameter in
+  `core.h`__).  Memory overflows are not detected correctly, so may
+  cause segmentation faults.
 
 * The JIT warm-up time is abysmal (as opposed to the regular PyPy's,
   which is "only" bad).  Moreover, you should run it with a command like
@@ -73,9 +99,11 @@ Caveats:
   programs that modify large lists or dicts, suffer from these missing
   optimizations.
 
-* The GC has no support for destructors: the ``__del__`` method is
-  never called (including on file objects, which won't be closed for
-  you).  This is of course temporary.
+* The GC has no support for destructors: the ``__del__`` method is never
+  called (including on file objects, which won't be closed for you).
+  This is of course temporary.  Also, weakrefs might appear to work a
+  bit strangely for now (staying alive even though ``gc.collect()``, or
+  even dying but then un-dying for a short time before dying again).
 
 * The STM system is based on very efficient read/write barriers, which
   are mostly done (their placement could be improved a bit in
@@ -98,6 +126,7 @@ Caveats:
   probably, several days or more.
 
 .. _`report bugs`: https://bugs.pypy.org/
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
 
 
 
@@ -172,9 +201,9 @@ internally, together with large atomic sections to keep the behavior
 unchanged.  This capability can be hidden in a library or in the
 framework you use; the end user's code does not need to be explicitly
 aware of using threads.  For a simple example of this, see
-`lib_pypy/transaction.py`_.  The idea is that if you have a program
-where the function ``f(key, value)`` runs on every item of some big
-dictionary, you can replace the loop with::
+`transaction.py`_ in ``lib_pypy``.  The idea is that if you have a
+program where the function ``f(key, value)`` runs on every item of some
+big dictionary, you can replace the loop with::
 
     for key, value in bigdict.items():
         transaction.add(f, key, value)
@@ -185,7 +214,18 @@ pool, but every single call is done in an atomic section.  The end
 result is that the behavior should be exactly equivalent: you don't get
 any extra multithreading issue.
 
-.. _`lib_pypy/transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
+This approach hides the notion of threads from the end programmer,
+including all the hard multithreading-related issues.  This is not the
+first alternative approach to explicit threads; for example, OpenMP_ is
+one.  However, it is one of the first ones which does not require the
+code to be organized in a particular fashion.  Instead, it works on any
+Python program which has got latent, imperfect parallelism.  Ideally, it
+only requires that the end programmer identifies where this parallelism
+is likely to be found, and communicates it to the system, using for
+example the ``transaction.add()`` scheme.
+
+.. _`transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
+.. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
 ==================
 
@@ -221,7 +261,7 @@ Reference to implementation details
 
 The core of the implementation is in a separate C library called stmgc_,
 in the c7_ subdirectory.  Please see the `README.txt`_ for more
-information.
+information.  In particular, the notion of segment is discussed there.
 
 .. _stmgc: https://bitbucket.org/pypy/stmgc/src/default/
 .. _c7: https://bitbucket.org/pypy/stmgc/src/default/c7/
