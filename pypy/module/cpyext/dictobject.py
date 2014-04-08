@@ -198,8 +198,8 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
 @specialize.memo()
 def make_frozendict(space):
     return space.appexec([], '''():
-    import _abcoll
-    class FrozenDict(_abcoll.Mapping):
+    from collections.abc import Mapping
+    class FrozenDict(Mapping):
         def __init__(self, *args, **kwargs):
             self._d = dict(*args, **kwargs)
         def __iter__(self):
