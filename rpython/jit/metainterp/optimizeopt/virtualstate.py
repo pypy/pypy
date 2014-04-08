@@ -103,6 +103,27 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
         return True
 
+
+    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+        if not self._generalization_of_structpart(other):
+            raise InvalidLoop("XXX")
+
+        assert isinstance(other, AbstractVirtualStructStateInfo)
+        assert len(self.fielddescrs) == len(self.fieldstate)
+        assert len(other.fielddescrs) == len(other.fieldstate)
+        assert isinstance(value, virtualize.AbstractVirtualStructValue)
+        assert value.is_virtual()
+
+        if len(self.fielddescrs) != len(other.fielddescrs):
+            raise InvalidLoop("XXX")
+
+        for i in range(len(self.fielddescrs)):
+            if other.fielddescrs[i] is not self.fielddescrs[i]:
+                raise InvalidLoop("XXX")
+            v = value._fields[self.fielddescrs[i]] # must be there
+            self.fieldstate[i].generate_guards(other.fieldstate[i], v, cpu, extra_guards, renum)
+
+
     def _generalization_of_structpart(self, other):
         raise NotImplementedError
 

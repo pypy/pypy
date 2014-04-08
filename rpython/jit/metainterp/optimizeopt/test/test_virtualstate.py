@@ -154,12 +154,14 @@ class BaseTestGenerateGuards(BaseTest):
             value = OptValue(box)
         return value, box
 
-    def guards(self, info1, info2, box_or_value, expected):
+    def guards(self, info1, info2, box_or_value, expected, inputargs=None):
         value, box = self._box_or_value(box_or_value)
+        if inputargs is None:
+            inputargs = [box]
         info1.position = info2.position = 0
         guards = []
         info1.generate_guards(info2, value, self.cpu, guards, {})
-        self.compare(guards, expected, [box])
+        self.compare(guards, expected, inputargs)
 
     def compare(self, guards, expected, inputargs):
         loop = self.parse(expected)
@@ -418,7 +420,6 @@ class BaseTestGenerateGuards(BaseTest):
         self.compare(guards, expected, [box2])
 
     def test_generate_guards_on_virtual_fields_matches(self):
-        py.test.skip("not yet")
         innervalue1 = OptValue(self.nodebox)
         constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
         innervalue1.make_constant_class(constclassbox, -1)
@@ -433,7 +434,7 @@ class BaseTestGenerateGuards(BaseTest):
         info2 = VirtualStateInfo(ConstInt(42), [1])
         info2.fieldstate = [innerinfo2]
 
-        value1 = VirtualValue(self.cpu, constclassbox, BoxInt())
+        value1 = VirtualValue(self.cpu, constclassbox, self.nodebox)
         value1._fields = {1: OptValue(self.nodebox)}
 
         expected = """
@@ -441,7 +442,7 @@ class BaseTestGenerateGuards(BaseTest):
         guard_nonnull(p0) []
         guard_class(p0, ConstClass(node_vtable)) []
         """
-        self.guards(info1, info2, value1, expected)
+        self.guards(info1, info2, value1, expected, [self.nodebox])
 
     # _________________________________________________________________________
     # the below tests don't really have anything to do with guard generation
