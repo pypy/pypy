@@ -579,6 +579,7 @@ _static_opcode_stack_effects = {
 
     ops.RETURN_VALUE : -1,
     ops.YIELD_VALUE : 0,
+    ops.YIELD_FROM : -1,
     ops.BUILD_MAP : 1,
     ops.BUILD_SET : 1,
     ops.COMPARE_OP : -1,
