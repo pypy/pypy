@@ -75,7 +75,7 @@ BaseException
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import check_traceback
 from rpython.rlib import rwin32
@@ -97,6 +97,7 @@ class W_BaseException(W_Root):
     w_cause = None
     w_context = None
     w_traceback = None
+    suppress_context = False
 
     def __init__(self, space):
         pass
@@ -148,12 +149,14 @@ class W_BaseException(W_Root):
         return self.w_cause
 
     def descr_setcause(self, space, w_newcause):
-        if not (space.is_w(w_newcause, space.w_None) or
-                space.exception_is_valid_class_w(space.type(w_newcause))):
+        if space.is_w(w_newcause, space.w_None):
+            w_newcause = None
+        elif not space.exception_is_valid_class_w(space.type(w_newcause)):
             raise OperationError(space.w_TypeError, space.wrap(
                     "exception cause must be None or "
                     "derive from BaseException"))
         self.w_cause = w_newcause
+        self.suppress_context = True
 
     def descr_getcontext(self, space):
         return self.w_context
@@ -173,6 +176,12 @@ class W_BaseException(W_Root):
             # tb escapes to app level (see OperationError.get_traceback)
             tb.frame.mark_as_escaped()
         return tb
+
+    def descr_getsuppresscontext(self, space):
+        return space.wrap(self.suppress_context)
+
+    def descr_setsuppresscontext(self, space, w_value):
+        self.suppress_context = space.bool_w(w_value)
 
     def descr_settraceback(self, space, w_newtraceback):
         msg = '__traceback__ must be a traceback or None'
@@ -234,6 +243,9 @@ W_BaseException.typedef = TypeDef(
                                W_BaseException.descr_setcause),
     __context__ = GetSetProperty(W_BaseException.descr_getcontext,
                                  W_BaseException.descr_setcontext),
+    __suppress_context__  = GetSetProperty(
+        W_BaseException.descr_getsuppresscontext,
+        W_BaseException.descr_setsuppresscontext),
     __traceback__ = GetSetProperty(W_BaseException.descr_gettraceback,
                                    W_BaseException.descr_settraceback),
 )

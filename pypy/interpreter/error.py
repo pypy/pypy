@@ -241,7 +241,10 @@ class OperationError(Exception):
                     w_type = self._exception_getclass(space, w_value)
             if self.w_cause:
                 # ensure w_cause is of a valid type
-                self._exception_getclass(space, self.w_cause, "exception causes")
+                if space.is_none(self.w_cause):
+                    pass
+                else:
+                    self._exception_getclass(space, self.w_cause, "exception causes")
                 space.setattr(w_value, space.wrap("__cause__"), self.w_cause)
             if self._application_traceback:
                 from pypy.interpreter.pytraceback import PyTraceback
