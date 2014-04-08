@@ -191,7 +191,8 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
                 ps += 2
             else:
                 if errors == 'strict':
-                    raise_app_valueerror(space, 'invalid \\x escape')
+                    raise_app_valueerror(
+                        space, "invalid \\x escape at position %d" % (ps - 2))
                 elif errors == 'replace':
                     builder.append('?')
                 elif errors == 'ignore':
