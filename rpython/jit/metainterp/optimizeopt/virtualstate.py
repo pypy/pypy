@@ -297,9 +297,11 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.lenbound and not self.lenbound.generalization_of(other.lenbound):
             raise InvalidLoop()
 
-
         if self.level == LEVEL_UNKNOWN:
-            return
+            if other.level == LEVEL_UNKNOWN:
+                return self._generate_guards_intbounds(other, value, extra_guards)
+            else:
+                return # matches everything
 
         # the following conditions often peek into the runtime value that the
         # box had when tracing. This value is only used as an educated guess.
@@ -369,14 +371,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 raise InvalidLoop()
         raise InvalidLoop("XXX")
 
-        if self.lenbound or other.lenbound:
-            raise InvalidLoop('The array length bounds does not match.')
 
-
-        if (self.level == LEVEL_UNKNOWN and
-               other.level == LEVEL_UNKNOWN and
-               isinstance(box, BoxInt) and
-               self.intbound.contains(box.getint())):
+    def _generate_guards_intbounds(self, other, value, extra_guards):
+        if self.intbound.contains_bound(other.intbound):
+            return
+        box = value.box
+        if (isinstance(box, BoxInt) and
+                self.intbound.contains(box.getint())):
             if self.intbound.has_lower:
                 bound = self.intbound.lower
                 if not (other.intbound.has_lower and
@@ -396,6 +397,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     op = ResOperation(rop.GUARD_TRUE, [res], None)
                     extra_guards.append(op)
             return
+        raise InvalidLoop("intbounds don't match")
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if self.level == LEVEL_CONSTANT:

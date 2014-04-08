@@ -35,7 +35,7 @@ class LenBound(object):
         return (other is not None and
                 self.mode == other.mode and
                 self.descr == other.descr and
-                self.lenbound.bound.contains_bound(other.lenbound.bound))
+                self.bound.contains_bound(other.bound))
 
 class OptValue(object):
     __metaclass__ = extendabletype
