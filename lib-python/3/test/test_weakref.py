@@ -1153,7 +1153,6 @@ class MappingTestCase(TestBase):
         self.assertEqual(dict, ddict)
         with testcontext() as (k, v):
             dict.clear()
-        gc_collect()
         self.assertEqual(len(dict), 0)
 
     def test_weak_keys_destroy_while_iterating(self):
