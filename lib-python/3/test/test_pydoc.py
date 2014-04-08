@@ -417,6 +417,8 @@ class PydocDocTest(unittest.TestCase):
 
         # What we expect to get back: everything on object...
         expected = dict(vars(object))
+        # __new__'s descriptor can be a staticmethod on PyPy
+        expected['__new__'] = object.__new__
         # ...plus our unbound method...
         expected['method_returning_true'] = TestClass.method_returning_true
         # ...but not the non-methods on object.
