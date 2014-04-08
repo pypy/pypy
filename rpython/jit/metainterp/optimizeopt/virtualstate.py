@@ -4,7 +4,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
-    LEVEL_KNOWNCLASS, LEVEL_NONNULL, LEVEL_UNKNOWN)
+    LEVEL_KNOWNCLASS, LEVEL_NONNULL, LEVEL_UNKNOWN, OptValue)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.objectmodel import we_are_translated
@@ -28,7 +28,8 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
             bad[self] = bad[other] = None
         return result
 
-    def generate_guards(self, other, box, cpu, extra_guards, renum):
+    def generate_guards(self, other, value, cpu, extra_guards, renum):
+        assert isinstance(value, OptValue)
         if self.generalization_of(other, renum, {}):
             return
         if renum[self.position] != other.position:
@@ -36,9 +37,9 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
                               'match. This means that two virtual fields ' +
                               'have been set to the same Box in one of the ' +
                               'virtual states but not in the other.')
-        self._generate_guards(other, box, cpu, extra_guards)
+        self._generate_guards(other, value, cpu, extra_guards, renum)
 
-    def _generate_guards(self, other, box, cpu, extra_guards):
+    def _generate_guards(self, other, value, cpu, extra_guards, renum):
         raise InvalidLoop('Generating guards for making the VirtualStates ' +
                           'at hand match have not been implemented')
 
@@ -279,7 +280,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return False
         return True
 
-    def _generate_guards(self, other, box, cpu, extra_guards):
+    def _generate_guards(self, other, value, cpu, extra_guards, renum):
+        box = value.box
         if not isinstance(other, NotVirtualStateInfo):
             raise InvalidLoop('The VirtualStates does not match as a ' +
                               'virtual appears where a pointer is needed ' +
@@ -408,11 +410,11 @@ class VirtualState(object):
                 return False
         return True
 
-    def generate_guards(self, other, args, cpu, extra_guards):
-        assert len(self.state) == len(other.state) == len(args)
+    def generate_guards(self, other, values, cpu, extra_guards):
+        assert len(self.state) == len(other.state) == len(values)
         renum = {}
         for i in range(len(self.state)):
-            self.state[i].generate_guards(other.state[i], args[i],
+            self.state[i].generate_guards(other.state[i], values[i],
                                           cpu, extra_guards, renum)
 
     def make_inputargs(self, values, optimizer, keyboxes=False):

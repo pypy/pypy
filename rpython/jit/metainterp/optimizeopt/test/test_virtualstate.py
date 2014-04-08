@@ -144,10 +144,16 @@ class TestBasic:
 
 
 class BaseTestGenerateGuards(BaseTest):
-    def guards(self, info1, info2, box, expected):
+    def guards(self, info1, info2, box_or_value, expected):
+        if isinstance(box_or_value, OptValue):
+            value = box_or_value
+            box = value.box
+        else:
+            box = box_or_value
+            value = OptValue(box)
         info1.position = info2.position = 0
         guards = []
-        info1.generate_guards(info2, box, self.cpu, guards, {})
+        info1.generate_guards(info2, value, self.cpu, guards, {})
         self.compare(guards, expected, [box])
 
     def compare(self, guards, expected, inputargs):
@@ -162,7 +168,7 @@ class BaseTestGenerateGuards(BaseTest):
         assert equaloplists(guards, loop.operations, False,
                             boxmap)        
     def test_intbounds(self):
-        value1 = OptValue(BoxInt())
+        value1 = OptValue(BoxInt(15))
         value1.intbound.make_ge(IntBound(0, 10))
         value1.intbound.make_le(IntBound(20, 30))
         info1 = NotVirtualStateInfo(value1)
@@ -174,7 +180,7 @@ class BaseTestGenerateGuards(BaseTest):
         i2 = int_le(i0, 30)
         guard_true(i2) []
         """
-        self.guards(info1, info2, BoxInt(15), expected)
+        self.guards(info1, info2, value1, expected)
         py.test.raises(InvalidLoop, self.guards,
                        info1, info2, BoxInt(50), expected)
 
@@ -219,7 +225,7 @@ class BaseTestGenerateGuards(BaseTest):
         self.compare(guards, expected, [box])
 
     def test_equal_inputargs(self):
-        value = OptValue(self.nodebox)        
+        value = OptValue(self.nodebox)
         classbox = self.cpu.ts.cls_of_box(self.nodebox)
         value.make_constant_class(classbox, -1)
         knownclass_info = NotVirtualStateInfo(value)
@@ -242,20 +248,20 @@ class BaseTestGenerateGuards(BaseTest):
 
         expected = """
         [p0]
-        guard_nonnull(p0) []        
+        guard_nonnull(p0) []
         guard_class(p0, ConstClass(node_vtable)) []
         """
         guards = []
-        vstate1.generate_guards(vstate2, [self.nodebox, self.nodebox], self.cpu, guards)
+        vstate1.generate_guards(vstate2, [value, value], self.cpu, guards)
         self.compare(guards, expected, [self.nodebox])
 
         with py.test.raises(InvalidLoop):
             guards = []
-            vstate1.generate_guards(vstate3, [self.nodebox, self.nodebox],
+            vstate1.generate_guards(vstate3, [value, value],
                                     self.cpu, guards)
         with py.test.raises(InvalidLoop):
             guards = []
-            vstate2.generate_guards(vstate3, [self.nodebox, self.nodebox],
+            vstate2.generate_guards(vstate3, [value, value],
                                     self.cpu, guards)
 
     def test_known_value_virtualstate(self):
@@ -271,7 +277,7 @@ class BaseTestGenerateGuards(BaseTest):
         guard_value(i0, 1) []
         """
         guards = []
-        vstate1.generate_guards(vstate2, [box2], self.cpu, guards)
+        vstate1.generate_guards(vstate2, [value2], self.cpu, guards)
         self.compare(guards, expected, [box2])
 
 

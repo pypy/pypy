@@ -545,6 +545,8 @@ class UnrollOptimizer(Optimization):
         args = jumpop.getarglist()
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(args)
+        values = [self.getvalue(arg)
+                  for arg in jumpop.getarglist()]
         debug_start('jit-log-virtualstate')
         virtual_state.debug_print("Looking for ")
 
@@ -563,15 +565,14 @@ class UnrollOptimizer(Optimization):
                 try:
                     cpu = self.optimizer.cpu
                     target.virtual_state.generate_guards(virtual_state,
-                                                         args, cpu,
+                                                         values,
+                                                         cpu,
                                                          extra_guards)
 
                     ok = True
                     debugmsg = 'Guarded to match '
                 except InvalidLoop:
                     pass
-            #else:
-            #    import pdb; pdb.set_trace()
             if ok and not patchguardop:
                 # if we can't patch the guards to go to a good target, no use
                 # in jumping to this label
@@ -590,8 +591,6 @@ class UnrollOptimizer(Optimization):
             if ok:
                 debug_stop('jit-log-virtualstate')
 
-                values = [self.getvalue(arg)
-                          for arg in jumpop.getarglist()]
                 args = target.virtual_state.make_inputargs(values, self.optimizer,
                                                            keyboxes=True)
                 short_inputargs = target.short_preamble[0].getarglist()
@@ -604,6 +603,7 @@ class UnrollOptimizer(Optimization):
                     self.optimizer.send_extra_operation(guard)
 
                 try:
+                    # NB: the short_preamble ends with a jump
                     for shop in target.short_preamble[1:]:
                         newop = inliner.inline_op(shop)
                         if newop.is_guard():
