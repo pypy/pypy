@@ -17,6 +17,7 @@ class Module(MixedModule):
         'PY_FROZEN':       'space.wrap(importing.PY_FROZEN)',
         'IMP_HOOK':        'space.wrap(importing.IMP_HOOK)',
         'get_suffixes':    'interp_imp.get_suffixes',
+        'extension_suffixes': 'interp_imp.extension_suffixes',
 
         'get_magic':       'interp_imp.get_magic',
         'get_tag':         'interp_imp.get_tag',
@@ -33,6 +34,8 @@ class Module(MixedModule):
         'init_frozen':     'interp_imp.init_frozen',
         'is_builtin':      'interp_imp.is_builtin',
         'is_frozen':       'interp_imp.is_frozen',
+        'get_frozen_object': 'interp_imp.get_frozen_object',
+        'is_frozen_package': 'interp_imp.is_frozen_package',
         'reload':          'importing.reload',
         'NullImporter':    'importing.W_NullImporter',
 
@@ -42,6 +45,7 @@ class Module(MixedModule):
 
         'cache_from_source': 'interp_imp.cache_from_source',
         'source_from_cache': 'interp_imp.source_from_cache',
+        '_fix_co_filename': 'interp_imp.fix_co_filename',
         }
 
     appleveldefs = {

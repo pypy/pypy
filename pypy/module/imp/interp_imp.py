@@ -4,6 +4,7 @@ from rpython.rlib.streamio import StreamErrors
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser import pyparse
 from pypy.objspace.std import unicodeobject
 from pypy.module._io.interp_iobase import W_IOBase
@@ -22,6 +23,12 @@ def get_suffixes(space):
         space.newtuple([w('.py'), w('U'), w(importing.PY_SOURCE)]),
         space.newtuple([w('.pyc'), w('rb'), w(importing.PY_COMPILED)]),
         ])
+    return space.newlist(suffixes_w)
+
+def extension_suffixes(space):
+    suffixes_w = []
+    if space.config.objspace.usemodules.cpyext:
+        suffixes_w.append(space.wrap(importing.get_so_extension(space)))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
@@ -173,10 +180,6 @@ def init_builtin(space, w_name):
     name = space.str0_w(w_name)
     if name not in space.builtin_modules:
         return
-    if space.finditem(space.sys.get('modules'), w_name) is not None:
-        raise OperationError(
-            space.w_ImportError,
-            space.wrap("cannot initialize a built-in module twice in PyPy"))
     return space.getbuiltinmodule(name)
 
 def init_frozen(space, w_name):
@@ -192,6 +195,14 @@ def is_builtin(space, w_name):
 
 def is_frozen(space, w_name):
     return space.w_False
+
+def get_frozen_object(space, w_name):
+    raise oefmt(space.w_ImportError,
+                "No such frozen object named %R", w_name)
+
+def is_frozen_package(space, w_name):
+    raise oefmt(space.w_ImportError,
+                "No such frozen object named %R", w_name)
 
 #__________________________________________________________________
 
@@ -240,3 +251,10 @@ def source_from_cache(space, pathname):
         raise oefmt(space.w_ValueError,
                     "Not a PEP 3147 pyc path: %s", pathname)
     return space.fsdecode(space.wrapbytes(sourcename))
+
+@unwrap_spec(pathname='fsencode')
+def fix_co_filename(space, w_code, pathname):
+    code_w = space.interp_w(PyCode, w_code)
+    importing.update_code_filenames(space, code_w, pathname)
+
+
