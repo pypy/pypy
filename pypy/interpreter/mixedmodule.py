@@ -82,6 +82,12 @@ class MixedModule(Module):
             return self._load_lazily(space, name)
         return w_value
 
+    def setdictvalue(self, space, attr, w_value):
+        if self.lazy:
+            self._load_lazily(space, attr)
+        space.setitem_str(self.w_dict, attr, w_value)
+        return True
+
     def _load_lazily(self, space, name):
         w_name = space.new_interned_str(name)
         try:
