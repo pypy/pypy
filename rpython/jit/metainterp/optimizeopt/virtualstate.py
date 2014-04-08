@@ -41,10 +41,13 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
                                   'virtual states but not in the other.')
         else:
             renum[self.position] = other.position
-            self._generate_guards(other, value, cpu, extra_guards, renum, bad)
+            try:
+                self._generate_guards(other, value, cpu, extra_guards, renum, bad)
+            except InvalidLoop:
+                bad[self] = bad[other] = None
+                raise
 
     def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
-        bad[self] = bad[other] = None
         raise InvalidLoop('Generating guards for making the VirtualStates ' +
                           'at hand match have not been implemented')
 
@@ -284,13 +287,11 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
         box = value.box
         if not isinstance(other, NotVirtualStateInfo):
-            bad[self] = bad[other] = None
             raise InvalidLoop('The VirtualStates does not match as a ' +
                               'virtual appears where a pointer is needed ' +
                               'and it is too late to force it.')
 
         if self.is_opaque:
-            bad[self] = bad[other] = None
             raise InvalidLoop('Generating guards for opaque pointers is not safe')
 
         if self.lenbound and not self.lenbound.generalization_of(other.lenbound):
@@ -369,7 +370,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         raise InvalidLoop("XXX")
 
         if self.lenbound or other.lenbound:
-            bad[self] = bad[other] = None
             raise InvalidLoop('The array length bounds does not match.')
 
 
