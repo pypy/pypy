@@ -641,7 +641,7 @@ def run_command_line(interactive,
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
-            import imp
+            import _imp as imp
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
@@ -793,7 +793,7 @@ if __name__ == '__main__':
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
-    import imp, runpy
+    import _imp as imp, runpy
     def _run_compiled_module(modulename, filename, file, module, write_paths):
         import os
         assert modulename == '__main__'
