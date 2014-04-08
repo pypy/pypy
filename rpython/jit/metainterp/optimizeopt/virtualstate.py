@@ -28,18 +28,23 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
             bad[self] = bad[other] = None
         return result
 
-    def generate_guards(self, other, value, cpu, extra_guards, renum):
+    def generate_guards(self, other, value, cpu, extra_guards, renum, bad=None):
+        if bad is None:
+            bad = {}
         assert isinstance(value, OptValue)
-        if self.generalization_of(other, renum, {}):
-            return
-        if renum[self.position] != other.position:
-            raise InvalidLoop('The numbering of the virtual states does not ' +
-                              'match. This means that two virtual fields ' +
-                              'have been set to the same Box in one of the ' +
-                              'virtual states but not in the other.')
-        self._generate_guards(other, value, cpu, extra_guards, renum)
+        if self.position in renum:
+            if renum[self.position] != other.position:
+                bad[self] = bad[other] = None
+                raise InvalidLoop('The numbering of the virtual states does not ' +
+                                  'match. This means that two virtual fields ' +
+                                  'have been set to the same Box in one of the ' +
+                                  'virtual states but not in the other.')
+        else:
+            renum[self.position] = other.position
+            self._generate_guards(other, value, cpu, extra_guards, renum, bad)
 
-    def _generate_guards(self, other, value, cpu, extra_guards, renum):
+    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+        bad[self] = bad[other] = None
         raise InvalidLoop('Generating guards for making the VirtualStates ' +
                           'at hand match have not been implemented')
 
@@ -125,6 +130,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
     def _generalization_of_structpart(self, other):
         return (isinstance(other, VirtualStateInfo) and
                 self.known_class.same_constant(other.known_class))
+
 
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
@@ -271,55 +277,101 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         if not self.intbound.contains_bound(other.intbound):
             return False
-        if self.lenbound and other.lenbound:
-            if self.lenbound.mode != other.lenbound.mode or \
-               self.lenbound.descr != other.lenbound.descr or \
-               not self.lenbound.bound.contains_bound(other.lenbound.bound):
-                return False
-        elif self.lenbound:
-            return False
+        if self.lenbound:
+            return self.lenbound.generalization_of(other.lenbound)
         return True
 
-    def _generate_guards(self, other, value, cpu, extra_guards, renum):
+    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
         box = value.box
         if not isinstance(other, NotVirtualStateInfo):
+            bad[self] = bad[other] = None
             raise InvalidLoop('The VirtualStates does not match as a ' +
                               'virtual appears where a pointer is needed ' +
                               'and it is too late to force it.')
 
-        if self.lenbound or other.lenbound:
-            raise InvalidLoop('The array length bounds does not match.')
-
         if self.is_opaque:
+            bad[self] = bad[other] = None
             raise InvalidLoop('Generating guards for opaque pointers is not safe')
 
-        # the following conditions always peek into the runtime value that the
+        if self.lenbound and not self.lenbound.generalization_of(other.lenbound):
+            raise InvalidLoop()
+
+
+        if self.level == LEVEL_UNKNOWN:
+            return
+
+        # the following conditions often peek into the runtime value that the
         # box had when tracing. This value is only used as an educated guess.
         # It is used here to choose between either emitting a guard and jumping
         # to an existing compiled loop or retracing the loop. Both alternatives
         # will always generate correct behaviour, but performance will differ.
-        if (self.level == LEVEL_CONSTANT and
-                self.constbox.same_constant(box.constbox())):
-            op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
-            extra_guards.append(op)
-            return
+        elif self.level == LEVEL_NONNULL:
+            if other.level == LEVEL_UNKNOWN:
+                if box.nonnull():
+                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
+                    extra_guards.append(op)
+                    return
+                else:
+                    raise InvalidLoop()
+            elif other.level == LEVEL_NONNULL:
+                return
+            elif other.level == LEVEL_KNOWNCLASS:
+                return # implies nonnull
+            else:
+                assert other.level == LEVEL_CONSTANT
+                assert other.constbox
+                if not other.constbox.nonnull():
+                    raise InvalidLoop("XXX")
+                return
 
-        if self.level == LEVEL_KNOWNCLASS and \
-           box.nonnull() and \
-           self.known_class.same_constant(cpu.ts.cls_of_box(box)):
-            op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            extra_guards.append(op)
-            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
-            extra_guards.append(op)
-            return
+        elif self.level == LEVEL_KNOWNCLASS:
+            if other.level == LEVEL_UNKNOWN:
+                if (box.nonnull() and
+                        self.known_class.same_constant(cpu.ts.cls_of_box(box))):
+                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
+                    extra_guards.append(op)
+                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+                    extra_guards.append(op)
+                    return
+                else:
+                    raise InvalidLoop()
+            elif other.level == LEVEL_NONNULL:
+                if self.known_class.same_constant(cpu.ts.cls_of_box(box)):
+                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+                    extra_guards.append(op)
+                    return
+                else:
+                    raise InvalidLoop()
+            elif other.level == LEVEL_KNOWNCLASS:
+                if self.known_class.same_constant(other.known_class):
+                    return
+                raise InvalidLoop()
+            else:
+                assert other.level == LEVEL_CONSTANT
+                if (other.constbox.nonnull() and
+                        self.known_class.same_constant(cpu.ts.cls_of_box(other.constbox))):
+                    return
+                else:
+                    raise InvalidLoop()
 
-        if (self.level == LEVEL_NONNULL and
-               other.level == LEVEL_UNKNOWN and
-               isinstance(box, BoxPtr) and
-               box.nonnull()):
-            op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            extra_guards.append(op)
-            return
+        else:
+            assert self.level == LEVEL_CONSTANT
+            if other.level == LEVEL_CONSTANT:
+                if self.constbox.same_constant(other.constbox):
+                    return
+                raise InvalidLoop()
+            if self.constbox.same_constant(box.constbox()):
+                op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
+                extra_guards.append(op)
+                return
+            else:
+                raise InvalidLoop()
+        raise InvalidLoop("XXX")
+
+        if self.lenbound or other.lenbound:
+            bad[self] = bad[other] = None
+            raise InvalidLoop('The array length bounds does not match.')
+
 
         if (self.level == LEVEL_UNKNOWN and
                other.level == LEVEL_UNKNOWN and
@@ -344,10 +396,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     op = ResOperation(rop.GUARD_TRUE, [res], None)
                     extra_guards.append(op)
             return
-
-        # Remaining cases are probably not interesting
-        raise InvalidLoop('Generating guards for making the VirtualStates ' +
-                          'at hand match have not been implemented')
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if self.level == LEVEL_CONSTANT:
@@ -410,12 +458,14 @@ class VirtualState(object):
                 return False
         return True
 
-    def generate_guards(self, other, values, cpu, extra_guards):
+    def generate_guards(self, other, values, cpu, extra_guards, bad=None):
+        if bad is None:
+            bad = {}
         assert len(self.state) == len(other.state) == len(values)
         renum = {}
         for i in range(len(self.state)):
             self.state[i].generate_guards(other.state[i], values[i],
-                                          cpu, extra_guards, renum)
+                                          cpu, extra_guards, renum, bad)
 
     def make_inputargs(self, values, optimizer, keyboxes=False):
         if optimizer.optearlyforce:

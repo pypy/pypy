@@ -31,6 +31,12 @@ class LenBound(object):
     def clone(self):
         return LenBound(self.mode, self.descr, self.bound.clone())
 
+    def generalization_of(self, other):
+        return (other is not None and
+                self.mode == other.mode and
+                self.descr == other.descr and
+                self.lenbound.bound.contains_bound(other.lenbound.bound))
+
 class OptValue(object):
     __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard', 'level', 'intbound', 'lenbound')

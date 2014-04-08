@@ -9,6 +9,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+from rpython.jit.metainterp.optimizeopt.virtualize import VirtualValue
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -144,13 +145,17 @@ class TestBasic:
 
 
 class BaseTestGenerateGuards(BaseTest):
-    def guards(self, info1, info2, box_or_value, expected):
+    def _box_or_value(self, box_or_value):
         if isinstance(box_or_value, OptValue):
             value = box_or_value
             box = value.box
         else:
             box = box_or_value
             value = OptValue(box)
+        return value, box
+
+    def guards(self, info1, info2, box_or_value, expected):
+        value, box = self._box_or_value(box_or_value)
         info1.position = info2.position = 0
         guards = []
         info1.generate_guards(info2, value, self.cpu, guards, {})
@@ -166,7 +171,139 @@ class BaseTestGenerateGuards(BaseTest):
             if op.is_guard():
                 op.setdescr(None)
         assert equaloplists(guards, loop.operations, False,
-                            boxmap)        
+                            boxmap)
+
+    def check_no_guards(self, info1, info2, box_or_value):
+        value, _ = self._box_or_value(box_or_value)
+        guards = []
+        info1.generate_guards(info2, value, self.cpu, guards, {})
+        assert not guards
+
+    def check_invalid(self, info1, info2, box_or_value):
+        value, _ = self._box_or_value(box_or_value)
+        guards = []
+        with py.test.raises(InvalidLoop):
+            info1.generate_guards(info2, value, self.cpu, guards, {})
+
+    def test_nonvirtual_all_combinations(self):
+        # set up infos
+        unknown_val = OptValue(self.nodebox)
+        unknownnull_val = OptValue(BoxPtr(self.nullptr))
+        unknown_info = NotVirtualStateInfo(unknown_val)
+
+        nonnull_val = OptValue(self.nodebox)
+        nonnull_val.make_nonnull(None)
+        nonnull_info = NotVirtualStateInfo(nonnull_val)
+
+        knownclass_val = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        knownclass_val.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(knownclass_val)
+        knownclass2_val = OptValue(self.nodebox2)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox2)
+        knownclass2_val.make_constant_class(classbox, -1)
+        knownclass2_info = NotVirtualStateInfo(knownclass2_val)
+
+        constant_val = OptValue(BoxInt())
+        constant_val.make_constant(ConstInt(1))
+        constant_info = NotVirtualStateInfo(constant_val)
+        constclass_val = OptValue(self.nodebox)
+        constclass_val.make_constant(self.nodebox.constbox())
+        constclass_info = NotVirtualStateInfo(constclass_val)
+        constclass2_val = OptValue(self.nodebox)
+        constclass2_val.make_constant(self.nodebox2.constbox())
+        constclass2_info = NotVirtualStateInfo(constclass2_val)
+        constantnull_val = OptValue(ConstPtr(self.nullptr))
+        constantnull_info = NotVirtualStateInfo(constantnull_val)
+
+        # unknown unknown
+        self.check_no_guards(unknown_info, unknown_info, unknown_val)
+
+        # unknown nonnull
+        self.check_no_guards(unknown_info, nonnull_info, nonnull_val)
+
+        # unknown knownclass
+        self.check_no_guards(unknown_info, knownclass_info, knownclass_val)
+
+        # unknown constant
+        self.check_no_guards(unknown_info, constant_info, constant_val)
+
+
+        # nonnull unknown
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        """
+        self.guards(nonnull_info, unknown_info, unknown_val, expected)
+        self.check_invalid(nonnull_info, unknown_info, unknownnull_val)
+
+        # nonnull nonnull
+        self.check_no_guards(nonnull_info, nonnull_info, nonnull_val)
+
+        # nonnull knownclass
+        self.check_no_guards(nonnull_info, knownclass_info, knownclass_val)
+
+        # nonnull constant
+        self.check_no_guards(nonnull_info, constant_info, constant_val)
+        self.check_invalid(nonnull_info, constantnull_info, constantnull_val)
+
+
+        # knownclass unknown
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.guards(knownclass_info, unknown_info, unknown_val, expected)
+        self.check_invalid(knownclass_info, unknown_info, unknownnull_val)
+        self.check_invalid(knownclass_info, unknown_info, knownclass2_val)
+
+        # knownclass nonnull
+        expected = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.guards(knownclass_info, nonnull_info, knownclass_val, expected)
+        self.check_invalid(knownclass_info, nonnull_info, knownclass2_val)
+
+        # knownclass knownclass
+        self.check_no_guards(knownclass_info, knownclass_info, knownclass_val)
+        self.check_invalid(knownclass_info, knownclass2_info, knownclass2_val)
+
+        # knownclass constant
+        self.check_invalid(knownclass_info, constantnull_info, constantnull_val)
+        self.check_invalid(knownclass_info, constclass2_info, constclass2_val)
+
+
+        # constant unknown
+        expected = """
+        [i0]
+        guard_value(i0, 1) []
+        """
+        self.guards(constant_info, unknown_info, constant_val, expected)
+        self.check_invalid(constant_info, unknown_info, unknownnull_val)
+
+        # constant nonnull
+        expected = """
+        [i0]
+        guard_value(i0, 1) []
+        """
+        self.guards(constant_info, nonnull_info, constant_val, expected)
+        self.check_invalid(constant_info, nonnull_info, constclass2_val)
+
+        # constant knownclass
+        expected = """
+        [i0]
+        guard_value(i0, 1) []
+        """
+        self.guards(constant_info, knownclass_info, constant_val, expected)
+        self.check_invalid(constant_info, knownclass_info, unknownnull_val)
+
+        # constant constant
+        self.check_no_guards(constant_info, constant_info, constant_val)
+        self.check_invalid(constant_info, constantnull_info, constantnull_val)
+
+
     def test_intbounds(self):
         value1 = OptValue(BoxInt(15))
         value1.intbound.make_ge(IntBound(0, 10))
@@ -280,6 +417,34 @@ class BaseTestGenerateGuards(BaseTest):
         vstate1.generate_guards(vstate2, [value2], self.cpu, guards)
         self.compare(guards, expected, [box2])
 
+    def test_generate_guards_on_virtual_fields_matches(self):
+        py.test.skip("not yet")
+        innervalue1 = OptValue(self.nodebox)
+        constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
+        innervalue1.make_constant_class(constclassbox, -1)
+        innerinfo1 = NotVirtualStateInfo(innervalue1)
+        innerinfo1.position = 1
+        innerinfo2 = NotVirtualStateInfo(OptValue(self.nodebox))
+        innerinfo2.position = 1
+
+        info1 = VirtualStateInfo(ConstInt(42), [1])
+        info1.fieldstate = [innerinfo1]
+
+        info2 = VirtualStateInfo(ConstInt(42), [1])
+        info2.fieldstate = [innerinfo2]
+
+        value1 = VirtualValue(self.cpu, constclassbox, BoxInt())
+        value1._fields = {1: OptValue(self.nodebox)}
+
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.guards(info1, info2, value1, expected)
+
+    # _________________________________________________________________________
+    # the below tests don't really have anything to do with guard generation
 
     def test_virtuals_with_equal_fields(self):
         info1 = VirtualStateInfo(ConstInt(42), [1, 2])
@@ -681,7 +846,7 @@ class BaseTestBridges(BaseTest):
         """
         self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
 
-    def test_virtual(self):
+    def test_simple_virtual(self):
         loops = """
         [p0, p1]
         p2 = new_with_vtable(ConstClass(node_vtable))
