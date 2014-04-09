@@ -29,17 +29,6 @@ class GenerateGuardState(object):
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
 
-    def generalization_of(self, other, renum, bad, cpu=None):
-        # cpu can be None for testing only
-        guards = []
-        state = GenerateGuardState(cpu, guards, renum, bad)
-        try:
-            self.generate_guards(other, None, state)
-            assert not guards
-            return True
-        except InvalidLoop:
-            return False
-
     def generate_guards(self, other, value, state):
         """ generate guards (output in the list extra_guards) that make runtime
         values of the shape other match the shape of self. if that's not
@@ -441,13 +430,13 @@ class VirtualState(object):
             s.enum(self)
 
     def generalization_of(self, other, bad=None, cpu=None):
-        if bad is None:
-            bad = {}
+        state = GenerateGuardState(cpu=cpu, bad=bad)
         assert len(self.state) == len(other.state)
-        renum = {}
-        for i in range(len(self.state)):
-            if not self.state[i].generalization_of(other.state[i], renum, bad, cpu=None):
-                return False
+        try:
+            for i in range(len(self.state)):
+                self.state[i].generate_guards(other.state[i], None, state)
+        except InvalidLoop:
+            return False
         return True
 
     def generate_guards(self, other, values, cpu):
