@@ -13,7 +13,9 @@ from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.sys.state import get as get_state
 
-IS_WINDOWS = sys.platform == 'win32'
+PLATFORM = sys.platform
+_MACOSX = sys.platform == 'darwin'
+_WIN32 = sys.platform == 'win32'
 
 
 def find_executable(executable):
@@ -21,10 +23,10 @@ def find_executable(executable):
     Return the absolute path of the executable, by looking into PATH and
     the current directory.  If it cannot be found, return ''.
     """
-    if (we_are_translated() and IS_WINDOWS and
+    if (we_are_translated() and _WIN32 and
         not executable.lower().endswith('.exe')):
         executable += '.exe'
-    if os.sep in executable or (IS_WINDOWS and ':' in executable):
+    if os.sep in executable or (_WIN32 and ':' in executable):
         # the path is already more than just an executable name
         pass
     else:
@@ -43,7 +45,7 @@ def find_executable(executable):
 
 
 def _readlink_maybe(filename):
-    if not IS_WINDOWS:
+    if not _WIN32:
         return os.readlink(filename)
     raise NotImplementedError
 
@@ -115,9 +117,9 @@ def compute_stdlib_path(state, prefix):
     importlist.append(lib_tk)
 
     # List here the extra platform-specific paths.
-    if not IS_WINDOWS:
-        importlist.append(os.path.join(python_std_lib, 'plat-' + sys.platform))
-    if sys.platform == 'darwin':
+    if not _WIN32:
+        importlist.append(os.path.join(python_std_lib, 'plat-' + PLATFORM))
+    if _MACOSX:
         platmac = os.path.join(python_std_lib, 'plat-mac')
         importlist.append(platmac)
         importlist.append(os.path.join(platmac, 'lib-scriptpackages'))
@@ -150,7 +152,7 @@ def pypy_find_stdlib(space, executable):
     path, prefix = find_stdlib(get_state(space), executable)
     if path is None:
         return space.w_None
-    space.setitem(space.sys.w_dict, space.wrap('prefix'), space.wrap(prefix))
-    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'),
-                  space.wrap(prefix))
+    w_prefix = space.wrap(prefix)
+    space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
     return space.newlist([space.wrap(p) for p in path])
