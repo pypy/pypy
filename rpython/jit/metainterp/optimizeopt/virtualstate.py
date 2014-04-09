@@ -1,6 +1,5 @@
 from rpython.jit.metainterp import resume
 from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
-from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
@@ -12,6 +11,11 @@ from rpython.rlib.objectmodel import we_are_translated
 
 class BadVirtualState(Exception):
     pass
+
+class VirtualStatesCantMatch(Exception):
+    def __init__(self, msg='?', state=None):
+        self.msg = msg
+        self.state = state
 
 class GenerateGuardState(object):
     def __init__(self, cpu=None, guards=None, renum=None, bad=None):
@@ -32,8 +36,8 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def generate_guards(self, other, value, state):
         """ generate guards (output in the list extra_guards) that make runtime
         values of the shape other match the shape of self. if that's not
-        possible, InvalidLoop is thrown and bad gets keys set which parts of
-        the state are the problem.
+        possible, VirtualStatesCantMatch is thrown and bad gets keys set which
+        parts of the state are the problem.
 
         the function can peek into value (and particularly also the boxes in
         the value) as a guiding heuristic whether making such guards makes
@@ -44,21 +48,26 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
         if self.position in state.renum:
             if state.renum[self.position] != other.position:
                 state.bad[self] = state.bad[other] = None
-                raise InvalidLoop('The numbering of the virtual states does not ' +
-                                  'match. This means that two virtual fields ' +
-                                  'have been set to the same Box in one of the ' +
-                                  'virtual states but not in the other.')
+                raise VirtualStatesCantMatch(
+                        'The numbering of the virtual states does not ' +
+                        'match. This means that two virtual fields ' +
+                        'have been set to the same Box in one of the ' +
+                        'virtual states but not in the other.',
+                        state)
         else:
             state.renum[self.position] = other.position
             try:
                 self._generate_guards(other, value, state)
-            except InvalidLoop:
+            except VirtualStatesCantMatch, e:
                 state.bad[self] = state.bad[other] = None
-                raise
+                if e.state is None:
+                    e.state = state
+                raise e
 
     def _generate_guards(self, other, value, state):
-        raise InvalidLoop('Generating guards for making the VirtualStates ' +
-                          'at hand match have not been implemented')
+        raise VirtualStatesCantMatch(
+                'Generating guards for making the VirtualStates ' +
+                'at hand match have not been implemented')
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         raise NotImplementedError
@@ -95,7 +104,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
     def _generate_guards(self, other, value, state):
         if not self._generalization_of_structpart(other):
-            raise InvalidLoop("different kinds of structs")
+            raise VirtualStatesCantMatch("different kinds of structs")
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
@@ -105,11 +114,11 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             assert value.is_virtual()
 
         if len(self.fielddescrs) != len(other.fielddescrs):
-            raise InvalidLoop("field descrs don't match")
+            raise VirtualStatesCantMatch("field descrs don't match")
 
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
-                raise InvalidLoop("field descrs don't match")
+                raise VirtualStatesCantMatch("field descrs don't match")
             if value is not None:
                 v = value._fields[self.fielddescrs[i]] # must be there
             else:
@@ -173,11 +182,11 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def _generate_guards(self, other, value, state):
         if not isinstance(other, VArrayStateInfo):
-            raise InvalidLoop("other is not an array")
+            raise VirtualStatesCantMatch("other is not an array")
         if self.arraydescr is not other.arraydescr:
-            raise InvalidLoop("other is a different kind of array")
+            raise VirtualStatesCantMatch("other is a different kind of array")
         if len(self.fieldstate) != len(other.fieldstate):
-            raise InvalidLoop("other has a different length")
+            raise VirtualStatesCantMatch("other has a different length")
         for i in range(len(self.fieldstate)):
             # XXX value
             self.fieldstate[i].generate_guards(other.fieldstate[i],
@@ -212,20 +221,20 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def _generate_guards(self, other, value, state):
         # XXX this needs a test in test_virtualstate!!!
         if not isinstance(other, VArrayStructStateInfo):
-            raise InvalidLoop("other is not an VArrayStructStateInfo")
+            raise VirtualStatesCantMatch("other is not an VArrayStructStateInfo")
         if not self.arraydescr is not other.arraydescr:
-            raise InvalidLoop("other is a different kind of array")
+            raise VirtualStatesCantMatch("other is a different kind of array")
 
         if len(self.fielddescrs) != len(other.fielddescrs):
-            raise InvalidLoop("other has a different length")
+            raise VirtualStatesCantMatch("other has a different length")
 
         p = 0
         for i in range(len(self.fielddescrs)):
             if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
-                raise InvalidLoop("other has a different length")
+                raise VirtualStatesCantMatch("other has a different length")
             for j in range(len(self.fielddescrs[i])):
                 if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
-                    raise InvalidLoop("other has a different length")
+                    raise VirtualStatesCantMatch("other is a different kind of array")
                 self.fieldstate[p].generate_guards(other.fieldstate[p],
                                                    None, # XXX
                                                    state)
@@ -283,15 +292,16 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
         if not isinstance(other, NotVirtualStateInfo):
-            raise InvalidLoop('The VirtualStates does not match as a ' +
-                              'virtual appears where a pointer is needed ' +
-                              'and it is too late to force it.')
+            raise VirtualStatesCantMatch(
+                    'The VirtualStates does not match as a ' +
+                    'virtual appears where a pointer is needed ' +
+                    'and it is too late to force it.')
 
 
         extra_guards = state.extra_guards
         cpu = state.cpu
         if self.lenbound and not self.lenbound.generalization_of(other.lenbound):
-            raise InvalidLoop()
+            raise VirtualStatesCantMatch("length bound does not match")
 
         if self.level == LEVEL_UNKNOWN:
             if other.level == LEVEL_UNKNOWN:
@@ -311,7 +321,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     extra_guards.append(op)
                     return
                 else:
-                    raise InvalidLoop()
+                    raise VirtualStatesCantMatch("other not known to be nonnull")
             elif other.level == LEVEL_NONNULL:
                 return
             elif other.level == LEVEL_KNOWNCLASS:
@@ -320,7 +330,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 assert other.level == LEVEL_CONSTANT
                 assert other.constbox
                 if not other.constbox.nonnull():
-                    raise InvalidLoop("XXX")
+                    raise VirtualStatesCantMatch("constant is null")
                 return
 
         elif self.level == LEVEL_KNOWNCLASS:
@@ -333,39 +343,39 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     extra_guards.append(op)
                     return
                 else:
-                    raise InvalidLoop()
+                    raise VirtualStatesCantMatch("other's class is unknown")
             elif other.level == LEVEL_NONNULL:
                 if box and self.known_class.same_constant(cpu.ts.cls_of_box(box)):
                     op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
                     extra_guards.append(op)
                     return
                 else:
-                    raise InvalidLoop()
+                    raise VirtualStatesCantMatch("other's class is unknown")
             elif other.level == LEVEL_KNOWNCLASS:
                 if self.known_class.same_constant(other.known_class):
                     return
-                raise InvalidLoop()
+                raise VirtualStatesCantMatch("classes don't match")
             else:
                 assert other.level == LEVEL_CONSTANT
                 if (other.constbox.nonnull() and
                         self.known_class.same_constant(cpu.ts.cls_of_box(other.constbox))):
                     return
                 else:
-                    raise InvalidLoop()
+                    raise VirtualStatesCantMatch("classes don't match")
 
         else:
             assert self.level == LEVEL_CONSTANT
             if other.level == LEVEL_CONSTANT:
                 if self.constbox.same_constant(other.constbox):
                     return
-                raise InvalidLoop()
+                raise VirtualStatesCantMatch("different constants")
             if box is not None and self.constbox.same_constant(box.constbox()):
                 op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
                 extra_guards.append(op)
                 return
             else:
-                raise InvalidLoop()
-        raise InvalidLoop("XXX")
+                raise VirtualStatesCantMatch("other not constant")
+        assert 0, "unreachable"
 
     def _generate_guards_intbounds(self, other, box, extra_guards):
         if self.intbound.contains_bound(other.intbound):
@@ -376,7 +386,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             # optimized away when emitting them
             self.intbound.make_guards(box, extra_guards)
             return
-        raise InvalidLoop("intbounds don't match")
+        raise VirtualStatesCantMatch("intbounds don't match")
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if self.level == LEVEL_CONSTANT:
@@ -435,7 +445,7 @@ class VirtualState(object):
         try:
             for i in range(len(self.state)):
                 self.state[i].generate_guards(other.state[i], None, state)
-        except InvalidLoop:
+        except VirtualStatesCantMatch:
             return False
         return True
 

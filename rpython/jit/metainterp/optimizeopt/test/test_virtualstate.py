@@ -1,8 +1,8 @@
 from __future__ import with_statement
 import py
-from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
-     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, GenerateGuardState
+     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, GenerateGuardState, \
+     VirtualStatesCantMatch
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -68,7 +68,7 @@ class BaseTestGenerateGuards(BaseTest):
             info2.position = 0
         if state is None:
             state = GenerateGuardState(self.cpu)
-        with py.test.raises(InvalidLoop):
+        with py.test.raises(VirtualStatesCantMatch):
             info1.generate_guards(info2, value, state)
 
 
@@ -363,7 +363,7 @@ class BaseTestGenerateGuards(BaseTest):
         guard_true(i2) []
         """
         self.guards(info1, info2, value1, expected)
-        py.test.raises(InvalidLoop, self.guards,
+        py.test.raises(VirtualStatesCantMatch, self.guards,
                        info1, info2, BoxInt(50), expected)
 
 
@@ -379,7 +379,7 @@ class BaseTestGenerateGuards(BaseTest):
         guard_class(p0, ConstClass(node_vtable)) []
         """
         self.guards(info1, info2, self.nodebox, expected)
-        py.test.raises(InvalidLoop, self.guards,
+        py.test.raises(VirtualStatesCantMatch, self.guards,
                        info1, info2, BoxPtr(), expected)
 
     def test_known_class_value(self):
@@ -436,10 +436,10 @@ class BaseTestGenerateGuards(BaseTest):
         state = vstate1.generate_guards(vstate2, [value, value], self.cpu)
         self.compare(state.extra_guards, expected, [self.nodebox])
 
-        with py.test.raises(InvalidLoop):
+        with py.test.raises(VirtualStatesCantMatch):
             vstate1.generate_guards(vstate3, [value, value],
                                     self.cpu)
-        with py.test.raises(InvalidLoop):
+        with py.test.raises(VirtualStatesCantMatch):
             vstate2.generate_guards(vstate3, [value, value],
                                     self.cpu)
 

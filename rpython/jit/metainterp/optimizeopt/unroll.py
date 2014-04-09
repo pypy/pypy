@@ -6,7 +6,8 @@ from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
-from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes, BadVirtualState
+from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateAdder,
+        ShortBoxes, BadVirtualState, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -570,8 +571,8 @@ class UnrollOptimizer(Optimization):
                     debugmsg = 'Guarded to match '
                 else:
                     debugmsg = 'Matched '
-            except InvalidLoop:
-                target.virtual_state.debug_print(debugmsg, {}) # XXX
+            except VirtualStatesCantMatch, e:
+                target.virtual_state.debug_print(debugmsg, e.state.bad)
                 continue
 
             assert patchguardop is not None or (extra_guards == [] and len(target.short_preamble) == 1)
