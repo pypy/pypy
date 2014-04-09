@@ -2,7 +2,7 @@ from __future__ import with_statement
 import py
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
-     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes
+     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, GenerateGuardState
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -162,9 +162,9 @@ class BaseTestGenerateGuards(BaseTest):
         if inputargs is None:
             inputargs = [box]
         info1.position = info2.position = 0
-        guards = []
-        info1.generate_guards(info2, value, self.cpu, guards, {})
-        self.compare(guards, expected, inputargs)
+        state = GenerateGuardState(self.cpu)
+        info1.generate_guards(info2, value, state)
+        self.compare(state.extra_guards, expected, inputargs)
 
     def compare(self, guards, expected, inputargs):
         loop = self.parse(expected)
@@ -181,16 +181,17 @@ class BaseTestGenerateGuards(BaseTest):
     def check_no_guards(self, info1, info2, box_or_value=None):
         value, _ = self._box_or_value(box_or_value)
         info1.position = info2.position = 0
-        guards = []
-        info1.generate_guards(info2, value, self.cpu, guards, {})
-        assert not guards
+        state = GenerateGuardState(self.cpu)
+        info1.generate_guards(info2, value, state)
+        assert not state.extra_guards
 
     def check_invalid(self, info1, info2, box_or_value=None):
         value, _ = self._box_or_value(box_or_value)
         info1.position = info2.position = 0
         guards = []
         with py.test.raises(InvalidLoop):
-            info1.generate_guards(info2, value, self.cpu, guards, {})
+            state = GenerateGuardState(self.cpu)
+            info1.generate_guards(info2, value, state)
 
     def test_nonvirtual_all_combinations(self):
         # set up infos
@@ -422,18 +423,15 @@ class BaseTestGenerateGuards(BaseTest):
         guard_nonnull(p0) []
         guard_class(p0, ConstClass(node_vtable)) []
         """
-        guards = []
-        vstate1.generate_guards(vstate2, [value, value], self.cpu, guards)
-        self.compare(guards, expected, [self.nodebox])
+        state = vstate1.generate_guards(vstate2, [value, value], self.cpu)
+        self.compare(state.extra_guards, expected, [self.nodebox])
 
         with py.test.raises(InvalidLoop):
-            guards = []
             vstate1.generate_guards(vstate3, [value, value],
-                                    self.cpu, guards)
+                                    self.cpu)
         with py.test.raises(InvalidLoop):
-            guards = []
             vstate2.generate_guards(vstate3, [value, value],
-                                    self.cpu, guards)
+                                    self.cpu)
 
 
     def test_generate_guards_on_virtual_fields_matches(self):

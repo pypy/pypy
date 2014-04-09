@@ -557,26 +557,26 @@ class UnrollOptimizer(Optimization):
             ok = False
             extra_guards = []
 
-            bad = {}
             debugmsg = 'Did not match '
             try:
                 cpu = self.optimizer.cpu
-                target.virtual_state.generate_guards(virtual_state,
-                                                     values,
-                                                     cpu,
-                                                     extra_guards)
+                state = target.virtual_state.generate_guards(virtual_state,
+                                                             values,
+                                                             cpu)
 
                 ok = True
+                extra_guards = state.extra_guards
                 if extra_guards:
                     debugmsg = 'Guarded to match '
                 else:
                     debugmsg = 'Matched '
             except InvalidLoop:
+                target.virtual_state.debug_print(debugmsg, {}) # XXX
                 continue
 
             assert patchguardop is not None or (extra_guards == [] and len(target.short_preamble) == 1)
 
-            target.virtual_state.debug_print(debugmsg, bad)
+            target.virtual_state.debug_print(debugmsg, {})
 
             if ok:
                 debug_stop('jit-log-virtualstate')

@@ -13,6 +13,18 @@ from rpython.rlib.objectmodel import we_are_translated
 class BadVirtualState(Exception):
     pass
 
+class GenerateGuardState(object):
+    def __init__(self, cpu=None, guards=None, renum=None, bad=None):
+        self.cpu = cpu
+        if guards is None:
+            guards = []
+        self.extra_guards = guards
+        if renum is None:
+            renum = {}
+        self.renum = renum
+        if bad is None:
+            bad = {}
+        self.bad = bad
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
@@ -20,14 +32,15 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def generalization_of(self, other, renum, bad, cpu=None):
         # cpu can be None for testing only
         guards = []
+        state = GenerateGuardState(cpu, guards, renum, bad)
         try:
-            self.generate_guards(other, None, cpu, guards, renum, bad)
+            self.generate_guards(other, None, state)
             assert not guards
             return True
         except InvalidLoop:
             return False
 
-    def generate_guards(self, other, value, cpu, extra_guards, renum, bad=None):
+    def generate_guards(self, other, value, state):
         """ generate guards (output in the list extra_guards) that make runtime
         values of the shape other match the shape of self. if that's not
         possible, InvalidLoop is thrown and bad gets keys set which parts of
@@ -37,26 +50,24 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
         the value) as a guiding heuristic whether making such guards makes
         sense. if None is passed in for value, no guard is ever generated, and
         this function degenerates to a generalization check."""
-        assert self.position != -1
-        if bad is None:
-            bad = {}
         assert value is None or isinstance(value, OptValue)
-        if self.position in renum:
-            if renum[self.position] != other.position:
-                bad[self] = bad[other] = None
+        assert self.position != -1
+        if self.position in state.renum:
+            if state.renum[self.position] != other.position:
+                state.bad[self] = state.bad[other] = None
                 raise InvalidLoop('The numbering of the virtual states does not ' +
                                   'match. This means that two virtual fields ' +
                                   'have been set to the same Box in one of the ' +
                                   'virtual states but not in the other.')
         else:
-            renum[self.position] = other.position
+            state.renum[self.position] = other.position
             try:
-                self._generate_guards(other, value, cpu, extra_guards, renum, bad)
+                self._generate_guards(other, value, state)
             except InvalidLoop:
-                bad[self] = bad[other] = None
+                state.bad[self] = state.bad[other] = None
                 raise
 
-    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+    def _generate_guards(self, other, value, state):
         raise InvalidLoop('Generating guards for making the VirtualStates ' +
                           'at hand match have not been implemented')
 
@@ -93,7 +104,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
-    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+    def _generate_guards(self, other, value, state):
         if not self._generalization_of_structpart(other):
             raise InvalidLoop("different kinds of structs")
 
@@ -114,7 +125,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 v = value._fields[self.fielddescrs[i]] # must be there
             else:
                 v = None
-            self.fieldstate[i].generate_guards(other.fieldstate[i], v, cpu, extra_guards, renum)
+            self.fieldstate[i].generate_guards(other.fieldstate[i], v, state)
 
 
     def _generalization_of_structpart(self, other):
@@ -171,7 +182,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
-    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+    def _generate_guards(self, other, value, state):
         if not isinstance(other, VArrayStateInfo):
             raise InvalidLoop("other is not an array")
         if self.arraydescr is not other.arraydescr:
@@ -181,8 +192,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         for i in range(len(self.fieldstate)):
             # XXX value
             self.fieldstate[i].generate_guards(other.fieldstate[i],
-                                               None, cpu, extra_guards,
-                                               renum, bad)
+                                               None, state)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if not isinstance(value, virtualize.VArrayValue):
@@ -210,7 +220,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
 
-    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+    def _generate_guards(self, other, value, state):
         # XXX this needs a test in test_virtualstate!!!
         if not isinstance(other, VArrayStructStateInfo):
             raise InvalidLoop("other is not an VArrayStructStateInfo")
@@ -229,9 +239,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                     raise InvalidLoop("other has a different length")
                 self.fieldstate[p].generate_guards(other.fieldstate[p],
                                                    None, # XXX
-                                                   cpu,
-                                                   extra_guards,
-                                                   renum, bad)
+                                                   state)
                 p += 1
 
     def _enum(self, virtual_state):
@@ -278,7 +286,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.lenbound = value.lenbound
 
 
-    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+    def _generate_guards(self, other, value, state):
         if value is None or self.is_opaque:
             box = None # generating guards for opaque pointers isn't safe
         else:
@@ -291,6 +299,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                               'and it is too late to force it.')
 
 
+        extra_guards = state.extra_guards
+        cpu = state.cpu
         if self.lenbound and not self.lenbound.generalization_of(other.lenbound):
             raise InvalidLoop()
 
@@ -440,14 +450,13 @@ class VirtualState(object):
                 return False
         return True
 
-    def generate_guards(self, other, values, cpu, extra_guards, bad=None):
-        if bad is None:
-            bad = {}
+    def generate_guards(self, other, values, cpu):
         assert len(self.state) == len(other.state) == len(values)
-        renum = {}
+        state = GenerateGuardState(cpu)
         for i in range(len(self.state)):
             self.state[i].generate_guards(other.state[i], values[i],
-                                          cpu, extra_guards, renum, bad)
+                                          state)
+        return state
 
     def make_inputargs(self, values, optimizer, keyboxes=False):
         if optimizer.optearlyforce:
