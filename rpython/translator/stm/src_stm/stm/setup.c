@@ -10,7 +10,7 @@ static char *setup_mmap(char *reason)
                         PROT_READ | PROT_WRITE,
                         MAP_PAGES_FLAGS, -1, 0);
     if (result == MAP_FAILED)
-        stm_fatalerror("%s failed: %m\n", reason);
+        stm_fatalerror("%s failed: %m", reason);
 
     return result;
 }
@@ -132,17 +132,37 @@ void stm_teardown(void)
     teardown_pages();
 }
 
+static void _shadowstack_trap_page(char *start, int prot)
+{
+    size_t bsize = STM_SHADOW_STACK_DEPTH * sizeof(struct stm_shadowentry_s);
+    char *end = start + bsize + 4095;
+    end -= (((uintptr_t)end) & 4095);
+    mprotect(end, 4096, prot);
+}
+
 static void _init_shadow_stack(stm_thread_local_t *tl)
 {
-    struct stm_shadowentry_s *s = (struct stm_shadowentry_s *)
-        malloc(STM_SHADOW_STACK_DEPTH * sizeof(struct stm_shadowentry_s));
-    assert(s);
+    size_t bsize = STM_SHADOW_STACK_DEPTH * sizeof(struct stm_shadowentry_s);
+    char *start = malloc(bsize + 8192);  /* for the trap page, plus rounding */
+    if (!start)
+        stm_fatalerror("can't allocate shadow stack");
+
+    /* set up a trap page: if the shadowstack overflows, it will
+       crash in a clean segfault */
+    _shadowstack_trap_page(start, PROT_NONE);
+
+    struct stm_shadowentry_s *s = (struct stm_shadowentry_s *)start;
     tl->shadowstack = s;
     tl->shadowstack_base = s;
 }
 
 static void _done_shadow_stack(stm_thread_local_t *tl)
 {
+    assert(tl->shadowstack >= tl->shadowstack_base);
+
+    char *start = (char *)tl->shadowstack_base;
+    _shadowstack_trap_page(start, PROT_READ | PROT_WRITE);
+
     free(tl->shadowstack_base);
     tl->shadowstack = NULL;
     tl->shadowstack_base = NULL;
