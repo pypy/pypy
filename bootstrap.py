@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import os, os.path, sys, importlib, os, vcstools, sh
+import os, os.path, sys, importlib, os, sh
 
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
@@ -32,6 +32,7 @@ def fetch_deps(with_shared=True):
 
 # used only for standalone bootstrap
 def fetch_shared():
+    import vcstools
     vcs = vcstools.get_vcs_client(SHARED_VCS, DEFAULT_SHARED_DIR)
     if not os.path.exists(DEFAULT_SHARED_DIR):
         print("Cloning fresh unipycation-shared: version=%s" % SHARED_VERSION)
@@ -42,6 +43,7 @@ def fetch_shared():
         vcs.update(version=SHARED_VERSION, force_fetch=True)
 
 def fetch_pyro():
+    import vcstools
     vcs = vcstools.get_vcs_client(PYRO_VCS, PYRO_DIR)
     if not os.path.exists(PYRO_DIR):
         print("Cloning pyrolog: version=%s" % PYRO_VERSION)
