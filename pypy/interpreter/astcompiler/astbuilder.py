@@ -1122,9 +1122,10 @@ class ASTBuilder(object):
                 sub_strings_w = [parsestring.parsestr(space, encoding, s.value)
                                  for s in atom_node.children]
             except error.OperationError, e:
-                if not e.match(space, space.w_UnicodeError):
+                if not (e.match(space, space.w_UnicodeError) or
+                        e.match(space, space.w_ValueError)):
                     raise
-                # UnicodeError in literal: turn into SyntaxError
+                # Unicode/ValueError in literal: turn into SyntaxError
                 self.error(e.errorstr(space), atom_node)
                 sub_strings_w = [] # please annotator
             # Implement implicit string concatenation.

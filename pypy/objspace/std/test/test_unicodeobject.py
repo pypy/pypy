@@ -341,12 +341,14 @@ class AppTestUnicodeString:
         assert str(123) == '123'
         assert str(object=123) == '123'
         assert str([2, 3]) == '[2, 3]'
+        assert str(errors='strict') == ''
         class U(str):
             pass
         assert str(U()).__class__ is str
         assert U().__str__().__class__ is str
         assert U('test') == 'test'
         assert U('test').__class__ is U
+        assert U(errors='strict') == U('')
 
     def test_call_unicode_2(self):
         class X(object):

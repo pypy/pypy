@@ -11,8 +11,17 @@ try:
 except ImportError:
     _testcapi = None
 
-from test.support import (TESTFN, unlink, run_unittest, captured_output,
-                          gc_collect, cpython_only)
+from test.support import (TESTFN, captured_output, check_impl_detail,
+                          cpython_only, gc_collect, run_unittest, unlink)
+
+class NaiveException(Exception):
+    def __init__(self, x):
+        self.x = x
+
+class SlottedNaiveException(Exception):
+    __slots__ = ('x',)
+    def __init__(self, x):
+        self.x = x
 
 # XXX This is not really enough, each *operation* should be tested!
 
@@ -276,6 +285,10 @@ class ExceptionTests(unittest.TestCase):
                 {'args' : ('\u3042', 0, 1, 'ouch'),
                  'object' : '\u3042', 'reason' : 'ouch',
                  'start' : 0, 'end' : 1}),
+            (NaiveException, ('foo',),
+                {'args': ('foo',), 'x': 'foo'}),
+            (SlottedNaiveException, ('foo',),
+                {'args': ('foo',), 'x': 'foo'}),
         ]
         try:
             exceptionList.append(
@@ -295,7 +308,8 @@ class ExceptionTests(unittest.TestCase):
                 raise
             else:
                 # Verify module name
-                self.assertEqual(type(e).__module__, 'builtins')
+                if not type(e).__name__.endswith('NaiveException'):
+                    self.assertEqual(type(e).__module__, 'builtins')
                 # Verify no ref leaks in Exc_str()
                 s = str(e)
                 for checkArgName in expected:
@@ -503,6 +517,9 @@ class ExceptionTests(unittest.TestCase):
             obj = None
             gc_collect()
             obj = wr()
+            # guarantee no ref cycles on CPython (don't gc_collect)
+            if check_impl_detail(cpython=False):
+                gc_collect()
             self.assertTrue(obj is None, "%s" % obj)
 
         # Some complicated construct
@@ -519,7 +536,8 @@ class ExceptionTests(unittest.TestCase):
             except MyException:
                 pass
         obj = None
-        gc_collect()
+        if check_impl_detail(cpython=False):
+            gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -534,7 +552,8 @@ class ExceptionTests(unittest.TestCase):
         with Context():
             inner_raising_func()
         obj = None
-        gc_collect()
+        if check_impl_detail(cpython=False):
+            gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 

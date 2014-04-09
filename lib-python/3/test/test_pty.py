@@ -152,7 +152,7 @@ class PtyTest(unittest.TestCase):
             # platform-dependent amount of data is written to its fd.  On
             # Linux 2.6, it's 4000 bytes and the child won't block, but on OS
             # X even the small writes in the child above will block it.  Also
-            # on Linux, the read() will throw an OSError (input/output error)
+            # on Linux, the read() will raise an OSError (input/output error)
             # when it tries to read past the end of the buffer but the child's
             # already exited, so catch and discard those exceptions.  It's not
             # worth checking for EIO.
@@ -215,7 +215,7 @@ class SmallPtyTests(unittest.TestCase):
         for fd in self.fds:
             try:
                 os.close(fd)
-            except:
+            except OSError:
                 pass
 
     def _pipe(self):
@@ -235,8 +235,9 @@ class SmallPtyTests(unittest.TestCase):
         mock_stdin_fd, write_to_stdin_fd = self._pipe()
         pty.STDIN_FILENO = mock_stdin_fd
         socketpair = socket.socketpair()
+        for s in socketpair:
+            self.addCleanup(s.close)
         masters = [s.fileno() for s in socketpair]
-        self.fds.extend(masters)
 
         # Feed data.  Smaller than PIPEBUF.  These writes will not block.
         os.write(masters[1], b'from master')
@@ -264,8 +265,9 @@ class SmallPtyTests(unittest.TestCase):
         mock_stdin_fd, write_to_stdin_fd = self._pipe()
         pty.STDIN_FILENO = mock_stdin_fd
         socketpair = socket.socketpair()
+        for s in socketpair:
+            self.addCleanup(s.close)
         masters = [s.fileno() for s in socketpair]
-        self.fds.extend(masters)
 
         os.close(masters[1])
         socketpair[1].close()

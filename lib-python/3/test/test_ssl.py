@@ -103,12 +103,8 @@ class BasicSocketTests(unittest.TestCase):
             sys.stdout.write("\n RAND_status is %d (%s)\n"
                              % (v, (v and "sufficient randomness") or
                                 "insufficient randomness"))
-        try:
-            ssl.RAND_egd(1)
-        except TypeError:
-            pass
-        else:
-            print("didn't raise TypeError")
+        self.assertRaises(TypeError, ssl.RAND_egd, 1)
+        self.assertRaises(TypeError, ssl.RAND_egd, 'foo', 1)
         ssl.RAND_add("this is a random string", 75.0)
 
     def test_parse_cert(self):
@@ -560,6 +556,17 @@ class NetworkedTests(unittest.TestCase):
             finally:
                 s.close()
 
+    def test_connect_ex_error(self):
+        with support.transient_internet("svn.python.org"):
+            s = ssl.wrap_socket(socket.socket(socket.AF_INET),
+                                cert_reqs=ssl.CERT_REQUIRED,
+                                ca_certs=SVN_PYTHON_ORG_ROOT_CERT)
+            try:
+                self.assertEqual(errno.ECONNREFUSED,
+                                 s.connect_ex(("svn.python.org", 444)))
+            finally:
+                s.close()
+
     def test_connect_with_context(self):
         with support.transient_internet("svn.python.org"):
             # Same as test_connect, but with a separately created context
@@ -711,13 +718,18 @@ class NetworkedTests(unittest.TestCase):
         # SHA256 was added in OpenSSL 0.9.8
         if ssl.OPENSSL_VERSION_INFO < (0, 9, 8, 0, 15):
             self.skipTest("SHA256 not available on %r" % ssl.OPENSSL_VERSION)
+        # sha256.tbs-internet.com needs SNI to use the correct certificate
+        if not ssl.HAS_SNI:
+            self.skipTest("SNI needed for this test")
         # https://sha2.hboeck.de/ was used until 2011-01-08 (no route to host)
         remote = ("sha256.tbs-internet.com", 443)
         sha256_cert = os.path.join(os.path.dirname(__file__), "sha256.pem")
         with support.transient_internet("sha256.tbs-internet.com"):
-            s = ssl.wrap_socket(socket.socket(socket.AF_INET),
-                                cert_reqs=ssl.CERT_REQUIRED,
-                                ca_certs=sha256_cert,)
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            ctx.verify_mode = ssl.CERT_REQUIRED
+            ctx.load_verify_locations(sha256_cert)
+            s = ctx.wrap_socket(socket.socket(socket.AF_INET),
+                                server_hostname="sha256.tbs-internet.com")
             try:
                 s.connect(remote)
                 if support.verbose:
@@ -760,7 +772,13 @@ else:
                 try:
                     self.sslconn = self.server.context.wrap_socket(
                         self.sock, server_side=True)
-                except ssl.SSLError as e:
+                except (ssl.SSLError, socket.error) as e:
+                    # Treat ECONNRESET as though it were an SSLError - OpenSSL
+                    # on Ubuntu abruptly closes the connection when asked to use
+                    # an unsupported protocol.
+                    if (not isinstance(e, ssl.SSLError) and
+                        e.errno != errno.ECONNRESET):
+                        raise
                     # XXX Various errors can have happened here, for example
                     # a mismatching protocol version, an invalid certificate,
                     # or a low-level bug. This should be made more discriminating.
@@ -1606,6 +1624,42 @@ else:
                 finish = True
                 t.join()
                 server.close()
+
+        def test_server_accept(self):
+            # Issue #16357: accept() on a SSLSocket created through
+            # SSLContext.wrap_socket().
+            context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            context.verify_mode = ssl.CERT_REQUIRED
+            context.load_verify_locations(CERTFILE)
+            context.load_cert_chain(CERTFILE)
+            server = socket.socket(socket.AF_INET)
+            host = "127.0.0.1"
+            port = support.bind_port(server)
+            server = context.wrap_socket(server, server_side=True)
+
+            evt = threading.Event()
+            remote = None
+            peer = None
+            def serve():
+                nonlocal remote, peer
+                server.listen(5)
+                # Block on the accept and wait on the connection to close.
+                evt.set()
+                remote, peer = server.accept()
+                remote.recv(1)
+
+            t = threading.Thread(target=serve)
+            t.start()
+            # Client wait until server setup and perform a connect.
+            evt.wait()
+            client = context.wrap_socket(socket.socket())
+            client.connect((host, port))
+            client_addr = client.getsockname()
+            client.close()
+            t.join()
+            # Sanity checks.
+            self.assertIsInstance(remote, ssl.SSLSocket)
+            self.assertEqual(peer, client_addr)
 
         def test_default_ciphers(self):
             context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
