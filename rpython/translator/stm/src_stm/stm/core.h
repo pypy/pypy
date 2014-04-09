@@ -36,8 +36,6 @@
 #define WRITELOCK_START       ((END_NURSERY_PAGE * 4096UL) >> 4)
 #define WRITELOCK_END         READMARKER_END
 
-#define SHADOW_STACK_SIZE     1000
-
 enum /* stm_flags */ {
     /* This flag is set on non-nursery objects.  It forces stm_write()
        to call _stm_write_slowpath().

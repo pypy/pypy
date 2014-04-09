@@ -242,8 +242,6 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
                 mutex_pages_lock();
                 locked = true;
             }
-            char *realobj = REAL_ADDRESS(pseg->pub.segment_base, item->addr);
-            ssize_t size = stmcb_size_rounded_up((struct object_s *)realobj);
             _stm_large_free(stm_object_pages + item->addr);
         } TREE_LOOP_END;
 

@@ -259,6 +259,10 @@ object_t *stm_allocate_weakref(ssize_t size_rounded_up);
 void stm_setup(void);
 void stm_teardown(void);
 
+/* The size of each shadow stack, in number of entries.
+   Must be big enough to accomodate all STM_PUSH_ROOTs! */
+#define STM_SHADOW_STACK_DEPTH   163840
+
 /* Push and pop roots from/to the shadow stack. Only allowed inside
    transaction. */
 #define STM_PUSH_ROOT(tl, p)   ((tl).shadowstack++->ss = (object_t *)(p))

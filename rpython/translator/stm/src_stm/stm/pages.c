@@ -96,6 +96,17 @@ static void d_remap_file_pages(char *addr, size_t size, ssize_t pgoff)
              (void *)((addr - stm_object_pages) % (4096UL * NB_PAGES)),
              (long)pgoff / NB_PAGES,
              (void *)((pgoff % NB_PAGES) * 4096UL)));
+    assert(size % 4096 == 0);
+    assert(size <= TOTAL_MEMORY);
+    assert(((uintptr_t)addr) % 4096 == 0);
+    assert(addr >= stm_object_pages);
+    assert(addr <= stm_object_pages + TOTAL_MEMORY - size);
+    assert(pgoff >= 0);
+    assert(pgoff <= (TOTAL_MEMORY - size) / 4096UL);
+
+    /* assert remappings follow the rule that page N in one segment
+       can only be remapped to page N in another segment */
+    assert(((addr - stm_object_pages) / 4096UL - pgoff) % NB_PAGES == 0);
 
     int res = remap_file_pages(addr, size, 0, pgoff, 0);
     if (UNLIKELY(res < 0))
