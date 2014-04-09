@@ -1,5 +1,5 @@
 from test.support import verbose, run_unittest, gc_collect, bigmemtest, _2G, \
-        cpython_only
+        cpython_only, check_impl_detail
 import io
 import re
 from re import Scanner
@@ -25,7 +25,12 @@ class ReTests(unittest.TestCase):
         # See bug 14212
         b = bytearray(b'x')
         it = re.finditer(b'a', b)
-        with self.assertRaises(BufferError):
+        if check_impl_detail(pypy=False):
+            # PyPy export buffers differently, and allows reallocation
+            # of the underlying object.
+            with self.assertRaises(BufferError):
+                b.extend(b'x'*400)
+        else:
             b.extend(b'x'*400)
         list(it)
         del it
