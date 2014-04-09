@@ -15,11 +15,11 @@ internally.  This page describes ``pypy-stm`` from the perspective of a
 user, describes work in progress, and finally gives references to more
 implementation details.
 
-This work was done by Remi Meier and Armin Rigo.  Thanks to all donors
-for crowd-funding the work so far!  Please have a look at the 2nd call
-for donation (*not ready yet*)
+This work was done mostly by Remi Meier and Armin Rigo.  Thanks to all
+donors for crowd-funding the work so far!  Please have a look at the
+`2nd call for donation`_.
 
-.. .. _`2nd call for donation`: http://pypy.org/tmdonate2.html
+.. _`2nd call for donation`: http://pypy.org/tmdonate2.html
 
 
 Introduction
