@@ -277,34 +277,14 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.position_in_notvirtuals = -1
         self.lenbound = value.lenbound
 
-    def generalization_of_renumbering_done(self, other, renum, bad):
-        # XXX This will always retrace instead of forcing anything which
-        # might be what we want sometimes?
-        if not isinstance(other, NotVirtualStateInfo):
-            return False
-        if other.level < self.level:
-            return False
-        if self.level == LEVEL_CONSTANT:
-            if not self.constbox.same_constant(other.constbox):
-                return False
-        elif self.level == LEVEL_KNOWNCLASS:
-            if not self.known_class.same_constant(other.known_class):
-                return False
-        elif self.level == LEVEL_NONNULL:
-            if other.constbox and not other.constbox.nonnull():
-                return False
-
-        if not self.intbound.contains_bound(other.intbound):
-            return False
-        if self.lenbound:
-            return self.lenbound.generalization_of(other.lenbound)
-        return True
 
     def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
         if value is None or self.is_opaque:
             box = None # generating guards for opaque pointers isn't safe
         else:
             box = value.box
+        # XXX This will always retrace instead of forcing anything which
+        # might be what we want sometimes?
         if not isinstance(other, NotVirtualStateInfo):
             raise InvalidLoop('The VirtualStates does not match as a ' +
                               'virtual appears where a pointer is needed ' +
