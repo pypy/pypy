@@ -333,7 +333,6 @@ class AppTestPosix:
         if sys.platform != "win32":
             assert not posix.access(pdir, posix.X_OK)
 
-
     def test_times(self):
         """
         posix.times() should return a five-tuple giving float-representations
@@ -1099,8 +1098,8 @@ class AppTestEnvironment(object):
             res = os.system(cmd)
             assert res == 0
 
-class AppTestPosixUnicode:
 
+class AppTestPosixUnicode:
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -1140,6 +1139,7 @@ class AppTestPosixUnicode:
             self.posix.remove("ą")
         except OSError:
             pass
+
 
 class AppTestUnicodeFilename:
     def setup_class(cls):
