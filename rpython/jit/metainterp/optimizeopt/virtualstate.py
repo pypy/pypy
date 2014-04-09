@@ -304,10 +304,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch("length bound does not match")
 
         if self.level == LEVEL_UNKNOWN:
-            if other.level == LEVEL_UNKNOWN:
-                return self._generate_guards_intbounds(other, box, extra_guards)
-            else:
-                return # matches everything
+            # confusingly enough, this is done also for pointers
+            # which have the full range as the "bound", so it always works
+            return self._generate_guards_intbounds(other, box, extra_guards)
 
         # the following conditions often peek into the runtime value that the
         # box had when tracing. This value is only used as an educated guess.
@@ -380,7 +379,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def _generate_guards_intbounds(self, other, box, extra_guards):
         if self.intbound.contains_bound(other.intbound):
             return
-        if (isinstance(box, BoxInt) and
+        if (box is not None and isinstance(box, BoxInt) and
                 self.intbound.contains(box.getint())):
             # this may generate a few more guards than needed, but they are
             # optimized away when emitting them

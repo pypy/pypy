@@ -365,6 +365,16 @@ class BaseTestGenerateGuards(BaseTest):
         self.guards(info1, info2, value1, expected)
         self.check_invalid(info1, info2, BoxInt(50))
 
+    def test_intbounds_constant(self):
+        value1 = OptValue(BoxInt(15))
+        value1.intbound.make_ge(IntBound(0, 10))
+        value1.intbound.make_le(IntBound(20, 30))
+        info1 = NotVirtualStateInfo(value1)
+        info2 = NotVirtualStateInfo(OptValue(ConstInt(10000)))
+        self.check_invalid(info1, info2)
+        info1 = NotVirtualStateInfo(value1)
+        info2 = NotVirtualStateInfo(OptValue(ConstInt(11)))
+        self.check_no_guards(info1, info2)
 
     def test_known_class(self):
         value1 = OptValue(self.nodebox)
