@@ -151,7 +151,7 @@ def pypy_find_stdlib(space, executable):
     path, prefix = find_stdlib(get_state(space), executable)
     if path is None:
         return space.w_None
-    space.setitem(space.sys.w_dict, space.wrap('prefix'), space.wrap(prefix))
-    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'),
-                  space.wrap(prefix))
+    w_prefix = space.wrap(prefix)
+    space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
     return space.newlist([space.wrap(p) for p in path])
