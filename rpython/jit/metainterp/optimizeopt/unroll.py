@@ -388,7 +388,8 @@ class UnrollOptimizer(Optimization):
         #debug_start('jit-log-virtualstate')
         #virtual_state.debug_print('Closed loop with ')
         bad = {}
-        if not virtual_state.generalization_of(final_virtual_state, bad):
+        if not virtual_state.generalization_of(final_virtual_state, bad,
+                                               cpu=self.optimizer.cpu):
             # We ended up with a virtual state that is not compatible
             # and we are thus unable to jump to the start of the loop
             #final_virtual_state.debug_print("Bad virtual state at end of loop, ",
@@ -558,7 +559,9 @@ class UnrollOptimizer(Optimization):
 
             bad = {}
             debugmsg = 'Did not match '
-            if target.virtual_state.generalization_of(virtual_state, bad):
+            if target.virtual_state.generalization_of(
+                    virtual_state, bad,
+                    cpu = self.optimizer.cpu):
                 ok = True
                 debugmsg = 'Matched '
             else:

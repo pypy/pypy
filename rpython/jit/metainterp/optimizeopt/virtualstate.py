@@ -17,16 +17,15 @@ class BadVirtualState(Exception):
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
 
-    def generalization_of(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            result = renum[self.position] == other.position
-        else:
-            renum[self.position] = other.position
-            result = self.generalization_of_renumbering_done(other, renum, bad)
-        if not result:
-            bad[self] = bad[other] = None
-        return result
+    def generalization_of(self, other, renum, bad, cpu=None):
+        # cpu can be None for testing only
+        guards = []
+        try:
+            self.generate_guards(other, None, cpu, guards, renum, bad)
+            assert not guards
+            return True
+        except InvalidLoop:
+            return False
 
     def generate_guards(self, other, value, cpu, extra_guards, renum, bad=None):
         """ generate guards (output in the list extra_guards) that make runtime
@@ -38,6 +37,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
         the value) as a guiding heuristic whether making such guards makes
         sense. if None is passed in for value, no guard is ever generated, and
         this function degenerates to a generalization check."""
+        assert self.position != -1
         if bad is None:
             bad = {}
         assert value is None or isinstance(value, OptValue)
@@ -93,43 +93,27 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
-    def generalization_of_renumbering_done(self, other, renum, bad):
-        if not self._generalization_of_structpart(other):
-            return False
-
-        assert isinstance(other, AbstractVirtualStructStateInfo)
-        assert len(self.fielddescrs) == len(self.fieldstate)
-        assert len(other.fielddescrs) == len(other.fieldstate)
-        if len(self.fielddescrs) != len(other.fielddescrs):
-            return False
-
-        for i in range(len(self.fielddescrs)):
-            if other.fielddescrs[i] is not self.fielddescrs[i]:
-                return False
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i],
-                                                        renum, bad):
-                return False
-
-        return True
-
-
     def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
         if not self._generalization_of_structpart(other):
-            raise InvalidLoop("XXX")
+            raise InvalidLoop("different kinds of structs")
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
-        assert isinstance(value, virtualize.AbstractVirtualStructValue)
-        assert value.is_virtual()
+        if value is not None:
+            assert isinstance(value, virtualize.AbstractVirtualStructValue)
+            assert value.is_virtual()
 
         if len(self.fielddescrs) != len(other.fielddescrs):
-            raise InvalidLoop("XXX")
+            raise InvalidLoop("field descrs don't match")
 
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
-                raise InvalidLoop("XXX")
-            v = value._fields[self.fielddescrs[i]] # must be there
+                raise InvalidLoop("field descrs don't match")
+            if value is not None:
+                v = value._fields[self.fielddescrs[i]] # must be there
+            else:
+                v = None
             self.fieldstate[i].generate_guards(other.fieldstate[i], v, cpu, extra_guards, renum)
 
 
@@ -187,18 +171,18 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
-    def generalization_of_renumbering_done(self, other, renum, bad):
+    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
         if not isinstance(other, VArrayStateInfo):
-            return False
+            raise InvalidLoop("other is not an array")
         if self.arraydescr is not other.arraydescr:
-            return False
+            raise InvalidLoop("other is a different kind of array")
         if len(self.fieldstate) != len(other.fieldstate):
-            return False
+            raise InvalidLoop("other has a different length")
         for i in range(len(self.fieldstate)):
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i],
-                                                        renum, bad):
-                return False
-        return True
+            # XXX value
+            self.fieldstate[i].generate_guards(other.fieldstate[i],
+                                               None, cpu, extra_guards,
+                                               renum, bad)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if not isinstance(value, virtualize.VArrayValue):
@@ -226,27 +210,29 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
 
-    def generalization_of_renumbering_done(self, other, renum, bad):
+    def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
+        # XXX this needs a test in test_virtualstate!!!
         if not isinstance(other, VArrayStructStateInfo):
-            return False
+            raise InvalidLoop("other is not an VArrayStructStateInfo")
         if not self.arraydescr is not other.arraydescr:
-            return False
+            raise InvalidLoop("other is a different kind of array")
 
         if len(self.fielddescrs) != len(other.fielddescrs):
-            return False
+            raise InvalidLoop("other has a different length")
 
         p = 0
         for i in range(len(self.fielddescrs)):
             if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
-                return False
+                raise InvalidLoop("other has a different length")
             for j in range(len(self.fielddescrs[i])):
                 if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
-                    return False
-                if not self.fieldstate[p].generalization_of(other.fieldstate[p],
-                                                            renum, bad):
-                    return False
+                    raise InvalidLoop("other has a different length")
+                self.fieldstate[p].generate_guards(other.fieldstate[p],
+                                                   None, # XXX
+                                                   cpu,
+                                                   extra_guards,
+                                                   renum, bad)
                 p += 1
-        return True
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -315,17 +301,15 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         return True
 
     def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
-        if value is not None:
-            box = value.box
+        if value is None or self.is_opaque:
+            box = None # generating guards for opaque pointers isn't safe
         else:
-            box = None
+            box = value.box
         if not isinstance(other, NotVirtualStateInfo):
             raise InvalidLoop('The VirtualStates does not match as a ' +
                               'virtual appears where a pointer is needed ' +
                               'and it is too late to force it.')
 
-        if self.is_opaque:
-            raise InvalidLoop('Generating guards for opaque pointers is not safe')
 
         if self.lenbound and not self.lenbound.generalization_of(other.lenbound):
             raise InvalidLoop()

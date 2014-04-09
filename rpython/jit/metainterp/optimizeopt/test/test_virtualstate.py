@@ -57,7 +57,7 @@ class TestBasic:
             info1.position = 0
             info2 = NotVirtualStateInfo(value2)
             info2.position = 0
-            return info1.generalization_of(info2, {}, {})
+            return info1.generalization_of(info2, {}, {}, LLtypeMixin.cpu)
 
         assert isgeneral(OptValue(BoxInt()), OptValue(ConstInt(7)))
         assert not isgeneral(OptValue(ConstInt(7)), OptValue(BoxInt()))
@@ -66,9 +66,10 @@ class TestBasic:
         nonnull = OptValue(BoxPtr())
         nonnull.make_nonnull(0)
         knownclass = OptValue(BoxPtr())
-        knownclass.make_constant_class(ConstPtr(self.someptr1), 0)
+        clsbox = LLtypeMixin.cpu.ts.cls_of_box(BoxPtr(LLtypeMixin.myptr))
+        knownclass.make_constant_class(clsbox, 0)
         const = OptValue(BoxPtr)
-        const.make_constant_class(ConstPtr(self.someptr1), 0)
+        const.make_constant_class(clsbox, 0)
         const.make_constant(ConstPtr(self.someptr1))
         inorder = [ptr, nonnull, knownclass, const]
         for i in range(len(inorder)):
@@ -179,12 +180,14 @@ class BaseTestGenerateGuards(BaseTest):
 
     def check_no_guards(self, info1, info2, box_or_value=None):
         value, _ = self._box_or_value(box_or_value)
+        info1.position = info2.position = 0
         guards = []
         info1.generate_guards(info2, value, self.cpu, guards, {})
         assert not guards
 
     def check_invalid(self, info1, info2, box_or_value=None):
         value, _ = self._box_or_value(box_or_value)
+        info1.position = info2.position = 0
         guards = []
         with py.test.raises(InvalidLoop):
             info1.generate_guards(info2, value, self.cpu, guards, {})
