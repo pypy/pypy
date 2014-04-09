@@ -84,7 +84,7 @@ def test_find_executable(tmpdir, monkeypatch):
     assert find_executable('pypy') == a.join('pypy')
     #
     monkeypatch.setattr(initpath, 'we_are_translated', lambda: True)
-    monkeypatch.setattr(initpath, 'IS_WINDOWS', True)
+    monkeypatch.setattr(initpath, '_WIN32', True)
     monkeypatch.setenv('PATH', str(a))
     a.join('pypy.exe').ensure(file=True)
     assert find_executable('pypy') == a.join('pypy.exe')

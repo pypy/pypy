@@ -1353,7 +1353,7 @@ def ctermid(space):
     """
     return space.wrap(os.ctermid())
 
-@unwrap_spec(fd=int)
+@unwrap_spec(fd=c_int)
 def device_encoding(space, fd):
     """device_encoding(fd) -> str
 

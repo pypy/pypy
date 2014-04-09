@@ -167,36 +167,37 @@ def fork_exec(space, w_process_args, w_executable_list,
         run_fork_hooks('before', space)
 
         try:
-            pid = os.fork()
-        except OSError, e:
-            raise wrap_oserror(space, e)
+            try:
+                pid = os.fork()
+            except OSError, e:
+                raise wrap_oserror(space, e)
 
-        if pid == 0:
-            # Child process
-            # Code from here to _exit() must only use
-            # async-signal-safe functions, listed at `man 7 signal`
-            # http://www.opengroup.org/onlinepubs/009695399/functions/xsh_chap02_04.html.
-            if not space.is_none(w_preexec_fn):
-                # We'll be calling back into Python later so we need
-                # to do this. This call may not be async-signal-safe
-                # but neither is calling back into Python.  The user
-                # asked us to use hope as a strategy to avoid
-                # deadlock...
-                run_fork_hooks('child', space)
+            if pid == 0:
+                # Child process
+                # Code from here to _exit() must only use
+                # async-signal-safe functions, listed at `man 7 signal`
+                # http://www.opengroup.org/onlinepubs/009695399/functions/xsh_chap02_04.html.
+                if not space.is_none(w_preexec_fn):
+                    # We'll be calling back into Python later so we need
+                    # to do this. This call may not be async-signal-safe
+                    # but neither is calling back into Python.  The user
+                    # asked us to use hope as a strategy to avoid
+                    # deadlock...
+                    run_fork_hooks('child', space)
 
-            c_child_exec(
-                l_exec_array, l_argv, l_envp, l_cwd,
-                p2cread, p2cwrite, c2pread, c2pwrite,
-                errread, errwrite, errpipe_read, errpipe_write,
-                close_fds, restore_signals, call_setsid,
-                l_fds_to_keep, len(fds_to_keep),
-                PreexecCallback.run_function, None)
-            os._exit(255)
+                c_child_exec(
+                    l_exec_array, l_argv, l_envp, l_cwd,
+                    p2cread, p2cwrite, c2pread, c2pwrite,
+                    errread, errwrite, errpipe_read, errpipe_write,
+                    close_fds, restore_signals, call_setsid,
+                    l_fds_to_keep, len(fds_to_keep),
+                    PreexecCallback.run_function, None)
+                os._exit(255)
+        finally:
+            # parent process
+            run_fork_hooks('parent', space)
 
-    # parent process
     finally:
-        run_fork_hooks('parent', space)
-        
         preexec.w_preexec_fn = None
 
         if l_cwd:

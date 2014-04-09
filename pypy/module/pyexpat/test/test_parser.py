@@ -100,7 +100,7 @@ class AppTestPyexpat:
         p.Parse(xml)
 
     def test_python_encoding(self):
-        # This name is not knonwn by expat
+        # This name is not known by expat
         xml = b"<?xml version='1.0' encoding='latin1'?><s>caf\xe9</s>"
         import pyexpat
         p = pyexpat.ParserCreate()
@@ -110,11 +110,20 @@ class AppTestPyexpat:
         p.Parse(xml)
 
     def test_mbcs(self):
-        xml = "<?xml version='1.0' encoding='gbk'?><p/>"
+        xml = b"<?xml version='1.0' encoding='gbk'?><p/>"
         import pyexpat
         p = pyexpat.ParserCreate()
         exc = raises(ValueError, p.Parse, xml)
         assert str(exc.value) == "multi-byte encodings are not supported"
+
+    def test_parse_str(self):
+        xml = "<?xml version='1.0' encoding='latin1'?><s>caf\xe9</s>"
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        def gotText(text):
+            assert text == "caf\xe9"
+        p.CharacterDataHandler = gotText
+        p.Parse(xml)
 
     def test_decode_error(self):
         xml = b'<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>'

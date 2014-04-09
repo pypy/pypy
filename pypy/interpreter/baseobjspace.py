@@ -1606,13 +1606,7 @@ class ObjSpace(object):
                 raise OperationError(self.w_TypeError,
                     self.wrap("fileno() returned a non-integer")
                 )
-        try:
-            fd = self.c_int_w(w_fd)
-        except OperationError, e:
-            if e.match(self, self.w_OverflowError):
-                fd = -1
-            else:
-                raise
+        fd = self.c_int_w(w_fd)  # Can raise w_OverflowError
         if fd < 0:
             raise oefmt(self.w_ValueError,
                 "file descriptor cannot be a negative integer (%d)", fd)

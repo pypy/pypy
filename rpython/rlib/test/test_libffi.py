@@ -540,7 +540,7 @@ class TestLibffiCall(BaseFfiTest):
             }
         """
         libfoo = CDLL(self.libfoo_name)
-        ffi_point_struct = make_struct_ffitype_e(0, 0, [types.signed, types.signed])
+        ffi_point_struct = make_struct_ffitype_e(rffi.sizeof(rffi.SIGNED)*2, 0, [types.signed, types.signed])
         ffi_point = ffi_point_struct.ffistruct
 
         libfoo = CDLL(self.libfoo_name)

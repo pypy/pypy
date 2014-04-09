@@ -2,6 +2,8 @@
 
 import test.support
 from test.support import verbose, strip_python_stderr, import_module
+from test.script_helper import assert_python_ok
+
 import random
 import re
 import sys
@@ -415,6 +417,33 @@ class ThreadTests(BaseTestCase):
         t.daemon = True
         self.assertTrue('daemon' in repr(t))
 
+    @unittest.skipUnless(hasattr(os, 'fork'), 'test needs fork()')
+    def test_dummy_thread_after_fork(self):
+        # Issue #14308: a dummy thread in the active list doesn't mess up
+        # the after-fork mechanism.
+        code = """if 1:
+            import _thread, threading, os, time
+
+            def background_thread(evt):
+                # Creates and registers the _DummyThread instance
+                threading.current_thread()
+                evt.set()
+                time.sleep(10)
+
+            evt = threading.Event()
+            _thread.start_new_thread(background_thread, (evt,))
+            evt.wait()
+            assert threading.active_count() == 2, threading.active_count()
+            if os.fork() == 0:
+                assert threading.active_count() == 1, threading.active_count()
+                os._exit(0)
+            else:
+                os.wait()
+        """
+        _, out, err = assert_python_ok("-c", code)
+        self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
+
 
 class ThreadJoinOnShutdown(BaseTestCase):
 
@@ -632,6 +661,7 @@ class ThreadJoinOnShutdown(BaseTestCase):
         output = "end of worker thread\nend of main thread\n"
         self.assertScriptHasOutput(script, output)
 
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_6_daemon_threads(self):
         # Check that a daemon thread cannot crash the interpreter on shutdown
         # by manipulating internal structures that are being disposed of in
@@ -746,10 +776,10 @@ class ThreadingExceptionTests(BaseTestCase):
             """
         expected_output = "end of main thread\n"
         p = subprocess.Popen([sys.executable, "-c", script],
-                             stdout=subprocess.PIPE)
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = p.communicate()
         data = stdout.decode().replace('\r', '')
-        self.assertEqual(p.returncode, 0, "Unexpected error")
+        self.assertEqual(p.returncode, 0, "Unexpected error: " + stderr.decode())
         self.assertEqual(data, expected_output)
 
 class LockTests(lock_tests.LockTests):

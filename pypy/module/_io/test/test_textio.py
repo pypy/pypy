@@ -1,6 +1,12 @@
 class AppTestTextIO:
     spaceconfig = dict(usemodules=['_io', '_locale'])
 
+    def setup_class(cls):
+        from rpython.rlib.rarithmetic import INT_MAX, UINT_MAX
+        space = cls.space
+        cls.w_INT_MAX = space.wrap(INT_MAX)
+        cls.w_UINT_MAX = space.wrap(UINT_MAX)
+
     def test_constructor(self):
         import _io
         r = _io.BytesIO(b"\xc3\xa9\n\n")
@@ -369,6 +375,25 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(NonbytesStream(u'a'))
         raises(TypeError, t.read)
 
+    def test_device_encoding(self):
+        import os
+        import sys
+        encoding = os.device_encoding(sys.stderr.fileno())
+        if not encoding:
+            skip("Requires a result from "
+                 "os.device_encoding(sys.stderr.fileno())")
+        import _io
+        f = _io.TextIOWrapper(sys.stderr.buffer)
+        assert f.encoding == encoding
+
+    def test_device_encoding_ovf(self):
+        import _io
+        b = _io.BytesIO()
+        b.fileno = lambda: self.INT_MAX + 1
+        raises(OverflowError, _io.TextIOWrapper, b)
+        b.fileno = lambda: self.UINT_MAX + 1
+        raises(OverflowError, _io.TextIOWrapper, b)
+
 
 class AppTestIncrementalNewlineDecoder:
     def test_newline_decoder(self):
@@ -477,14 +502,3 @@ class AppTestIncrementalNewlineDecoder:
         _check(dec)
         dec = _io.IncrementalNewlineDecoder(None, translate=True)
         _check(dec)
-
-    def test_device_encoding(self):
-        import os
-        import sys
-        encoding = os.device_encoding(sys.stderr.fileno())
-        if not encoding:
-            skip("Requires a result from "
-                 "os.device_encoding(sys.stderr.fileno())")
-        import _io
-        f = _io.TextIOWrapper(sys.stderr.buffer)
-        assert f.encoding == encoding

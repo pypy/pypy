@@ -208,8 +208,10 @@ def _new(cls, basecls=None):
     if basecls is None:
         basecls = cls
     def descr_new_base_exception(space, w_subtype, __args__):
+        args_w, kwds_w = __args__.unpack()  # ignore kwds
         exc = space.allocate_instance(cls, w_subtype)
         basecls.__init__(exc, space)
+        exc.args_w = args_w
         return space.wrap(exc)
     descr_new_base_exception.func_name = 'descr_new_' + cls.__name__
     return interp2app(descr_new_base_exception)

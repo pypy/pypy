@@ -414,7 +414,8 @@ class MsvcPlatform(Platform):
         try:
             returncode, stdout, stderr = _run_subprocess(
                 'nmake',
-                ['/nologo', '/f', str(path.join('Makefile'))] + extra_opts)
+                ['/nologo', '/f', str(path.join('Makefile'))] + extra_opts,
+                env = self.c_environ)
         finally:
             oldcwd.chdir()
 
