@@ -450,13 +450,13 @@ class VirtualState(object):
         for s in state:
             s.enum(self)
 
-    def generalization_of(self, other, bad=None):
+    def generalization_of(self, other, bad=None, cpu=None):
         if bad is None:
             bad = {}
         assert len(self.state) == len(other.state)
         renum = {}
         for i in range(len(self.state)):
-            if not self.state[i].generalization_of(other.state[i], renum, bad):
+            if not self.state[i].generalization_of(other.state[i], renum, bad, cpu=None):
                 return False
         return True
 
