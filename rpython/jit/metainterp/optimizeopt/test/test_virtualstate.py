@@ -145,8 +145,10 @@ class TestBasic:
 
 
 class BaseTestGenerateGuards(BaseTest):
-    def _box_or_value(self, box_or_value):
-        if isinstance(box_or_value, OptValue):
+    def _box_or_value(self, box_or_value=None):
+        if box_or_value is None:
+            return None, None
+        elif isinstance(box_or_value, OptValue):
             value = box_or_value
             box = value.box
         else:
@@ -175,13 +177,13 @@ class BaseTestGenerateGuards(BaseTest):
         assert equaloplists(guards, loop.operations, False,
                             boxmap)
 
-    def check_no_guards(self, info1, info2, box_or_value):
+    def check_no_guards(self, info1, info2, box_or_value=None):
         value, _ = self._box_or_value(box_or_value)
         guards = []
         info1.generate_guards(info2, value, self.cpu, guards, {})
         assert not guards
 
-    def check_invalid(self, info1, info2, box_or_value):
+    def check_invalid(self, info1, info2, box_or_value=None):
         value, _ = self._box_or_value(box_or_value)
         guards = []
         with py.test.raises(InvalidLoop):
@@ -220,15 +222,19 @@ class BaseTestGenerateGuards(BaseTest):
 
         # unknown unknown
         self.check_no_guards(unknown_info, unknown_info, unknown_val)
+        self.check_no_guards(unknown_info, unknown_info)
 
         # unknown nonnull
         self.check_no_guards(unknown_info, nonnull_info, nonnull_val)
+        self.check_no_guards(unknown_info, nonnull_info)
 
         # unknown knownclass
         self.check_no_guards(unknown_info, knownclass_info, knownclass_val)
+        self.check_no_guards(unknown_info, knownclass_info)
 
         # unknown constant
         self.check_no_guards(unknown_info, constant_info, constant_val)
+        self.check_no_guards(unknown_info, constant_info)
 
 
         # nonnull unknown
@@ -238,16 +244,22 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(nonnull_info, unknown_info, unknown_val, expected)
         self.check_invalid(nonnull_info, unknown_info, unknownnull_val)
+        self.check_invalid(nonnull_info, unknown_info)
+        self.check_invalid(nonnull_info, unknown_info)
 
         # nonnull nonnull
+        self.check_no_guards(nonnull_info, nonnull_info, nonnull_val)
         self.check_no_guards(nonnull_info, nonnull_info, nonnull_val)
 
         # nonnull knownclass
         self.check_no_guards(nonnull_info, knownclass_info, knownclass_val)
+        self.check_no_guards(nonnull_info, knownclass_info)
 
         # nonnull constant
         self.check_no_guards(nonnull_info, constant_info, constant_val)
         self.check_invalid(nonnull_info, constantnull_info, constantnull_val)
+        self.check_no_guards(nonnull_info, constant_info)
+        self.check_invalid(nonnull_info, constantnull_info)
 
 
         # knownclass unknown
@@ -259,6 +271,9 @@ class BaseTestGenerateGuards(BaseTest):
         self.guards(knownclass_info, unknown_info, unknown_val, expected)
         self.check_invalid(knownclass_info, unknown_info, unknownnull_val)
         self.check_invalid(knownclass_info, unknown_info, knownclass2_val)
+        self.check_invalid(knownclass_info, unknown_info)
+        self.check_invalid(knownclass_info, unknown_info)
+        self.check_invalid(knownclass_info, unknown_info)
 
         # knownclass nonnull
         expected = """
@@ -267,14 +282,20 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(knownclass_info, nonnull_info, knownclass_val, expected)
         self.check_invalid(knownclass_info, nonnull_info, knownclass2_val)
+        self.check_invalid(knownclass_info, nonnull_info)
+        self.check_invalid(knownclass_info, nonnull_info)
 
         # knownclass knownclass
         self.check_no_guards(knownclass_info, knownclass_info, knownclass_val)
         self.check_invalid(knownclass_info, knownclass2_info, knownclass2_val)
+        self.check_no_guards(knownclass_info, knownclass_info)
+        self.check_invalid(knownclass_info, knownclass2_info)
 
         # knownclass constant
         self.check_invalid(knownclass_info, constantnull_info, constantnull_val)
         self.check_invalid(knownclass_info, constclass2_info, constclass2_val)
+        self.check_invalid(knownclass_info, constantnull_info)
+        self.check_invalid(knownclass_info, constclass2_info)
 
 
         # constant unknown
@@ -284,6 +305,8 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(constant_info, unknown_info, constant_val, expected)
         self.check_invalid(constant_info, unknown_info, unknownnull_val)
+        self.check_invalid(constant_info, unknown_info)
+        self.check_invalid(constant_info, unknown_info)
 
         # constant nonnull
         expected = """
@@ -292,6 +315,8 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(constant_info, nonnull_info, constant_val, expected)
         self.check_invalid(constant_info, nonnull_info, constclass2_val)
+        self.check_invalid(constant_info, nonnull_info)
+        self.check_invalid(constant_info, nonnull_info)
 
         # constant knownclass
         expected = """
@@ -300,10 +325,14 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(constant_info, knownclass_info, constant_val, expected)
         self.check_invalid(constant_info, knownclass_info, unknownnull_val)
+        self.check_invalid(constant_info, knownclass_info)
+        self.check_invalid(constant_info, knownclass_info)
 
         # constant constant
         self.check_no_guards(constant_info, constant_info, constant_val)
         self.check_invalid(constant_info, constantnull_info, constantnull_val)
+        self.check_no_guards(constant_info, constant_info)
+        self.check_invalid(constant_info, constantnull_info)
 
 
     def test_intbounds(self):

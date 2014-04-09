@@ -29,9 +29,18 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
         return result
 
     def generate_guards(self, other, value, cpu, extra_guards, renum, bad=None):
+        """ generate guards (output in the list extra_guards) that make runtime
+        values of the shape other match the shape of self. if that's not
+        possible, InvalidLoop is thrown and bad gets keys set which parts of
+        the state are the problem.
+
+        the function can peek into value (and particularly also the boxes in
+        the value) as a guiding heuristic whether making such guards makes
+        sense. if None is passed in for value, no guard is ever generated, and
+        this function degenerates to a generalization check."""
         if bad is None:
             bad = {}
-        assert isinstance(value, OptValue)
+        assert value is None or isinstance(value, OptValue)
         if self.position in renum:
             if renum[self.position] != other.position:
                 bad[self] = bad[other] = None
@@ -306,7 +315,10 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         return True
 
     def _generate_guards(self, other, value, cpu, extra_guards, renum, bad):
-        box = value.box
+        if value is not None:
+            box = value.box
+        else:
+            box = None
         if not isinstance(other, NotVirtualStateInfo):
             raise InvalidLoop('The VirtualStates does not match as a ' +
                               'virtual appears where a pointer is needed ' +
@@ -320,7 +332,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         if self.level == LEVEL_UNKNOWN:
             if other.level == LEVEL_UNKNOWN:
-                return self._generate_guards_intbounds(other, value, extra_guards)
+                return self._generate_guards_intbounds(other, box, extra_guards)
             else:
                 return # matches everything
 
@@ -331,7 +343,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         # will always generate correct behaviour, but performance will differ.
         elif self.level == LEVEL_NONNULL:
             if other.level == LEVEL_UNKNOWN:
-                if box.nonnull():
+                if box is not None and box.nonnull():
                     op = ResOperation(rop.GUARD_NONNULL, [box], None)
                     extra_guards.append(op)
                     return
@@ -350,7 +362,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         elif self.level == LEVEL_KNOWNCLASS:
             if other.level == LEVEL_UNKNOWN:
-                if (box.nonnull() and
+                if (box and box.nonnull() and
                         self.known_class.same_constant(cpu.ts.cls_of_box(box))):
                     op = ResOperation(rop.GUARD_NONNULL, [box], None)
                     extra_guards.append(op)
@@ -360,7 +372,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 else:
                     raise InvalidLoop()
             elif other.level == LEVEL_NONNULL:
-                if self.known_class.same_constant(cpu.ts.cls_of_box(box)):
+                if box and self.known_class.same_constant(cpu.ts.cls_of_box(box)):
                     op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
                     extra_guards.append(op)
                     return
@@ -384,7 +396,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 if self.constbox.same_constant(other.constbox):
                     return
                 raise InvalidLoop()
-            if self.constbox.same_constant(box.constbox()):
+            if box is not None and self.constbox.same_constant(box.constbox()):
                 op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
                 extra_guards.append(op)
                 return
@@ -392,11 +404,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 raise InvalidLoop()
         raise InvalidLoop("XXX")
 
-
-    def _generate_guards_intbounds(self, other, value, extra_guards):
+    def _generate_guards_intbounds(self, other, box, extra_guards):
         if self.intbound.contains_bound(other.intbound):
             return
-        box = value.box
         if (isinstance(box, BoxInt) and
                 self.intbound.contains(box.getint())):
             if self.intbound.has_lower:
