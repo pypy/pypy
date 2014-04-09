@@ -363,8 +363,7 @@ class BaseTestGenerateGuards(BaseTest):
         guard_true(i2) []
         """
         self.guards(info1, info2, value1, expected)
-        py.test.raises(VirtualStatesCantMatch, self.guards,
-                       info1, info2, BoxInt(50), expected)
+        self.check_invalid(info1, info2, BoxInt(50))
 
 
     def test_known_class(self):
@@ -379,8 +378,7 @@ class BaseTestGenerateGuards(BaseTest):
         guard_class(p0, ConstClass(node_vtable)) []
         """
         self.guards(info1, info2, self.nodebox, expected)
-        py.test.raises(VirtualStatesCantMatch, self.guards,
-                       info1, info2, BoxPtr(), expected)
+        self.check_invalid(info1, info2, BoxPtr())
 
     def test_known_class_value(self):
         value1 = OptValue(self.nodebox)
