@@ -576,18 +576,7 @@ class UnrollOptimizer(Optimization):
                     debugmsg = 'Guarded to match '
                 except InvalidLoop:
                     pass
-            if ok and not patchguardop:
-                # if we can't patch the guards to go to a good target, no use
-                # in jumping to this label
-                for guard in extra_guards:
-                    if guard.is_guard():
-                        ok = False
-                        break
-                else:
-                    for shop in target.short_preamble[1:]:
-                        if shop.is_guard():
-                            ok = False
-                            break
+            assert patchguardop is not None or (extra_guards == [] and len(target.short_preamble) == 1)
 
             target.virtual_state.debug_print(debugmsg, bad)
 
