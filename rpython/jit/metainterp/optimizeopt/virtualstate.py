@@ -409,24 +409,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return
         if (isinstance(box, BoxInt) and
                 self.intbound.contains(box.getint())):
-            if self.intbound.has_lower:
-                bound = self.intbound.lower
-                if not (other.intbound.has_lower and
-                        other.intbound.lower >= bound):
-                    res = BoxInt()
-                    op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
-                    extra_guards.append(op)
-                    op = ResOperation(rop.GUARD_TRUE, [res], None)
-                    extra_guards.append(op)
-            if self.intbound.has_upper:
-                bound = self.intbound.upper
-                if not (other.intbound.has_upper and
-                        other.intbound.upper <= bound):
-                    res = BoxInt()
-                    op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
-                    extra_guards.append(op)
-                    op = ResOperation(rop.GUARD_TRUE, [res], None)
-                    extra_guards.append(op)
+            # this may generate a few more guards than needed, but they are
+            # optimized away when emitting them
+            self.intbound.make_guards(box, extra_guards)
             return
         raise InvalidLoop("intbounds don't match")
 
