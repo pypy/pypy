@@ -330,24 +330,8 @@ class UnrollOptimizer(Optimization):
 
             args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
-        i = 1
-        while i < len(self.short):
-            # Note that self.short might be extended during this loop
-            op = self.short[i]
-            newop = self.short_inliner.inline_op(op)
-            if newop.is_guard():
-                if not patchguardop:
-                    raise InvalidLoop("would like to have short preamble, but it has a guard and there's no guard_future_condition")
-                descr = patchguardop.getdescr().clone_if_mutable()
-                newop.setdescr(descr)
-            self.optimizer.send_extra_operation(newop)
-            if op.result in self.short_boxes.assumed_classes:
-                classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
-                assumed_classbox = self.short_boxes.assumed_classes[op.result]
-                if not classbox or not classbox.same_constant(assumed_classbox):
-                    raise InvalidLoop('Class of opaque pointer needed in short ' +
-                                      'preamble unknown at end of loop')
-            i += 1
+        self._inline_short_preamble(self.short, self.short_inliner,
+                                    patchguardop, self.short_boxes.assumed_classes)
 
         # Import boxes produced in the preamble but used in the loop
         newoperations = self.optimizer.get_newoperations()
@@ -592,18 +576,7 @@ class UnrollOptimizer(Optimization):
 
             try:
                 # NB: the short_preamble ends with a jump
-                for shop in target.short_preamble[1:]:
-                    newop = inliner.inline_op(shop)
-                    if newop.is_guard():
-                        descr = patchguardop.getdescr().clone_if_mutable()
-                        newop.setdescr(descr)
-                    self.optimizer.send_extra_operation(newop)
-                    if shop.result in target.assumed_classes:
-                        classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
-                        if not classbox or not classbox.same_constant(target.assumed_classes[shop.result]):
-                            raise InvalidLoop('The class of an opaque pointer at the end ' +
-                                              'of the bridge does not mach the class ' +
-                                              'it has at the start of the target loop')
+                self._inline_short_preamble(target.short_preamble, inliner, patchguardop, target.assumed_classes)
             except InvalidLoop:
                 #debug_print("Inlining failed unexpectedly",
                 #            "jumping to preamble instead")
@@ -613,6 +586,27 @@ class UnrollOptimizer(Optimization):
             return True
         debug_stop('jit-log-virtualstate')
         return False
+
+    def _inline_short_preamble(self, short_preamble, inliner, patchguardop, assumed_classes):
+        i = 1
+        # XXX this is intentiontal :-(. short_preamble can change during the
+        # loop in some cases
+        while i < len(short_preamble):
+            shop = short_preamble[i]
+            newop = inliner.inline_op(shop)
+            if newop.is_guard():
+                if not patchguardop:
+                    raise InvalidLoop("would like to have short preamble, but it has a guard and there's no guard_future_condition")
+                descr = patchguardop.getdescr().clone_if_mutable()
+                newop.setdescr(descr)
+            self.optimizer.send_extra_operation(newop)
+            if shop.result in assumed_classes:
+                classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
+                if not classbox or not classbox.same_constant(assumed_classes[shop.result]):
+                    raise InvalidLoop('The class of an opaque pointer before the jump ' +
+                                      'does not mach the class ' +
+                                      'it has at the start of the target loop')
+            i += 1
 
 
 class ValueImporter(object):
