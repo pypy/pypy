@@ -555,7 +555,6 @@ class UnrollOptimizer(Optimization):
         for target in cell_token.target_tokens:
             if not target.virtual_state:
                 continue
-            ok = False
             extra_guards = []
 
             debugmsg = 'Did not match '
@@ -565,7 +564,6 @@ class UnrollOptimizer(Optimization):
                                                              values,
                                                              cpu)
 
-                ok = True
                 extra_guards = state.extra_guards
                 if extra_guards:
                     debugmsg = 'Guarded to match '
@@ -579,41 +577,40 @@ class UnrollOptimizer(Optimization):
 
             target.virtual_state.debug_print(debugmsg, {})
 
-            if ok:
-                debug_stop('jit-log-virtualstate')
+            debug_stop('jit-log-virtualstate')
 
-                args = target.virtual_state.make_inputargs(values, self.optimizer,
-                                                           keyboxes=True)
-                short_inputargs = target.short_preamble[0].getarglist()
-                inliner = Inliner(short_inputargs, args)
+            args = target.virtual_state.make_inputargs(values, self.optimizer,
+                                                       keyboxes=True)
+            short_inputargs = target.short_preamble[0].getarglist()
+            inliner = Inliner(short_inputargs, args)
 
-                for guard in extra_guards:
-                    if guard.is_guard():
+            for guard in extra_guards:
+                if guard.is_guard():
+                    descr = patchguardop.getdescr().clone_if_mutable()
+                    guard.setdescr(descr)
+                self.optimizer.send_extra_operation(guard)
+
+            try:
+                # NB: the short_preamble ends with a jump
+                for shop in target.short_preamble[1:]:
+                    newop = inliner.inline_op(shop)
+                    if newop.is_guard():
                         descr = patchguardop.getdescr().clone_if_mutable()
-                        guard.setdescr(descr)
-                    self.optimizer.send_extra_operation(guard)
-
-                try:
-                    # NB: the short_preamble ends with a jump
-                    for shop in target.short_preamble[1:]:
-                        newop = inliner.inline_op(shop)
-                        if newop.is_guard():
-                            descr = patchguardop.getdescr().clone_if_mutable()
-                            newop.setdescr(descr)
-                        self.optimizer.send_extra_operation(newop)
-                        if shop.result in target.assumed_classes:
-                            classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
-                            if not classbox or not classbox.same_constant(target.assumed_classes[shop.result]):
-                                raise InvalidLoop('The class of an opaque pointer at the end ' +
-                                                  'of the bridge does not mach the class ' +
-                                                  'it has at the start of the target loop')
-                except InvalidLoop:
-                    #debug_print("Inlining failed unexpectedly",
-                    #            "jumping to preamble instead")
-                    assert cell_token.target_tokens[0].virtual_state is None
-                    jumpop.setdescr(cell_token.target_tokens[0])
-                    self.optimizer.send_extra_operation(jumpop)
-                return True
+                        newop.setdescr(descr)
+                    self.optimizer.send_extra_operation(newop)
+                    if shop.result in target.assumed_classes:
+                        classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
+                        if not classbox or not classbox.same_constant(target.assumed_classes[shop.result]):
+                            raise InvalidLoop('The class of an opaque pointer at the end ' +
+                                              'of the bridge does not mach the class ' +
+                                              'it has at the start of the target loop')
+            except InvalidLoop:
+                #debug_print("Inlining failed unexpectedly",
+                #            "jumping to preamble instead")
+                assert cell_token.target_tokens[0].virtual_state is None
+                jumpop.setdescr(cell_token.target_tokens[0])
+                self.optimizer.send_extra_operation(jumpop)
+            return True
         debug_stop('jit-log-virtualstate')
         return False
 
