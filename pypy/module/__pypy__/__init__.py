@@ -43,6 +43,8 @@ class ThreadModule(MixedModule):
         'discard_last_abort_info': 'interp_atomic.discard_last_abort_info',
         'getsegmentlimit':         'interp_atomic.getsegmentlimit',
     }
+    def activate(self, space):
+        return self.space.config.objspace.usemodules.thread
 
 
 class IntOpModule(MixedModule):

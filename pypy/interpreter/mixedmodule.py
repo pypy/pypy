@@ -24,7 +24,7 @@ class MixedModule(Module):
         self.submodules_w = []
 
     def install(self):
-        """NOT_RPYTHON: install this module, and it's submodules into
+        """NOT_RPYTHON: install this module, and its submodules into
         space.builtin_modules"""
         Module.install(self)
         if hasattr(self, "submodules"):
@@ -33,6 +33,8 @@ class MixedModule(Module):
             for sub_name, module_cls in self.submodules.iteritems():
                 module_name = space.wrap("%s.%s" % (name, sub_name))
                 m = module_cls(space, module_name)
+                if hasattr(m, 'activate') and not m.activate(space):
+                    continue
                 m.install()
                 self.submodules_w.append(m)
 

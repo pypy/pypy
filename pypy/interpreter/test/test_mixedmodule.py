@@ -18,11 +18,25 @@ class TestMixedModule(object):
             interpleveldefs = {}
             appleveldefs = {}
 
+        class SubModule1(MixedModule):
+            interpleveldefs = {}
+            appleveldefs = {}
+            def activate(self, space):
+                return True
+
+        class SubModule2(MixedModule):
+            interpleveldefs = {}
+            appleveldefs = {}
+            def activate(self, space):
+                return False
+
         class Module(MixedModule):
             interpleveldefs = {}
             appleveldefs = {}
             submodules = {
-                "sub": SubModule
+                "sub": SubModule,
+                "sub1": SubModule1,
+                "sub2": SubModule2,
             }
 
         m = Module(self.space, self.space.wrap("test_module"))
@@ -30,6 +44,8 @@ class TestMixedModule(object):
 
         assert self.space.builtin_modules["test_module"] is m
         assert isinstance(self.space.builtin_modules["test_module.sub"], SubModule)
+        assert "test_module.sub1" in self.space.builtin_modules
+        assert "test_module.sub2" not in self.space.builtin_modules
 
 class AppTestMixedModule(object):
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
