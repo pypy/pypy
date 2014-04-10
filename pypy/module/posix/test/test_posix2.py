@@ -567,6 +567,8 @@ class AppTestPosix:
             for i in res:
                 assert isinstance(i, str)
             assert isinstance(res, tuple)
+            assert res == (res.sysname, res.nodename,
+                           res.release, res.version, res.machine)
 
     if hasattr(os, 'getuid'):
         def test_os_getuid(self):

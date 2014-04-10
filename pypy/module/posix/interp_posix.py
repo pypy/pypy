@@ -897,7 +897,10 @@ def uname(space):
     except OSError, e:
         raise wrap_oserror(space, e)
     l_w = [space.wrap(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
-    return space.newtuple(l_w)
+    w_tuple = space.newtuple(l_w)
+    w_uname_result = space.getattr(space.getbuiltinmodule(os.name),
+                                   space.wrap('uname_result'))
+    return space.call_function(w_uname_result, w_tuple)
 
 def getuid(space):
     """ getuid() -> uid
