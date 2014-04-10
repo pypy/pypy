@@ -19,7 +19,7 @@ def setup_module(mod):
         usemodules += ['fcntl']
     else:
         # On windows, os.popen uses the subprocess module
-        usemodules += ['_rawffi', 'thread']
+        usemodules += ['_rawffi', 'thread', 'signal']
     mod.space = gettestobjspace(usemodules=usemodules)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
