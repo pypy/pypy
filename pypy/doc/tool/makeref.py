@@ -52,7 +52,7 @@ def makeref(docdir):
         lines.append(".. _`%s`: %s" %(linknamelist[-1], linktarget))
 
     lines.append('')
-    reffile.write("\n".join(lines))
+    reffile.write("\n".join(lines), mode="wb")
     print "wrote %d references to %r" %(len(lines), reffile)
     #print "last ten lines"
     #for x in lines[-10:]: print x
