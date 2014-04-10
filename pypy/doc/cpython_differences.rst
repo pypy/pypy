@@ -321,8 +321,8 @@ Miscellaneous
   tools that inspect built-in types.  For example, the standard
   library ``inspect`` module has a function ``ismethod()`` that returns
   True on unbound method objects but False on method-wrappers or slot
-  wrappers.  On PyPy we can't tell the difference, and so
-  ``ismethod([].__add__)`` has to return True.
+  wrappers.  On PyPy we can't tell the difference, so
+  ``ismethod([].__add__) == ismethod(list.__add__) == True``.
 
 * the ``__dict__`` attribute of new-style classes returns a normal dict, as
   opposed to a dict proxy like in CPython. Mutating the dict will change the
