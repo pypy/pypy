@@ -60,8 +60,11 @@ def makeref(docdir):
             lines.append(".. _`%s`:" % linkname)
         lines.append(".. _`%s`: %s" %(linknamelist[-1], linktarget))
 
-    lines.append('')
-    reffile.write("\n".join(lines), mode="wb")
+    content  = ".. This file is generated automatically by makeref.py script,\n"
+    content += "   which in turn is run manually.\n\n"
+    content += "\n".join(lines) + "\n"
+    reffile.write(content, mode="wb")
+
     print "wrote %d references to %r" %(len(lines), reffile)
     #print "last ten lines"
     #for x in lines[-10:]: print x
