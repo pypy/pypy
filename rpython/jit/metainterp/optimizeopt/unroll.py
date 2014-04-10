@@ -286,13 +286,7 @@ class UnrollOptimizer(Optimization):
         self.boxes_created_this_iteration = {}
         i = 0
         while i < len(newoperations):
-            op = newoperations[i]
-            self.boxes_created_this_iteration[op.result] = None
-            args = op.getarglist()
-            if op.is_guard():
-                args = args + op.getfailargs()
-            for a in args:
-                self.import_box(a, inputargs, short_jumpargs, [])
+            self._import_op(newoperations[i], inputargs, short_jumpargs, [])
             i += 1
             newoperations = self.optimizer.get_newoperations()
         self.short.append(ResOperation(rop.JUMP, short_jumpargs, None, descr=start_label.getdescr()))
@@ -346,19 +340,7 @@ class UnrollOptimizer(Optimization):
                     self.import_box(a, inputargs, short_jumpargs, jumpargs)
                     j += 1
             else:
-                op = newoperations[i]
-
-                self.boxes_created_this_iteration[op.result] = None
-                args = op.getarglist()
-                if op.is_guard():
-                    args = args + op.getfailargs()
-
-                #if self.optimizer.loop.logops:
-                #    debug_print('OP: ' + self.optimizer.loop.logops.repr_of_resop(op))
-                for a in args:
-                    #if self.optimizer.loop.logops:
-                    #    debug_print('A:  ' + self.optimizer.loop.logops.repr_of_arg(a))
-                    self.import_box(a, inputargs, short_jumpargs, jumpargs)
+                self._import_op(newoperations[i], inputargs, short_jumpargs, jumpargs)
                 i += 1
             newoperations = self.optimizer.get_newoperations()
 
@@ -513,6 +495,16 @@ class UnrollOptimizer(Optimization):
         if box in self.optimizer.values:
             box = self.optimizer.values[box].force_box(self.optimizer)
         jumpargs.append(box)
+
+
+    def _import_op(self, op, inputargs, short_jumpargs, jumpargs):
+        self.boxes_created_this_iteration[op.result] = None
+        args = op.getarglist()
+        if op.is_guard():
+            args = args + op.getfailargs()
+
+        for a in args:
+            self.import_box(a, inputargs, short_jumpargs, jumpargs)
 
     def jump_to_already_compiled_trace(self, jumpop, patchguardop):
         assert jumpop.getopnum() == rop.JUMP
