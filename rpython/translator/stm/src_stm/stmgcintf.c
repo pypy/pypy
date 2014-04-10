@@ -38,7 +38,7 @@ static long pypy_transaction_length;
 
 void pypy_stm_set_transaction_length(double fraction)
 {
-    /* the value '100' means 'use the default'.  Other values are
+    /* the value '1.0' means 'use the default'.  Other values are
        interpreted proportionally, up to some maximum. */
     long low_fill_mark = (long)(LOW_FILL_MARK * fraction);
     if (low_fill_mark > NURSERY_SIZE * 3 / 4)
