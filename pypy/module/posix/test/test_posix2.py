@@ -309,7 +309,7 @@ class AppTestPosix:
         import errno
         os = self.posix
         try:
-            fd = os.open('/', os.O_RDONLY)
+            fd = os.open('.', os.O_RDONLY)
         except OSError as e:
             assert e.errno == errno.EACCES
             skip("system cannot open directories")
