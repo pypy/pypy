@@ -308,7 +308,11 @@ class AppTestPosix:
     def test_fdopen_directory(self):
         import errno
         os = self.posix
-        fd = os.open('/', os.O_RDONLY)
+        try:
+            fd = os.open('/', os.O_RDONLY)
+        except OSError as e:
+            assert e.errno == errno.EACCES
+            skip("system cannot open directories")
         exc = raises(IOError, os.fdopen, fd, 'r')
         assert exc.value.errno == errno.EISDIR
 
