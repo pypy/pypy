@@ -1,4 +1,13 @@
 
+# patch sys.path so that this script can be executed standalone
+import sys
+from os.path import abspath, dirname
+# this script is assumed to be at pypy/doc/tool/makeref.py
+path = dirname(abspath(__file__))
+path = dirname(dirname(dirname(path)))
+sys.path.insert(0, path)
+
+
 import py
 import pypy
 pypydir = py.path.local(pypy.__file__).join('..')
