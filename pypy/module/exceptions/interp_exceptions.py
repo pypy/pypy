@@ -139,6 +139,10 @@ class W_BaseException(W_Root):
         clsname = self.getclass(space).getname(space)
         return space.wrap(clsname + args_repr)
 
+    def __repr__(self):
+        """representation for debugging purposes"""
+        return '%s(%s)' % (self.__class__.__name__, self.args_w)
+
     def descr_getargs(self, space):
         return space.newtuple(self.args_w)
 
