@@ -369,6 +369,12 @@ class W_TypeObject(W_Object):
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 
+    def _pure_lookup_where_possibly_with_method_cache(w_self, name, version_tag):
+        if w_self.space.config.objspace.std.withmethodcache:
+            return w_self._pure_lookup_where_with_method_cache(name, version_tag)
+        else:
+            return w_self._lookup_where_all_typeobjects(name)
+
     @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space

@@ -315,6 +315,15 @@ Miscellaneous
   implementation detail that shows up because of internal C-level slots
   that PyPy does not have.
 
+* on CPython, ``[].__add__`` is a ``method-wrapper``, and
+  ``list.__add__`` is a ``slot wrapper``.  On PyPy these are normal
+  bound or unbound method objects.  This can occasionally confuse some
+  tools that inspect built-in types.  For example, the standard
+  library ``inspect`` module has a function ``ismethod()`` that returns
+  True on unbound method objects but False on method-wrappers or slot
+  wrappers.  On PyPy we can't tell the difference, so
+  ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+
 * the ``__dict__`` attribute of new-style classes returns a normal dict, as
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that

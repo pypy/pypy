@@ -586,6 +586,10 @@ class BaseIteratorImplementation(object):
             return self.len - self.pos
         return 0
 
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt %r object" % (
+            self.__class__,))
+
 class BaseKeyIterator(BaseIteratorImplementation):
     next_key = _new_next('key')
 
@@ -1098,6 +1102,10 @@ class W_BaseDictMultiIterObject(W_Root):
         w_res = space.newlist(stuff)
         w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
         return w_ret
+
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt %r object" % (
+            self.__class__,))
 
 
 class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
