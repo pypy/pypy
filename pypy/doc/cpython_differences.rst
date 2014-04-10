@@ -320,9 +320,9 @@ Miscellaneous
   bound or unbound method objects.  This can occasionally confuse some
   tools that inspect built-in types.  For example, the standard
   library ``inspect`` module has a function ``ismethod()`` that returns
-  True on unbound method objects but False on slot wrappers.  On PyPy we
-  can't tell the difference, and so ``ismethod(list.__add__)`` has to
-  return True.
+  True on unbound method objects but False on method-wrappers or slot
+  wrappers.  On PyPy we can't tell the difference, and so
+  ``ismethod([].__add__)`` has to return True.
 
 * the ``__dict__`` attribute of new-style classes returns a normal dict, as
   opposed to a dict proxy like in CPython. Mutating the dict will change the
