@@ -85,6 +85,12 @@ change the limit of 1 GB
 
 ------------------------------------------------------------
 
+Re-add the disabled optimization (only outside the jit):
+(1) withmethodcache
+(2) LOAD_ATTR_caching, LOOKUP_METHOD_mapdict
+
+------------------------------------------------------------
+
 
 
 

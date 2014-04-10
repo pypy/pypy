@@ -123,7 +123,8 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if self.space.config.objspace.std.withmapdict:
+        if (self.space.config.objspace.std.withmapdict and
+            not self.space.config.translation.stm):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 

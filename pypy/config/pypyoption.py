@@ -324,13 +324,15 @@ def set_pypy_opt_level(config, level):
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        #if not config.translation.stm:
         config.objspace.std.suggest(withmapdict=True)
 
     # tweaks some parameters with STM
     if config.translation.stm:
         config.objspace.std.suggest(methodcachesizeexp=9)
-        # XXX try at some point to see if withmapdict=True would make sense
+        # having both mapdict and methodcache together is a bad idea:
+        # it creates many conflicts
+        if config.objspace.std.withmapdict:
+            config.objspace.std.withmethodcache = False
 
 
 def enable_allworkingmodules(config):
