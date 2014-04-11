@@ -3,7 +3,7 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
-from rpython.rlib import longlong2float
+from rpython.rlib import longlong2float, rgc
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
@@ -235,6 +235,8 @@ class BlackholeInterpBuilder(object):
         return handler
 
     def acquire_interp(self):
+        if rgc.stm_is_enabled():   # XXX for now, no caching
+            return BlackholeInterpreter(self, 0)
         if len(self.blackholeinterps) > 0:
             return self.blackholeinterps.pop()
         else:
@@ -242,6 +244,8 @@ class BlackholeInterpBuilder(object):
             return BlackholeInterpreter(self, self.num_interpreters)
 
     def release_interp(self, interp):
+        if rgc.stm_is_enabled():   # XXX for now, no caching
+            return
         interp.cleanup_registers()
         self.blackholeinterps.append(interp)
 

@@ -92,7 +92,8 @@ Re-add the disabled optimization (only outside the jit):
 ------------------------------------------------------------
 
 pypy_g_BlackholeInterpBuilder_acquire_interp creates conflicts
-by caching the BlackholeInterps
+by caching the BlackholeInterps.  It has been disabled, check
+if we can re-enable it...
 
 ------------------------------------------------------------
 
