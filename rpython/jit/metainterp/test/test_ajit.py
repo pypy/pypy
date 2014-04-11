@@ -3579,6 +3579,24 @@ class BaseLLtypeTests(BasicTests):
                            'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'guard_false': 1})
 
+    def test_virtual_after_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = [1]
+                if n & 1:    # bridge
+                    n -= g(x)
+                else:
+                    n -= g(x)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops(call=0, call_may_force=0, new_array=0)
+
 
     def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
         f1 = lambda n: n+1
