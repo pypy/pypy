@@ -274,19 +274,33 @@ def importhook(space, name, w_globals=None,
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
     return w_mod
 
+lib_pypy = os.path.join(os.path.dirname(__file__),
+                        '..', '..', '..', 'lib_pypy')
+
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
-    # Short path: check in sys.modules, but only if there is no conflict
-    # on the import lock.  In the situation of 'import' statements
-    # inside tight loops, this should be true, and absolute_import_try()
-    # should be followed by the JIT and turned into not much code.  But
-    # if the import lock is currently held by another thread, then we
-    # have to wait, and so shouldn't use the fast path.
-    if not getimportlock(space).lock_held_by_someone_else():
-        w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
-        if w_mod is not None and not space.is_w(w_mod, space.w_None):
-            return w_mod
-    return absolute_import_with_lock(space, modulename, baselevel,
-                                     fromlist_w, tentative)
+    # A minimal version, that can only import builtin and lib_pypy modules!
+    assert tentative == 0
+    assert baselevel == 0
+
+    w_mod = check_sys_modules_w(space, modulename)
+    if w_mod:
+        return w_mod
+    if modulename in space.builtin_modules:
+        return space.getbuiltinmodule(modulename)
+
+    ec = space.getexecutioncontext()
+    with open(os.path.join(lib_pypy, modulename + '.py')) as fp:
+        source = fp.read()
+    pathname = "<frozen %s>" % modulename
+    code_w = ec.compiler.compile(source, pathname, 'exec', 0)
+    w_dict = space.newdict()
+    w_mod = add_module(space, space.wrap(modulename))
+    space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)
+    space.setitem(w_dict, space.wrap('__name__'), w_mod.w_name)
+    code_w.exec_code(space, w_mod.w_dict, w_mod.w_dict)
+    assert check_sys_modules_w(space, modulename)
+    return w_mod
+
 
 @jit.dont_look_inside
 def absolute_import_with_lock(space, modulename, baselevel,

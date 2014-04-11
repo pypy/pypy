@@ -53,5 +53,5 @@ def getfilesystemencoding(space):
     operating system filenames.
     """
     if space.sys.filesystemencoding is None:
-        space.sys.filesystemencoding = _getfilesystemencoding(space)
+        return space.wrap(base_encoding)
     return space.wrap(space.sys.filesystemencoding)

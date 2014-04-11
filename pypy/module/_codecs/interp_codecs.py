@@ -165,6 +165,9 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
         w_import = space.getattr(space.builtin, space.wrap("__import__"))
         # registers new codecs
         space.call_function(w_import, space.wrap("encodings"))
+        # XXX needed to bootstrap the importlib module.
+        # I hope we don't have to import all encodings here.
+        space.call_function(w_import, space.wrap("encodings.utf_8"))
         state.codec_need_encodings = False
         if len(state.codec_search_path) == 0:
             raise OperationError(

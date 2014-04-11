@@ -98,15 +98,26 @@ class Module(MixedModule):
     }
 
     def startup(self, space):
-        if space.config.translating and not we_are_translated():
-            # don't get the filesystemencoding at translation time
-            assert self.filesystemencoding is None
+        if space.config.translating:
+            if not we_are_translated():
+                # don't get the filesystemencoding at translation time
+                assert self.filesystemencoding is None
+            else:
+                from pypy.module.sys.interp_encoding import _getfilesystemencoding
+                self.filesystemencoding = _getfilesystemencoding(space)
 
-        else:
+        if not space.config.translating or we_are_translated():
             if _WIN:
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
                 space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
+
+    def setup_after_space_initialization(self):
+        space = self.space
+
+        if not space.config.translating:
+            from pypy.module.sys.interp_encoding import _getfilesystemencoding
+            self.filesystemencoding = _getfilesystemencoding(space)
 
         if not space.config.translating:
             # Install standard streams for tests that don't call app_main.

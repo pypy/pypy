@@ -278,7 +278,10 @@ def _get_module_lock(name):
         else:
             lock = _ModuleLock(name)
         def cb(_):
-            del _module_locks[name]
+            try:
+                del _module_locks[name]
+            except KeyError:
+                pass
         _module_locks[name] = _weakref.ref(lock, cb)
     return lock
 

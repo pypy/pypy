@@ -445,6 +445,7 @@ class ObjSpace(object):
     def getbuiltinmodule(self, name, force_init=False):
         w_name = self.wrap(name)
         w_modules = self.sys.get('modules')
+
         if not force_init:
             try:
                 return self.getitem(w_modules, w_name)
@@ -461,13 +462,14 @@ class ObjSpace(object):
                         "getbuiltinmodule() called with non-builtin module %s",
                         name)
         else:
+            # Add the module to sys.modules
+            self.setitem(w_modules, w_name, w_mod)
+
             # Initialize the module
             from pypy.interpreter.module import Module
             if isinstance(w_mod, Module):
                 w_mod.init(self)
 
-            # Add the module to sys.modules
-            self.setitem(w_modules, w_name, w_mod)
             return w_mod
 
     def get_builtinmodule_to_install(self):
@@ -610,6 +612,7 @@ class ObjSpace(object):
             self.fromcache(State).build_api(self)
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')
+        self.getbuiltinmodule('_frozen_importlib')
         self.getbuiltinmodule('builtins')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
