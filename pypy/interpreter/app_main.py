@@ -641,24 +641,28 @@ def run_command_line(interactive,
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
-            import _imp as imp
+            import _frozen_importlib
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
-                args = (imp._run_compiled_module, '__main__',
-                        sys.argv[0], None, mainmodule, False)
+                loader = _frozen_importlib.SourcelessFileLoader('__main__', filename)
+                args = (loader.load_module,)
             else:
-                # maybe it's the name of a directory or a zip file
                 filename = sys.argv[0]
-                importer = imp._getimporter(filename)
-                if not isinstance(importer, imp.NullImporter):
-                    # yes.  put the filename in sys.path[0] and import
+                for hook in sys.path_hooks:
+                    try:
+                        importer = hook(filename)
+                    except ImportError:
+                        pass
+                    # It's the name of a directory or a zip file.
+                    # put the filename in sys.path[0] and import
                     # the module __main__
                     import runpy
                     sys.path.insert(0, filename)
                     args = (runpy._run_module_as_main, '__main__', False)
+                    break
                 else:
-                    # no.  That's the normal path, "pypy stuff.py".
+                    # That's the normal path, "pypy stuff.py".
                     @hidden_applevel
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
@@ -789,28 +793,6 @@ if __name__ == '__main__':
         # interpreter/app_main.py anyway
         import os
         return os.path.abspath(os.path.join(s, '..'))
-
-
-    # add an emulator for these pypy-only or 2.7-only functions
-    # (for test_pyc_commandline_argument)
-    import _imp as imp, runpy
-    def _run_compiled_module(modulename, filename, file, module, write_paths):
-        import os
-        assert modulename == '__main__'
-        assert os.path.isfile(filename)
-        assert filename.endswith('.pyc')
-        assert file is None
-        assert module.__name__ == '__main__'
-        print('in _run_compiled_module')
-    def _getimporter(path):
-        import os, imp
-        if os.path.isdir(path):
-            return None
-        else:
-            return imp.NullImporter(path)
-
-    imp._run_compiled_module = _run_compiled_module
-    imp._getimporter = _getimporter
 
     import os
     reset = []
