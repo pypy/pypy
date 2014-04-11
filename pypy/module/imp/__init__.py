@@ -21,14 +21,7 @@ class Module(MixedModule):
 
         'get_magic':       'interp_imp.get_magic',
         'get_tag':         'interp_imp.get_tag',
-        'find_module':     'interp_imp.find_module',
-        'load_module':     'interp_imp.load_module',
-        'load_source':     'interp_imp.load_source',
-        'load_compiled':   'interp_imp.load_compiled',
         'load_dynamic':    'interp_imp.load_dynamic',
-        '_run_compiled_module': 'interp_imp._run_compiled_module',   # pypy
-        '_getimporter':    'importing._getimporter',                 # pypy
-        #'run_module':      'interp_imp.run_module',
         'new_module':      'interp_imp.new_module',
         'init_builtin':    'interp_imp.init_builtin',
         'init_frozen':     'interp_imp.init_frozen',

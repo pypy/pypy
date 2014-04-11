@@ -1238,36 +1238,6 @@ class AppTestPyPyExtension(object):
         raises(IOError, imp._run_compiled_module,
                'foobar', 'this_file_does_not_exist', None, module)
 
-    def test_getimporter(self):
-        import imp, os
-        # an existing directory
-        importer = imp._getimporter(self.udir)
-        assert importer is None
-        # an existing file
-        path = os.path.join(self.udir, 'test_getimporter')
-        open(path, 'w').close()
-        importer = imp._getimporter(path)
-        assert isinstance(importer, imp.NullImporter)
-        # a non-existing path
-        path = os.path.join(self.udir, 'does_not_exist_at_all')
-        importer = imp._getimporter(path)
-        assert isinstance(importer, imp.NullImporter)
-        # a mostly-empty zip file
-        path = os.path.join(self.udir, 'test_getimporter.zip')
-        f = open(path, 'wb')
-        f.write(b'PK\x03\x04\n\x00\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00'
-                b'\x00\x00\x00\x00\x00\x00\x00\x05\x00\x15\x00emptyUT\t\x00'
-                b'\x03wyYMwyYMUx\x04\x00\xf4\x01d\x00PK\x01\x02\x17\x03\n\x00'
-                b'\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-                b'\x00\x00\x00\x05\x00\r\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-                b'\xa4\x81\x00\x00\x00\x00emptyUT\x05\x00\x03wyYMUx\x00\x00PK'
-                b'\x05\x06\x00\x00\x00\x00\x01\x00\x01\x00@\x00\x00\x008\x00'
-                b'\x00\x00\x00\x00')
-        f.close()
-        importer = imp._getimporter(path)
-        import zipimport
-        assert isinstance(importer, zipimport.zipimporter)
-
 
 class AppTestNoPycFile(object):
     spaceconfig = {
