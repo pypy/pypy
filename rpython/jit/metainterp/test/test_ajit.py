@@ -3945,9 +3945,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             external(lltype.nullptr(T.TO))
             return len(state.l)
 
-        res = self.interp_operations(f, [])
+        res = self.interp_operations(f, [], supports_longlong=True)
         assert res == 2
-        res = self.interp_operations(f, [])
+        res = self.interp_operations(f, [], supports_longlong=True)
         assert res == 2
         self.check_operations_history(call_release_gil=1, call_may_force=0)
 
