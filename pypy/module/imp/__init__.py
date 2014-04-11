@@ -36,7 +36,6 @@ class Module(MixedModule):
         'is_frozen':       'interp_imp.is_frozen',
         'get_frozen_object': 'interp_imp.get_frozen_object',
         'is_frozen_package': 'interp_imp.is_frozen_package',
-        'reload':          'importing.reload',
         'NullImporter':    'importing.W_NullImporter',
 
         'lock_held':       'interp_imp.lock_held',

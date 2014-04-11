@@ -44,7 +44,7 @@ def setup_directory_structure(cls):
                     itertools = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
-    root.ensure("notapackage", dir=1)    # empty, no __init__.py
+    root.ensure("packagenamespace", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
              a          = "imamodule = 1\ninpackage = 1",
              b          = "imamodule = 1\ninpackage = 1",
@@ -80,11 +80,6 @@ def setup_directory_structure(cls):
              __init__ = "import a",
              a        = "imamodule = 1\ninpackage = 1",
              )
-    setuppkg("pkg_substituting",
-             __init__ = "import sys, pkg_substituted\n"
-                        "print('TOTO', __name__)\n"
-                        "sys.modules[__name__] = pkg_substituted")
-    setuppkg("pkg_substituted", mod='')
     setuppkg("evil_pkg",
              evil = "import sys\n"
                       "from evil_pkg import good\n"
@@ -129,32 +124,6 @@ def setup_directory_structure(cls):
         cls.w_special_char = space.wrap(special_char.decode(fsenc))
     else:
         cls.w_special_char = space.w_None
-
-    # create compiled/x.py and a corresponding pyc file
-    p = setuppkg("compiled", x = "x = 84")
-    if conftest.option.runappdirect:
-        import marshal, stat, struct, os, imp
-        code = py.code.Source(p.join("x.py").read()).compile()
-        s3 = marshal.dumps(code)
-        s2 = struct.pack("i", os.stat(str(p.join("x.py")))[stat.ST_MTIME])
-        p.join("x.pyc").write(imp.get_magic() + s2 + s3, mode='wb')
-    else:
-        w = space.wrap
-        w_modname = w("compiled.x")
-        filename = str(p.join("x.py"))
-        pycname = importing.make_compiled_pathname("x.py")
-        stream = streamio.open_file_as_stream(filename, "r")
-        try:
-            importing.load_source_module(
-                space, w_modname, w(importing.Module(space, w_modname)),
-                filename, stream.readall(),
-                stream.try_to_find_file_descriptor())
-        finally:
-            stream.close()
-        if space.config.objspace.usepycfiles:
-            # also create a lone .pyc file
-            p.join('lone.pyc').write(p.join(pycname).read(mode='rb'),
-                                     mode='wb')
 
     # create a .pyw file
     p = setuppkg("windows", x = "x = 78")
@@ -204,39 +173,18 @@ class AppTestImport(BaseImportTest):
         #XXX Compile class
 
     def teardown_class(cls):
+        return
         _teardown(cls.space, cls.w_saved_modules)
 
     def w_exec_(self, cmd, ns):
         exec(cmd, ns)
 
-    def test_file_and_cached(self):
-        import compiled.x
-        assert "__pycache__" not in compiled.x.__file__
-        assert compiled.x.__file__.endswith(".py")
-        assert "__pycache__" in compiled.x.__cached__
-        assert compiled.x.__cached__.endswith(".pyc")
-
     def test_set_sys_modules_during_import(self):
         from evil_pkg import evil
         assert evil.a == 42
 
-    def test_import_bare_dir_fails(self):
-        def imp():
-            import notapackage
-        raises(ImportError, imp)
-
-    def test_import_bare_dir_warns(self):
-        def imp():
-            import notapackage
-
-        import _warnings
-        def simplefilter(action, category):
-            _warnings.filters.insert(0, (action, None, category, None, 0))
-        simplefilter('error', ImportWarning)
-        try:
-            raises(ImportWarning, imp)
-        finally:
-            simplefilter('default', ImportWarning)
+    def test_import_namespace_package(self):
+        import packagenamespace
 
     def test_import_sys(self):
         import sys
@@ -280,7 +228,7 @@ class AppTestImport(BaseImportTest):
         filename = pkg.a.__file__
         assert filename.endswith('.py')
         exc = raises(ImportError, __import__, filename[:-3])
-        assert exc.value.args[0] == "Import by filename is not supported."
+        assert exc.value.args[0].startswith("No module named ")
 
     def test_import_badcase(self):
         def missing(name):
@@ -383,21 +331,12 @@ class AppTestImport(BaseImportTest):
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
 
-    def test_substituting_import(self):
-        from pkg_substituting import mod
-        assert mod.__name__ =='pkg_substituting.mod'
-
     def test_proper_failure_on_killed__path__(self):
         import pkg.pkg2.a
         del pkg.pkg2.__path__
         def imp_b():
             import pkg.pkg2.b
         raises(ImportError,imp_b)
-
-    def test_pyc(self):
-        import sys
-        import compiled.x
-        assert compiled.x == sys.modules.get('compiled.x')
 
     @pytest.mark.skipif("sys.platform != 'win32'")
     def test_pyw(self):
@@ -837,45 +776,6 @@ def _testfilesource(source="x=42"):
 class TestPycStuff:
     # ___________________ .pyc related stuff _________________
 
-    def test_check_compiled_module(self):
-        space = self.space
-        mtime = 12345
-        cpathname = _testfile(space, importing.get_pyc_magic(space), mtime)
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is not None
-        ret.close()
-
-        # check for wrong mtime
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime+1)
-        assert ret is None
-
-        # also check with expected mtime==0 (nothing special any more about 0)
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              0)
-        assert ret is None
-        os.remove(cpathname)
-
-        # check for wrong version
-        cpathname = _testfile(space, importing.get_pyc_magic(space)+1, mtime)
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is None
-
-        # check for empty .pyc file
-        f = open(cpathname, 'wb')
-        f.close()
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is None
-        os.remove(cpathname)
-
     def test_read_compiled_module(self):
         space = self.space
         mtime = 12345
@@ -1081,56 +981,6 @@ class TestPycStuff:
         # And the .pyc has been generated
         cpathname = udir.join(importing.make_compiled_pathname('test.py'))
         assert cpathname.check()
-
-    def test_write_compiled_module(self):
-        space = self.space
-        pathname = _testfilesource()
-        os.chmod(pathname, 0777)
-        stream = streamio.open_file_as_stream(pathname, "r")
-        try:
-            w_ret = importing.parse_source_module(space,
-                                                  pathname,
-                                                  stream.readall())
-        finally:
-            stream.close()
-        pycode = w_ret
-        assert type(pycode) is PyCode
-
-        cpathname = str(udir.join('cpathname.pyc'))
-        mode = 0777
-        mtime = 12345
-        importing.write_compiled_module(space,
-                                        pycode,
-                                        cpathname,
-                                        mode,
-                                        mtime)
-
-        # check
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is not None
-        ret.close()
-
-        # Check that the executable bit was removed
-        assert os.stat(cpathname).st_mode & 0111 == 0
-
-        # read compiled module
-        stream = streamio.open_file_as_stream(cpathname, "rb")
-        try:
-            stream.seek(8, 0)
-            w_code = importing.read_compiled_module(space, cpathname,
-                                                    stream.readall())
-            pycode = w_code
-        finally:
-            stream.close()
-
-        # check value of load
-        w_dic = space.newdict()
-        pycode.exec_code(space, w_dic, w_dic)
-        w_ret = space.getitem(w_dic, space.wrap('x'))
-        ret = space.int_w(w_ret)
-        assert ret == 42
 
     def test_pyc_magic_changes(self):
         py.test.skip("For now, PyPy generates only one kind of .pyc files")
