@@ -533,6 +533,39 @@ W_WindowsError.typedef = TypeDef(
     winerror = readwrite_attrproperty_w('w_winerror', W_WindowsError),
     )
 
+# Various OSError subclasses added in Python 3.3
+W_BlockingIOError = _new_exception(
+    "BlockingIOError", W_OSError, "I/O operation would block.")
+W_ConnectionError = _new_exception(
+    "ConnectionError", W_OSError, "Connection error.")
+W_ChildProcessError = _new_exception(
+    "ChildProcessError", W_OSError, "Child process error.")
+W_BrokenPipeError = _new_exception(
+    "BrokenPipeError", W_ConnectionError, "Broken pipe.")
+W_ConnectionAbortedError = _new_exception(
+    "ConnectionAbortedError", W_ConnectionError, "Connection aborted.")
+W_ConnectionRefusedError = _new_exception(
+    "ConnectionRefusedError", W_ConnectionError, "Connection refused.")
+W_ConnectionResetError = _new_exception(
+    "ConnectionResetError", W_ConnectionError, "Connection reset.")
+W_FileExistsError = _new_exception(
+    "FileExistsError", W_OSError, "File already exists.")
+W_FileNotFoundError = _new_exception(
+    "FileNotFoundError", W_OSError, "File not found.")
+W_IsADirectoryError = _new_exception(
+    "IsADirectoryError", W_OSError, "Operation doesn't work on directories.")
+W_NotADirectoryError = _new_exception(
+    "NotADirectoryError", W_OSError, "Operation only works on directories.")
+W_InterruptedError = _new_exception(
+    "InterruptedError", W_OSError, "Interrupted by signal.")
+W_PermissionError = _new_exception(
+    "PermissionError", W_OSError, "Not enough permissions.")
+W_ProcessLookupError = _new_exception(
+    "ProcessLookupError", W_OSError, "Process not found.")
+W_TimeoutError = _new_exception(
+    "TimeoutError", W_OSError, "Timeout expired.")
+
+
 W_BytesWarning = _new_exception('BytesWarning', W_Warning,
                                 """Mixing bytes and unicode""")
 
