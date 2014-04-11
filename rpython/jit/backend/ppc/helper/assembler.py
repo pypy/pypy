@@ -1,10 +1,10 @@
-import pypy.jit.backend.ppc.condition as c
-from pypy.rlib.rarithmetic import intmask
-from pypy.jit.backend.ppc.arch import (MAX_REG_PARAMS, IS_PPC_32, WORD,
-                                              BACKCHAIN_SIZE)
-from pypy.jit.metainterp.history import FLOAT
-import pypy.jit.backend.ppc.register as r
-from pypy.rpython.lltypesystem import rffi, lltype
+import rpython.jit.backend.ppc.condition as c
+from rpython.rlib.rarithmetic import intmask
+from rpython.jit.backend.ppc.arch import (MAX_REG_PARAMS, IS_PPC_32, WORD,
+                                          BACKCHAIN_SIZE)
+from rpython.jit.metainterp.history import FLOAT
+import rpython.jit.backend.ppc.register as r
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 def gen_emit_cmp_op(condition, signed=True, fp=False):
     def f(self, op, arglocs, regalloc):

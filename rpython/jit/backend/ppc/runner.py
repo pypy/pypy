@@ -1,14 +1,14 @@
 import py
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.llinterp import LLInterpreter
-from pypy.jit.backend.ppc.arch import FORCE_INDEX_OFS
-from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
-from pypy.jit.backend.ppc.ppc_assembler import AssemblerPPC
-from pypy.jit.backend.ppc.arch import WORD
-from pypy.jit.backend.ppc.codebuilder import PPCBuilder
-from pypy.jit.backend.ppc import register as r
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.llinterp import LLInterpreter
+from rpython.jit.backend.ppc.arch import FORCE_INDEX_OFS
+from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
+from rpython.jit.backend.ppc.arch import WORD
+from rpython.jit.backend.ppc.codebuilder import PPCBuilder
+from rpython.jit.backend.ppc import register as r
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer('jitbackend')
 py.log.setconsumer('jitbackend', ansi_log)
 

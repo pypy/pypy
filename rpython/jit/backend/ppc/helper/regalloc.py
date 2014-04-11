@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.history import ConstInt, Box, FLOAT
+from rpython.jit.metainterp.history import ConstInt, Box, FLOAT
 
 IMM_SIZE = 2 ** 15 - 1
 

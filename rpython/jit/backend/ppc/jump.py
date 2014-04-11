@@ -1,7 +1,7 @@
 # ../x86/jump.py
 # XXX combine with ../x86/jump.py and move to llsupport
 import sys
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)

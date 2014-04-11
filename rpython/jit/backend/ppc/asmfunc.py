@@ -1,11 +1,11 @@
 import py
 import mmap, struct
 
-from pypy.jit.backend.ppc.codebuf import MachineCodeBlockWrapper
-from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, WORD
-from pypy.rlib.rarithmetic import r_uint
+from rpython.jit.backend.ppc.codebuf import MachineCodeBlockWrapper
+from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, WORD
+from rpython.rlib.rarithmetic import r_uint
 
 _ppcgen = None
 

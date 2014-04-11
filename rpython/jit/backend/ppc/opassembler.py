@@ -1,26 +1,26 @@
-from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
-                                                   gen_emit_unary_cmp_op)
-from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
-import pypy.jit.backend.ppc.condition as c
-import pypy.jit.backend.ppc.register as r
-from pypy.jit.backend.ppc.locations import imm
-from pypy.jit.backend.ppc.locations import imm as make_imm_loc
-from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
-                                       MAX_REG_PARAMS, MAX_FREG_PARAMS,
-                                       FORCE_INDEX_OFS)
+from rpython.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
+                                                      gen_emit_unary_cmp_op)
+from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
+import rpython.jit.backend.ppc.condition as c
+import rpython.jit.backend.ppc.register as r
+from rpython.jit.backend.ppc.locations import imm
+from rpython.jit.backend.ppc.locations import imm as make_imm_loc
+from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
+                                          MAX_REG_PARAMS, MAX_FREG_PARAMS,
+                                          FORCE_INDEX_OFS)
 
-from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
-                                         AbstractFailDescr, FLOAT, INT, REF)
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.backend.ppc.helper.assembler import (Saved_Volatiles)
-from pypy.jit.backend.ppc.jump import remap_frame_layout
-from pypy.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
-                                              PPCBuilder)
-from pypy.jit.backend.ppc.regalloc import TempPtr, TempInt
-from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
-from pypy.rpython.lltypesystem import rstr, rffi, lltype
-from pypy.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
+                                            AbstractFailDescr, FLOAT, INT, REF)
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.backend.ppc.helper.assembler import (Saved_Volatiles)
+from rpython.jit.backend.ppc.jump import remap_frame_layout
+from rpython.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
+                                                 PPCBuilder)
+from rpython.jit.backend.ppc.regalloc import TempPtr, TempInt
+from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
+from rpython.rtyper.lltypesystem import rstr, rffi, lltype
+from rpython.jit.metainterp.resoperation import rop
 
 NO_FORCE_INDEX = -1
 

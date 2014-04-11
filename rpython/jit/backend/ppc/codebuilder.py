@@ -1,19 +1,19 @@
 import os
-from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
-from pypy.jit.backend.ppc.locations import RegisterLocation
-from pypy.jit.backend.ppc.ppc_field import ppc_fields
-from pypy.jit.backend.ppc.assembler import Assembler
-from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64, 
+from rpython.jit.backend.ppc.ppc_form import PPCForm as Form
+from rpython.jit.backend.ppc.locations import RegisterLocation
+from rpython.jit.backend.ppc.ppc_field import ppc_fields
+from rpython.jit.backend.ppc.assembler import Assembler
+from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64, 
                                        LR_BC_OFFSET)
-import pypy.jit.backend.ppc.register as r
-from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.jit.metainterp.resoperation import rop
-from pypy.tool.udir import udir
-from pypy.rlib.objectmodel import we_are_translated
+import rpython.jit.backend.ppc.register as r
+from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.jit.metainterp.resoperation import rop
+from rpython.tool.udir import udir
+from rpython.rlib.objectmodel import we_are_translated
 
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.jit.backend.ppc.rassemblermaker import make_rassembler
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.jit.backend.ppc.rassemblermaker import make_rassembler
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")

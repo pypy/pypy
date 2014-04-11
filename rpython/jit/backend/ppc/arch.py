@@ -1,9 +1,9 @@
 # Constants that depend on whether we are on 32-bit or 64-bit
 
-from pypy.jit.backend.ppc.register import (NONVOLATILES,
-                                           NONVOLATILES_FLOAT,
-                                           MANAGED_REGS,
-                                           MANAGED_FP_REGS)
+from rpython.jit.backend.ppc.register import (NONVOLATILES,
+                                              NONVOLATILES_FLOAT,
+                                              MANAGED_REGS,
+                                              MANAGED_FP_REGS)
 
 import sys
 if sys.maxint == (2**31 - 1):

@@ -1,37 +1,37 @@
-from pypy.jit.backend.ppc.regalloc import (PPCFrameManager,
-                                                  Regalloc, PPCRegisterManager)
-from pypy.jit.backend.ppc.opassembler import OpAssembler
-from pypy.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
-                                              scratch_reg)
-from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
-                                              NONVOLATILES, MAX_REG_PARAMS,
-                                              GPR_SAVE_AREA, BACKCHAIN_SIZE,
-                                              FPR_SAVE_AREA, NONVOLATILES_FLOAT,
-                                              FLOAT_INT_CONVERSION, FORCE_INDEX,
-                                              SIZE_LOAD_IMM_PATCH_SP,
-                                              FORCE_INDEX_OFS, LR_BC_OFFSET)
-from pypy.jit.backend.ppc.helper.assembler import Saved_Volatiles
-from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
-import pypy.jit.backend.ppc.register as r
-import pypy.jit.backend.ppc.condition as c
-from pypy.jit.metainterp.history import AbstractFailDescr
-from pypy.jit.metainterp.history import ConstInt, BoxInt
-from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from pypy.jit.backend.model import CompiledLoopToken
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.codewriter import longlong
-from pypy.jit.metainterp.history import (INT, REF, FLOAT)
-from pypy.jit.backend.x86.support import values_array
-from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
-                             have_debug_prints)
-from pypy.rlib import rgc
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.jit.backend.ppc.locations import StackLocation, get_spp_offset
-from pypy.rlib.jit import AsmInfo
-from pypy.rlib.objectmodel import compute_unique_id
+from rpython.jit.backend.ppc.regalloc import (PPCFrameManager,
+                                              Regalloc, PPCRegisterManager)
+from rpython.jit.backend.ppc.opassembler import OpAssembler
+from rpython.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
+                                                 scratch_reg)
+from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
+                                          NONVOLATILES, MAX_REG_PARAMS,
+                                          GPR_SAVE_AREA, BACKCHAIN_SIZE,
+                                          FPR_SAVE_AREA, NONVOLATILES_FLOAT,
+                                          FLOAT_INT_CONVERSION, FORCE_INDEX,
+                                          SIZE_LOAD_IMM_PATCH_SP,
+                                          FORCE_INDEX_OFS, LR_BC_OFFSET)
+from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
+from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
+import rpython.jit.backend.ppc.register as r
+import rpython.jit.backend.ppc.condition as c
+from rpython.jit.metainterp.history import AbstractFailDescr
+from rpython.jit.metainterp.history import ConstInt, BoxInt
+from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from rpython.jit.backend.model import CompiledLoopToken
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.codewriter import longlong
+from rpython.jit.metainterp.history import (INT, REF, FLOAT)
+#from rpython.jit.backend.x86.support import values_array
+from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
+                                have_debug_prints)
+from rpython.rlib import rgc
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.jit.backend.ppc.locations import StackLocation, get_spp_offset
+from rpython.rlib.jit import AsmInfo
+from rpython.rlib.objectmodel import compute_unique_id
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -84,10 +84,10 @@ class AssemblerPPC(OpAssembler):
 
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
-        self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
-        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
-                                                            failargs_limit)
-        self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
+        #self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        #self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
+        #                                                    failargs_limit)
+        #self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
         self.memcpy_addr = 0
         self.pending_guards = None

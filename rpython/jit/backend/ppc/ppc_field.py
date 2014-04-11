@@ -1,5 +1,5 @@
-from pypy.jit.backend.ppc.field import Field
-from pypy.jit.backend.ppc import regname
+from rpython.jit.backend.ppc.field import Field
+from rpython.jit.backend.ppc import regname
 
 fields = { # bit margins are *inclusive*! (and bit 0 is
            # most-significant, 31 least significant)

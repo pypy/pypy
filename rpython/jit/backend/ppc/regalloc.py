@@ -1,33 +1,33 @@
-from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
-                                                 TempBox, compute_vars_longevity)
-from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
-from pypy.jit.codewriter import longlong
-from pypy.jit.backend.ppc.jump import (remap_frame_layout,
-                                       remap_frame_layout_mixed)
-from pypy.jit.backend.ppc.locations import imm
-from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
-                                                  prepare_cmp_op,
-                                                  prepare_unary_int_op,
-                                                  prepare_binary_int_op,
-                                                  prepare_binary_int_op_with_imm,
-                                                  prepare_unary_cmp,
-                                                  prepare_float_op)
-from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
-                                         Box, BoxPtr,
-                                         INT, REF, FLOAT)
-from pypy.jit.metainterp.history import JitCellToken, TargetToken
-from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.ppc import locations
-from pypy.rpython.lltypesystem import rffi, lltype, rstr, llmemory
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.llsupport.descr import ArrayDescr
-import pypy.jit.backend.ppc.register as r
-from pypy.jit.backend.llsupport.descr import unpack_arraydescr
-from pypy.jit.backend.llsupport.descr import unpack_fielddescr
-from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
+                                                    TempBox, compute_vars_longevity)
+from rpython.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
+from rpython.jit.codewriter import longlong
+from rpython.jit.backend.ppc.jump import (remap_frame_layout,
+                                          remap_frame_layout_mixed)
+from rpython.jit.backend.ppc.locations import imm
+from rpython.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
+                                                     prepare_cmp_op,
+                                                     prepare_unary_int_op,
+                                                     prepare_binary_int_op,
+                                                     prepare_binary_int_op_with_imm,
+                                                     prepare_unary_cmp,
+                                                     prepare_float_op)
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
+                                            Box, BoxPtr,
+                                            INT, REF, FLOAT)
+from rpython.jit.metainterp.history import JitCellToken, TargetToken
+from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.backend.ppc import locations
+from rpython.rtyper.lltypesystem import rffi, lltype, rstr, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.descr import ArrayDescr
+import rpython.jit.backend.ppc.register as r
+from rpython.jit.backend.llsupport.descr import unpack_arraydescr
+from rpython.jit.backend.llsupport.descr import unpack_fielddescr
+from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
