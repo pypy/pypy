@@ -1,5 +1,3 @@
-.. include:: needswork.txt
-
 =============================
 lib_pypy/distributed features
 =============================

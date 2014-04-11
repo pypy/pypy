@@ -185,6 +185,6 @@ lists, dicts, exceptions, tracebacks and frames.
 .. _`standard object space`: objspace.html#the-standard-object-space
 
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
-           EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
+           EU-Report, 2007, https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
 .. include:: _ref.txt

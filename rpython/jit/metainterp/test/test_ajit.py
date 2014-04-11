@@ -14,7 +14,6 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 class BasicTests:
@@ -3229,12 +3228,9 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops(arraylen_gc=2)
 
     def test_release_gil_flush_heap_cache(self):
-        eci = ExternalCompilationInfo()
-        if sys.platform == "win32":
-            eci = ExternalCompilationInfo(libraries=["msvcrt"])
         T = rffi.CArrayPtr(rffi.TIME_T)
 
-        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True, compilation_info=eci)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
         # Not a real lock, has all the same properties with respect to GIL
         # release though, so good for this test.
         class Lock(object):
@@ -3583,6 +3579,24 @@ class BaseLLtypeTests(BasicTests):
                            'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'guard_false': 1})
 
+    def test_virtual_after_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = [1]
+                if n & 1:    # bridge
+                    n -= g(x)
+                else:
+                    n -= g(x)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops(call=0, call_may_force=0, new_array=0)
+
 
     def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
         f1 = lambda n: n+1
@@ -3922,13 +3936,10 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.interp_operations(f, [])
 
     def test_external_call(self):
-        eci = ExternalCompilationInfo()
-        if sys.platform == "win32":
-            eci = ExternalCompilationInfo(libraries=["msvcrt"])
         from rpython.rlib.objectmodel import invoke_around_extcall
 
         T = rffi.CArrayPtr(rffi.TIME_T)
-        external = rffi.llexternal("time", [T], rffi.TIME_T, compilation_info=eci)
+        external = rffi.llexternal("time", [T], rffi.TIME_T)
 
         class Oups(Exception):
             pass
@@ -3952,9 +3963,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             external(lltype.nullptr(T.TO))
             return len(state.l)
 
-        res = self.interp_operations(f, [])
+        res = self.interp_operations(f, [], supports_longlong=True)
         assert res == 2
-        res = self.interp_operations(f, [])
+        res = self.interp_operations(f, [], supports_longlong=True)
         assert res == 2
         self.check_operations_history(call_release_gil=1, call_may_force=0)
 
