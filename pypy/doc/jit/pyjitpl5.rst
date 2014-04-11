@@ -183,6 +183,6 @@ PyPy's JIT.
 
 .. __: http://antocuni.eu/download/antocuni-phd-thesis.pdf
 
-The `blog posts with the JIT tag.`__ might also contain additional informations.
+The `blog posts with the JIT tag`__ might also contain additional information.
 
 .. __: http://morepypy.blogspot.com/search/label/jit
