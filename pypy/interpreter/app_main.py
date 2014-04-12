@@ -653,7 +653,7 @@ def run_command_line(interactive,
                     try:
                         importer = hook(filename)
                     except ImportError:
-                        pass
+                        continue
                     # It's the name of a directory or a zip file.
                     # put the filename in sys.path[0] and import
                     # the module __main__
