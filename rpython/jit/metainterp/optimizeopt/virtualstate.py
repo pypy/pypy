@@ -1,5 +1,5 @@
 from rpython.jit.metainterp import resume
-from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
+from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const, ConstPtr
 from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
@@ -82,7 +82,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def _enum(self, virtual_state):
         raise NotImplementedError
 
-    def debug_print(self, indent, seen, bad):
+    def debug_print(self, indent, seen, bad, metainterp_sd):
         mark = ''
         if self in bad:
             mark = '*'
@@ -90,7 +90,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
         if self not in seen:
             seen[self] = True
             for s in self.fieldstate:
-                s.debug_print(indent + "    ", seen, bad)
+                s.debug_print(indent + "    ", seen, bad, metainterp_sd)
         else:
             debug_print(indent + "    ...")
 
@@ -405,22 +405,34 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.position_in_notvirtuals = len(virtual_state.notvirtuals)
         virtual_state.notvirtuals.append(self)
 
-    def debug_print(self, indent, seen, bad):
+    def debug_print(self, indent, seen, bad, metainterp_sd=None):
         mark = ''
         if self in bad:
             mark = '*'
-        if we_are_translated():
-            l = {LEVEL_UNKNOWN: 'Unknown',
-                 LEVEL_NONNULL: 'NonNull',
-                 LEVEL_KNOWNCLASS: 'KnownClass',
-                 LEVEL_CONSTANT: 'Constant',
-                 }[self.level]
+        if self.level == LEVEL_UNKNOWN:
+            l = "Unknown"
+        elif self.level == LEVEL_NONNULL:
+            l = "NonNull"
+        elif self.level == LEVEL_KNOWNCLASS:
+            addr = self.known_class.getaddr()
+            if metainterp_sd:
+                name = metainterp_sd.get_name_from_address(addr)
+            else:
+                name = "?"
+            l = "KnownClass(%s)" % name
         else:
-            l = {LEVEL_UNKNOWN: 'Unknown',
-                 LEVEL_NONNULL: 'NonNull',
-                 LEVEL_KNOWNCLASS: 'KnownClass(%r)' % self.known_class,
-                 LEVEL_CONSTANT: 'Constant(%r)' % self.constbox,
-                 }[self.level]
+            assert self.level == LEVEL_CONSTANT
+            const = self.constbox
+            if isinstance(const, ConstInt):
+                l = "ConstInt(%s)" % (const.value, )
+            elif isinstance(const, ConstPtr):
+                if const.value:
+                    l = "ConstPtr"
+                else:
+                    l = "ConstPtr(null)"
+            else:
+                assert isinstance(const, ConstFloat)
+                l = "ConstFloat(%s)" % cons.getfloat()
 
         lb = ''
         if self.lenbound:
@@ -481,13 +493,13 @@ class VirtualState(object):
 
         return inputargs
 
-    def debug_print(self, hdr='', bad=None):
+    def debug_print(self, hdr='', bad=None, metainterp_sd=None):
         if bad is None:
             bad = {}
         debug_print(hdr + "VirtualState():")
         seen = {}
         for s in self.state:
-            s.debug_print("    ", seen, bad)
+            s.debug_print("    ", seen, bad, metainterp_sd)
 
 
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):

@@ -526,7 +526,7 @@ class UnrollOptimizer(Optimization):
         values = [self.getvalue(arg)
                   for arg in jumpop.getarglist()]
         debug_start('jit-log-virtualstate')
-        virtual_state.debug_print("Looking for ")
+        virtual_state.debug_print("Looking for ", metainterp_sd=self.optimizer.metainterp_sd)
 
         for target in cell_token.target_tokens:
             if not target.virtual_state:
@@ -546,7 +546,7 @@ class UnrollOptimizer(Optimization):
                 else:
                     debugmsg = 'Matched '
             except VirtualStatesCantMatch, e:
-                target.virtual_state.debug_print(debugmsg, e.state.bad)
+                target.virtual_state.debug_print(debugmsg, e.state.bad, metainterp_sd=self.optimizer.metainterp_sd)
                 continue
 
             assert patchguardop is not None or (extra_guards == [] and len(target.short_preamble) == 1)
