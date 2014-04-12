@@ -1157,8 +1157,14 @@ class AbstractPickleTests(unittest.TestCase):
         x = BadGetattr()
         for proto in 0, 1:
             self.assertRaises(RuntimeError, self.dumps, x, proto)
-        # protocol 2 don't raise a RuntimeError.
-        d = self.dumps(x, 2)
+        if check_impl_detail(cpython=True):
+            # protocol 2 don't raise a RuntimeError.
+            d = self.dumps(x, 2)
+            self.assertRaises(RuntimeError, self.loads, d)
+        else:
+            # PyPy doesn't mask the exception
+            for proto in 2, 3:
+                self.assertRaises(RuntimeError, self.dumps, x, proto)
 
     def test_reduce_bad_iterator(self):
         # Issue4176: crash when 4th and 5th items of __reduce__()
