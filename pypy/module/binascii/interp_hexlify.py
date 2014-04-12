@@ -3,6 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import ovfcheck
 from pypy.module.binascii.interp_binascii import raise_Error
+from pypy.module.binascii.interp_binascii import AsciiBufferUnwrapper
 
 # ____________________________________________________________
 
@@ -42,7 +43,7 @@ def _char2value(space, c):
     raise_Error(space, 'Non-hexadecimal digit found')
 _char2value._always_inline_ = True
 
-@unwrap_spec(hexstr='bufferstr')
+@unwrap_spec(hexstr=AsciiBufferUnwrapper)
 def unhexlify(space, hexstr):
     '''Binary data of hexadecimal representation.
 hexstr must contain an even number of hex digits (upper or lower case).
