@@ -954,15 +954,14 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         return virtualizable_boxes, virtualref_boxes
 
     def allocate_with_vtable(self, known_class):
-        return self.metainterp.execute_and_record(rop.NEW_WITH_VTABLE,
-                                                  None, known_class)
+        return self.metainterp.execute_new_with_vtable(known_class)
 
     def allocate_struct(self, typedescr):
-        return self.metainterp.execute_and_record(rop.NEW, typedescr)
+        return self.metainterp.execute_new(typedescr)
 
     def allocate_array(self, length, arraydescr):
-        return self.metainterp.execute_and_record(rop.NEW_ARRAY,
-                                                  arraydescr, ConstInt(length))
+        lengthbox = ConstInt(length)
+        return self.metainterp.execute_new_array(arraydescr, lengthbox)
 
     def allocate_raw_buffer(self, size):
         cic = self.metainterp.staticdata.callinfocollection
@@ -1034,8 +1033,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         else:
             kind = INT
         fieldbox = self.decode_box(fieldnum, kind)
-        self.metainterp.execute_and_record(rop.SETFIELD_GC, descr,
-                                           structbox, fieldbox)
+        self.metainterp.execute_setfield_gc(descr, structbox, fieldbox)
 
     def setinteriorfield(self, index, array, fieldnum, descr):
         if descr.is_pointer_field():
@@ -1045,8 +1043,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         else:
             kind = INT
         fieldbox = self.decode_box(fieldnum, kind)
-        self.metainterp.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
-                                           array, ConstInt(index), fieldbox)
+        self.metainterp.execute_setinteriorfield_gc(descr, array,
+                                                    ConstInt(index), fieldbox)
 
     def setarrayitem_int(self, arraybox, index, fieldnum, arraydescr):
         self._setarrayitem(arraybox, index, fieldnum, arraydescr, INT)
@@ -1059,9 +1057,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
     def _setarrayitem(self, arraybox, index, fieldnum, arraydescr, kind):
         itembox = self.decode_box(fieldnum, kind)
-        self.metainterp.execute_and_record(rop.SETARRAYITEM_GC,
-                                           arraydescr, arraybox,
-                                           ConstInt(index), itembox)
+        self.metainterp.execute_setarrayitem_gc(arraydescr, arraybox,
+                                                ConstInt(index), itembox)
 
     def setrawbuffer_item(self, bufferbox, fieldnum, offset, arraydescr):
         if arraydescr.is_array_of_pointers():
@@ -1071,8 +1068,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         else:
             kind = INT
         itembox = self.decode_box(fieldnum, kind)
-        return self.metainterp.execute_and_record(rop.RAW_STORE, arraydescr, bufferbox,
-                                                  ConstInt(offset), itembox)
+        self.metainterp.execute_raw_store(arraydescr, bufferbox,
+                                          ConstInt(offset), itembox)
 
     def decode_int(self, tagged):
         return self.decode_box(tagged, INT)

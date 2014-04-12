@@ -26,8 +26,8 @@ Introduction
 ============
 
 ``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats
-listed below, it should be in theory within 25%-50% of the speed of a
-regular PyPy, comparing the JITting version in both cases.  It is called
+listed below, it should be in theory within 25%-50% slower than a
+regular PyPy, comparing the JIT version in both cases.  It is called
 STM for Software Transactional Memory, which is the internal technique
 used (see `Reference to implementation details`_).
 
@@ -55,9 +55,9 @@ Development is done in the branch `stmgc-c7`_.  If you are only
 interested in trying it out, you can download a Ubuntu 12.04 binary
 here__ (``pypy-2.2.x-stm*.tar.bz2``; this version is a release mode,
 but not stripped of debug symbols).  The current version supports four
-"segments", which means that it will run up to four threads in parallel
-(in other words, you get a GIL effect again, but only if trying to
-execute more than 4 threads).
+"segments", which means that it will run up to four threads in parallel,
+in other words it is running a thread pool up to 4 threads emulating normal
+threads.
 
 To build a version from sources, you first need to compile a custom
 version of clang; we recommend downloading `llvm and clang like

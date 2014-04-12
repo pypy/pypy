@@ -1316,7 +1316,6 @@ class BaseTestRDictImplementation:
 
 class TestUnicodeDictImplementation(BaseTestRDictImplementation):
     StrategyClass = UnicodeDictStrategy
-    #ImplementionClass = BytesDictImplementation
 
     def test_str_shortcut(self):
         self.fill_impl()
@@ -1330,9 +1329,6 @@ class TestUnicodeDictImplementation(BaseTestRDictImplementation):
         self.fill_impl()
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
-## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
-##     ImplementionClass = MeasuringDictImplementation
-##     DevolvedClass = MeasuringDictImplementation
 
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def fill_impl(self):

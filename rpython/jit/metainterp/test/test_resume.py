@@ -93,6 +93,32 @@ class MyMetaInterp:
             self.resboxes.append(resbox)
         return resbox
 
+    def execute_new_with_vtable(self, known_class):
+        return self.execute_and_record(rop.NEW_WITH_VTABLE, None,
+                                       known_class)
+
+    def execute_new(self, typedescr):
+        return self.execute_and_record(rop.NEW, typedescr)
+
+    def execute_new_array(self, itemsizedescr, lengthbox):
+        return self.execute_and_record(rop.NEW_ARRAY, itemsizedescr,
+                                       lengthbox)
+
+    def execute_setfield_gc(self, fielddescr, box, valuebox):
+        self.execute_and_record(rop.SETFIELD_GC, fielddescr, box, valuebox)
+
+    def execute_setarrayitem_gc(self, arraydescr, arraybox, indexbox, itembox):
+        self.execute_and_record(rop.SETARRAYITEM_GC, arraydescr,
+                                arraybox, indexbox, itembox)
+
+    def execute_setinteriorfield_gc(self, descr, array, index, value):
+        self.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
+                                array, index, value)
+
+    def execute_raw_store(self, arraydescr, addrbox, offsetbox, valuebox):
+        self.execute_and_record(rop.RAW_STORE, arraydescr,
+                                addrbox, offsetbox, valuebox)
+
 S = lltype.GcStruct('S')
 gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S))
 gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S))
