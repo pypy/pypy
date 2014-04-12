@@ -143,6 +143,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, unittest.Tes
         executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
+        test.support.gc_collect()
 
         for t in threads:
             t.join()
