@@ -5,8 +5,8 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, borrow_from
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
+from pypy.module.cpyext.dictproxyobject import W_DictProxyObject
 from pypy.interpreter.error import OperationError
-from rpython.rlib.objectmodel import specialize
 
 @cpython_api([], PyObject)
 def PyDict_New(space):
@@ -195,25 +195,9 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         return 0
     return 1
 
-@specialize.memo()
-def make_frozendict(space):
-    return space.appexec([], '''():
-    from collections.abc import Mapping
-    class FrozenDict(Mapping):
-        def __init__(self, *args, **kwargs):
-            self._d = dict(*args, **kwargs)
-        def __iter__(self):
-            return iter(self._d)
-        def __len__(self):
-            return len(self._d)
-        def __getitem__(self, key):
-            return self._d[key]
-    return FrozenDict''')
-
 @cpython_api([PyObject], PyObject)
 def PyDictProxy_New(space, w_dict):
-    w_frozendict = make_frozendict(space)
-    return space.call_function(w_frozendict, w_dict)
+    return space.wrap(W_DictProxyObject(w_dict))
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyDict_HasOnlyStringKeys(space, w_dict):

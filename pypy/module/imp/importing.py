@@ -129,6 +129,14 @@ W_NullImporter.typedef = TypeDef(
     find_module=interp2app(W_NullImporter.find_module_w),
     )
 
+def _prepare_module(space, w_mod, filename, pkgdir):
+    w = space.wrap
+    space.sys.setmodule(w_mod)
+    space.setattr(w_mod, w('__file__'), space.wrap(filename))
+    space.setattr(w_mod, w('__doc__'), space.w_None)
+    if pkgdir is not None:
+        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+
 def add_module(space, w_name):
     w_mod = check_sys_modules(space, w_name)
     if w_mod is None:
@@ -377,6 +385,15 @@ def update_code_filenames(space, code_w, pathname, oldname=None):
         if const is not None and isinstance(const, PyCode):
             update_code_filenames(space, const, pathname, oldname)
 
+def _get_long(s):
+    a = ord(s[0])
+    b = ord(s[1])
+    c = ord(s[2])
+    d = ord(s[3])
+    if d >= 0x80:
+        d -= 0x100
+    return a | (b<<8) | (c<<16) | (d<<24)
+
 def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
 
@@ -386,3 +403,25 @@ def read_compiled_module(space, cpathname, strbuf):
         raise oefmt(space.w_ImportError, "Non-code object in %s", cpathname)
     return w_code
 
+@jit.dont_look_inside
+def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
+                         timestamp, source, write_paths=True):
+    """
+    Load a module from a compiled file, execute it, and return its
+    module object.
+    """
+    if magic != get_pyc_magic(space):
+        raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
+    #print "loading pyc file:", cpathname
+    code_w = read_compiled_module(space, cpathname, source)
+    try:
+        optimize = space.sys.get_flag('optimize')
+    except RuntimeError:
+        # during bootstrapping
+        optimize = 0
+    if optimize >= 2:
+        code_w.remove_docstrings(space)
+
+    exec_code_module(space, w_mod, code_w, cpathname, cpathname, write_paths)
+
+    return w_mod

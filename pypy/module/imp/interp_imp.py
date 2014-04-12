@@ -68,7 +68,13 @@ def load_dynamic(space, w_modulename, filename, w_file=None):
     if not space.config.objspace.usemodules.cpyext:
         raise OperationError(space.w_ImportError, space.wrap(
             "Not implemented"))
-    importing.load_c_extension(space, filename, space.str_w(w_modulename))
+
+    # the next line is mandatory to init cpyext
+    space.getbuiltinmodule("cpyext")
+
+    from pypy.module.cpyext.api import load_extension_module
+    load_extension_module(space, filename, space.str_w(w_modulename))
+
     return importing.check_sys_modules(space, w_modulename)
 
 def new_module(space, w_name):

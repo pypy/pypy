@@ -53,8 +53,9 @@ def PyImport_ImportModuleNoBlock(space, name):
 
 @cpython_api([PyObject], PyObject)
 def PyImport_ReloadModule(space, w_mod):
-    from pypy.module.imp.importing import reload
-    return reload(space, w_mod)
+    w_import = space.builtin.get('__import__')
+    w_imp = space.call_function(w_import, space.wrap('imp'))
+    return space.call_method(w_imp, 'reload', w_mod)
 
 @cpython_api([CONST_STRING], PyObject)
 def PyImport_AddModule(space, name):
