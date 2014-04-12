@@ -22,6 +22,7 @@ class _AppTestSelect:
         finally:
             readend.close()
             writeend.close()
+        raises(ValueError, select.select, [], [], [], -1)
 
     def test_list_tuple(self):
         import time, select
