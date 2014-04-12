@@ -10,25 +10,34 @@ def pytest_addoption(parser):
            help="run tests even if they are marked xfail")
 
 def pytest_configure(config):
+    if config.option.runxfail:
+        old = pytest.xfail
+        config._cleanup.append(lambda: setattr(pytest, "xfail", old))
+        def nop(*args, **kwargs):
+            pass
+        nop.Exception = XFailed
+        setattr(pytest, "xfail", nop)
+
     config.addinivalue_line("markers",
-        "skipif(*conditions): skip the given test function if evaluation "
-        "of all conditions has a True value.  Evaluation happens within the "
+        "skipif(condition): skip the given test function if eval(condition) "
+        "results in a True value.  Evaluation happens within the "
         "module global context. Example: skipif('sys.platform == \"win32\"') "
-        "skips the test if we are on the win32 platform. "
+        "skips the test if we are on the win32 platform. see "
+        "http://pytest.org/latest/skipping.html"
     )
     config.addinivalue_line("markers",
-        "xfail(*conditions, reason=None, run=True): mark the the test function "
-        "as an expected failure. Optionally specify a reason and run=False "
-        "if you don't even want to execute the test function. Any positional "
-        "condition strings will be evaluated (like with skipif) and if one is "
-        "False the marker will not be applied."
+        "xfail(condition, reason=None, run=True): mark the the test function "
+        "as an expected failure if eval(condition) has a True value. "
+        "Optionally specify a reason for better reporting and run=False if "
+        "you don't even want to execute the test function. See "
+        "http://pytest.org/latest/skipping.html"
     )
 
 def pytest_namespace():
     return dict(xfail=xfail)
 
 class XFailed(pytest.fail.Exception):
-    """ raised from an explicit call to py.test.xfail() """
+    """ raised from an explicit call to pytest.xfail() """
 
 def xfail(reason=""):
     """ xfail an executing test or setup functions with the given reason."""
@@ -85,10 +94,14 @@ class MarkEvaluator:
                 self.result = False
                 for expr in self.holder.args:
                     self.expr = expr
-                    if isinstance(expr, str):
+                    if isinstance(expr, py.builtin._basestring):
                         result = cached_eval(self.item.config, expr, d)
                     else:
-                        pytest.fail("expression is not a string")
+                        if self.get("reason") is None:
+                            # XXX better be checked at collection time
+                            pytest.fail("you need to specify reason=STRING "
+                                        "when using booleans as conditions.")
+                        result = bool(expr)
                     if result:
                         self.result = True
                         self.expr = expr
@@ -110,12 +123,13 @@ class MarkEvaluator:
         return expl
 
 
+@pytest.mark.tryfirst
 def pytest_runtest_setup(item):
     if not isinstance(item, pytest.Function):
         return
     evalskip = MarkEvaluator(item, 'skipif')
     if evalskip.istrue():
-        py.test.skip(evalskip.getexplanation())
+        pytest.skip(evalskip.getexplanation())
     item._evalxfail = MarkEvaluator(item, 'xfail')
     check_xfail_no_run(item)
 
@@ -127,7 +141,7 @@ def check_xfail_no_run(item):
         evalxfail = item._evalxfail
         if evalxfail.istrue():
             if not evalxfail.get('run', True):
-                py.test.xfail("[NOTRUN] " + evalxfail.getexplanation())
+                pytest.xfail("[NOTRUN] " + evalxfail.getexplanation())
 
 def pytest_runtest_makereport(__multicall__, item, call):
     if not isinstance(item, pytest.Function):
@@ -136,39 +150,39 @@ def pytest_runtest_makereport(__multicall__, item, call):
     if hasattr(item, '_unexpectedsuccess'):
         rep = __multicall__.execute()
         if rep.when == "call":
-            # we need to translate into how py.test encodes xpass
-            rep.keywords['xfail'] = "reason: " + item._unexpectedsuccess
+            # we need to translate into how pytest encodes xpass
+            rep.wasxfail = "reason: " + repr(item._unexpectedsuccess)
             rep.outcome = "failed"
         return rep
     if not (call.excinfo and
-        call.excinfo.errisinstance(py.test.xfail.Exception)):
+        call.excinfo.errisinstance(pytest.xfail.Exception)):
         evalxfail = getattr(item, '_evalxfail', None)
         if not evalxfail:
             return
-    if call.excinfo and call.excinfo.errisinstance(py.test.xfail.Exception):
+    if call.excinfo and call.excinfo.errisinstance(pytest.xfail.Exception):
         if not item.config.getvalue("runxfail"):
             rep = __multicall__.execute()
-            rep.keywords['xfail'] = "reason: " + call.excinfo.value.msg
+            rep.wasxfail = "reason: " + call.excinfo.value.msg
             rep.outcome = "skipped"
             return rep
     rep = __multicall__.execute()
     evalxfail = item._evalxfail
-    if not item.config.option.runxfail:
-        if evalxfail.wasvalid() and evalxfail.istrue():
-            if call.excinfo:
-                rep.outcome = "skipped"
-                rep.keywords['xfail'] = evalxfail.getexplanation()
-            elif call.when == "call":
-                rep.outcome = "failed"
-                rep.keywords['xfail'] = evalxfail.getexplanation()
-            return rep
-    if 'xfail' in rep.keywords:
-        del rep.keywords['xfail']
+    if not rep.skipped:
+        if not item.config.option.runxfail:
+            if evalxfail.wasvalid() and evalxfail.istrue():
+                if call.excinfo:
+                    rep.outcome = "skipped"
+                elif call.when == "call":
+                    rep.outcome = "failed"
+                else:
+                    return rep
+                rep.wasxfail = evalxfail.getexplanation()
+                return rep
     return rep
 
 # called by terminalreporter progress reporting
 def pytest_report_teststatus(report):
-    if 'xfail' in report.keywords:
+    if hasattr(report, "wasxfail"):
         if report.skipped:
             return "xfailed", "x", "xfail"
         elif report.failed:
@@ -203,7 +217,6 @@ def pytest_terminal_summary(terminalreporter):
             tr._tw.line(line)
 
 def show_simple(terminalreporter, lines, stat, format):
-    tw = terminalreporter._tw
     failed = terminalreporter.stats.get(stat)
     if failed:
         for rep in failed:
@@ -215,7 +228,7 @@ def show_xfailed(terminalreporter, lines):
     if xfailed:
         for rep in xfailed:
             pos = rep.nodeid
-            reason = rep.keywords['xfail']
+            reason = rep.wasxfail
             lines.append("XFAIL %s" % (pos,))
             if reason:
                 lines.append("  " + str(reason))
@@ -225,7 +238,7 @@ def show_xpassed(terminalreporter, lines):
     if xpassed:
         for rep in xpassed:
             pos = rep.nodeid
-            reason = rep.keywords['xfail']
+            reason = rep.wasxfail
             lines.append("XPASS %s %s" %(pos, reason))
 
 def cached_eval(config, expr, d):
