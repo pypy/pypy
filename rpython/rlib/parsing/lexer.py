@@ -8,7 +8,7 @@ class Token(object):
         self.source_pos = source_pos
 
     def copy(self):
-        return Token(self.name, self.source, self.source_pos)
+        return self.__class__(self.name, self.source, self.source_pos)
 
     def __eq__(self, other):
         # for testing only
@@ -57,9 +57,9 @@ class Lexer(object):
         self.ignore = dict.fromkeys(ignore)
         self.matcher = self.automaton.make_lexing_code()
 
-    def get_runner(self, text, eof=False):
+    def get_runner(self, text, eof=False, token_class=None):
         return LexingDFARunner(self.matcher, self.automaton, text,
-                               self.ignore, eof)
+                               self.ignore, eof, token_class=token_class)
 
     def tokenize(self, text, eof=False):
         """Return a list of Token's from text."""
@@ -184,7 +184,12 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
         return self
 
 class LexingDFARunner(AbstractLexingDFARunner):
-    def __init__(self, matcher, automaton, text, ignore, eof=False):
+    def __init__(self, matcher, automaton, text, ignore, eof=False,
+                 token_class=None):
+        if token_class is None:
+            self.token_class = Token
+        else:
+            self.token_class = token_class
         AbstractLexingDFARunner.__init__(self, matcher, automaton, text, eof)
         self.ignore = ignore
 
@@ -195,6 +200,6 @@ class LexingDFARunner(AbstractLexingDFARunner):
         assert (eof and state == -1) or 0 <= state < len(self.automaton.names)
         source_pos = SourcePos(index, self.lineno, self.columnno)
         if eof:
-            return Token("EOF", "EOF", source_pos)
-        return Token(self.automaton.names[self.last_matched_state],
-                     text, source_pos)
+            return self.token_class("EOF", "EOF", source_pos)
+        return self.token_class(self.automaton.names[self.last_matched_state],
+                                text, source_pos)

@@ -1,3 +1,6 @@
+.. This file is generated automatically by makeref.py script,
+   which in turn is run manually.
+
 .. _`ctypes_configure/doc/sample.py`: https://bitbucket.org/pypy/pypy/src/default/ctypes_configure/doc/sample.py
 .. _`dotviewer/`: https://bitbucket.org/pypy/pypy/src/default/dotviewer/
 .. _`lib-python/`: https://bitbucket.org/pypy/pypy/src/default/lib-python/
