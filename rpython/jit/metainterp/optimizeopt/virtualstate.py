@@ -187,10 +187,13 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch("other is a different kind of array")
         if len(self.fieldstate) != len(other.fieldstate):
             raise VirtualStatesCantMatch("other has a different length")
+        v = None
         for i in range(len(self.fieldstate)):
-            # XXX value
+            if value is not None:
+                assert isinstance(value, virtualize.VArrayValue)
+                v = value._items[i]
             self.fieldstate[i].generate_guards(other.fieldstate[i],
-                                               None, state)
+                                               v, state)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if not isinstance(value, virtualize.VArrayValue):
