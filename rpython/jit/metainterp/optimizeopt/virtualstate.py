@@ -406,8 +406,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def _enum(self, virtual_state):
         if self.level == LEVEL_CONSTANT:
             return
-        self.position_in_notvirtuals = len(virtual_state.notvirtuals)
-        virtual_state.notvirtuals.append(self)
+        self.position_in_notvirtuals = virtual_state.numnotvirtuals
+        virtual_state.numnotvirtuals += 1
 
     def debug_print(self, indent, seen, bad, metainterp_sd=None):
         mark = ''
@@ -450,7 +450,7 @@ class VirtualState(object):
     def __init__(self, state):
         self.state = state
         self.info_counter = -1
-        self.notvirtuals = [] # FIXME: We dont need this list, only it's length
+        self.numnotvirtuals = 0
         for s in state:
             s.enum(self)
 
@@ -476,7 +476,7 @@ class VirtualState(object):
         if optimizer.optearlyforce:
             optimizer = optimizer.optearlyforce
         assert len(values) == len(self.state)
-        inputargs = [None] * len(self.notvirtuals)
+        inputargs = [None] * self.numnotvirtuals
 
         # We try twice. The first time around we allow boxes to be forced
         # which might change the virtual state if the box appear in more
