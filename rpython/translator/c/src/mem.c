@@ -48,7 +48,7 @@ static struct pypy_debug_alloc_s *pypy_debug_alloc_list = NULL;
 // spinlock_acquire/spinlock_release defined in ../../stm/src_stm/stmgcintf.h
 static Signed pypy_debug_alloc_lock = 0;
 #else
-# define spinlock_acquire(lock, targetvalue)  /* nothing */
+# define spinlock_acquire(lock)               /* nothing */
 # define spinlock_release(lock)               /* nothing */
 #endif
 
@@ -58,7 +58,7 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
   RPyAssert(p, "out of memory");
   p->addr = addr;
   p->funcname = funcname;
-  spinlock_acquire(pypy_debug_alloc_lock, '+');
+  spinlock_acquire(pypy_debug_alloc_lock);
   p->next = pypy_debug_alloc_list;
   pypy_debug_alloc_list = p;
   spinlock_release(pypy_debug_alloc_lock);
@@ -67,7 +67,7 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
 int try_pypy_debug_alloc_stop(void *addr)
 {
   struct pypy_debug_alloc_s **p;
-  spinlock_acquire(pypy_debug_alloc_lock, '-');
+  spinlock_acquire(pypy_debug_alloc_lock);
   for (p = &pypy_debug_alloc_list; *p; p = &((*p)->next))
     if ((*p)->addr == addr)
       {
@@ -92,7 +92,7 @@ void pypy_debug_alloc_results(void)
 {
   long count = 0;
   struct pypy_debug_alloc_s *p;
-  spinlock_acquire(pypy_debug_alloc_lock, 'R');
+  spinlock_acquire(pypy_debug_alloc_lock);
   for (p = pypy_debug_alloc_list; p; p = p->next)
     count++;
   if (count > 0)

@@ -6,7 +6,7 @@
 
 #include <errno.h>
 #include "stmgc.h"
-#include "stm/atomic.h"    /* for spin_loop() and write_fence() */
+#include "stm/atomic.h"    /* for spin_loop(), write_fence(), spinlock_xxx() */
 
 extern __thread struct stm_thread_local_s stm_thread_local;
 extern __thread long pypy_stm_ready_atomic;
@@ -99,27 +99,6 @@ static inline int pypy_stm_should_break_transaction(void)
     return current > pypy_stm_nursery_low_fill_mark;
     /* NB. this logic is hard-coded in jit/backend/x86/assembler.py too */
 }
-
-
-#if 0    /* fprinting versions */
-# define spinlock_acquire(lock, targetvalue)                            \
-    do { if (__sync_bool_compare_and_swap(&(lock), 0, (targetvalue))) { \
-             dprintf(("<<< locked %d\n", (int)targetvalue));            \
-             break;                                                     \
-         }                                                              \
-         do { spin_loop(); } while (lock);                              \
-    } while (1)
-# define spinlock_release(lock)                                         \
-    do { dprintf(("unlocked >>>\n")); write_fence();                    \
-         assert((lock) != 0); (lock) = 0; } while (0)
-#else
-# define spinlock_acquire(lock, targetvalue)                                 \
-    do { if (__sync_bool_compare_and_swap(&(lock), 0, (targetvalue))) break; \
-         do { spin_loop(); } while (lock);                                   \
-    } while (1)
-# define spinlock_release(lock)                                 \
-    do { write_fence(); assert((lock) != 0); (lock) = 0; } while (0)
-#endif
 
 
 #endif  /* _RPY_STMGCINTF_H */

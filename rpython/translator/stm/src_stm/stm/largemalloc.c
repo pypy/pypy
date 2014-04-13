@@ -107,20 +107,35 @@ static mchunk_t *next_chunk(mchunk_t *p)
 
 */
 
-static dlist_t largebins[N_BINS];
-static mchunk_t *first_chunk, *last_chunk;
+
+static struct {
+    int lock;
+    mchunk_t *first_chunk, *last_chunk;
+    dlist_t largebins[N_BINS];
+} lm __attribute__((aligned(64)));
+
+
+static void lm_lock(void)
+{
+    spinlock_acquire(lm.lock);
+}
+
+static void lm_unlock(void)
+{
+    spinlock_release(lm.lock);
+}
 
 
 static void insert_unsorted(mchunk_t *new)
 {
     size_t index = LAST_BIN_INDEX(new->size) ? N_BINS - 1
                                              : largebin_index(new->size);
-    new->d.next = &largebins[index];
-    new->d.prev = largebins[index].prev;
+    new->d.next = &lm.largebins[index];
+    new->d.prev = lm.largebins[index].prev;
     new->d.prev->next = &new->d;
     new->u.up = UU_UNSORTED;
     new->u.down = NULL;
-    largebins[index].prev = &new->d;
+    lm.largebins[index].prev = &new->d;
 }
 
 static int compare_chunks(const void *vchunk1, const void *vchunk2)
@@ -140,8 +155,8 @@ static int compare_chunks(const void *vchunk1, const void *vchunk2)
 
 static void really_sort_bin(size_t index)
 {
-    dlist_t *unsorted = largebins[index].prev;
-    dlist_t *end = &largebins[index];
+    dlist_t *unsorted = lm.largebins[index].prev;
+    dlist_t *end = &lm.largebins[index];
     dlist_t *scan = unsorted->prev;
     size_t count = 1;
     while (scan != end && data2chunk(scan)->u.up == UU_UNSORTED) {
@@ -177,7 +192,7 @@ static void really_sort_bin(size_t index)
         chunk1 = chunks[--count];
     }
     size_t search_size = chunk1->size;
-    dlist_t *head = largebins[index].next;
+    dlist_t *head = lm.largebins[index].next;
 
     while (1) {
         if (head == end || data2chunk(head)->size < search_size) {
@@ -219,8 +234,8 @@ static void really_sort_bin(size_t index)
 
 static void sort_bin(size_t index)
 {
-    dlist_t *last = largebins[index].prev;
-    if (last != &largebins[index] && data2chunk(last)->u.up == UU_UNSORTED)
+    dlist_t *last = lm.largebins[index].prev;
+    if (last != &lm.largebins[index] && data2chunk(last)->u.up == UU_UNSORTED)
         really_sort_bin(index);
 }
 
@@ -263,13 +278,15 @@ char *_stm_large_malloc(size_t request_size)
     if (request_size < MIN_ALLOC_SIZE)
         request_size = MIN_ALLOC_SIZE;
 
+    lm_lock();
+
     size_t index = largebin_index(request_size);
     sort_bin(index);
 
     /* scan through the chunks of current bin in reverse order
        to find the smallest that fits. */
-    dlist_t *scan = largebins[index].prev;
-    dlist_t *end = &largebins[index];
+    dlist_t *scan = lm.largebins[index].prev;
+    dlist_t *end = &lm.largebins[index];
     mchunk_t *mscan;
     while (scan != end) {
         mscan = data2chunk(scan);
@@ -287,16 +304,17 @@ char *_stm_large_malloc(size_t request_size)
        smallest item of the first non-empty bin, as it will be large
        enough. */
     while (++index < N_BINS) {
-        if (largebins[index].prev != &largebins[index]) {
+        if (lm.largebins[index].prev != &lm.largebins[index]) {
             /* non-empty bin. */
             sort_bin(index);
-            scan = largebins[index].prev;
+            scan = lm.largebins[index].prev;
             mscan = data2chunk(scan);
             goto found;
         }
     }
 
     /* not enough memory. */
+    lm_unlock();
     return NULL;
 
  found:
@@ -337,12 +355,13 @@ char *_stm_large_malloc(size_t request_size)
     mscan->prev_size = BOTH_CHUNKS_USED;
     increment_total_allocated(request_size + LARGE_MALLOC_OVERHEAD);
 
+    lm_unlock();
+
     return (char *)&mscan->d;
 }
 
-void _stm_large_free(char *data)
+static void _large_free(mchunk_t *chunk)
 {
-    mchunk_t *chunk = data2chunk(data);
     assert((chunk->size & (sizeof(char *) - 1)) == 0);
     assert(chunk->prev_size != THIS_CHUNK_FREE);
 
@@ -350,9 +369,12 @@ void _stm_large_free(char *data)
     increment_total_allocated(-(chunk->size + LARGE_MALLOC_OVERHEAD));
 
 #ifndef NDEBUG
-    assert(chunk->size >= sizeof(dlist_t));
-    assert(chunk->size <= (((char *)last_chunk) - (char *)data));
-    memset(data, 0xDE, chunk->size);
+    {
+        char *data = (char *)&chunk->d;
+        assert(chunk->size >= sizeof(dlist_t));
+        assert(chunk->size <= (((char *)lm.last_chunk) - data));
+        memset(data, 0xDE, chunk->size);
+    }
 #endif
 
     /* try to merge with the following chunk in memory */
@@ -409,10 +431,18 @@ void _stm_large_free(char *data)
     insert_unsorted(chunk);
 }
 
+void _stm_large_free(char *data)
+{
+    lm_lock();
+    _large_free(data2chunk(data));
+    lm_unlock();
+}
+
 
 void _stm_large_dump(void)
 {
-    char *data = ((char *)first_chunk) + 16;
+    lm_lock();
+    char *data = ((char *)lm.first_chunk) + 16;
     size_t prev_size_if_free = 0;
     fprintf(stderr, "\n");
     while (1) {
@@ -447,12 +477,13 @@ void _stm_large_dump(void)
         data += 16;
     }
     fprintf(stderr, "\n  %p: end. ]\n\n", data - 8);
-    assert(data - 16 == (char *)last_chunk);
+    assert(data - 16 == (char *)lm.last_chunk);
+    lm_unlock();
 }
 
 char *_stm_largemalloc_data_start(void)
 {
-    return (char *)first_chunk;
+    return (char *)lm.first_chunk;
 }
 
 #ifdef STM_LARGEMALLOC_TEST
@@ -463,21 +494,23 @@ void _stm_largemalloc_init_arena(char *data_start, size_t data_size)
 {
     int i;
     for (i = 0; i < N_BINS; i++) {
-        largebins[i].prev = &largebins[i];
-        largebins[i].next = &largebins[i];
+        lm.largebins[i].prev = &lm.largebins[i];
+        lm.largebins[i].next = &lm.largebins[i];
     }
 
     assert(data_size >= 2 * sizeof(struct malloc_chunk));
     assert((data_size & 31) == 0);
-    first_chunk = (mchunk_t *)data_start;
-    first_chunk->prev_size = THIS_CHUNK_FREE;
-    first_chunk->size = data_size - 2 * CHUNK_HEADER_SIZE;
-    last_chunk = chunk_at_offset(first_chunk, data_size - CHUNK_HEADER_SIZE);
-    last_chunk->prev_size = first_chunk->size;
-    last_chunk->size = END_MARKER;
-    assert(last_chunk == next_chunk(first_chunk));
+    lm.first_chunk = (mchunk_t *)data_start;
+    lm.first_chunk->prev_size = THIS_CHUNK_FREE;
+    lm.first_chunk->size = data_size - 2 * CHUNK_HEADER_SIZE;
+    lm.last_chunk = chunk_at_offset(lm.first_chunk,
+                                    data_size - CHUNK_HEADER_SIZE);
+    lm.last_chunk->prev_size = lm.first_chunk->size;
+    lm.last_chunk->size = END_MARKER;
+    assert(lm.last_chunk == next_chunk(lm.first_chunk));
+    lm.lock = 0;
 
-    insert_unsorted(first_chunk);
+    insert_unsorted(lm.first_chunk);
 
 #ifdef STM_LARGEMALLOC_TEST
     _stm_largemalloc_keep = NULL;
@@ -486,57 +519,64 @@ void _stm_largemalloc_init_arena(char *data_start, size_t data_size)
 
 int _stm_largemalloc_resize_arena(size_t new_size)
 {
+    int result = 0;
+    lm_lock();
+
     if (new_size < 2 * sizeof(struct malloc_chunk))
-        return 0;
+        goto fail;
     OPT_ASSERT((new_size & 31) == 0);
 
     new_size -= CHUNK_HEADER_SIZE;
-    mchunk_t *new_last_chunk = chunk_at_offset(first_chunk, new_size);
-    mchunk_t *old_last_chunk = last_chunk;
-    size_t old_size = ((char *)old_last_chunk) - (char *)first_chunk;
+    mchunk_t *new_last_chunk = chunk_at_offset(lm.first_chunk, new_size);
+    mchunk_t *old_last_chunk = lm.last_chunk;
+    size_t old_size = ((char *)old_last_chunk) - (char *)lm.first_chunk;
 
     if (new_size < old_size) {
         /* check if there is enough free space at the end to allow
            such a reduction */
-        size_t lsize = last_chunk->prev_size;
+        size_t lsize = lm.last_chunk->prev_size;
         assert(lsize != THIS_CHUNK_FREE);
         if (lsize == BOTH_CHUNKS_USED)
-            return 0;
+            goto fail;
         lsize += CHUNK_HEADER_SIZE;
-        mchunk_t *prev_chunk = chunk_at_offset(last_chunk, -lsize);
+        mchunk_t *prev_chunk = chunk_at_offset(lm.last_chunk, -lsize);
         if (((char *)new_last_chunk) < ((char *)prev_chunk) +
                                        sizeof(struct malloc_chunk))
-            return 0;
+            goto fail;
 
         /* unlink the prev_chunk from the doubly-linked list */
         unlink_chunk(prev_chunk);
 
         /* reduce the prev_chunk */
-        assert(prev_chunk->size == last_chunk->prev_size);
+        assert(prev_chunk->size == lm.last_chunk->prev_size);
         prev_chunk->size = ((char*)new_last_chunk) - (char *)prev_chunk
                            - CHUNK_HEADER_SIZE;
 
         /* make a fresh-new last chunk */
         new_last_chunk->prev_size = prev_chunk->size;
         new_last_chunk->size = END_MARKER;
-        last_chunk = new_last_chunk;
-        assert(last_chunk == next_chunk(prev_chunk));
+        lm.last_chunk = new_last_chunk;
+        assert(lm.last_chunk == next_chunk(prev_chunk));
 
         insert_unsorted(prev_chunk);
     }
     else if (new_size > old_size) {
         /* make the new last chunk first, with only the extra size */
-        mchunk_t *old_last_chunk = last_chunk;
+        mchunk_t *old_last_chunk = lm.last_chunk;
         old_last_chunk->size = (new_size - old_size) - CHUNK_HEADER_SIZE;
         new_last_chunk->prev_size = BOTH_CHUNKS_USED;
         new_last_chunk->size = END_MARKER;
-        last_chunk = new_last_chunk;
-        assert(last_chunk == next_chunk(old_last_chunk));
+        lm.last_chunk = new_last_chunk;
+        assert(lm.last_chunk == next_chunk(old_last_chunk));
 
         /* then free the last_chunk (turn it from "used" to "free) */
-        _stm_large_free((char *)&old_last_chunk->d);
+        _large_free(old_last_chunk);
     }
-    return 1;
+
+    result = 1;
+ fail:
+    lm_unlock();
+    return result;
 }
 
 
@@ -551,15 +591,17 @@ static inline bool _largemalloc_sweep_keep(mchunk_t *chunk)
 
 void _stm_largemalloc_sweep(void)
 {
-    /* This may be slightly optimized by inlining _stm_large_free() and
+    lm_lock();
+
+    /* This may be slightly optimized by inlining _large_free() and
        making cases, e.g. we might know already if the previous block
        was free or not.  It's probably not really worth it. */
-    mchunk_t *mnext, *chunk = first_chunk;
+    mchunk_t *mnext, *chunk = lm.first_chunk;
 
     if (chunk->prev_size == THIS_CHUNK_FREE)
         chunk = next_chunk(chunk);   /* go to the first non-free chunk */
 
-    while (chunk != last_chunk) {
+    while (chunk != lm.last_chunk) {
         /* here, the chunk we're pointing to is not free */
         assert(chunk->prev_size != THIS_CHUNK_FREE);
 
@@ -571,8 +613,10 @@ void _stm_largemalloc_sweep(void)
         /* use the callback to know if 'chunk' contains an object that
            survives or dies */
         if (!_largemalloc_sweep_keep(chunk)) {
-            _stm_large_free((char *)&chunk->d);     /* dies */
+            _large_free(chunk);     /* dies */
         }
         chunk = mnext;
     }
+
+    lm_unlock();
 }

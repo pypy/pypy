@@ -39,6 +39,7 @@ static void setup_N_pages(char *pages_addr, uint64_t num)
 
 static void grab_more_free_pages_for_small_allocations(void)
 {
+    abort();//XXX
     /* grab N (= GCPAGE_NUM_PAGES) pages out of the top addresses */
     uintptr_t decrease_by = GCPAGE_NUM_PAGES * 4096;
     if (uninitialized_page_stop - uninitialized_page_start <= decrease_by)
@@ -76,16 +77,21 @@ static char *_allocate_small_slowpath(uint64_t size)
 }
 
 
+static int lock_growth_large = 0;
+
 static char *allocate_outside_nursery_large(uint64_t size)
 {
-    /* thread-safe: use the lock of pages.c to prevent any remapping
-       from occurring under our feet */
-    mutex_pages_lock();
-
     /* Allocate the object with largemalloc.c from the lower addresses. */
     char *addr = _stm_large_malloc(size);
     if (addr == NULL)
         stm_fatalerror("not enough memory!");
+
+    if (LIKELY(addr + size <= uninitialized_page_start)) {
+        return addr;
+    }
+
+    /* uncommon case: need to initialize some more pages */
+    spinlock_acquire(lock_growth_large);
 
     if (addr + size > uninitialized_page_start) {
         uintptr_t npages;
@@ -96,11 +102,10 @@ static char *allocate_outside_nursery_large(uint64_t size)
             stm_fatalerror("out of memory!");   /* XXX */
         }
         setup_N_pages(uninitialized_page_start, npages);
+        __sync_synchronize();
         uninitialized_page_start += npages * 4096UL;
     }
-
-    mutex_pages_unlock();
-
+    spinlock_release(lock_growth_large);
     return addr;
 }
 
@@ -256,7 +261,6 @@ static void major_reshare_pages(void)
        total_allocated by 4096. */
 
     long i;
-    mutex_pages_lock();
 
     for (i = 1; i <= NB_SEGMENTS; i++) {
         /* The 'modified_old_objects' list gives the list of objects
@@ -306,7 +310,6 @@ static void major_reshare_pages(void)
     for (i = 1; i <= NB_SEGMENTS; i++) {
         major_restore_private_bits_for_modified_objects(i);
     }
-    mutex_pages_unlock();
 }
 
 
@@ -465,9 +468,7 @@ static inline bool largemalloc_keep_object_at(char *data)
 
 static void sweep_large_objects(void)
 {
-    mutex_pages_lock();
     _stm_largemalloc_sweep();
-    mutex_pages_unlock();
 }
 
 static void clean_write_locks(void)

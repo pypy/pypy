@@ -37,4 +37,12 @@
 #endif
 
 
+#define spinlock_acquire(lock)                                          \
+    do { if (LIKELY(__sync_lock_test_and_set(&(lock), 1) == 0)) break;  \
+         spin_loop(); } while (1)
+#define spinlock_release(lock)                                          \
+    do { assert((lock) == 1);                                           \
+         __sync_lock_release(&(lock)); } while (0)
+
+
 #endif  /* _STM_ATOMIC_H */

@@ -6,16 +6,12 @@
 
 /************************************************************/
 
-static union {
-    struct {
-        uint8_t mutex_pages;
-        volatile bool major_collection_requested;
-        uint64_t total_allocated;  /* keep track of how much memory we're
-                                      using, ignoring nurseries */
-        uint64_t total_allocated_bound;
-    };
-    char reserved[64];
-} pages_ctl __attribute__((aligned(64)));
+struct {
+    volatile bool major_collection_requested;
+    uint64_t total_allocated;  /* keep track of how much memory we're
+                                  using, ignoring nurseries */
+    uint64_t total_allocated_bound;
+} pages_ctl;
 
 
 static void setup_pages(void)
@@ -29,37 +25,15 @@ static void teardown_pages(void)
     memset(pages_privatized, 0, sizeof(pages_privatized));
 }
 
-static void mutex_pages_lock(void)
-{
-    if (__sync_lock_test_and_set(&pages_ctl.mutex_pages, 1) == 0)
-        return;
-
-    int previous = change_timing_state(STM_TIME_SPIN_LOOP);
-    while (__sync_lock_test_and_set(&pages_ctl.mutex_pages, 1) != 0) {
-        spin_loop();
-    }
-    change_timing_state(previous);
-}
-
-static void mutex_pages_unlock(void)
-{
-    __sync_lock_release(&pages_ctl.mutex_pages);
-}
-
-static bool _has_mutex_pages(void)
-{
-    return pages_ctl.mutex_pages != 0;
-}
-
 static uint64_t increment_total_allocated(ssize_t add_or_remove)
 {
-    assert(_has_mutex_pages());
-    pages_ctl.total_allocated += add_or_remove;
+    uint64_t ta = __sync_add_and_fetch(&pages_ctl.total_allocated,
+                                       add_or_remove);
 
-    if (pages_ctl.total_allocated >= pages_ctl.total_allocated_bound)
+    if (ta >= pages_ctl.total_allocated_bound)
         pages_ctl.major_collection_requested = true;
 
-    return pages_ctl.total_allocated;
+    return ta;
 }
 
 static bool is_major_collection_requested(void)
@@ -118,10 +92,12 @@ static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count)
     /* call remap_file_pages() to make all pages in the range(pagenum,
        pagenum+count) refer to the same physical range of pages from
        segment 0. */
-    uintptr_t i;
-    assert(_has_mutex_pages());
+    dprintf(("pages_initialize_shared: 0x%ld - 0x%ld\n", pagenum,
+             pagenum + count));
+    assert(pagenum < NB_PAGES);
     if (count == 0)
         return;
+    uintptr_t i;
     for (i = 1; i <= NB_SEGMENTS; i++) {
         char *segment_base = get_segment_base(i);
         d_remap_file_pages(segment_base + pagenum * 4096UL,
@@ -131,14 +107,20 @@ static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count)
 
 static void page_privatize(uintptr_t pagenum)
 {
-    if (is_private_page(STM_SEGMENT->segment_num, pagenum)) {
-        /* the page is already privatized */
+    /* check this thread's 'pages_privatized' bit */
+    uint64_t bitmask = 1UL << (STM_SEGMENT->segment_num - 1);
+    struct page_shared_s *ps = &pages_privatized[pagenum - PAGE_FLAG_START];
+    if (ps->by_segment & bitmask) {
+        /* the page is already privatized; nothing to do */
         return;
     }
 
-    /* lock, to prevent concurrent threads from looking up this thread's
-       'pages_privatized' bits in parallel */
-    mutex_pages_lock();
+#ifndef NDEBUG
+    spinlock_acquire(lock_pages_privatizing[STM_SEGMENT->segment_num]);
+#endif
+
+    /* add this thread's 'pages_privatized' bit */
+    __sync_fetch_and_add(&ps->by_segment, bitmask);
 
     /* "unmaps" the page to make the address space location correspond
        again to its underlying file offset (XXX later we should again
@@ -152,11 +134,9 @@ static void page_privatize(uintptr_t pagenum)
     /* copy the content from the shared (segment 0) source */
     pagecopy(new_page, stm_object_pages + pagenum * 4096UL);
 
-    /* add this thread's 'pages_privatized' bit */
-    uint64_t bitmask = 1UL << (STM_SEGMENT->segment_num - 1);
-    pages_privatized[pagenum - PAGE_FLAG_START].by_segment |= bitmask;
-
-    mutex_pages_unlock();
+#ifndef NDEBUG
+    spinlock_release(lock_pages_privatizing[STM_SEGMENT->segment_num]);
+#endif
 }
 
 static void _page_do_reshare(long segnum, uintptr_t pagenum)

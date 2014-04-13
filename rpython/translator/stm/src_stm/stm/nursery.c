@@ -196,9 +196,7 @@ static void collect_oldrefs_to_nursery(void)
                content); or add the object to 'large_overflow_objects'.
             */
             if (STM_PSEGMENT->minor_collect_will_commit_now) {
-                mutex_pages_lock();
                 synchronize_object_now(obj);
-                mutex_pages_unlock();
             }
             else
                 LIST_APPEND(STM_PSEGMENT->large_overflow_objects, obj);
@@ -234,19 +232,12 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 
     /* free any object left from 'young_outside_nursery' */
     if (!tree_is_cleared(pseg->young_outside_nursery)) {
-        bool locked = false;
         wlog_t *item;
+
         TREE_LOOP_FORWARD(*pseg->young_outside_nursery, item) {
             assert(!_is_in_nursery((object_t *)item->addr));
-            if (!locked) {
-                mutex_pages_lock();
-                locked = true;
-            }
             _stm_large_free(stm_object_pages + item->addr);
         } TREE_LOOP_END;
-
-        if (locked)
-            mutex_pages_unlock();
 
         tree_clear(pseg->young_outside_nursery);
     }

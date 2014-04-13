@@ -71,7 +71,6 @@ static void forksupport_prepare(void)
 
     s_mutex_lock();
     synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
-    mutex_pages_lock();
 
     /* Make a new mmap at some other address, but of the same size as
        the standard mmap at stm_object_pages
@@ -167,7 +166,6 @@ static void forksupport_parent(void)
     fork_big_copy = NULL;
     bool was_in_transaction = fork_was_in_transaction;
 
-    mutex_pages_unlock();
     s_mutex_unlock();
 
     if (!was_in_transaction) {
@@ -204,7 +202,6 @@ static void forksupport_child(void)
 
     /* this new process contains no other thread, so we can
        just release these locks early */
-    mutex_pages_unlock();
     s_mutex_unlock();
 
     /* Move the copy of the mmap over the old one, overwriting it

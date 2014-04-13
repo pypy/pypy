@@ -9,6 +9,23 @@ static void teardown_core(void)
     memset(write_locks, 0, sizeof(write_locks));
 }
 
+#ifdef NDEBUG
+#define EVENTUALLY(condition)    /* nothing */
+#else
+#define EVENTUALLY(condition)                                   \
+    {                                                           \
+        if (!(condition)) {                                     \
+            int _i;                                             \
+            for (_i = 1; _i <= NB_SEGMENTS; _i++)               \
+                spinlock_acquire(lock_pages_privatizing[_i]);   \
+            if (!(condition))                                   \
+                stm_fatalerror("fails: " #condition);           \
+            for (_i = 1; _i <= NB_SEGMENTS; _i++)               \
+                spinlock_release(lock_pages_privatizing[_i]);   \
+        }                                                       \
+    }
+#endif
+
 static void check_flag_write_barrier(object_t *obj)
 {
     /* check that all copies of the object, apart from mine, have the
@@ -22,12 +39,7 @@ static void check_flag_write_barrier(object_t *obj)
         if (i == STM_SEGMENT->segment_num)
             continue;
         o1 = (struct object_s *)REAL_ADDRESS(get_segment_base(i), obj);
-        if (!(o1->stm_flags & GCFLAG_WRITE_BARRIER)) {
-            mutex_pages_lock();  /* try again... */
-            if (!(o1->stm_flags & GCFLAG_WRITE_BARRIER))
-                stm_fatalerror("missing GCFLAG_WRITE_BARRIER");
-            mutex_pages_unlock();
-        }
+        EVENTUALLY(o1->stm_flags & GCFLAG_WRITE_BARRIER);
     }
 #endif
 }
@@ -272,7 +284,6 @@ static void copy_object_to_shared(object_t *obj, int source_segment_num)
        with synchronize_object_now() but I don't completely see how to
        improve...
     */
-    assert(_has_mutex_pages());
     assert(!_is_young(obj));
 
     char *segment_base = get_segment_base(source_segment_num);
@@ -327,10 +338,7 @@ static void synchronize_object_now(object_t *obj)
     /* Copy around the version of 'obj' that lives in our own segment.
        It is first copied into the shared pages, and then into other
        segments' own private pages.
-
-       This must be called with the mutex_pages_lock!
     */
-    assert(_has_mutex_pages());
     assert(!_is_young(obj));
     assert(obj->stm_flags & GCFLAG_WRITE_BARRIER);
 
@@ -374,8 +382,25 @@ static void synchronize_object_now(object_t *obj)
                     memcpy(dst, src, copy_size);
             }
             else {
-                assert(memcmp(dst, src, copy_size) == 0);  /* same page */
+                EVENTUALLY(memcmp(dst, src, copy_size) == 0);  /* same page */
             }
+
+            /* Do a full memory barrier.  We must make sure that other
+               CPUs see the changes we did to the shared page ("S",
+               above) before we check the other segments below with
+               is_private_page().  Otherwise, we risk the following:
+               this CPU writes "S" but the writes are not visible yet;
+               then it checks is_private_page() and gets false, and does
+               nothing more; just afterwards another CPU sets its own
+               private_page bit and copies the page; but it risks doing
+               so before seeing the "S" writes.
+
+               XXX what is the cost of this?  If it's high, then we
+               should reorganize the code so that we buffer the second
+               parts and do them by bunch of N, after just one call to
+               __sync_synchronize()...
+            */
+            __sync_synchronize();
 
             for (i = 1; i <= NB_SEGMENTS; i++) {
                 if (i == myself)
@@ -393,7 +418,7 @@ static void synchronize_object_now(object_t *obj)
                         memcpy(dst, src, copy_size);
                 }
                 else {
-                    assert(memcmp(dst, src, copy_size) == 0);  /* same page */
+                    EVENTUALLY(!memcmp(dst, src, copy_size));  /* same page */
                 }
             }
 
@@ -486,12 +511,10 @@ void stm_commit_transaction(void)
         major_collection_now_at_safe_point();
 
     /* synchronize overflow objects living in privatized pages */
-    mutex_pages_lock();
     push_overflow_objects_from_privatized_pages();
 
     /* synchronize modified old objects to other threads */
     push_modified_to_other_segments();
-    mutex_pages_unlock();
 
     /* update 'overflow_number' if needed */
     if (STM_PSEGMENT->overflow_number_has_been_used) {

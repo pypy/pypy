@@ -76,21 +76,6 @@ object_t *_stm_enum_objects_pointing_to_nursery(long index)
 
 uint64_t _stm_total_allocated(void)
 {
-    mutex_pages_lock();
-    uint64_t result = increment_total_allocated(0);
-    mutex_pages_unlock();
-    return result;
-}
-#endif
-
-#ifdef STM_LARGEMALLOC_TEST
-void _stm_mutex_pages_lock(void)
-{
-    mutex_pages_lock();
-}
-
-void _stm_mutex_pages_unlock(void)
-{
-    mutex_pages_unlock();
+    return increment_total_allocated(0);
 }
 #endif
