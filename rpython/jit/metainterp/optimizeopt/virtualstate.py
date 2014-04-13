@@ -1,5 +1,6 @@
 from rpython.jit.metainterp import resume
-from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const, ConstPtr
+from rpython.jit.metainterp.history import (BoxInt, ConstInt, BoxPtr, Const,
+        ConstPtr, ConstFloat)
 from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
@@ -435,7 +436,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     l = "ConstPtr(null)"
             else:
                 assert isinstance(const, ConstFloat)
-                l = "ConstFloat(%s)" % cons.getfloat()
+                l = "ConstFloat(%s)" % const.getfloat()
 
         lb = ''
         if self.lenbound:
