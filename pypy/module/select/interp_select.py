@@ -175,8 +175,7 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
     else:
         timeout = space.float_w(w_timeout)
         if timeout < 0.0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("timeout must be non-negative"))
+            raise oefmt(space.w_ValueError, "timeout must be non-negative")
 
     ll_inl  = lltype.nullptr(_c.fd_set.TO)
     ll_outl = lltype.nullptr(_c.fd_set.TO)
