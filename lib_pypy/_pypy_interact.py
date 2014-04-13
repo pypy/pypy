@@ -36,7 +36,7 @@ def interactive_console(mainmodule=None, quiet=False):
         if not check():
             raise ImportError
         from pyrepl.simple_interact import run_multiline_interactive_console
-        run_imteractive = run_multiline_interactive_console
+        run_interactive = run_multiline_interactive_console
     except ImportError:
         pass
     except SyntaxError:
