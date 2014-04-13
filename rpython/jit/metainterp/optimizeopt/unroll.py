@@ -533,7 +533,6 @@ class UnrollOptimizer(Optimization):
                 continue
             extra_guards = []
 
-            debugmsg = 'Did not match '
             try:
                 cpu = self.optimizer.cpu
                 state = target.virtual_state.generate_guards(virtual_state,
@@ -546,6 +545,7 @@ class UnrollOptimizer(Optimization):
                 else:
                     debugmsg = 'Matched '
             except VirtualStatesCantMatch, e:
+                debugmsg = 'Did not match:\n%s\n' % (e.msg, )
                 target.virtual_state.debug_print(debugmsg, e.state.bad, metainterp_sd=self.optimizer.metainterp_sd)
                 continue
 
