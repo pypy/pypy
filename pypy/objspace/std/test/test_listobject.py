@@ -1059,6 +1059,32 @@ class AppTestListObject(object):
         l.append(l)
         assert repr(l) == '[[...]]'
 
+    def test_copy(self):
+        # test that empty list copies the empty list
+        l = []
+        c = l.copy()
+        assert c == []
+
+        # test that the items of a list are the same
+        l = list(range(3))
+        c = l.copy()
+        assert l == c
+
+        # test that it's indeed a copy and not a reference
+        l = ['a', 'b']
+        c = l.copy()
+        c.append('i')
+        assert l == ['a', 'b']
+        assert c == l + ['i']
+
+        # test that it's a shallow, not a deep copy
+        l = [1, 2, [3, 4], 5]
+        c = l.copy()
+        assert l == c
+        assert c[3] == l[3]
+
+        raises(TypeError, l.copy, None)
+
     def test_append(self):
         l = []
         l.append('X')
