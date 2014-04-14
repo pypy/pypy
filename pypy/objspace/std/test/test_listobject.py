@@ -814,7 +814,25 @@ class AppTestListObject(object):
         l = [1.1, 2.2]
         del l[:]
         assert l == []
-        
+
+    def test_clear(self):
+        l = l0 = [1,2,3]
+        l.clear()
+        assert l is l0
+        assert l == []
+
+        l = ['a', 'b']
+        l.clear()
+        assert l == []
+
+        l = [1.1, 2.2]
+        l.clear()
+        assert l == []
+
+        l = []
+        l.clear()
+        assert l == []
+
     def test_iadd(self):
         l = l0 = [1,2,3]
         l += [4,5]

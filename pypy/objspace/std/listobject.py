@@ -588,6 +588,10 @@ class W_ListObject(W_Root):
             raise OperationError(space.w_IndexError,
                                  space.wrap("pop index out of range"))
 
+    def descr_clear(self, space):
+        '''L.clear() -- remove all items'''
+        self.clear(space)
+
     def descr_remove(self, space, w_value):
         'L.remove(value) -- remove first occurrence of value'
         # needs to be safe against eq_w() mutating the w_list behind our back
@@ -1846,6 +1850,7 @@ list(sequence) -> new list initialized from sequence's items""",
     __reversed__ = interp2app(W_ListObject.descr_reversed),
     count = interp2app(W_ListObject.descr_count),
     pop = interp2app(W_ListObject.descr_pop),
+    clear = interp2app(W_ListObject.descr_clear),
     extend = interp2app(W_ListObject.extend),
     insert = interp2app(W_ListObject.descr_insert),
     remove = interp2app(W_ListObject.descr_remove),
