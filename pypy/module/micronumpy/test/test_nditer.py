@@ -52,13 +52,9 @@ class AppTestNDIter(BaseNumpyAppTest):
             n += 1
         assert n == 12
         assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21], [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23]]).all()
-        e = None
-        try:
-            r[0][0] = 0
-        except ValueError, ex:
-            e = ex
-        assert e
-
+        e = raises(ValueError, 'r[0][0] = 0')
+        assert str(e.value) == 'assignment destination is read-only'
+           
     def test_index(self):
         from numpy import arange, nditer
         a = arange(6).reshape(2,3)
@@ -118,12 +114,8 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_buffered(self):
         from numpy import arange, nditer, array
-        import sys
         a = arange(6).reshape(2,3)
         r = []
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, "nditer(a, flags=['external_loop', 'buffered'], order='F')")
-            skip('nditer buffered flag not implmented')
         for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
             r.append(x)
         array_r = array(r)

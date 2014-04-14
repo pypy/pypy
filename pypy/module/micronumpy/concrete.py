@@ -464,7 +464,7 @@ class SliceArray(BaseConcreteArray):
 class NonWritableSlice(SliceArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
-            "Assignment destination is read-only"))
+            "assignment destination is read-only"))
 
 class VoidBoxStorage(BaseConcreteArray):
     def __init__(self, size, dtype):
