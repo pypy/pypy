@@ -189,28 +189,6 @@ def parse_func_flags(space, nditer, w_flags):
                 'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
                 'multi-index is being tracked'))
 
-def get_iter(space, order, arr, shape):
-    imp = arr.implementation
-    if order == 'K' or (order == 'C' and imp.order == 'C'):
-        backward = False
-    elif order =='F' and imp.order == 'C':
-        backward = True
-    else:
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-                'not implemented yet'))
-    if (imp.strides[0] < imp.strides[-1] and not backward) or \
-       (imp.strides[0] > imp.strides[-1] and backward):
-        # flip the strides. Is this always true for multidimension?
-        strides = [imp.strides[i] for i in range(len(imp.strides) - 1, -1, -1)]
-        backstrides = [imp.backstrides[i] for i in range(len(imp.backstrides) - 1, -1, -1)]
-        shape = [imp.shape[i] for i in range(len(imp.shape) - 1, -1, -1)]
-    else:
-        strides = imp.strides
-        backstrides = imp.backstrides
-    r = calculate_broadcast_strides(strides, backstrides, imp.shape,
-                                    shape, backward)
-    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1])
-
 def is_backward(imp, order):
     if order == 'K' or (order == 'C' and imp.order == 'C'):
         return False
@@ -219,11 +197,28 @@ def is_backward(imp, order):
     else:
         raise NotImplementedError('not implemented yet')
 
+def get_iter(space, order, arr, shape):
+    imp = arr.implementation
+    backward = is_backward(imp, order)
+    if (imp.strides[0] < imp.strides[-1] and not backward) or \
+       (imp.strides[0] > imp.strides[-1] and backward):
+        # flip the strides. Is this always true for multidimension?
+        strides = imp.strides[:]
+        backstrides = imp.backstrides[:]
+        shape = imp.shape[:]
+        strides.reverse()
+        backstrides.reverse()
+        shape.reverse()
+    else:
+        strides = imp.strides
+        backstrides = imp.backstrides
+    r = calculate_broadcast_strides(strides, backstrides, imp.shape,
+                                    shape, backward)
+    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1])
+
 def get_external_loop_iter(space, order, arr, shape):
     imp = arr.implementation
-
     backward = is_backward(imp, order)
-
     return SliceIterator(arr, imp.strides, imp.backstrides, shape, order=order, backward=backward)
 
 def convert_to_array_or_none(space, w_elem):

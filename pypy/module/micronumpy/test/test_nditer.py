@@ -54,7 +54,14 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21], [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23]]).all()
         e = raises(ValueError, 'r[0][0] = 0')
         assert str(e.value) == 'assignment destination is read-only'
-           
+        r = []
+        for x in nditer(a.T, flags=['external_loop'], order='F'):
+            r.append(x)
+        array_r = array(r)
+        assert len(array_r.shape) == 2
+        assert array_r.shape == (1,24)
+        assert (array(r) == arange(24)).all()
+
     def test_index(self):
         from numpy import arange, nditer
         a = arange(6).reshape(2,3)
