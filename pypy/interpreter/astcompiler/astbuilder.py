@@ -821,7 +821,9 @@ class ASTBuilder(object):
                         expr = self.handle_testlist(arg_node.children[0])
                 else:
                     expr = None
-                return ast.Yield(is_from, expr, expr_node.lineno, expr_node.column)
+                if is_from:
+                    return ast.YieldFrom(expr, expr_node.lineno, expr_node.column)
+                return ast.Yield(expr, expr_node.lineno, expr_node.column)
             elif expr_node_type == syms.factor:
                 if len(expr_node.children) == 1:
                     expr_node = expr_node.children[0]
