@@ -154,16 +154,8 @@ class UnrollOptimizer(Optimization):
         start_target = start_label.getdescr()
         assert isinstance(stop_target, TargetToken)
         assert isinstance(start_target, TargetToken)
-        if stop_target.targeting_jitcell_token is not start_target.targeting_jitcell_token:
-            return False
+        return stop_target.targeting_jitcell_token is start_target.targeting_jitcell_token
 
-        return True
-
-        #args = stop_label.getarglist()
-        #modifier = VirtualStateAdder(self.optimizer)
-        #virtual_state = modifier.get_virtual_state(args)
-        #if self.initial_virtual_state.generalization_of(virtual_state):
-        #    return True
 
     def export_state(self, targetop):
         original_jump_args = targetop.getarglist()
