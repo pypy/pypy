@@ -592,6 +592,10 @@ class W_ListObject(W_Root):
         '''L.clear() -- remove all items'''
         self.clear(space)
 
+    def descr_copy(self, space):
+        '''L.copy() -> list -- a shallow copy of L'''
+        return self.clone()
+
     def descr_remove(self, space, w_value):
         'L.remove(value) -- remove first occurrence of value'
         # needs to be safe against eq_w() mutating the w_list behind our back
@@ -1845,7 +1849,7 @@ list(sequence) -> new list initialized from sequence's items""",
 
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
-    copy = interp2app(W_ListObject.clone),
+    copy = interp2app(W_ListObject.descr_copy),
     append = interp2app(W_ListObject.append),
     reverse = interp2app(W_ListObject.descr_reverse),
     __reversed__ = interp2app(W_ListObject.descr_reversed),
