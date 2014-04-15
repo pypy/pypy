@@ -54,6 +54,10 @@ class UnrollOptimizer(Optimization):
         self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
         self.boxes_created_this_iteration = None
 
+    def get_virtual_state(self, args):
+        modifier = VirtualStateAdder(self.optimizer)
+        return modifier.get_virtual_state(args)
+
     def fix_snapshot(self, jump_args, snapshot):
         if snapshot is None:
             return None
@@ -161,8 +165,7 @@ class UnrollOptimizer(Optimization):
         original_jump_args = targetop.getarglist()
         jump_args = [self.getvalue(a).get_key_box() for a in original_jump_args]
 
-        modifier = VirtualStateAdder(self.optimizer)
-        virtual_state = modifier.get_virtual_state(jump_args)
+        virtual_state = self.get_virtual_state(jump_args)
 
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
@@ -215,8 +218,7 @@ class UnrollOptimizer(Optimization):
         if not exported_state:
             # No state exported, construct one without virtuals
             self.short = None
-            modifier = VirtualStateAdder(self.optimizer)
-            virtual_state = modifier.get_virtual_state(self.inputargs)
+            virtual_state = self.get_virtual_state(self.inputargs)
             self.initial_virtual_state = virtual_state
             return
 
@@ -342,8 +344,7 @@ class UnrollOptimizer(Optimization):
 
         # Verify that the virtual state at the end of the loop is one
         # that is compatible with the virtual state at the start of the loop
-        modifier = VirtualStateAdder(self.optimizer)
-        final_virtual_state = modifier.get_virtual_state(original_jumpargs)
+        final_virtual_state = self.get_virtual_state(original_jumpargs)
         #debug_start('jit-log-virtualstate')
         #virtual_state.debug_print('Closed loop with ')
         bad = {}
@@ -513,8 +514,7 @@ class UnrollOptimizer(Optimization):
             return True
 
         args = jumpop.getarglist()
-        modifier = VirtualStateAdder(self.optimizer)
-        virtual_state = modifier.get_virtual_state(args)
+        virtual_state = self.get_virtual_state(args)
         values = [self.getvalue(arg)
                   for arg in jumpop.getarglist()]
         debug_start('jit-log-virtualstate')
