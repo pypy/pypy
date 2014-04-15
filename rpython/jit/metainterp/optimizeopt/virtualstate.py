@@ -1,4 +1,4 @@
-from rpython.jit.metainterp import resume
+from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import (BoxInt, ConstInt, BoxPtr, Const,
         ConstPtr, ConstFloat)
 from rpython.jit.metainterp.optimizeopt import virtualize
@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
     LEVEL_KNOWNCLASS, LEVEL_NONNULL, LEVEL_UNKNOWN, OptValue)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, import_from_mixin
 
 
 class BadVirtualState(Exception):
@@ -31,7 +31,7 @@ class GenerateGuardState(object):
             bad = {}
         self.bad = bad
 
-class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
+class AbstractVirtualStateInfo(object):
     position = -1
 
     def generate_guards(self, other, value, state):
@@ -506,7 +506,9 @@ class VirtualState(object):
             s.debug_print("    ", seen, bad, metainterp_sd)
 
 
-class VirtualStateAdder(resume.ResumeDataVirtualAdder):
+class VirtualStateConstructor(object):
+    import_from_mixin(VirtualVisitor)
+
     def __init__(self, optimizer):
         self.fieldboxes = {}
         self.optimizer = optimizer
@@ -527,12 +529,10 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
         try:
             info = self.info[box]
         except KeyError:
+            self.info[box] = info = value.visitor_dispatch_virtual_type(self)
             if value.is_virtual():
-                self.info[box] = info = value.make_virtual_info(self, None)
                 flds = self.fieldboxes[box]
                 info.fieldstate = [self.state(b) for b in flds]
-            else:
-                self.info[box] = info = self.make_not_virtual(value)
         return info
 
     def get_virtual_state(self, jump_args):
@@ -547,30 +547,24 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
                   for box in jump_args]
 
         for value in values:
-            if value.is_virtual():
-                value.get_args_for_fail(self)
-            else:
-                self.make_not_virtual(value)
+            value.visitor_walk_recursive(self)
         return VirtualState([self.state(box) for box in jump_args])
 
-    def make_not_virtual(self, value):
+    def visit_not_virtual(self, value):
         is_opaque = value in self.optimizer.opaque_pointers
         return NotVirtualStateInfo(value, is_opaque)
 
-    def make_virtual(self, known_class, fielddescrs):
+    def visit_virtual(self, known_class, fielddescrs):
         return VirtualStateInfo(known_class, fielddescrs)
 
-    def make_vstruct(self, typedescr, fielddescrs):
+    def visit_vstruct(self, typedescr, fielddescrs):
         return VStructStateInfo(typedescr, fielddescrs)
 
-    def make_varray(self, arraydescr):
+    def visit_varray(self, arraydescr):
         return VArrayStateInfo(arraydescr)
 
-    def make_varraystruct(self, arraydescr, fielddescrs):
+    def visit_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
-
-    def make_vrawbuffer(self, size, offsets, descrs):
-        raise NotImplementedError
 
 
 class BoxNotProducable(Exception):

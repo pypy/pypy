@@ -6,7 +6,7 @@ from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
-from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateAdder,
+from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         ShortBoxes, BadVirtualState, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.resume import Snapshot
@@ -55,7 +55,7 @@ class UnrollOptimizer(Optimization):
         self.boxes_created_this_iteration = None
 
     def get_virtual_state(self, args):
-        modifier = VirtualStateAdder(self.optimizer)
+        modifier = VirtualStateConstructor(self.optimizer)
         return modifier.get_virtual_state(args)
 
     def fix_snapshot(self, jump_args, snapshot):

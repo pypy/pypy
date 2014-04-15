@@ -4,7 +4,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 from rpython.jit.metainterp.optimizeopt.virtualize import VirtualValue, VArrayValue
-from rpython.jit.metainterp.optimizeopt.virtualize import VStructValue
+from rpython.jit.metainterp.optimizeopt.virtualize import VStructValue, AbstractVirtualValue
 from rpython.jit.metainterp.resume import *
 from rpython.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
@@ -65,6 +65,26 @@ def test_vinfo():
     v1.set_content([1, 2, 4])
     assert v1.equals([1, 2, 4])
     assert not v1.equals([1, 2, 6])
+
+def test_reuse_vinfo():
+    class FakeVInfo(object):
+        def set_content(self, fieldnums):
+            self.fieldnums = fieldnums
+        def equals(self, fieldnums):
+            return self.fieldnums == fieldnums
+    class FakeVirtualValue(AbstractVirtualValue):
+        def visitor_dispatch_virtual_type(self, *args):
+            return FakeVInfo()
+    modifier = ResumeDataVirtualAdder(None, None)
+    v1 = FakeVirtualValue(None, None)
+    vinfo1 = modifier.make_virtual_info(v1, [1, 2, 4])
+    vinfo2 = modifier.make_virtual_info(v1, [1, 2, 4])
+    assert vinfo1 is vinfo2
+    vinfo3 = modifier.make_virtual_info(v1, [1, 2, 6])
+    assert vinfo3 is not vinfo2
+    vinfo4 = modifier.make_virtual_info(v1, [1, 2, 6])
+    assert vinfo3 is vinfo4
+
 
 class MyMetaInterp:
     _already_allocated_resume_virtuals = None
