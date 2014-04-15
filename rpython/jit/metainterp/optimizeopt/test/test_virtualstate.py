@@ -9,7 +9,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
-from rpython.jit.metainterp.optimizeopt.virtualize import VirtualValue, VArrayValue
+from rpython.jit.metainterp.optimizeopt.virtualize import (VirtualValue,
+        VArrayValue, VStructValue)
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -479,7 +480,7 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(info1, info2, value1, expected, [self.nodebox])
 
-    def test_generate_guards_on_virtual_fields_matches_struct(self):
+    def test_generate_guards_on_virtual_fields_matches_instance(self):
         innervalue1 = OptValue(self.nodebox)
         constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
         innervalue1.make_constant_class(constclassbox, -1)
@@ -504,6 +505,32 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(info1, info2, value1, expected, [self.nodebox])
 
+    def test_generate_guards_on_virtual_fields_matches_struct(self):
+        innervalue1 = OptValue(self.nodebox)
+        constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
+        innervalue1.make_constant_class(constclassbox, -1)
+        innerinfo1 = NotVirtualStateInfo(innervalue1)
+        innerinfo1.position = 1
+        innerinfo2 = NotVirtualStateInfo(OptValue(self.nodebox))
+        innerinfo2.position = 1
+
+        structdescr = object()
+
+        info1 = VStructStateInfo(structdescr, [1])
+        info1.fieldstate = [innerinfo1]
+
+        info2 = VStructStateInfo(structdescr, [1])
+        info2.fieldstate = [innerinfo2]
+
+        value1 = VStructValue(self.cpu, structdescr, self.nodebox)
+        value1._fields = {1: OptValue(self.nodebox)}
+
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.guards(info1, info2, value1, expected, [self.nodebox])
 
     # _________________________________________________________________________
     # the below tests don't really have anything to do with guard generation
