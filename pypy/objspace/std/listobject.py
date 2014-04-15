@@ -1845,6 +1845,7 @@ list(sequence) -> new list initialized from sequence's items""",
 
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
+    copy = interp2app(W_ListObject.clone),
     append = interp2app(W_ListObject.append),
     reverse = interp2app(W_ListObject.descr_reverse),
     __reversed__ = interp2app(W_ListObject.descr_reversed),
