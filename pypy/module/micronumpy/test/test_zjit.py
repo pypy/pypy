@@ -482,16 +482,19 @@ class TestNumpyJit(LLJitMixin):
         assert result == 1.0
         self.check_trace_count(1)
         self.check_simple_loop({
-            'call': 2,
-            'getfield_gc': 2,
-            'guard_no_exception': 2,
+            'getarrayitem_gc': 4,
+            'getfield_gc': 4,
             'guard_not_invalidated': 1,
-            'guard_true': 1,
+            'guard_true': 3,
+            'int_add': 6,
             'int_gt': 1,
+            'int_lt': 2,
             'int_sub': 1,
             'jump': 1,
             'raw_load': 1,
             'raw_store': 1,
+            'setarrayitem_gc': 2,
+            'setfield_gc': 4,
         })
 
     def define_dot():
@@ -506,36 +509,43 @@ class TestNumpyJit(LLJitMixin):
         result = self.run("dot")
         assert result == 184
         self.check_trace_count(3)
-        self.check_simple_loop({'float_add': 1,
-                                'float_mul': 1,
-                                'guard_not_invalidated': 1,
-                                'guard_true': 1,
-                                'int_add': 3,
-                                'int_lt': 1,
-                                'jump': 1,
-                                'raw_load': 2})
-        self.check_resops({'arraylen_gc': 1,
-                           'call': 3,
-                           'float_add': 2,
-                           'float_mul': 2,
-                           'getfield_gc': 26,
-                           'getfield_gc_pure': 24,
-                           'guard_class': 4,
-                           'guard_false': 2,
-                           'guard_no_exception': 3,
-                           'guard_nonnull': 12,
-                           'guard_nonnull_class': 4,
-                           'guard_not_invalidated': 2,
-                           'guard_true': 9,
-                           'guard_value': 4,
-                           'int_add': 6,
-                           'int_ge': 3,
-                           'int_lt': 4,
-                           'jump': 3,
-                           'new_array': 1,
-                           'raw_load': 6,
-                           'raw_store': 1,
-                           'setfield_gc': 3})
+        self.check_simple_loop({
+            'float_add': 1,
+            'float_mul': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 3,
+            'int_lt': 1,
+            'jump': 1,
+            'raw_load': 2,
+        })
+        self.check_resops({
+            'arraylen_gc': 1,
+            'float_add': 2,
+            'float_mul': 2,
+            'getarrayitem_gc': 11,
+            'getarrayitem_gc_pure': 15,
+            'getfield_gc': 35,
+            'getfield_gc_pure': 39,
+            'guard_class': 4,
+            'guard_false': 14,
+            'guard_nonnull': 12,
+            'guard_nonnull_class': 4,
+            'guard_not_invalidated': 2,
+            'guard_true': 13,
+            'guard_value': 4,
+            'int_add': 25,
+            'int_ge': 4,
+            'int_le': 8,
+            'int_lt': 11,
+            'int_sub': 4,
+            'jump': 3,
+            'new_array': 1,
+            'raw_load': 6,
+            'raw_store': 1,
+            'setarrayitem_gc': 8,
+            'setfield_gc': 15,
+        })
 
     def define_argsort():
         return """
