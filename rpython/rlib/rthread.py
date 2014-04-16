@@ -153,6 +153,9 @@ class Lock(object):
     def __exit__(self, *args):
         self.release()
 
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt rpython.rlib.rthread.Lock instance")
+
 # ____________________________________________________________
 #
 # Stack size

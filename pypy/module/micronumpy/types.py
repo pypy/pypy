@@ -442,6 +442,7 @@ class Integer(Primitive):
         return v1 % v2
 
     @simple_binary_op
+    @jit.unroll_iff(lambda self, v1, v2: jit.isconstant(v2))
     def pow(self, v1, v2):
         if v2 < 0:
             return 0

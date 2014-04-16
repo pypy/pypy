@@ -8,7 +8,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
@@ -754,26 +754,14 @@ class ImportRLock:
         me = self.space.getexecutioncontext()   # used as thread ident
         return self.lockowner is me
 
-    def _can_have_lock(self):
-        # hack: we can't have self.lock != None during translation,
-        # because prebuilt lock objects are not allowed.  In this
-        # special situation we just don't lock at all (translation is
-        # not multithreaded anyway).
-        if we_are_translated():
-            return True     # we need a lock at run-time
-        elif self.space.config.translating:
-            assert self.lock is None
-            return False
-        else:
-            return True     # in py.py
-
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         if self.lock is None:
-            if not self._can_have_lock():
+            try:
+                self.lock = self.space.allocate_lock()
+            except CannotHaveLock:
                 return
-            self.lock = self.space.allocate_lock()
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is me:
             pass    # already acquired by the current thread
@@ -791,7 +779,7 @@ class ImportRLock:
                 # Too bad.  This situation can occur if a fork() occurred
                 # with the import lock held, and we're the child.
                 return
-            if not self._can_have_lock():
+            if self.lock is None:   # CannotHaveLock occurred
                 return
             space = self.space
             raise OperationError(space.w_RuntimeError,
