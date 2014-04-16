@@ -134,3 +134,6 @@ Fix broken links in documentation
 .. branch: ast-issue1673
 fix ast classes __dict__ are always empty problem and fix the ast deepcopy issue when 
 there is missing field
+
+.. branch: issue1514
+Fix issues with reimporting builtin modules
