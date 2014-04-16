@@ -859,11 +859,18 @@ class Assembler386(BaseAssembler):
         # (ebp is a writeable object and does not need a write-barrier
         # again (ensured by the code calling the loop))
         self.mc.MOV(ebx, self.heap_shadowstack_top())
-        self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0), ebp.value)
-                                                      # MOV [ebx], ebp
         if self.cpu.gc_ll_descr.stm:
+            self.mc.MOV_mi((self.SEGMENT_NO, ebx.value, 0),
+                           rstm.STM_STACK_MARKER_NEW) # MOV [ebx], MARKER_NEW
+            self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, WORD),
+                           ebp.value)                 # MOV [ebx+WORD], ebp
             self.mc.MOV_sr(STM_OLD_SHADOWSTACK, ebx.value)
-        self.mc.ADD_ri(ebx.value, WORD)
+                                                      # MOV [esp+xx], ebx
+            self.mc.ADD_ri(ebx.value, 2 * WORD)
+        else:
+            self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0),
+                           ebp.value)                 # MOV [ebx], ebp
+            self.mc.ADD_ri(ebx.value, WORD)
         self.mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
 
     def _call_footer_shadowstack(self):
