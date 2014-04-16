@@ -137,3 +137,5 @@ there is missing field
 
 .. branch: issue1514
 Fix issues with reimporting builtin modules
+
+.. branch: numpypy-nditer
