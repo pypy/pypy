@@ -45,6 +45,18 @@ from pypy.module.micronumpy import support
 from pypy.module.micronumpy.strides import calc_strides
 from pypy.module.micronumpy.base import W_NDimArray
 
+class ScalarIter(object):
+    def __init__(self, array):
+        self.array = array
+
+    def done(self):
+        return True
+
+    def next(self):
+        pass
+
+    def getitem(self):
+        return self.array.getitem(0)
 
 class PureShapeIter(object):
     def __init__(self, shape, idx_w):
@@ -137,6 +149,7 @@ class ArrayIter(object):
         return self.array.getitem_bool(self.offset)
 
     def setitem(self, elem):
+        print 'setting',self.offset,'to',elem
         self.array.setitem(self.offset, elem)
 
 class SliceIterator(ArrayIter):

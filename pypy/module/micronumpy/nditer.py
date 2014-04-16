@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                              shape_agreement, shape_agreement_multiple)
-from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
+from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator, ScalarIter
 from pypy.module.micronumpy.concrete import SliceArray
 from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy import ufuncs
@@ -205,6 +205,8 @@ def is_backward(imp, order):
 def get_iter(space, order, arr, shape, dtype):
     imp = arr.implementation.astype(space, dtype)
     backward = is_backward(imp, order)
+    if arr.is_scalar():
+        return ScalarIter(imp)
     if (imp.strides[0] < imp.strides[-1] and not backward) or \
        (imp.strides[0] > imp.strides[-1] and backward):
         # flip the strides. Is this always true for multidimension?
@@ -310,16 +312,19 @@ class W_NDIter(W_Root):
                                                            shape=out_shape)
         if len(outargs) > 0:
             # Make None operands writeonly and flagged for allocation
-            out_dtype = self.dtypes[0] if len(self.dtypes) > 0 else None
-            for i in range(len(self.seq)):
-                if self.seq[i] is None:
-                    self.op_flags[i].get_it_item = (get_readwrite_item,
+            if len(self.dtypes) > 0:
+                out_dtype = self.dtypes[outargs[0]]
+            else:
+                out_dtype = None
+                for i in range(len(self.seq)):
+                    if self.seq[i] is None:
+                        self.op_flags[i].get_it_item = (get_readwrite_item,
                                                     get_readwrite_slice)
-                    self.op_flags[i].allocate = True
-                    continue
-                if self.op_flags[i].rw == 'w':
-                    continue
-                out_dtype = ufuncs.find_binop_result_dtype(space,
+                        self.op_flags[i].allocate = True
+                        continue
+                    if self.op_flags[i].rw == 'w':
+                        continue
+                    out_dtype = ufuncs.find_binop_result_dtype(space,
                                                 self.seq[i].get_dtype(), out_dtype)
             for i in outargs:
                 if self.seq[i] is None:
@@ -346,7 +351,7 @@ class W_NDIter(W_Root):
                     self.dtypes[i] = seq_d
                 elif selfd != seq_d and not 'r' in self.op_flags[i].tmp_copy:
                     raise OperationError(space.w_TypeError, space.wrap(
-                        "Iterator operand required copying or buffering"))
+                        "Iterator operand required copying or buffering for operand %d" % i))
         else:
             #copy them from seq
             self.dtypes = [s.get_dtype() for s in self.seq]
