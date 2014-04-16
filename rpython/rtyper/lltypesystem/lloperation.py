@@ -448,10 +448,6 @@ LL_OPERATIONS = {
     'stm_decrement_atomic':   LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
 
-    'stm_abort_info_push':    LLOp(),
-    'stm_abort_info_pop':     LLOp(),
-    'stm_inspect_abort_info': LLOp(sideeffects=False, canmallocgc=True),
-
     'stm_ignored_start':      LLOp(canrun=True),
     'stm_ignored_stop':       LLOp(canrun=True),
 
