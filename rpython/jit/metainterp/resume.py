@@ -268,14 +268,15 @@ class ResumeDataLoopMemo(object):
 _frame_info_placeholder = (None, 0, 0)
 
 
-class ResumeDataVirtualAdder(object):
-    import_from_mixin(VirtualVisitor)
+class ResumeDataVirtualAdder(VirtualVisitor):
 
     def __init__(self, storage, memo):
         self.storage = storage
         self.memo = memo
 
     def make_virtual_info(self, value, fieldnums):
+        from rpython.jit.metainterp.optimizeopt.virtualize import AbstractVirtualValue
+        assert isinstance(value, AbstractVirtualValue)
         assert fieldnums is not None
         vinfo = value._cached_vinfo
         if vinfo is not None and vinfo.equals(fieldnums):

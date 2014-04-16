@@ -506,8 +506,7 @@ class VirtualState(object):
             s.debug_print("    ", seen, bad, metainterp_sd)
 
 
-class VirtualStateConstructor(object):
-    import_from_mixin(VirtualVisitor)
+class VirtualStateConstructor(VirtualVisitor):
 
     def __init__(self, optimizer):
         self.fieldboxes = {}
