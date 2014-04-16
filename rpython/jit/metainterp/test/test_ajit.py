@@ -3329,6 +3329,25 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(1, 10, 2)
         self.check_resops(call=0)
 
+    def test_look_inside_iff_const_float(self):
+        @look_inside_iff(lambda arg: isconstant(arg))
+        def f(arg):
+            return arg + 0.5
+
+        driver = JitDriver(greens = [], reds = ['n', 'total'])
+
+        def main(n):
+            total = 0.0
+            while n > 0:
+                driver.jit_merge_point(n=n, total=total)
+                total = f(total)
+                n -= 1
+            return total
+
+        res = self.meta_interp(main, [10], enable_opts='')
+        assert res == 5.0
+        self.check_resops(call=1)
+
     def test_look_inside_iff_virtual(self):
         # There's no good reason for this to be look_inside_iff, but it's a test!
         @look_inside_iff(lambda arg, n: isvirtual(arg))
