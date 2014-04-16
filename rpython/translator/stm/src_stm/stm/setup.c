@@ -154,11 +154,13 @@ static void _init_shadow_stack(stm_thread_local_t *tl)
     struct stm_shadowentry_s *s = (struct stm_shadowentry_s *)start;
     tl->shadowstack = s;
     tl->shadowstack_base = s;
+    STM_PUSH_ROOT(*tl, STM_STACK_MARKER_OLD);
 }
 
 static void _done_shadow_stack(stm_thread_local_t *tl)
 {
-    assert(tl->shadowstack >= tl->shadowstack_base);
+    assert(tl->shadowstack > tl->shadowstack_base);
+    assert(tl->shadowstack_base->ss == (object_t *)STM_STACK_MARKER_OLD);
 
     char *start = (char *)tl->shadowstack_base;
     _shadowstack_trap_page(start, PROT_READ | PROT_WRITE);
