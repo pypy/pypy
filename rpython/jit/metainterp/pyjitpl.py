@@ -1169,7 +1169,9 @@ class MIFrame(object):
     def _opimpl_isconstant(self, box):
         return ConstInt(isinstance(box, Const))
 
-    opimpl_int_isconstant = opimpl_ref_isconstant = _opimpl_isconstant
+    opimpl_int_isconstant = _opimpl_isconstant
+    opimpl_ref_isconstant = _opimpl_isconstant
+    opimpl_float_isconstant = _opimpl_isconstant
 
     @arguments("box")
     def _opimpl_isvirtual(self, box):
