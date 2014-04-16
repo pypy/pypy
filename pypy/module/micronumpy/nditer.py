@@ -155,8 +155,12 @@ def parse_func_flags(space, nditer, w_flags):
                     'expected string or Unicode object, %s found' % typename))
         item = space.str_w(w_item)
         if item == 'external_loop':
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                'nditer external_loop not implemented yet'))
             nditer.external_loop = True
         elif item == 'buffered':
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                'nditer buffered not implemented yet'))
             # For numpy compatability
             nditer.buffered = True
         elif item == 'c_index':
@@ -307,7 +311,7 @@ class W_NDIter(W_Root):
                                                     get_readwrite_slice)
                     self.op_flags[i].allocate = True
                     continue
-                if self.op_flags[i] == 'w':
+                if self.op_flags[i].rw == 'w':
                     continue
                 out_dtype = ufuncs.find_binop_result_dtype(space,
                                                 self.seq[i].get_dtype(), out_dtype)
@@ -348,7 +352,7 @@ class W_NDIter(W_Root):
                     l = axis_len
                 elif axis_len != l:
                     raise OperationError(space.w_ValueError, space.wrap("Each entry of op_axes must have the same size"))
-                self.op_axes.append([space.int_w(x) if not space.is_none(x) else space.w_None for x in space.listview(w_axis)])
+                self.op_axes.append([space.int_w(x) if not space.is_none(x) else -1 for x in space.listview(w_axis)])
         if l == -1:
             raise OperationError(space.w_ValueError, space.wrap("If op_axes is provided, at least one list of axes must be contained within it"))
         raise Exception('xxx TODO')
@@ -441,7 +445,7 @@ class W_NDIter(W_Root):
         l_w = []
         for op in self.seq:
             l_w.append(op.descr_view(space))
-        return space.newlist(l_w)            
+        return space.newlist(l_w)
 
     def descr_get_dtypes(self, space):
         res = [None] * len(self.seq)
