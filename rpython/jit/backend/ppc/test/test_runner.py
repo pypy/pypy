@@ -34,12 +34,10 @@ class TestPPC(LLtypeBackendTest):
 
     def test_compile_loop_many_int_args(self):
         for numargs in range(2, 16):
-            for _ in range(numargs):
-                self.cpu.reserve_some_free_fail_descr_number()
             ops = []
             arglist = "[%s]\n" % ", ".join(["i%d" % i for i in range(numargs)])
             ops.append(arglist)
-            
+
             arg1 = 0
             arg2 = 1
             res = numargs
@@ -54,7 +52,6 @@ class TestPPC(LLtypeBackendTest):
             ops = "".join(ops)
             loop = parse(ops)
             looptoken = JitCellToken()
-            done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             ARGS = [lltype.Signed] * numargs
             RES = lltype.Signed
@@ -64,8 +61,6 @@ class TestPPC(LLtypeBackendTest):
   
     def test_return_spilled_args(self):
         numargs = 50
-        for _ in range(numargs):
-            self.cpu.reserve_some_free_fail_descr_number()
         ops = []
         arglist = "[%s]\n" % ", ".join(["i%d" % i for i in range(numargs)])
         ops.append(arglist)
@@ -78,7 +73,6 @@ class TestPPC(LLtypeBackendTest):
         loop = parse(ops)
         looptoken = JitCellToken()
         faildescr = loop.operations[-1].getdescr()
-        done_number = self.cpu.get_fail_descr_number(faildescr)
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * numargs
         RES = lltype.Signed
