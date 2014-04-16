@@ -97,25 +97,29 @@ class ArrayIter(object):
         self.indices = [0] * len(self.shape_m1)
         self.offset = self.array.start
 
+    @jit.unroll_safe
     def next(self):
         self.index += 1
         for i in xrange(self.ndim_m1, -1, -1):
-            if self.indices[i] < self.shape_m1[i]:
-                self.indices[i] += 1
+            idx = self.indices[i]
+            if idx < self.shape_m1[i]:
+                self.indices[i] = idx + 1
                 self.offset += self.strides[i]
                 break
             else:
                 self.indices[i] = 0
                 self.offset -= self.backstrides[i]
 
+    @jit.unroll_safe
     def next_skip_x(self, step):
         assert step >= 0
         if step == 0:
             return
         self.index += step
         for i in xrange(self.ndim_m1, -1, -1):
-            if self.indices[i] < (self.shape_m1[i] + 1) - step:
-                self.indices[i] += step
+            idx = self.indices[i]
+            if idx < (self.shape_m1[i] + 1) - step:
+                self.indices[i] = idx + step
                 self.offset += self.strides[i] * step
                 break
             else:

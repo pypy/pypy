@@ -12,9 +12,9 @@ def test_required():
     assert conf.objspace.usemodules.gc
 
     conf.objspace.std.withmapdict = True
-    assert conf.objspace.std.withmethodcache
+    assert conf.objspace.std.withtypeversion
     conf = get_pypy_config()
-    conf.objspace.std.withmethodcache = False
+    conf.objspace.std.withtypeversion = False
     py.test.raises(ConfigError, "conf.objspace.std.withmapdict = True")
 
 def test_conflicting_gcrootfinder():
