@@ -140,11 +140,7 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_op_dtype(self):
         from numpy import arange, nditer, sqrt, array
-        import sys
         a = arange(6).reshape(2,3) - 3
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, op_dtypes=['complex'])
-            skip('nditer op_dtypes kwarg not implemented yet')
         exc = raises(TypeError, nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
         r = []
@@ -154,7 +150,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert abs((array(r) - [1.73205080757j, 1.41421356237j, 1j, 0j,
                 1+0j, 1.41421356237+0j]).sum()) < 1e-5
         r = []
-        for x in nditer(a, flags=['buffered'],
+        for x in nditer(a, op_flags=['copy'],
                         op_dtypes=['complex128']):
             r.append(sqrt(x))
         assert abs((array(r) - [1.73205080757j, 1.41421356237j, 1j, 0j,
