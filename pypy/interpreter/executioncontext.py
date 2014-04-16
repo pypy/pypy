@@ -56,10 +56,6 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
-        if self.space.config.translation.stm:
-          if not self.space.config.translation.jit:  # XXX
-            from pypy.module.thread.stm import enter_frame
-            enter_frame(self, frame)
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -80,11 +76,6 @@ class ExecutionContext(object):
                 # be accessed also later
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
-
-        if self.space.config.translation.stm:
-          if not self.space.config.translation.jit:  # XXX
-            from pypy.module.thread.stm import leave_frame
-            leave_frame(self, frame)
 
     # ________________________________________________________________
 
