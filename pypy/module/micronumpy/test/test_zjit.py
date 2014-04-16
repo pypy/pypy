@@ -482,7 +482,7 @@ class TestNumpyJit(LLJitMixin):
         assert result == 1.0
         self.check_trace_count(1)
         self.check_simple_loop({
-            'getarrayitem_gc': 4,
+            'getarrayitem_gc': 2,
             'getfield_gc': 4,
             'guard_not_invalidated': 1,
             'guard_true': 3,
@@ -523,7 +523,7 @@ class TestNumpyJit(LLJitMixin):
             'arraylen_gc': 1,
             'float_add': 2,
             'float_mul': 2,
-            'getarrayitem_gc': 11,
+            'getarrayitem_gc': 7,
             'getarrayitem_gc_pure': 15,
             'getfield_gc': 35,
             'getfield_gc_pure': 39,
