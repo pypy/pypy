@@ -337,6 +337,9 @@ def wrappable_class_name(Class):
         return 'internal subclass of %s' % (Class.__name__,)
 wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
+class CannotHaveLock(Exception):
+    """Raised by space.allocate_lock() if we're translating."""
+
 # ____________________________________________________________
 
 class ObjSpace(object):
@@ -663,6 +666,11 @@ class ObjSpace(object):
 
     def __allocate_lock(self):
         from rpython.rlib.rthread import allocate_lock, error
+        # hack: we can't have prebuilt locks if we're translating.
+        # In this special situation we should just not lock at all
+        # (translation is not multithreaded anyway).
+        if not we_are_translated() and self.config.translating:
+            raise CannotHaveLock()
         try:
             return allocate_lock()
         except error:
