@@ -1,11 +1,11 @@
 import autopath
-from pypy.jit.backend.ppc.codebuilder import b
+from rpython.jit.backend.ppc.codebuilder import b
 import random
 import sys
 
-from pypy.jit.backend.ppc.form import Form, FormException
-from pypy.jit.backend.ppc.field import Field
-from pypy.jit.backend.ppc.assembler import Assembler
+from rpython.jit.backend.ppc.form import Form, FormException
+from rpython.jit.backend.ppc.field import Field
+from rpython.jit.backend.ppc.assembler import Assembler
 
 # 0                              31
 # +-------------------------------+

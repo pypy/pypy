@@ -6,14 +6,14 @@ and the various cases of write barrier.
 
 import weakref
 import py, os
-from pypy.annotation import policy as annpolicy
-from pypy.rlib import rgc
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.jit import JitDriver, dont_look_inside
-from pypy.rlib.jit import elidable, unroll_safe
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
-from pypy.tool.udir import udir
-from pypy.config.translationoption import DEFL_GC
+from rpython.annotation import policy as annpolicy
+from rpython.rlib import rgc
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.jit import JitDriver, dont_look_inside
+from rpython.rlib.jit import elidable, unroll_safe
+from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
+from rpython.tool.udir import udir
+from rpython.config.translationoption import DEFL_GC
 
 class X(object):
     def __init__(self, x=0):

@@ -1,16 +1,18 @@
 import py
 import random, sys, os
 
-from pypy.jit.backend.ppc.codebuilder import BasicPPCAssembler, PPCBuilder
-from pypy.jit.backend.ppc.symbol_lookup import lookup
-from pypy.jit.backend.ppc.regname import *
-from pypy.jit.backend.ppc.register import *
-from pypy.jit.backend.ppc import form
-from pypy.jit.backend.detect_cpu import autodetect_main_model
-from pypy.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, WORD
+from rpython.jit.backend.ppc.codebuilder import BasicPPCAssembler, PPCBuilder
+from rpython.jit.backend.ppc.symbol_lookup import lookup
+from rpython.jit.backend.ppc.regname import *
+from rpython.jit.backend.ppc.register import *
+from rpython.jit.backend.ppc import form
+from rpython.jit.backend import detect_cpu
+from rpython.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, WORD
 
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.annlowlevel import llhelper
+
+cpu = detect_cpu.autodetect()
 
 class TestDisassemble(object):
     def test_match(self):
@@ -58,7 +60,7 @@ def hex_to_signed_int(hx):
 # Testing simple assembler instructions
 class TestAssemble(object):
     def setup_class(cls):
-        if autodetect_main_model() not in ["ppc", "ppc64"]: 
+        if cpu not in ["ppc", "ppc64", "ppc-64"]:
             py.test.skip("can't test all of ppcgen on non-PPC!")
         #py.test.xfail("assemble does not return a function any longer, fix tests")
 

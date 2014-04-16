@@ -1,4 +1,4 @@
-from pypy.jit.backend.ppc import regalloc, register
+from rpython.jit.backend.ppc import regalloc, register
 
 class TestPPCRegisterManager(object):
     def test_allocate_scratch_register(self):

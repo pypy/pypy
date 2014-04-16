@@ -3,21 +3,21 @@
 """
 
 import py
-from pypy.jit.metainterp.history import BoxInt, ConstInt,\
+from rpython.jit.metainterp.history import BoxInt, ConstInt,\
      BoxPtr, ConstPtr, BasicFailDescr, JitCellToken, TargetToken
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.backend.llsupport.descr import GcCache
-from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.ppc.regalloc import Regalloc, PPCRegisterManager,\
-        PPCFrameManager
-from pypy.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, MAX_REG_PARAMS
-from pypy.jit.tool.oparser import parse
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.codewriter import longlong
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
+from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.backend.llsupport.descr import GcCache
+from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.backend.ppc.regalloc import Regalloc, PPCRegisterManager,\
+     PPCFrameManager
+from rpython.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, MAX_REG_PARAMS
+from rpython.jit.tool.oparser import parse
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 
 
 def test_is_comparison_or_ovf_op():

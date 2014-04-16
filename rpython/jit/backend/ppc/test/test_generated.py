@@ -1,15 +1,15 @@
 import py
-from pypy.jit.metainterp.history import (AbstractFailDescr,
-                                         AbstractDescr,
-                                         BasicFailDescr,
-                                         BoxInt, Box, BoxPtr,
-                                         ConstInt, ConstPtr,
-                                         BoxObj, Const,
-                                         ConstObj, BoxFloat, ConstFloat)
-from pypy.jit.metainterp.history import JitCellToken
-from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.rpython.test.test_llinterp import interpret
-from pypy.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.metainterp.history import (AbstractFailDescr,
+                                            AbstractDescr,
+                                            BasicFailDescr,
+                                            BoxInt, Box, BoxPtr,
+                                            ConstInt, ConstPtr,
+                                            BoxObj, Const,
+                                            ConstObj, BoxFloat, ConstFloat)
+from rpython.jit.metainterp.history import JitCellToken
+from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.rtyper.test.test_llinterp import interpret
+from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
 class TestStuff(object):

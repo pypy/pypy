@@ -1,6 +1,6 @@
 import autopath
 
-from pypy.jit.backend.ppc.field import Field
+from rpython.jit.backend.ppc.field import Field
 from py.test import raises
 
 import random

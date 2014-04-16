@@ -3,25 +3,25 @@
 """
 
 import py
-from pypy.jit.metainterp.history import BoxInt, ConstInt,\
+from rpython.jit.metainterp.history import BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop, TargetToken
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.codewriter import heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.llsupport.descr import GcCache, FieldDescr, FLAG_SIGNED
-from pypy.jit.backend.llsupport.gc import GcLLDescription
-from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.ppc.regalloc import Regalloc
-from pypy.jit.backend.ppc.arch import WORD
-from pypy.jit.tool.oparser import parse
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
+from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.codewriter import heaptracker
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.backend.llsupport.descr import GcCache, FieldDescr, FLAG_SIGNED
+from rpython.jit.backend.llsupport.gc import GcLLDescription
+from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.backend.ppc.regalloc import Regalloc
+from rpython.jit.backend.ppc.arch import WORD
+from rpython.jit.tool.oparser import parse
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 
-from pypy.jit.backend.arm.test.test_regalloc import MockAssembler
-from pypy.jit.backend.ppc.test.test_regalloc import BaseTestRegalloc
-from pypy.jit.backend.ppc.regalloc import PPCRegisterManager, PPCFrameManager,\
+from rpython.jit.backend.arm.test.test_regalloc import MockAssembler
+from rpython.jit.backend.ppc.test.test_regalloc import BaseTestRegalloc
+from rpython.jit.backend.ppc.regalloc import PPCRegisterManager, PPCFrameManager,\
      FPRegisterManager
 
 CPU = getcpuclass()

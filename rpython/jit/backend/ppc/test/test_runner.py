@@ -1,18 +1,18 @@
-from pypy.jit.backend.test.runner_test import LLtypeBackendTest
-from pypy.jit.backend.ppc.runner import PPC_CPU
-from pypy.jit.tool.oparser import parse
-from pypy.jit.metainterp.history import (AbstractFailDescr,
-                                         AbstractDescr,
-                                         BasicFailDescr,
-                                         BoxInt, Box, BoxPtr,
-                                         JitCellToken, TargetToken,
-                                         ConstInt, ConstPtr,
-                                         BoxObj, Const,
-                                         ConstObj, BoxFloat, ConstFloat)
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.backend.ppc.arch import IS_PPC_32
+from rpython.jit.backend.test.runner_test import LLtypeBackendTest
+from rpython.jit.backend.ppc.runner import PPC_CPU
+from rpython.jit.tool.oparser import parse
+from rpython.jit.metainterp.history import (AbstractFailDescr,
+                                            AbstractDescr,
+                                            BasicFailDescr,
+                                            BoxInt, Box, BoxPtr,
+                                            JitCellToken, TargetToken,
+                                            ConstInt, ConstPtr,
+                                            Const,
+                                            BoxFloat, ConstFloat)
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi, rclass
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.backend.ppc.arch import IS_PPC_32
 import py
 
 class FakeStats(object):

@@ -1,5 +1,5 @@
-from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.metainterp.test import support
+from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.metainterp.test import support
 
 class JitPPCMixin(support.LLJitMixin):
     type_system = 'lltype'

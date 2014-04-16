@@ -1,21 +1,21 @@
 import py
-from pypy.jit.metainterp.history import BoxInt, ConstInt
-from pypy.jit.metainterp.history import BoxPtr, ConstPtr, BasicFailDescr
-from pypy.jit.metainterp.history import JitCellToken
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.codewriter import heaptracker
-from pypy.jit.backend.llsupport.descr import GcCache
-from pypy.jit.backend.llsupport.gc import GcLLDescription
-from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.tool.oparser import parse
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
+from rpython.jit.metainterp.history import BoxInt, ConstInt
+from rpython.jit.metainterp.history import BoxPtr, ConstPtr, BasicFailDescr
+from rpython.jit.metainterp.history import JitCellToken
+from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.codewriter import heaptracker
+from rpython.jit.backend.llsupport.descr import GcCache
+from rpython.jit.backend.llsupport.gc import GcLLDescription
+from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.tool.oparser import parse
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.ppc.runner import PPC_CPU
-from pypy.jit.backend.ppc.test.test_runner import FakeStats
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.backend.ppc.runner import PPC_CPU
+from rpython.jit.backend.ppc.test.test_runner import FakeStats
 
 class TestAssembler(object):
 

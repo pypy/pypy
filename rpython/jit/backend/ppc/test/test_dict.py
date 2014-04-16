@@ -1,6 +1,6 @@
 
-from pypy.jit.backend.ppc.test.support import JitPPCMixin
-from pypy.jit.metainterp.test.test_dict import DictTests
+from rpython.jit.backend.ppc.test.support import JitPPCMixin
+from rpython.jit.metainterp.test.test_dict import DictTests
 
 
 class TestDict(JitPPCMixin, DictTests):

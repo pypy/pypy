@@ -1,5 +1,5 @@
-from pypy.jit.backend.ppc.rassemblermaker import make_rassembler
-from pypy.jit.backend.ppc.codebuilder import PPCAssembler
+from rpython.jit.backend.ppc.rassemblermaker import make_rassembler
+from rpython.jit.backend.ppc.codebuilder import PPCAssembler
 
 RPPCAssembler = make_rassembler(PPCAssembler)
 
@@ -13,7 +13,7 @@ def test_simple():
     assert ra.insts == [add_r3_r3_r4]
 
 def test_rtyped():
-    from pypy.rpython.test.test_llinterp import interpret
+    from rpython.rtyper.test.test_llinterp import interpret
     def f():
         ra = RPPCAssembler()
         ra.add(3, 3, 4)

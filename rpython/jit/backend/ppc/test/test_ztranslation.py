@@ -1,16 +1,16 @@
 import py, os, sys
 from pypy.tool.udir import udir
-from pypy.rlib.jit import JitDriver, unroll_parameters, set_param
-from pypy.rlib.jit import PARAMETERS, dont_look_inside
-from pypy.rlib.jit import promote
-from pypy.jit.metainterp.jitprof import Profiler
-from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.test.support import CCompiledMixin
-from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.translator.translator import TranslationContext
-from pypy.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64
-from pypy.config.translationoption import DEFL_GC
-from pypy.rlib import rgc
+from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
+from rpython.rlib.jit import PARAMETERS, dont_look_inside
+from rpython.rlib.jit import promote
+from rpython.jit.metainterp.jitprof import Profiler
+from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.backend.test.support import CCompiledMixin
+from rpython.jit.codewriter.policy import StopAtXPolicy
+from rpython.translator.translator import TranslationContext
+from rpython.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64
+from rpython.config.translationoption import DEFL_GC
+from rpython.rlib import rgc
 
 class TestTranslationPPC(CCompiledMixin):
     CPUClass = getcpuclass()

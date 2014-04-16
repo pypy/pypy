@@ -1,21 +1,20 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.objectmodel import instantiate
-from pypy.jit.backend.ppc.locations import (imm, RegisterLocation,
-                                            ImmLocation, StackLocation)
-from pypy.jit.backend.ppc.register import *
-from pypy.jit.backend.ppc.codebuilder import hi, lo
-from pypy.jit.backend.ppc.ppc_assembler import AssemblerPPC
-from pypy.jit.backend.ppc.arch import WORD
-from pypy.jit.backend.ppc.locations import get_spp_offset
-from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.codewriter import longlong
-from pypy.jit.metainterp.history import BasicFailDescr, \
-                                        JitCellToken, \
-                                        TargetToken
-from pypy.jit.tool.oparser import parse
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.objectmodel import instantiate
+from rpython.jit.backend.ppc.locations import (imm, RegisterLocation,
+                                               ImmLocation, StackLocation)
+from rpython.jit.backend.ppc.register import *
+from rpython.jit.backend.ppc.codebuilder import hi, lo
+from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
+from rpython.jit.backend.ppc.arch import WORD
+from rpython.jit.backend.ppc.locations import get_spp_offset
+from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter import longlong
+from rpython.jit.metainterp.history import BasicFailDescr, \
+     JitCellToken, TargetToken
+from rpython.jit.tool.oparser import parse
 
 class MockBuilder(object):
     

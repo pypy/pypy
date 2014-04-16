@@ -1,8 +1,8 @@
 
 import py
-from pypy.jit.backend.ppc.test.support import JitPPCMixin
-from pypy.jit.metainterp.test.test_float import FloatTests
-from pypy.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.backend.ppc.test.support import JitPPCMixin
+from rpython.jit.metainterp.test.test_float import FloatTests
+from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
 class TestFloat(JitPPCMixin, FloatTests):

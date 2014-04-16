@@ -1,9 +1,9 @@
 import py
-from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.rlib.jit import JitDriver
-from pypy.jit.metainterp.test import test_ajit
-from pypy.jit.backend.ppc.test.support import JitPPCMixin
-from pypy.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.codewriter.policy import StopAtXPolicy
+from rpython.rlib.jit import JitDriver
+from rpython.jit.metainterp.test import test_ajit
+from rpython.jit.backend.ppc.test.support import JitPPCMixin
+from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
 
