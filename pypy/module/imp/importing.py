@@ -579,7 +579,8 @@ def load_module(space, w_modulename, find_info, reuse=False):
         return space.call_method(find_info.w_loader, "load_module", w_modulename)
 
     if find_info.modtype == C_BUILTIN:
-        return space.getbuiltinmodule(find_info.filename, force_init=True)
+        return space.getbuiltinmodule(find_info.filename, force_init=True,
+                                      reuse=reuse)
 
     if find_info.modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION, PKG_DIRECTORY):
         w_mod = None
