@@ -341,7 +341,7 @@ class AppTestSorting(BaseNumpyAppTest):
             assert (x == y).all()
 
     def test_string_mergesort(self):
-        import numpypy as np
+        import numpy as np
         import sys
         x = np.array(['a'] * 32)
         if '__pypy__' in sys.builtin_module_names:
@@ -349,3 +349,17 @@ class AppTestSorting(BaseNumpyAppTest):
             assert 'non-numeric types' in exc.value.message
         else:
             assert (x.argsort(kind='m') == np.arange(32)).all()
+
+    def test_searchsort(self):
+        from numpy import arange
+        import sys
+        a = arange(1, 6)
+        ret = a.searchsorted(3)
+        assert ret == 2
+        ret = a.searchsorted(3, side='right')
+        assert ret == 3
+        ret = a.searchsorted([-10, 10, 2, 3])
+        assert (ret == [0, 5, 1, 2]).all()
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, "a.searchsorted(3, sorter=range(6)")
+
