@@ -282,16 +282,14 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
 
 
 @jit.unroll_safe
-def shape_agreement_multiple(space, array_list, shape=None):
+def shape_agreement_multiple(space, array_list):
     """ call shape_agreement recursively, allow elements from array_list to
     be None (like w_out)
     """
-    for arr in array_list:
+    shape = array_list[0].get_shape()
+    for arr in array_list[1:]:
         if not space.is_none(arr):
-            if shape is None:
-                shape = arr.get_shape()
-            else:    
-                shape = shape_agreement(space, shape, arr)
+            shape = shape_agreement(space, shape, arr)
     return shape
 
 

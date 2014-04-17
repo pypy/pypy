@@ -387,24 +387,17 @@ class MIFrame(object):
 
     @arguments("descr")
     def opimpl_new(self, sizedescr):
-        resbox = self.execute_with_descr(rop.NEW, sizedescr)
-        self.metainterp.heapcache.new(resbox)
-        return resbox
+        return self.metainterp.execute_new(sizedescr)
 
     @arguments("descr")
     def opimpl_new_with_vtable(self, sizedescr):
         cpu = self.metainterp.cpu
         cls = heaptracker.descr2vtable(cpu, sizedescr)
-        resbox = self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
-        self.metainterp.heapcache.new(resbox)
-        self.metainterp.heapcache.class_now_known(resbox)
-        return resbox
+        return self.metainterp.execute_new_with_vtable(ConstInt(cls))
 
     @arguments("box", "descr")
     def opimpl_new_array(self, lengthbox, itemsizedescr):
-        resbox = self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, lengthbox)
-        self.metainterp.heapcache.new_array(resbox, lengthbox)
-        return resbox
+        return self.metainterp.execute_new_array(itemsizedescr, lengthbox)
 
     @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
@@ -467,10 +460,8 @@ class MIFrame(object):
     @arguments("box", "box", "box", "descr")
     def _opimpl_setarrayitem_gc_any(self, arraybox, indexbox, itembox,
                                     arraydescr):
-        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
-                                indexbox, itembox)
-        self.metainterp.heapcache.setarrayitem(
-                arraybox, indexbox, itembox, arraydescr)
+        self.metainterp.execute_setarrayitem_gc(arraydescr, arraybox,
+                                                indexbox, itembox)
 
     opimpl_setarrayitem_gc_i = _opimpl_setarrayitem_gc_any
     opimpl_setarrayitem_gc_r = _opimpl_setarrayitem_gc_any
@@ -623,21 +614,22 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        # The following test is disabled because buggy.  It is supposed
+        self.metainterp.execute_setfield_gc(fielddescr, box, valuebox)
+        # The following logic is disabled because buggy.  It is supposed
         # to be: not(we're writing null into a freshly allocated object)
         # but the bug is that is_unescaped() can be True even after the
         # field cache is cleared --- see test_ajit:test_unescaped_write_zero
-        if 1:  # tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
-            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
-        self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
+        #
+        # if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+        #   self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        # self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
 
     @arguments("box", "box", "box", "descr")
     def _opimpl_setinteriorfield_gc_any(self, array, index, value, descr):
-        self.execute_with_descr(rop.SETINTERIORFIELD_GC, descr,
-                                array, index, value)
+        self.metainterp.execute_setinteriorfield_gc(descr, array, index, value)
     opimpl_setinteriorfield_gc_i = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_f = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_r = _opimpl_setinteriorfield_gc_any
@@ -664,8 +656,8 @@ class MIFrame(object):
 
     @arguments("box", "box", "box", "descr")
     def _opimpl_raw_store(self, addrbox, offsetbox, valuebox, arraydescr):
-        self.execute_with_descr(rop.RAW_STORE, arraydescr,
-                                addrbox, offsetbox, valuebox)
+        self.metainterp.execute_raw_store(arraydescr,
+                                          addrbox, offsetbox, valuebox)
     opimpl_raw_store_i = _opimpl_raw_store
     opimpl_raw_store_f = _opimpl_raw_store
 
@@ -1177,7 +1169,9 @@ class MIFrame(object):
     def _opimpl_isconstant(self, box):
         return ConstInt(isinstance(box, Const))
 
-    opimpl_int_isconstant = opimpl_ref_isconstant = _opimpl_isconstant
+    opimpl_int_isconstant = _opimpl_isconstant
+    opimpl_ref_isconstant = _opimpl_isconstant
+    opimpl_float_isconstant = _opimpl_isconstant
 
     @arguments("box")
     def _opimpl_isvirtual(self, box):
@@ -1890,6 +1884,41 @@ class MetaInterp(object):
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox
+
+    def execute_new_with_vtable(self, known_class):
+        resbox = self.execute_and_record(rop.NEW_WITH_VTABLE, None,
+                                         known_class)
+        self.heapcache.new(resbox)
+        self.heapcache.class_now_known(resbox)
+        return resbox
+
+    def execute_new(self, typedescr):
+        resbox = self.execute_and_record(rop.NEW, typedescr)
+        self.heapcache.new(resbox)
+        return resbox
+
+    def execute_new_array(self, itemsizedescr, lengthbox):
+        resbox = self.execute_and_record(rop.NEW_ARRAY, itemsizedescr,
+                                         lengthbox)
+        self.heapcache.new_array(resbox, lengthbox)
+        return resbox
+
+    def execute_setfield_gc(self, fielddescr, box, valuebox):
+        self.execute_and_record(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        self.heapcache.setfield(box, valuebox, fielddescr)
+
+    def execute_setarrayitem_gc(self, arraydescr, arraybox, indexbox, itembox):
+        self.execute_and_record(rop.SETARRAYITEM_GC, arraydescr,
+                                arraybox, indexbox, itembox)
+        self.heapcache.setarrayitem(arraybox, indexbox, itembox, arraydescr)
+
+    def execute_setinteriorfield_gc(self, descr, array, index, value):
+        self.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
+                                array, index, value)
+
+    def execute_raw_store(self, arraydescr, addrbox, offsetbox, valuebox):
+        self.execute_and_record(rop.RAW_STORE, arraydescr,
+                                addrbox, offsetbox, valuebox)
 
 
     def attach_debug_info(self, op):
