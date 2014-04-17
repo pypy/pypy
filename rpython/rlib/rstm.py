@@ -12,6 +12,8 @@ class CFlexSymbolic(CDefinedIntSymbolic):
 TID = rffi.UINT
 tid_offset = CFlexSymbolic('offsetof(struct rpyobj_s, tid)')
 stm_nb_segments = CFlexSymbolic('STM_NB_SEGMENTS')
+stm_stack_marker_new = CFlexSymbolic('STM_STACK_MARKER_NEW')
+stm_stack_marker_old = CFlexSymbolic('STM_STACK_MARKER_OLD')
 adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')
 adr_pypy_stm_nursery_low_fill_mark = (
@@ -79,18 +81,6 @@ def decrement_atomic():
 def is_atomic():
     return llop.stm_get_atomic(lltype.Signed)
 
-def abort_info_push(instance, fieldnames):
-    "Special-cased below."
-
-@dont_look_inside
-def abort_info_pop(count):
-    if we_are_translated():
-        llop.stm_abort_info_pop(lltype.Void, count)
-
-@dont_look_inside
-def charp_inspect_abort_info():
-    return llop.stm_inspect_abort_info(rffi.CCHARP)
-
 @dont_look_inside
 def abort_and_retry():
     llop.stm_abort_and_retry(lltype.Void)
@@ -157,58 +147,6 @@ def make_perform_transaction(func, CONTAINERP):
     perform_transaction._transaction_break_ = True
     #
     return perform_transaction
-
-# ____________________________________________________________
-
-class AbortInfoPush(ExtRegistryEntry):
-    _about_ = abort_info_push
-
-    def compute_result_annotation(self, s_instance, s_fieldnames):
-        from rpython.annotator.model import SomeInstance
-        assert isinstance(s_instance, SomeInstance)
-        assert s_fieldnames.is_constant()
-        assert isinstance(s_fieldnames.const, tuple)  # tuple of names
-
-    def specialize_call(self, hop):
-        fieldnames = hop.args_s[1].const
-        lst = []
-        v_instance = hop.inputarg(hop.args_r[0], arg=0)
-        for fieldname in fieldnames:
-            if fieldname == '[':
-                lst.append(-2)    # start of sublist
-                continue
-            if fieldname == ']':
-                lst.append(-1)    # end of sublist
-                continue
-            fieldname = 'inst_' + fieldname
-            extraofs = None
-            STRUCT = v_instance.concretetype.TO
-            while not hasattr(STRUCT, fieldname):
-                STRUCT = STRUCT.super
-            TYPE = getattr(STRUCT, fieldname)
-            if TYPE == lltype.Signed:
-                kind = 1
-            elif TYPE == lltype.Unsigned:
-                kind = 2
-            elif TYPE == lltype.Ptr(rstr.STR):
-                kind = 3
-                extraofs = llmemory.offsetof(rstr.STR, 'chars')
-            else:
-                raise NotImplementedError(
-                    "abort_info_push(%s, %r): field of type %r"
-                    % (STRUCT.__name__, fieldname, TYPE))
-            lst.append(kind)
-            lst.append(llmemory.offsetof(STRUCT, fieldname))
-            if extraofs is not None:
-                lst.append(extraofs)
-        lst.append(0)
-        ARRAY = rffi.CArray(lltype.Signed)
-        array = lltype.malloc(ARRAY, len(lst), flavor='raw', immortal=True)
-        for i in range(len(lst)):
-            array[i] = lst[i]
-        c_array = hop.inputconst(lltype.Ptr(ARRAY), array)
-        hop.exception_cannot_occur()
-        hop.genop('stm_abort_info_push', [v_instance, c_array])
 
 # ____________________________________________________________
 

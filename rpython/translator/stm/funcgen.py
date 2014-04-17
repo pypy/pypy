@@ -196,19 +196,6 @@ def stm_get_atomic(funcgen, op):
 def stm_abort_and_retry(funcgen, op):
     return 'stm_abort_transaction();'
 
-def stm_abort_info_push(funcgen, op):
-    arg0 = funcgen.expr(op.args[0])
-    arg1 = funcgen.expr(op.args[1])
-    return '//XXX stm_abort_info_push((gcptr)%s, %s);' % (arg0, arg1)
-
-def stm_abort_info_pop(funcgen, op):
-    arg0 = funcgen.expr(op.args[0])
-    return '//XXX stm_abort_info_pop(%s);' % (arg0,)
-
-def stm_inspect_abort_info(funcgen, op):
-    result = funcgen.expr(op.result)
-    return '%s = NULL; //XXX stm_inspect_abort_info();' % (result,)
-
 def stm_ignored_start(funcgen, op):
     return '/* stm_ignored_start */'
 

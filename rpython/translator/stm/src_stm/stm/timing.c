@@ -71,7 +71,7 @@ void stm_flush_timing(stm_thread_local_t *tl, int verbose)
         s_mutex_lock();
         fprintf(stderr, "thread %p:\n", tl);
         for (i = 0; i < _STM_TIME_N; i++) {
-            fprintf(stderr, "    %-24s %9u  %.3f s\n",
+            fprintf(stderr, "    %-24s %9u %8.3f s\n",
                     timer_names[i], tl->events[i], (double)tl->timing[i]);
         }
         s_mutex_unlock();

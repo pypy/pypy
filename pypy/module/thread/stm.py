@@ -41,21 +41,6 @@ def _fill_untranslated(ec):
     if not we_are_translated() and not hasattr(ec, '_thread_local_dicts'):
         initialize_execution_context(ec)
 
-@jit.dont_look_inside # XXX: handle abort_info_push in JIT
-def enter_frame(ec, frame):
-    """Called from ExecutionContext.enter()."""
-    if frame.hide():
-        return
-    rstm.abort_info_push(frame.pycode, ('[', 'co_filename', 'co_name',
-                                        'co_firstlineno', 'co_lnotab'))
-    rstm.abort_info_push(frame, ('last_instr', ']'))
-
-def leave_frame(ec, frame):
-    """Called from ExecutionContext.leave()."""
-    if frame.hide():
-        return
-    rstm.abort_info_pop(2)
-
 
 class STMThreadLocals(BaseThreadLocals):
 

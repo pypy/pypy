@@ -959,9 +959,6 @@ class LLFrame(object):
     op_stm_get_atomic = _stm_not_implemented
     op_stm_change_atomic = _stm_not_implemented
     op_stm_set_transaction_length = _stm_not_implemented
-    op_stm_abort_info_push = _stm_not_implemented
-    op_stm_abort_info_pop = _stm_not_implemented
-    op_stm_inspect_abort_info = _stm_not_implemented
     op_stm_threadlocal_get = _stm_not_implemented
     op_stm_threadlocal_set = _stm_not_implemented
     op_stm_threadlocalref_get = _stm_not_implemented
