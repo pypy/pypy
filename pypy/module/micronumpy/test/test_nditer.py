@@ -158,13 +158,8 @@ class AppTestNDIter(BaseNumpyAppTest):
         multi = nditer([None, array([2, 3], dtype='int64'), array(2., dtype='double')],
                        op_dtypes = ['int64', 'int64', 'float64'],
                        op_flags = [['writeonly', 'allocate'], ['readonly'], ['readonly']])
-        print 'starting the real mccoy'
         for a, b, c in multi:
-            print 'in loop'
             a[...] = b * c
-        print multi.operands[0]
-        print multi.operands[1]
-        print multi.operands[2]
         assert (multi.operands[0] == [4, 6]).all()
 
     def test_casting(self):

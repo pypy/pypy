@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                              shape_agreement, shape_agreement_multiple)
-from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator, ScalarIter
+from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
 from pypy.module.micronumpy.concrete import SliceArray
 from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy import ufuncs
@@ -203,7 +203,7 @@ def is_backward(imp, order):
         raise NotImplementedError('not implemented yet')
 
 def get_iter(space, order, arr, shape, dtype):
-    imp = arr.implementation.astype(space, dtype)
+    imp = arr.implementation
     backward = is_backward(imp, order)
     if arr.is_scalar():
         return ArrayIter(imp, 1, [], [], [])
@@ -349,9 +349,13 @@ class W_NDIter(W_Root):
                 seq_d = self.seq[i].get_dtype()
                 if not selfd:
                     self.dtypes[i] = seq_d
-                elif selfd != seq_d and not 'r' in self.op_flags[i].tmp_copy:
-                    raise OperationError(space.w_TypeError, space.wrap(
-                        "Iterator operand required copying or buffering for operand %d" % i))
+                elif selfd != seq_d:
+                    if not 'r' in self.op_flags[i].tmp_copy:
+                        raise OperationError(space.w_TypeError, space.wrap(
+                            "Iterator operand required copying or buffering for operand %d" % i))
+                    impl = self.seq[i].implementation
+                    new_impl = impl.astype(space, selfd)
+                    self.seq[i] = W_NDimArray(new_impl)
         else:
             #copy them from seq
             self.dtypes = [s.get_dtype() for s in self.seq]
@@ -364,7 +368,6 @@ class W_NDIter(W_Root):
                 self.iters.append(BoxIterator(get_iter(space, self.order,
                                     self.seq[i], iter_shape, self.dtypes[i]),
                                  self.op_flags[i]))
-
     def set_op_axes(self, space, w_op_axes):
         if space.len_w(w_op_axes) != len(self.seq):
             raise OperationError(space.w_ValueError, space.wrap("op_axes must be a tuple/list matching the number of ops"))

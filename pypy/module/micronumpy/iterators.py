@@ -136,7 +136,6 @@ class ArrayIter(object):
         return self.array.getitem_bool(self.offset)
 
     def setitem(self, elem):
-        print 'setting',self.offset,'to',elem
         self.array.setitem(self.offset, elem)
 
 class SliceIterator(ArrayIter):
