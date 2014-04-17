@@ -60,55 +60,7 @@ change the limit (or at least lower it) with setsegmentlimit().
         return space.wrap(1)
 
 def last_abort_info(space):
-    from rpython.rlib.rstm import charp_inspect_abort_info
-    p = charp_inspect_abort_info()
-    if not p:
-        return space.w_None
-    assert p[0] == 'l'
-    w_obj, p = bdecode(space, p)
-    assert p[0] == '\0'
-    return w_obj
+    return space.w_None
 
 def discard_last_abort_info(space):
-    from rpython.rlib.rstm import charp_inspect_abort_info
-    charp_inspect_abort_info()
-
-def bdecode(space, p):
-    return decoder[p[0]](space, p)
-
-def bdecodeint(space, p):
-    p = rffi.ptradd(p, 1)
-    n = 0
-    while p[n] != 'e':
-        n += 1
-    return (space.call_function(space.w_int,
-               space.wrap(rffi.charpsize2str(p, n))),
-            rffi.ptradd(p, n + 1))
-
-def bdecodelist(space, p):
-    p = rffi.ptradd(p, 1)
-    objects_w = []
-    while p[0] != 'e':
-        w_obj, p = bdecode(space, p)
-        objects_w.append(w_obj)
-    return (space.newlist(objects_w), rffi.ptradd(p, 1))
-
-def bdecodestr(space, p):
-    length = 0
-    n = 0
-    while p[n] != ':':
-        c = p[n]
-        n += 1
-        assert '0' <= c <= '9'
-        length = length * 10 + (ord(c) - ord('0'))
-    n += 1
-    p = rffi.ptradd(p, n)
-    return (space.wrap(rffi.charpsize2str(p, length)),
-            rffi.ptradd(p, length))
-
-decoder = {'i': bdecodeint,
-           'l': bdecodelist,
-           #'d': bdecodedict,
-           }
-for c in '0123456789':
-    decoder[c] = bdecodestr
+    pass
