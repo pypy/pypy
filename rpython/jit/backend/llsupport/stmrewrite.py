@@ -4,10 +4,8 @@ from rpython.jit.backend.llsupport.descr import (
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
                                 debug_print)
-from rpython.jit.codewriter.effectinfo import EffectInfo
 
 
 class GcStmRewriterAssembler(GcRewriterAssembler):
@@ -18,6 +16,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         GcRewriterAssembler.__init__(self, *args)
         self.always_inevitable = False
         self.read_barrier_applied = {}
+        self.read_barrier_cache = []
 
     def other_operation(self, op):
         opnum = op.getopnum()
@@ -35,6 +34,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  pure operations, guards  ----------
         if op.is_always_pure() or op.is_guard() or op.is_ovf():
+            if op.is_guard():
+                # XXX: store this info on the guard descr
+                # to be able to do the stm_reads in resume
+                self.flush_read_barrier_cache()
             self.newops.append(op)
             return
         # ----------  non-pure getfields  ----------
@@ -83,7 +86,11 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newops.append(op)
             return
         # ----------  jumps, finish, other ignored ops  ----------
-        if opnum in (rop.JUMP, rop.FINISH, rop.FORCE_TOKEN,
+        if opnum in (rop.JUMP, rop.FINISH):
+            self.flush_read_barrier_cache()
+            self.newops.append(op)
+            return
+        if opnum in (rop.FORCE_TOKEN,
                      rop.READ_TIMESTAMP, rop.MARK_OPAQUE_PTR,
                      rop.JIT_DEBUG, rop.KEEPALIVE,
                      rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
@@ -94,6 +101,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # Check that none of the ops handled here can collect.
         # This is not done by the fallback here
         assert not op.is_call() and not op.is_malloc()
+        self.flush_caches()
         self.fallback_inevitable(op)
 
     def handle_call_assembler(self, op):
@@ -102,9 +110,27 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.next_op_may_be_in_new_transaction()
         GcRewriterAssembler.handle_call_assembler(self, op)
 
+    def emitting_an_operation_that_can_collect(self):
+        self.flush_read_barrier_cache()
+        GcRewriterAssembler.emitting_an_operation_that_can_collect(self)
+
     def next_op_may_be_in_new_transaction(self):
+        self.flush_read_barrier_cache()
         self.always_inevitable = False
         self.read_barrier_applied.clear()
+
+    def flush_caches(self):
+        self.flush_read_barrier_cache()
+
+    def flush_read_barrier_cache(self):
+        for v_ptr in self.read_barrier_cache:
+            if (v_ptr not in self.read_barrier_applied # if multiple times in this list
+                and v_ptr not in self.write_barrier_applied):
+                op1 = ResOperation(rop.STM_READ, [v_ptr], None)
+                self.newops.append(op1)
+                self.read_barrier_applied[v_ptr] = None
+
+        del self.read_barrier_cache[:]
 
     def handle_getfields(self, op):
         # XXX missing optimitations: the placement of stm_read should
@@ -116,9 +142,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         v_ptr = op.getarg(0)
         if (v_ptr not in self.read_barrier_applied and
             v_ptr not in self.write_barrier_applied):
-            op1 = ResOperation(rop.STM_READ, [v_ptr], None)
-            self.newops.append(op1)
-            self.read_barrier_applied[v_ptr] = None
+            self.read_barrier_cache.append(v_ptr)
 
 
     def must_apply_write_barrier(self, val, v=None):
@@ -142,7 +166,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         debug_print("fallback for", op.repr())
 
     def maybe_handle_raw_accesses(self, op):
-        from rpython.jit.backend.llsupport.descr import FieldDescr
         descr = op.getdescr()
         assert isinstance(descr, FieldDescr)
         if descr.stm_dont_track_raw_accesses:

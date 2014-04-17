@@ -81,10 +81,14 @@ class GcRewriterAssembler(object):
                 continue
             # ---------- fallback case (overwritten in stmrewrite) -----------
             self.other_operation(op)
+        self.flush_caches()
         return self.newops
 
     def other_operation(self, op):
         self.newops.append(op)
+
+    def flush_caches(self):
+        pass
 
     # ----------
 
