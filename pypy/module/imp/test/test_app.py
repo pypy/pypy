@@ -219,7 +219,6 @@ class AppTestImpModule:
 
     def test_builtin_reimport(self):
         # from https://bugs.pypy.org/issue1514
-        skip("fix me")
         import sys, marshal
 
         old = marshal.loads
@@ -239,7 +238,6 @@ class AppTestImpModule:
         # taken from https://bugs.pypy.org/issue1514, with extra cases
         # that show a difference with CPython: we can get on CPython
         # several module objects for the same built-in module :-(
-        skip("several built-in module objects: not supported by pypy")
         import sys, marshal
 
         old = marshal.loads

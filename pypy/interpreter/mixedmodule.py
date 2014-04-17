@@ -14,6 +14,7 @@ class MixedModule(Module):
     # after startup().
     w_initialdict = None
     lazy = False
+    submodule_name = None
 
     def __init__(self, space, w_name):
         """ NOT_RPYTHON """
@@ -31,6 +32,8 @@ class MixedModule(Module):
             space = self.space
             name = space.unwrap(self.w_name)
             for sub_name, module_cls in self.submodules.iteritems():
+                if module_cls.submodule_name is None:
+                    module_cls.submodule_name = sub_name
                 module_name = space.wrap("%s.%s" % (name, sub_name))
                 m = module_cls(space, module_name)
                 m.install()
@@ -134,6 +137,8 @@ class MixedModule(Module):
             cls.loaders = loaders = {}
             pkgroot = cls.__module__
             appname = cls.get_applevel_name()
+            if cls.submodule_name is not None:
+                appname += '.%s' % (cls.submodule_name,)
             for name, spec in cls.interpleveldefs.items():
                 loaders[name] = getinterpevalloader(pkgroot, spec)
             for name, spec in cls.appleveldefs.items():

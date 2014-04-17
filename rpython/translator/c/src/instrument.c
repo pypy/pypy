@@ -6,10 +6,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifndef _WIN32
-#include <sys/mman.h>
 #include <stdlib.h>
 #include <stdio.h>
+#ifndef _WIN32
+#include <sys/mman.h>
 #include <unistd.h>
 #else
 #include <windows.h>

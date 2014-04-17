@@ -2,6 +2,7 @@
 
 #ifdef _WIN32
 
+#include <WinSock2.h>
 #include <windows.h>
 #define __thread __declspec(thread)
 typedef DWORD RPyThreadTLS;

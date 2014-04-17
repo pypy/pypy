@@ -2,13 +2,13 @@
 Implementation of the interpreter-level default import logic.
 """
 
-import sys, os, stat
+import sys, os, stat, genericpath
 
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
@@ -528,7 +528,8 @@ def find_module(space, modulename, w_modulename, partname, w_path,
 
             path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
-            if os.path.isdir(filepart) and case_ok(filepart):
+            # os.path.isdir on win32 is not rpython when pywin32 installed
+            if genericpath.isdir(filepart) and case_ok(filepart):
                 initfile = os.path.join(filepart, '__init__')
                 modtype, _, _ = find_modtype(space, initfile)
                 if modtype in (PY_SOURCE, PY_COMPILED):
@@ -585,7 +586,8 @@ def load_module(space, w_modulename, find_info, reuse=False):
         return space.call_method(find_info.w_loader, "load_module", w_modulename)
 
     if find_info.modtype == C_BUILTIN:
-        return space.getbuiltinmodule(find_info.filename, force_init=True)
+        return space.getbuiltinmodule(find_info.filename, force_init=True,
+                                      reuse=reuse)
 
     if find_info.modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION, PKG_DIRECTORY):
         w_mod = None
@@ -759,26 +761,14 @@ class ImportRLock:
         me = self.space.getexecutioncontext()   # used as thread ident
         return self.lockowner is me
 
-    def _can_have_lock(self):
-        # hack: we can't have self.lock != None during translation,
-        # because prebuilt lock objects are not allowed.  In this
-        # special situation we just don't lock at all (translation is
-        # not multithreaded anyway).
-        if we_are_translated():
-            return True     # we need a lock at run-time
-        elif self.space.config.translating:
-            assert self.lock is None
-            return False
-        else:
-            return True     # in py.py
-
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         if self.lock is None:
-            if not self._can_have_lock():
+            try:
+                self.lock = self.space.allocate_lock()
+            except CannotHaveLock:
                 return
-            self.lock = self.space.allocate_lock()
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is me:
             pass    # already acquired by the current thread
@@ -796,7 +786,7 @@ class ImportRLock:
                 # Too bad.  This situation can occur if a fork() occurred
                 # with the import lock held, and we're the child.
                 return
-            if not self._can_have_lock():
+            if self.lock is None:   # CannotHaveLock occurred
                 return
             space = self.space
             raise OperationError(space.w_RuntimeError,

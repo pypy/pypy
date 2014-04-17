@@ -318,7 +318,7 @@ We have our own "RPython standard library" in ``rpython.rlib.*``.
 
 To read more about the RPython limitations read the `RPython description`_.
 
-.. _`RPython description`: coding-guide.html#restricted-python
+.. _`RPython description`: coding-guide.html#rpython-definition
 
 ---------------------------------------------------------------
 Does RPython have anything to do with Zope's Restricted Python?
