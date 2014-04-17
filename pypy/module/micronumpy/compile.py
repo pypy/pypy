@@ -37,7 +37,7 @@ SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
-TWO_ARG_FUNCTIONS_OR_NONE = ['view']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
@@ -596,6 +596,8 @@ class FunctionCall(Node):
             arg = self.args[1].execute(interp)
             if self.name == 'view':
                 w_res = arr.descr_view(interp.space, arg)
+            elif self.name == 'astype':
+                w_res = arr.descr_astype(interp.space, arg)
             else:
                 assert False
         else:
