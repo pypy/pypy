@@ -157,11 +157,11 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             p3 = getfield_gc(p1, descr=tzdescr)
+            stm_read(p1)
             p4 = getfield_gc(p1, descr=tzdescr)
             p5 = getfield_gc(p2, descr=tzdescr)
-            p6 = getfield_gc(p1, descr=tzdescr)
-            stm_read(p1)
             stm_read(p2)
+            p6 = getfield_gc(p1, descr=tzdescr)
             jump()
         """)
 
@@ -191,10 +191,10 @@ class TestStm(RewriteTests):
         """, """
             [p0, p1, p2]
             p3 = getfield_gc(p1, descr=tzdescr)
+            stm_read(p1)
             cond_call_gc_wb(p2, descr=wbdescr)
             setfield_gc(p2, p0, descr=tzdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
-            stm_read(p1)
             jump()
             """, t=NULL)
 
@@ -388,8 +388,8 @@ class TestStm(RewriteTests):
         """, """
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
-            i2 = getfield_gc(p2, descr=tydescr)
             stm_read(p1)
+            i2 = getfield_gc(p2, descr=tydescr)
             stm_read(p2)
             jump(p2, i2)
         """)
@@ -406,6 +406,7 @@ class TestStm(RewriteTests):
         """, """
             [p1]
             i1 = getfield_gc(p1, descr=tydescr)
+            stm_read(p1)
             i2 = int_add(i1, 1)
             cond_call_gc_wb(p1, descr=wbdescr)
             setfield_gc(p1, i2, descr=tydescr)
@@ -766,7 +767,7 @@ class TestStm(RewriteTests):
         """, """
         [i0, f0, p1]
         p2 = getfield_gc(p1, descr=tzdescr)
-
+        stm_read(p1)
         cond_call_gc_wb(p1, descr=wbdescr)
         setfield_gc(p1, p2, descr=tzdescr)
 
@@ -781,6 +782,7 @@ class TestStm(RewriteTests):
         guard_not_forced() []
 
         p3 = getfield_gc(p1, descr=tzdescr)
+        stm_read(p1)
         cond_call_gc_wb(p1, descr=wbdescr)
         setfield_gc(p1, p3, descr=tzdescr)
         """)
@@ -1180,8 +1182,8 @@ class TestStm(RewriteTests):
             """ % d, """
                 [p1, p3, i1, p4]
                 p2 = getfield_gc%(pure)s(p1, descr=uxdescr)
-                i4 = getarrayitem_gc%(pure)s(p4, i1, descr=vdescr)
                 %(comment)s stm_read(p1)
+                i4 = getarrayitem_gc%(pure)s(p4, i1, descr=vdescr)
                 %(comment)s stm_read(p4)
                 jump(p2)
             """ % d, uxdescr=uxdescr, vdescr=vdescr)
