@@ -47,7 +47,8 @@ class TestNumpyJit(LLJitMixin):
                 raise Exception("need results")
             w_res = interp.results[-1]
             if isinstance(w_res, W_NDimArray):
-                w_res = w_res.create_iter().getitem()
+                i, s = w_res.create_iter()
+                w_res = i.getitem(s)
             if isinstance(w_res, boxes.W_Float64Box):
                 return w_res.value
             if isinstance(w_res, boxes.W_Int64Box):

@@ -260,24 +260,24 @@ class __extend__(W_NDimArray):
         return space.call_function(cache.w_array_str, self)
 
     def dump_data(self, prefix='array(', separator=',', suffix=')'):
-        i = self.create_iter()
+        i, state = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
         s.append(prefix)
         if not self.is_scalar():
             s.append('[')
-        while not i.done():
+        while not i.done(state):
             if first:
                 first = False
             else:
                 s.append(separator)
                 s.append(' ')
             if self.is_scalar() and dtype.is_str():
-                s.append(dtype.itemtype.to_str(i.getitem()))
+                s.append(dtype.itemtype.to_str(i.getitem(state)))
             else:
-                s.append(dtype.itemtype.str_format(i.getitem()))
-            i.next()
+                s.append(dtype.itemtype.str_format(i.getitem(state)))
+            state = i.next(state)
         if not self.is_scalar():
             s.append(']')
         s.append(suffix)
@@ -818,8 +818,8 @@ class __extend__(W_NDimArray):
         if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        iter = self.create_iter()
-        return space.wrap(space.is_true(iter.getitem()))
+        iter, state = self.create_iter()
+        return space.wrap(space.is_true(iter.getitem(state)))
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
@@ -1095,11 +1095,11 @@ class __extend__(W_NDimArray):
 
         builder = StringBuilder()
         if isinstance(self.implementation, SliceArray):
-            iter = self.implementation.create_iter()
-            while not iter.done():
-                box = iter.getitem()
+            iter, state = self.implementation.create_iter()
+            while not iter.done(state):
+                box = iter.getitem(state)
                 builder.append(box.raw_str())
-                iter.next()
+                state = iter.next(state)
         else:
             builder.append_charpsize(self.implementation.get_storage(), self.implementation.get_storage_size())
 
