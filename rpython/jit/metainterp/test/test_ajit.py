@@ -3419,8 +3419,9 @@ class BaseLLtypeTests(BasicTests):
                            'guard_no_exception': 2, 'int_add': 4})
 
     def test_elidable_method(self):
-        py.test.skip("method sometimes @elidable and sometimes not")
+        py.test.skip("not supported so far: @elidable methods")
         class A(object):
+            @elidable
             def meth(self):
                 return 41
         class B(A):
