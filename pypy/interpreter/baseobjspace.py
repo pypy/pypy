@@ -478,6 +478,8 @@ class ObjSpace(object):
                 return w_mod2
             self.setitem(w_modules, w_name, w_mod)
             w_mod.init(self)
+        else:
+            self.setitem(w_modules, w_name, w_mod)
         return w_mod
 
     def get_builtinmodule_to_install(self):

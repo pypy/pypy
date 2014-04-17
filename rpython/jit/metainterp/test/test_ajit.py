@@ -3418,6 +3418,26 @@ class BaseLLtypeTests(BasicTests):
                            'int_sub': 2, 'jump': 1, 'call': 2,
                            'guard_no_exception': 2, 'int_add': 4})
 
+    def test_elidable_method(self):
+        py.test.skip("not supported so far: @elidable methods")
+        class A(object):
+            @elidable
+            def meth(self):
+                return 41
+        class B(A):
+            @elidable
+            def meth(self):
+                return 42
+        x = B()
+        def callme(x):
+            return x.meth()
+        def f():
+            callme(A())
+            return callme(x)
+        res = self.interp_operations(f, [])
+        assert res == 42
+        self.check_operations_history({'finish': 1})
+
     def test_look_inside_iff_const_getarrayitem_gc_pure(self):
         driver = JitDriver(greens=['unroll'], reds=['s', 'n'])
 

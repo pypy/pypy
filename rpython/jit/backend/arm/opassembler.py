@@ -365,7 +365,7 @@ class ResOpAssembler(BaseAssembler):
                 # we're returning with a guard_not_forced_2, and
                 # additionally we need to say that r0 contains
                 # a reference too:
-                self._finish_gcmap[0] |= r_uint(0)
+                self._finish_gcmap[0] |= r_uint(1)
                 gcmap = self._finish_gcmap
             else:
                 gcmap = self.gcmap_for_finish

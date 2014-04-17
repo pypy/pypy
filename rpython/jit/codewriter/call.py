@@ -220,6 +220,28 @@ class CallControl(object):
                 call_release_gil_target = func._call_aroundstate_target_
                 call_release_gil_target = llmemory.cast_ptr_to_adr(
                     call_release_gil_target)
+        elif op.opname == 'indirect_call':
+            # check that we're not trying to call indirectly some
+            # function with the special flags
+            graphs = op.args[-1].value
+            for graph in (graphs or ()):
+                if not hasattr(graph, 'func'):
+                    continue
+                error = None
+                if hasattr(graph.func, '_elidable_function_'):
+                    error = '@jit.elidable'
+                if hasattr(graph.func, '_jit_loop_invariant_'):
+                    error = '@jit.loop_invariant'
+                if hasattr(graph.func, '_call_aroundstate_target_'):
+                    error = '_call_aroundstate_target_'
+                if not error:
+                    continue
+                raise Exception(
+                    "%r is an indirect call to a family of functions "
+                    "(or methods) that includes %r. However, the latter "
+                    "is marked %r. You need to use an indirection: replace "
+                    "it with a non-marked function/method which calls the "
+                    "marked function." % (op, graph, error))
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
