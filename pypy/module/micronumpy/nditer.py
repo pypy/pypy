@@ -282,17 +282,22 @@ class W_NDIter(W_Root):
         self.done = False
         self.first_next = True
         self.op_axes = []
+        # convert w_seq operands to a list of W_NDimArray
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
             self.seq = [convert_to_array_or_none(space, w_elem) for w_elem in w_seq_as_list]
         else:
             self.seq =[convert_to_array(space, w_seq)]
+
         parse_func_flags(space, self, w_flags)
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
+        # handle w_op_axes
         if not space.is_none(w_op_axes):
             self.set_op_axes(space, w_op_axes)
+
+        # handle w_op_dtypes part 1: creating self.dtypes list from input
         if not space.is_none(w_op_dtypes):
             w_seq_as_list = space.listview(w_op_dtypes)
             self.dtypes = [decode_w_dtype(space, w_elem) for w_elem in w_seq_as_list]
@@ -301,6 +306,8 @@ class W_NDIter(W_Root):
                     "op_dtypes must be a tuple/list matching the number of ops"))
         else:
             self.dtypes = []
+
+        # handle None or writable operands, calculate my shape
         self.iters=[]
         outargs = [i for i in range(len(self.seq)) \
                         if self.seq[i] is None or self.op_flags[i].rw == 'w']
@@ -334,6 +341,7 @@ class W_NDIter(W_Root):
                     if not self.op_flags[i].broadcast:
                         # Raises if ooutput cannot be broadcast
                         shape_agreement(space, iter_shape, self.seq[i], False)
+
         if self.tracked_index != "":
             if self.order == "K":
                 self.order = self.seq[0].implementation.order
@@ -342,8 +350,9 @@ class W_NDIter(W_Root):
             else:
                 backward = self.order != self.tracked_index
             self.index_iter = IndexIterator(iter_shape, backward=backward)
+
+        # handle w_op_dtypes part 2: copy where needed if possible
         if len(self.dtypes) > 0:
-            # Make sure dtypes make sense
             for i in range(len(self.seq)):
                 selfd = self.dtypes[i]
                 seq_d = self.seq[i].get_dtype()
@@ -359,6 +368,8 @@ class W_NDIter(W_Root):
         else:
             #copy them from seq
             self.dtypes = [s.get_dtype() for s in self.seq]
+
+        # create an iterator for each operand
         if self.external_loop:
             for i in range(len(self.seq)):
                 self.iters.append(ExternalLoopIterator(get_external_loop_iter(space, self.order,
