@@ -44,6 +44,7 @@ from rpython.rlib import jit
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.base import W_NDimArray
 
+
 class PureShapeIter(object):
     def __init__(self, shape, idx_w):
         self.shape = shape
