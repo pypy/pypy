@@ -102,7 +102,6 @@ class TestNumpyJit(LLJitMixin):
         self.check_simple_loop({
             'float_add': 1,
             'getarrayitem_gc': 3,
-            'getfield_gc': 7,
             'guard_false': 1,
             'guard_not_invalidated': 1,
             'guard_true': 3,
@@ -113,7 +112,6 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
             'raw_store': 1,
             'setarrayitem_gc': 3,
-            'setfield_gc': 6,
         })
 
     def define_pow():
@@ -133,7 +131,6 @@ class TestNumpyJit(LLJitMixin):
             'float_mul': 2,
             'float_ne': 1,
             'getarrayitem_gc': 3,
-            'getfield_gc': 7,
             'guard_false': 4,
             'guard_not_invalidated': 1,
             'guard_true': 5,
@@ -145,7 +142,6 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
             'raw_store': 1,
             'setarrayitem_gc': 3,
-            'setfield_gc': 6,
         })
 
     def define_sum():
@@ -528,7 +524,6 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({
             'getarrayitem_gc': 2,
-            'getfield_gc': 4,
             'guard_not_invalidated': 1,
             'guard_true': 3,
             'int_add': 6,
@@ -539,7 +534,6 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 1,
             'raw_store': 1,
             'setarrayitem_gc': 2,
-            'setfield_gc': 4,
         })
 
     def define_dot():
@@ -565,29 +559,30 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
         })
         self.check_resops({
+            'arraylen_gc': 1,
             'float_add': 2,
             'float_mul': 2,
             'getarrayitem_gc': 7,
             'getarrayitem_gc_pure': 15,
-            'getfield_gc': 35,
-            'getfield_gc_pure': 39,
+            'getfield_gc': 21,
+            'getfield_gc_pure': 31,
             'guard_class': 4,
             'guard_false': 14,
-            'guard_nonnull': 12,
-            'guard_nonnull_class': 4,
             'guard_not_invalidated': 2,
             'guard_true': 13,
-            'guard_value': 4,
             'int_add': 25,
             'int_ge': 4,
             'int_le': 8,
             'int_lt': 11,
             'int_sub': 4,
             'jump': 3,
+            'new_array': 1,
+            'new_with_vtable': 7,
             'raw_load': 6,
             'raw_store': 1,
-            'setarrayitem_gc': 10,
-            'setfield_gc': 14,
+            'same_as': 2,
+            'setarrayitem_gc': 8,
+            'setfield_gc': 16,
         })
 
     def define_argsort():
