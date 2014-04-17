@@ -1254,12 +1254,13 @@ class BaseTestRDictImplementation:
                 return other == "s"
 
         d = self.get_impl()
-        d.setitem("s", 12)
-        assert d.getitem("s") == 12
-        assert d.getitem(F()) == d.getitem("s")
+        w_key = FakeString("s")
+        d.setitem(w_key, 12)
+        assert d.getitem(w_key) == 12
+        assert d.getitem(F()) == d.getitem(w_key)
 
         d = self.get_impl()
-        x = d.setdefault("s", 12)
+        x = d.setdefault(w_key, 12)
         assert x == 12
         x = d.setdefault(F(), 12)
         assert x == 12
@@ -1269,10 +1270,10 @@ class BaseTestRDictImplementation:
         assert x == 12
 
         d = self.get_impl()
-        d.setitem("s", 12)
+        d.setitem(w_key, 12)
         d.delitem(F())
 
-        assert "s" not in d.w_keys()
+        assert w_key not in d.w_keys()
         assert F() not in d.w_keys()
 
 class TestBytesDictImplementation(BaseTestRDictImplementation):
