@@ -206,7 +206,7 @@ def get_iter(space, order, arr, shape, dtype):
     imp = arr.implementation.astype(space, dtype)
     backward = is_backward(imp, order)
     if arr.is_scalar():
-        return ScalarIter(imp)
+        return ArrayIter(imp, 1, [], [], [])
     if (imp.strides[0] < imp.strides[-1] and not backward) or \
        (imp.strides[0] > imp.strides[-1] and backward):
         # flip the strides. Is this always true for multidimension?
