@@ -103,6 +103,12 @@ class LLSTMFrame(LLFrame):
 
     def op_setfield(self, obj, fieldname, fieldvalue):
         if obj._TYPE.TO._gckind == 'gc':
+            T = lltype.typeOf(fieldvalue)
+            if isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc':
+                self.check_category(obj, 'W')
+            else:
+                self.check_category(obj, 'V')
+            # convert R -> Q all other pointers to the same object we can find
             for p in self.all_stm_ptrs():
                 if p._category == 'R' and p._T == obj._T and p == obj:
                     _stmptr._category.__set__(p, 'Q')
@@ -132,6 +138,7 @@ class LLSTMFrame(LLFrame):
                 _stmptr._category.__set__(p, 'V')
         p = LLFrame.op_malloc(self, obj, flags)
         ptr2 = _stmptr(p, 'W')
+        self.llinterpreter.tester.writemode.add(ptr2._obj)
         return ptr2
 
     def transaction_break(self):
@@ -139,13 +146,6 @@ class LLSTMFrame(LLFrame):
         for p in self.all_stm_ptrs():
             if p._category > 'I':
                 _stmptr._category.__set__(p, 'I')
-
-
-    def op_stm_commit_if_not_atomic(self):
-        self.transaction_break()
-
-    def op_stm_start_inevitable_if_not_atomic(self):
-        self.transaction_break()
 
     def op_stm_commit_transaction(self):
         self.transaction_break()
