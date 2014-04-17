@@ -861,7 +861,7 @@ class Assembler386(BaseAssembler):
         self.mc.MOV(ebx, self.heap_shadowstack_top())
         if self.cpu.gc_ll_descr.stm:
             self.mc.MOV_mi((self.SEGMENT_NO, ebx.value, 0),
-                           rstm.STM_STACK_MARKER_NEW) # MOV [ebx], MARKER_NEW
+                           rstm.stm_stack_marker_new) # MOV [ebx], MARKER_NEW
             self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, WORD),
                            ebp.value)                 # MOV [ebx+WORD], ebp
             self.mc.MOV_sr(STM_OLD_SHADOWSTACK, ebx.value)
