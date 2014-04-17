@@ -80,6 +80,8 @@ class PureShapeIter(object):
 
 
 class IterState(object):
+    _immutable_fields_ = ['index', 'indices[*]', 'offset']
+
     def __init__(self, index, indices, offset):
         self.index = index
         self.indices = indices
