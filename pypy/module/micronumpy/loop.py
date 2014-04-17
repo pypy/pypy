@@ -270,7 +270,10 @@ argmax = _new_argmin_argmax('max')
 
 dot_driver = jit.JitDriver(name = 'numpy_dot',
                            greens = ['dtype'],
-                           reds = 'auto')
+                           reds=['n', 's1', 's2', 'i1', 'i2', 'i',
+                                 'left_impl', 'right_impl', 'result',
+                                 'outi', 'lefti', 'righti', 'oval'],
+                           virtualizables=['outi'])
 
 def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     ''' assumes left, right are concrete arrays
@@ -306,7 +309,11 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
             i = 0
             while i < n:
                 i += 1
-                dot_driver.jit_merge_point(dtype=dtype)
+                dot_driver.jit_merge_point(dtype=dtype,
+                    n=n, s1=s1, s2=s2, i1=i1, i2=i2, i=i,
+                    left_impl=left_impl, right_impl=right_impl, result=result,
+                    outi=outi, lefti=lefti, righti=righti, oval=oval,
+                )
                 lval = left_impl.getitem(i1).convert_to(space, dtype)
                 rval = right_impl.getitem(i2).convert_to(space, dtype)
                 oval = dtype.itemtype.add(oval, dtype.itemtype.mul(lval, rval))
