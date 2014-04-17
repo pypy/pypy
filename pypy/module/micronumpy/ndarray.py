@@ -996,7 +996,8 @@ class __extend__(W_NDimArray):
     descr_cumsum = _reduce_ufunc_impl('add', cumulative=True)
     descr_cumprod = _reduce_ufunc_impl('multiply', cumulative=True)
 
-    def _reduce_argmax_argmin_impl(op_name):
+    def _reduce_argmax_argmin_impl(raw_name):
+        op_name = "arg%s" % raw_name
         def impl(self, space, w_axis=None, w_out=None):
             if not space.is_none(w_axis):
                 raise oefmt(space.w_NotImplementedError,
@@ -1007,18 +1008,17 @@ class __extend__(W_NDimArray):
             if self.get_size() == 0:
                 raise oefmt(space.w_ValueError,
                     "Can't call %s on zero-size arrays", op_name)
-            op = getattr(loop, op_name)
             try:
-                res = op(self)
+                getattr(self.get_dtype().itemtype, raw_name)
             except AttributeError:
                 raise oefmt(space.w_NotImplementedError,
                             '%s not implemented for %s',
                             op_name, self.get_dtype().get_name())
-            return space.wrap(res)
-        return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
+            return space.wrap(getattr(loop, op_name)(self))
+        return func_with_new_name(impl, "reduce_%s_impl" % op_name)
 
-    descr_argmax = _reduce_argmax_argmin_impl("argmax")
-    descr_argmin = _reduce_argmax_argmin_impl("argmin")
+    descr_argmax = _reduce_argmax_argmin_impl("max")
+    descr_argmin = _reduce_argmax_argmin_impl("min")
 
     def descr_int(self, space):
         if self.get_size() != 1:
