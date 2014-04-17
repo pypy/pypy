@@ -16,7 +16,8 @@ call2_driver = jit.JitDriver(name='numpy_call2',
                              greens = ['shapelen', 'func', 'calc_dtype',
                                        'res_dtype'],
                              reds = ['shape', 'w_lhs', 'w_rhs', 'out',
-                                     'left_iter', 'right_iter', 'out_iter'])
+                                     'left_iter', 'right_iter', 'out_iter'],
+                             virtualizables=['out_iter'])
 
 def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     # handle array_priority
