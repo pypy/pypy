@@ -115,6 +115,38 @@ class TestNumpyJit(LLJitMixin):
             'setfield_gc': 6,
         })
 
+    def define_pow():
+        return """
+        a = |30| ** 2
+        a -> 3
+        """
+
+    def test_pow(self):
+        result = self.run("pow")
+        assert result == 3 ** 2
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'call': 3,
+            'float_add': 1,
+            'float_eq': 3,
+            'float_mul': 2,
+            'float_ne': 1,
+            'getarrayitem_gc': 3,
+            'getfield_gc': 7,
+            'guard_false': 4,
+            'guard_not_invalidated': 1,
+            'guard_true': 5,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_is_true': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
+            'setfield_gc': 6,
+        })
+
     def define_sum():
         return """
         a = |30|

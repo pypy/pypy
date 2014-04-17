@@ -388,6 +388,8 @@ class Operator(Node):
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
             w_res = w_lhs.descr_sub(interp.space, w_rhs)
+        elif self.name == '**':
+            w_res = w_lhs.descr_pow(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, FloatObject):
                 w_rhs = IntObject(int(w_rhs.floatval))
@@ -622,7 +624,7 @@ _REGEXES = [
     (':', 'colon'),
     ('\w+', 'identifier'),
     ('\]', 'array_right'),
-    ('(->)|[\+\-\*\/]', 'operator'),
+    ('(->)|[\+\-\*\/]+', 'operator'),
     ('=', 'assign'),
     (',', 'comma'),
     ('\|', 'pipe'),
