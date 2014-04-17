@@ -587,17 +587,17 @@ class AppTestImport:
     def test_reimport_builtin(self):
         import sys, time
         oldpath = sys.path
-        time.tzset = "<test_reimport_builtin removed this>"
+        time.tzname = "<test_reimport_builtin removed this>"
 
         del sys.modules['time']
         import time as time1
         assert sys.modules['time'] is time1
 
-        assert time.tzset == "<test_reimport_builtin removed this>"
+        assert time.tzname == "<test_reimport_builtin removed this>"
 
-        reload(time1)   # don't leave a broken time.tzset behind
+        reload(time1)   # don't leave a broken time.tzname behind
         import time
-        assert time.tzset != "<test_reimport_builtin removed this>"
+        assert time.tzname != "<test_reimport_builtin removed this>"
 
     def test_reload_infinite(self):
         import infinite_reload
