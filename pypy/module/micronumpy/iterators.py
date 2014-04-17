@@ -79,9 +79,8 @@ class PureShapeIter(object):
 
 
 class ArrayIter(object):
-    _virtualizable_ = ['index', 'indices[*]', 'offset']
     _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1[*]',
-                          'strides[*]', 'backstrides[*]', 'indices']
+                          'strides[*]', 'backstrides[*]']
 
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
@@ -91,16 +90,11 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
+        self.reset()
 
-        self.index = 0
-        self.indices = [0] * len(shape)
-        self.offset = array.start
-
-    @jit.unroll_safe
     def reset(self):
         self.index = 0
-        for i in xrange(self.ndim_m1, -1, -1):
-            self.indices[i] = 0
+        self.indices = [0] * len(self.shape_m1)
         self.offset = self.array.start
 
     @jit.unroll_safe
