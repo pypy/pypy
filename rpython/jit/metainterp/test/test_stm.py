@@ -51,6 +51,7 @@ class STMTests:
             rstm.jit_stm_should_break_transaction(False)
             time.sleep(0)
             rstm.jit_stm_should_break_transaction(False) # keep (after guard_not_forced)
+            rstm.jit_stm_should_break_transaction(False)
             rstm.jit_stm_should_break_transaction(True) # keep (True)
             rstm.jit_stm_should_break_transaction(True) # keep (True)
             rstm.jit_stm_should_break_transaction(False)
