@@ -190,7 +190,9 @@ class AppTestNDIter(BaseNumpyAppTest):
         a = arange(3)
         b = arange(6).reshape(2,3)
         r = []
-        for x,y in nditer([a, b]):
+        it = nditer([a, b])
+        assert it.itersize == 6
+        for x,y in it:
             r.append((x, y))
         assert r == [(0, 0), (1, 1), (2, 2), (0, 3), (1, 4), (2, 5)]
         a = arange(2)

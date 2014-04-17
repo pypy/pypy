@@ -8,7 +8,7 @@ from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
 from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
 from pypy.module.micronumpy.concrete import SliceArray
 from pypy.module.micronumpy.descriptor import decode_w_dtype
-from pypy.module.micronumpy import ufuncs
+from pypy.module.micronumpy import ufuncs, support
 
 
 class AbstractIterator(object):
@@ -528,8 +528,7 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_get_itersize(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        return space.wrap(support.product(self.shape))
 
     def descr_get_itviews(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
