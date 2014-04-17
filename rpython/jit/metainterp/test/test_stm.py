@@ -43,16 +43,29 @@ class STMTests:
         self.interp_operations(g, [], translationoptions={"stm":True})
         self.check_operations_history({'stm_transaction_break':1,
                                        'guard_not_forced':1})
-        
-            
-    
+
+    def test_heapcache(self):
+        import time
+        def g():
+            rstm.jit_stm_should_break_transaction(True) # keep (start of loop)
+            rstm.jit_stm_should_break_transaction(False)
+            time.sleep(0)
+            rstm.jit_stm_should_break_transaction(False) # keep (after guard_not_forced)
+            rstm.jit_stm_should_break_transaction(True) # keep (True)
+            rstm.jit_stm_should_break_transaction(True) # keep (True)
+            rstm.jit_stm_should_break_transaction(False)
+            return 42
+        res = self.interp_operations(g, [], translationoptions={"stm":True})
+        assert res == 42
+        self.check_operations_history({
+            'stm_transaction_break':1,
+            'stm_should_break_transaction':3,
+            'guard_not_forced':2,
+            'guard_no_exception':1,
+            'call_may_force':1})
+
+
+
 
 class TestLLtype(STMTests, LLJitMixin):
     pass
-
-
-
-
-
-
-

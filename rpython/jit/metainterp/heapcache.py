@@ -45,6 +45,13 @@ class HeapCache(object):
         self.input_indirections = {}
         self.output_indirections = {}
 
+
+        # to do some of the work of optimizeopt/stm.py, we have a similar
+        # logic here:
+        self.stm_break_wanted = True
+
+
+
     def _input_indirection(self, box):
         return self.input_indirections.get(box, box)
 
@@ -120,6 +127,9 @@ class HeapCache(object):
             opnum == rop.COPYSTRCONTENT or
             opnum == rop.COPYUNICODECONTENT):
             return
+        if opnum in (rop.GUARD_NOT_FORCED, rop.GUARD_NOT_FORCED_2):
+            self.stm_break_wanted = True
+            return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
@@ -184,6 +194,7 @@ class HeapCache(object):
                                     del cache[frombox]
                     return
             else:
+                self.stm_break_wanted = True
                 # Only invalidate things that are either escaped or arguments
                 for descr, boxes in self.heap_cache.iteritems():
                     for box in boxes.keys():
@@ -201,6 +212,8 @@ class HeapCache(object):
         # loops just above?
         self.heap_cache.clear()
         self.heap_array_cache.clear()
+
+        self.stm_break_wanted = True
 
     def is_class_known(self, box):
         return box in self.known_class_boxes
@@ -308,3 +321,6 @@ class HeapCache(object):
     def replace_box(self, oldbox, newbox):
         self.input_indirections[self._output_indirection(newbox)] = self._input_indirection(oldbox)
         self.output_indirections[self._input_indirection(oldbox)] = self._output_indirection(newbox)
+
+    def stm_break_done(self):
+        self.stm_break_wanted = False

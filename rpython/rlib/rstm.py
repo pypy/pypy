@@ -37,6 +37,7 @@ def jit_stm_transaction_break_point():
     if we_are_translated():
         llop.jit_stm_transaction_break_point(lltype.Void)
 
+@specialize.arg(0)
 def jit_stm_should_break_transaction(if_there_is_no_other):
     # XXX REFACTOR AWAY
     # if_there_is_no_other means that we use this point only

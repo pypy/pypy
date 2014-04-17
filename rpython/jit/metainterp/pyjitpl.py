@@ -197,25 +197,33 @@ class MIFrame(object):
         mi.vrefs_after_residual_call()
         mi.vable_after_residual_call()
         mi.generate_guard(rop.GUARD_NOT_FORCED, None)
-        
-    
+        self.metainterp.heapcache.stm_break_done()
+
+
     @arguments("int")
     def opimpl_stm_should_break_transaction(self, if_there_is_no_other):
-        from rpython.rtyper.lltypesystem import llmemory
         val = bool(if_there_is_no_other)
         mi = self.metainterp
         if val:
+            # app-level loop: only one of these per loop is really needed
             resbox = history.BoxInt(0)
             mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
+            self.metainterp.heapcache.stm_break_done()
             return resbox
         else:
-            self._record_stm_transaction_break(False)
+            # between byte-code instructions: only keep if it is
+            # likely that we are inevitable here
+            if self.metainterp.heapcache.stm_break_wanted:
+                self._record_stm_transaction_break(False)
             return ConstInt(0)
 
     @arguments()
     def opimpl_stm_transaction_break(self):
+        # always wanted: inserted after we compile a bridge because there
+        # were just too many breaks and we failed the should_break&guard
+        # because of that
         self._record_stm_transaction_break(True)
-    
+
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
                     'int_ne', 'int_gt', 'int_ge',
@@ -1692,7 +1700,7 @@ class MetaInterp(object):
 
         self.call_ids = []
         self.current_call_id = 0
-        
+
 
     def retrace_needed(self, trace):
         self.partial_trace = trace
@@ -1819,6 +1827,8 @@ class MetaInterp(object):
         if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
             resumedescr = compile.ResumeGuardForcedDescr(self.staticdata,
                                                          self.jitdriver_sd)
+            # for detecting stm breaks that are needed
+            self.heapcache.invalidate_caches(opnum, resumedescr, moreargs)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
             resumedescr = compile.ResumeGuardNotInvalidated()
         else:
