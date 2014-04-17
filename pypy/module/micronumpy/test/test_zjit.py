@@ -564,7 +564,6 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
         })
         self.check_resops({
-            'arraylen_gc': 1,
             'float_add': 2,
             'float_mul': 2,
             'getarrayitem_gc': 7,
@@ -584,11 +583,10 @@ class TestNumpyJit(LLJitMixin):
             'int_lt': 11,
             'int_sub': 4,
             'jump': 3,
-            'new_array': 1,
             'raw_load': 6,
             'raw_store': 1,
-            'setarrayitem_gc': 8,
-            'setfield_gc': 15,
+            'setarrayitem_gc': 10,
+            'setfield_gc': 14,
         })
 
     def define_argsort():
