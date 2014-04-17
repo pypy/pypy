@@ -290,7 +290,7 @@ def shape_agreement_multiple(space, array_list, shape=None):
         if not space.is_none(arr):
             if shape is None:
                 shape = arr.get_shape()
-            else:    
+            else:
                 shape = shape_agreement(space, shape, arr)
     return shape
 
