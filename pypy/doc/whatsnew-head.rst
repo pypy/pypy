@@ -137,3 +137,6 @@ there is missing field
 
 .. branch: issue1514
 Fix issues with reimporting builtin modules
+
+.. branch: numpypy-nditer
+Implement the core of nditer, without many of the fancy flags (external_loop, buffered)

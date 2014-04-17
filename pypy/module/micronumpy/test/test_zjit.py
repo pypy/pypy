@@ -94,14 +94,58 @@ class TestNumpyJit(LLJitMixin):
         a -> 3
         """
 
-    def test_floatadd(self):
+    def test_float_add(self):
         result = self.run("float_add")
         assert result == 3 + 3
-        py.test.skip("don't run for now")
-        self.check_simple_loop({"raw_load": 1, "float_add": 1,
-                                "raw_store": 1, "int_add": 1,
-                                "int_ge": 1, "guard_false": 1, "jump": 1,
-                                'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 3,
+            'getfield_gc': 7,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 3,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
+            'setfield_gc': 6,
+        })
+
+    def define_pow():
+        return """
+        a = |30| ** 2
+        a -> 3
+        """
+
+    def test_pow(self):
+        result = self.run("pow")
+        assert result == 3 ** 2
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'call': 3,
+            'float_add': 1,
+            'float_eq': 3,
+            'float_mul': 2,
+            'float_ne': 1,
+            'getarrayitem_gc': 3,
+            'getfield_gc': 7,
+            'guard_false': 4,
+            'guard_not_invalidated': 1,
+            'guard_true': 5,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_is_true': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
+            'setfield_gc': 6,
+        })
 
     def define_sum():
         return """
@@ -520,7 +564,6 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
         })
         self.check_resops({
-            'arraylen_gc': 1,
             'float_add': 2,
             'float_mul': 2,
             'getarrayitem_gc': 7,
@@ -540,11 +583,10 @@ class TestNumpyJit(LLJitMixin):
             'int_lt': 11,
             'int_sub': 4,
             'jump': 3,
-            'new_array': 1,
             'raw_load': 6,
             'raw_store': 1,
-            'setarrayitem_gc': 8,
-            'setfield_gc': 15,
+            'setarrayitem_gc': 10,
+            'setfield_gc': 14,
         })
 
     def define_argsort():
