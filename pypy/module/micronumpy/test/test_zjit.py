@@ -539,7 +539,7 @@ class TestNumpyJit(LLJitMixin):
     def define_dot():
         return """
         a = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
-        b=[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
+        b = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
         c = dot(a, b)
         c -> 1 -> 2
         """
@@ -595,3 +595,31 @@ class TestNumpyJit(LLJitMixin):
     def test_argsort(self):
         result = self.run("argsort")
         assert result == 6
+
+    def define_where():
+        return """
+        a = [1, 0, 1, 0]
+        x = [1, 2, 3, 4]
+        y = [-10, -20, -30, -40]
+        r = where(a, x, y)
+        r -> 3
+        """
+
+    def test_where(self):
+        result = self.run("where")
+        assert result == -40
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_ne': 1,
+            'getarrayitem_gc': 4,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 5,
+            'int_add': 12,
+            'int_ge': 1,
+            'int_lt': 4,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 4,
+        })
