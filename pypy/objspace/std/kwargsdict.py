@@ -11,7 +11,7 @@ from pypy.objspace.std.dictmultiobject import (
 
 
 def _wrapkey(space, key):
-    return space.wrap(key)
+    return space.wrap(key.decode('utf-8'))
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
@@ -138,7 +138,7 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.dstorage = self.get_empty_storage()
 
     def switch_to_object_strategy(self, w_dict):
-        strategy = self.space.fromcache(UnicodeDictStrategy)
+        strategy = self.space.fromcache(ObjectDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
         d_new = strategy.unerase(strategy.get_empty_storage())
         for i in range(len(keys)):
@@ -147,7 +147,7 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.dstorage = strategy.erase(d_new)
 
     def switch_to_unicode_strategy(self, w_dict):
-        strategy = self.space.fromcache(BytesDictStrategy)
+        strategy = self.space.fromcache(UnicodeDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
         d_new = strategy.unerase(storage)

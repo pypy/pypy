@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.kwargsdict import *
@@ -159,3 +160,22 @@ class AppTestKwargsDictStrategy(object):
         assert a == 3
         assert "KwargsDictStrategy" in self.get_strategy(d)
 
+    def test_unicode(self):
+        """
+        def f(**kwargs):
+            return kwargs
+
+        d = f(λ=True)
+        assert list(d) == ['λ']
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+
+        d['foo'] = 'bar'
+        assert sorted(d) == ['foo', 'λ']
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+
+        d = f(λ=True)
+        o = object()
+        d[o] = 'baz'
+        assert set(d) == set(['λ', o])
+        assert "ObjectDictStrategy" in self.get_strategy(d)
+        """
