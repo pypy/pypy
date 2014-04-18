@@ -4,14 +4,20 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestNDIter(BaseNumpyAppTest):
     def test_basic(self):
-        from numpy import arange, nditer
+        from numpy import arange, nditer, ndarray
         a = arange(6).reshape(2,3)
+        i = nditer(a)
         r = []
-        for x in nditer(a):
+        for x in i:
+            assert type(x) is ndarray
+            assert x.base is i
+            assert x.shape == ()
+            assert x.strides == ()
+            exc = raises(ValueError, "x[()] = 42")
+            assert str(exc.value) == 'assignment destination is read-only'
             r.append(x)
         assert r == [0, 1, 2, 3, 4, 5]
         r = []
-
         for x in nditer(a.T):
             r.append(x)
         assert r == [0, 1, 2, 3, 4, 5]
@@ -29,9 +35,14 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert r == [0, 3, 1, 4, 2, 5]
 
     def test_readwrite(self):
-        from numpy import arange, nditer
+        from numpy import arange, nditer, ndarray
         a = arange(6).reshape(2,3)
-        for x in nditer(a, op_flags=['readwrite']):
+        i = nditer(a, op_flags=['readwrite'])
+        for x in i:
+            assert type(x) is ndarray
+            assert x.base is i
+            assert x.shape == ()
+            assert x.strides == ()
             x[...] = 2 * x
         assert (a == [[0, 2, 4], [6, 8, 10]]).all()
 

@@ -2,9 +2,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.micronumpy import ufuncs, support
+from pypy.module.micronumpy import ufuncs, support, concrete
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
-from pypy.module.micronumpy.concrete import SliceArray
 from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy.iterators import ArrayIter, SliceIterator
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
@@ -25,7 +24,8 @@ class AbstractIterator(object):
 class IteratorMixin(object):
     _mixin_ = True
 
-    def __init__(self, it, op_flags):
+    def __init__(self, nditer, it, op_flags):
+        self.nditer = nditer
         self.it = it
         self.st = it.reset()
         self.op_flags = op_flags
@@ -37,7 +37,7 @@ class IteratorMixin(object):
         self.st = self.it.next(self.st)
 
     def getitem(self, space, array):
-        return self.op_flags.get_it_item[self.index](space, array, self.it, self.st)
+        return self.op_flags.get_it_item[self.index](space, self.nditer, self.it, self.st)
 
     def setitem(self, space, array, val):
         xxx
@@ -90,14 +90,17 @@ class OpFlag(object):
         self.get_it_item = (get_readonly_item, get_readonly_slice)
 
 
-def get_readonly_item(space, array, it, st):
-    return space.wrap(it.getitem(st))
+def get_readonly_item(space, nditer, it, st):
+    res = concrete.ConcreteNonWritableArrayWithBase(
+        [], it.array.dtype, it.array.order, [], [], it.array.storage, nditer)
+    res.start = st.offset
+    return W_NDimArray(res)
 
 
-def get_readwrite_item(space, array, it, st):
-    #create a single-value view (since scalars are not views)
-    res = SliceArray(it.array.start + st.offset, [0], [0], [1], it.array, array)
-    #it.dtype.setitem(res, 0, it.getitem())
+def get_readwrite_item(space, nditer, it, st):
+    res = concrete.ConcreteArrayWithBase(
+        [], it.array.dtype, it.array.order, [], [], it.array.storage, nditer)
+    res.start = st.offset
     return W_NDimArray(res)
 
 
@@ -398,12 +401,14 @@ class W_NDIter(W_Root):
         if self.external_loop:
             for i in range(len(self.seq)):
                 self.iters.append(ExternalLoopIterator(
+                    self,
                     get_external_loop_iter(
                         space, self.order, self.seq[i], iter_shape),
                     self.op_flags[i]))
         else:
             for i in range(len(self.seq)):
                 self.iters.append(BoxIterator(
+                    self,
                     get_iter(
                         space, self.order, self.seq[i], iter_shape, self.dtypes[i]),
                     self.op_flags[i]))
