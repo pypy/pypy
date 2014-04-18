@@ -4,12 +4,12 @@ from pypy.objspace.std.celldict import ModuleDictStrategy
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.test.test_dictmultiobject import (
     BaseTestRDictImplementation, BaseTestDevolvedDictImplementation, FakeSpace,
-    FakeString)
+    FakeUnicode)
 
 space = FakeSpace()
 
 class TestCellDict(object):
-    FakeString = FakeString
+    FakeString = FakeUnicode
 
     def test_basic_property_cells(self):
         strategy = ModuleDictStrategy(space)
@@ -50,10 +50,10 @@ class TestCellDict(object):
 
         v1 = strategy.version
         x = object()
-        d.setitem("a", x)
+        d.setitem(u"a", x)
         v2 = strategy.version
         assert v1 is not v2
-        d.setitem("a", x)
+        d.setitem(u"a", x)
         v3 = strategy.version
         assert v2 is v3
 
@@ -70,7 +70,7 @@ class AppTestModuleDict(object):
         assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
-        py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
+        #py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         m = type(__builtins__)("abc")
         self.impl_used(m.__dict__)
 
@@ -148,7 +148,7 @@ class AppTestCellDict(object):
         assert x == ("a", 3)
 
     def test_degenerate(self):
-        py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
+        #py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         import __pypy__
 
         d = self.d

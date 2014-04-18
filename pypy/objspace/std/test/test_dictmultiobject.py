@@ -1168,7 +1168,7 @@ class TestDictImplementation:
 
 class BaseTestRDictImplementation:
     FakeString = FakeUnicode
-    allows__str = False
+    allows__str = False # XXX: this is maybe not necessary, just add tests to unicode to ensure we're allowing utf-8?
 
     def setup_method(self,method):
         self.fakespace = FakeSpace()
@@ -1290,11 +1290,11 @@ class BaseTestRDictImplementation:
         key = self.FakeString(self.string)
         x = impl.setdefault(key, 1)
         assert x == 1
-        if on_pypy:
+        if on_pypy and self.FakeString is FakeString:
             assert key.hash_count == 1
         x = impl.setdefault(key, 2)
         assert x == 1
-        if on_pypy:
+        if on_pypy and self.FakeString is FakeString:
             assert key.hash_count == 2
 
     def test_fallback_evil_key(self):
