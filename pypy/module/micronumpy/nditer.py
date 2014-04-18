@@ -10,9 +10,10 @@ from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
 
 
-class BaseIterator(object):
-    def __init__(self, nditer, it, op_flags):
+class Iterator(object):
+    def __init__(self, nditer, index, it, op_flags):
         self.nditer = nditer
+        self.index = index
         self.it = it
         self.st = it.reset()
         self.op_flags = op_flags
@@ -28,14 +29,6 @@ class BaseIterator(object):
 
     def setitem(self, space, array, val):
         xxx
-
-
-class BoxIterator(BaseIterator):
-    index = 0
-
-
-class ExternalLoopIterator(BaseIterator):
-    index = 1
 
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
@@ -243,15 +236,6 @@ def get_external_loop_iter(space, order, arr, shape):
     return SliceIterator(arr, imp.strides, imp.backstrides, shape, order=order, backward=backward)
 
 
-def convert_to_array_or_none(space, w_elem):
-    '''
-    None will be passed through, all others will be converted
-    '''
-    if space.is_none(w_elem):
-        return None
-    return convert_to_array(space, w_elem)
-
-
 class IndexIterator(object):
     def __init__(self, shape, backward=False):
         self.shape = shape
@@ -301,7 +285,9 @@ class W_NDIter(W_Root):
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
-            self.seq = [convert_to_array_or_none(space, w_elem) for w_elem in w_seq_as_list]
+            self.seq = [convert_to_array(space, w_elem)
+                        if not space.is_none(w_elem) else None
+                        for w_elem in w_seq_as_list]
         else:
             self.seq = [convert_to_array(space, w_seq)]
 
@@ -375,8 +361,9 @@ class W_NDIter(W_Root):
                     self.dtypes[i] = seq_d
                 elif selfd != seq_d:
                     if not 'r' in self.op_flags[i].tmp_copy:
-                        raise OperationError(space.w_TypeError, space.wrap(
-                            "Iterator operand required copying or buffering for operand %d" % i))
+                        raise oefmt(space.w_TypeError,
+                                    "Iterator operand required copying or "
+                                    "buffering for operand %d", i)
                     impl = self.seq[i].implementation
                     new_impl = impl.astype(space, selfd)
                     self.seq[i] = W_NDimArray(new_impl)
@@ -387,22 +374,23 @@ class W_NDIter(W_Root):
         # create an iterator for each operand
         if self.external_loop:
             for i in range(len(self.seq)):
-                self.iters.append(ExternalLoopIterator(
-                    self,
+                self.iters.append(Iterator(
+                    self, 1,
                     get_external_loop_iter(
                         space, self.order, self.seq[i], iter_shape),
                     self.op_flags[i]))
         else:
             for i in range(len(self.seq)):
-                self.iters.append(BoxIterator(
-                    self,
+                self.iters.append(Iterator(
+                    self, 0,
                     get_iter(
                         space, self.order, self.seq[i], iter_shape, self.dtypes[i]),
                     self.op_flags[i]))
 
     def set_op_axes(self, space, w_op_axes):
         if space.len_w(w_op_axes) != len(self.seq):
-            raise OperationError(space.w_ValueError, space.wrap("op_axes must be a tuple/list matching the number of ops"))
+            raise oefmt(space.w_ValueError,
+                        "op_axes must be a tuple/list matching the number of ops")
         op_axes = space.listview(w_op_axes)
         l = -1
         for w_axis in op_axes:
@@ -411,10 +399,14 @@ class W_NDIter(W_Root):
                 if l == -1:
                     l = axis_len
                 elif axis_len != l:
-                    raise OperationError(space.w_ValueError, space.wrap("Each entry of op_axes must have the same size"))
-                self.op_axes.append([space.int_w(x) if not space.is_none(x) else -1 for x in space.listview(w_axis)])
+                    raise oefmt(space.w_ValueError,
+                                "Each entry of op_axes must have the same size")
+                self.op_axes.append([space.int_w(x) if not space.is_none(x) else -1
+                                     for x in space.listview(w_axis)])
         if l == -1:
-            raise OperationError(space.w_ValueError, space.wrap("If op_axes is provided, at least one list of axes must be contained within it"))
+            raise oefmt(space.w_ValueError,
+                        "If op_axes is provided, at least one list of axes "
+                        "must be contained within it")
         raise Exception('xxx TODO')
         # Check that values make sense:
         # - in bounds for each operand
@@ -430,12 +422,12 @@ class W_NDIter(W_Root):
         try:
             ret = space.wrap(self.iters[idx].getitem(space, self.seq[idx]))
         except IndexError:
-            raise OperationError(space.w_IndexError, space.wrap("Iterator operand index %d is out of bounds" % idx))
+            raise oefmt(space.w_IndexError,
+                        "Iterator operand index %d is out of bounds", idx)
         return ret
 
     def descr_setitem(self, space, w_idx, w_value):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_len(self, space):
         space.wrap(len(self.iters))
@@ -477,29 +469,23 @@ class W_NDIter(W_Root):
         return space.wrap(self.iternext())
 
     def descr_copy(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_debug_print(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_enable_external_loop(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     @unwrap_spec(axis=int)
     def descr_remove_axis(self, space, axis):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_remove_multi_index(self, space, w_multi_index):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_reset(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_operands(self, space):
         l_w = []
@@ -517,17 +503,16 @@ class W_NDIter(W_Root):
         return space.wrap(self.done)
 
     def descr_get_has_delayed_bufalloc(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_has_index(self, space):
         return space.wrap(self.tracked_index in ["C", "F"])
 
     def descr_get_index(self, space):
         if not self.tracked_index in ["C", "F"]:
-            raise OperationError(space.w_ValueError, space.wrap("Iterator does not have an index"))
+            raise oefmt(space.w_ValueError, "Iterator does not have an index")
         if self.done:
-            raise OperationError(space.w_ValueError, space.wrap("Iterator is past the end"))
+            raise oefmt(space.w_ValueError, "Iterator is past the end")
         return space.wrap(self.index_iter.getvalue())
 
     def descr_get_has_multi_index(self, space):
@@ -535,41 +520,34 @@ class W_NDIter(W_Root):
 
     def descr_get_multi_index(self, space):
         if not self.tracked_index == "multi":
-            raise OperationError(space.w_ValueError, space.wrap("Iterator is not tracking a multi-index"))
+            raise oefmt(space.w_ValueError, "Iterator is not tracking a multi-index")
         if self.done:
-            raise OperationError(space.w_ValueError, space.wrap("Iterator is past the end"))
+            raise oefmt(space.w_ValueError, "Iterator is past the end")
         return space.newtuple([space.wrap(x) for x in self.index_iter.index])
 
     def descr_get_iterationneedsapi(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_iterindex(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_itersize(self, space):
         return space.wrap(support.product(self.shape))
 
     def descr_get_itviews(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_ndim(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_nop(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_shape(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_value(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
 
 @unwrap_spec(w_flags=WrappedDefault(None), w_op_flags=WrappedDefault(None),
