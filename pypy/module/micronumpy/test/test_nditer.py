@@ -143,21 +143,17 @@ class AppTestNDIter(BaseNumpyAppTest):
         a = arange(6).reshape(2,3) - 3
         exc = raises(TypeError, nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
+        exc = raises(ValueError, nditer, a, op_flags=['copy'], op_dtypes=['complex128'])
+        assert str(exc.value) == "None of the iterator flags READWRITE, READONLY, or WRITEONLY were specified for an operand"
         r = []
         for x in nditer(a, op_flags=['readonly','copy'],
                         op_dtypes=['complex128']):
             r.append(sqrt(x))
         assert abs((array(r) - [1.73205080757j, 1.41421356237j, 1j, 0j,
-                1+0j, 1.41421356237+0j]).sum()) < 1e-5
-        r = []
-        for x in nditer(a, op_flags=['copy'],
-                        op_dtypes=['complex128']):
-            r.append(sqrt(x))
-        assert abs((array(r) - [1.73205080757j, 1.41421356237j, 1j, 0j,
-                            1+0j, 1.41421356237+0j]).sum()) < 1e-5
+                                1+0j, 1.41421356237+0j]).sum()) < 1e-5
         multi = nditer([None, array([2, 3], dtype='int64'), array(2., dtype='double')],
-                       op_dtypes = ['int64', 'int64', 'float64'],
-                       op_flags = [['writeonly', 'allocate'], ['readonly'], ['readonly']])
+                       op_dtypes=['int64', 'int64', 'float64'],
+                       op_flags=[['writeonly', 'allocate'], ['readonly'], ['readonly']])
         for a, b, c in multi:
             a[...] = b * c
         assert (multi.operands[0] == [4, 6]).all()

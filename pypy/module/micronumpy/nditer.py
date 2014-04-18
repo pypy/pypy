@@ -80,7 +80,7 @@ def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
 
 class OpFlag(object):
     def __init__(self):
-        self.rw = 'r'
+        self.rw = ''
         self.broadcast = True
         self.force_contig = False
         self.force_align = False
@@ -145,7 +145,11 @@ def parse_op_flag(space, lst):
         else:
             raise OperationError(space.w_ValueError, space.wrap(
                 'op_flags must be a tuple or array of per-op flag-tuples'))
-        if op_flag.rw == 'r':
+        if op_flag.rw == '':
+            raise oefmt(space.w_ValueError,
+                        "None of the iterator flags READWRITE, READONLY, or "
+                        "WRITEONLY were specified for an operand")
+        elif op_flag.rw == 'r':
             op_flag.get_it_item = (get_readonly_item, get_readonly_slice)
         elif op_flag.rw == 'rw':
             op_flag.get_it_item = (get_readwrite_item, get_readwrite_slice)
