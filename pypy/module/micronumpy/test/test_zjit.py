@@ -144,6 +144,34 @@ class TestNumpyJit(LLJitMixin):
             'setarrayitem_gc': 3,
         })
 
+    def define_pow_int():
+        return """
+        a = astype(|30|, int)
+        b = astype([2], int)
+        c = a ** b
+        c -> 3
+        """
+
+    def test_pow_int(self):
+        result = self.run("pow_int")
+        assert result == 3 ** 2
+        self.check_trace_count(2)  # extra one for the astype
+        del get_stats().loops[0]   # we don't care about it
+        self.check_simple_loop({
+            'call': 1,
+            'getarrayitem_gc': 3,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 3,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
+        })
+
     def define_sum():
         return """
         a = |30|
