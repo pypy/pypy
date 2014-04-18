@@ -117,9 +117,10 @@ class W_DictMultiObject(W_Root):
                                                                   w_type)
 
             byteslist = space.listview_bytes(w_keys)
-            if byteslist is not None:
+            # XXX: py3k could switch this to listview_unicode, but our
+            # setitem_str accepts utf-8 encoded strs, not unicode!
+            if False and byteslist is not None:
                 for key in byteslist:
-                    # XXX: bytes is tied to setitem_str here!
                     w_dict.setitem_str(key, w_fill)
             else:
                 for w_key in space.listview(w_keys):
@@ -360,6 +361,9 @@ class DictStrategy(object):
 
     def get_empty_storage(self):
         raise NotImplementedError
+
+    def decodekey_str(self, key):
+        return key.decode('utf-8')
 
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
@@ -701,9 +705,7 @@ class AbstractTypedStrategy(object):
 
     def setitem_str(self, w_dict, key, w_value):
         self.switch_to_object_strategy(w_dict)
-        # XXX: wrap(key) means we only allow ascii to
-        # setitem_str. should probaby allow utf-8
-        w_dict.setitem(self.space.wrap(key), w_value)
+        w_dict.setitem(self.space.wrap(self.decodekey_str(key)), w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         if self.is_correct_type(w_key):
@@ -725,9 +727,7 @@ class AbstractTypedStrategy(object):
         return len(self.unerase(w_dict.dstorage))
 
     def getitem_str(self, w_dict, key):
-        # XXX: wrapping here caused some issues w/
-        # ByteDictStrat.. double check
-        return self.getitem(w_dict, self.space.wrap(key))
+        return self.getitem(w_dict, self.space.wrap(self.decodekey_str(key)))
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -807,7 +807,7 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
     def setitem_str(self, w_dict, s, w_value):
-        self.setitem(w_dict, self.space.wrap(s), w_value)
+        self.setitem(w_dict, self.space.wrap(self.decodekey_str(s)), w_value)
 
     def switch_to_object_strategy(self, w_dict):
         assert 0, "should be unreachable"
@@ -907,7 +907,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
-        self.unerase(w_dict.dstorage)[key.decode('ascii')] = w_value
+        self.unerase(w_dict.dstorage)[self.decodekey_str(key)] = w_value
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -919,7 +919,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def getitem_str(self, w_dict, key):
         assert key is not None
-        return self.unerase(w_dict.dstorage).get(key.decode('utf-8'), None)
+        return self.unerase(w_dict.dstorage).get(self.decodekey_str(key), None)
 
     def listview_unicode(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
