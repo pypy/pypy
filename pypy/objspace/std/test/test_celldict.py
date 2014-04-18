@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 
 from pypy.objspace.std.celldict import ModuleDictStrategy
@@ -70,7 +71,6 @@ class AppTestModuleDict(object):
         assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
-        #py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         m = type(__builtins__)("abc")
         self.impl_used(m.__dict__)
 
@@ -133,9 +133,12 @@ class AppTestCellDict(object):
     def setup_class(cls):
         if cls.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
-        strategy = ModuleDictStrategy(cls.space)
+
+    def setup_method(self, method):
+        space = self.space
+        strategy = ModuleDictStrategy(space)
         storage = strategy.get_empty_storage()
-        cls.w_d = W_DictMultiObject(cls.space, strategy, storage)
+        self.w_d = W_DictMultiObject(space, strategy, storage)
 
     def test_popitem(self):
         import __pypy__
@@ -148,7 +151,6 @@ class AppTestCellDict(object):
         assert x == ("a", 3)
 
     def test_degenerate(self):
-        #py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         import __pypy__
 
         d = self.d
@@ -157,3 +159,23 @@ class AppTestCellDict(object):
         del d["a"]
         d[object()] = 5
         assert list(d.values()) == [5]
+
+    def test_unicode(self):
+        import __pypy__
+
+        d = self.d
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+        d['λ'] = True
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+        assert list(d) == ['λ']
+        assert next(iter(d)) == 'λ'
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+
+        d['foo'] = 'bar'
+        assert sorted(d) == ['foo', 'λ']
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+
+        o = object()
+        d[o] = 'baz'
+        assert set(d) == set(['foo', 'λ', o])
+        assert "ObjectDictStrategy" in __pypy__.internal_repr(d)

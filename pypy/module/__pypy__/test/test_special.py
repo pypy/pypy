@@ -75,10 +75,11 @@ class AppTest(object):
         assert x == 42
 
     def test_list_strategy(self):
-        py3k_skip("XXX: strategies are currently broken")
         from __pypy__ import list_strategy
 
         l = [1, 2, 3]
+        assert list_strategy(l) == "int"
+        l = list(range(1, 2))
         assert list_strategy(l) == "int"
         l = [b"a", b"b", b"c"]
         assert list_strategy(l) == "bytes"
@@ -86,10 +87,6 @@ class AppTest(object):
         assert list_strategy(l) == "unicode"
         l = [1.1, 2.2, 3.3]
         assert list_strategy(l) == "float"
-        l = range(3)
-        assert list_strategy(l) == "simple_range"
-        l = range(1, 2)
-        assert list_strategy(l) == "range"
         l = [1, "b", 3]
         assert list_strategy(l) == "object"
         l = []

@@ -824,8 +824,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.wrap(unwrapped)
 
     def unwrap(self, wrapped):
-        # XXX: bytes_w
-        return self.space.str_w(wrapped)
+        return self.space.bytes_w(wrapped)
 
     def is_correct_type(self, w_obj):
         space = self.space
@@ -843,15 +842,13 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##    assert key is not None
     ##    self.unerase(w_dict.dstorage)[key] = w_value
 
-    """
-    def getitem(self, w_dict, w_key):
-        space = self.space
-        # -- This is called extremely often.  Hack for performance --
-        if type(w_key) is space.StringObjectCls:
-            return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
-        # -- End of performance hack --
-        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
-        """
+    ##def getitem(self, w_dict, w_key):
+    ##    space = self.space
+    ##    # -- This is called extremely often.  Hack for performance --
+    ##    if type(w_key) is space.StringObjectCls:
+    ##        return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
+    ##    # -- End of performance hack --
+    ##    return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
     ##def getitem_str(self, w_dict, key):
     ##    assert key is not None
@@ -866,19 +863,19 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def wrapkey(space, key):
         return space.wrapbytes(key)
 
-    @jit.look_inside_iff(lambda self, w_dict:
-                         w_dict_unrolling_heuristic(w_dict))
-    def view_as_kwargs(self, w_dict):
-        return (None, None) # XXX: fix me to return unicode keys
-        d = self.unerase(w_dict.dstorage)
-        l = len(d)
-        keys, values = [None] * l, [None] * l
-        i = 0
-        for key, val in d.iteritems():
-            keys[i] = key
-            values[i] = val
-            i += 1
-        return keys, values
+    ##@jit.look_inside_iff(lambda self, w_dict:
+    ##                     w_dict_unrolling_heuristic(w_dict))
+    ##def view_as_kwargs(self, w_dict):
+    ##    return (None, None) # XXX: fix me to return unicode keys
+    ##    d = self.unerase(w_dict.dstorage)
+    ##    l = len(d)
+    ##    keys, values = [None] * l, [None] * l
+    ##    i = 0
+    ##    for key, val in d.iteritems():
+    ##        keys[i] = key
+    ##        values[i] = val
+    ##        i += 1
+    ##    return keys, values
 
 create_iterator_classes(BytesDictStrategy)
 
@@ -916,17 +913,6 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         space = self.space
         # -- This is called extremely often.  Hack for performance --
         if type(w_key) is space.UnicodeObjectCls:
-            #return self.getitem_str(w_dict, w_key.unwrap(space))
-            # XXX:
-            #key = w_key.unwrap(space) # XXX:
-            #return self.unerase(w_dict.dstorage).get(key, None)
-            # XXX: triggers failure because s.unwrapped isn't set o_O
-
-            #assert type(self) is UnicodeDictStrategy
-            #key = self.unwrap(w_key)
-            #assert key is not None
-            #return self.unerase(w_dict.dstorage).get(key, None)
-            #return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
             return self.unerase(w_dict.dstorage).get(w_key.unwrap(space), None)
         # -- End of performance hack --
         return AbstractTypedStrategy.getitem(self, w_dict, w_key)
@@ -938,9 +924,8 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     def listview_unicode(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
-    #def w_keys(self, w_dict):
-    #    # XXX: we can completely kill w_keys on py3k
-    #    return self.space.newlist_str(self.listview_str(w_dict))
+    def w_keys(self, w_dict):
+        return self.space.newlist_unicode(self.listview_unicode(w_dict))
 
     def wrapkey(space, key):
         return space.wrap(key)
@@ -977,8 +962,6 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def is_correct_type(self, w_obj):
         from pypy.objspace.std.intobject import W_IntObject
-        #space = self.space
-        #return space.is_w(space.type(w_obj), space.w_int)
         return type(w_obj) is W_IntObject
 
     def _never_equal_to(self, w_lookup_type):

@@ -40,7 +40,6 @@ class KwargsDictStrategy(DictStrategy):
     def is_correct_type(self, w_obj):
         space = self.space
         return space.is_w(space.type(w_obj), space.w_unicode)
-        #return type(w_obj) is space.UnicodeObjectCls
 
     def _never_equal_to(self, w_lookup_type):
         return False

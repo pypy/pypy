@@ -125,7 +125,6 @@ class TestW_DictObject(object):
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
     def test_fromkeys_fastpath(self):
-        py.test.py3k_skip("XXX: list strategies are currently broken")
         space = self.space
         w = space.wrap
         wb = space.wrapbytes
@@ -175,8 +174,7 @@ class TestW_DictObject(object):
         w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(6))])
         w_k = self.space.call_method(w_d, "keys")
         w_l = self.space.call_function(self.space.w_list, w_k)
-        #XXX: py.test.py3k_skip("XXX: list strategies are currently broken")
-        #assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
+        assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
@@ -1018,8 +1016,10 @@ class AppTestStrategies(object):
         #raises(RuntimeError, list, it)
 
 
-class FakeWrapper(object):
+class FakeString(str):
+
     hash_count = 0
+
     def unwrap(self, space):
         self.unwrapped = True
         return str(self)
@@ -1028,13 +1028,13 @@ class FakeWrapper(object):
         self.hash_count += 1
         return str.__hash__(self)
 
-class FakeString(FakeWrapper, str):
+class FakeUnicode(unicode):
 
-    def __hash__(self):
-        self.hash_count += 1
-        return str.__hash__(self)
+    hash_count = 0
 
-class FakeUnicode(FakeWrapper, unicode):
+    def unwrap(self, space):
+        self.unwrapped = True
+        return unicode(self)
 
     def __hash__(self):
         self.hash_count += 1
@@ -1168,7 +1168,7 @@ class TestDictImplementation:
 
 class BaseTestRDictImplementation:
     FakeString = FakeUnicode
-    allows__str = False # XXX: this is maybe not necessary, just add tests to unicode to ensure we're allowing utf-8?
+    _str_devolves = False
 
     def setup_method(self,method):
         self.fakespace = FakeSpace()
@@ -1177,8 +1177,6 @@ class BaseTestRDictImplementation:
         self.impl = self.get_impl()
 
     def wrapstrorunicode(self, obj):
-        # XXX: blargh this is all screwed. its referencing FakeString
-        # and using regular strings to setitem.
         return self.fakespace.wrap(obj)
 
     def get_impl(self):
@@ -1208,7 +1206,7 @@ class BaseTestRDictImplementation:
         else:
             assert a == self.string2
             assert b == 2000
-            if self.allows__str:
+            if not self._str_devolves:
                 result = self.impl.getitem_str(self.string)
             else:
                 result = self.impl.getitem(self.string)
@@ -1219,7 +1217,7 @@ class BaseTestRDictImplementation:
         self.impl.setitem(self.string, 1000)
         assert self.impl.length() == 1
         assert self.impl.getitem(self.string) == 1000
-        if self.allows__str:
+        if not self._str_devolves:
             result = self.impl.getitem_str(self.string)
         else:
             result = self.impl.getitem(self.string)
@@ -1329,8 +1327,6 @@ class BaseTestRDictImplementation:
 
 class TestUnicodeDictImplementation(BaseTestRDictImplementation):
     StrategyClass = UnicodeDictStrategy
-    FakeString = FakeUnicode
-    allows__str = True
 
     def test_str_shortcut(self):
         self.fill_impl()
@@ -1352,6 +1348,7 @@ class TestUnicodeDictImplementation(BaseTestRDictImplementation):
 class TestBytesDictImplementation(BaseTestRDictImplementation):
     StrategyClass = BytesDictStrategy
     FakeString = FakeString
+    _str_devolves = True
 
     def wrapstrorunicode(self, obj):
         return self.fakespace.wrapbytes(obj)

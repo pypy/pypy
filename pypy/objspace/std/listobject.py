@@ -80,7 +80,6 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         return space.fromcache(IntegerListStrategy)
 
     # check for strings
-    # XXX: StringListStrategy is currently broken
     for w_obj in list_w:
         if not type(w_obj) is W_BytesObject:
             break

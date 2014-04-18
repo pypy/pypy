@@ -84,7 +84,6 @@ class TestW_SetObject:
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
 
     def test_create_set_from_list(self):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         from pypy.interpreter.baseobjspace import W_Root
         from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy, UnicodeSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
@@ -131,11 +130,11 @@ class TestW_SetObject:
         intstr.get_storage_from_list = tmp_func
 
     def test_listview_bytes_int_on_set(self):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
+        wb = self.space.wrapbytes
 
         w_a = W_SetObject(self.space)
-        _initialize_set(self.space, w_a, w("abcdefg"))
+        _initialize_set(self.space, w_a, wb("abcdefg"))
         assert sorted(self.space.listview_bytes(w_a)) == list("abcdefg")
         assert self.space.listview_int(w_a) is None
 

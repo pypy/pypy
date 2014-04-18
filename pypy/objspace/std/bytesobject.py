@@ -621,8 +621,8 @@ class W_BytesObject(W_AbstractBytesObject):
         l = space.listview_bytes(w_list)
         if l is not None:
             if len(l) == 1:
-                return space.wrap(l[0])
-            return space.wrap(self._val(space).join(l))
+                return space.wrapbytes(l[0])
+            return space.wrapbytes(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):

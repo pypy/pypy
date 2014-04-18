@@ -167,6 +167,7 @@ class AppTestKwargsDictStrategy(object):
 
         d = f(λ=True)
         assert list(d) == ['λ']
+        assert next(iter(d)) == 'λ'
         assert "KwargsDictStrategy" in self.get_strategy(d)
 
         d['foo'] = 'bar'

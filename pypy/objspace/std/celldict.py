@@ -30,7 +30,7 @@ def unwrap_cell(w_value):
 
 
 def _wrapkey(space, key):
-    return space.wrap(key)
+    return space.wrap(key.decode('utf-8'))
 
 
 class ModuleDictStrategy(DictStrategy):

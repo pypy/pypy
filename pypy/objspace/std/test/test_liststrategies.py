@@ -1,4 +1,3 @@
-import py
 import sys
 from pypy.objspace.std.listobject import (
     W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy,
@@ -7,7 +6,6 @@ from pypy.objspace.std.listobject import (
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
-#py.test.py3k_skip("XXX: strategies are currently broken")
 
 class TestW_ListStrategies(TestW_ListObject):
     def test_check_strategy(self):
@@ -580,9 +578,11 @@ class TestW_ListStrategies(TestW_ListObject):
         assert not self.space.eq_w(l1, l2)
 
     def test_weird_rangelist_bug(self):
-        l = make_range_list(self.space, 1, 1, 3)
+        space = self.space
+        l = make_range_list(space, 1, 1, 3)
         # should not raise
-        assert l.descr_getslice(self.space, self.space.wrap(15), self.space.wrap(2222)).strategy == self.space.fromcache(EmptyListStrategy)
+        w_slice = space.newslice(space.wrap(15), space.wrap(2222), space.wrap(1))
+        assert l.descr_getitem(space, w_slice).strategy == space.fromcache(EmptyListStrategy)
 
     def test_add_to_rangelist(self):
         l1 = make_range_list(self.space, 1, 1, 3)
@@ -681,8 +681,6 @@ class TestW_ListStrategies(TestW_ListObject):
         assert space.unwrap(w_res) == 3
 
     def test_create_list_from_set(self):
-        # this test fails because of the "w_set.iter = None" line below
-        py.test.py3k_skip("missing the correct list strategy")
         from pypy.objspace.std.setobject import W_SetObject
         from pypy.objspace.std.setobject import _initialize_set
 
