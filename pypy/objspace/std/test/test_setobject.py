@@ -89,6 +89,7 @@ class TestW_SetObject:
         from pypy.objspace.std.floatobject import W_FloatObject
 
         w = self.space.wrap
+        wb = self.space.wrapbytes
         intstr = self.space.fromcache(IntegerSetStrategy)
         tmp_func = intstr.get_storage_from_list
         # test if get_storage_from_list is no longer used
@@ -100,10 +101,10 @@ class TestW_SetObject:
         assert w_set.strategy is intstr
         assert intstr.unerase(w_set.sstorage) == {1:None, 2:None, 3:None}
 
-        w_list = W_ListObject(self.space, [w("1"), w("2"), w("3")])
+        w_list = W_ListObject(self.space, [wb("1"), wb("2"), wb("3")])
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_list)
-        assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
+        assert w_set.strategy is self.space.fromcache(BytesSetStrategy)
         assert w_set.strategy.unerase(w_set.sstorage) == {"1":None, "2":None, "3":None}
 
         w_list = self.space.iter(W_ListObject(self.space, [w(u"1"), w(u"2"), w(u"3")]))
@@ -1004,6 +1005,13 @@ class AppTestAppSetTest:
         # getting a RuntimeError because iterating over the old storage
         # gives us 1, but 1 is not in the set any longer.
         raises(RuntimeError, list, it)
+
+    def test_iter_bytes_strategy(self):
+        l = [b'a', b'b']
+        s = set(l)
+        n = next(iter(s))
+        assert type(n) is bytes
+        assert n in l
 
     def test_unicodestrategy(self):
         s = 'àèìòù'
