@@ -10,20 +10,7 @@ from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
 
 
-class AbstractIterator(object):
-    def done(self):
-        raise NotImplementedError("Abstract Class")
-
-    def next(self):
-        raise NotImplementedError("Abstract Class")
-
-    def getitem(self, space, array):
-        raise NotImplementedError("Abstract Class")
-
-
-class IteratorMixin(object):
-    _mixin_ = True
-
+class BaseIterator(object):
     def __init__(self, nditer, it, op_flags):
         self.nditer = nditer
         self.it = it
@@ -43,11 +30,11 @@ class IteratorMixin(object):
         xxx
 
 
-class BoxIterator(IteratorMixin, AbstractIterator):
+class BoxIterator(BaseIterator):
     index = 0
 
 
-class ExternalLoopIterator(IteratorMixin, AbstractIterator):
+class ExternalLoopIterator(BaseIterator):
     index = 1
 
 
