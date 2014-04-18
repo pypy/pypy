@@ -81,9 +81,10 @@ class PureShapeIter(object):
 
 
 class IterState(object):
-    _immutable_fields_ = ['index', 'indices[*]', 'offset']
+    _immutable_fields_ = ['iterator', 'index', 'indices[*]', 'offset']
 
-    def __init__(self, index, indices, offset):
+    def __init__(self, iterator, index, indices, offset):
+        self.iterator = iterator
         self.index = index
         self.indices = indices
         self.offset = offset
@@ -103,10 +104,11 @@ class ArrayIter(object):
         self.backstrides = backstrides
 
     def reset(self):
-        return IterState(0, [0] * len(self.shape_m1), self.array.start)
+        return IterState(self, 0, [0] * len(self.shape_m1), self.array.start)
 
     @jit.unroll_safe
     def next(self, state):
+        assert state.iterator is self
         index = state.index + 1
         indices = state.indices
         offset = state.offset
@@ -119,10 +121,11 @@ class ArrayIter(object):
             else:
                 indices[i] = 0
                 offset -= self.backstrides[i]
-        return IterState(index, indices, offset)
+        return IterState(self, index, indices, offset)
 
     @jit.unroll_safe
     def next_skip_x(self, state, step):
+        assert state.iterator is self
         assert step >= 0
         if step == 0:
             return state
@@ -142,18 +145,22 @@ class ArrayIter(object):
                 offset += self.strides[i] * cur_step
                 step = rem_step
                 assert step > 0
-        return IterState(index, indices, offset)
+        return IterState(self, index, indices, offset)
 
     def done(self, state):
+        assert state.iterator is self
         return state.index >= self.size
 
     def getitem(self, state):
+        assert state.iterator is self
         return self.array.getitem(state.offset)
 
     def getitem_bool(self, state):
+        assert state.iterator is self
         return self.array.getitem_bool(state.offset)
 
     def setitem(self, state, elem):
+        assert state.iterator is self
         self.array.setitem(state.offset, elem)
 
 

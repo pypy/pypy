@@ -617,7 +617,7 @@ class TestNumpyJit(LLJitMixin):
             'raw_store': 1,
             'same_as': 2,
             'setarrayitem_gc': 8,
-            'setfield_gc': 16,
+            'setfield_gc': 21,
         })
 
     def define_argsort():
