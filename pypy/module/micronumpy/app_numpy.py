@@ -22,3 +22,34 @@ def arange(start, stop=None, step=1, dtype=None):
         arr[j] = i
         i += step
     return arr
+
+# How to call this from descr_searchsorted??
+def searchsort(space, arr, v, side, result):
+    def left_find_index(a, val):
+        imin = 0
+        imax = a.size
+        while imin < imax:
+            imid = imin + ((imax - imin) >> 1)
+            if a[imid] <= val:
+                imin = imid +1
+            else:
+                imax = imid
+        return imin
+    def right_find_index(a, val):
+        imin = 0
+        imax = a.size
+        while imin < imax:
+            imid = imin + ((imax - imin) >> 1)
+            if a[imid] < val:
+                imin = imid +1
+            else:
+                imax = imid
+        return imin
+    if side == 'l':
+        func = left_find_index
+    else:
+        func = right_find_index
+    for i in range(v.get_size()):
+        result[i] = func(self, v[i])
+    return result
+
