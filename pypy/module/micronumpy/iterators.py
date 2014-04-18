@@ -172,14 +172,13 @@ class SliceIterator(ArrayIter):
             size = 1
             self.slicesize = support.product(shape)
             self.gap = strides
-
         ArrayIter.__init__(self, arr.implementation, size, shape, strides, backstrides)
 
     def getslice(self):
         from pypy.module.micronumpy.concrete import SliceArray
-        retVal = SliceArray(self.offset, self.gap, self.backstrides,
-        [self.slicesize], self.arr.implementation, self.arr, self.dtype)
-        return retVal
+        return SliceArray(self.offset, self.gap, self.backstrides,
+                          [self.slicesize], self.arr.implementation,
+                          self.arr, self.dtype)
 
 
 def AxisIter(array, shape, axis, cumulative):
