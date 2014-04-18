@@ -353,14 +353,21 @@ class TestNumpyJit(LLJitMixin):
     def test_slice(self):
         result = self.run("slice")
         assert result == 18
-        py.test.skip("don't run for now")
-        self.check_simple_loop({'raw_load': 2,
-                                'float_add': 1,
-                                'raw_store': 1,
-                                'int_add': 3,
-                                'int_ge': 1, 'guard_false': 1,
-                                'jump': 1,
-                                'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 3,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 3,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
+        })
 
     def define_take():
         return """
