@@ -401,8 +401,9 @@ class W_BytesObject(W_AbstractBytesObject):
     def buffer_w(w_self, space):
         return StringBuffer(w_self._value)
 
-    def listview_bytes(self):
-        return _create_list_from_bytes(self._value)
+    # XXX: could provide listview_int
+    #def listview_bytes(self):
+    #    return _create_list_from_bytes(self._value)
 
     def ord(self, space):
         if len(self._value) != 1:

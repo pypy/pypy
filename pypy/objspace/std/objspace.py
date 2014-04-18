@@ -316,10 +316,8 @@ class StdObjSpace(ObjSpace):
         assert not list_w or sizehint == -1
         return W_ListObject(self, list_w, sizehint)
 
-    # XXX: BytesListStrategy is currently broken use the default
-    # implementation, which simply wraps
-    #def newlist_bytes(self, list_s):
-    #    return W_ListObject.newlist_bytes(self, list_s)
+    def newlist_bytes(self, list_s):
+        return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)

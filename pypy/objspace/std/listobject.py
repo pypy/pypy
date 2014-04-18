@@ -81,13 +81,11 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
 
     # check for strings
     # XXX: StringListStrategy is currently broken
-    """
     for w_obj in list_w:
         if not type(w_obj) is W_BytesObject:
             break
     else:
         return space.fromcache(BytesListStrategy)
-        """
 
     # check for unicode
     for w_obj in list_w:
@@ -166,12 +164,11 @@ class W_ListObject(W_Root):
             self.switch_to_object_strategy()
         return self
 
-    # XXX: BytesListStrategy is currently broken
-    #@staticmethod
-    #def newlist_bytes(space, list_b):
-    #    strategy = space.fromcache(BytesListStrategy)
-    #    storage = strategy.erase(list_b)
-    #    return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+    @staticmethod
+    def newlist_bytes(space, list_b):
+        strategy = space.fromcache(BytesListStrategy)
+        storage = strategy.erase(list_b)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     @staticmethod
     def newlist_unicode(space, list_u):
@@ -875,8 +872,8 @@ class EmptyListStrategy(ListStrategy):
     def switch_to_correct_strategy(self, w_list, w_item):
         if type(w_item) is W_IntObject:
             strategy = self.space.fromcache(IntegerListStrategy)
-        #elif type(w_item) is W_BytesObject:
-        #    strategy = self.space.fromcache(BytesListStrategy)
+        elif type(w_item) is W_BytesObject:
+            strategy = self.space.fromcache(BytesListStrategy)
         elif type(w_item) is W_UnicodeObject:
             strategy = self.space.fromcache(UnicodeListStrategy)
         elif type(w_item) is W_FloatObject:
@@ -1778,7 +1775,7 @@ class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
 
-class StringSort(UnicodeBaseTimSort):
+class StringSort(StringBaseTimSort):
     def lt(self, a, b):
         return a < b
 
