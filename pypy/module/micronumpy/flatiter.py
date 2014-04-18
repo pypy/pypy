@@ -35,7 +35,7 @@ class W_FlatIterator(W_NDimArray):
         self.iter, self.state = self.base.create_iter()
 
     def descr_len(self, space):
-        return space.wrap(self.base.get_size())
+        return space.wrap(self.iter.size)
 
     def descr_next(self, space):
         if self.iter.done(self.state):
@@ -48,8 +48,7 @@ class W_FlatIterator(W_NDimArray):
         return space.wrap(self.state.index)
 
     def descr_coords(self, space):
-        coords = self.base.to_coords(space, space.wrap(self.state.index))
-        return space.newtuple([space.wrap(c) for c in coords])
+        return space.newtuple([space.wrap(c) for c in self.state.indices])
 
     def descr_getitem(self, space, w_idx):
         if not (space.isinstance_w(w_idx, space.w_int) or
