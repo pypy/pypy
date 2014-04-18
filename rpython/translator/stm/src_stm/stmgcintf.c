@@ -136,8 +136,8 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         stm_thread_local.shadowstack;
 #endif
 
+    STM_PUSH_ROOT(stm_thread_local, STM_STACK_MARKER_NEW);
     STM_PUSH_ROOT(stm_thread_local, arg);
-    /*STM_PUSH_ROOT(END_MARKER_OFF); XXX redo this optimization */
 
     while (1) {
 
@@ -165,7 +165,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
 
         /* invoke the callback in the new transaction */
         STM_POP_ROOT(stm_thread_local, arg);
-        assert(v_old_shadowstack == stm_thread_local.shadowstack);
+        assert(v_old_shadowstack == stm_thread_local.shadowstack - 1);
         STM_PUSH_ROOT(stm_thread_local, arg);
 
         long result = v_callback(arg, v_counter);
@@ -200,9 +200,9 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
     }
 
-    //gcptr x = stm_pop_root();   /* pop the END_MARKER */
-    //assert(x == END_MARKER_OFF || x == END_MARKER_ON);
     STM_POP_ROOT_RET(stm_thread_local);             /* pop the 'arg' */
+    uintptr_t x = (uintptr_t)STM_POP_ROOT_RET(stm_thread_local);
+    assert(x == STM_STACK_MARKER_NEW || x == STM_STACK_MARKER_OLD);
     assert(v_old_shadowstack == stm_thread_local.shadowstack);
 }
 
