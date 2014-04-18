@@ -1079,6 +1079,10 @@ class FakeSpace:
         assert isinstance(string, str)
         return string
 
+    def bytes_w(self, string):
+        assert isinstance(string, str)
+        return string
+
     def unicode_w(self, string):
         assert isinstance(string, unicode)
         return string
