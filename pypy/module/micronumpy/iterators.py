@@ -164,38 +164,6 @@ class ArrayIter(object):
         self.array.setitem(state.offset, elem)
 
 
-class SliceIterator(ArrayIter):
-    def __init__(self, arr, strides, backstrides, shape, order="C",
-                    backward=False, dtype=None):
-        if dtype is None:
-            dtype = arr.implementation.dtype
-        self.dtype = dtype
-        self.arr = arr
-        if backward:
-            self.slicesize = shape[0]
-            self.gap = [support.product(shape[1:]) * dtype.elsize]
-            strides = strides[1:]
-            backstrides = backstrides[1:]
-            shape = shape[1:]
-            strides.reverse()
-            backstrides.reverse()
-            shape.reverse()
-            size = support.product(shape)
-        else:
-            shape = [support.product(shape)]
-            strides, backstrides = calc_strides(shape, dtype, order)
-            size = 1
-            self.slicesize = support.product(shape)
-            self.gap = strides
-        ArrayIter.__init__(self, arr.implementation, size, shape, strides, backstrides)
-
-    def getslice(self):
-        from pypy.module.micronumpy.concrete import SliceArray
-        return SliceArray(self.offset, self.gap, self.backstrides,
-                          [self.slicesize], self.arr.implementation,
-                          self.arr, self.dtype)
-
-
 def AxisIter(array, shape, axis, cumulative):
     strides = array.get_strides()
     backstrides = array.get_backstrides()
