@@ -27,16 +27,17 @@ class IteratorMixin(object):
 
     def __init__(self, it, op_flags):
         self.it = it
+        self.st = it.reset()
         self.op_flags = op_flags
 
     def done(self):
-        return self.it.done()
+        return self.it.done(self.st)
 
     def next(self):
-        self.it.next()
+        self.st = self.it.next(self.st)
 
     def getitem(self, space, array):
-        return self.op_flags.get_it_item[self.index](space, array, self.it)
+        return self.op_flags.get_it_item[self.index](space, array, self.it, self.st)
 
     def setitem(self, space, array, val):
         xxx
@@ -89,13 +90,13 @@ class OpFlag(object):
         self.get_it_item = (get_readonly_item, get_readonly_slice)
 
 
-def get_readonly_item(space, array, it):
-    return space.wrap(it.getitem())
+def get_readonly_item(space, array, it, st):
+    return space.wrap(it.getitem(st))
 
 
-def get_readwrite_item(space, array, it):
+def get_readwrite_item(space, array, it, st):
     #create a single-value view (since scalars are not views)
-    res = SliceArray(it.array.start + it.offset, [0], [0], [1], it.array, array)
+    res = SliceArray(it.array.start + st.offset, [0], [0], [1], it.array, array)
     #it.dtype.setitem(res, 0, it.getitem())
     return W_NDimArray(res)
 

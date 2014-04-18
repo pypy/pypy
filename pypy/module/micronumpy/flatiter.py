@@ -32,23 +32,23 @@ class W_FlatIterator(W_NDimArray):
         self.reset()
 
     def reset(self):
-        self.iter = self.base.create_iter()
+        self.iter, self.state = self.base.create_iter()
 
     def descr_len(self, space):
         return space.wrap(self.base.get_size())
 
     def descr_next(self, space):
-        if self.iter.done():
+        if self.iter.done(self.state):
             raise OperationError(space.w_StopIteration, space.w_None)
-        w_res = self.iter.getitem()
-        self.iter.next()
+        w_res = self.iter.getitem(self.state)
+        self.state = self.iter.next(self.state)
         return w_res
 
     def descr_index(self, space):
-        return space.wrap(self.iter.index)
+        return space.wrap(self.state.index)
 
     def descr_coords(self, space):
-        coords = self.base.to_coords(space, space.wrap(self.iter.index))
+        coords = self.base.to_coords(space, space.wrap(self.state.index))
         return space.newtuple([space.wrap(c) for c in coords])
 
     def descr_getitem(self, space, w_idx):
@@ -58,13 +58,13 @@ class W_FlatIterator(W_NDimArray):
         self.reset()
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
-        base_iter = base.create_iter()
-        base_iter.next_skip_x(start)
+        base_iter, base_state = base.create_iter()
+        base_state = base_iter.next_skip_x(base_state, start)
         if length == 1:
-            return base_iter.getitem()
+            return base_iter.getitem(base_state)
         res = W_NDimArray.from_shape(space, [length], base.get_dtype(),
                                      base.get_order(), w_instance=base)
-        return loop.flatiter_getitem(res, base_iter, step)
+        return loop.flatiter_getitem(res, base_iter, base_state, step)
 
     def descr_setitem(self, space, w_idx, w_value):
         if not (space.isinstance_w(w_idx, space.w_int) or

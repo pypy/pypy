@@ -52,19 +52,20 @@ class PureShapeIter(object):
         self.shapelen = len(shape)
         self.indexes = [0] * len(shape)
         self._done = False
-        self.idx_w = [None] * len(idx_w)
+        self.idx_w_i = [None] * len(idx_w)
+        self.idx_w_s = [None] * len(idx_w)
         for i, w_idx in enumerate(idx_w):
             if isinstance(w_idx, W_NDimArray):
-                self.idx_w[i] = w_idx.create_iter(shape)
+                self.idx_w_i[i], self.idx_w_s[i] = w_idx.create_iter(shape)
 
     def done(self):
         return self._done
 
     @jit.unroll_safe
     def next(self):
-        for w_idx in self.idx_w:
-            if w_idx is not None:
-                w_idx.next()
+        for i, idx_w_i in enumerate(self.idx_w_i):
+            if idx_w_i is not None:
+                self.idx_w_s[i] = idx_w_i.next(self.idx_w_s[i])
         for i in range(self.shapelen - 1, -1, -1):
             if self.indexes[i] < self.shape[i] - 1:
                 self.indexes[i] += 1
@@ -77,6 +78,15 @@ class PureShapeIter(object):
     @jit.unroll_safe
     def get_index(self, space, shapelen):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
+
+
+class IterState(object):
+    _immutable_fields_ = ['index', 'indices[*]', 'offset']
+
+    def __init__(self, index, indices, offset):
+        self.index = index
+        self.indices = indices
+        self.offset = offset
 
 
 class ArrayIter(object):
@@ -92,61 +102,59 @@ class ArrayIter(object):
         self.strides = strides
         self.backstrides = backstrides
 
-        self.index = 0
-        self.indices = [0] * len(shape)
-        self.offset = array.start
-
-    @jit.unroll_safe
     def reset(self):
-        self.index = 0
-        for i in xrange(self.ndim_m1, -1, -1):
-            self.indices[i] = 0
-        self.offset = self.array.start
+        return IterState(0, [0] * len(self.shape_m1), self.array.start)
 
     @jit.unroll_safe
-    def next(self):
-        self.index += 1
+    def next(self, state):
+        index = state.index + 1
+        indices = state.indices
+        offset = state.offset
         for i in xrange(self.ndim_m1, -1, -1):
-            idx = self.indices[i]
+            idx = indices[i]
             if idx < self.shape_m1[i]:
-                self.indices[i] = idx + 1
-                self.offset += self.strides[i]
+                indices[i] = idx + 1
+                offset += self.strides[i]
                 break
             else:
-                self.indices[i] = 0
-                self.offset -= self.backstrides[i]
+                indices[i] = 0
+                offset -= self.backstrides[i]
+        return IterState(index, indices, offset)
 
     @jit.unroll_safe
-    def next_skip_x(self, step):
+    def next_skip_x(self, state, step):
         assert step >= 0
         if step == 0:
-            return
-        self.index += step
+            return state
+        index = state.index + step
+        indices = state.indices
+        offset = state.offset
         for i in xrange(self.ndim_m1, -1, -1):
-            idx = self.indices[i]
+            idx = indices[i]
             if idx < (self.shape_m1[i] + 1) - step:
-                self.indices[i] = idx + step
-                self.offset += self.strides[i] * step
+                indices[i] = idx + step
+                offset += self.strides[i] * step
                 break
             else:
-                rem_step = (self.indices[i] + step) // (self.shape_m1[i] + 1)
+                rem_step = (idx + step) // (self.shape_m1[i] + 1)
                 cur_step = step - rem_step * (self.shape_m1[i] + 1)
-                self.indices[i] += cur_step
-                self.offset += self.strides[i] * cur_step
+                indices[i] = idx + cur_step
+                offset += self.strides[i] * cur_step
                 step = rem_step
                 assert step > 0
+        return IterState(index, indices, offset)
 
-    def done(self):
-        return self.index >= self.size
+    def done(self, state):
+        return state.index >= self.size
 
-    def getitem(self):
-        return self.array.getitem(self.offset)
+    def getitem(self, state):
+        return self.array.getitem(state.offset)
 
-    def getitem_bool(self):
-        return self.array.getitem_bool(self.offset)
+    def getitem_bool(self, state):
+        return self.array.getitem_bool(state.offset)
 
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
+    def setitem(self, state, elem):
+        self.array.setitem(state.offset, elem)
 
 
 class SliceIterator(ArrayIter):
