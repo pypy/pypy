@@ -361,5 +361,5 @@ class AppTestSorting(BaseNumpyAppTest):
         ret = a.searchsorted([-10, 10, 2, 3])
         assert (ret == [0, 5, 1, 2]).all()
         if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, "a.searchsorted(3, sorter=range(6)")
+            raises(NotImplementedError, "a.searchsorted(3, sorter=range(6))")
 

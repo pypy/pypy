@@ -712,8 +712,6 @@ class __extend__(W_NDimArray):
         else:
             raise oefmt(space.w_ValueError,
                          "'%s' is an invalid value for keyword 'side'", side)
-        ret = W_NDimArray.from_shape(space, self.get_shape(),
-                       descriptor.get_dtype_cache(space).w_longdtype)
         if len(self.get_shape()) > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                         "a must be a 1-d array"))
@@ -721,6 +719,8 @@ class __extend__(W_NDimArray):
         if len(v.get_shape()) >1:
             raise OperationError(space.w_ValueError, space.wrap(
                         "v must be a 1-d array-like"))
+        ret = W_NDimArray.from_shape(space, v.get_shape(),
+                       descriptor.get_dtype_cache(space).w_longdtype)
         app_searchsort(space, self, v, space.wrap(side), ret)
         return ret
 
@@ -1282,7 +1282,7 @@ app_searchsort = applevel(r"""
             imax = a.size
             while imin < imax:
                 imid = imin + ((imax - imin) >> 1)
-                if a[imid] <= val:
+                if a[imid] < val:
                     imin = imid +1
                 else:
                     imax = imid
@@ -1292,7 +1292,7 @@ app_searchsort = applevel(r"""
             imax = a.size
             while imin < imax:
                 imid = imin + ((imax - imin) >> 1)
-                if a[imid] < val:
+                if a[imid] <= val:
                     imin = imid +1
                 else:
                     imax = imid
@@ -1301,8 +1301,11 @@ app_searchsort = applevel(r"""
             func = left_find_index
         else:
             func = right_find_index
-        for i in range(v.size):
-            result[i] = func(arr, v[i])
+        if v.size < 2:
+            result[...] = func(arr, v)
+        else:
+            for i in range(v.size):
+                result[i] = func(arr, v[i])
         return result
 """, filename=__file__).interphook('searchsort')
 
