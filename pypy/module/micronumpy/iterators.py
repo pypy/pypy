@@ -42,7 +42,6 @@ dimension, perhaps we could overflow times in one big step.
 """
 from rpython.rlib import jit
 from pypy.module.micronumpy import support
-from pypy.module.micronumpy.strides import calc_strides
 from pypy.module.micronumpy.base import W_NDimArray
 
 
