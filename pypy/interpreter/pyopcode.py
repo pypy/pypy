@@ -71,8 +71,6 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-        rstm.push_marker(intmask(next_instr) * 2 + 1, pycode)
-
         try:
             while True:
                 if self.space.config.translation.stm:
@@ -86,8 +84,6 @@ class __extend__(pyframe.PyFrame):
                 rstm.update_marker_num(intmask(next_instr) * 2 + 1)
         except ExitFrame:
             return self.popvalue()
-        finally:
-            rstm.pop_marker()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:

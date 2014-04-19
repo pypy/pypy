@@ -48,7 +48,6 @@ class __extend__(PyFrame):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
         is_being_profiled = self.is_being_profiled
-        rstm.push_marker(intmask(next_instr) * 2 + 1, pycode)
         try:
             while True:
                 pypyjitdriver.jit_merge_point(ec=ec,
@@ -70,8 +69,6 @@ class __extend__(PyFrame):
         except ExitFrame:
             self.last_exception = None
             return self.popvalue()
-        finally:
-            rstm.pop_marker()
 
     def jump_absolute(self, jumpto, ec):
         if we_are_jitted():
