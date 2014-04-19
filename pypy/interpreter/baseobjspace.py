@@ -387,6 +387,16 @@ class ObjSpace(object):
             if isinstance(w_mod, Module) and not w_mod.startup_called:
                 w_mod.init(self)
 
+        if self.config.translation.stm:
+            from rpython.rtyper.lltypesystem import lltype
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            from rpython.rlib.objectmodel import instantiate
+            from pypy.interpreter.pycode import PyCode
+            #
+            llop.stm_setup_expand_marker_for_pypy(
+                lltype.Void, instantiate(PyCode),
+                "co_filename", "co_name", "co_firstlineno", "co_lnotab")
+
     def finish(self):
         self.wait_for_thread_shutdown()
         w_exitfunc = self.sys.getdictvalue(self, 'exitfunc')
