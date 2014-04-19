@@ -884,6 +884,7 @@ def gen_stm_prebuilt(f, database):
     print >> f
     print >> f, '#include "preimpl.h"'
     print >> f, '#include "src/rtyper.h"'
+    print >> f, '#include "src/debug_print.h"'
     print >> f, '#include "src_stm/extracode.h"'
 
 def commondefs(defines):
