@@ -509,19 +509,24 @@ class TestSTMTranslated(CompiledSTMTests):
             for i in range(10):
                 p = llop.stm_expand_marker(rffi.CCHARP)
                 print rffi.charp2str(p)
-                rstm.update_marker_num(i * 2 + 1)
+                rstm.update_marker_num((i+1) * 2 + 1)
             rstm.pop_marker()
             print 'stopping', pycode.co_name
 
         def main(argv):
             pycode1 = PyCode("/tmp/foobar.py", "baz", 40, "\x00\x01\x05\x01")
             pycode2 = PyCode("/tmp/foobaz.py", "bar", 70, "\x00\x01\x04\x02")
+            pycode3 = PyCode(
+                "/tmp/some/where/very/very/long/path/bla/br/project/foobaz.py",
+                "some_extremely_longish_and_boring_function_name",
+                80, "\x00\x01\x04\x02")
             llop.stm_setup_expand_marker_for_pypy(
                 lltype.Void, pycode1,
                 "co_filename", "co_name", "co_firstlineno", "co_lnotab")
 
             run_interpreter(pycode1)
             run_interpreter(pycode2)
+            run_interpreter(pycode3)
             return 0
 
         t, cbuilder = self.compile(main)
@@ -550,3 +555,6 @@ class TestSTMTranslated(CompiledSTMTests):
                 'File "/tmp/foobaz.py", line 73, in bar\n'
                 'File "/tmp/foobaz.py", line 73, in bar\n'
                 'stopping bar\n') in data
+        assert ('starting some_extremely_longish_and_boring_function_name\n'
+                'File "...bla/br/project/foobaz.py", line 81,'
+                ' in some_extremely_longish_a...\n') in data

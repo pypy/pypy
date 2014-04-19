@@ -43,35 +43,46 @@ void pypy_stm_unregister_thread_local(void)
 /*** HACK: hard-coded logic to expand the marker into     ***/
 /*** a string, suitable for running in PyPy               ***/
 
+typedef struct pypy_rpy_string0 RPyStringSpace0;
+
 static long g_co_filename_ofs;
 static long g_co_name_ofs;
 static long g_co_firstlineno_ofs;
 static long g_co_lnotab_ofs;
 
-static char *_RPyString_AsString_Real(RPyString *obj)
+static long _fetch_lngspace0(object_t *base, long ofs)
 {
-    stm_char *src = _RPyString_AsString(obj);
-    return STM_SEGMENT->segment_base + (uintptr_t)src;
+    char *src = STM_SEGMENT->segment_base + (uintptr_t)base;
+    return *(long *)(src + ofs);
+}
+
+static RPyStringSpace0 *_fetch_rpyspace0(object_t *base, long ofs)
+{
+    char *src = STM_SEGMENT->segment_base + (uintptr_t)base;
+    char *str = *(char **)(src + ofs);
+    char *str0 = STM_SEGMENT->segment_base + (uintptr_t)str;
+    return (RPyStringSpace0 *)str0;
 }
 
 static void _stm_expand_marker_for_pypy(uintptr_t odd_number,
                                         object_t *following_object,
                                         char *outputbuf, size_t outputbufsize)
 {
-    RPyString *co_filename =
-        *(RPyString **)(((char *)following_object) + g_co_filename_ofs);
-    RPyString *co_name =
-        *(RPyString **)(((char *)following_object) + g_co_name_ofs);
-    long co_firstlineno =
-        *(long *)(((char *)following_object) + g_co_firstlineno_ofs);
-    RPyString *co_lnotab =
-        *(RPyString **)(((char *)following_object) + g_co_lnotab_ofs);
+    long co_firstlineno;
+    RPyStringSpace0 *co_filename;
+    RPyStringSpace0 *co_name;
+    RPyStringSpace0 *co_lnotab;
+
+    co_filename    = _fetch_rpyspace0(following_object, g_co_filename_ofs);
+    co_name        = _fetch_rpyspace0(following_object, g_co_name_ofs);
+    co_firstlineno = _fetch_lngspace0(following_object, g_co_firstlineno_ofs);
+    co_lnotab      = _fetch_rpyspace0(following_object, g_co_lnotab_ofs);
 
     char *ntrunc = "", *fntrunc = "";
 
     long remaining = outputbufsize - 32;
     long nlen = RPyString_Size(co_name);
-    char *name = _RPyString_AsString_Real(co_name);
+    char *name = _RPyString_AsString(co_name);
     if (nlen > remaining / 2) {
         nlen = remaining / 2;
         ntrunc = "...";
@@ -79,7 +90,7 @@ static void _stm_expand_marker_for_pypy(uintptr_t odd_number,
     remaining -= nlen;
 
     long fnlen = RPyString_Size(co_filename);
-    char *fn = _RPyString_AsString_Real(co_filename);
+    char *fn = _RPyString_AsString(co_filename);
     if (fnlen > remaining) {
         fn += (fnlen - remaining);
         fnlen = remaining;
@@ -87,7 +98,7 @@ static void _stm_expand_marker_for_pypy(uintptr_t odd_number,
     }
 
     long tablen = RPyString_Size(co_lnotab);
-    char *tab = _RPyString_AsString_Real(co_lnotab);
+    char *tab = _RPyString_AsString(co_lnotab);
     uintptr_t next_instr = odd_number >> 1;
     long line = co_firstlineno;
     uintptr_t i, addr = 0;
