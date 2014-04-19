@@ -98,16 +98,16 @@ static void _stm_expand_marker_for_pypy(
         fntrunc = "...";
     }
 
-    long tablen = RPyString_Size(co_lnotab);
-    char *tab = _RPyString_AsString(co_lnotab);
+    long lnotablen = RPyString_Size(co_lnotab);
+    char *lnotab = _RPyString_AsString(co_lnotab);
     uintptr_t next_instr = odd_number >> 1;
     long line = co_firstlineno;
     uintptr_t i, addr = 0;
-    for (i = 0; i < tablen; i += 2) {
-        addr += ((unsigned char *)tab)[i];
+    for (i = 0; i < lnotablen; i += 2) {
+        addr += ((unsigned char *)lnotab)[i];
         if (addr > next_instr)
             break;
-        line += ((unsigned char *)tab)[i + 1];
+        line += ((unsigned char *)lnotab)[i + 1];
     }
 
     snprintf(outputbuf, outputbufsize, "File \"%s%.*s\", line %ld, in %.*s%s",
