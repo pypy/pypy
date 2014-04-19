@@ -1,8 +1,5 @@
 import py, os, sys
 
-if py.path.local.sysfind('genreflex') is None:
-    py.test.skip("genreflex is not installed")
-
 from pypy.module.cppyy import capi
 
 

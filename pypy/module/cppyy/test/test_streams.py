@@ -1,8 +1,5 @@
 import py, os, sys
 
-if py.path.local.sysfind('genreflex') is None:
-    py.test.skip("genreflex is not installed")
-
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("std_streamsDict.so"))

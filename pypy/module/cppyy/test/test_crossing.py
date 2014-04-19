@@ -1,8 +1,5 @@
 import py, os, sys
 
-if py.path.local.sysfind('genreflex') is None:
-     py.test.skip("genreflex is not installed")
-
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import platform

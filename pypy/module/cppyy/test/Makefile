@@ -5,8 +5,10 @@ all : $(dicts)
 
 ifneq (${REFLEXHOME},)
   ROOTSYS := ${REFLEXHOME}
-else
+else ifneq (${ROOTSYS},)
   ROOTSYS := ${ROOTSYS}
+else
+  DUMMY := t
 endif
 
 ifeq ($(DUMMY),t)
