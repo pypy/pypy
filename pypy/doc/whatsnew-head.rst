@@ -143,3 +143,6 @@ Implement the core of nditer, without many of the fancy flags (external_loop, bu
 
 .. branch: numpy-speed
 Separate iterator from its state so jit can optimize better
+
+.. branch: numpy-searchsorted
+Implement searchsorted without sorter kwarg

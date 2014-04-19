@@ -697,9 +697,32 @@ class __extend__(W_NDimArray):
         loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
         return out
 
-    def descr_searchsorted(self, space, w_v, w_side='left'):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "searchsorted not implemented yet"))
+    @unwrap_spec(side=str, w_sorter=WrappedDefault(None))
+    def descr_searchsorted(self, space, w_v, side='left', w_sorter=None):
+        if not space.is_none(w_sorter):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                'sorter not supported in searchsort'))
+        if not side or len(side) < 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "expected nonempty string for keyword 'side'"))
+        elif side[0] == 'l' or side[0] == 'L':
+            side = 'l'
+        elif side[0] == 'r' or side[0] == 'R':
+            side = 'r'
+        else:
+            raise oefmt(space.w_ValueError,
+                         "'%s' is an invalid value for keyword 'side'", side)
+        if len(self.get_shape()) > 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                        "a must be a 1-d array"))
+        v = convert_to_array(space, w_v)
+        if len(v.get_shape()) >1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                        "v must be a 1-d array-like"))
+        ret = W_NDimArray.from_shape(space, v.get_shape(),
+                       descriptor.get_dtype_cache(space).w_longdtype)
+        app_searchsort(space, self, v, space.wrap(side), ret)
+        return ret
 
     def descr_setasflat(self, space, w_v):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -1252,6 +1275,40 @@ app_ptp = applevel(r"""
         return res
 """, filename=__file__).interphook('ptp')
 
+app_searchsort = applevel(r"""
+    def searchsort(arr, v, side, result):
+        def left_find_index(a, val):
+            imin = 0
+            imax = a.size
+            while imin < imax:
+                imid = imin + ((imax - imin) >> 1)
+                if a[imid] < val:
+                    imin = imid +1
+                else:
+                    imax = imid
+            return imin
+        def right_find_index(a, val):
+            imin = 0
+            imax = a.size
+            while imin < imax:
+                imid = imin + ((imax - imin) >> 1)
+                if a[imid] <= val:
+                    imin = imid +1
+                else:
+                    imax = imid
+            return imin
+        if side == 'l':
+            func = left_find_index
+        else:
+            func = right_find_index
+        if v.size < 2:
+            result[...] = func(arr, v)
+        else:
+            for i in range(v.size):
+                result[i] = func(arr, v[i])
+        return result
+""", filename=__file__).interphook('searchsort')
+
 W_NDimArray.typedef = TypeDef("ndarray",
     __module__ = "numpy",
     __new__ = interp2app(descr_new_array),
@@ -1355,6 +1412,7 @@ W_NDimArray.typedef = TypeDef("ndarray",
     dot = interp2app(W_NDimArray.descr_dot),
     var = interp2app(W_NDimArray.descr_var),
     std = interp2app(W_NDimArray.descr_std),
+    searchsorted = interp2app(W_NDimArray.descr_searchsorted),
 
     cumsum = interp2app(W_NDimArray.descr_cumsum),
     cumprod = interp2app(W_NDimArray.descr_cumprod),
