@@ -50,33 +50,34 @@ static long g_co_name_ofs;
 static long g_co_firstlineno_ofs;
 static long g_co_lnotab_ofs;
 
-static long _fetch_lngspace0(object_t *base, long ofs)
+static long _fetch_lngspace0(char *seg_base, object_t *base, long ofs)
 {
-    char *src = STM_SEGMENT->segment_base + (uintptr_t)base;
+    char *src = seg_base + (uintptr_t)base;
     return *(long *)(src + ofs);
 }
 
-static RPyStringSpace0 *_fetch_rpyspace0(object_t *base, long ofs)
+static RPyStringSpace0 *_fetch_rpyspace0(char *seg_base, object_t *base,
+                                         long ofs)
 {
-    char *src = STM_SEGMENT->segment_base + (uintptr_t)base;
+    char *src = seg_base + (uintptr_t)base;
     char *str = *(char **)(src + ofs);
-    char *str0 = STM_SEGMENT->segment_base + (uintptr_t)str;
+    char *str0 = seg_base + (uintptr_t)str;
     return (RPyStringSpace0 *)str0;
 }
 
-static void _stm_expand_marker_for_pypy(uintptr_t odd_number,
-                                        object_t *following_object,
-                                        char *outputbuf, size_t outputbufsize)
+static void _stm_expand_marker_for_pypy(
+        char *segment_base, uintptr_t odd_number, object_t *o,
+        char *outputbuf, size_t outputbufsize)
 {
     long co_firstlineno;
     RPyStringSpace0 *co_filename;
     RPyStringSpace0 *co_name;
     RPyStringSpace0 *co_lnotab;
 
-    co_filename    = _fetch_rpyspace0(following_object, g_co_filename_ofs);
-    co_name        = _fetch_rpyspace0(following_object, g_co_name_ofs);
-    co_firstlineno = _fetch_lngspace0(following_object, g_co_firstlineno_ofs);
-    co_lnotab      = _fetch_rpyspace0(following_object, g_co_lnotab_ofs);
+    co_filename    = _fetch_rpyspace0(segment_base, o, g_co_filename_ofs);
+    co_name        = _fetch_rpyspace0(segment_base, o, g_co_name_ofs);
+    co_firstlineno = _fetch_lngspace0(segment_base, o, g_co_firstlineno_ofs);
+    co_lnotab      = _fetch_rpyspace0(segment_base, o, g_co_lnotab_ofs);
 
     char *ntrunc = "", *fntrunc = "";
 
