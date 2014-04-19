@@ -380,7 +380,7 @@ static void mark_visit_from_roots(void)
         struct stm_shadowentry_s *current = tl->shadowstack;
         struct stm_shadowentry_s *base = tl->shadowstack_base;
         while (current-- != base) {
-            if (((uintptr_t)current->ss) > STM_STACK_MARKER_OLD)
+            if ((((uintptr_t)current->ss) & 3) == 0)
                 mark_visit_object(current->ss, segment_base);
         }
         mark_visit_object(tl->thread_local_obj, segment_base);

@@ -161,28 +161,26 @@ static void collect_roots_in_nursery(void)
         --current;
         OPT_ASSERT(current >= base);
 
-        switch ((uintptr_t)current->ss) {
+        uintptr_t x = (uintptr_t)current->ss;
 
-        case 0:   /* NULL */
-            continue;
-
-        case STM_STACK_MARKER_NEW:
+        if ((x & 3) == 0) {
+            /* the stack entry is a regular pointer (possibly NULL) */
+            minor_trace_if_young(&current->ss);
+        }
+        else if (x == STM_STACK_MARKER_NEW) {
             /* the marker was not already seen: mark it as seen,
                but continue looking more deeply in the shadowstack */
             current->ss = (object_t *)STM_STACK_MARKER_OLD;
-            continue;
-
-        case STM_STACK_MARKER_OLD:
+        }
+        else if (x == STM_STACK_MARKER_OLD) {
             /* the marker was already seen: we can stop the
                root stack tracing at this point */
-            goto interrupt;
-
-        default:
-            /* the stack entry is a regular pointer */
-            minor_trace_if_young(&current->ss);
+            break;
+        }
+        else {
+            /* it is an odd-valued marker, ignore */
         }
     }
- interrupt:
     minor_trace_if_young(&tl->thread_local_obj);
 }
 

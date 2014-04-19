@@ -74,6 +74,8 @@ enum stm_time_e {
     _STM_TIME_N
 };
 
+#define _STM_MARKER_LEN  80
+
 typedef struct stm_thread_local_s {
     /* every thread should handle the shadow stack itself */
     struct stm_shadowentry_s *shadowstack, *shadowstack_base;
@@ -91,6 +93,11 @@ typedef struct stm_thread_local_s {
     float timing[_STM_TIME_N];
     double _timing_cur_start;
     enum stm_time_e _timing_cur_state;
+    /* the marker with the longest associated time so far */
+    enum stm_time_e longest_marker_state;
+    double longest_marker_time;
+    char longest_marker_self[_STM_MARKER_LEN];
+    char longest_marker_other[_STM_MARKER_LEN];
     /* the next fields are handled internally by the library */
     int associated_segment_num;
     struct stm_thread_local_s *prev, *next;
@@ -265,8 +272,8 @@ void stm_teardown(void);
 #define STM_PUSH_ROOT(tl, p)   ((tl).shadowstack++->ss = (object_t *)(p))
 #define STM_POP_ROOT(tl, p)    ((p) = (typeof(p))((--(tl).shadowstack)->ss))
 #define STM_POP_ROOT_RET(tl)   ((--(tl).shadowstack)->ss)
-#define STM_STACK_MARKER_NEW   1
-#define STM_STACK_MARKER_OLD   2
+#define STM_STACK_MARKER_NEW   2
+#define STM_STACK_MARKER_OLD   6
 
 
 /* Every thread needs to have a corresponding stm_thread_local_t
@@ -367,6 +374,41 @@ void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
 
 /* Temporary? */
 void stm_flush_timing(stm_thread_local_t *tl, int verbose);
+
+
+/* The markers pushed in the shadowstack are an odd number followed by a
+   regular pointer.  When needed, this library invokes this callback to
+   turn this pair into a human-readable explanation. */
+extern void (*stmcb_expand_marker)(uintptr_t odd_number,
+                                   object_t *following_object,
+                                   char *outputbuf, size_t outputbufsize);
+
+/* Conventience macros to push the markers into the shadowstack */
+#define STM_PUSH_MARKER(tl, odd_num, p)   do {  \
+    uintptr_t _odd_num = (odd_num);             \
+    assert(_odd_num & 1);                       \
+    STM_PUSH_ROOT(tl, _odd_num);                \
+    STM_PUSH_ROOT(tl, p);                       \
+} while (0)
+
+#define STM_POP_MARKER(tl)   ({                 \
+    object_t *_popped = STM_POP_ROOT_RET(tl);   \
+    STM_POP_ROOT_RET(tl);                       \
+    _popped;                                    \
+})
+
+#define STM_UPDATE_MARKER_NUM(tl, odd_num)  do {                \
+    uintptr_t _odd_num = (odd_num);                             \
+    assert(_odd_num & 1);                                       \
+    struct stm_shadowentry_s *_ss = (tl).shadowstack - 2;       \
+    while (!(((uintptr_t)(_ss->ss)) & 1)) {                     \
+        _ss--;                                                  \
+        assert(_ss >= (tl).shadowstack_base);                   \
+    }                                                           \
+    _ss->ss = (object_t *)_odd_num;                             \
+} while (0)
+
+char *_stm_expand_marker(void);
 
 
 /* ==================== END ==================== */
