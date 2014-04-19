@@ -695,7 +695,6 @@ class __extend__(W_NDimArray):
 
     @unwrap_spec(side=str, w_sorter=WrappedDefault(None))
     def descr_searchsorted(self, space, w_v, side='left', w_sorter=None):
-        from pypy.module.micronumpy.sort import searchsort
         if not space.is_none(w_sorter):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 'sorter not supported in searchsort'))
@@ -718,7 +717,8 @@ class __extend__(W_NDimArray):
         if len(v.get_shape()) >1:
             raise OperationError(space.w_ValueError, space.wrap(
                         "v must be a 1-d array-like"))
-        return searchsort(self, space, v, side, ret)
+        app_searchsort(space, self, v, space.wrap(side), ret)
+        return ret
 
     def descr_setasflat(self, space, w_v):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -1270,6 +1270,37 @@ app_ptp = applevel(r"""
             return out
         return res
 """, filename=__file__).interphook('ptp')
+
+app_searchsort = applevel(r"""
+    def searchsort(arr, v, side, result):
+        def left_find_index(a, val):
+            imin = 0
+            imax = a.size
+            while imin < imax:
+                imid = imin + ((imax - imin) >> 1)
+                if a[imid] <= val:
+                    imin = imid +1
+                else:
+                    imax = imid
+            return imin
+        def right_find_index(a, val):
+            imin = 0
+            imax = a.size
+            while imin < imax:
+                imid = imin + ((imax - imin) >> 1)
+                if a[imid] < val:
+                    imin = imid +1
+                else:
+                    imax = imid
+            return imin
+        if side == 'l':
+            func = left_find_index
+        else:
+            func = right_find_index
+        for i in range(v.size):
+            result[i] = func(arr, v[i])
+        return result
+""", filename=__file__).interphook('searchsort')
 
 W_NDimArray.typedef = TypeDef("ndarray",
     __module__ = "numpy",

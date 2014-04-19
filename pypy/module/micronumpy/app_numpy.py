@@ -24,7 +24,7 @@ def arange(start, stop=None, step=1, dtype=None):
     return arr
 
 # How to call this from descr_searchsorted??
-def searchsort(space, arr, v, side, result):
+def searchsort(arr, v, side, result):
     def left_find_index(a, val):
         imin = 0
         imax = a.size
@@ -50,6 +50,6 @@ def searchsort(space, arr, v, side, result):
     else:
         func = right_find_index
     for i in range(v.get_size()):
-        result[i] = func(self, v[i])
+        result[i] = func(arr, v[i])
     return result
 
