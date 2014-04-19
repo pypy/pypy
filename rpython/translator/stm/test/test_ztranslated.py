@@ -495,7 +495,9 @@ class TestSTMTranslated(CompiledSTMTests):
         assert '-1298\n' in data
 
     def test_pypy_marker(self):
-        class PyCode(object):
+        class Code(object):
+            pass
+        class PyCode(Code):
             def __init__(self, co_filename, co_name,
                          co_firstlineno, co_lnotab):
                 self.co_filename = co_filename
@@ -520,6 +522,7 @@ class TestSTMTranslated(CompiledSTMTests):
                 "/tmp/some/where/very/very/long/path/bla/br/project/foobaz.py",
                 "some_extremely_longish_and_boring_function_name",
                 80, "\x00\x01\x04\x02")
+            Code().co_name = "moved up"
             llop.stm_setup_expand_marker_for_pypy(
                 lltype.Void, pycode1,
                 "co_filename", "co_name", "co_firstlineno", "co_lnotab")

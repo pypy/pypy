@@ -225,12 +225,17 @@ def stm_expand_marker(funcgen, op):
 
 def stm_setup_expand_marker_for_pypy(funcgen, op):
     # hack hack hack
-    node = funcgen.db.gettypedefnode(op.args[0].concretetype.TO)
-    typename = funcgen.db.gettype(op.args[0].concretetype.TO)
-    names = [''.join(arg.value.chars) for arg in op.args[1:]]
-    names = [node.c_struct_field_name('inst_' + name) for name in names]
-    offsets = ['offsetof(%s, %s)' % (cdecl(typename, ''), name)
-               for name in names]
+    offsets = []
+    for arg in op.args[1:]:
+        name = 'inst_' + ''.join(arg.value.chars)
+        S = op.args[0].concretetype.TO
+        while True:
+            node = funcgen.db.gettypedefnode(S)
+            if name in node.fieldnames:
+                break
+            S = S.super
+        name = node.c_struct_field_name(name)
+        offsets.append('offsetof(struct %s, %s)' % (node.name, name))
     assert len(offsets) == 4
     return 'pypy_stm_setup_expand_marker(%s, %s, %s, %s);' % (
         offsets[0], offsets[1], offsets[2], offsets[3])
