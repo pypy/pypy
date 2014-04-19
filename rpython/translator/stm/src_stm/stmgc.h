@@ -382,6 +382,8 @@ void stm_flush_timing(stm_thread_local_t *tl, int verbose);
 extern void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
                                    object_t *following_object,
                                    char *outputbuf, size_t outputbufsize);
+extern void (*stmcb_debug_print)(const char *cause, double time,
+                                 const char *marker);
 
 /* Conventience macros to push the markers into the shadowstack */
 #define STM_PUSH_MARKER(tl, odd_num, p)   do {  \

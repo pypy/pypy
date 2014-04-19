@@ -8,6 +8,9 @@ void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
                             object_t *following_object,
                             char *outputbuf, size_t outputbufsize);
 
+void (*stmcb_debug_print)(const char *cause, double time,
+                          const char *marker);
+
 
 static void marker_fetch_expand(struct stm_priv_segment_info_s *pseg)
 {
@@ -56,6 +59,9 @@ static void marker_copy(stm_thread_local_t *tl,
        earlier than now (some objects may be GCed), but we only know
        here the total time it gets attributed.
     */
+    if (stmcb_debug_print) {
+        stmcb_debug_print(timer_names[attribute_to], time, pseg->marker_self);
+    }
     if (time * 0.99 > tl->longest_marker_time) {
         tl->longest_marker_state = attribute_to;
         tl->longest_marker_time = time;
