@@ -140,3 +140,6 @@ Fix issues with reimporting builtin modules
 
 .. branch: numpypy-nditer
 Implement the core of nditer, without many of the fancy flags (external_loop, buffered)
+
+.. branch: numpy-speed
+Separate iterator from its state so jit can optimize better

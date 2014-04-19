@@ -47,7 +47,8 @@ class TestNumpyJit(LLJitMixin):
                 raise Exception("need results")
             w_res = interp.results[-1]
             if isinstance(w_res, W_NDimArray):
-                w_res = w_res.create_iter().getitem()
+                i, s = w_res.create_iter()
+                w_res = i.getitem(s)
             if isinstance(w_res, boxes.W_Float64Box):
                 return w_res.value
             if isinstance(w_res, boxes.W_Int64Box):
@@ -101,7 +102,6 @@ class TestNumpyJit(LLJitMixin):
         self.check_simple_loop({
             'float_add': 1,
             'getarrayitem_gc': 3,
-            'getfield_gc': 7,
             'guard_false': 1,
             'guard_not_invalidated': 1,
             'guard_true': 3,
@@ -112,7 +112,6 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
             'raw_store': 1,
             'setarrayitem_gc': 3,
-            'setfield_gc': 6,
         })
 
     def define_pow():
@@ -132,7 +131,6 @@ class TestNumpyJit(LLJitMixin):
             'float_mul': 2,
             'float_ne': 1,
             'getarrayitem_gc': 3,
-            'getfield_gc': 7,
             'guard_false': 4,
             'guard_not_invalidated': 1,
             'guard_true': 5,
@@ -144,7 +142,34 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
             'raw_store': 1,
             'setarrayitem_gc': 3,
-            'setfield_gc': 6,
+        })
+
+    def define_pow_int():
+        return """
+        a = astype(|30|, int)
+        b = astype([2], int)
+        c = a ** b
+        c -> 3
+        """
+
+    def test_pow_int(self):
+        result = self.run("pow_int")
+        assert result == 3 ** 2
+        self.check_trace_count(2)  # extra one for the astype
+        del get_stats().loops[0]   # we don't care about it
+        self.check_simple_loop({
+            'call': 1,
+            'getarrayitem_gc': 3,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 3,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
         })
 
     def define_sum():
@@ -356,14 +381,21 @@ class TestNumpyJit(LLJitMixin):
     def test_slice(self):
         result = self.run("slice")
         assert result == 18
-        py.test.skip("don't run for now")
-        self.check_simple_loop({'raw_load': 2,
-                                'float_add': 1,
-                                'raw_store': 1,
-                                'int_add': 3,
-                                'int_ge': 1, 'guard_false': 1,
-                                'jump': 1,
-                                'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 3,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 3,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
+        })
 
     def define_take():
         return """
@@ -527,7 +559,6 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({
             'getarrayitem_gc': 2,
-            'getfield_gc': 4,
             'guard_not_invalidated': 1,
             'guard_true': 3,
             'int_add': 6,
@@ -538,13 +569,12 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 1,
             'raw_store': 1,
             'setarrayitem_gc': 2,
-            'setfield_gc': 4,
         })
 
     def define_dot():
         return """
         a = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
-        b=[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
+        b = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
         c = dot(a, b)
         c -> 1 -> 2
         """
@@ -564,29 +594,30 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
         })
         self.check_resops({
+            'arraylen_gc': 1,
             'float_add': 2,
             'float_mul': 2,
             'getarrayitem_gc': 7,
             'getarrayitem_gc_pure': 15,
-            'getfield_gc': 35,
-            'getfield_gc_pure': 39,
+            'getfield_gc': 8,
+            'getfield_gc_pure': 44,
             'guard_class': 4,
             'guard_false': 14,
-            'guard_nonnull': 12,
-            'guard_nonnull_class': 4,
             'guard_not_invalidated': 2,
             'guard_true': 13,
-            'guard_value': 4,
             'int_add': 25,
             'int_ge': 4,
             'int_le': 8,
             'int_lt': 11,
             'int_sub': 4,
             'jump': 3,
+            'new_array': 1,
+            'new_with_vtable': 7,
             'raw_load': 6,
             'raw_store': 1,
-            'setarrayitem_gc': 10,
-            'setfield_gc': 14,
+            'same_as': 2,
+            'setarrayitem_gc': 8,
+            'setfield_gc': 21,
         })
 
     def define_argsort():
@@ -599,3 +630,31 @@ class TestNumpyJit(LLJitMixin):
     def test_argsort(self):
         result = self.run("argsort")
         assert result == 6
+
+    def define_where():
+        return """
+        a = [1, 0, 1, 0]
+        x = [1, 2, 3, 4]
+        y = [-10, -20, -30, -40]
+        r = where(a, x, y)
+        r -> 3
+        """
+
+    def test_where(self):
+        result = self.run("where")
+        assert result == -40
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_ne': 1,
+            'getarrayitem_gc': 4,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 5,
+            'int_add': 12,
+            'int_ge': 1,
+            'int_lt': 4,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 4,
+        })

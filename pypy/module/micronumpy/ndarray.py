@@ -18,7 +18,7 @@ from pypy.module.micronumpy.converters import order_converter, shape_converter, 
     multi_axis_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.flatiter import W_FlatIterator
-from pypy.module.micronumpy.strides import get_shape_from_iterable, to_coords, \
+from pypy.module.micronumpy.strides import get_shape_from_iterable, \
     shape_agreement, shape_agreement_multiple
 
 
@@ -260,24 +260,24 @@ class __extend__(W_NDimArray):
         return space.call_function(cache.w_array_str, self)
 
     def dump_data(self, prefix='array(', separator=',', suffix=')'):
-        i = self.create_iter()
+        i, state = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
         s.append(prefix)
         if not self.is_scalar():
             s.append('[')
-        while not i.done():
+        while not i.done(state):
             if first:
                 first = False
             else:
                 s.append(separator)
                 s.append(' ')
             if self.is_scalar() and dtype.is_str():
-                s.append(dtype.itemtype.to_str(i.getitem()))
+                s.append(dtype.itemtype.to_str(i.getitem(state)))
             else:
-                s.append(dtype.itemtype.str_format(i.getitem()))
-            i.next()
+                s.append(dtype.itemtype.str_format(i.getitem(state)))
+            state = i.next(state)
         if not self.is_scalar():
             s.append(']')
         s.append(suffix)
@@ -469,29 +469,33 @@ class __extend__(W_NDimArray):
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
 
-    def to_coords(self, space, w_index):
-        coords, _, _ = to_coords(space, self.get_shape(),
-                                 self.get_size(), self.get_order(),
-                                 w_index)
-        return coords
-
-    def descr_item(self, space, w_arg=None):
-        if space.is_none(w_arg):
+    def descr_item(self, space, __args__):
+        args_w, kw_w = __args__.unpack()
+        if len(args_w) == 1 and space.isinstance_w(args_w[0], space.w_tuple):
+            args_w = space.fixedview(args_w[0])
+        shape = self.get_shape()
+        coords = [0] * len(shape)
+        if len(args_w) == 0:
             if self.get_size() == 1:
                 w_obj = self.get_scalar_value()
                 assert isinstance(w_obj, boxes.W_GenericBox)
                 return w_obj.item(space)
             raise oefmt(space.w_ValueError,
                 "can only convert an array of size 1 to a Python scalar")
-        if space.isinstance_w(w_arg, space.w_int):
-            if self.is_scalar():
-                raise oefmt(space.w_IndexError, "index out of bounds")
-            i = self.to_coords(space, w_arg)
-            item = self.getitem(space, i)
-            assert isinstance(item, boxes.W_GenericBox)
-            return item.item(space)
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "non-int arg not supported"))
+        elif len(args_w) == 1 and len(shape) != 1:
+            value = support.index_w(space, args_w[0])
+            value = support.check_and_adjust_index(space, value, self.get_size(), -1)
+            for idim in range(len(shape) - 1, -1, -1):
+                coords[idim] = value % shape[idim]
+                value //= shape[idim]
+        elif len(args_w) == len(shape):
+            for idim in range(len(shape)):
+                coords[idim] = support.index_w(space, args_w[idim])
+        else:
+            raise oefmt(space.w_ValueError, "incorrect number of indices for array")
+        item = self.getitem(space, coords)
+        assert isinstance(item, boxes.W_GenericBox)
+        return item.item(space)
 
     def descr_itemset(self, space, args_w):
         if len(args_w) == 0:
@@ -818,8 +822,8 @@ class __extend__(W_NDimArray):
         if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        iter = self.create_iter()
-        return space.wrap(space.is_true(iter.getitem()))
+        iter, state = self.create_iter()
+        return space.wrap(space.is_true(iter.getitem(state)))
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
@@ -1085,11 +1089,11 @@ class __extend__(W_NDimArray):
 
         builder = StringBuilder()
         if isinstance(self.implementation, SliceArray):
-            iter = self.implementation.create_iter()
-            while not iter.done():
-                box = iter.getitem()
+            iter, state = self.implementation.create_iter()
+            while not iter.done(state):
+                box = iter.getitem(state)
                 builder.append(box.raw_str())
-                iter.next()
+                state = iter.next(state)
         else:
             builder.append_charpsize(self.implementation.get_storage(), self.implementation.get_storage_size())
 

@@ -4,14 +4,20 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestNDIter(BaseNumpyAppTest):
     def test_basic(self):
-        from numpy import arange, nditer
+        from numpy import arange, nditer, ndarray
         a = arange(6).reshape(2,3)
+        i = nditer(a)
         r = []
-        for x in nditer(a):
+        for x in i:
+            assert type(x) is ndarray
+            assert x.base is i
+            assert x.shape == ()
+            assert x.strides == ()
+            exc = raises(ValueError, "x[()] = 42")
+            assert str(exc.value) == 'assignment destination is read-only'
             r.append(x)
         assert r == [0, 1, 2, 3, 4, 5]
         r = []
-
         for x in nditer(a.T):
             r.append(x)
         assert r == [0, 1, 2, 3, 4, 5]
@@ -29,9 +35,14 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert r == [0, 3, 1, 4, 2, 5]
 
     def test_readwrite(self):
-        from numpy import arange, nditer
+        from numpy import arange, nditer, ndarray
         a = arange(6).reshape(2,3)
-        for x in nditer(a, op_flags=['readwrite']):
+        i = nditer(a, op_flags=['readwrite'])
+        for x in i:
+            assert type(x) is ndarray
+            assert x.base is i
+            assert x.shape == ()
+            assert x.strides == ()
             x[...] = 2 * x
         assert (a == [[0, 2, 4], [6, 8, 10]]).all()
 
@@ -143,21 +154,17 @@ class AppTestNDIter(BaseNumpyAppTest):
         a = arange(6).reshape(2,3) - 3
         exc = raises(TypeError, nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
+        exc = raises(ValueError, nditer, a, op_flags=['copy'], op_dtypes=['complex128'])
+        assert str(exc.value) == "None of the iterator flags READWRITE, READONLY, or WRITEONLY were specified for an operand"
         r = []
         for x in nditer(a, op_flags=['readonly','copy'],
                         op_dtypes=['complex128']):
             r.append(sqrt(x))
         assert abs((array(r) - [1.73205080757j, 1.41421356237j, 1j, 0j,
-                1+0j, 1.41421356237+0j]).sum()) < 1e-5
-        r = []
-        for x in nditer(a, op_flags=['copy'],
-                        op_dtypes=['complex128']):
-            r.append(sqrt(x))
-        assert abs((array(r) - [1.73205080757j, 1.41421356237j, 1j, 0j,
-                            1+0j, 1.41421356237+0j]).sum()) < 1e-5
+                                1+0j, 1.41421356237+0j]).sum()) < 1e-5
         multi = nditer([None, array([2, 3], dtype='int64'), array(2., dtype='double')],
-                       op_dtypes = ['int64', 'int64', 'float64'],
-                       op_flags = [['writeonly', 'allocate'], ['readonly'], ['readonly']])
+                       op_dtypes=['int64', 'int64', 'float64'],
+                       op_flags=[['writeonly', 'allocate'], ['readonly'], ['readonly']])
         for a, b, c in multi:
             a[...] = b * c
         assert (multi.operands[0] == [4, 6]).all()

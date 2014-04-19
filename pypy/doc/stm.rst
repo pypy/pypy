@@ -40,7 +40,7 @@ that's all there is to it: this is a GIL-less Python, feel free to
 ``pypy-stm`` project is to improve what is so far the state-of-the-art
 for using multiple CPUs, which for cases where separate processes don't
 work is done by writing explicitly multi-threaded programs.  Instead,
-``pypy-stm`` is flushing forward an approach to *hide* the threads, as
+``pypy-stm`` is pushing forward an approach to *hide* the threads, as
 described below in `atomic sections`_.
 
 
