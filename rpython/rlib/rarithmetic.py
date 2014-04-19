@@ -292,7 +292,6 @@ def highest_bit(n):
 class base_int(long):
     """ fake unsigned integer implementation """
 
-
     def _widen(self, other, value):
         """
         if one argument is int or long, the other type wins.
@@ -516,12 +515,12 @@ r_int = build_int('r_int', True, LONG_BIT)
 r_uint = build_int('r_uint', False, LONG_BIT)
 
 @register_flow_sc(r_uint)
-def sc_r_uint(space, w_value):
+def sc_r_uint(ctx, w_value):
     # (normally, the 32-bit constant is a long, and is not allowed to
     # show up in the flow graphs at all)
     if isinstance(w_value, Constant):
         return Constant(r_uint(w_value.value))
-    return space.appcall(r_uint, w_value)
+    return ctx.appcall(r_uint, w_value)
 
 
 r_longlong = build_int('r_longlong', True, 64)
@@ -538,8 +537,11 @@ else:
 # needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
 r_uint32 = build_int('r_uint32', False, 32)
 
-# needed for ll_time.time_sleep_llimpl
-maxint32 = int((1 << 31) -1)
+SHRT_MIN = -2**(_get_bitsize('h') - 1)
+SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
+INT_MIN = int(-2**(_get_bitsize('i') - 1))
+INT_MAX = int(2**(_get_bitsize('i') - 1) - 1)
+UINT_MAX = r_uint(2**_get_bitsize('i') - 1)
 
 # the 'float' C type
 
@@ -690,9 +692,8 @@ def string_to_int(s, base=10):
     characters of 's'.  Raises ParseStringError in case of error.
     Raises ParseStringOverflowError in case the result does not fit.
     """
-    from rpython.rlib.rstring import NumberStringParser, \
-        ParseStringOverflowError, \
-        ParseStringError, strip_spaces
+    from rpython.rlib.rstring import (
+        NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
     p = NumberStringParser(s, literal, base, 'int')
     base = p.base
@@ -710,5 +711,4 @@ def string_to_int(s, base=10):
             result = ovfcheck(result + digit)
         except OverflowError:
             raise ParseStringOverflowError(p)
-
-
+string_to_int._elidable_function_ = True

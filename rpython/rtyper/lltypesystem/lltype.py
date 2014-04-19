@@ -537,7 +537,7 @@ class FixedSizeArray(Struct):
 class FuncType(ContainerType):
     _gckind = 'raw'
     __name__ = 'func'
-    def __init__(self, args, result):
+    def __init__(self, args, result, abi='FFI_DEFAULT_ABI'):
         for arg in args:
             assert isinstance(arg, LowLevelType)
             # There are external C functions eating raw structures, not
@@ -547,6 +547,7 @@ class FuncType(ContainerType):
         if isinstance(result, ContainerType):
             raise TypeError, "function result can only be primitive or pointer"
         self.RESULT = result
+        self.ABI = abi
 
     def __str__(self):
         args = ', '.join(map(str, self.ARGS))

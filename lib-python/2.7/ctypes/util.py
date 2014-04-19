@@ -93,7 +93,7 @@ elif os.name == "posix":
         fdout, ccout = tempfile.mkstemp()
         os.close(fdout)
         cmd = 'if type gcc >/dev/null 2>&1; then CC=gcc; elif type cc >/dev/null 2>&1; then CC=cc;else exit 10; fi;' \
-              '$CC -Wl,-t -o ' + ccout + ' 2>&1 -l' + name
+              'LANG=C LC_ALL=C $CC -Wl,-t -o ' + ccout + ' 2>&1 -l' + name
         try:
             f = os.popen(cmd)
             try:
@@ -179,6 +179,35 @@ elif os.name == "posix":
                 return _get_soname(_findLib_gcc(name))
             res.sort(cmp= lambda x,y: cmp(_num_version(x), _num_version(y)))
             return res[-1]
+
+    elif sys.platform == "sunos5":
+
+        def _findLib_crle(name, is64):
+            if not os.path.exists('/usr/bin/crle'):
+                return None
+
+            if is64:
+                cmd = 'env LC_ALL=C /usr/bin/crle -64 2>/dev/null'
+            else:
+                cmd = 'env LC_ALL=C /usr/bin/crle 2>/dev/null'
+
+            for line in os.popen(cmd).readlines():
+                line = line.strip()
+                if line.startswith('Default Library Path (ELF):'):
+                    paths = line.split()[4]
+
+            if not paths:
+                return None
+
+            for dir in paths.split(":"):
+                libfile = os.path.join(dir, "lib%s.so" % name)
+                if os.path.exists(libfile):
+                    return libfile
+
+            return None
+
+        def find_library(name, is64 = False):
+            return _get_soname(_findLib_crle(name, is64) or _findLib_gcc(name))
 
     else:
 

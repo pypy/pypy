@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
@@ -131,6 +131,9 @@ class W_ArrayBase(W_Root):
         self.space = space
         self.len = 0
         self.allocated = 0
+
+    def buffer_w(self, space):
+        return ArrayBuffer(self)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -462,9 +465,6 @@ class W_ArrayBase(W_Root):
 
     # Misc methods
 
-    def descr_buffer(self, space):
-        return space.wrap(ArrayBuffer(self))
-
     def descr_repr(self, space):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -508,7 +508,6 @@ W_ArrayBase.typedef = TypeDef(
     __radd__ = interp2app(W_ArrayBase.descr_radd),
     __rmul__ = interp2app(W_ArrayBase.descr_rmul),
 
-    __buffer__ = interp2app(W_ArrayBase.descr_buffer),
     __repr__ = interp2app(W_ArrayBase.descr_repr),
 
     itemsize = GetSetProperty(descr_itemsize),
@@ -633,8 +632,8 @@ def make_array(mytype):
                     try:
                         item = unwrap(space.call_method(w_item, mytype.method))
                     except OperationError:
-                        msg = 'array item must be ' + mytype.unwrap[:-2]
-                        raise operationerrfmt(space.w_TypeError, msg)
+                        raise oefmt(space.w_TypeError,
+                                    "array item must be " + mytype.unwrap[:-2])
                 else:
                     raise
             if mytype.unwrap == 'bigint_w':

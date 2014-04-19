@@ -311,17 +311,19 @@ class SSLSocket(socket):
                                     self.cert_reqs, self.ssl_version,
                                     self.ca_certs, self.ciphers)
         try:
-            socket.connect(self, addr)
-            if self.do_handshake_on_connect:
-                self.do_handshake()
-        except socket_error as e:
             if return_errno:
-                return e.errno
+                rc = socket.connect_ex(self, addr)
             else:
-                self._sslobj = None
-                raise e
-        self._connected = True
-        return 0
+                rc = None
+                socket.connect(self, addr)
+            if not rc:
+                if self.do_handshake_on_connect:
+                    self.do_handshake()
+                self._connected = True
+            return rc
+        except socket_error:
+            self._sslobj = None
+            raise
 
     def connect(self, addr):
         """Connects to remote ADDR, and then wraps the connection in
@@ -340,17 +342,21 @@ class SSLSocket(socket):
         SSL channel, and the address of the remote client."""
 
         newsock, addr = socket.accept(self)
-        return (SSLSocket(newsock,
-                          keyfile=self.keyfile,
-                          certfile=self.certfile,
-                          server_side=True,
-                          cert_reqs=self.cert_reqs,
-                          ssl_version=self.ssl_version,
-                          ca_certs=self.ca_certs,
-                          ciphers=self.ciphers,
-                          do_handshake_on_connect=self.do_handshake_on_connect,
-                          suppress_ragged_eofs=self.suppress_ragged_eofs),
-                addr)
+        try:
+            return (SSLSocket(newsock,
+                              keyfile=self.keyfile,
+                              certfile=self.certfile,
+                              server_side=True,
+                              cert_reqs=self.cert_reqs,
+                              ssl_version=self.ssl_version,
+                              ca_certs=self.ca_certs,
+                              ciphers=self.ciphers,
+                              do_handshake_on_connect=self.do_handshake_on_connect,
+                              suppress_ragged_eofs=self.suppress_ragged_eofs),
+                    addr)
+        except socket_error as e:
+            newsock.close()
+            raise e
 
     def makefile(self, mode='r', bufsize=-1):
 

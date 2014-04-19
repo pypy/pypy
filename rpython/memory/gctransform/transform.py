@@ -9,7 +9,7 @@ from rpython.translator.backendopt import inline
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.ssa import DataFlowFamilyBuilder
 from rpython.translator.backendopt.constfold import constant_fold_graph
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.rtyper import LowLevelOpList
@@ -259,8 +259,8 @@ class BaseGCTransformer(object):
 
     def annotate_helper(self, ll_helper, ll_args, ll_result, inline=False):
         assert not self.finished_helpers
-        args_s = map(annmodel.lltype_to_annotation, ll_args)
-        s_result = annmodel.lltype_to_annotation(ll_result)
+        args_s = map(lltype_to_annotation, ll_args)
+        s_result = lltype_to_annotation(ll_result)
         graph = self.mixlevelannotator.getgraph(ll_helper, args_s, s_result)
         # the produced graphs does not need to be fully transformed
         self.need_minimal_transform(graph)

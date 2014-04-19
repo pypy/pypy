@@ -15,6 +15,7 @@ from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import rgc
 
 
 class W_Array(W_DataShape):
@@ -206,7 +207,6 @@ W_ArrayInstance.typedef = TypeDef(
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
-    __buffer__  = interp2app(W_ArrayInstance.descr_buffer),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_ArrayInstance),
     free        = interp2app(W_ArrayInstance.free),
@@ -220,6 +220,7 @@ class W_ArrayInstanceAutoFree(W_ArrayInstance):
     def __init__(self, space, shape, length):
         W_ArrayInstance.__init__(self, space, shape, length, 0)
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.ll_buffer:
             self._free()
@@ -230,7 +231,6 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
-    __buffer__  = interp2app(W_ArrayInstance.descr_buffer),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_ArrayInstance),
     byptr       = interp2app(W_ArrayInstance.byptr),

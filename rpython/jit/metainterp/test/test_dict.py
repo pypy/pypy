@@ -193,6 +193,155 @@ class DictTests:
         self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
                                 'jump': 1})
 
+    def test_dict_two_lookups(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        d = {'a': 3, 'b': 4}
+        indexes = ['a', 'b']
+
+        def f(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                s += d[indexes[n & 1]]
+                s += d[indexes[n & 1]]
+                n -= 1
+            return s
+
+        self.meta_interp(f, [10])
+        # XXX should be one getinteriorfield_gc
+        self.check_simple_loop(call=1, getinteriorfield_gc=2,
+                               guard_no_exception=1)
+
+    def test_ordered_dict_two_lookups(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        d = OrderedDict()
+        d['a'] = 3
+        d['b'] = 4
+        indexes = ['a', 'b']
+
+        def f(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                s += d[indexes[n & 1]]
+                s += d[indexes[n & 1]]
+                n -= 1
+            return s
+
+        self.meta_interp(f, [10])
+        # XXX should be one getinteriorfield_gc
+        self.check_simple_loop(call=1, getinteriorfield_gc=2,
+                               guard_no_exception=1)
+
+    def test_dict_insert_invalidates_caches(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        indexes = ['aa', 'b', 'cc']
+
+        def f(n):
+            d = {'aa': 3, 'b': 4, 'cc': 5}
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                d['aa'] += 1 # this will invalidate the index
+                s += d[index]
+                n -= 1
+            return s
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_simple_loop(call=5)
+
+    def test_dict_array_write_invalidates_caches(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        indexes = ['aa', 'b', 'cc']
+
+        def f(n):
+            d = {'aa': 3, 'b': 4, 'cc': 5}
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                del d['cc']
+                s += d[index]
+                d['cc'] = 3
+                n -= 1
+            return s
+
+        exp = f(10)
+        res = self.meta_interp(f, [10])
+        assert res == exp
+        self.check_simple_loop(call=7)
+
+    def test_dict_double_lookup_2(self):
+        driver = JitDriver(greens = [], reds = 'auto')
+        indexes = ['aa', 'b', 'cc']
+
+        def f(n):
+            d = {'aa': 3, 'b': 4, 'cc': 5}
+            s = 0
+            while n > 0:
+                driver.jit_merge_point()
+                index = indexes[n & 1]
+                s += d[index]
+                d[index] += 1
+                n -= 1
+            return s
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_simple_loop(call=3)
+
+    def test_dict_eq_can_release_gil(self):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        if type(self.newdict()) is not dict:
+            py.test.skip("this is an r_dict test")
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
+        myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
+        def key(x):
+            return x % 2
+        def eq(x, y):
+            external(lltype.nullptr(T.TO))
+            return (x % 2) == (y % 2)
+
+        def f(n):
+            dct = objectmodel.r_dict(eq, key)
+            total = n
+            x = 44444
+            y = 55555
+            z = 66666
+            while total:
+                myjitdriver.jit_merge_point(total=total, dct=dct)
+                dct[total] = total
+                x = dct[total]
+                y = dct[total]
+                z = dct[total]
+                total -= 1
+            return len(dct) + x + y + z
+
+        res = self.meta_interp(f, [10], listops=True)
+        assert res == 2 + 1 + 1 + 1
+        self.check_simple_loop(call_may_force=4,    # ll_dict_lookup_trampoline
+                               call=1) # ll_dict_setitem_lookup_done_trampoline
+
+    def test_bug42(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(n):
+            mdict = {0: None, 1: None, 2: None, 3: None, 4: None,
+                     5: None, 6: None, 7: None, 8: None, 9: None}
+            while n > 0:
+                myjitdriver.jit_merge_point()
+                n -= 1
+                if n in mdict:
+                    del mdict[n]
+                    if n in mdict:
+                        raise Exception
+        self.meta_interp(f, [10])
+        self.check_simple_loop(call_may_force=0, call=3)
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

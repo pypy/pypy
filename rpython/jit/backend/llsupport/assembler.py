@@ -15,7 +15,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
-    ('i', lltype.Signed),
+    ('i', lltype.Signed),      # first field, at offset 0
     ('type', lltype.Char),
     ('number', lltype.Signed)
 )
@@ -64,7 +64,6 @@ class BaseAssembler(object):
         self.cpu = cpu
         self.memcpy_addr = 0
         self.rtyper = cpu.rtyper
-        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
         self._debug = False
 
     def setup_once(self):
@@ -265,14 +264,8 @@ class BaseAssembler(object):
     def _append_debugging_code(self, operations, tp, number, token):
         counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
-        box = BoxInt()
-        box2 = BoxInt()
-        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                            box, descr=self.debug_counter_descr),
-               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                            None, descr=self.debug_counter_descr)]
-        operations.extend(ops)
+        operations.append(
+            ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr], None))
 
     def _register_counter(self, tp, number, token):
         # YYY very minor leak -- we need the counters to stay alive

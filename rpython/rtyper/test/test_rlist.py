@@ -1619,3 +1619,17 @@ class TestRlist(BaseRtypingTest):
             rgc.ll_arraycopy = old_arraycopy
         #
         assert 2 <= res <= 10
+
+    def test_alloc_and_set(self):
+        def fn(i):
+            lst = [0] * r_uint(i)
+            return lst
+        t, rtyper, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        seen = 0
+        for op in block.operations:
+            if op.opname in ['cast_int_to_uint', 'cast_uint_to_int']:
+                continue
+            assert op.opname == 'direct_call'
+            seen += 1
+        assert seen == 1

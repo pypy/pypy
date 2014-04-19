@@ -8,7 +8,7 @@ class Module(MixedModule):
 
     appleveldefs = {
     }
-    
+
     interpleveldefs = {
         'dump'    : 'interp_marshal.dump',
         'dumps'   : 'interp_marshal.dumps',

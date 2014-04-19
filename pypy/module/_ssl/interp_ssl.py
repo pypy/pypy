@@ -35,7 +35,7 @@ SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
 SOCKET_TOO_LARGE_FOR_SELECT, SOCKET_OPERATION_OK = 4, 5
 
-HAVE_RPOLL = True  # Even win32 has rpoll.poll
+HAVE_RPOLL = 'poll' in dir(rpoll)
 
 constants = {}
 constants["SSL_ERROR_ZERO_RETURN"] = PY_SSL_ERROR_ZERO_RETURN
@@ -578,18 +578,37 @@ def _get_peer_alt_names(space, certificate):
                 # Get a rendering of each name in the set of names
 
                 name = libssl_sk_GENERAL_NAME_value(names, j)
-                if intmask(name[0].c_type) == GEN_DIRNAME:
-
+                gntype = intmask(name[0].c_type)
+                if gntype == GEN_DIRNAME:
                     # we special-case DirName as a tuple of tuples of attributes
                     dirname = libssl_pypy_GENERAL_NAME_dirn(name)
                     w_t = space.newtuple([
                             space.wrap("DirName"),
                             _create_tuple_for_X509_NAME(space, dirname)
                             ])
+                elif gntype in (GEN_EMAIL, GEN_DNS, GEN_URI):
+                    # GENERAL_NAME_print() doesn't handle NULL bytes in ASN1_string
+                    # correctly, CVE-2013-4238
+                    if gntype == GEN_EMAIL:
+                        v = space.wrap("email")
+                    elif gntype == GEN_DNS:
+                        v = space.wrap("DNS")
+                    elif gntype == GEN_URI:
+                        v = space.wrap("URI")
+                    else:
+                        assert False
+                    as_ = libssl_pypy_GENERAL_NAME_dirn(name)
+                    as_ = rffi.cast(ASN1_STRING, as_)
+                    buf = libssl_ASN1_STRING_data(as_)
+                    length = libssl_ASN1_STRING_length(as_)
+                    w_t = space.newtuple([v,
+                        space.wrap(rffi.charpsize2str(buf, length))])
                 else:
-
                     # for everything else, we use the OpenSSL print form
-
+                    if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
+                                      GEN_IPADD, GEN_RID):
+                        space.warn(space.wrap("Unknown general name type"),
+                                   space.w_RuntimeWarning)
                     libssl_BIO_reset(biobuf)
                     libssl_GENERAL_NAME_print(biobuf, name)
                     with lltype.scoped_alloc(rffi.CCHARP.TO, 2048) as buf:
@@ -711,8 +730,12 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
             raise ssl_error(space, "SSL_CTX_use_certificate_chain_file error")
 
     # ssl compatibility
-    libssl_SSL_CTX_set_options(ss.ctx, 
-                               SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
+    options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+    if protocol != PY_SSL_VERSION_SSL2:
+        # SSLv2 is extremely broken, don't use it unless a user specifically
+        # requests it
+        options |= SSL_OP_NO_SSLv2
+    libssl_SSL_CTX_set_options(ss.ctx, options)
 
     verification_mode = SSL_VERIFY_NONE
     if cert_mode == PY_SSL_CERT_OPTIONAL:
@@ -724,7 +747,7 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
     libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
     # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
     # of a str object may be changed by the garbage collector.
-    libssl_SSL_set_mode(ss.ssl, 
+    libssl_SSL_set_mode(ss.ssl,
                         SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
 
     # If the socket is in non-blocking mode or timeout mode, set the BIO

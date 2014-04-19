@@ -1,9 +1,10 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.pyframe import PyFrame
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
-from pypy.objspace.std.mapdict import IndexCache
+from pypy.objspace.std.mapdict import MapAttrCache
 from rpython.rlib import rposix, rgc
 
 
@@ -35,7 +36,7 @@ def reset_method_cache_counter(space):
     cache.misses = {}
     cache.hits = {}
     if space.config.objspace.std.withmapdict:
-        cache = space.fromcache(IndexCache)
+        cache = space.fromcache(MapAttrCache)
         cache.misses = {}
         cache.hits = {}
 
@@ -45,7 +46,7 @@ def mapdict_cache_counter(space, name):
     in the mapdict cache with the given attribute name."""
     assert space.config.objspace.std.withmethodcachecounter
     assert space.config.objspace.std.withmapdict
-    cache = space.fromcache(IndexCache)
+    cache = space.fromcache(MapAttrCache)
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])
 
@@ -111,3 +112,8 @@ def set_debug(space, debug):
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
     rgc.add_memory_pressure(estimate)
+
+@unwrap_spec(w_frame=PyFrame)
+def locals_to_fast(space, w_frame):
+    assert isinstance(w_frame, PyFrame)
+    w_frame.locals2fast()

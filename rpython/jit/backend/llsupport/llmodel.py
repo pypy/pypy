@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
@@ -14,7 +15,6 @@ from rpython.jit.backend.llsupport.descr import (
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
     FLAG_POINTER, FLAG_FLOAT)
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
-from rpython.annotator import model as annmodel
 from rpython.rlib.unroll import unrolling_iterable
 
 
@@ -111,8 +111,8 @@ class AbstractLLCPU(AbstractCPU):
             fptr = llhelper(FUNC_TP, realloc_frame)
         else:
             FUNC = FUNC_TP.TO
-            args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
-            s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+            args_s = [lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+            s_result = lltype_to_annotation(FUNC.RESULT)
             mixlevelann = MixLevelHelperAnnotator(self.rtyper)
             graph = mixlevelann.getgraph(realloc_frame, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)
@@ -123,8 +123,8 @@ class AbstractLLCPU(AbstractCPU):
             fptr = llhelper(FUNC_TP, realloc_frame_crash)
         else:
             FUNC = FUNC_TP.TO
-            args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
-            s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+            args_s = [lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+            s_result = lltype_to_annotation(FUNC.RESULT)
             mixlevelann = MixLevelHelperAnnotator(self.rtyper)
             graph = mixlevelann.getgraph(realloc_frame_crash, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)

@@ -10,8 +10,13 @@ import sys
 import signal
 import subprocess
 import time
+try:
+    import resource
+except ImportError:
+    resource = None
 
 from test import test_support
+from test.script_helper import assert_python_ok
 import mmap
 import uuid
 
@@ -129,9 +134,13 @@ class TemporaryFileTests(unittest.TestCase):
                         fp = os.tmpfile()
                     except OSError, second:
                         self.assertEqual(first.args, second.args)
+                        return
                     else:
-                        self.fail("expected os.tmpfile() to raise OSError")
-                    return
+                        if test_support.check_impl_detail(pypy=False):
+                            self.fail("expected os.tmpfile() to raise OSError")
+                        # on PyPy, os.tmpfile() uses the tempfile module
+                        # anyway, so works even if we cannot write in root.
+                        fp.close()
                 else:
                     # open() worked, therefore, tmpfile() should work.  Close our
                     # dummy file and proceed with the test as normal.
@@ -214,33 +223,33 @@ class StatAttributeTests(unittest.TestCase):
 
         try:
             result[200]
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except IndexError:
             pass
 
         # Make sure that assignment fails
         try:
             result.st_mode = 1
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except (AttributeError, TypeError):
             pass
 
         try:
             result.st_rdev = 1
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except (AttributeError, TypeError):
             pass
 
         try:
             result.parrot = 1
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except AttributeError:
             pass
 
         # Use the stat_result constructor with a too-short tuple.
         try:
             result2 = os.stat_result((10,))
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except TypeError:
             pass
 
@@ -274,20 +283,20 @@ class StatAttributeTests(unittest.TestCase):
         # Make sure that assignment really fails
         try:
             result.f_bfree = 1
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except (TypeError, AttributeError):
             pass
 
         try:
             result.parrot = 1
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except AttributeError:
             pass
 
         # Use the constructor with a too-short tuple.
         try:
             result2 = os.statvfs_result((10,))
-            self.fail("No exception thrown")
+            self.fail("No exception raised")
         except TypeError:
             pass
 
@@ -563,8 +572,35 @@ class URandomTests (unittest.TestCase):
         data2 = self.get_urandom_subprocess(16)
         self.assertNotEqual(data1, data2)
 
+    @unittest.skipUnless(resource, "test requires the resource module")
+    def test_urandom_failure(self):
+        # Check urandom() failing when it is not able to open /dev/random.
+        # We spawn a new process to make the test more robust (if getrlimit()
+        # failed to restore the file descriptor limit after this, the whole
+        # test suite would crash; this actually happened on the OS X Tiger
+        # buildbot).
+        code = """if 1:
+            import errno
+            import os
+            import resource
+
+            soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+            resource.setrlimit(resource.RLIMIT_NOFILE, (1, hard_limit))
+            try:
+                os.urandom(16)
+            except OSError as e:
+                assert e.errno == errno.EMFILE, e.errno
+            else:
+                raise AssertionError("OSError not raised")
+            """
+        assert_python_ok('-c', code)
+
+
+class ExecvpeTests(unittest.TestCase):
+
     def test_execvpe_with_bad_arglist(self):
         self.assertRaises(ValueError, os.execvpe, 'notepad', [], None)
+
 
 class Win32ErrorTests(unittest.TestCase):
     def test_rename(self):
@@ -853,6 +889,7 @@ def test_main():
         MakedirTests,
         DevNullTests,
         URandomTests,
+        ExecvpeTests,
         Win32ErrorTests,
         TestInvalidFD,
         PosixUidGidTests,

@@ -14,7 +14,7 @@ from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -492,8 +492,9 @@ class __extend__(pyframe.PyFrame):
 
     def _load_fast_failed(self, varindex):
         varname = self.getlocalvarname(varindex)
-        message = "local variable '%s' referenced before assignment"
-        raise operationerrfmt(self.space.w_UnboundLocalError, message, varname)
+        raise oefmt(self.space.w_UnboundLocalError,
+                    "local variable '%s' referenced before assignment",
+                    varname)
     _load_fast_failed._dont_inline_ = True
 
     def LOAD_CONST(self, constindex, next_instr):
@@ -744,6 +745,9 @@ class __extend__(pyframe.PyFrame):
             else:
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
+            if operror.w_type is space.w_None:
+                raise OperationError(space.w_TypeError,
+                    space.wrap("raise: the exception to re-raise was cleared"))
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
             raise RaiseWithExplicitTraceback(operror)
@@ -845,9 +849,8 @@ class __extend__(pyframe.PyFrame):
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
-            message = "name '%s' is not defined"
-            raise operationerrfmt(self.space.w_NameError, message,
-                                  self.space.str_w(w_varname))
+            raise oefmt(self.space.w_NameError, "name '%s' is not defined",
+                        self.space.str_w(w_varname))
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
@@ -896,8 +899,8 @@ class __extend__(pyframe.PyFrame):
     _load_global._always_inline_ = True
 
     def _load_global_failed(self, varname):
-        message = "global name '%s' is not defined"
-        raise operationerrfmt(self.space.w_NameError, message, varname)
+        raise oefmt(self.space.w_NameError,
+                    "global name '%s' is not defined", varname)
     _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
@@ -907,9 +910,9 @@ class __extend__(pyframe.PyFrame):
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
-            message = "local variable '%s' referenced before assignment"
-            raise operationerrfmt(self.space.w_UnboundLocalError, message,
-                                  varname)
+            raise oefmt(self.space.w_UnboundLocalError,
+                        "local variable '%s' referenced before assignment",
+                        varname)
         self.locals_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
@@ -1037,9 +1040,8 @@ class __extend__(pyframe.PyFrame):
         except OperationError, e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
-            raise operationerrfmt(self.space.w_ImportError,
-                                  "cannot import name '%s'",
-                                  self.space.str_w(w_name))
+            raise oefmt(self.space.w_ImportError,
+                        "cannot import name '%s'", self.space.str_w(w_name))
         self.pushvalue(w_obj)
 
     def YIELD_VALUE(self, oparg, next_instr):
@@ -1124,9 +1126,9 @@ class __extend__(pyframe.PyFrame):
         w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
         if w_enter is None or w_descr is None:
-            raise operationerrfmt(self.space.w_AttributeError,
-                "'%T' object is not a context manager"
-                " (no __enter__/__exit__ method)", w_manager)
+            raise oefmt(self.space.w_AttributeError,
+                        "'%T' object is not a context manager (no __enter__/"
+                        "__exit__ method)", w_manager)
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)

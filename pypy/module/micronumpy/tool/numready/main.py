@@ -39,7 +39,7 @@ class SearchableSet(object):
         return len(self._items)
 
 class Item(object):
-    def __init__(self, name, kind, subitems=None):
+    def __init__(self, name, kind, subitems=[]):
         self.name = name
         self.kind = kind
         self.subitems = subitems
@@ -72,7 +72,7 @@ def find_numpy_items(python, modname="numpy", attr=None):
     items = SearchableSet()
     for line in lines:
         kind, name = line.split(" : ", 1)
-        subitems = None
+        subitems = []
         if kind == KINDS["TYPE"] and name in SPECIAL_NAMES and attr is None:
             subitems = find_numpy_items(python, modname, name)
         items.add(Item(name, kind, subitems))
@@ -93,7 +93,8 @@ def split(lst):
                 l[i].append(lst[k * lgt + i])
     return l
 
-SPECIAL_NAMES = ["ndarray", "dtype", "generic", "flatiter", "ufunc"]
+SPECIAL_NAMES = ["ndarray", "dtype", "generic", "flatiter", "ufunc",
+                 "nditer"]
 
 def main(argv):
     cpy_items = find_numpy_items("/usr/bin/python")

@@ -1234,6 +1234,8 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_NESTED
         if scope.is_generator:
             flags |= consts.CO_GENERATOR
+        if scope.has_yield_inside_try:
+            flags |= consts.CO_YIELD_INSIDE_TRY
         if scope.has_variable_arg:
             flags |= consts.CO_VARARGS
         if scope.has_keywords_arg:

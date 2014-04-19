@@ -23,6 +23,3 @@ typedef unsigned char bool_t;
 # define RPY_LENGTH0     1       /* array decl [0] are bad */
 # define RPY_DUMMY_VARLENGTH     /* nothing */
 #endif
-
-
-#include "src/align.h"

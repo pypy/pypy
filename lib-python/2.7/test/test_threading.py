@@ -2,6 +2,8 @@
 
 import test.test_support
 from test.test_support import verbose
+from test.script_helper import assert_python_ok
+
 import random
 import re
 import sys
@@ -417,6 +419,73 @@ class ThreadTests(BaseTestCase):
                          msg=('%d references still around' %
                               sys.getrefcount(weak_raising_cyclic_object())))
 
+    @unittest.skipUnless(hasattr(os, 'fork'), 'test needs fork()')
+    def test_dummy_thread_after_fork(self):
+        # Issue #14308: a dummy thread in the active list doesn't mess up
+        # the after-fork mechanism.
+        code = """if 1:
+            import thread, threading, os, time
+
+            def background_thread(evt):
+                # Creates and registers the _DummyThread instance
+                threading.current_thread()
+                evt.set()
+                time.sleep(10)
+
+            evt = threading.Event()
+            thread.start_new_thread(background_thread, (evt,))
+            evt.wait()
+            assert threading.active_count() == 2, threading.active_count()
+            if os.fork() == 0:
+                assert threading.active_count() == 1, threading.active_count()
+                os._exit(0)
+            else:
+                os.wait()
+        """
+        _, out, err = assert_python_ok("-c", code)
+        self.assertEqual(out, '')
+        self.assertEqual(err, '')
+
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    def test_is_alive_after_fork(self):
+        # Try hard to trigger #18418: is_alive() could sometimes be True on
+        # threads that vanished after a fork.
+        old_interval = sys.getcheckinterval()
+
+        # Make the bug more likely to manifest.
+        sys.setcheckinterval(10)
+
+        try:
+            for i in range(20):
+                t = threading.Thread(target=lambda: None)
+                t.start()
+                pid = os.fork()
+                if pid == 0:
+                    os._exit(1 if t.is_alive() else 0)
+                else:
+                    t.join()
+                    pid, status = os.waitpid(pid, 0)
+                    self.assertEqual(0, status)
+        finally:
+            sys.setcheckinterval(old_interval)
+
+    def test_BoundedSemaphore_limit(self):
+        # BoundedSemaphore should raise ValueError if released too often.
+        for limit in range(1, 10):
+            bs = threading.BoundedSemaphore(limit)
+            threads = [threading.Thread(target=bs.acquire)
+                       for _ in range(limit)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            threads = [threading.Thread(target=bs.release)
+                       for _ in range(limit)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            self.assertRaises(ValueError, bs.release)
 
 class ThreadJoinOnShutdown(BaseTestCase):
 

@@ -569,6 +569,7 @@ ll_dict_resize.oopspec = 'dict.resize(d)'
 PERTURB_SHIFT = 5
 
 @jit.look_inside_iff(lambda d, key, hash: jit.isvirtual(d) and jit.isconstant(key))
+@jit.oopspec('dict.lookup(d, key, hash)')
 def ll_dict_lookup(d, key, hash):
     entries = d.entries
     ENTRIES = lltype.typeOf(entries).TO

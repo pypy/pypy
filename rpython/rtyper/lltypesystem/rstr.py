@@ -108,6 +108,8 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
     @jit.dont_look_inside
+    @signature(types.any(), types.any(), types.int(), types.int(),
+               returns=types.none())
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
@@ -624,6 +626,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return count
 
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_find(s1, s2, start, end):
         if start < 0:
             start = 0
@@ -638,6 +641,7 @@ class LLHelpers(AbstractLLHelpers):
 
         return LLHelpers.ll_search(s1, s2, start, end, FAST_FIND)
 
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_rfind(s1, s2, start, end):
         if start < 0:
             start = 0

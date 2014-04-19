@@ -323,6 +323,16 @@ class AppTestFfi:
         assert res == u'xx'
         a.free()
 
+    def test_rawstring2charp(self):
+        import _rawffi
+        A = _rawffi.Array('c')
+        a = A(10, 'x'*10)
+        _rawffi.rawstring2charp(a.buffer, "foobar")
+        assert ''.join([a[i] for i in range(10)]) == "foobarxxxx"
+        _rawffi.rawstring2charp(a.buffer, buffer("baz"))
+        assert ''.join([a[i] for i in range(10)]) == "bazbarxxxx"
+        a.free()
+
     def test_raw_callable(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
@@ -480,7 +490,7 @@ class AppTestFfi:
         assert x.C == 1
         x.free()
 
-    def test_structure_bitfields(self):
+    def test_structure_bitfields_varied(self):
         import _rawffi
         X = _rawffi.Structure([('A', 'I', 1),
                                ('B', 'I', 2),
@@ -494,67 +504,69 @@ class AppTestFfi:
         assert x.C == -1
         x.free()
 
+    def test_structure_bitfields_int(self):
+        import _rawffi
         Y = _rawffi.Structure([('a', 'i', 1),
                                ('b', 'i', 30),
                                ('c', 'i', 1)])
         y = Y()
-        y.a, y.b, y.c = -1, -7, 0
-        assert (y.a, y.b, y.c) == (-1, -7, 0)
+        y.a, y.b, y.c = -1, -7, 1
+        assert (y.a, y.b, y.c) == (-1, -7, -1)
+        y.free()
+
+    def test_structure_bitfields_uint(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'I', 1),
+                               ('b', 'I', 30),
+                               ('c', 'I', 1)])
+        y = Y()
+        y.a, y.b, y.c = 7, (1 << 29) | 1, 7
+        assert (y.a, y.b, y.c) == (1, (1 << 29) | 1, 1)
         y.free()
 
     def test_structure_bitfields_longlong(self):
         import _rawffi
-        Z = _rawffi.Structure([('a', 'Q', 1),
+        Y = _rawffi.Structure([('a', 'q', 1),
+                               ('b', 'q', 62),
+                               ('c', 'q', 1)])
+        y = Y()
+        y.a, y.b, y.c = -1, -7, 1
+        assert (y.a, y.b, y.c) == (-1, -7, -1)
+        y.free()
+
+    def test_structure_bitfields_ulonglong(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'Q', 1),
                                ('b', 'Q', 62),
                                ('c', 'Q', 1)])
-        z = Z()
-        z.a, z.b, z.c = 7, 0x1000000000000001, 7
-        assert (z.a, z.b, z.c) == (1, 0x1000000000000001, 1)
-        z.free()
-
-    def test_structure_ulonglong_bitfields(self):
-        import _rawffi
-        X = _rawffi.Structure([('A', 'Q', 1),
-                               ('B', 'Q', 62),
-                               ('C', 'Q', 1)])
-        x = X()
-        x.A, x.B, x.C = 7, 0x1000000000000001, 7
-        assert x.A == 1
-        assert x.B == 0x1000000000000001
-        assert x.C == 1
-        x.free()
-
-    def test_structure_longlong_bitfields(self):
-        import _rawffi
-        Y = _rawffi.Structure([('a', 'q', 1),
-                               ('b', 'q', 61),
-                               ('c', 'q', 1)])
         y = Y()
-        y.a, y.b, y.c = 0, -7, 0
-        assert (y.a, y.b, y.c) == (0, -7, 0)
+        y.a, y.b, y.c = 7, (1 << 61) | 1, 7
+        assert (y.a, y.b, y.c) == (1, (1 << 61) | 1, 1)
         y.free()
 
-    def test_structure_ulonglong_bitfields(self):
+    def test_structure_bitfields_single_signed(self):
         import _rawffi
-        X = _rawffi.Structure([('A', 'Q', 1),
-                               ('B', 'Q', 62),
-                               ('C', 'Q', 1)])
-        x = X()
-        x.A, x.B, x.C = 7, 0x1000000000000001, 7
-        assert x.A == 1
-        assert x.B == 0x1000000000000001
-        assert x.C == 1
-        x.free()
+        for s in [('i', 32), ('q', 64)]:
+            Y = _rawffi.Structure([('a',) + s])
+            y = Y()
+            y.a = 10
+            assert y.a == 10
+            val = (1 << (s[1] - 1)) | 1
+            y.a = val
+            assert y.a == val - (1 << s[1])
+            y.free()
 
-    def test_structure_longlong_bitfields(self):
+    def test_structure_bitfields_single_unsigned(self):
         import _rawffi
-        Y = _rawffi.Structure([('a', 'q', 1),
-                               ('b', 'q', 61),
-                               ('c', 'q', 1)])
-        y = Y()
-        y.a, y.b, y.c = 0, -7, 0
-        assert (y.a, y.b, y.c) == (0, -7, 0)
-        y.free()
+        for s in [('I', 32), ('Q', 64)]:
+            Y = _rawffi.Structure([('a',) + s])
+            y = Y()
+            y.a = 10
+            assert y.a == 10
+            val = (1 << (s[1] - 1)) | 1
+            y.a = val
+            assert y.a == val
+            y.free()
 
     def test_invalid_bitfields(self):
         import _rawffi
@@ -732,7 +744,6 @@ class AppTestFfi:
         finally:
             sys.stderr = orig
 
-
     def test_setattr_struct(self):
         import _rawffi
         X = _rawffi.Structure([('value1', 'i'), ('value2', 'i')])
@@ -762,7 +773,6 @@ class AppTestFfi:
             s.value = 4
             assert s.value == 4
             s.free()
-
 
     def test_array_addressof(self):
         import _rawffi
@@ -1129,24 +1139,32 @@ class AppTestAutoFree:
         gc.collect()
         gc.collect()
         S = _rawffi.Structure([('x', 'i')])
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
         s = S(autofree=True)
         s.x = 3
         s = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def test_array_autofree(self):
         import gc, _rawffi
         gc.collect()
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
 
         A = _rawffi.Array('c')
         a = A(6, 'xxyxx\x00', autofree=True)
         assert _rawffi.charp2string(a.buffer) == 'xxyxx'
         a = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def teardown_class(cls):
         Tracker.DO_TRACING = False

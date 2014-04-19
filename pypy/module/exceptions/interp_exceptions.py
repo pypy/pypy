@@ -446,6 +446,9 @@ class W_WindowsError(W_OSError):
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
         _winerror_to_errno, _default_errno = rwin32.build_winerror_to_errno()
+        # Python 2 doesn't map ERROR_DIRECTORY (267) to ENOTDIR but
+        # Python 3 (CPython issue #12802) and build_winerror_to_errno do
+        del _winerror_to_errno[267]
     else:
         _winerror_to_errno, _default_errno = {}, 22 # EINVAL
 

@@ -16,6 +16,7 @@ import os
 import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
+from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
@@ -76,7 +77,7 @@ class RPythonTyper(object):
         except KeyError:
             pass
         if isinstance(lltype, Primitive):
-            repr = self.primitive_to_repr[lltype] = self.getrepr(annmodel.lltype_to_annotation(lltype))
+            repr = self.primitive_to_repr[lltype] = self.getrepr(lltype_to_annotation(lltype))
             return repr
         raise TyperError('There is no primitive repr for %r' % (lltype,))
 
@@ -615,7 +616,7 @@ class RPythonTyper(object):
         for s in argtypes:
             # assume 's' is a low-level type, unless it is already an annotation
             if not isinstance(s, annmodel.SomeObject):
-                s = annmodel.lltype_to_annotation(s)
+                s = lltype_to_annotation(s)
             args_s.append(s)
         # hack for bound methods
         if hasattr(ll_function, 'im_func'):
@@ -639,10 +640,10 @@ class RPythonTyper(object):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
-        args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]
+        args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
         graph = self.annotate_helper(func, args_s)
         s = self.annotator.binding(graph.getreturnvar())
-        if (not isinstance(s, annmodel.SomePtr) or
+        if (not isinstance(s, SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
@@ -902,7 +903,7 @@ class LowLevelOpList(list):
                     raise TyperError("non-PBC Void argument: %r", (s_value,))
                 args_s.append(s_value)
             else:
-                args_s.append(annmodel.lltype_to_annotation(v.concretetype))
+                args_s.append(lltype_to_annotation(v.concretetype))
             newargs_v.append(v)
 
         self.rtyper.call_all_setups()  # compute ForwardReferences now

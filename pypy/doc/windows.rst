@@ -86,7 +86,7 @@ This library is needed if you plan to use the ``--gc=boehm`` translation
 option (this is the default at some optimization levels like ``-O1``,
 but unneeded for high-performance translations like ``-O2``).
 You may get it at
-http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc-7.1.tar.gz
+http://hboehm.info/gc/gc_source/gc-7.1.tar.gz
 
 Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
 pypy. Unpack this folder in the base directory.  Then open a command

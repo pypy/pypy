@@ -3,6 +3,7 @@ import sys
 import py
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
@@ -31,11 +32,11 @@ def test_cast_pointer():
     PS2 = lltype.Ptr(S2)
     def lldown(p):
         return lltype.cast_pointer(PS, p)
-    s, t = ll_rtype(lldown, [annmodel.SomePtr(PS2)])
+    s, t = ll_rtype(lldown, [SomePtr(PS2)])
     assert s.ll_ptrtype == PS
     def llup(p):
         return lltype.cast_pointer(PS2, p)
-    s, t = ll_rtype(llup, [annmodel.SomePtr(PS)])
+    s, t = ll_rtype(llup, [SomePtr(PS)])
     assert s.ll_ptrtype == PS2
 
 def test_runtime_type_info():
@@ -45,8 +46,8 @@ def test_runtime_type_info():
                 lltype.runtime_type_info(p) == lltype.getRuntimeTypeInfo(S))
 
     assert ll_example(lltype.malloc(S)) == (lltype.getRuntimeTypeInfo(S), True)
-    s, t = ll_rtype(ll_example, [annmodel.SomePtr(lltype.Ptr(S))])
-    assert s == annmodel.SomeTuple([annmodel.SomePtr(lltype.Ptr(lltype.RuntimeTypeInfo)),
+    s, t = ll_rtype(ll_example, [SomePtr(lltype.Ptr(S))])
+    assert s == annmodel.SomeTuple([SomePtr(lltype.Ptr(lltype.RuntimeTypeInfo)),
                                     annmodel.SomeBool()])
 
 from rpython.rtyper.test.test_llinterp import interpret, gengraph

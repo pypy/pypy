@@ -1,9 +1,21 @@
+import py
+from pypy.conftest import option
 from pypy.module._rawffi.tracker import Tracker
+
 
 class AppTestTracker:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
 
     def setup_class(cls):
+        #
+        # detect if we're running on PyPy with DO_TRACING not compiled in
+        if option.runappdirect:
+            try:
+                import _rawffi
+                _rawffi._num_of_allocated_objects()
+            except (ImportError, RuntimeError), e:
+                py.test.skip(str(e))
+        #
         Tracker.DO_TRACING = True
 
     def test_array(self):

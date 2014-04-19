@@ -1,4 +1,4 @@
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -30,7 +30,7 @@ class Entry(ExtRegistryEntry):
     _about_ = populate_list_from_raw_array
 
     def compute_result_annotation(self, s_list, s_array, s_length):
-        s_item = annmodel.lltype_to_annotation(s_array.ll_ptrtype.TO.OF)
+        s_item = lltype_to_annotation(s_array.ll_ptrtype.TO.OF)
         s_newlist = self.bookkeeper.newlist(s_item)
         s_newlist.listdef.resize()
         pair(s_list, s_newlist).union()

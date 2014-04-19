@@ -33,7 +33,7 @@ class TestCPPYYImplementation:
 
 
 class AppTestCPPYY:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         if isdummy:

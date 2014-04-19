@@ -513,6 +513,35 @@ class AppTestBufferedWriter:
         exc = raises(RuntimeError, bufio.flush)
         assert "reentrant" in str(exc.value)  # And not e.g. recursion limit.
 
+    def test_write_error_on_close(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def writable(self):
+                return True
+            def write(self, data):
+                raise IOError()
+        raw = MockRawIO()
+        b = _io.BufferedWriter(raw)
+        b.write(b'spam')
+        raises(IOError, b.close)  # exception not swallowed
+        assert b.closed
+
+    def test_close_error_on_close(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def writable(self):
+                return True
+            def close(self):
+                raise IOError('close')
+        def bad_flush():
+            raise IOError('flush')
+        raw = MockRawIO()
+        b = _io.BufferedWriter(raw)
+        b.flush = bad_flush
+        err = raises(IOError, b.close)  # exception not swallowed
+        assert err.value.args == ('close',)
+        assert not b.closed
+
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io

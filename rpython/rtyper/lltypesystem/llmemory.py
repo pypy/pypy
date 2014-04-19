@@ -905,11 +905,12 @@ class RawMemmoveEntry(ExtRegistryEntry):
     _about_ = raw_memmove
 
     def compute_result_annotation(self, s_from, s_to, s_size):
-        from rpython.annotator.model import SomeAddress, SomeInteger
+        from rpython.annotator.model import SomeInteger
+        from rpython.rtyper.llannotation import SomeAddress
         assert isinstance(s_from, SomeAddress)
         assert isinstance(s_to, SomeAddress)
         assert isinstance(s_size, SomeInteger)
-    
+
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         v_list = hop.inputargs(Address, Address, lltype.Signed)

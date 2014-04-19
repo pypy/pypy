@@ -14,7 +14,7 @@ def setup_module(mod):
 
 
 class AppTestACLASSLOADER:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.space.appexec([], """():

@@ -18,7 +18,7 @@ def setup_module(mod):
             raise OSError("'make' failed (see stderr)")
 
 class AppTestADVANCEDCPP:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct = cls.space.wrap(test_dct)

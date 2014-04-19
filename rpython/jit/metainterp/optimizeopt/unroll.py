@@ -41,10 +41,6 @@ class UnrollableOptimizer(Optimizer):
             self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
         self._emit_operation(op)
 
-    def new(self):
-        new = UnrollableOptimizer(self.metainterp_sd, self.loop)
-        return self._new(new)
-
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -300,7 +296,7 @@ class UnrollOptimizer(Optimization):
             i += 1
             newoperations = self.optimizer.get_newoperations()
         self.short.append(ResOperation(rop.JUMP, short_jumpargs, None, descr=start_label.getdescr()))
-        self.finilize_short_preamble(start_label)
+        self.finalize_short_preamble(start_label)
 
     def close_loop(self, start_label, jumpop):
         virtual_state = self.initial_virtual_state
@@ -407,9 +403,9 @@ class UnrollOptimizer(Optimization):
             assert isinstance(target_token, TargetToken)
             target_token.targeting_jitcell_token.retraced_count = sys.maxint
 
-        self.finilize_short_preamble(start_label)
+        self.finalize_short_preamble(start_label)
 
-    def finilize_short_preamble(self, start_label):
+    def finalize_short_preamble(self, start_label):
         short = self.short
         assert short[-1].getopnum() == rop.JUMP
         target_token = start_label.getdescr()

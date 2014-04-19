@@ -2,13 +2,13 @@
 Implementation of the interpreter-level default import logic.
 """
 
-import sys, os, stat
+import sys, os, stat, genericpath
 
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
@@ -247,12 +247,10 @@ def importhook(space, name, w_globals=None,
         fromlist_w = None
 
     rel_modulename = None
-    if (level != 0 and
-        w_globals is not None and
-        space.isinstance_w(w_globals, space.w_dict)):
-
-        rel_modulename, rel_level = _get_relative_name(space, modulename, level, w_globals)
-
+    if (level != 0 and w_globals is not None and
+            space.isinstance_w(w_globals, space.w_dict)):
+        rel_modulename, rel_level = _get_relative_name(space, modulename, level,
+                                                       w_globals)
         if rel_modulename:
             # if no level was set, ignore import errors, and
             # fall back to absolute import at the end of the
@@ -524,7 +522,8 @@ def find_module(space, modulename, w_modulename, partname, w_path,
 
             path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
-            if os.path.isdir(filepart) and case_ok(filepart):
+            # os.path.isdir on win32 is not rpython when pywin32 installed
+            if genericpath.isdir(filepart) and case_ok(filepart):
                 initfile = os.path.join(filepart, '__init__')
                 modtype, _, _ = find_modtype(space, initfile)
                 if modtype in (PY_SOURCE, PY_COMPILED):
@@ -576,11 +575,13 @@ def load_c_extension(space, filename, modulename):
 def load_module(space, w_modulename, find_info, reuse=False):
     if find_info is None:
         return
+
     if find_info.w_loader:
         return space.call_method(find_info.w_loader, "load_module", w_modulename)
 
     if find_info.modtype == C_BUILTIN:
-        return space.getbuiltinmodule(find_info.filename, force_init=True)
+        return space.getbuiltinmodule(find_info.filename, force_init=True,
+                                      reuse=reuse)
 
     if find_info.modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION, PKG_DIRECTORY):
         w_mod = None
@@ -601,7 +602,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
         try:
             if find_info.modtype == PY_SOURCE:
                 load_source_module(
-                    space, w_modulename, w_mod, 
+                    space, w_modulename, w_mod,
                     find_info.filename, find_info.stream.readall(),
                     find_info.stream.try_to_find_file_descriptor())
                 return w_mod
@@ -669,8 +670,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         return None
     else:
         # ImportError
-        msg = "No module named %s"
-        raise operationerrfmt(space.w_ImportError, msg, modulename)
+        raise oefmt(space.w_ImportError, "No module named %s", modulename)
 
 @jit.dont_look_inside
 def reload(space, w_module):
@@ -684,9 +684,8 @@ def reload(space, w_module):
     w_modulename = space.getattr(w_module, space.wrap("__name__"))
     modulename = space.str0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
-        raise operationerrfmt(
-            space.w_ImportError,
-            "reload(): module %s not in sys.modules", modulename)
+        raise oefmt(space.w_ImportError,
+                    "reload(): module %s not in sys.modules", modulename)
 
     try:
         w_mod = space.reloading_modules[modulename]
@@ -703,10 +702,9 @@ def reload(space, w_module):
         if parent_name:
             w_parent = check_sys_modules_w(space, parent_name)
             if w_parent is None:
-                raise operationerrfmt(
-                    space.w_ImportError,
-                    "reload(): parent %s not in sys.modules",
-                    parent_name)
+                raise oefmt(space.w_ImportError,
+                            "reload(): parent %s not in sys.modules",
+                            parent_name)
             w_path = space.getattr(w_parent, space.wrap("__path__"))
         else:
             w_path = None
@@ -716,8 +714,7 @@ def reload(space, w_module):
 
         if not find_info:
             # ImportError
-            msg = "No module named %s"
-            raise operationerrfmt(space.w_ImportError, msg, modulename)
+            raise oefmt(space.w_ImportError, "No module named %s", modulename)
 
         try:
             try:
@@ -758,26 +755,14 @@ class ImportRLock:
         me = self.space.getexecutioncontext()   # used as thread ident
         return self.lockowner is me
 
-    def _can_have_lock(self):
-        # hack: we can't have self.lock != None during translation,
-        # because prebuilt lock objects are not allowed.  In this
-        # special situation we just don't lock at all (translation is
-        # not multithreaded anyway).
-        if we_are_translated():
-            return True     # we need a lock at run-time
-        elif self.space.config.translating:
-            assert self.lock is None
-            return False
-        else:
-            return True     # in py.py
-
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         if self.lock is None:
-            if not self._can_have_lock():
+            try:
+                self.lock = self.space.allocate_lock()
+            except CannotHaveLock:
                 return
-            self.lock = self.space.allocate_lock()
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is me:
             pass    # already acquired by the current thread
@@ -795,7 +780,7 @@ class ImportRLock:
                 # Too bad.  This situation can occur if a fork() occurred
                 # with the import lock held, and we're the child.
                 return
-            if not self._can_have_lock():
+            if self.lock is None:   # CannotHaveLock occurred
                 return
             space = self.space
             raise OperationError(space.w_RuntimeError,
@@ -837,11 +822,11 @@ def getimportlock(space):
 # CPython leaves a gap of 10 when it increases its own magic number.
 # To avoid assigning exactly the same numbers as CPython, we can pick
 # any number between CPython + 2 and CPython + 9.  Right now,
-# default_magic = CPython + 6.
+# default_magic = CPython + 7.
 #
-#     default_magic - 6    -- used by CPython without the -U option
-#     default_magic - 5    -- used by CPython with the -U option
-#     default_magic        -- used by PyPy [because of CALL_METHOD]
+#     CPython + 0                  -- used by CPython without the -U option
+#     CPython + 1                  -- used by CPython with the -U option
+#     CPython + 7 = default_magic  -- used by PyPy (incompatible!)
 #
 from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
@@ -992,8 +977,7 @@ def read_compiled_module(space, cpathname, strbuf):
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
     if not isinstance(w_code, Code):
-        raise operationerrfmt(space.w_ImportError,
-                              "Non-code object in %s", cpathname)
+        raise oefmt(space.w_ImportError, "Non-code object in %s", cpathname)
     return w_code
 
 @jit.dont_look_inside
@@ -1004,8 +988,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     module object.
     """
     if magic != get_pyc_magic(space):
-        raise operationerrfmt(space.w_ImportError,
-                              "Bad magic number in %s", cpathname)
+        raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
     try:

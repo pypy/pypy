@@ -17,7 +17,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestFRAGILE:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -196,7 +196,7 @@ class AppTestFRAGILE:
             assert "fragile::D::overload(char, int)" in str(e)
             assert "TypeError: expected string, got NoneType object" in str(e)
             assert "fragile::D::overload(int, fragile::no_such_class*)" in str(e)
-            assert "TypeError: unsupported operand type for int(): 'NoneType'" in str(e)
+            assert "TypeError: expected integer, got NoneType object" in str(e)
 
         j = fragile.J()
         assert fragile.J.method1.__doc__ == j.method1.__doc__

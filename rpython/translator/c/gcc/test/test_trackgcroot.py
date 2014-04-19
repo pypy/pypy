@@ -127,6 +127,8 @@ r_gcroot_constant = re.compile(r";\tmov\t.+, .+_constant_always_one_")
 def check_computegcmaptable(format, path):
     if format == 'msvc':
         r_globallabel = re.compile(r"([\w]+)::")
+    elif format == 'darwin' or format == 'darwin64':
+        py.test.skip("disabled on OS/X's terribly old gcc")
     else:
         r_globallabel = re.compile(r"([\w]+)=[.]+")
     print

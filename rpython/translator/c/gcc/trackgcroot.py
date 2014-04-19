@@ -31,7 +31,7 @@ class FunctionGcRootTracker(object):
         cls.r_binaryinsn    = re.compile(r"\t[a-z]\w*\s+(?P<source>"+cls.OPERAND+"),\s*(?P<target>"+cls.OPERAND+")\s*$")
 
         cls.r_jump          = re.compile(r"\tj\w+\s+"+cls.LABEL+"\s*" + cls.COMMENT + "$")
-        cls.r_jmp_switch    = re.compile(r"\tjmp\t[*]"+cls.LABEL+"[(]")
+        cls.r_jmp_switch    = re.compile(r"\tjmp\t[*]")
         cls.r_jmp_source    = re.compile(r"\d*[(](%[\w]+)[,)]")
 
     def __init__(self, funcname, lines, filetag=0):
@@ -697,10 +697,22 @@ class FunctionGcRootTracker(object):
         tablelabels = []
         match = self.r_jmp_switch.match(line)
         if match:
-            # this is a jmp *Label(%index), used for table-based switches.
-            # Assume that the table is just a list of lines looking like
-            # .long LABEL or .long 0, ending in a .text or .section .text.hot.
-            tablelabels.append(match.group(1))
+            # this is a jmp *Label(%index) or jmp *%addr, used for
+            # table-based switches.  Assume that the table is coming
+            # after a .section .rodata and a label, and is a list of
+            # lines looking like .long LABEL or .long 0 or .long L2-L1,
+            # ending in a .text or .section .text.hot.
+            lineno = self.currentlineno + 1
+            if '.section' not in self.lines[lineno]:
+                pass  # bah, probably a tail-optimized indirect call...
+            else:
+                assert '.rodata' in self.lines[lineno]
+                lineno += 1
+                while '.align' in self.lines[lineno]:
+                    lineno += 1
+                match = self.r_label.match(self.lines[lineno])
+                assert match, repr(self.lines[lineno])
+                tablelabels.append(match.group(1))
         elif self.r_unaryinsn_star.match(line):
             # maybe a jmp similar to the above, but stored in a
             # registry:

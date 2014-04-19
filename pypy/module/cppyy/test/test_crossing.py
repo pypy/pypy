@@ -1,7 +1,7 @@
 import py, os, sys
 
 if py.path.local.sysfind('genreflex') is None:
-    py.test.skip("genreflex is not installed")
+     py.test.skip("genreflex is not installed")
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -69,7 +69,7 @@ def compile_extension_module(space, modname, symbols, **kwds):
     return str(pydname)
 
 class AppTestCrossing(AppTestCpythonExtensionBase):
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools', 'cpyext'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools', 'cpyext'])
 
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)

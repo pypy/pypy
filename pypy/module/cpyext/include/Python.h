@@ -24,6 +24,7 @@
 #  include <limits.h>
 # endif
 # include <io.h>
+# include <sys/types.h>   /* for 'off_t' */
 # define Py_DEPRECATED(VERSION_UNUSED)
 # ifdef Py_BUILD_CORE
 #  define PyAPI_FUNC(RTYPE) __declspec(dllexport) RTYPE

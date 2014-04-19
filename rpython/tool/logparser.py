@@ -410,7 +410,7 @@ def print_summary(log, out):
     total = sum([b for a, b in l])
     for a, b in l:
         if a is None:
-            a = 'interpret'
+            a = 'normal-execution'
         s = " " * (50 - len(a))
         print >>outfile, a, s, str(b*100/total) + "%"
     if out != '-':

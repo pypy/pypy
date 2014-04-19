@@ -220,11 +220,25 @@ class TestDiscovery(unittest.TestCase):
 
         program = object.__new__(unittest.TestProgram)
         program.usageExit = usageExit
+        program.testLoader = None
 
         with self.assertRaises(Stop):
             # too many args
             program._do_discovery(['one', 'two', 'three', 'four'])
 
+
+    def test_command_line_handling_do_discovery_uses_default_loader(self):
+        program = object.__new__(unittest.TestProgram)
+
+        class Loader(object):
+            args = []
+            def discover(self, start_dir, pattern, top_level_dir):
+                self.args.append((start_dir, pattern, top_level_dir))
+                return 'tests'
+
+        program.testLoader = Loader()
+        program._do_discovery(['-v'])
+        self.assertEqual(Loader.args, [('.', 'test*.py', None)])
 
     def test_command_line_handling_do_discovery_calls_loader(self):
         program = object.__new__(unittest.TestProgram)
@@ -300,7 +314,7 @@ class TestDiscovery(unittest.TestCase):
         self.assertTrue(program.failfast)
         self.assertTrue(program.catchbreak)
 
-    def test_detect_module_clash(self):
+    def setup_module_clash(self):
         class Module(object):
             __file__ = 'bar/foo.py'
         sys.modules['foo'] = Module
@@ -327,7 +341,10 @@ class TestDiscovery(unittest.TestCase):
         os.listdir = listdir
         os.path.isfile = isfile
         os.path.isdir = isdir
+        return full_path
 
+    def test_detect_module_clash(self):
+        full_path = self.setup_module_clash()
         loader = unittest.TestLoader()
 
         mod_dir = os.path.abspath('bar')
@@ -340,6 +357,25 @@ class TestDiscovery(unittest.TestCase):
         )
         self.assertEqual(sys.path[0], full_path)
 
+    def test_module_symlink_ok(self):
+        full_path = self.setup_module_clash()
+
+        original_realpath = os.path.realpath
+
+        mod_dir = os.path.abspath('bar')
+        expected_dir = os.path.abspath('foo')
+
+        def cleanup():
+            os.path.realpath = original_realpath
+        self.addCleanup(cleanup)
+
+        def realpath(path):
+            if path == os.path.join(mod_dir, 'foo.py'):
+                return os.path.join(expected_dir, 'foo.py')
+            return path
+        os.path.realpath = realpath
+        loader = unittest.TestLoader()
+        loader.discover(start_dir='foo', pattern='foo.py')
 
     def test_discovery_from_dotted_path(self):
         loader = unittest.TestLoader()

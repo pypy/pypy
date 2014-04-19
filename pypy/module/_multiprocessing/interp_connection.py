@@ -1,12 +1,12 @@
 import sys
+from errno import EINTR
 
 from rpython.rlib import rpoll, rsocket
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import (
-    OperationError, operationerrfmt, wrap_oserror)
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
@@ -307,6 +307,9 @@ class W_FileConnection(W_BaseConnection):
             try:
                 count = self.WRITE(data)
             except OSError, e:
+                if e.errno == EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
                 raise wrap_oserror(space, e)
             size -= count
             message = rffi.ptradd(message, count)
@@ -318,6 +321,9 @@ class W_FileConnection(W_BaseConnection):
             try:
                 data = self.READ(remaining)
             except OSError, e:
+                if e.errno == EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
                 raise wrap_oserror(space, e)
             count = len(data)
             if count == 0:
@@ -341,10 +347,8 @@ class W_FileConnection(W_BaseConnection):
 
     def do_poll(self, space, timeout):
         if not self._check_fd():
-            raise OperationError(space.w_IOError, space.wrap(
-                "handle out of range in select()"))
-
-        r, w, e = rpoll.select([self.fd], [], [], timeout)
+            raise oefmt(space.w_IOError, "handle out of range in select()")
+        r, w, e = rpoll.select([self.fd], [], [], timeout, handle_eintr=True)
         return bool(r)
 
 W_FileConnection.typedef = TypeDef(
@@ -403,9 +407,8 @@ class W_PipeConnection(W_BaseConnection):
 
             if (result == 0 and
                 rwin32.GetLastError() == ERROR_NO_SYSTEM_RESOURCES):
-                raise operationerrfmt(
-                    space.w_ValueError,
-                    "Cannot send %d bytes over connection", size)
+                raise oefmt(space.w_ValueError,
+                            "Cannot send %d bytes over connection", size)
         finally:
             rffi.free_charp(charp)
             lltype.free(written_ptr, flavor='raw')

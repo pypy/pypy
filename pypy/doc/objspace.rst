@@ -339,44 +339,35 @@ around.
 Object types
 ------------
 
-The larger part of the `pypy/objspace/std/`_ package defines and implements the
-library of Python's standard built-in object types.  Each type (int, float,
-list, tuple, str, type, etc.) is typically implemented by two modules:
+The larger part of the `pypy/objspace/std/`_ package defines and
+implements the library of Python's standard built-in object types.  Each
+type ``xxx`` (int, float, list, tuple, str, type, etc.) is typically
+implemented in the module ``xxxobject.py``.
 
-* the *type specification* module, which for a type ``xxx`` is called ``xxxtype.py``;
+The ``W_AbstractXxxObject`` class, when present, is the abstract base
+class, which mainly defines what appears on the Python-level type
+object.  There are then actual implementations as subclasses, which are
+called ``W_XxxObject`` or some variant for the cases where we have
+several different implementations.  For example,
+`pypy/objspace/std/bytesobject.py`_ defines ``W_AbstractBytesObject``,
+which contains everything needed to build the ``str`` app-level type;
+and there are subclasses ``W_BytesObject`` (the usual string) and
+``W_StringBufferObject`` (a special implementation tweaked for repeated
+additions, in `pypy/objspace/std/strbufobject.py`_).  For mutable data
+types like lists and dictionaries, we have a single class
+``W_ListObject`` or ``W_DictMultiObject`` which has an indirection to
+the real data and a strategy; the strategy can change as the content of
+the object changes.
 
-* the *implementation* module, called ``xxxobject.py``.
-
-The ``xxxtype.py`` module basically defines the type object itself.  For
-example, `pypy/objspace/std/listtype.py`_ contains the specification of the object you get when
-you type ``list`` in a PyPy prompt.  `pypy/objspace/std/listtype.py`_ enumerates the methods
-specific to lists, like ``append()``.
-
-A particular method implemented by all types is the ``__new__()`` special
-method, which in Python's new-style-classes world is responsible for creating
-an instance of the type.  In PyPy, ``__new__()`` locates and imports the module
-implementing *instances* of the type, and creates such an instance based on the
-arguments the user supplied to the constructor.  For example, `pypy/objspace/std/tupletype.py`_
-defines ``__new__()`` to import the class ``W_TupleObject`` from
-`pypy/objspace/std/tupleobject.py`_ and instantiate it.  The `pypy/objspace/std/tupleobject.py`_ then contains a
-"real" implementation of tuples: the way the data is stored in the
-``W_TupleObject`` class, how the operations work, etc.
-
-The goal of the above module layout is to cleanly separate the Python
-type object, visible to the user, and the actual implementation of its
-instances.  It is possible to provide *several* implementations of the
-instances of the same Python type, by writing several ``W_XxxObject``
-classes.  Every place that instantiates a new object of that Python type
-can decide which ``W_XxxObject`` class to instantiate.
-
-From the user's point of view, the multiple internal ``W_XxxObject``
-classes are not visible: they are still all instances of exactly the
-same Python type.  PyPy knows that (e.g.) the application-level type of
-its interpreter-level ``W_StringObject`` instances is str because
-there is a ``typedef`` class attribute in ``W_StringObject`` which
-points back to the string type specification from `pypy/objspace/std/stringtype.py`_; all
-other implementations of strings use the same ``typedef`` from
-`pypy/objspace/std/stringtype.py`_.
+From the user's point of view, even when there are several
+``W_AbstractXxxObject`` subclasses, this is not visible: at the
+app-level, they are still all instances of exactly the same Python type.
+PyPy knows that (e.g.) the application-level type of its
+interpreter-level ``W_BytesObject`` instances is str because there is a
+``typedef`` class attribute in ``W_BytesObject`` which points back to
+the string type specification from `pypy/objspace/std/bytesobject.py`_;
+all other implementations of strings use the same ``typedef`` from
+`pypy/objspace/std/bytesobject.py`_.
 
 For other examples of multiple implementations of the same Python type,
 see `Standard Interpreter Optimizations`_.
@@ -386,6 +377,9 @@ see `Standard Interpreter Optimizations`_.
 
 Multimethods
 ------------
+
+*Note: multimethods are on the way out.  Although they look cool,
+they failed to provide enough benefits.*
 
 The Standard Object Space allows multiple object implementations per
 Python type - this is based on multimethods_.  For a description of the
@@ -491,7 +485,7 @@ The Flow Object Space
 Introduction
 ------------
 
-The task of the FlowObjSpace (the source is at `pypy/objspace/flow/`_) is to generate a control-flow graph from a
+The task of the FlowObjSpace (the source is at `rpython/flowspace/`_) is to generate a control-flow graph from a
 function.  This graph will also contain a trace of the individual operations, so
 that it is actually just an alternate representation for the function.
 

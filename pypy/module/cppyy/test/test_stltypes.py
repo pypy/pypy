@@ -15,7 +15,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestSTLVECTOR:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(13)
@@ -203,7 +203,7 @@ class AppTestSTLVECTOR:
 
 
 class AppTestSTLSTRING:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -281,7 +281,7 @@ class AppTestSTLSTRING:
 
 
 class AppTestSTLLIST:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(13)
@@ -337,7 +337,7 @@ class AppTestSTLLIST:
 
 
 class AppTestSTLMAP:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(13)
@@ -446,7 +446,7 @@ class AppTestSTLMAP:
 
 
 class AppTestSTLITERATOR:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)

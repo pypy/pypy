@@ -20,9 +20,6 @@ class OptRewrite(Optimization):
         self.loop_invariant_results = {}
         self.loop_invariant_producer = {}
 
-    def new(self):
-        return OptRewrite()
-
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_potential(op)
@@ -89,8 +86,21 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v1.is_null() or v2.is_null():
             self.make_constant_int(op.result, 0)
-        else:
-            self.emit_operation(op)
+            return
+        elif v2.is_constant():
+            val = v2.box.getint()
+            if val == -1 or v1.intbound.lower >= 0 \
+                and v1.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v1)
+                return
+        elif v1.is_constant():
+            val = v1.box.getint()
+            if val == -1 or v2.intbound.lower >= 0 \
+                and v2.intbound.upper <= val & ~(val + 1):
+                self.make_equal_to(op.result, v2)
+                return
+
+        self.emit_operation(op)
 
     def optimize_INT_OR(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -232,8 +242,9 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} was proven to' +
-                                  'always fail')
+                r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) was proven '
+                                  'to always fail' % r)
             return
         if emit_operation:
             self.emit_operation(op)
@@ -245,7 +256,9 @@ class OptRewrite(Optimization):
         if value.is_null():
             return
         elif value.is_nonnull():
-            raise InvalidLoop('A GUARD_ISNULL was proven to always fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_ISNULL (%s) was proven to always fail'
+                              % r)
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
@@ -254,14 +267,22 @@ class OptRewrite(Optimization):
         if value.is_nonnull():
             return
         elif value.is_null():
-            raise InvalidLoop('A GUARD_NONNULL was proven to always fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_NONNULL (%s) was proven to always fail'
+                              % r)
         self.emit_operation(op)
         value.make_nonnull(op)
 
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            raise InvalidLoop('A promote of a virtual (a recently allocated object) never makes sense!')
+            arg = value.get_constant_class(self.optimizer.cpu)
+            if arg:
+                addr = arg.getaddr()
+                name = self.optimizer.metainterp_sd.get_name_from_address(addr)
+            else:
+                name = "<unknown>"
+            raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
@@ -276,7 +297,8 @@ class OptRewrite(Optimization):
                 assert previous_classbox is not None
                 assert expected_classbox is not None
                 if not previous_classbox.same_constant(expected_classbox):
-                    raise InvalidLoop('A GUARD_VALUE was proven to always fail')
+                    r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                    raise InvalidLoop('A GUARD_VALUE (%s) was proven to always fail' % r)
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                                       args = [old_guard_op.getarg(0), op.getarg(1)])
             self.optimizer.replaces_guard[op] = old_guard_op
@@ -317,7 +339,9 @@ class OptRewrite(Optimization):
         if realclassbox is not None:
             if realclassbox.same_constant(expectedclassbox):
                 return
-            raise InvalidLoop('A GUARD_CLASS was proven to always fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_CLASS (%s) was proven to always fail'
+                              % r)
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
@@ -340,8 +364,9 @@ class OptRewrite(Optimization):
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
-            raise InvalidLoop('A GUARD_NONNULL_CLASS was proven to always ' +
-                              'fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_NONNULL_CLASS (%s) was proven to '
+                              'always fail' % r)
         self.optimize_GUARD_CLASS(op)
 
     def optimize_CALL_LOOPINVARIANT(self, op):

@@ -20,7 +20,6 @@ class AppTestStruct(object):
         """)
         cls.w_native_is_bigendian = cls.space.wrap(native_is_bigendian)
 
-
     def test_error(self):
         """
         struct.error should be an exception class.
@@ -383,6 +382,19 @@ class AppTestStruct(object):
         b = buffer(self.struct.pack("ii", 62, 12))
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
+
+    def test___float__(self):
+        class MyFloat(object):
+            def __init__(self, x):
+                self.x = x
+            def __float__(self):
+                return self.x
+
+        obj = MyFloat(42.3)
+        data = self.struct.pack('d', obj)
+        obj2, = self.struct.unpack('d', data)
+        assert type(obj2) is float
+        assert obj2 == 42.3
 
 
 class AppTestStructBuffer(object):

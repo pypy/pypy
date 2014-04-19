@@ -3,7 +3,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.formatiterator import FormatIterator
-from rpython.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
+
 from pypy.interpreter.error import OperationError
 
 
@@ -45,69 +45,47 @@ class PackFormatIterator(FormatIterator):
         self.args_index += 1
         return w_obj
 
-    if PACK_ACCEPTS_BROKEN_INPUT:
-        # permissive version - accepts float arguments too
+    def accept_int_arg(self):
+        return self._accept_integral("int_w")
 
-        def accept_int_arg(self):
-            return self._accept_integral("int_w")
+    def accept_uint_arg(self):
+        return self._accept_integral("uint_w")
 
-        def accept_uint_arg(self):
-            return self._accept_integral("uint_w")
+    def accept_longlong_arg(self):
+        return self._accept_integral("r_longlong_w")
 
-        def accept_longlong_arg(self):
-            return self._accept_integral("r_longlong_w")
+    def accept_ulonglong_arg(self):
+        return self._accept_integral("r_ulonglong_w")
 
-        def accept_ulonglong_arg(self):
-            return self._accept_integral("r_ulonglong_w")
+    @specialize.arg(1)
+    def _accept_integral(self, meth):
+        space = self.space
+        w_obj = self.accept_obj_arg()
+        if (space.isinstance_w(w_obj, space.w_int) or
+            space.isinstance_w(w_obj, space.w_long)):
+            w_index = w_obj
+        else:
+            w_index = None
+            w_index_method = space.lookup(w_obj, "__index__")
+            if w_index_method is not None:
+                try:
+                    w_index = space.index(w_obj)
+                except OperationError, e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    pass
+            if w_index is None:
+                w_index = self._maybe_float(w_obj)
+        return getattr(space, meth)(w_index)
 
-        @specialize.arg(1)
-        def _accept_integral(self, meth):
-            space = self.space
-            w_obj = self.accept_obj_arg()
-            if (space.isinstance_w(w_obj, space.w_int) or
-                space.isinstance_w(w_obj, space.w_long)):
-                w_index = w_obj
-            else:
-                w_index = None
-                w_index_method = space.lookup(w_obj, "__index__")
-                if w_index_method is not None:
-                    try:
-                        w_index = space.index(w_obj)
-                    except OperationError, e:
-                        if not e.match(space, space.w_TypeError):
-                            raise
-                        pass
-                if w_index is None:
-                    w_index = self._maybe_float(w_obj)
-            return getattr(space, meth)(w_index)
-
-        def _maybe_float(self, w_obj):
-            space = self.space
-            if space.isinstance_w(w_obj, space.w_float):
-                msg = "struct: integer argument expected, got float"
-            else:
-                msg = "integer argument expected, got non-integer"
-            space.warn(space.wrap(msg), space.w_DeprecationWarning)
-            return space.int(w_obj)   # wrapped float -> wrapped int or long
-
-    else:
-        # strict version
-
-        def accept_int_arg(self):
-            w_obj = self.accept_obj_arg()
-            return self.space.int_w(w_obj)
-
-        def accept_uint_arg(self):
-            w_obj = self.accept_obj_arg()
-            return self.space.uint_w(w_obj)
-
-        def accept_longlong_arg(self):
-            w_obj = self.accept_obj_arg()
-            return self.space.r_longlong_w(w_obj)
-
-        def accept_ulonglong_arg(self):
-            w_obj = self.accept_obj_arg()
-            return self.space.r_ulonglong_w(w_obj)
+    def _maybe_float(self, w_obj):
+        space = self.space
+        if space.isinstance_w(w_obj, space.w_float):
+            msg = "struct: integer argument expected, got float"
+        else:
+            msg = "integer argument expected, got non-integer"
+        space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        return space.int(w_obj)   # wrapped float -> wrapped int or long
 
     def accept_bool_arg(self):
         w_obj = self.accept_obj_arg()

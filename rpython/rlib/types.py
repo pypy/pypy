@@ -57,7 +57,8 @@ def char():
 
 def ptr(ll_type):
     from rpython.rtyper.lltypesystem.lltype import Ptr
-    return model.SomePtr(Ptr(ll_type))
+    from rpython.rtyper.llannotation import SomePtr
+    return SomePtr(Ptr(ll_type))
 
 
 def list(element):

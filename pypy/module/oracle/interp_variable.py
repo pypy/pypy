@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import ovfcheck
 
@@ -1486,9 +1486,8 @@ def typeByValue(space, w_value, numElements):
         varType, size, _ = typeByValue(space, w_element, numElements)
         return varType, size, len(elements_w)
 
-    raise operationerrfmt(moduledict.w_NotSupportedError,
-                          "Variable_TypeByValue(): unhandled data type %T",
-                          w_value)
+    raise oefmt(moduledict.w_NotSupportedError,
+                "Variable_TypeByValue(): unhandled data type %T", w_value)
 
 def newByInputTypeHandler(space, cursor, w_inputTypeHandler, w_value, numElements):
     w_var = space.call(w_inputTypeHandler,

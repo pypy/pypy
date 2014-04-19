@@ -148,6 +148,8 @@ class Desc(object):
 
     def mergecallfamilies(self, *others):
         """Merge the call families of the given Descs into one."""
+        if not others:
+            return False
         call_families = self.bookkeeper.pbc_maximal_call_families
         changed, rep, callfamily = call_families.find(self.rowkey())
         for desc in others:
@@ -622,7 +624,7 @@ class ClassDesc(Desc):
                 except ValueError:
                     pass
                 else:
-                    from rpython.annotator.model import SomePtr
+                    from rpython.rtyper.llannotation import SomePtr
                     assert not isinstance(s_arg, SomePtr)
         else:
             # call the constructor

@@ -58,7 +58,6 @@ else ifeq ($(DUMMY),t)
 
 else # reflex
 %Dict.so: %_rflx.cpp %.cxx
-	echo $(cppflags)
 	g++ -o $@ $^ -shared -lReflex $(cppflags) $(cppflags2)
 
 %_rflx.cpp: %.h %.xml

@@ -1,4 +1,4 @@
-import _ffi
+from _rawffi import alt as _ffi
 import _rawffi
 import weakref
 import sys

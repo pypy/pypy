@@ -323,10 +323,6 @@ class Optimization(object):
     def force_at_end_of_preamble(self):
         pass
 
-    # It is too late to force stuff here, it must be done in force_at_end_of_preamble
-    def new(self):
-        raise NotImplementedError
-
     # Called after last operation has been propagated to flush out any posponed ops
     def flush(self):
         pass
@@ -389,16 +385,6 @@ class Optimizer(Optimization):
     def flush(self):
         for o in self.optimizations:
             o.flush()
-
-    def new(self):
-        new = Optimizer(self.metainterp_sd, self.loop)
-        return self._new(new)
-
-    def _new(self, new):
-        optimizations = [o.new() for o in self.optimizations]
-        new.set_optimizations(optimizations)
-        new.quasi_immutable_deps = self.quasi_immutable_deps
-        return new
 
     def produce_potential_short_preamble_ops(self, sb):
         for opt in self.optimizations:
@@ -642,13 +628,6 @@ class Optimizer(Optimization):
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
 
-    def optimize_GETARRAYITEM_GC_PURE(self, op):
-        indexvalue = self.getvalue(op.getarg(1))
-        if indexvalue.is_constant():
-            arrayvalue = self.getvalue(op.getarg(0))
-            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
-        self.optimize_default(op)
-
     def optimize_STRGETITEM(self, op):
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():
@@ -675,6 +654,3 @@ class Optimizer(Optimization):
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
-
-
-

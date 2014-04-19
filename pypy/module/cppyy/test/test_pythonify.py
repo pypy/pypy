@@ -10,9 +10,6 @@ currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
 
 def setup_module(mod):
-    # force removal of ROOTSYS for this one test, which serves as a test itself
-    if os.getenv("ROOTSYS"):
-        os.unsetenv("ROOTSYS")
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
     err = os.system("cd '%s' && make example01Dict.so" % currpath)
@@ -20,7 +17,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestPYTHONIFY:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -340,7 +337,7 @@ class AppTestPYTHONIFY:
 
 
 class AppTestPYTHONIFY_UI:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)

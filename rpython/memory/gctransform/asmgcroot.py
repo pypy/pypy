@@ -7,6 +7,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker)
+from rpython.rtyper.llannotation import SomeAddress
 from rpython.rtyper.rbuiltin import gen_cast
 from rpython.translator.unsimplify import copyvar, varoftype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -215,7 +216,7 @@ class AsmStackRootWalker(BaseRootWalker):
                 # update the global stack counter
                 rffi.stackcounter.stacks_counter += 1
         #
-        s_addr = annmodel.SomeAddress()
+        s_addr = SomeAddress()
         s_None = annmodel.s_None
         self.gc_detach_callback_pieces_ptr = getfn(gc_detach_callback_pieces,
                                                    [], s_addr)
@@ -327,10 +328,10 @@ class AsmStackRootWalker(BaseRootWalker):
                                       inline=True)
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None)
         self.thread_before_fork_ptr = getfn(thread_before_fork, [],
-                                            annmodel.SomeAddress())
+                                            SomeAddress())
         self.thread_after_fork_ptr = getfn(thread_after_fork,
                                            [annmodel.SomeInteger(),
-                                            annmodel.SomeAddress()],
+                                            SomeAddress()],
                                            annmodel.s_None)
         #
         # check that the order of the need_*() is correct for us: if we
@@ -496,7 +497,7 @@ class AsmStackRootWalker(BaseRootWalker):
             # location -- but we check for consistency that ebp points
             # to a JITFRAME object.
             from rpython.jit.backend.llsupport.jitframe import STACK_DEPTH_OFS
-            
+
             tid = self.gc.get_possibly_forwarded_type_id(ebp_in_caller)
             ll_assert(rffi.cast(lltype.Signed, tid) ==
                       rffi.cast(lltype.Signed, self.frame_tid),

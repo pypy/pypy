@@ -98,6 +98,10 @@ class AbstractMatchContext(object):
         self.match_start = match_start
         self.end = end
         self.flags = flags
+        # check we don't get the old value of MAXREPEAT
+        # during the untranslated tests
+        if not we_are_translated():
+            assert 65535 not in pattern
 
     def reset(self, start):
         self.match_start = start
@@ -377,7 +381,7 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
                 ptr=ptr, marks=marks, self=self, ctx=ctx)
             if match_more:
                 max = ctx.pat(ppos+2)
-                if max == 65535 or self.num_pending < max:
+                if max == rsre_char.MAXREPEAT or self.num_pending < max:
                     # try to match one more 'item'
                     enum = sre_match(ctx, ppos + 3, ptr, marks)
                 else:
@@ -445,7 +449,7 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
                     return self
             resume = False
 
-            if max == 65535 or self.num_pending < max:
+            if max == rsre_char.MAXREPEAT or self.num_pending < max:
                 # try to match one more 'item'
                 enum = sre_match(ctx, ppos + 3, ptr, marks)
                 #
@@ -724,7 +728,7 @@ def sre_match(ctx, ppos, ptr, marks):
 
             maxptr = ctx.end
             max = ctx.pat(ppos+2)
-            if max != 65535:
+            if max != rsre_char.MAXREPEAT:
                 maxptr1 = start + max
                 if maxptr1 <= maxptr:
                     maxptr = maxptr1
@@ -787,7 +791,7 @@ def find_repetition_end(ctx, ppos, ptr, maxcount):
     if maxcount == 1:
         return ptrp1
     # Else we really need to count how many times it matches.
-    if maxcount != 65535:
+    if maxcount != rsre_char.MAXREPEAT:
         # adjust end
         end1 = ptr + maxcount
         if end1 <= end:

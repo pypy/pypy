@@ -14,7 +14,7 @@ from rpython.rlib.signature import signature
 #
 
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.ansi_print import ansi_log
@@ -126,8 +126,8 @@ def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
         # pure external function - fall back to the annotations
         # corresponding to the ll types
         FUNCTYPE = lltype.typeOf(fnobj)
-        args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNCTYPE.ARGS]
-        s_result = annmodel.lltype_to_annotation(FUNCTYPE.RESULT)
+        args_s = [lltype_to_annotation(ARG) for ARG in FUNCTYPE.ARGS]
+        s_result = lltype_to_annotation(FUNCTYPE.RESULT)
 
     try:
         if force_stub:   # old case - don't try to support suggested_primitive

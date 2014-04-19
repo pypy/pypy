@@ -190,7 +190,8 @@ _c_get_methptr_getter = rffi.llexternal(
     [C_SCOPE, C_INDEX], C_METHPTRGETTER_PTR,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True)
+    elidable_function=True,
+    random_effects_on_gcobjs=False)
 def c_get_methptr_getter(space, cppscope, index):
     return _c_get_methptr_getter(cppscope.handle, index)
 
@@ -214,7 +215,8 @@ _c_function_arg_sizeof = rffi.llexternal(
     [], rffi.SIZE_T,
     releasegil=ts_memory,
     compilation_info=backend.eci,
-    elidable_function=True)
+    elidable_function=True,
+    random_effects_on_gcobjs=False)
 def c_function_arg_sizeof(space):
     return _c_function_arg_sizeof()
 _c_function_arg_typeoffset = rffi.llexternal(
@@ -222,7 +224,8 @@ _c_function_arg_typeoffset = rffi.llexternal(
     [], rffi.SIZE_T,
     releasegil=ts_memory,
     compilation_info=backend.eci,
-    elidable_function=True)
+    elidable_function=True,
+    random_effects_on_gcobjs=False)
 def c_function_arg_typeoffset(space):
     return _c_function_arg_typeoffset()
 
@@ -283,7 +286,8 @@ _c_is_subtype = rffi.llexternal(
     [C_TYPE, C_TYPE], rffi.INT,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True)
+    elidable_function=True,
+    random_effects_on_gcobjs=False)
 @jit.elidable_promote('2')
 def c_is_subtype(space, derived, base):
     if derived == base:
@@ -295,7 +299,8 @@ _c_base_offset = rffi.llexternal(
     [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.SIZE_T,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True)
+    elidable_function=True,
+    random_effects_on_gcobjs=False)
 @jit.elidable_promote('1,2,4')
 def c_base_offset(space, derived, base, address, direction):
     if derived == base:

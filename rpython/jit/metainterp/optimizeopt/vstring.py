@@ -388,8 +388,6 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
-    def new(self):
-        return OptString()
 
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(box, source_op, mode)
@@ -520,7 +518,7 @@ class OptString(optimizer.Optimization):
         elif ((src.is_virtual() or src.is_constant()) and
               srcstart.is_constant() and dststart.is_constant() and
               length.is_constant() and
-              (length.force_box(self).getint() < 20 or (src.is_virtual() and dst_virtual))):
+              (length.force_box(self).getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
             src_start = srcstart.force_box(self).getint()
             dst_start = dststart.force_box(self).getint()
             actual_length = length.force_box(self).getint()

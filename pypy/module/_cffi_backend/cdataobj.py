@@ -1,7 +1,7 @@
 import operator
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 
@@ -78,9 +78,8 @@ class W_CData(W_Root):
         space = self.space
         if isinstance(self.ctype, ctypearray.W_CTypeArray):
             return space.wrap(self.get_array_length())
-        raise operationerrfmt(space.w_TypeError,
-                              "cdata of type '%s' has no len()",
-                              self.ctype.name)
+        raise oefmt(space.w_TypeError,
+                    "cdata of type '%s' has no len()", self.ctype.name)
 
     def _make_comparison(name):
         op = getattr(operator, name)
@@ -219,9 +218,9 @@ class W_CData(W_Root):
             from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
             value = space.str_w(w_value)
             if len(value) != length:
-                raise operationerrfmt(space.w_ValueError,
-                                      "need a string of length %d, got %d",
-                                      length, len(value))
+                raise oefmt(space.w_ValueError,
+                            "need a string of length %d, got %d",
+                            length, len(value))
             copy_string_to_raw(llstr(value), cdata, 0, length)
             return
         #
@@ -232,9 +231,8 @@ class W_CData(W_Root):
             except OperationError, e:
                 if not e.match(space, space.w_StopIteration):
                     raise
-                raise operationerrfmt(space.w_ValueError,
-                                      "need %d values to unpack, got %d",
-                                      length, i)
+                raise oefmt(space.w_ValueError,
+                            "need %d values to unpack, got %d", length, i)
             ctitem.convert_from_object(cdata, w_item)
             cdata = rffi.ptradd(cdata, ctitemsize)
         try:
@@ -243,8 +241,8 @@ class W_CData(W_Root):
             if not e.match(space, space.w_StopIteration):
                 raise
         else:
-            raise operationerrfmt(space.w_ValueError,
-                                  "got more than %d values to unpack", length)
+            raise oefmt(space.w_ValueError,
+                        "got more than %d values to unpack", length)
 
     def _add_or_sub(self, w_other, sign):
         space = self.space
@@ -265,9 +263,9 @@ class W_CData(W_Root):
             if (ct is not self.ctype or
                    not isinstance(ct, ctypeptr.W_CTypePointer) or
                    (ct.ctitem.size <= 0 and not ct.is_void_ptr)):
-                raise operationerrfmt(space.w_TypeError,
-                    "cannot subtract cdata '%s' and cdata '%s'",
-                    self.ctype.name, ct.name)
+                raise oefmt(space.w_TypeError,
+                            "cannot subtract cdata '%s' and cdata '%s'",
+                            self.ctype.name, ct.name)
             #
             itemsize = ct.ctitem.size
             if itemsize <= 0: itemsize = 1
