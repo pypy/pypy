@@ -79,8 +79,9 @@ class __extend__(pyframe.PyFrame):
                     # only used for no-jit. The jit-jitdriver is
                     # in interp_jit.py
                     stmonly_jitdriver.jit_merge_point(
-                        self=self, co_code=co_code,
-                        next_instr=next_instr, ec=ec)
+                        frame=self, pycode=co_code,
+                        next_instr=next_instr, ec=ec,
+                        is_being_profiled=self.is_being_profiled)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 rstm.update_marker_num(intmask(next_instr) * 2 + 1)
         except ExitFrame:

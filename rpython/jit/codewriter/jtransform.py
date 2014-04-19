@@ -1887,6 +1887,13 @@ class Transformer(object):
                              None)
         return [op0, op1]
 
+    def rewrite_op_stm_push_marker(self, op):
+        return []
+    def rewrite_op_stm_update_marker_num(self, op):
+        return []
+    def rewrite_op_stm_pop_marker(self, op):
+        return []
+
 # ____________________________________________________________
 
 class NotSupported(Exception):
