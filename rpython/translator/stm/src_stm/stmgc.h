@@ -379,7 +379,7 @@ void stm_flush_timing(stm_thread_local_t *tl, int verbose);
 /* The markers pushed in the shadowstack are an odd number followed by a
    regular pointer.  When needed, this library invokes this callback to
    turn this pair into a human-readable explanation. */
-extern void (*stmcb_expand_marker)(uintptr_t odd_number,
+extern void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
                                    object_t *following_object,
                                    char *outputbuf, size_t outputbufsize);
 

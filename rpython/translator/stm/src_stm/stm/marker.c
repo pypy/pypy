@@ -4,7 +4,7 @@
 #endif
 
 
-void (*stmcb_expand_marker)(uintptr_t odd_number,
+void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
                             object_t *following_object,
                             char *outputbuf, size_t outputbufsize);
 
@@ -22,7 +22,7 @@ static void marker_fetch_expand(struct stm_priv_segment_info_s *pseg)
             uintptr_t x = (uintptr_t)current->ss;
             if (x & 1) {
                 /* the stack entry is an odd number */
-                stmcb_expand_marker(x, current[1].ss,
+                stmcb_expand_marker(pseg->pub.segment_base, x, current[1].ss,
                                     pseg->marker_self, _STM_MARKER_LEN);
 
                 if (pseg->marker_self[0] == 0) {
