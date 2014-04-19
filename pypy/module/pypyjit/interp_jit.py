@@ -12,6 +12,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pycode import CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame, Yield
+from pypy.interpreter.pyopcode import PyPyJitDriver
 from opcode import opmap
 
 
@@ -36,16 +37,10 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
-class PyPyJitDriver(JitDriver):
-    reds = ['frame', 'ec']
-    greens = ['next_instr', 'is_being_profiled', 'pycode']
-    virtualizables = ['frame']
-
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
-                              name='pypyjit',
-                              stm_do_transaction_breaks=True)
+                              name='pypyjit')
 
 class __extend__(PyFrame):
 

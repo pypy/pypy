@@ -207,126 +207,30 @@ def stm_get_root_stack_top(funcgen, op):
     return '%s = (%s)&stm_thread_local.shadowstack;' % (
         result, cdecl(funcgen.lltypename(op.result), ''))
 
+def stm_push_marker(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return 'STM_PUSH_MARKER(stm_thread_local, %s, %s);' % (arg0, arg1)
 
-##def stm_initialize(funcgen, op):
-##    return '''stm_initialize();
-##    stm_clear_on_abort(&pypy_g_ExcData, sizeof(pypy_g_ExcData));
-##    '''
+def stm_update_marker_num(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'STM_UPDATE_MARKER_NUM(stm_thread_local, %s);' % (arg0,)
 
-##def stm_finalize(funcgen, op):
-##    return 'stm_finalize();'
+def stm_pop_marker(funcgen, op):
+    return 'STM_POP_MARKER(stm_thread_local);'
 
-##def stm_barrier(funcgen, op):
-##    category_change = op.args[0].value
-##    # XXX: how to unify the stm_barrier llop generation in
-##    #      writebarrier.py and threadlocalref.py?
-##    if isinstance(category_change, str):
-##        frm, middle, to = category_change
-##    else: # rstr
-##        frm, middle, to = (category_change.chars[0],
-##                           category_change.chars[1],
-##                           category_change.chars[2])
-##    assert middle == '2'
-##    assert frm < to
-##    if to == 'W':
-##        if frm >= 'V':
-##            funcname = 'stm_repeat_write_barrier'
-##        else:
-##            funcname = 'stm_write_barrier'
-##    elif to == 'V':
-##        funcname = 'stm_write_barrier_noptr'
-##    elif to == 'R':
-##        if frm >= 'Q':
-##            funcname = 'stm_repeat_read_barrier'
-##        else:
-##            funcname = 'stm_read_barrier'
-##    elif to == 'I':
-##        funcname = 'stm_immut_read_barrier'
-##    else:
-##        raise AssertionError(category_change)
-##    assert op.args[1].concretetype == op.result.concretetype
-##    arg = funcgen.expr(op.args[1])
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)%s((gcptr)%s);' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''),
-##        funcname, arg)
+def stm_expand_marker(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = _stm_expand_marker();' % (result,)
 
-##def stm_ptr_eq(funcgen, op):
-##    args = [funcgen.expr(v) for v in op.args]
-##    result = funcgen.expr(op.result)
-##    # check for prebuilt arguments
-##    for i, j in [(0, 1), (1, 0)]:
-##        if isinstance(op.args[j], Constant):
-##            if op.args[j].value:     # non-NULL
-##                return ('%s = stm_pointer_equal_prebuilt((gcptr)%s, (gcptr)%s);'
-##                        % (result, args[i], args[j]))
-##            else:
-##                # this case might be unreachable, but better safe than sorry
-##                return '%s = (%s == NULL);' % (result, args[i])
-##    #
-##    return '%s = stm_pointer_equal((gcptr)%s, (gcptr)%s);' % (
-##        result, args[0], args[1])
-
-##def stm_stop_all_other_threads(funcgen, op):
-##    return 'stm_stop_all_other_threads();'
-
-##def stm_partial_commit_and_resume_other_threads(funcgen, op):
-##    return 'stm_partial_commit_and_resume_other_threads();'
-
-##def stm_get_adr_of_nursery_current(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)&stm_nursery_current;' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''))
-
-##def stm_get_adr_of_nursery_nextlimit(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)&stm_nursery_nextlimit;' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''))
-
-##def stm_get_adr_of_active(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)&stm_active;' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''))
-
-##def stm_get_adr_of_private_rev_num(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)&stm_private_rev_num;' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''))
-
-##def stm_get_adr_of_read_barrier_cache(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = (%s)&stm_read_barrier_cache;' % (
-##        result, cdecl(funcgen.lltypename(op.result), ''))
-    
-    
-##def stm_weakref_allocate(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    arg1 = funcgen.expr(op.args[1])
-##    arg2 = funcgen.expr(op.args[2])
-##    result = funcgen.expr(op.result)
-##    return '%s = stm_weakref_allocate(%s, %s, %s);' % (result, arg0, 
-##                                                       arg1, arg2)
-
-##def stm_allocate_nonmovable_int_adr(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    result = funcgen.expr(op.result)
-##    return '%s = stm_allocate_public_integer_address(%s);' % (result, arg0)
-
-##def stm_get_tid(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    result = funcgen.expr(op.result)
-##    return '%s = ((struct rpyobj_s*)%s)->tid;' % (result, arg0)
-
-##def stm_enter_callback_call(funcgen, op):
-##    result = funcgen.expr(op.result)
-##    return '%s = stm_enter_callback_call();' % (result,)
-
-##def stm_leave_callback_call(funcgen, op):
-##    arg0 = funcgen.expr(op.args[0])
-##    return 'stm_leave_callback_call(%s);' % (arg0,)
-
-##def stm_minor_collect(funcgen, op):
-##    return 'stm_minor_collect();'
-
-##def stm_major_collect(funcgen, op):
-##    return 'stm_major_collect();'
+def stm_setup_expand_marker_for_pypy(funcgen, op):
+    # hack hack hack
+    node = funcgen.db.gettypedefnode(op.args[0].concretetype.TO)
+    typename = funcgen.db.gettype(op.args[0].concretetype.TO)
+    names = [''.join(arg.value.chars) for arg in op.args[1:]]
+    names = [node.c_struct_field_name('inst_' + name) for name in names]
+    offsets = ['offsetof(%s, %s)' % (cdecl(typename, ''), name)
+               for name in names]
+    assert len(offsets) == 4
+    return 'pypy_stm_setup_expand_marker(%s, %s, %s, %s);' % (
+        offsets[0], offsets[1], offsets[2], offsets[3])

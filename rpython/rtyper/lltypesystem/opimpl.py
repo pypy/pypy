@@ -680,8 +680,14 @@ def op_stm_ignored_start():
 def op_stm_ignored_stop():
     pass
 
-def op_stm_ptr_eq(x, y):
-    return op_ptr_eq(x, y)
+def op_stm_push_marker(odd_num, object):
+    pass
+
+def op_stm_update_marker_num(odd_num):
+    pass
+
+def op_stm_pop_marker():
+    pass
 
 def op_stm_get_tid(x):
     raise NotImplementedError

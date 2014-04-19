@@ -240,6 +240,7 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'ok\n' in data
 
     def test_abort_info(self):
+        py.test.skip("goes away")
         class Parent(object):
             pass
         class Foobar(Parent):
@@ -492,3 +493,60 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('')
         assert '-84\n' in data
         assert '-1298\n' in data
+
+    def test_pypy_marker(self):
+        class PyCode(object):
+            def __init__(self, co_filename, co_name,
+                         co_firstlineno, co_lnotab):
+                self.co_filename = co_filename
+                self.co_name = co_name
+                self.co_firstlineno = co_firstlineno
+                self.co_lnotab = co_lnotab
+
+        def run_interpreter(pycode):
+            print 'starting', pycode.co_name
+            rstm.push_marker(1, pycode)
+            for i in range(10):
+                p = llop.stm_expand_marker(rffi.CCHARP)
+                print rffi.charp2str(p)
+                rstm.update_marker_num(i * 2 + 1)
+            rstm.pop_marker()
+            print 'stopping', pycode.co_name
+
+        def main(argv):
+            pycode1 = PyCode("/tmp/foobar.py", "baz", 40, "\x00\x01\x05\x01")
+            pycode2 = PyCode("/tmp/foobaz.py", "bar", 70, "\x00\x01\x04\x02")
+            llop.stm_setup_expand_marker_for_pypy(
+                lltype.Void, pycode1,
+                "co_filename", "co_name", "co_firstlineno", "co_lnotab")
+
+            run_interpreter(pycode1)
+            run_interpreter(pycode2)
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert ('starting baz\n'
+                'File "/tmp/foobar.py", line 41, in baz\n'
+                'File "/tmp/foobar.py", line 41, in baz\n'
+                'File "/tmp/foobar.py", line 41, in baz\n'
+                'File "/tmp/foobar.py", line 41, in baz\n'
+                'File "/tmp/foobar.py", line 41, in baz\n'
+                'File "/tmp/foobar.py", line 42, in baz\n'
+                'File "/tmp/foobar.py", line 42, in baz\n'
+                'File "/tmp/foobar.py", line 42, in baz\n'
+                'File "/tmp/foobar.py", line 42, in baz\n'
+                'File "/tmp/foobar.py", line 42, in baz\n'
+                'stopping baz\n') in data
+        assert ('starting bar\n'
+                'File "/tmp/foobaz.py", line 71, in bar\n'
+                'File "/tmp/foobaz.py", line 71, in bar\n'
+                'File "/tmp/foobaz.py", line 71, in bar\n'
+                'File "/tmp/foobaz.py", line 71, in bar\n'
+                'File "/tmp/foobaz.py", line 73, in bar\n'
+                'File "/tmp/foobaz.py", line 73, in bar\n'
+                'File "/tmp/foobaz.py", line 73, in bar\n'
+                'File "/tmp/foobaz.py", line 73, in bar\n'
+                'File "/tmp/foobaz.py", line 73, in bar\n'
+                'File "/tmp/foobaz.py", line 73, in bar\n'
+                'stopping bar\n') in data

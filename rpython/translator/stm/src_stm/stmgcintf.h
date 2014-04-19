@@ -26,6 +26,11 @@ void pypy_stm_unregister_thread_local(void); /* generated into stm_prebuilt.c */
 void _pypy_stm_become_inevitable(const char *);
 void pypy_stm_become_globally_unique_transaction(void);
 
+void pypy_stm_setup_expand_marker(long co_filename_ofs,
+                                  long co_name_ofs,
+                                  long co_firstlineno_ofs,
+                                  long co_lnotab_ofs);
+
 
 static inline void pypy_stm_become_inevitable(const char *msg)
 {

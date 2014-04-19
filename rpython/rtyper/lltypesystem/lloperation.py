@@ -451,6 +451,12 @@ LL_OPERATIONS = {
     'stm_ignored_start':      LLOp(canrun=True),
     'stm_ignored_stop':       LLOp(canrun=True),
 
+    'stm_push_marker':        LLOp(canrun=True),
+    'stm_update_marker_num':  LLOp(canrun=True),
+    'stm_pop_marker':         LLOp(canrun=True),
+    'stm_expand_marker':      LLOp(),
+    'stm_setup_expand_marker_for_pypy': LLOp(),
+
 ##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
 ##    'stm_become_inevitable':  LLOp(canmallocgc=True),
 ##    'stm_stop_all_other_threads': LLOp(canmallocgc=True),

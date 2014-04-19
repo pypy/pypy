@@ -881,46 +881,10 @@ def gen_stm_prebuilt(f, database):
             print >> f, '\t%d,' % (i,)
     print >> f, '\t-1'
     print >> f, '};'
-    print >> f, '''
-void pypy_stm_setup_prebuilt(void)
-{
-    object_t **pp = rpy_prebuilt;
-    long *ph = rpy_prebuilt_hashes;
-    int i = 0;
-    int *wri = weakref_indices;
-    for ( ; *pp; pp++, ph++, i++) {
-        if (i == *wri) {
-            *pp = stm_setup_prebuilt_weakref(*pp);
-            wri++;
-        }
-        else {
-            *pp = stm_setup_prebuilt(*pp);
-        }
-        stm_set_prebuilt_identityhash(*pp, *ph);
-    }
-
-    object_t ***cur = (object_t ***)
-       pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_static_root_start;
-    object_t ***end = (object_t ***)
-       pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_static_root_nongcend;
-    for ( ; cur != end; cur++) {
-        **cur = stm_setup_prebuilt(**cur);
-    }
-}
-
-void pypy_stm_register_thread_local(void)
-{
-    stm_register_thread_local(&stm_thread_local);
-    stm_thread_local.mem_clear_on_abort = (char *)&pypy_g_ExcData;
-    stm_thread_local.mem_bytes_to_clear_on_abort = sizeof(pypy_g_ExcData);
-}
-
-void pypy_stm_unregister_thread_local(void)
-{
-    stm_flush_timing(&stm_thread_local, 1);  // XXX temporary
-    stm_unregister_thread_local(&stm_thread_local);
-}
-'''
+    print >> f
+    print >> f, '#include "preimpl.h"'
+    print >> f, '#include "src/rtyper.h"'
+    print >> f, '#include "src_stm/extracode.h"'
 
 def commondefs(defines):
     from rpython.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT

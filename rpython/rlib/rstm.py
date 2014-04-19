@@ -122,6 +122,16 @@ def register_invoke_around_extcall():
     invoke_around_extcall(before_external_call, after_external_call,
                           enter_callback_call, leave_callback_call)
 
+@specialize.argtype(1)
+def push_marker(odd_num, object):
+    llop.stm_push_marker(lltype.Void, odd_num, object)
+
+def update_marker_num(odd_num):
+    llop.stm_update_marker_num(lltype.Void, odd_num)
+
+def pop_marker():
+    llop.stm_pop_marker(lltype.Void)
+
 # ____________________________________________________________
 
 def make_perform_transaction(func, CONTAINERP):

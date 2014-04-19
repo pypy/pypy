@@ -44,9 +44,19 @@ def binaryoperation(operationname):
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
 
-stmonly_jitdriver = jit.JitDriver(greens=[], reds=['next_instr', 'ec',
-                                                   'self', 'co_code'],
-                                  stm_do_transaction_breaks=True)
+# ____________________________________________________________
+
+class PyPyJitDriver(jit.JitDriver):
+    reds = ['frame', 'ec']
+    greens = ['next_instr', 'is_being_profiled', 'pycode']
+    virtualizables = ['frame']
+    stm_do_transaction_breaks = True
+    is_main_for_pypy = True   # XXX temporary: turning 'greens' into a string
+                              # is hard-coded in C code.  Don't change 'greens'
+
+stmonly_jitdriver = PyPyJitDriver()
+
+# ____________________________________________________________
 
 opcodedesc = bytecode_spec.opcodedesc
 HAVE_ARGUMENT = bytecode_spec.HAVE_ARGUMENT
@@ -61,6 +71,7 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
+        rstm.push_marker(intmask(next_instr) * 2 + 1, pycode)
 
         try:
             while True:
@@ -71,8 +82,11 @@ class __extend__(pyframe.PyFrame):
                         self=self, co_code=co_code,
                         next_instr=next_instr, ec=ec)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
+                rstm.update_marker_num(intmask(next_instr) * 2 + 1)
         except ExitFrame:
             return self.popvalue()
+        finally:
+            rstm.pop_marker()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -466,6 +480,8 @@ class __extend__(pyframe.PyFrame):
                                       opcodedesc.LOAD_CONST.index,
                                       opcodedesc.LOAD_FAST.index):
                         return next_instr
+
+            rstm.update_marker_num(intmask(next_instr) * 2 + 1)
 
     @jit.unroll_safe
     def unrollstack(self, unroller_kind):
