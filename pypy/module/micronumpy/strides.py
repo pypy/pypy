@@ -233,30 +233,6 @@ def _find_dtype_for_seq(space, elems_w, dtype):
     return dtype
 
 
-def to_coords(space, shape, size, order, w_item_or_slice):
-    '''Returns a start coord, step, and length.
-    '''
-    start = lngth = step = 0
-    if not (space.isinstance_w(w_item_or_slice, space.w_int) or
-            space.isinstance_w(w_item_or_slice, space.w_slice)):
-        raise OperationError(space.w_IndexError,
-                             space.wrap('unsupported iterator index'))
-
-    start, stop, step, lngth = space.decode_index4(w_item_or_slice, size)
-
-    coords = [0] * len(shape)
-    i = start
-    if order == 'C':
-        for s in range(len(shape) -1, -1, -1):
-            coords[s] = i % shape[s]
-            i //= shape[s]
-    else:
-        for s in range(len(shape)):
-            coords[s] = i % shape[s]
-            i //= shape[s]
-    return coords, step, lngth
-
-
 @jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     if w_arr2 is None:
