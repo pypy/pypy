@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, )
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 class OptSTM(Optimization):
     """
@@ -85,15 +85,17 @@ class OptSTM(Optimization):
             self.emit_operation(op)
 
     def optimize_DEBUG_MERGE_POINT(self, op):
+        self.emit_operation(op)
         jdindex = op.getarg(0).getint()
         jd = self.optimizer.metainterp_sd.warmrunnerdesc.jitdrivers_sd[jdindex]
         report_location = jd.stm_report_location
         if report_location is not None:
             idx_num, idx_ref = report_location
-            num = op.getarg(3 + idx_num).getint()
-            ref = op.getarg(3 + idx_ref).getref_base()
-            self.optimizer.stm_location = (num, ref)
-        self.emit_operation(op)
+            num_box = op.getarg(3 + idx_num)
+            ref_box = op.getarg(3 + idx_ref)
+            loc_op = ResOperation(rop.STM_SET_LOCATION, [num_box, ref_box],
+                                  None)
+            self.optimize_STM_SET_LOCATION(loc_op)
 
     def optimize_STM_SET_LOCATION(self, op):
         num = op.getarg(0).getint()

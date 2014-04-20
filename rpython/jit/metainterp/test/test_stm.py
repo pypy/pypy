@@ -112,6 +112,7 @@ class STMTests:
         res = self.meta_interp(main, [42, 10], translationoptions={"stm":True})
         assert res == 55
         self.check_resops(debug_merge_point=6)
+        self.check_resops(stm_set_location=6)    # on the main loop
         #
         from rpython.jit.metainterp.warmspot import get_stats
         seen = []
@@ -119,7 +120,8 @@ class STMTests:
             for op in loop._all_operations():
                 if op.getopname() == "stm_set_location":
                     seen.append(op)
-        [op] = seen
+        assert len(seen) == 6 + 1
+        op = seen[-1]
         assert op.getarg(0).getint() == -42
 
     def test_stm_report_location_2(self):
@@ -155,7 +157,8 @@ class STMTests:
             for op in loop._all_operations():
                 if op.getopname() == "stm_set_location":
                     seen.append(op)
-        [op1, op2] = seen
+        assert len(seen) == 6 + 2
+        [op1, op2] = seen[-2:]
         assert op1.getarg(0).getint() == -42
         assert op2.getarg(0).getint() == -42
 
