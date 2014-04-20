@@ -122,6 +122,43 @@ class STMTests:
         [op] = seen
         assert op.getarg(0).getint() == -42
 
+    def test_stm_report_location_2(self):
+        myjitdriver = JitDriver(greens = ['a', 'r'], reds = ['x', 'res', 'n'],
+                                stm_report_location = [0, 1])
+        class Code(object):
+            pass
+        def g(a, r, x, n):
+            res = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(a=a, r=r, x=x, res=res, n=n)
+                res += x
+                x -= 1
+                a = -a
+            if n & 1:
+                pass   # sub-bridge of this bridge
+            return res
+        def main(a, x):
+            r = Code()
+            res = -1
+            n = 7
+            while n > 0:
+                res = g(a, r, x, n)
+                n -= 1
+            return res
+        res = self.meta_interp(main, [42, 10], translationoptions={"stm":True})
+        assert res == 55
+        self.check_resops(debug_merge_point=6)
+        #
+        from rpython.jit.metainterp.warmspot import get_stats
+        seen = []
+        for loop in get_stats().get_all_loops():
+            for op in loop._all_operations():
+                if op.getopname() == "stm_set_location":
+                    seen.append(op)
+        [op1, op2] = seen
+        assert op1.getarg(0).getint() == -42
+        assert op2.getarg(0).getint() == -42
+
 
 class TestLLtype(STMTests, LLJitMixin):
     pass

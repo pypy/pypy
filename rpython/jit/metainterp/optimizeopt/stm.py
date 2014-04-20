@@ -95,6 +95,12 @@ class OptSTM(Optimization):
             self.optimizer.stm_location = (num, ref)
         self.emit_operation(op)
 
+    def optimize_STM_SET_LOCATION(self, op):
+        num = op.getarg(0).getint()
+        ref = op.getarg(1).getref_base()
+        self.optimizer.stm_location = (num, ref)
+        self.emit_operation(op)
+
 
 dispatch_opt = make_dispatcher_method(OptSTM, 'optimize_',
                                       default=OptSTM.default_emit)
