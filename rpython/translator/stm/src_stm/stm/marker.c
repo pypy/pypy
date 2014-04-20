@@ -28,11 +28,8 @@ static void marker_fetch_expand(struct stm_priv_segment_info_s *pseg)
                 stmcb_expand_marker(pseg->pub.segment_base, x, current[1].ss,
                                     pseg->marker_self, _STM_MARKER_LEN);
 
-                if (pseg->marker_self[0] == 0) {
-                    pseg->marker_self[0] = '?';
-                    pseg->marker_self[1] = 0;
-                }
-                break;
+                if (pseg->marker_self[0] != 0)
+                    break;
             }
         }
     }

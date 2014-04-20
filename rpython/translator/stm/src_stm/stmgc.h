@@ -272,8 +272,8 @@ void stm_teardown(void);
 #define STM_PUSH_ROOT(tl, p)   ((tl).shadowstack++->ss = (object_t *)(p))
 #define STM_POP_ROOT(tl, p)    ((p) = (typeof(p))((--(tl).shadowstack)->ss))
 #define STM_POP_ROOT_RET(tl)   ((--(tl).shadowstack)->ss)
-#define STM_STACK_MARKER_NEW   2
-#define STM_STACK_MARKER_OLD   6
+#define STM_STACK_MARKER_NEW  (-41)
+#define STM_STACK_MARKER_OLD  (-43)
 
 
 /* Every thread needs to have a corresponding stm_thread_local_t
