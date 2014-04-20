@@ -164,8 +164,12 @@ def test_simple_tcp():
     s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.settimeout(10.0) # test one side with timeouts so select is used, shouldn't affect test
     def connecting():
-        s2.connect(addr)
-        lock.release()
+        try:
+            s2.connect(addr)
+        except:
+            s2.close()
+        finally:
+            lock.release()
     lock = thread.allocate_lock()
     lock.acquire()
     thread.start_new_thread(connecting, ())
