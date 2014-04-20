@@ -65,7 +65,62 @@ class STMTests:
             'guard_no_exception':1,
             'call_may_force':1})
 
+    def test_debug_merge_points(self):
+        myjitdriver = JitDriver(greens = ['a'], reds = ['x', 'res'])
+        def g(a, x):
+            res = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(a=a, x=x, res=res)
+                res += x
+                x -= 1
+                a = -a
+            return res
+        res = self.meta_interp(g, [42, 10], translationoptions={"stm":True})
+        assert res == 55
+        self.check_resops(debug_merge_point=6)
+        #
+        from rpython.jit.metainterp.warmspot import get_stats
+        loops = get_stats().get_all_loops()
+        assert len(loops) == 1
+        got = []
+        for op in loops[0]._all_operations():
+            if op.getopname() == "debug_merge_point":
+                got.append(op.getarglist()[-1].value)
+        assert got == [42, -42, 42, 42, -42, 42]
 
+    def test_stm_report_location(self):
+        myjitdriver = JitDriver(greens = ['a', 'r'], reds = ['x', 'res'],
+                                stm_report_location = [0, 1])
+        class Code(object):
+            pass
+        def g(a, r, x):
+            res = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(a=a, r=r, x=x, res=res)
+                res += x
+                x -= 1
+                a = -a
+            return res
+        def main(a, x):
+            r = Code()
+            res = -1
+            n = 7
+            while n > 0:
+                res = g(a, r, x)
+                n -= 1
+            return res
+        res = self.meta_interp(main, [42, 10], translationoptions={"stm":True})
+        assert res == 55
+        self.check_resops(debug_merge_point=6)
+        #
+        from rpython.jit.metainterp.warmspot import get_stats
+        seen = []
+        for loop in get_stats().get_all_loops():
+            for op in loop._all_operations():
+                if op.getopname() == "stm_set_location":
+                    seen.append(op)
+        [op] = seen
+        assert op.getarg(0).getint() == -42
 
 
 class TestLLtype(STMTests, LLJitMixin):

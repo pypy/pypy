@@ -2077,6 +2077,14 @@ class MetaInterp(object):
                                              deadframe)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
+            #
+            if (self.staticdata.config.translation.stm and
+                    isinstance(key, compile.ResumeGuardDescr)):
+                self.history.record(rop.STM_SET_LOCATION,
+                                    [ConstInt(key.stm_location_int),
+                                     ConstPtr(key.stm_location_ref)],
+                                    None)
+            #
             self.interpret()
         except SwitchToBlackhole, stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)

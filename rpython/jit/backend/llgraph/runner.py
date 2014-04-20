@@ -1039,6 +1039,9 @@ class LLFrame(object):
     def execute_stm_transaction_break(self, _, really_wanted):
         pass
 
+    def execute_stm_set_location(self, _, int, ref):
+        pass
+
     def execute_keepalive(self, descr, x):
         pass
 

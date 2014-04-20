@@ -83,13 +83,18 @@ class OptSTM(Optimization):
                 self._set_break_wanted(True)
             self.keep_but_ignore_gnf = False
             self.emit_operation(op)
-        
-        
+
+    def optimize_DEBUG_MERGE_POINT(self, op):
+        jdindex = op.getarg(0).getint()
+        jd = self.optimizer.metainterp_sd.warmrunnerdesc.jitdrivers_sd[jdindex]
+        report_location = jd.stm_report_location
+        if report_location is not None:
+            idx_num, idx_ref = report_location
+            num = op.getarg(3 + idx_num).getint()
+            ref = op.getarg(3 + idx_ref).getref_base()
+            self.optimizer.stm_location = (num, ref)
+        self.emit_operation(op)
+
 
 dispatch_opt = make_dispatcher_method(OptSTM, 'optimize_',
                                       default=OptSTM.default_emit)
-
-
-
-
-
