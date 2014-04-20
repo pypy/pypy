@@ -21,7 +21,9 @@ static void marker_fetch_expand(struct stm_priv_segment_info_s *pseg)
         stm_thread_local_t *tl = pseg->pub.running_thread;
         struct stm_shadowentry_s *current = tl->shadowstack - 1;
         struct stm_shadowentry_s *base = tl->shadowstack_base;
-        while (--current >= base) {
+        /* stop walking just before shadowstack_base, which contains
+           STM_STACK_MARKER_OLD which shouldn't be expanded */
+        while (--current > base) {
             uintptr_t x = (uintptr_t)current->ss;
             if (x & 1) {
                 /* the stack entry is an odd number */
