@@ -46,15 +46,9 @@ def binaryoperation(operationname):
 
 # ____________________________________________________________
 
-class PyPyJitDriver(jit.JitDriver):
-    reds = ['frame', 'ec']
-    greens = ['next_instr', 'is_being_profiled', 'pycode']
-    virtualizables = ['frame']
-    stm_do_transaction_breaks = True
-    is_main_for_pypy = True   # XXX temporary: turning 'greens' into a string
-                              # is hard-coded in C code.  Don't change 'greens'
-
-stmonly_jitdriver = PyPyJitDriver()
+stmonly_jitdriver = jit.JitDriver(greens=[], reds=['next_instr', 'ec',
+                                                   'self', 'co_code'],
+                                  stm_do_transaction_breaks=True)
 
 # ____________________________________________________________
 
@@ -77,9 +71,8 @@ class __extend__(pyframe.PyFrame):
                     # only used for no-jit. The jit-jitdriver is
                     # in interp_jit.py
                     stmonly_jitdriver.jit_merge_point(
-                        frame=self, pycode=co_code,
-                        next_instr=next_instr, ec=ec,
-                        is_being_profiled=self.is_being_profiled)
+                        self=self, co_code=co_code,
+                        next_instr=next_instr, ec=ec)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 rstm.update_marker_num(intmask(next_instr) * 2 + 1)
         except ExitFrame:
