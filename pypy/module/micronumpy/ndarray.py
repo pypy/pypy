@@ -677,23 +677,23 @@ class __extend__(W_NDimArray):
     def descr_round(self, space, decimals=0, w_out=None):
         if space.is_none(w_out):
             if self.get_dtype().is_bool():
-                #numpy promotes bool.round() to float16. Go figure.
+                # numpy promotes bool.round() to float16. Go figure.
                 w_out = W_NDimArray.from_shape(space, self.get_shape(),
-                       descriptor.get_dtype_cache(space).w_float16dtype)
+                    descriptor.get_dtype_cache(space).w_float16dtype)
             else:
                 w_out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "return arrays must be of ArrayType"))
         out = descriptor.dtype_agreement(space, [self], self.get_shape(),
-                                           w_out)
+                                         w_out)
         if out.get_dtype().is_bool() and self.get_dtype().is_bool():
             calc_dtype = descriptor.get_dtype_cache(space).w_longdtype
         else:
             calc_dtype = out.get_dtype()
 
         if decimals == 0:
-            out = out.descr_view(space,space.type(self))
+            out = out.descr_view(space, space.type(self))
         loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
         return out
 
@@ -711,16 +711,16 @@ class __extend__(W_NDimArray):
             side = 'r'
         else:
             raise oefmt(space.w_ValueError,
-                         "'%s' is an invalid value for keyword 'side'", side)
+                        "'%s' is an invalid value for keyword 'side'", side)
         if len(self.get_shape()) > 1:
             raise OperationError(space.w_ValueError, space.wrap(
-                        "a must be a 1-d array"))
+                "a must be a 1-d array")
         v = convert_to_array(space, w_v)
-        if len(v.get_shape()) >1:
+        if len(v.get_shape()) > 1:
             raise OperationError(space.w_ValueError, space.wrap(
-                        "v must be a 1-d array-like"))
-        ret = W_NDimArray.from_shape(space, v.get_shape(),
-                       descriptor.get_dtype_cache(space).w_longdtype)
+                 "v must be a 1-d array-like")
+        ret = W_NDimArray.from_shape(
+            space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
         app_searchsort(space, self, v, space.wrap(side), ret)
         return ret
 
@@ -1277,35 +1277,26 @@ app_ptp = applevel(r"""
 
 app_searchsort = applevel(r"""
     def searchsort(arr, v, side, result):
-        def left_find_index(a, val):
+        import operator
+        def func(a, op, val):
             imin = 0
             imax = a.size
             while imin < imax:
                 imid = imin + ((imax - imin) >> 1)
-                if a[imid] < val:
-                    imin = imid +1
-                else:
-                    imax = imid
-            return imin
-        def right_find_index(a, val):
-            imin = 0
-            imax = a.size
-            while imin < imax:
-                imid = imin + ((imax - imin) >> 1)
-                if a[imid] <= val:
+                if op(a[imid], val):
                     imin = imid +1
                 else:
                     imax = imid
             return imin
         if side == 'l':
-            func = left_find_index
+            op = operator.lt
         else:
-            func = right_find_index
+            op = operator.le
         if v.size < 2:
-            result[...] = func(arr, v)
+            result[...] = func(arr, op, v)
         else:
             for i in range(v.size):
-                result[i] = func(arr, v[i])
+                result[i] = func(arr, op, v[i])
         return result
 """, filename=__file__).interphook('searchsort')
 

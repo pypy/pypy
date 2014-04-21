@@ -146,3 +146,6 @@ Separate iterator from its state so jit can optimize better
 
 .. branch: numpy-searchsorted
 Implement searchsorted without sorter kwarg
+
+.. branch: openbsd-lib-prefix
+add 'lib' prefix to link libraries on OpenBSD
