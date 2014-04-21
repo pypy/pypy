@@ -515,6 +515,9 @@ class ResumeGuardDescr(ResumeDescr):
     TY_REF          = 0x04
     TY_FLOAT        = 0x06
 
+    stm_location_int = 0
+    stm_location_ref = lltype.nullptr(llmemory.GCREF.TO)
+
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
         self.rd_count = len(boxes)

@@ -395,6 +395,10 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         #
         if not for_frame:
+            if self.cpu.gc_ll_descr.stm:
+                assert IS_X86_64
+                mc.PUSH_r(X86_64_SCRATCH_REG.value)
+            #
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
             #
             if self.cpu.gc_ll_descr.stm:
@@ -402,24 +406,23 @@ class Assembler386(BaseAssembler):
                 # supposed to be called rarely.  We have to save the
                 # current 'stm_location' so that it is found.  The easiest
                 # is to simply push it on the shadowstack, from its source
-                # location as two extra arguments on the machine stack.
-                # 'r14' is kept around as the original value of
-                # shadowstack_top, ready to be stored back below.
+                # location as two extra arguments on the machine stack
+                # (at this point containing: [ref][retaddr][num][obj]...)
                 # XXX this should also be done if 'for_frame' is true...
-                assert IS_X86_64
-                mc.MOV(r14, self.heap_shadowstack_top())
-                mc.MOV_rs(edi.value, 3 * WORD)
+                mc.MOV(esi, self.heap_shadowstack_top())
+                mc.MOV_rs(edi.value, 2 * WORD)   # [num]
                 # do here the 'num = (num<<1) + 1' rather than at the caller
                 # site, to increase the chances that it can use PUSH_i8
                 mc.LEA_ra(edi.value, (self.SEGMENT_NO, rx86.NO_BASE_REGISTER,
                                       edi.value, 1, +1))
-                mc.MOV_mr((self.SEGMENT_NO, r14.value, 0), edi.value)
-                mc.MOV_rs(edi.value, 2 * WORD)
-                mc.MOV_mr((self.SEGMENT_NO, r14.value, WORD), edi.value)
-                mc.LEA_rm(edi.value, (self.SEGMENT_NO, r14.value, 2 * WORD))
-                mc.MOV(self.heap_shadowstack_top(), edi)
-            #
-            if IS_X86_32:
+                mc.MOV_mr((self.SEGMENT_NO, esi.value, 0), edi.value)
+                mc.MOV_rs(edi.value, 0 * WORD)   # [ref]
+                mc.MOV_mr((self.SEGMENT_NO, esi.value, WORD), edi.value)
+                mc.MOV_sr(0 * WORD, esi.value)   # save org shadowstack_top
+                mc.LEA_rm(esi.value, (self.SEGMENT_NO, esi.value, 2 * WORD))
+                mc.MOV(self.heap_shadowstack_top(), esi)
+                mc.MOV_rs(edi.value, 3 * WORD)   # [obj]
+            elif IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
                 # arg, so we need to substract 2 words
                 mc.SUB_ri(esp.value, 2 * WORD)
@@ -463,14 +466,13 @@ class Assembler386(BaseAssembler):
         #
 
         if not for_frame:
-            if self.cpu.gc_ll_descr.stm:
-                mc.MOV(self.heap_shadowstack_top(), r14)
             if IS_X86_32:
                 # ADD touches CPU flags
                 mc.LEA_rs(esp.value, 2 * WORD)
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
             if self.cpu.gc_ll_descr.stm:
-                mc.RET16_i(3 * WORD)
+                mc.POP(self.heap_shadowstack_top())
+                mc.RET16_i(2 * WORD)
             else:
                 mc.RET16_i(WORD)
         else:
@@ -2257,6 +2259,7 @@ class Assembler386(BaseAssembler):
             assert self.wb_slowpath[helper_num] != 0
         #
         if not is_frame:
+            mc.PUSH(loc_base)
             if self.cpu.gc_ll_descr.stm:
                 # get the num and ref components of the stm_location, and
                 # push them to the stack.  It's 16 bytes, so alignment is
@@ -2265,9 +2268,8 @@ class Assembler386(BaseAssembler):
                 assert IS_X86_64
                 num, ref = extract_raw_stm_location(
                     self._regalloc.stm_location)
-                mc.PUSH_i(num)
-                mc.PUSH_i(ref)
-            mc.PUSH(loc_base)
+                mc.PUSH(imm(rffi.cast(lltype.Signed, num)))
+                mc.MOV(X86_64_SCRATCH_REG, imm(rffi.cast(lltype.Signed, ref)))
         if is_frame and align_stack:
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.CALL(imm(self.wb_slowpath[helper_num]))

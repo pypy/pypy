@@ -25,7 +25,7 @@ class AbstractResOp(object):
     stm_location = None
     _cls_has_bool_result = False
 
-    _attrs_ = ('result',)
+    _attrs_ = ('result', 'stm_location')
 
     def __init__(self, result):
         self.result = result

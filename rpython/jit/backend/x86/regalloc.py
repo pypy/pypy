@@ -7,7 +7,7 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.backend.llsupport.jiframe import GCMAP
+from rpython.jit.backend.llsupport.jitframe import GCMAP
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
 from rpython.jit.backend.x86 import rx86
@@ -324,7 +324,8 @@ class RegAlloc(BaseRegalloc):
             self.xrm.position = i
             #
             if op.stm_location is not None:
-                if (self.stm_location.num != op.stm_location.num or
+                if (self.stm_location is None or
+                    self.stm_location.num != op.stm_location.num or
                     self.stm_location.ref != op.stm_location.ref):
                     self.stm_location = op.stm_location
             #
