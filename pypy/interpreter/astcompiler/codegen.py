@@ -803,17 +803,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_With(self, wih):
         self.update_position(wih.lineno, True)
+        self.handle_withitem(wih, 0)
+
+    def handle_withitem(self, wih, pos):
         body_block = self.new_block()
         cleanup = self.new_block()
-        wih.context_expr.walkabout(self)
+        witem = wih.items[pos]
+        witem.context_expr.walkabout(self)
         self.emit_jump(ops.SETUP_WITH, cleanup)
         self.use_next_block(body_block)
         self.push_frame_block(F_BLOCK_FINALLY, body_block)
-        if wih.optional_vars:
-            wih.optional_vars.walkabout(self)
+        if witem.optional_vars:
+            witem.optional_vars.walkabout(self)
         else:
             self.emit_op(ops.POP_TOP)
-        self.visit_sequence(wih.body)
+        if pos == len(wih.items) - 1:
+            self.visit_sequence(wih.body)
+        else:
+            self.handle_withitem(wih, pos + 1)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body_block)
         self.load_const(self.space.w_None)

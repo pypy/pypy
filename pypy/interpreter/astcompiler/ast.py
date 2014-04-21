@@ -683,34 +683,39 @@ class If(stmt):
 
 class With(stmt):
 
-    def __init__(self, context_expr, optional_vars, body, lineno, col_offset):
-        self.context_expr = context_expr
-        self.optional_vars = optional_vars
+    def __init__(self, items, body, lineno, col_offset):
+        self.items = items
+        self.w_items = None
         self.body = body
         self.w_body = None
         stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 31
+        self.initialization_state = 15
 
     def walkabout(self, visitor):
         visitor.visit_With(self)
 
     def mutate_over(self, visitor):
-        self.context_expr = self.context_expr.mutate_over(visitor)
-        if self.optional_vars:
-            self.optional_vars = self.optional_vars.mutate_over(visitor)
+        if self.items:
+            visitor._mutate_sequence(self.items)
         if self.body:
             visitor._mutate_sequence(self.body)
         return visitor.visit_With(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~8) ^ 23:
-            self.missing_field(space, ['lineno', 'col_offset', 'context_expr', None, 'body'], 'With')
+        if (self.initialization_state & ~0) ^ 15:
+            self.missing_field(space, ['lineno', 'col_offset', 'items', 'body'], 'With')
         else:
-            if not self.initialization_state & 8:
-                self.optional_vars = None
-        self.context_expr.sync_app_attrs(space)
-        if self.optional_vars:
-            self.optional_vars.sync_app_attrs(space)
+            pass
+        w_list = self.w_items
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.items = [space.interp_w(withitem, w_obj) for w_obj in list_w]
+            else:
+                self.items = None
+        if self.items is not None:
+            for node in self.items:
+                node.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
             list_w = space.listview(w_list)
@@ -2506,6 +2511,32 @@ class alias(AST):
             if not self.initialization_state & 2:
                 self.asname = None
 
+class withitem(AST):
+
+    def __init__(self, context_expr, optional_vars):
+        self.context_expr = context_expr
+        self.optional_vars = optional_vars
+        self.initialization_state = 3
+
+    def mutate_over(self, visitor):
+        self.context_expr = self.context_expr.mutate_over(visitor)
+        if self.optional_vars:
+            self.optional_vars = self.optional_vars.mutate_over(visitor)
+        return visitor.visit_withitem(self)
+
+    def walkabout(self, visitor):
+        visitor.visit_withitem(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~2) ^ 1:
+            self.missing_field(space, ['context_expr', None], 'withitem')
+        else:
+            if not self.initialization_state & 2:
+                self.optional_vars = None
+        self.context_expr.sync_app_attrs(space)
+        if self.optional_vars:
+            self.optional_vars.sync_app_attrs(space)
+
 class ASTVisitor(object):
 
     def visit_sequence(self, seq):
@@ -2649,6 +2680,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_alias(self, node):
         return self.default_visitor(node)
+    def visit_withitem(self, node):
+        return self.default_visitor(node)
 
 class GenericASTVisitor(ASTVisitor):
 
@@ -2713,9 +2746,7 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.orelse)
 
     def visit_With(self, node):
-        node.context_expr.walkabout(self)
-        if node.optional_vars:
-            node.optional_vars.walkabout(self)
+        self.visit_sequence(node.items)
         self.visit_sequence(node.body)
 
     def visit_Raise(self, node):
@@ -2902,6 +2933,11 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_alias(self, node):
         pass
+
+    def visit_withitem(self, node):
+        node.context_expr.walkabout(self)
+        if node.optional_vars:
+            node.optional_vars.walkabout(self)
 
 
 mod.typedef = typedef.TypeDef("mod",
@@ -4163,66 +4199,30 @@ If.typedef = typedef.TypeDef("If",
     __init__=interp2app(If_init),
 )
 
-def With_get_context_expr(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'context_expr')
-        if w_obj is not None:
-            return w_obj
+def With_get_items(space, w_self):
     if not w_self.initialization_state & 4:
-        raise_attriberr(space, w_self, 'context_expr')
-    return space.wrap(w_self.context_expr)
+        raise_attriberr(space, w_self, 'items')
+    if w_self.w_items is None:
+        if w_self.items is None:
+            list_w = []
+        else:
+            list_w = [space.wrap(node) for node in w_self.items]
+        w_list = space.newlist(list_w)
+        w_self.w_items = w_list
+    return w_self.w_items
 
-def With_set_context_expr(space, w_self, w_new_value):
-    try:
-        w_self.context_expr = space.interp_w(expr, w_new_value, False)
-        if type(w_self.context_expr) is expr:
-            raise OperationError(space.w_TypeError, space.w_None)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'context_expr', w_new_value)
-        w_self.initialization_state &= ~4
-        return
-    w_self.deldictvalue(space, 'context_expr')
+def With_set_items(space, w_self, w_new_value):
+    w_self.w_items = w_new_value
     w_self.initialization_state |= 4
 
-def With_del_context_expr(space, w_self):
+def With_del_items(space, w_self):
     # Check if the element exists, raise appropriate exceptions
-    With_get_context_expr(space, w_self)
-    w_self.deldictvalue(space, 'context_expr')
+    With_get_items(space, w_self)
+    w_self.deldictvalue(space, 'items')
     w_self.initialization_state &= ~4
 
-def With_get_optional_vars(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'optional_vars')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 8:
-        raise_attriberr(space, w_self, 'optional_vars')
-    return space.wrap(w_self.optional_vars)
-
-def With_set_optional_vars(space, w_self, w_new_value):
-    try:
-        w_self.optional_vars = space.interp_w(expr, w_new_value, True)
-        if type(w_self.optional_vars) is expr:
-            raise OperationError(space.w_TypeError, space.w_None)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'optional_vars', w_new_value)
-        w_self.initialization_state &= ~8
-        return
-    w_self.deldictvalue(space, 'optional_vars')
-    w_self.initialization_state |= 8
-
-def With_del_optional_vars(space, w_self):
-    # Check if the element exists, raise appropriate exceptions
-    With_get_optional_vars(space, w_self)
-    w_self.deldictvalue(space, 'optional_vars')
-    w_self.initialization_state &= ~8
-
 def With_get_body(space, w_self):
-    if not w_self.initialization_state & 16:
+    if not w_self.initialization_state & 8:
         raise_attriberr(space, w_self, 'body')
     if w_self.w_body is None:
         if w_self.body is None:
@@ -4235,22 +4235,23 @@ def With_get_body(space, w_self):
 
 def With_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 16
+    w_self.initialization_state |= 8
 
 def With_del_body(space, w_self):
     # Check if the element exists, raise appropriate exceptions
     With_get_body(space, w_self)
     w_self.deldictvalue(space, 'body')
-    w_self.initialization_state &= ~16
+    w_self.initialization_state &= ~8
 
-_With_field_unroller = unrolling_iterable(['context_expr', 'optional_vars', 'body'])
+_With_field_unroller = unrolling_iterable(['items', 'body'])
 def With_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(With, w_self)
+    w_self.w_items = None
     w_self.w_body = None
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        if len(args_w) != 3:
-            w_err = space.wrap("With constructor takes either 0 or 3 positional arguments")
+        if len(args_w) != 2:
+            w_err = space.wrap("With constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _With_field_unroller:
@@ -4262,9 +4263,8 @@ def With_init(space, w_self, __args__):
 With.typedef = typedef.TypeDef("With",
     stmt.typedef,
     __module__='_ast',
-    _fields=_FieldsWrapper(['context_expr', 'optional_vars', 'body']),
-    context_expr=typedef.GetSetProperty(With_get_context_expr, With_set_context_expr, With_del_context_expr, cls=With),
-    optional_vars=typedef.GetSetProperty(With_get_optional_vars, With_set_optional_vars, With_del_optional_vars, cls=With),
+    _fields=_FieldsWrapper(['items', 'body']),
+    items=typedef.GetSetProperty(With_get_items, With_set_items, With_del_items, cls=With),
     body=typedef.GetSetProperty(With_get_body, With_set_body, With_del_body, cls=With),
     __new__=interp2app(get_AST_new(With)),
     __init__=interp2app(With_init),
@@ -8363,5 +8363,88 @@ alias.typedef = typedef.TypeDef("alias",
     asname=typedef.GetSetProperty(alias_get_asname, alias_set_asname, alias_del_asname, cls=alias),
     __new__=interp2app(get_AST_new(alias)),
     __init__=interp2app(alias_init),
+)
+
+def withitem_get_context_expr(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'context_expr')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 1:
+        raise_attriberr(space, w_self, 'context_expr')
+    return space.wrap(w_self.context_expr)
+
+def withitem_set_context_expr(space, w_self, w_new_value):
+    try:
+        w_self.context_expr = space.interp_w(expr, w_new_value, False)
+        if type(w_self.context_expr) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'context_expr', w_new_value)
+        w_self.initialization_state &= ~1
+        return
+    w_self.deldictvalue(space, 'context_expr')
+    w_self.initialization_state |= 1
+
+def withitem_del_context_expr(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    withitem_get_context_expr(space, w_self)
+    w_self.deldictvalue(space, 'context_expr')
+    w_self.initialization_state &= ~1
+
+def withitem_get_optional_vars(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'optional_vars')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 2:
+        raise_attriberr(space, w_self, 'optional_vars')
+    return space.wrap(w_self.optional_vars)
+
+def withitem_set_optional_vars(space, w_self, w_new_value):
+    try:
+        w_self.optional_vars = space.interp_w(expr, w_new_value, True)
+        if type(w_self.optional_vars) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'optional_vars', w_new_value)
+        w_self.initialization_state &= ~2
+        return
+    w_self.deldictvalue(space, 'optional_vars')
+    w_self.initialization_state |= 2
+
+def withitem_del_optional_vars(space, w_self):
+    # Check if the element exists, raise appropriate exceptions
+    withitem_get_optional_vars(space, w_self)
+    w_self.deldictvalue(space, 'optional_vars')
+    w_self.initialization_state &= ~2
+
+_withitem_field_unroller = unrolling_iterable(['context_expr', 'optional_vars'])
+def withitem_init(space, w_self, __args__):
+    w_self = space.descr_self_interp_w(withitem, w_self)
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        if len(args_w) != 2:
+            w_err = space.wrap("withitem constructor takes either 0 or 2 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _withitem_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+
+withitem.typedef = typedef.TypeDef("withitem",
+    AST.typedef,
+    __module__='_ast',
+    _fields=_FieldsWrapper(['context_expr', 'optional_vars']),
+    context_expr=typedef.GetSetProperty(withitem_get_context_expr, withitem_set_context_expr, withitem_del_context_expr, cls=withitem),
+    optional_vars=typedef.GetSetProperty(withitem_get_optional_vars, withitem_set_optional_vars, withitem_del_optional_vars, cls=withitem),
+    __new__=interp2app(get_AST_new(withitem)),
+    __init__=interp2app(withitem_init),
 )
 

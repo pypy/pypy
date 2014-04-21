@@ -170,16 +170,15 @@ class TestASTValidator:
                    [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], 0, 0)
         self.stmt(i, "must have Load context")
 
-    @skip("enable when parser uses the new With construct")
     def test_with(self):
         p = ast.Pass(0, 0)
-        self.stmt(ast.With([], [p]), "empty items on With")
+        self.stmt(ast.With([], [p], 0, 0), "empty items on With")
         i = ast.withitem(ast.Num(self.space.wrap(3), 0, 0), None)
-        self.stmt(ast.With([i], []), "empty body on With")
+        self.stmt(ast.With([i], [], 0, 0), "empty body on With")
         i = ast.withitem(ast.Name("x", ast.Store, 0, 0), None)
-        self.stmt(ast.With([i], [p]), "must have Load context")
+        self.stmt(ast.With([i], [p], 0, 0), "must have Load context")
         i = ast.withitem(ast.Num(self.space.wrap(3), 0, 0), ast.Name("x", ast.Load, 0, 0))
-        self.stmt(ast.With([i], [p]), "must have Store context")
+        self.stmt(ast.With([i], [p], 0, 0), "must have Store context")
 
     def test_raise(self):
         r = ast.Raise(None, ast.Num(self.space.wrap(3), 0, 0), 0, 0)
@@ -189,8 +188,8 @@ class TestASTValidator:
         r = ast.Raise(ast.Num(self.space.wrap(4), 0, 0), ast.Name("x", ast.Store, 0, 0), 0, 0)
         self.stmt(r, "must have Load context")
 
-    @skip("enable when parser uses the new Try construct")
     def test_try(self):
+        skip("enable when parser uses the new Try construct")
         p = ast.Pass(0, 0)
         t = ast.Try([], [], [], [p])
         self.stmt(t, "empty body on Try")

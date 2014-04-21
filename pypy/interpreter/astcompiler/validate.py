@@ -218,10 +218,14 @@ class AstValidator(ast.ASTVisitor):
         self._validate_body(node.body, "If")
         self._validate_stmts(node.orelse)
 
-    def visit_With(self, node):
+    def visit_withitem(self, node):
         self._validate_expr(node.context_expr)
         if node.optional_vars:
             self._validate_expr(node.optional_vars, ast.Store)
+
+    def visit_With(self, node):
+        self._validate_nonempty_seq(node.items, "items", "With")
+        self.visit_sequence(node.items)
         self._validate_body(node.body, "With")
 
     def visit_Raise(self, node):

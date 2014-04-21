@@ -433,6 +433,21 @@ class ASTBuilder(object):
             body = [wi]
         return wi
 
+    def handle_with_item(self, item_node):
+        test = self.handle_expr(item_node.children[0])
+        if len(item_node.children) == 3:
+            target = self.handle_expr(item_node.children[2])
+            self.set_context(target, ast.Store)
+        else:
+            target = None
+        return ast.withitem(test, target)
+
+    def handle_with_stmt(self, with_node):
+        body = self.handle_suite(with_node.children[-1])
+        items = [self.handle_with_item(with_node.children[i])
+                 for i in range(1, len(with_node.children)-2, 2)]
+        return ast.With(items, body, with_node.lineno, with_node.column)
+
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.children[1]
         name = self.new_identifier(name_node.value)

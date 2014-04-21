@@ -499,14 +499,15 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_With(self, wih):
         self.scope.new_temporary_name()
-        if wih.optional_vars:
-            self.scope.new_temporary_name()
-        wih.context_expr.walkabout(self)
-        if wih.optional_vars:
-            wih.optional_vars.walkabout(self)
+        self.visit_sequence(wih.items)
         self.scope.note_try_start(wih)
         self.visit_sequence(wih.body)
         self.scope.note_try_end(wih)
+
+    def visit_withitem(self, witem):
+        witem.context_expr.walkabout(self)
+        if witem.optional_vars:
+            witem.optional_vars.walkabout(self)
 
     def visit_arguments(self, arguments):
         scope = self.scope

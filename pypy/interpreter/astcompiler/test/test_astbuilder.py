@@ -405,33 +405,33 @@ class TestAstBuilder:
     def test_with(self):
         wi = self.get_first_stmt("with x: pass")
         assert isinstance(wi, ast.With)
-        assert isinstance(wi.context_expr, ast.Name)
+        assert len(wi.items) == 1
+        assert isinstance(wi.items[0], ast.withitem)
+        assert isinstance(wi.items[0].context_expr, ast.Name)
+        assert wi.items[0].optional_vars is None
         assert len(wi.body) == 1
-        assert wi.optional_vars is None
         wi = self.get_first_stmt("with x as y: pass")
-        assert isinstance(wi.context_expr, ast.Name)
+        assert isinstance(wi.items[0].context_expr, ast.Name)
         assert len(wi.body) == 1
-        assert isinstance(wi.optional_vars, ast.Name)
-        assert wi.optional_vars.ctx == ast.Store
+        assert isinstance(wi.items[0].optional_vars, ast.Name)
+        assert wi.items[0].optional_vars.ctx == ast.Store
         wi = self.get_first_stmt("with x as (y,): pass")
-        assert isinstance(wi.optional_vars, ast.Tuple)
-        assert len(wi.optional_vars.elts) == 1
-        assert wi.optional_vars.ctx == ast.Store
-        assert wi.optional_vars.elts[0].ctx == ast.Store
+        assert isinstance(wi.items[0].optional_vars, ast.Tuple)
+        assert len(wi.items[0].optional_vars.elts) == 1
+        assert wi.items[0].optional_vars.ctx == ast.Store
+        assert wi.items[0].optional_vars.elts[0].ctx == ast.Store
         input = "with x hi y: pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         wi = self.get_first_stmt("with x as y, b: pass")
         assert isinstance(wi, ast.With)
-        assert isinstance(wi.context_expr, ast.Name)
-        assert wi.context_expr.id == "x"
-        assert isinstance(wi.optional_vars, ast.Name)
-        assert wi.optional_vars.id == "y"
-        assert len(wi.body) == 1
-        wi = wi.body[0]
-        assert isinstance(wi, ast.With)
-        assert isinstance(wi.context_expr, ast.Name)
-        assert wi.context_expr.id == "b"
-        assert wi.optional_vars is None
+        assert len(wi.items) == 2
+        assert isinstance(wi.items[0].context_expr, ast.Name)
+        assert wi.items[0].context_expr.id == "x"
+        assert isinstance(wi.items[0].optional_vars, ast.Name)
+        assert wi.items[0].optional_vars.id == "y"
+        assert isinstance(wi.items[1].context_expr, ast.Name)
+        assert wi.items[1].context_expr.id == "b"
+        assert wi.items[1].optional_vars is None
         assert len(wi.body) == 1
         assert isinstance(wi.body[0], ast.Pass)
 
