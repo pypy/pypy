@@ -271,6 +271,8 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         self.optimize_loop(ops, expected, expected_preamble=preamble)
 
     def test_stm_location_1(self):
+        # This tests setfield_gc on a non-virtual.  On a virtual, it doesn't
+        # really matter, because STM conflicts are impossible anyway
         ops = """
         [i1, p1]
         setfield_gc(p1, i1, descr=adescr) {81}
