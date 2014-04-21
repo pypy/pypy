@@ -377,7 +377,8 @@ class BaseTest(object):
             assert box1.__class__ == box2.__class__
             remap[box2] = box1
         assert equaloplists(optimized.operations,
-                            expected.operations, False, remap, text_right)
+                            expected.operations, False, remap, text_right,
+                            expect_stm_locations_from_right=True)
 
     def _do_optimize_loop(self, loop, call_pure_results,
                           stm_info):

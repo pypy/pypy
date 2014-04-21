@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, StmLocation
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_not_resized
 from rpython.rlib.jit import Counters
@@ -1130,7 +1130,7 @@ class MIFrame(object):
                 idx_num, idx_ref = report_location
                 num = greenkey[idx_num].getint()
                 ref = greenkey[idx_ref].getref_base()
-                location = history.StmLocation(num, ref)
+                location = StmLocation(num, ref)
                 self.metainterp.history.stm_location = location
 
     @arguments("box", "label")
@@ -2089,8 +2089,8 @@ class MetaInterp(object):
             #
             if (self.staticdata.config.translation.stm and
                     isinstance(key, compile.ResumeGuardDescr)):
-                location = history.StmLocation(key.stm_location_int,
-                                               key.stm_location_ref)
+                location = StmLocation(key.stm_location_int,
+                                       key.stm_location_ref)
                 self.history.stm_location = location
             #
             self.interpret()

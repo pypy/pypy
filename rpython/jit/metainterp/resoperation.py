@@ -371,6 +371,12 @@ class N_aryOp(object):
         self._args[i] = box
 
 
+class StmLocation(object):
+    def __init__(self, num, ref):
+        self.num = num
+        self.ref = ref
+
+
 # ____________________________________________________________
 
 _oplist = [

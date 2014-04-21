@@ -760,13 +760,6 @@ def _list_all_operations(result, operations, omit_finish=True):
 
 # ____________________________________________________________
 
-
-class StmLocation(object):
-    def __init__(self, num, ref):
-        self.num = num
-        self.ref = ref
-
-
 class History(object):
     def __init__(self, metainterp_sd):
         self.inputargs = None

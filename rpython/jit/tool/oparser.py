@@ -7,7 +7,7 @@ import re
 from rpython.jit.tool.oparser_model import get_model
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
-                                            UnaryOp, PlainResOp
+                                            UnaryOp, PlainResOp, StmLocation
 
 r_skip_thread = re.compile(r'^(\d+#)?')
 
@@ -223,6 +223,8 @@ class OpParser(object):
         if rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST:
             i = line.find('[', endnum) + 1
             j = line.find(']', i)
+            if j >= 0:
+                endnum = j + 1
             if (i <= 0 or j <= 0) and not self.nonstrict:
                 raise ParseError("missing fail_args for guard operation")
             fail_args = []
@@ -251,7 +253,16 @@ class OpParser(object):
                 if descr is None and self.invent_fail_descr:
                     descr = self.original_jitcell_token
 
-        return opnum, args, descr, fail_args
+        if line.find('{', endnum) >= 0:
+            i = line.find('{', endnum) + 1
+            j = line.find('}', i)
+            if j < 0:
+                raise ParseError("missing '}' after '{'")
+            stm_location = int(line[i:j].strip())
+        else:
+            stm_location = None
+
+        return opnum, args, descr, fail_args, stm_location
 
     def create_op(self, opnum, args, result, descr):
         if opnum == ESCAPE_OP.OPNUM:
@@ -271,7 +282,7 @@ class OpParser(object):
         res, op = line.split("=", 1)
         res = res.strip()
         op = op.strip()
-        opnum, args, descr, fail_args = self.parse_op(op)
+        opnum, args, descr, fail_args, stm_location = self.parse_op(op)
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         rvar = self.box_for_var(res)
@@ -279,13 +290,17 @@ class OpParser(object):
         res = self.create_op(opnum, args, rvar, descr)
         if fail_args is not None:
             res.setfailargs(fail_args)
+        if stm_location is not None:
+            res.stm_location = StmLocation(stm_location, '?')
         return res
 
     def parse_op_no_result(self, line):
-        opnum, args, descr, fail_args = self.parse_op(line)
+        opnum, args, descr, fail_args, stm_location = self.parse_op(line)
         res = self.create_op(opnum, args, None, descr)
         if fail_args is not None:
             res.setfailargs(fail_args)
+        if stm_location is not None:
+            res.stm_location = StmLocation(stm_location, '?')
         return res
 
     def parse_next_op(self, line):

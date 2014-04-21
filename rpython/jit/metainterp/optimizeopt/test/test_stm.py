@@ -270,8 +270,17 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, expected_preamble=preamble)
 
-
-
-
-
-        
+    def test_stm_location_1(self):
+        ops = """
+        [i1, p1]
+        setfield_gc(p1, i1, descr=adescr) {81}
+        call(i1, descr=nonwritedescr) {90}
+        jump(i1, p1)
+        """
+        expected = """
+        [i1, p1]
+        call(i1, descr=nonwritedescr) {90}
+        setfield_gc(p1, i1, descr=adescr) {81}
+        jump(i1, p1)
+        """
+        self.optimize_loop(ops, expected)

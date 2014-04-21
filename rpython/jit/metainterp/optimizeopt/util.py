@@ -125,7 +125,7 @@ def args_dict():
 # ____________________________________________________________
 
 def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
-                 text_right=None):
+                 text_right=None, expect_stm_locations_from_right=False):
     # try to use the full width of the terminal to display the list
     # unfortunately, does not work with the default capture method of py.test
     # (which is fd), you you need to use either -s or --capture=sys, else you
@@ -184,5 +184,8 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
                             break
                     else:
                         assert False
+        if expect_stm_locations_from_right and op2.stm_location is not None:
+            assert op1.stm_location is not None
+            assert op1.stm_location.num == op2.stm_location.num
     assert len(oplist1) == len(oplist2)
     return True
