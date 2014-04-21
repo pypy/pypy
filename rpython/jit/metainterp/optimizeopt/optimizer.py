@@ -360,12 +360,6 @@ class Optimizer(Optimization):
             self.call_pure_results = loop.call_pure_results
             self.stm_info = loop.stm_info
 
-        if metainterp_sd.config.translation.stm:
-            from rpython.rtyper.lltypesystem import lltype, llmemory
-            self.stm_location = (0, lltype.nullptr(llmemory.GCREF.TO))
-        else:
-            self.stm_location = None
-
         self.set_optimizations(optimizations)
         self.setup()
 
@@ -577,8 +571,7 @@ class Optimizer(Optimization):
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
-        descr.store_final_boxes(op, newboxes, self.metainterp_sd,
-                                self.stm_location)
+        descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
             if self.getvalue(op.getarg(0)) in self.bool_boxes:

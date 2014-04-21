@@ -515,12 +515,13 @@ class ResumeGuardDescr(ResumeDescr):
     TY_REF          = 0x04
     TY_FLOAT        = 0x06
 
-    def store_final_boxes(self, guard_op, boxes, metainterp_sd, stm_location):
+    def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
         self.rd_count = len(boxes)
         self.guard_opnum = guard_op.getopnum()
-        if stm_location is not None:    # constant-folded
-            self.stm_location_int, self.stm_location_ref = stm_location
+        if guard_op.stm_location is not None:    # constant-folded if not stm
+            self.stm_location_int = guard_op.stm_location.num
+            self.stm_location_ref = guard_op.stm_location.ref
         #
         if metainterp_sd.warmrunnerdesc is not None:   # for tests
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter

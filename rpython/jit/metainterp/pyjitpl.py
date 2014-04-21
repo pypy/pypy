@@ -1123,6 +1123,15 @@ class MIFrame(object):
         debug_print(loc)
         args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
+        #
+        if self.metainterp.staticdata.config.translation.stm:
+            report_location = jitdriver_sd.stm_report_location
+            if report_location is not None:
+                idx_num, idx_ref = report_location
+                num = greenkey[idx_num].getint()
+                ref = greenkey[idx_ref].getref_base()
+                location = history.StmLocation(num, ref)
+                self.metainterp.history.stm_location = location
 
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
@@ -1857,7 +1866,7 @@ class MetaInterp(object):
             self.framestack[-1].pc = saved_pc
 
     def create_empty_history(self):
-        self.history = history.History()
+        self.history = history.History(self.staticdata)
         self.staticdata.stats.set_history(self.history)
 
     def _all_constants(self, *boxes):
@@ -2080,10 +2089,9 @@ class MetaInterp(object):
             #
             if (self.staticdata.config.translation.stm and
                     isinstance(key, compile.ResumeGuardDescr)):
-                self.history.record(rop.STM_SET_LOCATION,
-                                    [ConstInt(key.stm_location_int),
-                                     ConstPtr(key.stm_location_ref)],
-                                    None)
+                location = history.StmLocation(key.stm_location_int,
+                                               key.stm_location_ref)
+                self.history.stm_location = location
             #
             self.interpret()
         except SwitchToBlackhole, stb:
@@ -2424,7 +2432,7 @@ class MetaInterp(object):
         rstack._stack_criticalcode_start()
         try:
             self.portal_call_depth = -1 # always one portal around
-            self.history = history.History()
+            self.history = history.History(self.staticdata)
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr,
                                                                    deadframe)
             self.history.inputargs = [box for box in inputargs_and_holes if box]
@@ -2694,23 +2702,22 @@ class MetaInterp(object):
     def record_result_of_call_pure(self, resbox):
         """ Patch a CALL into a CALL_PURE.
         """
-        op = self.history.operations[-1]
+        op = self.history.operations.pop()
         assert op.getopnum() == rop.CALL
         resbox_as_const = resbox.constbox()
         for i in range(op.numargs()):
             if not isinstance(op.getarg(i), Const):
                 break
         else:
-            # all-constants: remove the CALL operation now and propagate a
+            # all-constants: keep the CALL operation removed, and propagate a
             # constant result
-            self.history.operations.pop()
             return resbox_as_const
         # not all constants (so far): turn CALL into CALL_PURE, which might
         # be either removed later by optimizeopt or turned back into CALL.
         arg_consts = [a.constbox() for a in op.getarglist()]
         self.call_pure_results[arg_consts] = resbox_as_const
         newop = op.copy_and_change(rop.CALL_PURE, args=op.getarglist())
-        self.history.operations[-1] = newop
+        self.history.record_op(newop)
         return resbox
 
     def direct_assembler_call(self, targetjitdriver_sd):
@@ -2727,7 +2734,7 @@ class MetaInterp(object):
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs)
         op = op.copy_and_change(rop.CALL_ASSEMBLER, args=args, descr=token)
-        self.history.operations.append(op)
+        self.history.record_op(op)
         #
         # To fix an obscure issue, make sure the vable stays alive
         # longer than the CALL_ASSEMBLER operation.  We do it by

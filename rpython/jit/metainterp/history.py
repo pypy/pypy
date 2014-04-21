@@ -761,20 +761,27 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
+class StmLocation(object):
+    def __init__(self, num, ref):
+        self.num = num
+        self.ref = ref
+
+
 class History(object):
-    def __init__(self):
+    def __init__(self, metainterp_sd):
         self.inputargs = None
         self.operations = []
+        self.config = metainterp_sd.config
+        self.stm_location = None
 
     def record(self, opnum, argboxes, resbox, descr=None):
         op = ResOperation(opnum, argboxes, resbox, descr)
-        self.operations.append(op)
+        self.record_op(op)
         return op
 
-    def substitute_operation(self, position, opnum, argboxes, descr=None):
-        resbox = self.operations[position].result
-        op = ResOperation(opnum, argboxes, resbox, descr)
-        self.operations[position] = op
+    def record_op(self, op):
+        op.stm_location = self.stm_location
+        self.operations.append(op)
 
 # ____________________________________________________________
 

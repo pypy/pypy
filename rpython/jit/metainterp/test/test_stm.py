@@ -88,6 +88,29 @@ class STMTests:
                 got.append(op.getarglist()[-1].value)
         assert got == [42, -42, 42, 42, -42, 42]
 
+    def check_stm_locations(self, operations=None, cur_location="???"):
+        if operations is None:
+            from rpython.jit.metainterp.warmspot import get_stats
+            loop = get_stats().get_all_loops()[0]
+            operations = loop.operations
+        #
+        for op in operations:
+            if op.getopname() == "debug_merge_point":
+                num_box, ref_box = op.getarglist()[-2:]
+                num = num_box.getint()
+                ref = ref_box.getref_base()
+                cur_location = (num, ref)
+            elif op.getopname() in ("label", "finish", "jump"):
+                pass
+            else:
+                stmloc = op.stm_location
+                assert stmloc is not None, op
+                assert cur_location == (stmloc.num, stmloc.ref)
+                if (op.is_guard() and
+                        hasattr(op.getdescr(), '_debug_suboperations')):
+                    subops = op.getdescr()._debug_suboperations
+                    self.check_stm_locations(subops, cur_location)
+
     def test_stm_report_location(self):
         myjitdriver = JitDriver(greens = ['a', 'r'], reds = ['x', 'res'],
                                 stm_report_location = [0, 1])
@@ -112,17 +135,7 @@ class STMTests:
         res = self.meta_interp(main, [42, 10], translationoptions={"stm":True})
         assert res == 55
         self.check_resops(debug_merge_point=6)
-        self.check_resops(stm_set_location=6)    # on the main loop
-        #
-        from rpython.jit.metainterp.warmspot import get_stats
-        seen = []
-        for loop in get_stats().get_all_loops():
-            for op in loop._all_operations():
-                if op.getopname() == "stm_set_location":
-                    seen.append(op)
-        assert len(seen) == 6 + 1
-        op = seen[-1]
-        assert op.getarg(0).getint() == -42
+        self.check_stm_locations()
 
     def test_stm_report_location_2(self):
         myjitdriver = JitDriver(greens = ['a', 'r'], reds = ['x', 'res', 'n'],
@@ -150,17 +163,7 @@ class STMTests:
         res = self.meta_interp(main, [42, 10], translationoptions={"stm":True})
         assert res == 55
         self.check_resops(debug_merge_point=6)
-        #
-        from rpython.jit.metainterp.warmspot import get_stats
-        seen = []
-        for loop in get_stats().get_all_loops():
-            for op in loop._all_operations():
-                if op.getopname() == "stm_set_location":
-                    seen.append(op)
-        assert len(seen) == 6 + 2
-        [op1, op2] = seen[-2:]
-        assert op1.getarg(0).getint() == -42
-        assert op2.getarg(0).getint() == -42
+        self.check_stm_locations()
 
 
 class TestLLtype(STMTests, LLJitMixin):

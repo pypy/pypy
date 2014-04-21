@@ -22,6 +22,7 @@ class AbstractResOp(object):
     name = ""
     pc = 0
     opnum = 0
+    stm_location = None
     _cls_has_bool_result = False
 
     _attrs_ = ('result',)
@@ -92,6 +93,7 @@ class AbstractResOp(object):
         if descr is not None:
             descr = descr.clone_if_mutable()
         op = ResOperation(self.getopnum(), args[:], self.result, descr)
+        op.stm_location = self.stm_location
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc
@@ -504,7 +506,6 @@ _oplist = [
     'COND_CALL_GC_WB_ARRAY/2d', # [objptr, arrayindex] (write barr. for array)
     'DEBUG_MERGE_POINT/*',      # debugging only
     'JIT_DEBUG/*',              # debugging only
-    'STM_SET_LOCATION/2',
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
