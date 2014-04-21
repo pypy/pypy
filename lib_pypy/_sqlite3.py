@@ -29,7 +29,8 @@ import datetime
 import string
 import sys
 import weakref
-from threading import _get_ident as _thread_get_ident
+import threading
+
 try:
     from __pypy__ import newlist_hint
 except ImportError:
@@ -458,7 +459,7 @@ class Connection(object):
         self.__aggregate_instances = {}
         self.__collations = {}
         if check_same_thread:
-            self.__thread_ident = _thread_get_ident()
+            self.__thread_ident = threading.get_ident()
 
         self.Error = Error
         self.Warning = Warning
@@ -501,7 +502,7 @@ class Connection(object):
 
     def _check_thread(self):
         try:
-            if self.__thread_ident == _thread_get_ident():
+            if self.__thread_ident == threading.get_ident():
                 return
         except AttributeError:
             pass
@@ -509,7 +510,7 @@ class Connection(object):
             raise ProgrammingError(
                 "SQLite objects created in a thread can only be used in that "
                 "same thread. The object was created in thread id %d and this "
-                "is thread id %d", self.__thread_ident, _thread_get_ident())
+                "is thread id %d", self.__thread_ident, threading.get_ident())
 
     def _check_thread_wrap(func):
         @wraps(func)
