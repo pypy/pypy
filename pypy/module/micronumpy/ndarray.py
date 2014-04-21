@@ -713,11 +713,11 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_ValueError,
                         "'%s' is an invalid value for keyword 'side'", side)
         if len(self.get_shape()) > 1:
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise oefmt(space.w_ValueError, 
                 "a must be a 1-d array")
         v = convert_to_array(space, w_v)
         if len(v.get_shape()) > 1:
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise oefmt(space.w_ValueError,
                  "v must be a 1-d array-like")
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
