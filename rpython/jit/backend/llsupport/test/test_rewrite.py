@@ -110,7 +110,8 @@ class RewriteTests(object):
         operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                         ops.operations,
                                                         [])
-        equaloplists(operations, expected.operations)
+        equaloplists(operations, expected.operations,
+                     expect_stm_locations_from_right=True)
         lltype.free(frame_info, flavor='raw')
 
 class FakeTracker(object):

@@ -1187,3 +1187,45 @@ class TestStm(RewriteTests):
                 %(comment)s stm_read(p4)
                 jump(p2)
             """ % d, uxdescr=uxdescr, vdescr=vdescr)
+
+    def test_stm_location_1(self):
+        self.check_rewrite("""
+            [p1, p2]
+            setfield_gc(p1, p2, descr=tzdescr) {50}
+            jump()
+        """, """
+            [p1, p2]
+            cond_call_gc_wb(p1, descr=wbdescr) {50}
+            setfield_gc(p1, p2, descr=tzdescr) {50}
+            jump()
+        """)
+
+    def test_stm_location_2(self):
+        self.check_rewrite("""
+            [i1]
+            i3 = getfield_raw(i1, descr=tydescr) {52}
+            jump(i3)
+        """, """
+            [i1]
+            $INEV {52}
+            i3 = getfield_raw(i1, descr=tydescr) {52}
+            jump(i3)
+        """)
+
+    def test_stm_location_3(self):
+        self.check_rewrite("""
+        [i0, f0]
+        i2 = call_assembler(i0, f0, descr=casmdescr) {54}
+        guard_not_forced() [] {55}
+        """, """
+        [i0, f0]
+        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
+        p1 = call_malloc_nursery_varsize_frame(i1)
+        setfield_gc(p1, 0, descr=tiddescr)
+        setfield_gc(p1, i1, descr=framelendescr)
+        setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
+        setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
+        setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
+        i3 = call_assembler(p1, descr=casmdescr) {54}
+        guard_not_forced() [] {55}
+        """)
