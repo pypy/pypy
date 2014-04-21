@@ -165,11 +165,11 @@ def test_simple_tcp():
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.settimeout(10.0) # test one side with timeouts so select is used, shouldn't affect test
+    connected = False
     def connecting():
         try:
             s2.connect(addr)
-        except:
-            s2.close()
+            connected = True
         finally:
             lock.release()
     lock = thread.allocate_lock()
@@ -180,6 +180,7 @@ def test_simple_tcp():
     s1 = RSocket(fd=fd1)
     print 'connection accepted'
     lock.acquire()
+    assert connected
     print 'connecting side knows that the connection was accepted too'
     assert addr.eq(s2.getpeername())
     #assert addr2.eq(s2.getsockname())
