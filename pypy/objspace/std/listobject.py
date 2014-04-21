@@ -1658,7 +1658,7 @@ class BytesListStrategy(ListStrategy):
         return self.space.wrapbytes(stringval)
 
     def unwrap(self, w_string):
-        return self.space.str_w(w_string)
+        return self.space.bytes_w(w_string)
 
     erase, unerase = rerased.new_erasing_pair("bytes")
     erase = staticmethod(erase)
