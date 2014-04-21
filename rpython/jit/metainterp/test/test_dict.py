@@ -355,7 +355,7 @@ class DictTests:
                 n -= 1
             return len(d)
         self.meta_interp(f, [100])
-        self.check_simple_loop(call_may_force=0, call=3)
+        self.check_simple_loop(call_may_force=0, call=0, new=0)
 
 
 class TestLLtype(DictTests, LLJitMixin):

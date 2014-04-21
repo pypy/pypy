@@ -226,7 +226,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         # XXX this needs a test in test_virtualstate!!!
         if not isinstance(other, VArrayStructStateInfo):
             raise VirtualStatesCantMatch("other is not an VArrayStructStateInfo")
-        if not self.arraydescr is not other.arraydescr:
+        if self.arraydescr is not other.arraydescr:
             raise VirtualStatesCantMatch("other is a different kind of array")
 
         if len(self.fielddescrs) != len(other.fielddescrs):
