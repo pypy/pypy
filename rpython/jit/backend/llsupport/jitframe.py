@@ -160,6 +160,10 @@ def jitframe_trace(obj_addr, prev):
         MAX = 64
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
     gcmap_lgt = (gcmap + GCMAPLENGTHOFS).signed[0]
+    #
+    from rpython.jit.backend.llsupport.gcmap import GCMAP_STM_LOCATION
+    gcmap_lgt -= GCMAP_STM_LOCATION
+    #
     while no < gcmap_lgt:
         cur = (gcmap + GCMAPBASEOFS + UNSIGN_SIZE * no).unsigned[0]
         while not (cur & (1 << state)):

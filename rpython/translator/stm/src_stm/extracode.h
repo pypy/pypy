@@ -56,7 +56,7 @@ static long _fetch_lngspace0(char *seg_base, object_t *base, long ofs)
     return *(long *)(src + ofs);
 }
 
-static RPyStringSpace0 *_fetch_rpyspace0(char *seg_base, object_t *base,
+static RPyStringSpace0 *_fetch_rpsspace0(char *seg_base, object_t *base,
                                          long ofs)
 {
     char *src = seg_base + (uintptr_t)base;
@@ -74,14 +74,24 @@ static void _stm_expand_marker_for_pypy(
     RPyStringSpace0 *co_name;
     RPyStringSpace0 *co_lnotab;
     char *ntrunc = "", *fntrunc = "";
-    long fnlen, nlen, line;
-    char *fn, *name;
+    long fnlen = 1, nlen = 1, line = 0;
+    char *fn = "?", *name = "?";
+
+#ifdef RPY_STM_JIT
+    if (odd_number == STM_STACK_MARKER_NEW ||
+        odd_number == STM_STACK_MARKER_OLD) {
+        assert(o);
+        /* XXX ji_jf_forward */
+        /* XXX */
+        o = NULL;
+    }
+#endif
 
     if (o) {
-        co_filename   =_fetch_rpyspace0(segment_base, o, g_co_filename_ofs);
-        co_name       =_fetch_rpyspace0(segment_base, o, g_co_name_ofs);
+        co_filename   =_fetch_rpsspace0(segment_base, o, g_co_filename_ofs);
+        co_name       =_fetch_rpsspace0(segment_base, o, g_co_name_ofs);
         co_firstlineno=_fetch_lngspace0(segment_base, o, g_co_firstlineno_ofs);
-        co_lnotab     =_fetch_rpyspace0(segment_base, o, g_co_lnotab_ofs);
+        co_lnotab     =_fetch_rpsspace0(segment_base, o, g_co_lnotab_ofs);
 
         long remaining = outputbufsize - 32;
         nlen = RPyString_Size(co_name);
@@ -111,13 +121,6 @@ static void _stm_expand_marker_for_pypy(
                 break;
             line += ((unsigned char *)lnotab)[i + 1];
         }
-    }
-    else {
-        fnlen = 1;
-        fn = "?";
-        nlen = 1;
-        name = "?";
-        line = 0;
     }
 
     snprintf(outputbuf, outputbufsize, "File \"%s%.*s\", line %ld, in %.*s%s",

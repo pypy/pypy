@@ -7,6 +7,7 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.backend.llsupport.jiframe import GCMAP
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
 from rpython.jit.backend.x86 import rx86
@@ -22,7 +23,7 @@ from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
     ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, StmLocation
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
@@ -150,6 +151,9 @@ class RegAlloc(BaseRegalloc):
                                   assembler = self.assembler)
         self.xrm = xmm_reg_mgr_cls(self.longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
+        # 'self.stm_location' is the StmLocation of the current operation
+        # (or the last one that actually had a StmLocation)
+        self.stm_location = None
         return operations
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
@@ -318,6 +322,12 @@ class RegAlloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
+            #
+            if op.stm_location is not None:
+                if (self.stm_location.num != op.stm_location.num or
+                    self.stm_location.ref != op.stm_location.ref):
+                    self.stm_location = op.stm_location
+            #
             if op.has_no_side_effect() and op.result not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
@@ -899,9 +909,13 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
+    def get_empty_gcmap(self, frame_depth):
+        return allocate_gcmap(self.assembler, frame_depth,
+                              JITFRAME_FIXED_SIZE, self.stm_location)
+
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
-        gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)
+        gcmap = self.get_empty_gcmap(frame_depth)
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:
                 continue

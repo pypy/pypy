@@ -9,6 +9,7 @@ else:
     _instruction = "movq %%fs:0, %0"
 
 eci = ExternalCompilationInfo(post_include_bits=['''
+#define RPY_STM_JIT  1
 static long pypy__threadlocal_base(void)
 {
     /* XXX ONLY LINUX WITH GCC/CLANG FOR NOW XXX */
