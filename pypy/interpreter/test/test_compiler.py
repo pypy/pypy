@@ -878,6 +878,15 @@ class AppTestCompiler:
             # the code object's filename comes from the second compilation step
             assert co2.co_filename == '%s3' % fname
 
+    def test_invalid_ast(self):
+        import _ast
+        delete = _ast.Delete([])
+        delete.lineno = 0
+        delete.col_offset = 0
+        mod = _ast.Module([delete])
+        exc = raises(ValueError, compile, mod, 'filename', 'exec')
+        assert str(exc.value) == "empty targets on Delete"
+
 
 class AppTestOptimizer:
 

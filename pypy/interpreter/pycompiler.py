@@ -137,7 +137,11 @@ class PythonAstCompiler(PyCodeCompiler):
         return code
 
     def validate_ast(self, node):
-        validate.validate_ast(self.space, node)
+        try:
+            validate.validate_ast(self.space, node)
+        except validate.ValidationError as e:
+            raise OperationError(self.space.w_ValueError,
+                                 self.space.wrap(e.message))
 
     def compile_to_ast(self, source, filename, mode, flags):
         info = pyparse.CompileInfo(filename, mode, flags)
