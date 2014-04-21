@@ -108,26 +108,19 @@ class ASDLParser(spark.GenericParser, object):
     def error(self, tok):
         raise ASDLSyntaxError(tok.lineno, tok)
 
-    def p_module_0(self, (module, name, version, _0, _1)):
-        " module ::= Id Id version { } "
+    def p_module_0(self, (module, name, _0, _1)):
+        " module ::= Id Id { } "
         if module.value != "module":
             raise ASDLSyntaxError(module.lineno,
                                   msg="expected 'module', found %s" % module)
-        return Module(name, None, version)
+        return Module(name, None)
 
-    def p_module(self, (module, name, version, _0, definitions, _1)):
-        " module ::= Id Id version { definitions } "
+    def p_module(self, (module, name, _0, definitions, _1)):
+        " module ::= Id Id { definitions } "
         if module.value != "module":
             raise ASDLSyntaxError(module.lineno,
                                   msg="expected 'module', found %s" % module)
-        return Module(name, definitions, version)
-
-    def p_version(self, (version, V)):
-        "version ::= Id String"
-        if version.value != "version":
-            raise ASDLSyntaxError(version.lineno,
-                                msg="expected 'version', found %" % version)
-        return V
+        return Module(name, definitions)
 
     def p_definition_0(self, (definition,)):
         " definitions ::= definition "
@@ -228,10 +221,9 @@ class AST(object):
     pass # a marker class
 
 class Module(AST):
-    def __init__(self, name, dfns, version):
+    def __init__(self, name, dfns):
         self.name = name
         self.dfns = dfns
-        self.version = version
         self.types = {} # maps type name to value (from dfns)
         for type in dfns:
             self.types[type.name.value] = type.value
