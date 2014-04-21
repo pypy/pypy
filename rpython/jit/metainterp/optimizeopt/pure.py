@@ -72,8 +72,9 @@ class OptPure(Optimization):
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.result,
-                                         op.getdescr()))
+        op1 = ResOperation(rop.CALL, args, op.result, op.getdescr())
+        op1.stm_location = op.stm_location
+        self.emit_operation(op1)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:

@@ -16,8 +16,9 @@ class OptSimplify(Optimization):
 
     def optimize_CALL_PURE(self, op):
         args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.result,
-                                         op.getdescr()))
+        op1 = ResOperation(rop.CALL, args, op.result, op.getdescr())
+        op1.stm_location = op.stm_location
+        self.emit_operation(op1)
 
     def optimize_CALL_LOOPINVARIANT(self, op):
         op = op.copy_and_change(rop.CALL)
