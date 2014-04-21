@@ -56,6 +56,7 @@ in addition to any features explicitly specified.
     # XXX: optimize flag is not used
 
     if ast_node is not None:
+        ec.compiler.validate_ast(ast_node)
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
     elif flags & consts.PyCF_ONLY_AST:
         ast_node = ec.compiler.compile_to_ast(source, filename, mode, flags)

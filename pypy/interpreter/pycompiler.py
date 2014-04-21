@@ -6,7 +6,7 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 from pypy.interpreter import pycode
 from pypy.interpreter.pyparser import future, pyparse, error as parseerror
 from pypy.interpreter.astcompiler import (astbuilder, codegen, consts, misc,
-                                          optimize, ast)
+                                          optimize, ast, validate)
 from pypy.interpreter.error import OperationError
 
 
@@ -135,6 +135,9 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return code
+
+    def validate_ast(self, node):
+        validate.validate_ast(self.space, node)
 
     def compile_to_ast(self, source, filename, mode, flags):
         info = pyparse.CompileInfo(filename, mode, flags)
