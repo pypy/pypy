@@ -307,6 +307,7 @@ class SysModuleTest(unittest.TestCase):
         )
 
     # sys._current_frames() is a CPython-only gimmick.
+    @test.support.impl_detail("current_frames")
     def test_current_frames(self):
         have_threads = True
         try:
