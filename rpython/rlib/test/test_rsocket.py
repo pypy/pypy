@@ -70,12 +70,14 @@ def test_gethostbyaddr():
     try:
         cpy_socket.gethostbyaddr("::1")
     except cpy_socket.herror:
-        ipv6 = False
+        ipv6 = HSocketError
+    except cpy_socket.gaierror:
+        ipv6 = GAIError
     else:
-        ipv6 = True
+        ipv6 = None
     for host in ["localhost", "127.0.0.1", "::1"]:
-        if host == "::1" and not ipv6:
-            with py.test.raises(HSocketError):
+        if host == "::1" and ipv6:
+            with py.test.raises(ipv6):
                 gethostbyaddr(host)
             continue
         name, aliases, address_list = gethostbyaddr(host)
@@ -162,10 +164,7 @@ def test_simple_tcp():
     assert addr.eq(sock.getsockname())
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
-    if sys.platform != 'win32':
-        # test one side with timeouts so select is used
-        # XXX fix on win32
-        s2.settimeout(10.0) 
+    s2.settimeout(10.0) # test one side with timeouts so select is used, shouldn't affect test
     def connecting():
         try:
             s2.connect(addr)
@@ -381,26 +380,35 @@ def test_getsetsockopt():
     assert value != 0
 
 def test_dup():
-    if sys.platform == "win32":
-        skip("dup does not work on Windows")
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.bind(INETAddress('localhost', 50007))
-    s2 = s.dup()
-    assert s.fd != s2.fd
-    assert s.getsockname().eq(s2.getsockname())
-    s.close()
-    s2.close()
+    try:
+        s.bind(INETAddress('localhost', 50007))
+        if sys.platform == "win32":
+            assert not hasattr(s, 'dup')
+            return
+        s2 = s.dup()
+        try:
+            assert s.fd != s2.fd
+            assert s.getsockname().eq(s2.getsockname())
+        finally:
+            s2.close()
+    finally:
+        s.close()
 
 def test_c_dup():
     # rsocket.dup() duplicates fd, it also works on Windows
     # (but only on socket handles!)
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.bind(INETAddress('localhost', 50007))
-    s2 = RSocket(fd=dup(s.fd))
-    assert s.fd != s2.fd
-    assert s.getsockname().eq(s2.getsockname())
-    s.close()
-    s2.close()
+    try:
+        s.bind(INETAddress('localhost', 50007))
+        s2 = RSocket(fd=dup(s.fd))
+        try:
+            assert s.fd != s2.fd
+            assert s.getsockname().eq(s2.getsockname())
+        finally:
+            s2.close()
+    finally:
+        s.close()
 
 def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
