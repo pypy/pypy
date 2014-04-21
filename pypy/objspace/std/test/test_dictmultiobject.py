@@ -1015,6 +1015,11 @@ class AppTestStrategies(object):
         # gives us (1, 2), but 1 is not in the dict any longer.
         #raises(RuntimeError, list, it)
 
+    def test_bytes_to_object(self):
+        d = {b'a': 'b'}
+        d[object()] = None
+        assert b'a' in list(d)
+
 
 class FakeString(str):
 

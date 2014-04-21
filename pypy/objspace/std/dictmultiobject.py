@@ -821,7 +821,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrap(unwrapped)
+        return self.space.wrapbytes(unwrapped)
 
     def unwrap(self, wrapped):
         return self.space.bytes_w(wrapped)
