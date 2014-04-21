@@ -126,17 +126,19 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
 
     @specialize.arg(1)
-    def _do_stm_call(self, funcname, args, result):
+    def _do_stm_call(self, funcname, args, result, stm_location):
         addr = self.gc_ll_descr.get_malloc_fn_addr(funcname)
         descr = getattr(self.gc_ll_descr, funcname + '_descr')
         op1 = ResOperation(rop.CALL, [ConstInt(addr)] + args,
                            result, descr=descr)
+        op1.stm_location = stm_location
         self.newops.append(op1)
 
     def fallback_inevitable(self, op):
         if not self.always_inevitable:
             self.emitting_an_operation_that_can_collect()
-            self._do_stm_call('stm_try_inevitable', [], None)
+            self._do_stm_call('stm_try_inevitable', [], None,
+                              op.stm_location)
             self.always_inevitable = True
         self.newops.append(op)
         debug_print("fallback for", op.repr())
@@ -153,5 +155,5 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def handle_setters_for_pure_fields(self, op, targetindex):
         val = op.getarg(targetindex)
         if self.must_apply_write_barrier(val):
-            self.gen_write_barrier(val)
+            self.gen_write_barrier(val, op.stm_location)
         self.newops.append(op)

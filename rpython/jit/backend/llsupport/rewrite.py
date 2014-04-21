@@ -229,8 +229,10 @@ class GcRewriterAssembler(object):
             args = [frame, arglist[jd.index_of_virtualizable]]
         else:
             args = [frame]
-        self.newops.append(ResOperation(rop.CALL_ASSEMBLER, args,
-                                        op.result, op.getdescr()))
+        op1 = ResOperation(rop.CALL_ASSEMBLER, args,
+                           op.result, op.getdescr())
+        op1.stm_location = op.stm_location
+        self.newops.append(op1)
 
     # ----------
 
@@ -406,29 +408,31 @@ class GcRewriterAssembler(object):
     def handle_write_barrier_setfield(self, op):
         val = op.getarg(0)
         if self.must_apply_write_barrier(val, op.getarg(1)):
-            self.gen_write_barrier(val)
+            self.gen_write_barrier(val, op.stm_location)
         self.newops.append(op)
 
     def handle_write_barrier_setinteriorfield(self, op):
         val = op.getarg(0)
         if self.must_apply_write_barrier(val, op.getarg(2)):
-            self.gen_write_barrier(val)
+            self.gen_write_barrier(val, op.stm_location)
         self.newops.append(op)
 
     def handle_write_barrier_setarrayitem(self, op):
         val = op.getarg(0)
         if self.must_apply_write_barrier(val, op.getarg(2)):
-            self.gen_write_barrier_array(val, op.getarg(1))
+            self.gen_write_barrier_array(val, op.getarg(1), op.stm_location)
         self.newops.append(op)
 
-    def gen_write_barrier(self, v_base):
+    def gen_write_barrier(self, v_base, stm_location):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
         args = [v_base]
-        self.newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
-                                        descr=write_barrier_descr))
+        op = ResOperation(rop.COND_CALL_GC_WB, args, None,
+                          descr=write_barrier_descr)
+        op.stm_location = stm_location
+        self.newops.append(op)
         self.write_barrier_applied[v_base] = None
 
-    def gen_write_barrier_array(self, v_base, v_index):
+    def gen_write_barrier_array(self, v_base, v_index, stm_location):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
         if write_barrier_descr.has_write_barrier_from_array(self.cpu):
             # If we know statically the length of 'v', and it is not too
@@ -439,14 +443,15 @@ class GcRewriterAssembler(object):
             if length >= LARGE:
                 # unknown or too big: produce a write_barrier_from_array
                 args = [v_base, v_index]
-                self.newops.append(
-                    ResOperation(rop.COND_CALL_GC_WB_ARRAY, args, None,
-                                 descr=write_barrier_descr))
+                op = ResOperation(rop.COND_CALL_GC_WB_ARRAY, args, None,
+                                  descr=write_barrier_descr)
+                op.stm_location = stm_location
+                self.newops.append(op)
                 # a WB_ARRAY is not enough to prevent any future write
                 # barriers, so don't add to 'write_barrier_applied'!
                 return
         # fall-back case: produce a write_barrier
-        self.gen_write_barrier(v_base)
+        self.gen_write_barrier(v_base, stm_location)
 
     def round_up_for_allocation(self, size):
         if not self.gc_ll_descr.round_up:
