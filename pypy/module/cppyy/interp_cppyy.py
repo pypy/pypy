@@ -132,7 +132,7 @@ def register_class(space, w_pycppclass):
     # class allows simple aliasing of methods)
     capi.pythonize(space, cppclass.name, w_pycppclass)
     state = space.fromcache(State)
-    state.cppclass_registry[cppclass.handle] = w_pycppclass
+    state.cppclass_registry[rffi.cast(rffi.LONG, cppclass.handle)] = w_pycppclass
 
 
 class W_CPPLibrary(W_Root):
@@ -1154,7 +1154,7 @@ memory_regulator = MemoryRegulator()
 def get_pythonized_cppclass(space, handle):
     state = space.fromcache(State)
     try:
-        w_pycppclass = state.cppclass_registry[handle]
+        w_pycppclass = state.cppclass_registry[rffi.cast(rffi.LONG, handle)]
     except KeyError:
         final_name = capi.c_scoped_final_name(space, handle)
         # the callback will cache the class by calling register_class

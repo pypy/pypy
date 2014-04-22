@@ -139,7 +139,7 @@ class ConstructorExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         newthis = capi.c_constructor(space, cppmethod, cpptype, num_args, args)
         assert lltype.typeOf(newthis) == capi.C_OBJECT
-        return space.wrap(newthis)
+        return space.wrap(rffi.cast(rffi.LONG, newthis))   # really want ptrdiff_t here
 
 
 class InstancePtrExecutor(FunctionExecutor):

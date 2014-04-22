@@ -180,7 +180,7 @@ def tf1_tf1(space, w_self, args_w):
 ### TTree --------------------------------------------------------------------
 _ttree_Branch = rffi.llexternal(
     "cppyy_ttree_Branch",
-    [rffi.VOIDP, rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.INT, rffi.INT], rffi.LONG,
+    [rffi.VOIDP, rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.INT, rffi.INT], C_OBJECT,
     releasegil=False,
     compilation_info=eci)
 
@@ -299,6 +299,8 @@ def ttree_getattr(space, w_self, args_w):
         # some instance
         klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
         w_obj = klass.construct()
+        # 0x10000 = kDeleteObject; reset because we own the object
+        space.call_method(w_branch, "ResetBit", space.wrap(0x10000))
         space.call_method(w_branch, "SetObject", w_obj)
         space.call_method(w_branch, "GetEntry", space.wrap(entry))
         space.setattr(w_self, args_w[0], w_obj)

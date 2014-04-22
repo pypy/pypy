@@ -46,9 +46,6 @@ extern long G__store_struct_offset;
 extern "C" void G__LockCriticalSection();
 extern "C" void G__UnlockCriticalSection();
 
-#define G__SETMEMFUNCENV      (long)0x7fff0035
-#define G__NOP                (long)0x7fff00ff
-
 namespace {
 
 class Cppyy_OpenedTClass : public TDictionary {
@@ -147,11 +144,10 @@ public:
         assert(g_classrefs.size() == (ClassRefs_t::size_type)GLOBAL_HANDLE);
         g_classref_indices[""] = (ClassRefs_t::size_type)GLOBAL_HANDLE;
         g_classrefs.push_back(TClassRef(""));
-        g_classref_indices["std"] = g_classrefs.size();
-        g_classrefs.push_back(TClassRef(""));    // CINT ignores std
-        g_classref_indices["::std"] = g_classrefs.size();
-        g_classrefs.push_back(TClassRef(""));    // id.
- 
+        // CINT ignores std/::std, so point them to the global namespace
+        g_classref_indices["std"]   = (ClassRefs_t::size_type)GLOBAL_HANDLE;
+        g_classref_indices["::std"] = (ClassRefs_t::size_type)GLOBAL_HANDLE;
+
         // an offset for the interpreted methods
         g_interpreted.push_back(G__MethodInfo());
 
@@ -203,6 +199,7 @@ static inline TFunction* type_get_method(cppyy_type_t handle, cppyy_index_t idx)
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass())
         return (TFunction*)cr->GetListOfMethods()->At(idx);
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     return (TFunction*)idx;
 }
 
@@ -247,6 +244,7 @@ int cppyy_num_scopes(cppyy_scope_t handle) {
         /* not supported as CINT does not store classes hierarchically */
         return 0;
     }
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     return gClassTable->Classes();
 }
 
@@ -258,6 +256,7 @@ char* cppyy_scope_name(cppyy_scope_t handle, int iscope) {
         assert(!"scope name lookup not supported on inner scopes");
         return 0;
     }
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     std::string name = gClassTable->At(iscope);
     if (name.find("::") == std::string::npos)
         return cppstring_to_cstring(name);
@@ -411,7 +410,6 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
     G__settemplevel(1);
 
     long index = (long)&method;
-    G__CurrentCall(G__SETMEMFUNCENV, 0, &index);
 
     // TODO: access to store_struct_offset won't work on Windows
     long store_struct_offset = G__store_struct_offset;
@@ -425,7 +423,6 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
     if (G__get_return(0) > G__RETURN_NORMAL)
         G__security_recover(0);    // 0 ensures silence
 
-    G__CurrentCall(G__NOP, 0, 0);
     G__settemplevel(-1);
     G__UnlockCriticalSection();
 
@@ -514,7 +511,7 @@ cppyy_object_t cppyy_call_o(cppyy_type_t method, cppyy_object_t self, int nargs,
     R__LOCKGUARD2(gCINTMutex);
     G__value result = cppyy_call_T(method, self, nargs, args);
     G__pop_tempobject_nodel();
-    return G__int(result);
+    return (cppyy_object_t)G__int(result);
 }
 
 cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /*handle*/, cppyy_index_t /*idx*/) {
@@ -552,7 +549,7 @@ int cppyy_is_namespace(cppyy_scope_t handle) {
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetClassInfo())
         return cr->Property() & G__BIT_ISNAMESPACE;
-    if (strcmp(cr.GetClassName(), "") == 0)
+    if (handle == (cppyy_scope_t)GLOBAL_HANDLE)
         return true;
     return false;
 }
@@ -655,7 +652,7 @@ int cppyy_num_methods(cppyy_scope_t handle) {
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfMethods())
         return cr->GetListOfMethods()->GetSize();
-    else if (strcmp(cr.GetClassName(), "") == 0) {
+    else if (handle == (cppyy_scope_t)GLOBAL_HANDLE) {
         if (g_globalfuncs.empty()) {
             TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
 	    g_globalfuncs.reserve(funcs->GetSize());
@@ -678,6 +675,7 @@ cppyy_index_t cppyy_method_index_at(cppyy_scope_t handle, int imeth) {
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass())
         return (cppyy_index_t)imeth;
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     return (cppyy_index_t)&g_globalfuncs[imeth];
 }
 
@@ -698,14 +696,12 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* 
             }
             ++imeth;
         }
-    }
-
-    if (result.empty()) {
+    } else if (handle == (cppyy_scope_t)GLOBAL_HANDLE) {
         TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
         TFunction* func = 0;
         TIter ifunc(funcs);
         while ((func = (TFunction*)ifunc.Next())) {
-            if (strcmp(func->GetName(), name) == 0) {
+            if (strcmp(name, func->GetName()) == 0) {
                 g_globalfuncs.push_back(*func);
                 result.push_back((cppyy_index_t)func); 
             }
@@ -715,7 +711,7 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* 
     if (result.empty())
         return (cppyy_index_t*)0;
 
-    cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*result.size()+1);
+    cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*(result.size()+1));
     for (int i = 0; i < (int)result.size(); ++i) llresult[i] = result[i];
     llresult[result.size()] = -1;
     return llresult;
@@ -844,7 +840,7 @@ cppyy_index_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, c
     TClassRef& lccr = type_from_handle(lc);
     TClassRef& rccr = type_from_handle(rc);
 
-    if (!lccr.GetClass() || !rccr.GetClass() || scope != GLOBAL_HANDLE)
+    if (!lccr.GetClass() || !rccr.GetClass() || scope != (cppyy_scope_t)GLOBAL_HANDLE)
         return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid as a method handle
 
     std::string lcname = lccr->GetName();
@@ -893,7 +889,7 @@ int cppyy_num_datamembers(cppyy_scope_t handle) {
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfDataMembers())
         return cr->GetListOfDataMembers()->GetSize();
-    else if (strcmp(cr.GetClassName(), "") == 0) {
+    else if (handle == (cppyy_scope_t)GLOBAL_HANDLE) {
         TCollection* vars = gROOT->GetListOfGlobals(kTRUE);
        	if (g_globalvars.size() != (GlobalVars_t::size_type)vars->GetSize()) {
             g_globalvars.clear();
@@ -919,6 +915,7 @@ char* cppyy_datamember_name(cppyy_scope_t handle, int datamember_index) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return cppstring_to_cstring(m->GetName());
     }
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     TGlobal& gbl = g_globalvars[datamember_index];
     return cppstring_to_cstring(gbl.GetName());
 }
@@ -939,6 +936,7 @@ char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
         }
         return cppstring_to_cstring(fullType);
     }
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     TGlobal& gbl = g_globalvars[datamember_index];
     return cppstring_to_cstring(gbl.GetFullTypeName());
 }
@@ -950,6 +948,7 @@ size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return (size_t)m->GetOffsetCint();
     }
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     TGlobal& gbl = g_globalvars[datamember_index];
     return (size_t)gbl.GetAddress();
 }
@@ -980,13 +979,15 @@ int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
             }
             ++idm;
         }
+    } else if (handle == (cppyy_type_t)GLOBAL_HANDLE) {
+        TGlobal* gbl = (TGlobal*)gROOT->GetListOfGlobals(kTRUE)->FindObject(name);
+        if (!gbl)
+            return -1;
+        int idx = g_globalvars.size();
+        g_globalvars.push_back(*gbl);
+        return idx;
     }
-    TGlobal* gbl = (TGlobal*)gROOT->GetListOfGlobals(kTRUE)->FindObject(name);
-    if (!gbl)
-        return -1;
-    int idx = g_globalvars.size();
-    g_globalvars.push_back(*gbl);
-    return idx;
+    return -1;
 }
 
 
@@ -998,6 +999,7 @@ int cppyy_is_publicdata(cppyy_scope_t handle, int datamember_index) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return m->Property() & G__BIT_ISPUBLIC;
     }
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     return 1;  // global data is always public
 }
 
@@ -1008,6 +1010,7 @@ int cppyy_is_staticdata(cppyy_scope_t handle, int datamember_index) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return m->Property() & G__BIT_ISSTATIC;
     }
+    assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     return 1;  // global data is always static
 }
 

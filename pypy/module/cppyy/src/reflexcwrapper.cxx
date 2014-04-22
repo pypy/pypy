@@ -375,7 +375,7 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* 
     }
     if (result.empty())
         return (cppyy_index_t*)0;
-    cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*result.size()+1);
+    cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*(result.size()+1));
     for (int i = 0; i < (int)result.size(); ++i) llresult[i] = result[i];
     llresult[result.size()] = -1;
     return llresult;
@@ -481,7 +481,7 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index
     return (cppyy_method_t)m.Stubfunction();
 }
 
-cppyy_method_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
+cppyy_index_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
     Reflex::Type lct = type_from_handle(lc);
     Reflex::Type rct = type_from_handle(rc);
     Reflex::Scope nss = scope_from_handle(scope);

@@ -36,11 +36,11 @@ static Scopes_t s_scopes;
 struct Cppyy_InitPseudoReflectionInfo {
     Cppyy_InitPseudoReflectionInfo() {
         // class example01 --
-        static int s_scope_id = 0;
-        s_handles["example01"] = ++s_scope_id;
+        static long s_scope_id = 0;
+        s_handles["example01"] = (cppyy_scope_t)++s_scope_id;
         const char* methods[] = {"staticAddToDouble"};
         Cppyy_PseudoInfo info(1, methods);
-        s_scopes[s_scope_id] = info;
+        s_scopes[(cppyy_scope_t)s_scope_id] = info;
         // -- class example01
     }
 } _init;
