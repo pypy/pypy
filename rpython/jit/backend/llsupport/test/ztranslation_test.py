@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, py
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
@@ -7,7 +7,7 @@ from rpython.rlib import jit_hooks
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
-
+from rpython.config.config import ConfigError
 
 class TranslationTest(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -252,6 +252,9 @@ class TranslationRemoveTypePtrTest(CCompiledMixin):
         try:
             res = self.meta_interp(main, [400])
             assert res == main(400)
+        except ConfigError,e:
+            assert str(e).startswith('invalid value asmgcc')
+            py.test.skip('asmgcc not supported')
         finally:
             del os.environ['PYPYLOG']
 

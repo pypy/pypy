@@ -25,3 +25,18 @@ def product(s):
     for x in s:
         i *= x
     return i
+
+
+def check_and_adjust_index(space, index, size, axis):
+    if index < -size or index >= size:
+        if axis >= 0:
+            raise oefmt(space.w_IndexError,
+                        "index %d is out of bounds for axis %d with size %d",
+                        index, axis, size)
+        else:
+            raise oefmt(space.w_IndexError,
+                        "index %d is out of bounds for size %d",
+                        index, size)
+    if index < 0:
+        index += size
+    return index

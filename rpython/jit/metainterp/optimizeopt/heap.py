@@ -177,7 +177,7 @@ class OptHeap(Optimization):
         self.cached_arrayitems = {}
         # cached dict items: {dict descr: {(optval, index): box-or-const}}
         self.cached_dict_reads = {}
-        # cache of corresponding array descrs
+        # cache of corresponding {array descrs: dict 'entries' field descr}
         self.corresponding_array_descrs = {}
         #
         self._lazy_setfields_and_arrayitems = []
@@ -346,9 +346,8 @@ class OptHeap(Optimization):
             self.force_lazy_setfield(fielddescr, can_cache=False)
         for arraydescr in effectinfo.write_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr, can_cache=False)
-        for descr in effectinfo.write_descrs_interiorfields:
-            if descr in self.corresponding_array_descrs:
-                dictdescr = self.corresponding_array_descrs.pop(descr)
+            if arraydescr in self.corresponding_array_descrs:
+                dictdescr = self.corresponding_array_descrs.pop(arraydescr)
                 try:
                     del self.cached_dict_reads[dictdescr]
                 except KeyError:

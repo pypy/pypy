@@ -1,4 +1,13 @@
 
+# patch sys.path so that this script can be executed standalone
+import sys
+from os.path import abspath, dirname
+# this script is assumed to be at pypy/doc/tool/makeref.py
+path = dirname(abspath(__file__))
+path = dirname(dirname(dirname(path)))
+sys.path.insert(0, path)
+
+
 import py
 import pypy
 pypydir = py.path.local(pypy.__file__).join('..')
@@ -51,8 +60,11 @@ def makeref(docdir):
             lines.append(".. _`%s`:" % linkname)
         lines.append(".. _`%s`: %s" %(linknamelist[-1], linktarget))
 
-    lines.append('')
-    reffile.write("\n".join(lines))
+    content  = ".. This file is generated automatically by makeref.py script,\n"
+    content += "   which in turn is run manually.\n\n"
+    content += "\n".join(lines) + "\n"
+    reffile.write(content, mode="wb")
+
     print "wrote %d references to %r" %(len(lines), reffile)
     #print "last ten lines"
     #for x in lines[-10:]: print x

@@ -107,10 +107,10 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             } EnumObject;
 
             static void
-            enum_dealloc(EnumObject *op)
+            enum_dealloc(PyObject *op)
             {
-                    Py_DECREF(op->ob_name);
-                    Py_TYPE(op)->tp_free((PyObject *)op);
+                    Py_DECREF(((EnumObject *)op)->ob_name);
+                    Py_TYPE(op)->tp_free(op);
             }
 
             static PyMemberDef enum_members[] = {

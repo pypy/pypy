@@ -25,7 +25,7 @@ class UnicodeWithEncoding:
     def as_unicode(self):
         return self.unistr
 
-class BasePosixUnicode:
+class BasePosixUnicodeOrAscii:
     def setup_method(self, method):
         self.ufilename = self._get_filename()
         try:
@@ -34,9 +34,12 @@ class BasePosixUnicode:
             py.test.skip("encoding not good enough")
         f.write("test")
         f.close()
-
-        self.path  = UnicodeWithEncoding(self.ufilename)
-        self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
+        if sys.platform == 'win32' and isinstance(self.ufilename, str):
+            self.path = self.ufilename
+            self.path2 = self.ufilename + ".new"
+        else:
+            self.path  = UnicodeWithEncoding(self.ufilename)
+            self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
 
     def test_open(self):
         def f():
@@ -55,8 +58,11 @@ class BasePosixUnicode:
     def test_stat(self):
         def f():
             return rposix.stat(self.path).st_mtime
-
-        assert interpret(f, []) == os.stat(self.ufilename).st_mtime
+        if sys.platform == 'win32':
+            # double vs. float, be satisfied with sub-millisec resolution
+            assert abs(interpret(f, []) - os.stat(self.ufilename).st_mtime) < 1e-4
+        else:
+            assert interpret(f, []) == os.stat(self.ufilename).st_mtime
 
     def test_access(self):
         def f():
@@ -96,7 +102,11 @@ class BasePosixUnicode:
 
         if sys.platform == 'win32':
             def f():
-                return u', '.join(rposix.listdir(udir))
+                if isinstance(udir.as_unicode(), str):
+                    _udir = udir.as_unicode()
+                else:
+                    _udir = udir
+                return u', '.join(rposix.listdir(_udir))
             result = interpret(f, [])
             assert os.path.basename(self.ufilename) in ll_to_string(result)
         else:
@@ -149,11 +159,11 @@ class BasePosixUnicode:
         interpret(f, []) # does not crash
 
 
-class TestPosixAscii(BasePosixUnicode):
+class TestPosixAscii(BasePosixUnicodeOrAscii):
     def _get_filename(self):
         return str(udir.join('test_open_ascii'))
 
-class TestPosixUnicode(BasePosixUnicode):
+class TestPosixUnicode(BasePosixUnicodeOrAscii):
     def _get_filename(self):
         return (unicode(udir.join('test_open')) +
                 u'\u65e5\u672c.txt') # "Japan"

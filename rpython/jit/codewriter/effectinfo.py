@@ -103,8 +103,10 @@ class EffectInfo(object):
                 extradescrs=None):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
+               frozenset_or_none(readonly_descrs_interiorfields),
                frozenset_or_none(write_descrs_fields),
                frozenset_or_none(write_descrs_arrays),
+               frozenset_or_none(write_descrs_interiorfields),
                extraeffect,
                oopspecindex,
                can_invalidate)
@@ -165,6 +167,12 @@ class EffectInfo(object):
     def is_call_release_gil(self):
         return bool(self.call_release_gil_target)
 
+    def __repr__(self):
+        more = ''
+        if self.oopspecindex:
+            more = ' OS=%r' % (self.oopspecindex,)
+        return '<EffectInfo 0x%x: EF=%r%s>' % (id(self), self.extraeffect, more)
+
 
 def frozenset_or_none(x):
     if x is None:
@@ -221,6 +229,18 @@ def effectinfo_from_writeanalyze(effects, cpu,
                 return
             descr = cpu.interiorfielddescrof(T, fieldname)
             descrs_interiorfields.append(descr)
+
+        # a read or a write to an interiorfield, inside an array of
+        # structs, is additionally recorded as a read or write of
+        # the array itself
+        extraef = set()
+        for tup in effects:
+            if tup[0] == "interiorfield" or tup[0] == "readinteriorfield":
+                T = deref(tup[1])
+                if isinstance(T, lltype.Array) and consider_array(T):
+                    extraef.add((tup[0].replace("interiorfield", "array"),
+                                 tup[1]))
+        effects |= extraef
 
         for tup in effects:
             if tup[0] == "struct":

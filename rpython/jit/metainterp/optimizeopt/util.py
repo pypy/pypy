@@ -139,7 +139,13 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
         txt1 = str(op1)
         txt2 = str(op2)
         while txt1 or txt2:
-            print '%s| %s' % (txt1[:width].ljust(width), txt2[:width])
+            part1 = txt1[:width]
+            part2 = txt2[:width]
+            if part1 == part2:
+                sep = '| '
+            else:
+                sep = '<>'
+            print '%s%s%s' % (part1.ljust(width), sep, part2)
             txt1 = txt1[width:]
             txt2 = txt2[width:]
     print '-' * totwidth

@@ -545,7 +545,7 @@ class TestFramework(RewriteTests):
             p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
             setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
-            p2 = call_malloc_nursery_varsize(2, 4, i2, \
+            p2 = call_malloc_nursery_varsize(2, %(unicodedescr.itemsize)d, i2,\
                                 descr=unicodedescr)
             setfield_gc(p2, i2, descr=unicodelendescr)
             p3 = call_malloc_nursery_varsize(1, 1, i2, \

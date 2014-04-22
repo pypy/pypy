@@ -193,7 +193,7 @@ if sys.platform == "win32":
             # Truncate.  Note that this may grow the file!
             handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
-                raise WindowsError(GetLastError(),
+                raise OSError(GetLastError(),
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case

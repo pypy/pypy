@@ -164,24 +164,6 @@ class TestNumArrayDirect(object):
         assert calc_new_strides([1, 1, 105, 1, 1], [7, 15], [1, 7],'F') == \
                                     [1, 1, 1, 105, 105]
 
-    def test_to_coords(self):
-        from pypy.module.micronumpy.strides import to_coords
-
-        def _to_coords(index, order):
-            return to_coords(self.space, [2, 3, 4], 24, order,
-                             self.space.wrap(index))[0]
-
-        assert _to_coords(0, 'C') == [0, 0, 0]
-        assert _to_coords(1, 'C') == [0, 0, 1]
-        assert _to_coords(-1, 'C') == [1, 2, 3]
-        assert _to_coords(5, 'C') == [0, 1, 1]
-        assert _to_coords(13, 'C') == [1, 0, 1]
-        assert _to_coords(0, 'F') == [0, 0, 0]
-        assert _to_coords(1, 'F') == [1, 0, 0]
-        assert _to_coords(-1, 'F') == [1, 2, 3]
-        assert _to_coords(5, 'F') == [1, 2, 0]
-        assert _to_coords(13, 'F') == [1, 0, 2]
-
     def test_find_shape(self):
         from pypy.module.micronumpy.strides import find_shape_and_elems
 
@@ -334,6 +316,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array(a, dtype=float)
         assert b == 123.0
 
+        a = array([[123, 456]])
+        assert a.flags['C']
+        b = array(a, order='K')
+        assert b.flags['C']
+        assert (b == a).all()
+        b = array(a, order='K', copy=True)
+        assert b.flags['C']
+        assert (b == a).all()
+
     def test_dtype_attribute(self):
         import numpy as np
         a = np.array(40000, dtype='uint16')
@@ -407,6 +398,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == a.shape
         assert b.dtype == a.dtype
         assert b[0,0] != 1
+        b = np.empty_like(np.array(True), dtype=None)
+        assert b.dtype is np.dtype(bool)
         b = np.empty_like(a, dtype='i4')
         assert b.shape == a.shape
         assert b.dtype == np.dtype('i4')
@@ -2373,6 +2366,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == b[...].shape
         assert (b == b[...]).all()
 
+    def test_empty_indexing(self):
+        import numpy as np
+        r = np.ones(3)
+        ind = np.array([], np.int32)
+        tmp = np.array([], np.float64)
+        assert r[ind].shape == (0,)
+        r[ind] = 0
+        assert (r == np.ones(3)).all()
+        r[ind] = tmp
+        assert (r == np.ones(3)).all()
+        r[[]] = 0
+        assert (r == np.ones(3)).all()
+
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
@@ -2968,12 +2974,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises((IndexError, ValueError), "a.compress([1] * 100)")
 
     def test_item(self):
+        import numpy as np
         from numpypy import array
         assert array(3).item() == 3
         assert type(array(3).item()) is int
         assert type(array(True).item()) is bool
         assert type(array(3.5).item()) is float
-        raises(IndexError, "array(3).item(15)")
+        exc = raises(IndexError, "array(3).item(15)")
+        assert str(exc.value) == 'index 15 is out of bounds for size 1'
         raises(ValueError, "array([1, 2, 3]).item()")
         assert array([3]).item(0) == 3
         assert type(array([3]).item(0)) is int
@@ -2992,6 +3000,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert type(b[1]) is str
         assert b[0] == 1
         assert b[1] == 'ab'
+        a = np.arange(24).reshape(2, 4, 3)
+        assert a.item(1, 1, 1) == 16
+        assert a.item((1, 1, 1)) == 16
+        exc = raises(ValueError, a.item, 1, 1, 1, 1)
+        assert str(exc.value) == "incorrect number of indices for array"
 
     def test_itemset(self):
         import numpy as np

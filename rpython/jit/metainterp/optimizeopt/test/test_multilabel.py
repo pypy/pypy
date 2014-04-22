@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, Storage, _sortboxes, FakeDescrWithSnapshot,
+    LLtypeMixin, BaseTest, Storage, _sortboxes,
     FakeMetaInterpStaticData)
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop, opname, ResOperation
@@ -8,6 +8,8 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from py.test import raises
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.heap import OptHeap
+from rpython.jit.metainterp.optimizeopt.rewrite import OptRewrite
 
 
 class BaseTestMultiLabel(BaseTest):
@@ -20,7 +22,6 @@ class BaseTestMultiLabel(BaseTest):
 
         part = TreeLoop('part')
         part.inputargs = loop.inputargs
-        part.resume_at_jump_descr = FakeDescrWithSnapshot()
         token = loop.original_jitcell_token
 
         optimized = TreeLoop('optimized')
@@ -42,6 +43,7 @@ class BaseTestMultiLabel(BaseTest):
                 operations.append(label)
             part.operations = operations
 
+            self.add_guard_future_condition(part)
             self._do_optimize_loop(part, None)
             if part.operations[-1].getopnum() == rop.LABEL:
                 last_label = [part.operations.pop()]
@@ -502,7 +504,7 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         self.loop = loop
         loop.call_pure_results = args_dict()
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        optimize_unroll(metainterp_sd, loop, [OptRenameStrlen(), OptPure()], True)
+        optimize_unroll(metainterp_sd, loop, [OptRewrite(), OptRenameStrlen(), OptHeap(), OptPure()], True)
 
     def test_optimizer_renaming_boxes1(self):
         ops = """

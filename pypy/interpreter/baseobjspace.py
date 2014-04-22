@@ -361,6 +361,9 @@ def wrappable_class_name(Class):
         return 'internal subclass of %s' % (Class.__name__,)
 wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
+class CannotHaveLock(Exception):
+    """Raised by space.allocate_lock() if we're translating."""
+
 # ____________________________________________________________
 
 class ObjSpace(object):
@@ -464,10 +467,11 @@ class ObjSpace(object):
 
         return name
 
-    def getbuiltinmodule(self, name, force_init=False):
+    def getbuiltinmodule(self, name, force_init=False, reuse=True):
         w_name = self.wrap(name)
         w_modules = self.sys.get('modules')
         if not force_init:
+            assert reuse
             try:
                 return self.getitem(w_modules, w_name)
             except OperationError, e:
@@ -482,15 +486,25 @@ class ObjSpace(object):
             raise oefmt(self.w_SystemError,
                         "getbuiltinmodule() called with non-builtin module %s",
                         name)
-        else:
-            # Initialize the module
-            from pypy.interpreter.module import Module
-            if isinstance(w_mod, Module):
-                w_mod.init(self)
 
-            # Add the module to sys.modules
+        # Add the module to sys.modules and initialize the module. The
+        # order is important to avoid recursions.
+        from pypy.interpreter.module import Module
+        if isinstance(w_mod, Module):
+            if not reuse and w_mod.startup_called:
+                # create a copy of the module.  (see issue1514) eventlet
+                # patcher relies on this behaviour.
+                w_mod2 = self.wrap(Module(self, w_name))
+                self.setitem(w_modules, w_name, w_mod2)
+                w_mod.getdict(self)  # unlazy w_initialdict
+                self.call_method(w_mod2.getdict(self), 'update',
+                                 w_mod.w_initialdict)
+                return w_mod2
             self.setitem(w_modules, w_name, w_mod)
-            return w_mod
+            w_mod.init(self)
+        else:
+            self.setitem(w_modules, w_name, w_mod)
+        return w_mod
 
     def get_builtinmodule_to_install(self):
         """NOT_RPYTHON"""
@@ -687,6 +701,11 @@ class ObjSpace(object):
 
     def __allocate_lock(self):
         from rpython.rlib.rthread import allocate_lock, error
+        # hack: we can't have prebuilt locks if we're translating.
+        # In this special situation we should just not lock at all
+        # (translation is not multithreaded anyway).
+        if not we_are_translated() and self.config.translating:
+            raise CannotHaveLock()
         try:
             return allocate_lock()
         except error:

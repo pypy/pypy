@@ -1854,8 +1854,7 @@ class Transformer(object):
     def _handle_dict_lookup_call(self, op, oopspec_name, args):
         extradescr1 = self.cpu.fielddescrof(op.args[1].concretetype.TO,
                                             'entries')
-        extradescr2 = self.cpu.interiorfielddescrof(
-            op.args[1].concretetype.TO.entries.TO, 'key')
+        extradescr2 = self.cpu.arraydescrof(op.args[1].concretetype.TO.entries.TO)
         return self._handle_oopspec_call(op, args, EffectInfo.OS_DICT_LOOKUP,
                                          extradescr=[extradescr1, extradescr2])
 

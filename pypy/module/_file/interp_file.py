@@ -137,6 +137,7 @@ class W_File(W_AbstractStream):
         self.check_mode_ok(mode)
         stream = streamio.fdopen_as_stream(fd, mode, buffering,
                                            signal_checker(self.space))
+        self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):

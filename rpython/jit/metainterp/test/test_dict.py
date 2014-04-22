@@ -294,6 +294,69 @@ class DictTests:
         assert res == f(10)
         self.check_simple_loop(call=3)
 
+    def test_dict_eq_can_release_gil(self):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        if type(self.newdict()) is not dict:
+            py.test.skip("this is an r_dict test")
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
+        myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
+        def key(x):
+            return x % 2
+        def eq(x, y):
+            external(lltype.nullptr(T.TO))
+            return (x % 2) == (y % 2)
+
+        def f(n):
+            dct = objectmodel.r_dict(eq, key)
+            total = n
+            x = 44444
+            y = 55555
+            z = 66666
+            while total:
+                myjitdriver.jit_merge_point(total=total, dct=dct)
+                dct[total] = total
+                x = dct[total]
+                y = dct[total]
+                z = dct[total]
+                total -= 1
+            return len(dct) + x + y + z
+
+        res = self.meta_interp(f, [10], listops=True)
+        assert res == 2 + 1 + 1 + 1
+        self.check_simple_loop(call_may_force=4,    # ll_dict_lookup_trampoline
+                               call=1) # ll_dict_setitem_lookup_done_trampoline
+
+    def test_bug42(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(n):
+            mdict = {0: None, 1: None, 2: None, 3: None, 4: None,
+                     5: None, 6: None, 7: None, 8: None, 9: None}
+            while n > 0:
+                myjitdriver.jit_merge_point()
+                n -= 1
+                if n in mdict:
+                    del mdict[n]
+                    if n in mdict:
+                        raise Exception
+        self.meta_interp(f, [10])
+        self.check_simple_loop(call_may_force=0, call=3)
+
+    def test_dict_virtual(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(n):
+            d = {}
+            while n > 0:
+                myjitdriver.jit_merge_point()
+                if n % 10 == 0:
+                    n -= len(d)
+                d = {}
+                d["a"] = n
+                n -= 1
+            return len(d)
+        self.meta_interp(f, [100])
+        self.check_simple_loop(call_may_force=0, call=0, new=0)
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

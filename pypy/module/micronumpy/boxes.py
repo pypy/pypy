@@ -161,22 +161,25 @@ class W_GenericBox(W_Root):
         return space.index(self.item(space))
 
     def descr_int(self, space):
-        if isinstance(self, W_UnsignedIntegerBox):
-            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        if isinstance(self, W_ComplexFloatingBox):
+            box = self.descr_get_real(space)
         else:
-            box = self.convert_to(space, W_Int64Box._get_dtype(space))
-        return space.int(box.item(space))
+            box = self
+        return space.call_function(space.w_int, box.item(space))
 
     def descr_long(self, space):
-        if isinstance(self, W_UnsignedIntegerBox):
-            box = self.convert_to(space, W_UInt64Box._get_dtype(space))
+        if isinstance(self, W_ComplexFloatingBox):
+            box = self.descr_get_real(space)
         else:
-            box = self.convert_to(space, W_Int64Box._get_dtype(space))
-        return space.long(box.item(space))
+            box = self
+        return space.call_function(space.w_long, box.item(space))
 
     def descr_float(self, space):
-        box = self.convert_to(space, W_Float64Box._get_dtype(space))
-        return space.float(box.item(space))
+        if isinstance(self, W_ComplexFloatingBox):
+            box = self.descr_get_real(space)
+        else:
+            box = self
+        return space.call_function(space.w_float, box.item(space))
 
     def descr_oct(self, space):
         return space.oct(self.descr_int(space))
@@ -185,8 +188,7 @@ class W_GenericBox(W_Root):
         return space.hex(self.descr_int(space))
 
     def descr_nonzero(self, space):
-        dtype = self.get_dtype(space)
-        return space.wrap(dtype.itemtype.bool(self))
+        return space.wrap(self.get_dtype(space).itemtype.bool(self))
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space, w_out=None):

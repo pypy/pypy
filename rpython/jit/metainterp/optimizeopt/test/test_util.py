@@ -319,6 +319,9 @@ class FakeMetaInterpStaticData(object):
         def log_loop(*args):
             pass
 
+    class logger_ops:
+        repr_of_resop = repr
+
     class warmrunnerdesc:
         class memory_manager:
             retrace_limit = 5
@@ -352,11 +355,21 @@ def _sortboxes(boxes):
 
 class BaseTest(object):
 
-    def parse(self, s, boxkinds=None):
+    def parse(self, s, boxkinds=None, want_fail_descr=True):
+        if want_fail_descr:
+            invent_fail_descr = self.invent_fail_descr
+        else:
+            invent_fail_descr = lambda *args: None
         return parse(s, self.cpu, self.namespace,
                      type_system=self.type_system,
                      boxkinds=boxkinds,
-                     invent_fail_descr=self.invent_fail_descr)
+                     invent_fail_descr=invent_fail_descr)
+
+    def add_guard_future_condition(self, res):
+        # invent a GUARD_FUTURE_CONDITION to not have to change all tests
+        if res.operations[-1].getopnum() == rop.JUMP:
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None, descr=self.invent_fail_descr(None, -1, []))
+            res.operations.insert(-1, guard)
 
     def invent_fail_descr(self, model, opnum, fail_args):
         if fail_args is None:
@@ -394,6 +407,7 @@ class BaseTest(object):
         optimize_trace(metainterp_sd, loop, self.enable_opts)
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
+        self.add_guard_future_condition(loop)
         operations =  loop.operations
         jumpop = operations[-1]
         assert jumpop.getopnum() == rop.JUMP
@@ -405,7 +419,6 @@ class BaseTest(object):
 
         preamble = TreeLoop('preamble')
         preamble.inputargs = inputargs
-        preamble.resume_at_jump_descr = FakeDescrWithSnapshot()
 
         token = JitCellToken()
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
@@ -416,7 +429,6 @@ class BaseTest(object):
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
         inliner = Inliner(inputargs, jump_args)
-        loop.resume_at_jump_descr = preamble.resume_at_jump_descr
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
@@ -446,18 +458,6 @@ class FakeDescr(compile.ResumeGuardDescr):
         return FakeDescr()
     def __eq__(self, other):
         return isinstance(other, FakeDescr)
-
-class FakeDescrWithSnapshot(compile.ResumeGuardDescr):
-    class rd_snapshot:
-        class prev:
-            prev = None
-            boxes = []
-        boxes = []
-    def clone_if_mutable(self):
-        return FakeDescrWithSnapshot()
-    def __eq__(self, other):
-        return isinstance(other, Storage) or isinstance(other, FakeDescrWithSnapshot)
-
 
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)

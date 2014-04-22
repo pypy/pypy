@@ -222,7 +222,7 @@ Running PyPy's unit tests
 
 PyPy development always was and is still thoroughly test-driven.
 We use the flexible `py.test testing tool`_ which you can `install independently
-<http://pytest.org/getting-started.html>`_ and use for other projects.
+<http://pytest.org/latest/getting-started.html#getstarted>`_ and use for other projects.
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
@@ -264,7 +264,7 @@ and running the regression test with the translated PyPy Python
 interpreter.
 
 .. _`py.test testing tool`: http://pytest.org
-.. _`py.test usage and invocations`: http://pytest.org/usage.html#usage
+.. _`py.test usage and invocations`: http://pytest.org/latest/usage.html#usage
 
 Special Introspection Features of the Untranslated Python Interpreter
 ---------------------------------------------------------------------
@@ -389,7 +389,7 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 .. _`pypy-dev mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: index.html
 
-.. _`py library`: http://pylib.org
+.. _`py library`: http://pylib.readthedocs.org/
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 
