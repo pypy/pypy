@@ -340,8 +340,12 @@ def test_connect_ex():
 def test_connect_with_timeout_fail():
     s = RSocket()
     s.settimeout(0.1)
+    if sys.platform == 'win32':
+        addr = '169.254.169.254'
+    else:
+        addr = '240.240.240.240'
     with py.test.raises(SocketTimeout):
-        s.connect(INETAddress('10.10.10.10', 12345))
+        s.connect(INETAddress(addr, 12345))
     s.close()
 
 def test_connect_with_timeout_succeed():

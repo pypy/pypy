@@ -629,6 +629,10 @@ if WIN32:
     WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
     geterrno = WSAGetLastError
 
+    # In tests, the first call to GetLastError is always wrong, because error
+    # is hidden by operations in ll2ctypes.  Call it now.
+    WSAGetLastError()
+
     from rpython.rlib import rwin32
 
     def socket_strerror_str(errno):
