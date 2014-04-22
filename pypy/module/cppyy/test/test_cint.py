@@ -343,6 +343,8 @@ class AppTestCINTTTREE:
             i += 1
         assert i == self.N
 
+        f.Close()
+
     def test07_write_builtin(self):
         """Test writing of builtins"""
 
@@ -409,6 +411,7 @@ class AppTestCINTTTREE:
             assert mytree.my_int  == i+1
             assert mytree.my_int2 == i+1
 
+        f.Close()
 
 class AppTestCINTREGRESSION:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
