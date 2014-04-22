@@ -2,7 +2,7 @@ from __future__ import with_statement
 import py
 from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
      VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, GenerateGuardState, \
-     VirtualStatesCantMatch
+     VirtualStatesCantMatch, VArrayStructStateInfo
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -170,9 +170,12 @@ class BaseTestGenerateGuards(BaseTest):
             self.check_invalid(info2, info1)
             self.check_no_guards(info1, info1)
             self.check_no_guards(info2, info2)
-        fldtst(VArrayStateInfo(42), VArrayStateInfo(42))
-        fldtst(VStructStateInfo(42, [7]), VStructStateInfo(42, [7]))
-        fldtst(VirtualStateInfo(ConstInt(42), [7]), VirtualStateInfo(ConstInt(42), [7]))
+        fakedescr = object()
+        fielddescr = object()
+        fldtst(VArrayStateInfo(fakedescr), VArrayStateInfo(fakedescr))
+        fldtst(VStructStateInfo(fakedescr, [fielddescr]), VStructStateInfo(fakedescr, [fielddescr]))
+        fldtst(VirtualStateInfo(ConstInt(42), [fielddescr]), VirtualStateInfo(ConstInt(42), [fielddescr]))
+        fldtst(VArrayStructStateInfo(fakedescr, [[fielddescr]]), VArrayStructStateInfo(fakedescr, [[fielddescr]]))
 
     def test_known_class_generalization(self):
         knownclass1 = OptValue(BoxPtr())
