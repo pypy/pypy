@@ -997,12 +997,8 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-if _c.WIN32:
-    def last_error():
-        return CSocketError(rwin32.GetLastError())
-else:
-    def last_error():
-        return CSocketError(_c.geterrno())
+def last_error():
+    return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
