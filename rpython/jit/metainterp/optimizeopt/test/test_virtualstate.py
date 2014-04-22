@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseT
                                                            equaloplists
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.virtualize import (VirtualValue,
-        VArrayValue, VStructValue)
+        VArrayValue, VStructValue, VArrayStructValue)
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -527,6 +527,34 @@ class BaseTestGenerateGuards(BaseTest):
 
         value1 = VStructValue(self.cpu, structdescr, self.nodebox)
         value1._fields = {1: OptValue(self.nodebox)}
+
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.guards(info1, info2, value1, expected, [self.nodebox])
+
+    def test_generate_guards_on_virtual_fields_matches_arraystruct(self):
+        innervalue1 = OptValue(self.nodebox)
+        constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
+        innervalue1.make_constant_class(constclassbox, -1)
+        innerinfo1 = NotVirtualStateInfo(innervalue1)
+        innerinfo1.position = 1
+        innerinfo2 = NotVirtualStateInfo(OptValue(self.nodebox))
+        innerinfo2.position = 1
+
+        arraydescr = object()
+        fielddescr = object()
+
+        info1 = VArrayStructStateInfo(arraydescr, [[fielddescr]])
+        info1.fieldstate = [innerinfo1]
+
+        info2 = VArrayStructStateInfo(arraydescr, [[fielddescr]])
+        info2.fieldstate = [innerinfo2]
+
+        value1 = VArrayStructValue(arraydescr, 1, self.nodebox)
+        value1._items[0][fielddescr] = OptValue(self.nodebox)
 
         expected = """
         [p0]

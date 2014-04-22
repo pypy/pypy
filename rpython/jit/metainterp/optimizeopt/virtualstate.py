@@ -223,7 +223,6 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs
 
     def _generate_guards(self, other, value, state):
-        # XXX this needs a test in test_virtualstate!!!
         if not isinstance(other, VArrayStructStateInfo):
             raise VirtualStatesCantMatch("other is not an VArrayStructStateInfo")
         if self.arraydescr is not other.arraydescr:
@@ -233,14 +232,19 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch("other has a different length")
 
         p = 0
+        v = None
         for i in range(len(self.fielddescrs)):
             if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
                 raise VirtualStatesCantMatch("other has a different length")
             for j in range(len(self.fielddescrs[i])):
-                if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
+                descr = self.fielddescrs[i][j]
+                if descr is not other.fielddescrs[i][j]:
                     raise VirtualStatesCantMatch("other is a different kind of array")
+                if value is not None:
+                    assert isinstance(value, virtualize.VArrayStructValue)
+                    v = value._items[i][descr]
                 self.fieldstate[p].generate_guards(other.fieldstate[p],
-                                                   None, # XXX
+                                                   v,
                                                    state)
                 p += 1
 
