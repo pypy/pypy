@@ -33,9 +33,11 @@ if _c.WIN32:
     from rpython.rlib import rwin32
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
-        res = _c.WSAStartup(1, wsadata)
-        lltype.free(wsadata, flavor='raw')
-        assert res == 0
+        try:
+            res = _c.WSAStartup(0x0101, wsadata)
+            assert res == 0
+        finally:
+            lltype.free(wsadata, flavor='raw')
 else:
     def rsocket_startup():
         pass

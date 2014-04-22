@@ -623,7 +623,7 @@ elif WIN32:
 
 if WIN32:
     WSAData = cConfig.WSAData
-    WSAStartup = external('WSAStartup', [rffi.INT, lltype.Ptr(WSAData)],
+    WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
     WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
