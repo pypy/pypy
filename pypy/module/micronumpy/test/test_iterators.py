@@ -16,17 +16,18 @@ class TestIterDirect(object):
         assert backstrides == [10, 4]
         i = ArrayIter(MockArray, support.product(shape), shape,
                       strides, backstrides)
-        i.next()
-        i.next()
-        i.next()
-        assert i.offset == 3
-        assert not i.done()
-        assert i.indices == [0,3]
+        s = i.reset()
+        s = i.next(s)
+        s = i.next(s)
+        s = i.next(s)
+        assert s.offset == 3
+        assert not i.done(s)
+        assert s.indices == [0,3]
         #cause a dimension overflow
-        i.next()
-        i.next()
-        assert i.offset == 5
-        assert i.indices == [1,0]
+        s = i.next(s)
+        s = i.next(s)
+        assert s.offset == 5
+        assert s.indices == [1,0]
 
         #Now what happens if the array is transposed? strides[-1] != 1
         # therefore layout is non-contiguous
@@ -35,17 +36,18 @@ class TestIterDirect(object):
         assert backstrides == [2, 12]
         i = ArrayIter(MockArray, support.product(shape), shape,
                       strides, backstrides)
-        i.next()
-        i.next()
-        i.next()
-        assert i.offset == 9
-        assert not i.done()
-        assert i.indices == [0,3]
+        s = i.reset()
+        s = i.next(s)
+        s = i.next(s)
+        s = i.next(s)
+        assert s.offset == 9
+        assert not i.done(s)
+        assert s.indices == [0,3]
         #cause a dimension overflow
-        i.next()
-        i.next()
-        assert i.offset == 1
-        assert i.indices == [1,0]
+        s = i.next(s)
+        s = i.next(s)
+        assert s.offset == 1
+        assert s.indices == [1,0]
 
     def test_iterator_step(self):
         #iteration in C order with #contiguous layout => strides[-1] is 1
@@ -56,22 +58,23 @@ class TestIterDirect(object):
         assert backstrides == [10, 4]
         i = ArrayIter(MockArray, support.product(shape), shape,
                       strides, backstrides)
-        i.next_skip_x(2)
-        i.next_skip_x(2)
-        i.next_skip_x(2)
-        assert i.offset == 6
-        assert not i.done()
-        assert i.indices == [1,1]
+        s = i.reset()
+        s = i.next_skip_x(s, 2)
+        s = i.next_skip_x(s, 2)
+        s = i.next_skip_x(s, 2)
+        assert s.offset == 6
+        assert not i.done(s)
+        assert s.indices == [1,1]
         #And for some big skips
-        i.next_skip_x(5)
-        assert i.offset == 11
-        assert i.indices == [2,1]
-        i.next_skip_x(5)
+        s = i.next_skip_x(s, 5)
+        assert s.offset == 11
+        assert s.indices == [2,1]
+        s = i.next_skip_x(s, 5)
         # Note: the offset does not overflow but recycles,
         # this is good for broadcast
-        assert i.offset == 1
-        assert i.indices == [0,1]
-        assert i.done()
+        assert s.offset == 1
+        assert s.indices == [0,1]
+        assert i.done(s)
 
         #Now what happens if the array is transposed? strides[-1] != 1
         # therefore layout is non-contiguous
@@ -80,17 +83,18 @@ class TestIterDirect(object):
         assert backstrides == [2, 12]
         i = ArrayIter(MockArray, support.product(shape), shape,
                       strides, backstrides)
-        i.next_skip_x(2)
-        i.next_skip_x(2)
-        i.next_skip_x(2)
-        assert i.offset == 4
-        assert i.indices == [1,1]
-        assert not i.done()
-        i.next_skip_x(5)
-        assert i.offset == 5
-        assert i.indices == [2,1]
-        assert not i.done()
-        i.next_skip_x(5)
-        assert i.indices == [0,1]
-        assert i.offset == 3
-        assert i.done()
+        s = i.reset()
+        s = i.next_skip_x(s, 2)
+        s = i.next_skip_x(s, 2)
+        s = i.next_skip_x(s, 2)
+        assert s.offset == 4
+        assert s.indices == [1,1]
+        assert not i.done(s)
+        s = i.next_skip_x(s, 5)
+        assert s.offset == 5
+        assert s.indices == [2,1]
+        assert not i.done(s)
+        s = i.next_skip_x(s, 5)
+        assert s.indices == [0,1]
+        assert s.offset == 3
+        assert i.done(s)

@@ -19,7 +19,7 @@ def setup_module(mod):
         usemodules += ['fcntl']
     else:
         # On windows, os.popen uses the subprocess module
-        usemodules += ['_rawffi', 'thread']
+        usemodules += ['_rawffi', 'thread', 'signal']
     mod.space = gettestobjspace(usemodules=usemodules)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
@@ -305,6 +305,17 @@ class AppTestPosix:
         finally:
             __builtins__.file = _file
 
+    def test_fdopen_directory(self):
+        import errno
+        os = self.posix
+        try:
+            fd = os.open('.', os.O_RDONLY)
+        except OSError as e:
+            assert e.errno == errno.EACCES
+            skip("system cannot open directories")
+        exc = raises(IOError, os.fdopen, fd, 'r')
+        assert exc.value.errno == errno.EISDIR
+
     def test_getcwd(self):
         assert isinstance(self.posix.getcwd(), str)
         assert isinstance(self.posix.getcwdu(), unicode)
@@ -340,7 +351,6 @@ class AppTestPosix:
         else:
             assert (unicode, u) in typed_result
 
-
     def test_access(self):
         pdir = self.pdir + '/file1'
         posix = self.posix
@@ -350,7 +360,6 @@ class AppTestPosix:
         import sys
         if sys.platform != "win32":
             assert not posix.access(pdir, posix.X_OK)
-
 
     def test_times(self):
         """
@@ -1156,8 +1165,8 @@ class AppTestEnvironment(object):
             res = os.system(cmd)
             assert res == 0
 
-class AppTestPosixUnicode:
 
+class AppTestPosixUnicode:
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -1197,6 +1206,7 @@ class AppTestPosixUnicode:
             self.posix.remove(u"ą")
         except OSError:
             pass
+
 
 class AppTestUnicodeFilename:
     def setup_class(cls):

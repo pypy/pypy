@@ -164,24 +164,6 @@ class TestNumArrayDirect(object):
         assert calc_new_strides([1, 1, 105, 1, 1], [7, 15], [1, 7],'F') == \
                                     [1, 1, 1, 105, 105]
 
-    def test_to_coords(self):
-        from pypy.module.micronumpy.strides import to_coords
-
-        def _to_coords(index, order):
-            return to_coords(self.space, [2, 3, 4], 24, order,
-                             self.space.wrap(index))[0]
-
-        assert _to_coords(0, 'C') == [0, 0, 0]
-        assert _to_coords(1, 'C') == [0, 0, 1]
-        assert _to_coords(-1, 'C') == [1, 2, 3]
-        assert _to_coords(5, 'C') == [0, 1, 1]
-        assert _to_coords(13, 'C') == [1, 0, 1]
-        assert _to_coords(0, 'F') == [0, 0, 0]
-        assert _to_coords(1, 'F') == [1, 0, 0]
-        assert _to_coords(-1, 'F') == [1, 2, 3]
-        assert _to_coords(5, 'F') == [1, 2, 0]
-        assert _to_coords(13, 'F') == [1, 0, 2]
-
     def test_find_shape(self):
         from pypy.module.micronumpy.strides import find_shape_and_elems
 
@@ -2988,12 +2970,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises((IndexError, ValueError), "a.compress([1] * 100)")
 
     def test_item(self):
+        import numpy as np
         from numpypy import array
         assert array(3).item() == 3
         assert type(array(3).item()) is int
         assert type(array(True).item()) is bool
         assert type(array(3.5).item()) is float
-        raises(IndexError, "array(3).item(15)")
+        exc = raises(IndexError, "array(3).item(15)")
+        assert str(exc.value) == 'index 15 is out of bounds for size 1'
         raises(ValueError, "array([1, 2, 3]).item()")
         assert array([3]).item(0) == 3
         assert type(array([3]).item(0)) is int
@@ -3012,6 +2996,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert type(b[1]) is str
         assert b[0] == 1
         assert b[1] == 'ab'
+        a = np.arange(24).reshape(2, 4, 3)
+        assert a.item(1, 1, 1) == 16
+        assert a.item((1, 1, 1)) == 16
+        exc = raises(ValueError, a.item, 1, 1, 1, 1)
+        assert str(exc.value) == "incorrect number of indices for array"
 
     def test_itemset(self):
         import numpy as np

@@ -578,7 +578,6 @@ class AppTestImport:
         assert hasattr(time, 'clock')
 
     def test_reimport_builtin_simple_case_2(self):
-        skip("fix me")
         import sys, time
         time.foo = "bar"
         del sys.modules['time']
@@ -586,20 +585,19 @@ class AppTestImport:
         assert not hasattr(time, 'foo')
 
     def test_reimport_builtin(self):
-        skip("fix me")
         import sys, time
         oldpath = sys.path
-        time.tzset = "<test_reimport_builtin removed this>"
+        time.tzname = "<test_reimport_builtin removed this>"
 
         del sys.modules['time']
         import time as time1
         assert sys.modules['time'] is time1
 
-        assert time.tzset == "<test_reimport_builtin removed this>"
+        assert time.tzname == "<test_reimport_builtin removed this>"
 
-        reload(time1)   # don't leave a broken time.tzset behind
+        reload(time1)   # don't leave a broken time.tzname behind
         import time
-        assert time.tzset != "<test_reimport_builtin removed this>"
+        assert time.tzname != "<test_reimport_builtin removed this>"
 
     def test_reload_infinite(self):
         import infinite_reload

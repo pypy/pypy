@@ -15,19 +15,19 @@ internally.  This page describes ``pypy-stm`` from the perspective of a
 user, describes work in progress, and finally gives references to more
 implementation details.
 
-This work was done by Remi Meier and Armin Rigo.  Thanks to all donors
-for crowd-funding the work so far!  Please have a look at the 2nd call
-for donation (*not ready yet*)
+This work was done mostly by Remi Meier and Armin Rigo.  Thanks to all
+donors for crowd-funding the work so far!  Please have a look at the
+`2nd call for donation`_.
 
-.. .. _`2nd call for donation`: http://pypy.org/tmdonate2.html
+.. _`2nd call for donation`: http://pypy.org/tmdonate2.html
 
 
 Introduction
 ============
 
 ``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats
-listed below, it should be in theory within 25%-50% of the speed of a
-regular PyPy, comparing the JITting version in both cases.  It is called
+listed below, it should be in theory within 25%-50% slower than a
+regular PyPy, comparing the JIT version in both cases.  It is called
 STM for Software Transactional Memory, which is the internal technique
 used (see `Reference to implementation details`_).
 
@@ -40,7 +40,7 @@ that's all there is to it: this is a GIL-less Python, feel free to
 ``pypy-stm`` project is to improve what is so far the state-of-the-art
 for using multiple CPUs, which for cases where separate processes don't
 work is done by writing explicitly multi-threaded programs.  Instead,
-``pypy-stm`` is flushing forward an approach to *hide* the threads, as
+``pypy-stm`` is pushing forward an approach to *hide* the threads, as
 described below in `atomic sections`_.
 
 
@@ -55,9 +55,9 @@ Development is done in the branch `stmgc-c7`_.  If you are only
 interested in trying it out, you can download a Ubuntu 12.04 binary
 here__ (``pypy-2.2.x-stm*.tar.bz2``; this version is a release mode,
 but not stripped of debug symbols).  The current version supports four
-"segments", which means that it will run up to four threads in parallel
-(in other words, you get a GIL effect again, but only if trying to
-execute more than 4 threads).
+"segments", which means that it will run up to four threads in parallel,
+in other words it is running a thread pool up to 4 threads emulating normal
+threads.
 
 To build a version from sources, you first need to compile a custom
 version of clang; we recommend downloading `llvm and clang like
@@ -80,6 +80,10 @@ Caveats:
 * So far, small examples work fine, but there are still a number of
   bugs.  We're busy fixing them.
 
+* Currently limited to 1.5 GB of RAM (this is just a parameter in
+  `core.h`__).  Memory overflows are not detected correctly, so may
+  cause segmentation faults.
+
 * The JIT warm-up time is abysmal (as opposed to the regular PyPy's,
   which is "only" bad).  Moreover, you should run it with a command like
   ``pypy-stm --jit trace_limit=60000 args...``; the default value of
@@ -95,9 +99,11 @@ Caveats:
   programs that modify large lists or dicts, suffer from these missing
   optimizations.
 
-* The GC has no support for destructors: the ``__del__`` method is
-  never called (including on file objects, which won't be closed for
-  you).  This is of course temporary.
+* The GC has no support for destructors: the ``__del__`` method is never
+  called (including on file objects, which won't be closed for you).
+  This is of course temporary.  Also, weakrefs might appear to work a
+  bit strangely for now (staying alive even though ``gc.collect()``, or
+  even dying but then un-dying for a short time before dying again).
 
 * The STM system is based on very efficient read/write barriers, which
   are mostly done (their placement could be improved a bit in
@@ -120,6 +126,7 @@ Caveats:
   probably, several days or more.
 
 .. _`report bugs`: https://bugs.pypy.org/
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
 
 
 
@@ -194,9 +201,9 @@ internally, together with large atomic sections to keep the behavior
 unchanged.  This capability can be hidden in a library or in the
 framework you use; the end user's code does not need to be explicitly
 aware of using threads.  For a simple example of this, see
-`lib_pypy/transaction.py`_.  The idea is that if you have a program
-where the function ``f(key, value)`` runs on every item of some big
-dictionary, you can replace the loop with::
+`transaction.py`_ in ``lib_pypy``.  The idea is that if you have a
+program where the function ``f(key, value)`` runs on every item of some
+big dictionary, you can replace the loop with::
 
     for key, value in bigdict.items():
         transaction.add(f, key, value)
@@ -217,7 +224,7 @@ only requires that the end programmer identifies where this parallelism
 is likely to be found, and communicates it to the system, using for
 example the ``transaction.add()`` scheme.
 
-.. _`lib_pypy/transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
+.. _`transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
 .. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
 ==================

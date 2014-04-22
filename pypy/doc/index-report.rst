@@ -92,7 +92,9 @@ CPython's changes. *(2007-03-21)*
 `D07.1 Massive Parallelism and Translation Aspects`_ is a report about
 PyPy's optimization efforts, garbage collectors and massive parallelism
 (stackless) features.  This report refers to the paper `PyPy's approach
-to virtual machine construction`_. *(2007-02-28)*
+to virtual machine construction`_.  Extends the content previously
+available in the document "Memory management and threading models as
+translation aspects -- solutions and challenges".  *(2007-02-28)*
 
 
 

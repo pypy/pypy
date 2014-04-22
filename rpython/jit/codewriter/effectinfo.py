@@ -167,6 +167,12 @@ class EffectInfo(object):
     def is_call_release_gil(self):
         return bool(self.call_release_gil_target)
 
+    def __repr__(self):
+        more = ''
+        if self.oopspecindex:
+            more = ' OS=%r' % (self.oopspecindex,)
+        return '<EffectInfo 0x%x: EF=%r%s>' % (id(self), self.extraeffect, more)
+
 
 def frozenset_or_none(x):
     if x is None:

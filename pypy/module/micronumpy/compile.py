@@ -37,7 +37,7 @@ SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
-TWO_ARG_FUNCTIONS_OR_NONE = ['view']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
@@ -388,6 +388,8 @@ class Operator(Node):
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
             w_res = w_lhs.descr_sub(interp.space, w_rhs)
+        elif self.name == '**':
+            w_res = w_lhs.descr_pow(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, FloatObject):
                 w_rhs = IntObject(int(w_rhs.floatval))
@@ -596,6 +598,8 @@ class FunctionCall(Node):
             arg = self.args[1].execute(interp)
             if self.name == 'view':
                 w_res = arr.descr_view(interp.space, arg)
+            elif self.name == 'astype':
+                w_res = arr.descr_astype(interp.space, arg)
             else:
                 assert False
         else:
@@ -620,7 +624,7 @@ _REGEXES = [
     (':', 'colon'),
     ('\w+', 'identifier'),
     ('\]', 'array_right'),
-    ('(->)|[\+\-\*\/]', 'operator'),
+    ('(->)|[\+\-\*\/]+', 'operator'),
     ('=', 'assign'),
     (',', 'comma'),
     ('\|', 'pipe'),

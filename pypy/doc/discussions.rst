@@ -11,7 +11,5 @@ Help from domain experts would be welcome, since some of these documents probabl
 	discussion/finalizer-order.rst
 	discussion/howtoimplementpickling.rst
 	discussion/improve-rpython.rst
-	discussion/outline-external-ootype.rst
-	discussion/VM-integration.rst
 
 

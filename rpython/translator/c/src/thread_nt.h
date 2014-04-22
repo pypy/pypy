@@ -1,3 +1,6 @@
+#ifndef _THREAD_NT_H
+#define _THREAD_NT_H
+#include <WinSock2.h>
 #include <windows.h>
 
 /*
@@ -19,4 +22,4 @@ RPyLockStatus RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
 long RPyThreadGetStackSize(void);
 long RPyThreadSetStackSize(long);
-
+#endif

@@ -565,7 +565,8 @@ class ResumeGuardDescr(ResumeDescr):
             # common case: this is not a guard_value, and we are not
             # already busy tracing.  The rest of self.status stores a
             # valid per-guard index in the jitcounter.
-            hash = self.status & self.ST_SHIFT_MASK
+            hash = self.status
+            assert hash == (self.status & self.ST_SHIFT_MASK)
         #
         # do we have the BUSY flag?  If so, we're tracing right now, e.g. in an
         # outer invocation of the same function, so don't trace again for now.

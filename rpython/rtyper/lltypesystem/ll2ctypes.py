@@ -1172,6 +1172,8 @@ def get_ctypes_callable(funcptr, calling_conv):
         # XXX magic: on Windows try to load the function from 'kernel32' too
         if cfunc is None and hasattr(ctypes, 'windll'):
             cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
+        if cfunc is None and hasattr(ctypes, 'windll'):
+            cfunc = get_on_lib(ctypes.cdll.msvcrt, funcname)
 
     if cfunc is None:
         # function name not found in any of the libraries
