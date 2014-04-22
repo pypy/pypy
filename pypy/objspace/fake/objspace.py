@@ -346,7 +346,7 @@ class FakeObjSpace(ObjSpace):
                      ObjSpace.ExceptionTable +
                      ['int', 'str', 'float', 'long', 'tuple', 'list',
                       'dict', 'unicode', 'complex', 'slice', 'bool',
-                      'basestring', 'object', 'bytearray']):
+                      'basestring', 'object', 'bytearray', 'buffer']):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #
