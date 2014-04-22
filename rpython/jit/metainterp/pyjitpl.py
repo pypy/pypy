@@ -1041,10 +1041,7 @@ class MIFrame(object):
             # much less expensive to blackhole out of.
             saved_pc = self.pc
             self.pc = orgpc
-            resumedescr = compile.ResumeAtPositionDescr()
-            self.metainterp.capture_resumedata(resumedescr, orgpc)
-
-            self.metainterp.reached_loop_header(greenboxes, redboxes, resumedescr)
+            self.metainterp.reached_loop_header(greenboxes, redboxes)
             self.pc = saved_pc
             # no exception, which means that the jit_merge_point did not
             # close the loop.  We have to put the possibly-modified list
@@ -1783,6 +1780,8 @@ class MetaInterp(object):
                                                          self.jitdriver_sd)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
             resumedescr = compile.ResumeGuardNotInvalidated()
+        elif opnum == rop.GUARD_FUTURE_CONDITION:
+            resumedescr = compile.ResumeAtPositionDescr()
         else:
             resumedescr = compile.ResumeGuardDescr()
         guard_op = self.history.record(opnum, moreargs, None, descr=resumedescr)
@@ -2089,7 +2088,7 @@ class MetaInterp(object):
             else:
                 duplicates[box] = None
 
-    def reached_loop_header(self, greenboxes, redboxes, resumedescr):
+    def reached_loop_header(self, greenboxes, redboxes):
         self.heapcache.reset(reset_virtuals=False)
 
         duplicates = {}
@@ -2104,7 +2103,11 @@ class MetaInterp(object):
                                               duplicates)
             live_arg_boxes += self.virtualizable_boxes
             live_arg_boxes.pop()
-        #
+
+        # generate a dummy guard just before the JUMP so that unroll can use it
+        # when it's creating artificial guards.
+        self.generate_guard(rop.GUARD_FUTURE_CONDITION)
+
         assert len(self.virtualref_boxes) == 0, "missing virtual_ref_finish()?"
         # Called whenever we reach the 'loop_header' hint.
         # First, attempt to make a bridge:
@@ -2114,7 +2117,7 @@ class MetaInterp(object):
         #   from the interpreter.
         if not self.partial_trace:
             # FIXME: Support a retrace to be a bridge as well as a loop
-            self.compile_trace(live_arg_boxes, resumedescr)
+            self.compile_trace(live_arg_boxes)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -2139,7 +2142,7 @@ class MetaInterp(object):
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
-                self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
+                self.compile_loop(original_boxes, live_arg_boxes, start)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
                 if self.staticdata.warmrunnerdesc:
@@ -2148,7 +2151,7 @@ class MetaInterp(object):
                         if self.cancel_count > memmgr.max_unroll_loops:
                             self.compile_loop_or_abort(original_boxes,
                                                        live_arg_boxes,
-                                                       start, resumedescr)
+                                                       start)
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
@@ -2253,7 +2256,7 @@ class MetaInterp(object):
         return token
 
     def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     resume_at_jump_descr, try_disabling_unroll=False):
+                     try_disabling_unroll=False):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
@@ -2266,13 +2269,12 @@ class MetaInterp(object):
             target_token = compile.compile_retrace(self, greenkey, start,
                                                    original_boxes[num_green_args:],
                                                    live_arg_boxes[num_green_args:],
-                                                   resume_at_jump_descr, self.partial_trace,
+                                                   self.partial_trace,
                                                    self.resumekey)
         else:
             target_token = compile.compile_loop(self, greenkey, start,
                                                 original_boxes[num_green_args:],
                                                 live_arg_boxes[num_green_args:],
-                                                resume_at_jump_descr,
                                      try_disabling_unroll=try_disabling_unroll)
             if target_token is not None:
                 assert isinstance(target_token, TargetToken)
@@ -2286,18 +2288,18 @@ class MetaInterp(object):
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
     def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
-                              start, resume_at_jump_descr):
+                              start):
         """Called after we aborted more than 'max_unroll_loops' times.
         As a last attempt, try to compile the loop with unrolling disabled.
         """
         if not self.partial_trace:
             self.compile_loop(original_boxes, live_arg_boxes, start,
-                              resume_at_jump_descr, try_disabling_unroll=True)
+                              try_disabling_unroll=True)
         #
         self.staticdata.log('cancelled too many times!')
         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
 
-    def compile_trace(self, live_arg_boxes, resume_at_jump_descr):
+    def compile_trace(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         target_jitcell_token = self.get_procedure_token(greenkey, True)
@@ -2307,7 +2309,7 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         try:
-            target_token = compile.compile_trace(self, self.resumekey, resume_at_jump_descr)
+            target_token = compile.compile_trace(self, self.resumekey)
         finally:
             self.history.operations.pop()     # remove the JUMP
         if target_token is not None: # raise if it *worked* correctly

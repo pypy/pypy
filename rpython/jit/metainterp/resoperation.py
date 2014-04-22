@@ -400,6 +400,7 @@ _oplist = [
     'GUARD_NOT_FORCED/0d',      # may be called with an exception currently set
     'GUARD_NOT_FORCED_2/0d',    # same as GUARD_NOT_FORCED, but for finish()
     'GUARD_NOT_INVALIDATED/0d',
+    'GUARD_FUTURE_CONDITION/0d', # is removable, may be patched by an optimization
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----

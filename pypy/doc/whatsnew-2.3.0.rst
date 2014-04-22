@@ -149,3 +149,6 @@ Implement searchsorted without sorter kwarg
 
 .. branch: openbsd-lib-prefix
 add 'lib' prefix to link libraries on OpenBSD
+
+.. branch: small-unroll-improvements
+Improve optimiziation of small allocation-heavy loops in the JIT
