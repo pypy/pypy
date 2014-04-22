@@ -1039,28 +1039,6 @@ init_signature = Signature(['source', 'encoding', 'errors'], None, None)
 init_defaults = [None, None, None]
 
 
-# XXX consider moving to W_BytearrayObject or remove
-def str_join__Bytearray_ANY(space, w_self, w_list):
-    list_w = space.listview(w_list)
-    if not list_w:
-        return W_BytearrayObject([])
-    data = w_self.data
-    newdata = []
-    for i in range(len(list_w)):
-        w_s = list_w[i]
-        if not (space.isinstance_w(w_s, space.w_str) or
-                space.isinstance_w(w_s, space.w_bytearray)):
-            raise oefmt(space.w_TypeError,
-                        "sequence item %d: expected string, %T found", i, w_s)
-
-        if data and i != 0:
-            newdata.extend(data)
-        newdata.extend([c for c in space.bufferstr_new_w(w_s)])
-    return W_BytearrayObject(newdata)
-
-_space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])
-
-
 # XXX share the code again with the stuff in listobject.py
 def _delitem_slice_helper(space, items, start, step, slicelength):
     if slicelength == 0:
