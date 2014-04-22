@@ -626,7 +626,7 @@ if WIN32:
     WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
-    WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
+    WSAGetLastError = external('WSAGetLastError', [], rffi.INT, releasegil=False)
     geterrno = WSAGetLastError
 
     # In tests, the first call to GetLastError is always wrong, because error
