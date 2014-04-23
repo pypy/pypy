@@ -1364,6 +1364,7 @@ class ObjSpace(object):
                                  self.wrap('cannot convert negative integer '
                                            'to unsigned int'))
 
+    # XXX define these flags correctly, possibly put elsewhere?
     BUF_SIMPLE = 0
     BUF_FULL_RO = 1
     BUF_CONTIG = 2
@@ -1401,6 +1402,7 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError,
                         "expected a character buffer object")
 
+    # XXX rename these/replace with code more like CPython getargs for buffers
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
