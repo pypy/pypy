@@ -216,11 +216,20 @@ class State(object):
             'stdstring2stdstring'      : ([c_object],                 c_object),
         }
 
+        # size/offset are backend-specific but fixed after load
+        self.c_sizeof_farg = 0
+        self.c_offset_farg = 0
+
+
 def load_reflection_library(space):
     state = space.fromcache(State)
     if state.library is None:
         from pypy.module._cffi_backend.libraryobj import W_Library
         state.library = W_Library(space, reflection_library, rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY)
+        if state.library:
+            # fix constants
+            state.c_sizeof_farg = _cdata_to_size_t(space, call_capi(space, 'function_arg_sizeof', []))
+            state.c_offset_farg = _cdata_to_size_t(space, call_capi(space, 'function_arg_typeoffset', []))
     return state.library
 
 def verify_backend(space):
@@ -340,12 +349,12 @@ def c_allocate_function_args(space, size):
     return _cdata_to_ptr(space, call_capi(space, 'allocate_function_args', [_Arg(l=size)]))
 def c_deallocate_function_args(space, cargs):
     call_capi(space, 'deallocate_function_args', [_Arg(vp=cargs)])
-@jit.elidable
 def c_function_arg_sizeof(space):
-    return _cdata_to_size_t(space, call_capi(space, 'function_arg_sizeof', []))
-@jit.elidable
+    state = space.fromcache(State)
+    return state.c_sizeof_farg
 def c_function_arg_typeoffset(space):
-    return _cdata_to_size_t(space, call_capi(space, 'function_arg_typeoffset', []))
+    state = space.fromcache(State)
+    return state.c_offset_farg
 
 # scope reflection information -----------------------------------------------
 def c_is_namespace(space, scope):
@@ -365,13 +374,12 @@ def c_num_bases(space, cppclass):
 def c_base_name(space, cppclass, base_index):
     args = [_Arg(l=cppclass.handle), _Arg(l=base_index)]
     return charp2str_free(space, call_capi(space, 'base_name', args))
-@jit.elidable_promote('2')
 def c_is_subtype(space, derived, base):
+    jit.promote(base)
     if derived == base:
         return bool(1)
     return space.bool_w(call_capi(space, 'is_subtype', [_Arg(l=derived.handle), _Arg(l=base.handle)]))
 
-@jit.elidable_promote('1,2,4')
 def _c_base_offset(space, derived_h, base_h, address, direction):
     args = [_Arg(l=derived_h), _Arg(l=base_h), _Arg(l=address), _Arg(l=direction)]
     return _cdata_to_size_t(space, call_capi(space, 'base_offset', args))

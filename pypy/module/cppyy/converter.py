@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import jit_libffi, rfloat
 
-from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
+from pypy.module._rawffi.interp_rawffi import letter2tp
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
 from pypy.module.cppyy import helper, capi, ffitypes
@@ -132,7 +132,7 @@ class ArrayCache(object):
     def __getattr__(self, name):
         if name.startswith('array_'):
             typecode = name[len('array_'):]
-            arr = self.space.interp_w(W_Array, unpack_simple_shape(self.space, self.space.wrap(typecode)))
+            arr = self.space.interp_w(W_Array, letter2tp(self.space, typecode))
             setattr(self, name, arr)
             return arr
         raise AttributeError(name)
@@ -409,7 +409,7 @@ class VoidPtrConverter(TypeConverter):
         if ptrval == 0:
             from pypy.module.cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('P')))
+        arr = space.interp_w(W_Array, letter2tp(space, 'P'))
         return arr.fromaddress(space, ptrval, sys.maxint)
 
     def to_memory(self, space, w_obj, w_value, offset):
