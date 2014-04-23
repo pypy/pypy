@@ -2,10 +2,10 @@
 
 from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint)
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.signature import Signature

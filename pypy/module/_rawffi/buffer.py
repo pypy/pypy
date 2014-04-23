@@ -1,4 +1,4 @@
-from pypy.interpreter.buffer import Buffer
+from rpython.rlib.buffer import Buffer
 
 # XXX not the most efficient implementation
 

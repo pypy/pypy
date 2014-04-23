@@ -3,7 +3,7 @@ Implementation of the 'buffer' and 'memoryview' types.
 """
 import operator
 
-from pypy.interpreter import buffer
+from rpython.rlib.buffer import Buffer, StringBuffer, SubBuffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -19,7 +19,7 @@ class W_Buffer(W_Root):
     """
 
     def __init__(self, buf):
-        assert isinstance(buf, buffer.Buffer)
+        assert isinstance(buf, Buffer)
         self.buf = buf
 
     def buffer_w(self, space, flags):
@@ -45,7 +45,6 @@ class W_Buffer(W_Root):
             builder = StringBuilder(len(unistr) * UNICODE_SIZE)
             for unich in unistr:
                 pack_unichar(unich, builder)
-            from pypy.interpreter.buffer import StringBuffer
             buf = StringBuffer(builder.build())
         else:
             buf = space.readbuf_w(w_object)
@@ -59,7 +58,7 @@ class W_Buffer(W_Root):
         if size < -1:
             raise OperationError(space.w_ValueError,
                                  space.wrap("size must be zero or positive"))
-        buf = buffer.SubBuffer(buf, offset, size)
+        buf = SubBuffer(buf, offset, size)
         return W_Buffer(buf)
 
     def descr_len(self, space):

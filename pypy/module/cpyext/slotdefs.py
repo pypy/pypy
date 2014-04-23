@@ -15,8 +15,8 @@ from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.argument import Arguments
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_renamer

@@ -1,6 +1,6 @@
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE

@@ -1,6 +1,7 @@
 from __future__ import with_statement
 
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -9,7 +10,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)

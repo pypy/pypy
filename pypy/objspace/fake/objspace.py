@@ -1,10 +1,10 @@
 from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat

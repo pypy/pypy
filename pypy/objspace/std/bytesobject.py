@@ -3,10 +3,10 @@
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, replace
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)

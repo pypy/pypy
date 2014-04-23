@@ -2,7 +2,7 @@
 # A convenient read-write buffer.  Located here for want of a better place.
 #
 
-from pypy.interpreter.buffer import Buffer
+from rpython.rlib.buffer import Buffer
 from pypy.interpreter.gateway import unwrap_spec
 
 

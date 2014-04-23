@@ -2,8 +2,8 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.buffer import Buffer
 from rpython.rlib import rmmap, rarithmetic
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
