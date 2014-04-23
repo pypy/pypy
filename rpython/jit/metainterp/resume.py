@@ -4,12 +4,14 @@ from rpython.jit.metainterp.history import (Box, Const, ConstInt, getkind,
     BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT, AbstractDescr)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import rarithmetic, rstack
-from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
+from rpython.rlib.objectmodel import (we_are_translated, specialize,
+        compute_unique_id, import_from_mixin)
 from rpython.rlib.debug import (have_debug_prints, ll_assert, debug_start,
     debug_stop, debug_print)
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -266,43 +268,62 @@ class ResumeDataLoopMemo(object):
 _frame_info_placeholder = (None, 0, 0)
 
 
-class ResumeDataVirtualAdder(object):
+class ResumeDataVirtualAdder(VirtualVisitor):
+
     def __init__(self, storage, memo):
         self.storage = storage
         self.memo = memo
 
-    def make_virtual(self, known_class, fielddescrs):
+    def make_virtual_info(self, value, fieldnums):
+        from rpython.jit.metainterp.optimizeopt.virtualize import AbstractVirtualValue
+        assert isinstance(value, AbstractVirtualValue)
+        assert fieldnums is not None
+        vinfo = value._cached_vinfo
+        if vinfo is not None and vinfo.equals(fieldnums):
+            return vinfo
+        vinfo = value.visitor_dispatch_virtual_type(self)
+        vinfo.set_content(fieldnums)
+        value._cached_vinfo = vinfo
+        return vinfo
+
+    def visit_not_virtual(self, value):
+        assert 0, "unreachable"
+
+    def visit_virtual(self, known_class, fielddescrs):
         return VirtualInfo(known_class, fielddescrs)
 
-    def make_vstruct(self, typedescr, fielddescrs):
+    def visit_vstruct(self, typedescr, fielddescrs):
         return VStructInfo(typedescr, fielddescrs)
 
-    def make_varray(self, arraydescr):
+    def visit_varray(self, arraydescr):
         return VArrayInfo(arraydescr)
 
-    def make_varraystruct(self, arraydescr, fielddescrs):
+    def visit_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructInfo(arraydescr, fielddescrs)
 
-    def make_vrawbuffer(self, size, offsets, descrs):
+    def visit_vrawbuffer(self, size, offsets, descrs):
         return VRawBufferInfo(size, offsets, descrs)
 
-    def make_vrawslice(self, offset):
+    def visit_vrawslice(self, offset):
         return VRawSliceInfo(offset)
 
-    def make_vstrplain(self, is_unicode=False):
+    def visit_vstrplain(self, is_unicode=False):
         if is_unicode:
             return VUniPlainInfo()
-        return VStrPlainInfo()
+        else:
+            return VStrPlainInfo()
 
-    def make_vstrconcat(self, is_unicode=False):
+    def visit_vstrconcat(self, is_unicode=False):
         if is_unicode:
             return VUniConcatInfo()
-        return VStrConcatInfo()
+        else:
+            return VStrConcatInfo()
 
-    def make_vstrslice(self, is_unicode=False):
+    def visit_vstrslice(self, is_unicode=False):
         if is_unicode:
             return VUniSliceInfo()
-        return VStrSliceInfo()
+        else:
+            return VStrSliceInfo()
 
     def register_virtual_fields(self, virtualbox, fieldboxes):
         tagged = self.liveboxes_from_env.get(virtualbox, UNASSIGNEDVIRTUAL)
@@ -352,13 +373,13 @@ class ResumeDataVirtualAdder(object):
             else:
                 assert tagbits == TAGVIRTUAL
                 value = optimizer.getvalue(box)
-                value.get_args_for_fail(self)
+                value.visitor_walk_recursive(self)
 
         for _, box, fieldbox, _ in pending_setfields:
             self.register_box(box)
             self.register_box(fieldbox)
             value = optimizer.getvalue(fieldbox)
-            value.get_args_for_fail(self)
+            value.visitor_walk_recursive(self)
 
         self._number_virtuals(liveboxes, optimizer, v)
         self._add_pending_fields(pending_setfields)
@@ -410,7 +431,7 @@ class ResumeDataVirtualAdder(object):
                 value = optimizer.getvalue(virtualbox)
                 fieldnums = [self._gettagged(box)
                              for box in fieldboxes]
-                vinfo = value.make_virtual_info(self, fieldnums)
+                vinfo = self.make_virtual_info(value, fieldnums)
                 # if a new vinfo instance is made, we get the fieldnums list we
                 # pass in as an attribute. hackish.
                 if vinfo.fieldnums is not fieldnums:

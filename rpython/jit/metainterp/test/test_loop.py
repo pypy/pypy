@@ -495,11 +495,12 @@ class LoopTest(object):
             for i in range(7):
                 sa += f(n, s)
             return sa
-        assert self.meta_interp(g, [25, 1]) == 7 * 25 * (7 + 8)
+        assert self.meta_interp(g, [25, 1]) == g(25, 1)
 
         def h(n):
             return g(n, 1) + g(n, 2)
-        assert self.meta_interp(h, [25]) == 7 * 25 * (7 + 8 + 2 + 3)
+        assert self.meta_interp(h, [25]) == h(25)
+
 
     def test_two_bridged_loops_classes(self):
         myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'n', 'x', 's'])

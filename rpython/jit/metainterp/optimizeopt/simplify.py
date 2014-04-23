@@ -61,6 +61,9 @@ class OptSimplify(Optimization):
                 op.setdescr(descr.target_tokens[0])
         self.emit_operation(op)
 
+    def optimize_GUARD_FUTURE_CONDITION(self, op):
+        pass
+
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
         default=OptSimplify.emit_operation)
 OptSimplify.propagate_forward = dispatch_opt
