@@ -219,7 +219,8 @@ def fork_exec(space, w_process_args, w_executable_list,
 
 
 def cloexec_pipe(space):
-    """"cloexec_pipe() -> (read_end, write_end)
+    """cloexec_pipe() -> (read_end, write_end)
+
     Create a pipe whose ends have the cloexec flag set."""
 
     with lltype.scoped_alloc(rffi.CArrayPtr(rffi.INT).TO, 2) as fds:
