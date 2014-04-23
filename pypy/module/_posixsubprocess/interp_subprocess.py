@@ -1,12 +1,14 @@
-from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
-from rpython.rtyper.tool import rffi_platform as platform
-from pypy.module.posix.interp_posix import run_fork_hooks
-from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import (
-    OperationError, exception_from_errno, wrap_oserror)
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import py
 import os
+import py
+
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.interpreter.error import (
+    OperationError, exception_from_errno, oefmt, wrap_oserror)
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.posix.interp_posix import run_fork_hooks
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -80,9 +82,15 @@ def build_fd_sequence(space, w_fd_list):
     prev_fd = -1
     for fd in result:
         if fd < 0 or fd < prev_fd or fd > 1 << 30:
-            raise OperationError(space.w_ValueError, space.wrap(
-                    "bad value(s) in fds_to_keep"))
+            raise oefmt(space.w_ValueError, "bad value(s) in fds_to_keep")
     return result
+
+
+def seqstr2charpp(space, w_seqstr):
+    """Sequence of bytes -> char**, NULL terminated"""
+    w_iter = space.iter(w_seqstr)
+    return rffi.liststr2charpp([space.bytes0_w(space.next(w_iter))
+                                for i in range(space.len_w(w_seqstr))])
 
 
 @unwrap_spec(p2cread=int, p2cwrite=int, c2pread=int, c2pwrite=int,
@@ -116,8 +124,7 @@ def fork_exec(space, w_process_args, w_executable_list,
     """
     close_fds = space.is_true(w_close_fds)
     if close_fds and errpipe_write < 3:  # precondition
-        raise OperationError(space.w_ValueError, space.wrap(
-                "errpipe_write must be >= 3"))
+        raise oefmt(space.w_ValueError, "errpipe_write must be >= 3")
     fds_to_keep = build_fd_sequence(space, w_fds_to_keep)
 
     # No need to disable GC in PyPy:
@@ -135,19 +142,16 @@ def fork_exec(space, w_process_args, w_executable_list,
     # These conversions are done in the parent process to avoid allocating
     # or freeing memory in the child process.
     try:
-        exec_array = [space.bytes0_w(w_item)
-                      for w_item in space.listview(w_executable_list)]
-        l_exec_array = rffi.liststr2charpp(exec_array)
+        l_exec_array = seqstr2charpp(space, w_executable_list)
 
         if not space.is_none(w_process_args):
-            argv = [space.fsencode_w(w_item)
-                    for w_item in space.listview(w_process_args)]
+            w_iter = space.iter(w_process_args)
+            argv = [space.fsencode_w(space.next(w_iter))
+                    for i in range(space.len_w(w_process_args))]
             l_argv = rffi.liststr2charpp(argv)
 
         if not space.is_none(w_env_list):
-            envp = [space.bytes0_w(w_item)
-                    for w_item in space.listview(w_env_list)]
-            l_envp = rffi.liststr2charpp(envp)
+            l_envp = seqstr2charpp(space, w_env_list)
 
         l_fds_to_keep = lltype.malloc(rffi.CArrayPtr(rffi.LONG).TO,
                                       len(fds_to_keep) + 1, flavor='raw')

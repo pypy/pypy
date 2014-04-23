@@ -284,9 +284,11 @@ class BaseConcreteArray(object):
                                             self.get_backstrides(),
                                             self.get_shape(), shape,
                                             backward_broadcast)
-            return ArrayIter(self, support.product(shape), shape, r[0], r[1])
-        return ArrayIter(self, self.get_size(), self.shape,
-                         self.strides, self.backstrides)
+            i = ArrayIter(self, support.product(shape), shape, r[0], r[1])
+        else:
+            i = ArrayIter(self, self.get_size(), self.shape,
+                          self.strides, self.backstrides)
+        return i, i.reset()
 
     def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
