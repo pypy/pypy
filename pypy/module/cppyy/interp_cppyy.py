@@ -718,7 +718,6 @@ class W_CPPScope(W_Root):
     def get_method_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.methods])
 
-    @jit.elidable_promote('0')
     def get_overload(self, name):
         try:
             return self.methods[name]
@@ -731,7 +730,6 @@ class W_CPPScope(W_Root):
     def get_datamember_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.datamembers])
 
-    @jit.elidable_promote('0')
     def get_datamember(self, name):
         try:
             return self.datamembers[name]
@@ -741,7 +739,7 @@ class W_CPPScope(W_Root):
         self.datamembers[name] = new_dm
         return new_dm
 
-    @jit.elidable_promote('0')
+    @jit.elidable_promote()
     def dispatch(self, name, signature):
         overload = self.get_overload(name)
         sig = '(%s)' % signature

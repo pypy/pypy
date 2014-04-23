@@ -163,7 +163,7 @@ float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 
 double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     return cppyy_call_T<double>(method, self, nargs, args);
-}   
+}
 
 void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     return (void*)cppyy_call_T<long>(method, self, nargs, args);

@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 # shared ll definitions
-_C_OPAQUE_PTR = rffi.VOIDP
+_C_OPAQUE_PTR = rffi.LONG
 _C_OPAQUE_NULL = lltype.nullptr(rffi.LONGP.TO)# ALT: _C_OPAQUE_PTR.TO
 
 C_SCOPE = _C_OPAQUE_PTR

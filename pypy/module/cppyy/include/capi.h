@@ -7,11 +7,11 @@
 extern "C" {
 #endif // ifdef __cplusplus
 
-    typedef void* cppyy_scope_t;
+    typedef long cppyy_scope_t;
     typedef cppyy_scope_t cppyy_type_t;
-    typedef void* cppyy_object_t;
-    typedef void* cppyy_method_t;
-    typedef long  cppyy_index_t;
+    typedef long cppyy_object_t;
+    typedef long cppyy_method_t;
+    typedef long cppyy_index_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 
     /* name to opaque C++ scope representation -------------------------------- */
