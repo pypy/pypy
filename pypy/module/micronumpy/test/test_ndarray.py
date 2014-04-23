@@ -1509,6 +1509,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.max() == 5.7
+        assert a.max().shape == ()
+        assert a.max(axis=(0,)) == 5.7
+        assert a.max(axis=(0,)).shape == ()
         assert a.max(keepdims=True) == 5.7
         assert a.max(keepdims=True).shape == (1,)
         b = array([])
@@ -1524,6 +1527,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.min() == -3.0
+        assert a.min().shape == ()
+        assert a.min(axis=(0,)) == -3.0
+        assert a.min(axis=(0,)).shape == ()
         assert a.min(keepdims=True) == -3.0
         assert a.min(keepdims=True).shape == (1,)
         b = array([])
