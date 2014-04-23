@@ -82,7 +82,7 @@ class AssemblerPPC(OpAssembler):
     if IS_PPC_64:
         OFFSET_STACK_ARGS += MAX_REG_PARAMS * WORD
 
-    def __init__(self, cpu, failargs_limit=1000):
+    def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
         #self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         #self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
@@ -391,7 +391,7 @@ class AssemblerPPC(OpAssembler):
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
-        if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
+        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
             return      # no stack check (for tests, or non-translated)
         #
         # make a "function" that is called immediately at the start of
@@ -466,23 +466,13 @@ class AssemblerPPC(OpAssembler):
 
         # reset SP
         mc.addi(r.SP.value, r.SP.value, frame_size)
-        mc.blr()
+        #mc.blr()
+        mc.b(self.propagate_exception_path)
 
         pmc = OverwritingBuilder(mc, jnz_location, 1)
         pmc.bc(4, 2, mc.currpos() - jnz_location)
         pmc.overwrite()
 
-        # call on_leave_jitted_save_exc()
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
-        mc.call(addr)
-        #
-        mc.load_imm(r.RES, self.cpu.propagate_exception_v)
-        #
-        # footer -- note the addi, which skips the return address of this
-        # function, and will instead return to the caller's caller.  Note
-        # also that we completely ignore the saved arguments, because we
-        # are interrupting the function.
-        
         # restore link register out of preprevious frame
         offset_LR = frame_size + MINIFRAME_SIZE + LR_BC_OFFSET
 
@@ -557,16 +547,14 @@ class AssemblerPPC(OpAssembler):
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_propagate_exception_path(self):
-        if self.cpu.propagate_exception_v < 0:
+        if not self.cpu.propagate_exception_descr:
             return
 
         mc = PPCBuilder()
-        with Saved_Volatiles(mc):
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
-                    default_to_memoryerror=True)
-            mc.call(addr)
+        # the following call may be needed in the future:
+        # self._store_and_reset_exception()
 
-        mc.load_imm(r.RES, self.cpu.propagate_exception_v)
+        mc.load_imm(r.RES, self.cpu.propagate_exception_descr)
         self._gen_epilogue(mc)
         mc.prepare_insts_blocks()
         self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
