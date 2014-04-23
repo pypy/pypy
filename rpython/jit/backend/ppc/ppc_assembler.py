@@ -559,18 +559,6 @@ class AssemblerPPC(OpAssembler):
         mc.prepare_insts_blocks()
         self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _gen_leave_jitted_hook_code(self, save_exc=False):
-        mc = PPCBuilder()
-
-        with Saved_Volatiles(mc):
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-            mc.call(addr)
-
-        mc.b_abs(self.exit_code_adr)
-        mc.prepare_insts_blocks()
-        return mc.materialize(self.cpu.asmmemmgr, [],
-                               self.cpu.gc_ll_descr.gcrootmap)
-
     # The code generated here serves as an exit stub from
     # the executed machine code.
     # It is generated only once when the backend is initialized.
@@ -722,8 +710,6 @@ class AssemblerPPC(OpAssembler):
             self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self.exit_code_adr = self._gen_exit_path()
-        self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
-        self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
         debug_start('jit-backend-counts')
         self.set_debug(have_debug_prints())
         debug_stop('jit-backend-counts')
@@ -1155,21 +1141,6 @@ class AssemblerPPC(OpAssembler):
             descr._failure_recovery_code_adr = encoding_adr
             descr._ppc_guard_pos = pos
 
-    def gen_exit_stub(self, descr, args, arglocs, save_exc=False):
-        if save_exc:
-            path = self._leave_jitted_hook_save_exc
-        else:
-            path = self._leave_jitted_hook
-
-        # write state encoding to memory and store the address of the beginning
-        # of the encoding in the FORCE INDEX slot
-        encoding_adr = self.gen_descr_encoding(descr, args, arglocs[1:])
-        with scratch_reg(self.mc):
-            self.mc.load_imm(r.SCRATCH, encoding_adr)
-            self.mc.store(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
-        self.mc.b_abs(path)
-        return encoding_adr
-
     def process_pending_guards(self, block_start):
         clt = self.current_clt
         for tok in self.pending_guards:
@@ -1345,11 +1316,6 @@ class AssemblerPPC(OpAssembler):
             self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
         else:
             raise AssertionError('Trying to pop to an invalid location')
-
-    def leave_jitted_hook(self):
-        ptrs = self.fail_boxes_ptr.ar
-        llop.gc_assume_young_pointers(lltype.Void,
-                                      llmemory.cast_ptr_to_adr(ptrs))
 
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 1:
