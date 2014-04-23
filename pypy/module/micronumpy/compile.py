@@ -136,6 +136,11 @@ class FakeSpace(object):
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
 
+    def getitem(self, obj, index):
+        assert isinstance(obj, ListObject)
+        assert isinstance(index, IntObject)
+        return obj.items[index.intval]
+
     def listview(self, obj, number=-1):
         assert isinstance(obj, ListObject)
         if number != -1:
