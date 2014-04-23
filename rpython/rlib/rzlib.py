@@ -3,7 +3,9 @@ import sys
 
 from rpython.rlib import rgc
 from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform as compiler, CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -347,8 +349,7 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """
     # Prepare the input buffer for the stream
     with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
-        for i in xrange(len(data)):
-            inbuf[i] = data[i]
+        copy_string_to_raw(llstr(data), inbuf, 0, len(data))
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))
 

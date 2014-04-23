@@ -89,8 +89,23 @@ You may get it at
 http://hboehm.info/gc/gc_source/gc-7.1.tar.gz
 
 Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
-pypy. Unpack this folder in the base directory.  Then open a command
-prompt::
+pypy. Unpack this folder in the base directory. 
+The default GC_abort(...) function in misc.c will try to open a MessageBox.
+You may want to disable this with the following patch::
+
+    --- a/misc.c    Sun Apr 20 14:08:27 2014 +0300
+    +++ b/misc.c    Sun Apr 20 14:08:37 2014 +0300
+    @@ -1058,7 +1058,7 @@
+     #ifndef PCR
+      void GC_abort(const char *msg)
+       {
+       -#   if defined(MSWIN32)
+       +#   if 0 && defined(MSWIN32)
+              (void) MessageBoxA(NULL, msg, "Fatal error in gc", MB_ICONERROR|MB_OK);
+               #   else
+                      GC_err_printf("%s\n", msg);
+    
+Then open a command prompt::
 
     cd gc-7.1
     nmake -f NT_THREADS_MAKEFILE

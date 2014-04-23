@@ -3,15 +3,15 @@
 import os
 import time
 import random
-from rpython.tool.udir import udir
+
+import pytest
 
 from rpython.rlib import streamio
-
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.tool.udir import udir
 
 
 class TSource(streamio.Stream):
-
     def __init__(self, packets, tell=True, seek=True):
         for x in packets:
             assert x
@@ -1066,8 +1066,8 @@ class TestDiskFile:
     def test_read_interrupted(self):
         try:
             from signal import alarm, signal, SIG_DFL, SIGALRM
-        except:
-            skip('no alarm on this platform')
+        except ImportError:
+            pytest.skip('no alarm on this platform')
         try:
             read_fd, write_fd = os.pipe()
             file = streamio.DiskFile(read_fd)
@@ -1082,8 +1082,8 @@ class TestDiskFile:
     def test_write_interrupted(self):
         try:
             from signal import alarm, signal, SIG_DFL, SIGALRM
-        except:
-            skip('no alarm on this platform')
+        except ImportError:
+            pytest.skip('no alarm on this platform')
         try:
             read_fd, write_fd = os.pipe()
             file = streamio.DiskFile(write_fd)
@@ -1123,15 +1123,14 @@ def timeit(fn=FN, opener=streamio.MMapFile):
 def speed_main():
     def diskopen(fn, mode):
         filemode = 0
-        import mmap
         if "r" in mode:
             filemode = os.O_RDONLY
         if "w" in mode:
             filemode |= os.O_WRONLY
-
         fd = os.open(fn, filemode)
         base = streamio.DiskFile(fd)
         return streamio.BufferingInputStream(base)
+
     def mmapopen(fn, mode):
         mmapmode = 0
         filemode = 0
@@ -1144,7 +1143,7 @@ def speed_main():
             filemode |= os.O_WRONLY
         fd = os.open(fn, filemode)
         return streamio.MMapFile(fd, mmapmode)
+
     timeit(opener=diskopen)
     timeit(opener=mmapopen)
     timeit(opener=open)
-
