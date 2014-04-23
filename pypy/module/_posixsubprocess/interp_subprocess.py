@@ -1,12 +1,14 @@
-from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
-from rpython.rtyper.tool import rffi_platform as platform
-from pypy.module.posix.interp_posix import run_fork_hooks
-from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import (
-    OperationError, exception_from_errno, wrap_oserror)
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import py
 import os
+import py
+
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.interpreter.error import (
+    OperationError, exception_from_errno, oefmt, wrap_oserror)
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.posix.interp_posix import run_fork_hooks
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -80,8 +82,7 @@ def build_fd_sequence(space, w_fd_list):
     prev_fd = -1
     for fd in result:
         if fd < 0 or fd < prev_fd or fd > 1 << 30:
-            raise OperationError(space.w_ValueError, space.wrap(
-                    "bad value(s) in fds_to_keep"))
+            raise oefmt(space.w_ValueError, "bad value(s) in fds_to_keep")
     return result
 
 
@@ -116,8 +117,7 @@ def fork_exec(space, w_process_args, w_executable_list,
     """
     close_fds = space.is_true(w_close_fds)
     if close_fds and errpipe_write < 3:  # precondition
-        raise OperationError(space.w_ValueError, space.wrap(
-                "errpipe_write must be >= 3"))
+        raise oefmt(space.w_ValueError, "errpipe_write must be >= 3")
     fds_to_keep = build_fd_sequence(space, w_fds_to_keep)
 
     # No need to disable GC in PyPy:
