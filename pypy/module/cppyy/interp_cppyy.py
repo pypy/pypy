@@ -40,9 +40,28 @@ class State(object):
     def __init__(self, space):
         self.cppscope_cache = {
             "void" : W_CPPClass(space, "void", capi.C_NULL_TYPE) }
+        self.w_nullptr = None
         self.cpptemplate_cache = {}
         self.cppclass_registry = {}
         self.w_clgen_callback = None
+        self.w_fngen_callback = None
+
+def get_nullptr(space):
+    if hasattr(space, "fake"):
+        raise NotImplementedError
+    state = space.fromcache(State)
+    if state.w_nullptr is None:
+        from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
+        from pypy.module._rawffi.array import W_Array, W_ArrayInstance
+        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('P')))
+        # TODO: fix this hack; fromaddress() will allocate memory if address
+        # is null and there seems to be no way around it (ll_buffer can not
+        # be touched directly)
+        nullarr = arr.fromaddress(space, rffi.cast(rffi.ULONG, 0), 0)
+        assert isinstance(nullarr, W_ArrayInstance)
+        nullarr.free(space)
+        state.w_nullptr = space.wrap(nullarr)
+    return state.w_nullptr
 
 @unwrap_spec(name=str)
 def resolve_name(space, name):
@@ -101,6 +120,11 @@ def set_class_generator(space, w_callback):
     state = space.fromcache(State)
     state.w_clgen_callback = w_callback
 
+@unwrap_spec(w_callback=W_Root)
+def set_function_generator(space, w_callback):
+    state = space.fromcache(State)
+    state.w_fngen_callback = w_callback
+
 def register_class(space, w_pycppclass):
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
@@ -108,7 +132,7 @@ def register_class(space, w_pycppclass):
     # class allows simple aliasing of methods)
     capi.pythonize(space, cppclass.name, w_pycppclass)
     state = space.fromcache(State)
-    state.cppclass_registry[cppclass.handle] = w_pycppclass
+    state.cppclass_registry[rffi.cast(rffi.LONG, cppclass.handle)] = w_pycppclass
 
 
 class W_CPPLibrary(W_Root):
@@ -694,7 +718,6 @@ class W_CPPScope(W_Root):
     def get_method_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.methods])
 
-    @jit.elidable_promote('0')
     def get_overload(self, name):
         try:
             return self.methods[name]
@@ -707,7 +730,6 @@ class W_CPPScope(W_Root):
     def get_datamember_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.datamembers])
 
-    @jit.elidable_promote('0')
     def get_datamember(self, name):
         try:
             return self.datamembers[name]
@@ -717,7 +739,7 @@ class W_CPPScope(W_Root):
         self.datamembers[name] = new_dm
         return new_dm
 
-    @jit.elidable_promote('0')
+    @jit.elidable_promote()
     def dispatch(self, name, signature):
         overload = self.get_overload(name)
         sig = '(%s)' % signature
@@ -1130,19 +1152,23 @@ memory_regulator = MemoryRegulator()
 def get_pythonized_cppclass(space, handle):
     state = space.fromcache(State)
     try:
-        w_pycppclass = state.cppclass_registry[handle]
+        w_pycppclass = state.cppclass_registry[rffi.cast(rffi.LONG, handle)]
     except KeyError:
         final_name = capi.c_scoped_final_name(space, handle)
         # the callback will cache the class by calling register_class
         w_pycppclass = space.call_function(state.w_clgen_callback, space.wrap(final_name))
     return w_pycppclass
 
+def get_interface_func(space, w_callable, npar):
+    state = space.fromcache(State)
+    return space.call_function(state.w_fngen_callback, w_callable, space.wrap(npar))
+
 def wrap_cppobject(space, rawobject, cppclass,
                    do_cast=True, python_owns=False, is_ref=False, fresh=False):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
 
-    # cast to actual cast if requested and possible
-    w_pycppclass = space.w_None
+    # cast to actual if requested and possible
+    w_pycppclass = None
     if do_cast and rawobject:
         actual = capi.c_actual_class(space, cppclass, rawobject)
         if actual != cppclass.handle:
@@ -1158,7 +1184,7 @@ def wrap_cppobject(space, rawobject, cppclass,
                 # the variables are re-assigned yet)
                 pass
 
-    if space.is_w(w_pycppclass, space.w_None):
+    if w_pycppclass is None:
         w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
 
     # try to recycle existing object if this one is not newly created
@@ -1174,16 +1200,30 @@ def wrap_cppobject(space, rawobject, cppclass,
     memory_regulator.register(cppinstance)
     return w_cppinstance
 
-@unwrap_spec(w_cppinstance=W_CPPInstance)
-def addressof(space, w_cppinstance):
-    """Takes a bound C++ instance, returns the raw address."""
-    address = rffi.cast(rffi.LONG, w_cppinstance.get_rawobject())
+def _addressof(space, w_obj):
+    try:
+        # attempt to extract address from array
+        return rffi.cast(rffi.INTPTR_T, converter.get_rawbuffer(space, w_obj))
+    except TypeError:
+        pass
+    # attempt to get address of C++ instance
+    return rffi.cast(rffi.INTPTR_T, converter.get_rawobject(space, w_obj))
+
+@unwrap_spec(w_obj=W_Root)
+def addressof(space, w_obj):
+    """Takes a bound C++ instance or array, returns the raw address."""
+    address = _addressof(space, w_obj)
     return space.wrap(address)
 
-@unwrap_spec(address=int, owns=bool)
-def bind_object(space, address, w_pycppclass, owns=False):
+@unwrap_spec(owns=bool, cast=bool)
+def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
     """Takes an address and a bound C++ class proxy, returns a bound instance."""
-    rawobject = rffi.cast(capi.C_OBJECT, address)
+    try:
+        # attempt address from array or C++ instance
+        rawobject = rffi.cast(capi.C_OBJECT, _addressof(space, w_obj))
+    except Exception:
+        # accept integer value as address
+        rawobject = rffi.cast(capi.C_OBJECT, space.uint_w(w_obj))
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     if not w_cppclass:
         w_cppclass = scope_byname(space, space.str_w(w_pycppclass))
@@ -1191,4 +1231,4 @@ def bind_object(space, address, w_pycppclass, owns=False):
             raise OperationError(space.w_TypeError,
                 space.wrap("no such class: %s" % space.str_w(w_pycppclass)))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
-    return wrap_cppobject(space, rawobject, cppclass, do_cast=False, python_owns=owns)
+    return wrap_cppobject(space, rawobject, cppclass, do_cast=cast, python_owns=owns)
