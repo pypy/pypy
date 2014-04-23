@@ -86,6 +86,13 @@ def build_fd_sequence(space, w_fd_list):
     return result
 
 
+def seqstr2charpp(space, w_seqstr):
+    """Sequence of bytes -> char**, NULL terminated"""
+    w_iter = space.iter(w_seqstr)
+    return rffi.liststr2charpp([space.bytes0_w(space.next(w_iter))
+                                for i in range(space.len_w(w_seqstr))])
+
+
 @unwrap_spec(p2cread=int, p2cwrite=int, c2pread=int, c2pwrite=int,
              errread=int, errwrite=int, errpipe_read=int, errpipe_write=int,
              restore_signals=int, call_setsid=int)
@@ -135,19 +142,16 @@ def fork_exec(space, w_process_args, w_executable_list,
     # These conversions are done in the parent process to avoid allocating
     # or freeing memory in the child process.
     try:
-        exec_array = [space.bytes0_w(w_item)
-                      for w_item in space.listview(w_executable_list)]
-        l_exec_array = rffi.liststr2charpp(exec_array)
+        l_exec_array = seqstr2charpp(space, w_executable_list)
 
         if not space.is_none(w_process_args):
-            argv = [space.fsencode_w(w_item)
-                    for w_item in space.listview(w_process_args)]
+            w_iter = space.iter(w_process_args)
+            argv = [space.fsencode_w(space.next(w_iter))
+                    for i in range(space.len_w(w_process_args))]
             l_argv = rffi.liststr2charpp(argv)
 
         if not space.is_none(w_env_list):
-            envp = [space.bytes0_w(w_item)
-                    for w_item in space.listview(w_env_list)]
-            l_envp = rffi.liststr2charpp(envp)
+            l_envp = seqstr2charpp(space, w_env_list)
 
         l_fds_to_keep = lltype.malloc(rffi.CArrayPtr(rffi.LONG).TO,
                                       len(fds_to_keep) + 1, flavor='raw')
