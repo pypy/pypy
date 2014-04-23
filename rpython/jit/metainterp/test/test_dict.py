@@ -342,6 +342,21 @@ class DictTests:
         self.meta_interp(f, [10])
         self.check_simple_loop(call_may_force=0, call=3)
 
+    def test_dict_virtual(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(n):
+            d = {}
+            while n > 0:
+                myjitdriver.jit_merge_point()
+                if n % 10 == 0:
+                    n -= len(d)
+                d = {}
+                d["a"] = n
+                n -= 1
+            return len(d)
+        self.meta_interp(f, [100])
+        self.check_simple_loop(call_may_force=0, call=0, new=0)
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

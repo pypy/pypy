@@ -6,8 +6,11 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import libffi, rdynload
+from rpython.tool.udir import udir
+
+from pypy.module.cppyy.capi.capi_types import C_OBJECT
 
 
 __all__ = ['identify', 'std_string_name', 'eci', 'c_load_dictionary']
@@ -19,21 +22,21 @@ incpath = pkgpath.join("include")
 if os.environ.get("ROOTSYS"):
     import commands
     (stat, incdir) = commands.getstatusoutput("root-config --incdir")
-    if stat != 0:        # presumably Reflex-only
-        rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
+    if stat != 0:
+        rootincpath = [os.path.join(os.environ["ROOTSYS"], "include"), py.path.local(udir)]
         rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib64"), os.path.join(os.environ["ROOTSYS"], "lib")]
     else:
-        rootincpath = [incdir]
+        rootincpath = [incdir, py.path.local(udir)]
         rootlibpath = commands.getoutput("root-config --libdir").split()
 else:
-    rootincpath = []
+    rootincpath = [py.path.local(udir)]
     rootlibpath = []
 
 def identify():
     return 'CINT'
 
-ts_reflect = False
-ts_call    = False
+ts_reflect = True
+ts_call    = True
 ts_memory  = False
 ts_helper  = False
 
@@ -47,13 +50,15 @@ with rffi.scoped_str2charp('libCint.so') as ll_libname:
     _cintdll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 with rffi.scoped_str2charp('libCore.so') as ll_libname:
     _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
+with rffi.scoped_str2charp('libHist.so') as ll_libname:
+    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-    libraries=["Core", "Cint"],
+    libraries=["Hist", "Core", "Cint"],
     use_cpp_linker=True,
 )
 
@@ -71,6 +76,23 @@ def c_load_dictionary(name):
 
 
 # CINT-specific pythonizations ===============================================
+_c_charp2TString = rffi.llexternal(
+    "cppyy_charp2TString",
+    [rffi.CCHARP], C_OBJECT,
+    releasegil=ts_helper,
+    compilation_info=eci)
+def c_charp2TString(space, svalue):
+    charp = rffi.str2charp(svalue)
+    result = _c_charp2TString(charp)
+    rffi.free_charp(charp)
+    return result
+_c_TString2TString = rffi.llexternal(
+    "cppyy_TString2TString",
+    [C_OBJECT], C_OBJECT,
+    releasegil=ts_helper,
+    compilation_info=eci)
+def c_TString2TString(space, cppobject):
+    return _c_TString2TString(cppobject)
 
 def _get_string_data(space, w_obj, m1, m2 = None):
     from pypy.module.cppyy import interp_cppyy
@@ -80,10 +102,85 @@ def _get_string_data(space, w_obj, m1, m2 = None):
         return w_1
     return obj.space.call_method(w_1, m2)
 
+### TF1 ----------------------------------------------------------------------
+class State(object):
+    def __init__(self, space):
+        self.tfn_pyfuncs = []
+        self.tfn_callbacks = []
+
+_create_tf1 = rffi.llexternal(
+    "cppyy_create_tf1",
+    [rffi.CCHARP, rffi.ULONG, rffi.DOUBLE, rffi.DOUBLE, rffi.INT], C_OBJECT,
+    releasegil=False,
+    compilation_info=eci)
+
+@unwrap_spec(args_w='args_w')
+def tf1_tf1(space, w_self, args_w):
+    """Pythonized version of TF1 constructor:
+    takes functions and callable objects, and allows a callback into them."""
+
+    from pypy.module.cppyy import interp_cppyy
+    tf1_class = interp_cppyy.scope_byname(space, "TF1")
+
+    # expected signature:
+    #  1. (char* name, pyfunc, double xmin, double xmax, int npar = 0)
+    argc = len(args_w)
+
+    try:
+        # Note: argcount is +1 for the class (== w_self)
+        if argc < 5 or 6 < argc:
+            raise TypeError("wrong number of arguments")
+
+        # second argument must be a name
+        funcname = space.str_w(args_w[1])
+
+        # last (optional) argument is number of parameters
+        npar = 0
+        if argc == 6: npar = space.int_w(args_w[5])
+
+        # third argument must be a callable python object
+        w_callable = args_w[2]
+        if not space.is_true(space.callable(w_callable)):
+            raise TypeError("2nd argument is not a valid python callable")
+
+        # generate a pointer to function
+        from pypy.module._cffi_backend import newtype, ctypefunc, func
+
+        c_double  = newtype.new_primitive_type(space, 'double')
+        c_doublep = newtype.new_pointer_type(space, c_double)
+
+        # wrap the callable as the signature needs modifying
+        w_ifunc = interp_cppyy.get_interface_func(space, w_callable, npar)
+
+        w_cfunc = ctypefunc.W_CTypeFunc(space, [c_doublep, c_doublep], c_double, False)
+        w_callback = func.callback(space, w_cfunc, w_ifunc, None)
+        funcaddr = rffi.cast(rffi.ULONG, w_callback.get_closure())
+
+        # so far, so good; leaves on issue: CINT is expecting a wrapper, but
+        # we need the overload that takes a function pointer, which is not in
+        # the dictionary, hence this helper:
+        newinst = _create_tf1(space.str_w(args_w[1]), funcaddr,
+                      space.float_w(args_w[3]), space.float_w(args_w[4]), npar)
+ 
+        from pypy.module.cppyy import interp_cppyy
+        w_instance = interp_cppyy.wrap_cppobject(space, newinst, tf1_class,
+                                      do_cast=False, python_owns=True, fresh=True)
+
+        # tie all the life times to the TF1 instance
+        space.setattr(w_instance, space.wrap('_callback'), w_callback)
+
+        return w_instance
+    except (OperationError, TypeError, IndexError), e:
+        newargs_w = args_w[1:]     # drop class
+
+    # return control back to the original, unpythonized overload
+    ol = tf1_class.get_overload("TF1")
+    return ol.call(None, newargs_w)
+
 ### TTree --------------------------------------------------------------------
 _ttree_Branch = rffi.llexternal(
     "cppyy_ttree_Branch",
-    [rffi.VOIDP, rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.INT, rffi.INT], rffi.LONG,
+    [rffi.VOIDP, rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.INT, rffi.INT], C_OBJECT,
     releasegil=False,
     compilation_info=eci)
 
@@ -202,6 +299,8 @@ def ttree_getattr(space, w_self, args_w):
         # some instance
         klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
         w_obj = klass.construct()
+        # 0x10000 = kDeleteObject; reset because we own the object
+        space.call_method(w_branch, "ResetBit", space.wrap(0x10000))
         space.call_method(w_branch, "SetObject", w_obj)
         space.call_method(w_branch, "GetEntry", space.wrap(entry))
         space.setattr(w_self, args_w[0], w_obj)
@@ -274,6 +373,9 @@ def register_pythonizations(space):
 
     allfuncs = [
 
+        ### TF1
+        tf1_tf1,
+
         ### TTree
         ttree_Branch, ttree_iter, ttree_getattr,
     ]
@@ -288,7 +390,14 @@ def _method_alias(space, w_pycppclass, m1, m2):
 # callback coming in when app-level bound classes have been created
 def pythonize(space, name, w_pycppclass):
 
-    if name == "TFile":
+    if name == "TCollection":
+        _method_alias(space, w_pycppclass, "append", "Add")
+        _method_alias(space, w_pycppclass, "__len__", "GetSize")
+
+    elif name == "TF1":
+        space.setattr(w_pycppclass, space.wrap("__new__"), _pythonizations["tf1_tf1"])
+
+    elif name == "TFile":
         _method_alias(space, w_pycppclass, "__getattr__", "Get")
 
     elif name == "TObjString":
@@ -310,3 +419,17 @@ def pythonize(space, name, w_pycppclass):
 
     elif name[0:8] == "TVectorT":    # TVectorT<> template
         _method_alias(space, w_pycppclass, "__len__", "GetNoElements")
+
+# destruction callback (needs better solution, but this is for CINT
+# only and should not appear outside of ROOT-specific uses)
+from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
+
+@cpython_api([rffi.VOIDP], lltype.Void, error=CANNOT_FAIL)
+def _Py_cppyy_recursive_remove(space, cppobject):
+    from pypy.module.cppyy.interp_cppyy import memory_regulator
+    from pypy.module.cppyy.capi import C_OBJECT, C_NULL_OBJECT
+
+    obj = memory_regulator.retrieve(rffi.cast(C_OBJECT, cppobject))
+    if obj is not None:
+        memory_regulator.unregister(obj)
+        obj._rawobject = C_NULL_OBJECT

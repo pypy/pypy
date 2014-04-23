@@ -51,7 +51,8 @@ class BaseTestWithUnroll(BaseTest):
         if expected_preamble:
             expected_preamble = self.parse(expected_preamble)
         if expected_short:
-            expected_short = self.parse(expected_short)
+            # the short preamble doesn't have fail descrs, they are patched in when it is used
+            expected_short = self.parse(expected_short, want_fail_descr=False)
 
         preamble = self.unroll_and_optimize(loop, call_pure_results)
 

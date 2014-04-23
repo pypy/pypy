@@ -1,6 +1,7 @@
 import os, sys, imp
 import tempfile, binascii
 
+
 def get_hashed_dir(cfile):
     with open(cfile,'r') as fid:
         content = fid.read()
@@ -15,7 +16,7 @@ def get_hashed_dir(cfile):
     output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s%s' %(k1, k2)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    return output_dir 
+    return output_dir
 
 
 def _get_c_extension_suffix():

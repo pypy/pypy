@@ -17,7 +17,7 @@ typedef struct
 #ifdef __cplusplus
 struct CPPYY_G__p2p {
 #else
-#typedef struct
+typedef struct {
 #endif
   long i;
   int reftype;

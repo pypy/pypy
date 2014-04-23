@@ -623,11 +623,15 @@ elif WIN32:
 
 if WIN32:
     WSAData = cConfig.WSAData
-    WSAStartup = external('WSAStartup', [rffi.INT, lltype.Ptr(WSAData)],
+    WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
-    WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
+    WSAGetLastError = external('WSAGetLastError', [], rffi.INT, releasegil=False)
     geterrno = WSAGetLastError
+
+    # In tests, the first call to GetLastError is always wrong, because error
+    # is hidden by operations in ll2ctypes.  Call it now.
+    WSAGetLastError()
 
     from rpython.rlib import rwin32
 
