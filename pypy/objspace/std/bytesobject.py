@@ -477,8 +477,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def _len(self):
         return len(self._value)
 
-    def _val(self, space):
-        return self._value
+    _val = str_w
 
     @staticmethod
     def _op_val(space, w_other):

@@ -100,10 +100,10 @@ class W_UnicodeObject(W_Root):
     def _len(self):
         return len(self._value)
 
-    def _val(self, space):
-        return self._value
+    _val = unicode_w
 
-    def _op_val(self, space, w_other):
+    @staticmethod
+    def _op_val(space, w_other):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
         if space.isinstance_w(w_other, space.w_str):

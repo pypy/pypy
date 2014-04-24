@@ -58,10 +58,10 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_IndexError, "bytearray index out of range")
         return space.wrap(ord(character))
 
-    def _val(self, space):
-        return space.buffer_w(self, space.BUF_SIMPLE).as_str()
+    _val = charbuf_w
 
-    def _op_val(self, space, w_other):
+    @staticmethod
+    def _op_val(space, w_other):
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
