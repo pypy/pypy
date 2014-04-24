@@ -682,6 +682,13 @@ class AppTestSocketTCP:
         msg = buf.tostring()[:len(MSG)]
         assert msg == MSG
 
+        conn.send(MSG)
+        buf = bytearray(1024)
+        nbytes = cli.recv_into(memoryview(buf))
+        assert nbytes == len(MSG)
+        msg = buf[:len(MSG)]
+        assert msg == MSG
+
     def test_recvfrom_into(self):
         import socket
         import array
@@ -695,6 +702,13 @@ class AppTestSocketTCP:
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]
+        assert msg == MSG
+
+        conn.send(MSG)
+        buf = bytearray(1024)
+        nbytes, addr = cli.recvfrom_into(memoryview(buf))
+        assert nbytes == len(MSG)
+        msg = buf[:len(MSG)]
         assert msg == MSG
 
     def test_family(self):
