@@ -40,6 +40,9 @@ class W_MyObject(W_Root):
     def setclass(self, space, w_subtype):
         is_root(w_subtype)
 
+    def buffer_w(self, space, flags):
+        return Buffer()
+
     def str_w(self, space):
         return NonConstant("foobar")
 
@@ -295,14 +298,6 @@ class FakeObjSpace(ObjSpace):
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = None
         return ec
-
-    def readbuf_w(self, w_obj):
-        is_root(w_obj)
-        return Buffer()
-
-    def writebuf_w(self, w_obj):
-        is_root(w_obj)
-        return Buffer()
 
     def unicode_from_object(self, w_obj):
         return w_some_obj()
