@@ -155,6 +155,11 @@ class BaseArrayTests:
         a.fromstring('Hi!')
         assert a[0] == 'H' and a[1] == 'i' and a[2] == '!' and len(a) == 3
         a = self.array('c')
+        a.fromstring(buffer('xyz'))
+        exc = raises(TypeError, a.fromstring, memoryview('xyz'))
+        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
+        assert a[0] == 'x' and a[1] == 'y' and a[2] == 'z' and len(a) == 3
+        a = self.array('c')
         a.fromstring('')
         assert not len(a)
 

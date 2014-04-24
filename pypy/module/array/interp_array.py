@@ -42,7 +42,7 @@ def w_array(space, w_cls, typecode, __args__):
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
-                    a.descr_fromstring(space, space.str_w(w_initializer))
+                    a.descr_fromstring(space, w_initializer)
                 elif space.type(w_initializer) is space.w_list:
                     a.descr_fromlist(space, w_initializer)
                 else:
@@ -232,13 +232,13 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
         return self.space.wrap(s)
 
-    @unwrap_spec(s=str)
-    def descr_fromstring(self, space, s):
+    def descr_fromstring(self, space, w_s):
         """ fromstring(string)
 
         Appends items from the string, interpreting it as an array of machine
         values,as if it had been read from a file using the fromfile() method).
         """
+        s = space.getarg_w('s#', w_s)
         if len(s) % self.itemsize != 0:
             msg = 'string length not a multiple of item size'
             raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
@@ -270,10 +270,10 @@ class W_ArrayBase(W_Root):
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
-            self.descr_fromstring(space, item)
+            self.descr_fromstring(space, space.wrap(item))
             msg = "not enough items in file"
             raise OperationError(space.w_EOFError, space.wrap(msg))
-        self.descr_fromstring(space, item)
+        self.descr_fromstring(space, w_item)
 
     @unwrap_spec(w_f=W_File)
     def descr_tofile(self, space, w_f):
