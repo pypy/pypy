@@ -1416,6 +1416,10 @@ class ObjSpace(object):
 
     @specialize.arg(1)
     def getarg_w(self, code, w_obj):
+        if code == 'z*':
+            if self.is_none(w_obj):
+                return None
+            code = 's*'
         if code == 's*':
             if self.isinstance_w(w_obj, self.w_str):
                 return w_obj.readbuf_w(self)

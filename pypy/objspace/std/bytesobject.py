@@ -449,8 +449,11 @@ class W_BytesObject(W_AbstractBytesObject):
     def readbuf_w(self, space):
         return StringBuffer(self._value)
 
-    def charbuf_w(self, space):
-        return self._value
+    def writebuf_w(self, space):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "Cannot use string as modifiable buffer"))
+
+    charbuf_w = str_w
 
     def listview_bytes(self):
         return _create_list_from_bytes(self._value)
