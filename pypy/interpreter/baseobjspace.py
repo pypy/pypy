@@ -5,7 +5,7 @@ from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
-     compute_unique_id)
+     compute_unique_id, specialize)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX
@@ -1369,6 +1369,11 @@ class ObjSpace(object):
     BUF_FULL_RO = 1
     BUF_CONTIG = 2
     BUF_CONTIG_RO = 3
+    BUF_WRITABLE = 4
+
+    def check_buf_flags(self, flags, readonly):
+        if flags & self.BUF_WRITABLE == self.BUF_WRITABLE and readonly:
+            raise oefmt(self.w_BufferError, "Object is not writable.")
 
     def buffer_w(self, w_obj, flags):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
@@ -1401,6 +1406,26 @@ class ObjSpace(object):
         except TypeError:
             raise oefmt(self.w_TypeError,
                         "expected a character buffer object")
+
+    def _getarg_error(self, expected, w_obj):
+        raise oefmt(self.w_TypeError, "must be %s, not %T", expected, w_obj)
+
+    @specialize.arg(1)
+    def getarg_w(self, code, w_obj):
+        if code == 'w*':
+            try:
+                try:
+                    return w_obj.buffer_w(self, self.BUF_WRITABLE)
+                except OperationError:
+                    self._getarg_error("read-write buffer", w_obj)
+            except TypeError:
+                pass
+            try:
+                return w_obj.writebuf_w(self)
+            except TypeError:
+                self._getarg_error("read-write buffer", w_obj)
+        else:
+            assert False
 
     # XXX rename these/replace with code more like CPython getargs for buffers
     def bufferstr_w(self, w_obj):

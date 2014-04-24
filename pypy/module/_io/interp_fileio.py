@@ -366,7 +366,7 @@ class W_FileIO(W_RawIOBase):
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
         self._check_readable(space)
-        rwbuffer = space.buffer_w(w_buffer, space.BUF_CONTIG)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         length = rwbuffer.getlength()
         try:
             buf = os.read(self.fd, length)

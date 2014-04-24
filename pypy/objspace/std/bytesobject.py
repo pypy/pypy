@@ -443,6 +443,7 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._value
 
     def buffer_w(self, space, flags):
+        space.check_buf_flags(flags, True)
         return StringBuffer(self._value)
 
     def readbuf_w(self, space):
