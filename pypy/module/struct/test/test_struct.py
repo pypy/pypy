@@ -369,6 +369,8 @@ class AppTestStruct(object):
             assert str(buffer(b)) == ('\x00' * 2 +
                                       self.struct.pack("ii", 17, 42) +
                                       '\x00' * (19-sz-2))
+        exc = raises(TypeError, self.struct.pack_into, "ii", buffer(b), 0, 17, 42)
+        assert str(exc.value) == "buffer is read-only"
         exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
         assert str(exc.value) == "Cannot use string as modifiable buffer"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)

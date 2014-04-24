@@ -29,6 +29,9 @@ class W_Buffer(W_Root):
         return self.buf
 
     def writebuf_w(self, space):
+        if self.buf.readonly:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "buffer is read-only"))
         return self.buf
 
     def charbuf_w(self, space):
