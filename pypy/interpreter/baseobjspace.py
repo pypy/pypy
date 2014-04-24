@@ -1411,7 +1411,7 @@ class ObjSpace(object):
         if self.is_none(w_obj):
             name = "None"
         else:
-            name = self.type(w_obj).getname(self)
+            name = self.type(w_obj).get_module_type_name()
         raise oefmt(self.w_TypeError, "must be %s, not %s", expected, name)
 
     @specialize.arg(1)
@@ -1429,6 +1429,15 @@ class ObjSpace(object):
                 return w_obj.readbuf_w(self)
             except TypeError:
                 self._getarg_error("string or buffer", w_obj)
+        elif code == 's#':
+            if self.isinstance_w(w_obj, self.w_str):
+                return w_obj.str_w(self)
+            if self.isinstance_w(w_obj, self.w_unicode):
+                return self.str(w_obj).str_w(self)
+            try:
+                return w_obj.readbuf_w(self).as_str()
+            except TypeError:
+                self._getarg_error("string or read-only buffer")
         elif code == 'w*':
             try:
                 try:
@@ -1441,6 +1450,11 @@ class ObjSpace(object):
                 return w_obj.writebuf_w(self)
             except TypeError:
                 self._getarg_error("read-write buffer", w_obj)
+        elif code == 't#':
+            try:
+                return w_obj.charbuf_w(self)
+            except TypeError:
+                self._getarg_error("string or read-only character buffer", w_obj)
         else:
             assert False
 

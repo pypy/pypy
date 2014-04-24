@@ -76,6 +76,8 @@ class W_UnicodeObject(W_Root):
         raise OperationError(space.w_TypeError, space.wrap(
             "cannot use unicode as modifiable buffer"))
 
+    charbuf_w = str_w
+
     def listview_unicode(w_self):
         return _create_list_from_unicode(w_self._value)
 

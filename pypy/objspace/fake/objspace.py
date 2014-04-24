@@ -73,6 +73,9 @@ class W_MyType(W_MyObject):
     def get_module(self):
         return w_some_obj()
 
+    def get_module_type_name(self):
+        return self.name
+
 def w_some_obj():
     if NonConstant(False):
         return W_Root()
