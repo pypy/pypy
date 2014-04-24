@@ -421,12 +421,8 @@ class BaseArrayTests:
     def test_buffer_write(self):
         a = self.array('c', 'hello')
         buf = buffer(a)
-        print repr(buf)
-        try:
-            buf[3] = 'L'
-        except TypeError:
-            skip("buffer(array) returns a read-only buffer on CPython")
-        assert a.tostring() == 'helLo'
+        exc = raises(TypeError, "buf[3] = 'L'")
+        assert str(exc.value) == "buffer is read-only"
 
     def test_buffer_keepalive(self):
         buf = buffer(self.array('c', 'text'))

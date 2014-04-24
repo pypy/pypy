@@ -1,6 +1,7 @@
 from __future__ import with_statement
 
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -9,7 +10,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
@@ -132,8 +132,11 @@ class W_ArrayBase(W_Root):
         self.len = 0
         self.allocated = 0
 
-    def buffer_w(self, space):
-        return ArrayBuffer(self)
+    def readbuf_w(self, space):
+        return ArrayBuffer(self, True)
+
+    def writebuf_w(self, space):
+        return ArrayBuffer(self, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -583,9 +586,12 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(RWBuffer):
-    def __init__(self, array):
+class ArrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, array, readonly):
         self.array = array
+        self.readonly = readonly
 
     def getlength(self):
         return self.array.len * self.array.itemsize

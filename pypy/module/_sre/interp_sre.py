@@ -114,7 +114,7 @@ class W_SRE_Pattern(W_Root):
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         else:
-            buf = space.buffer_w(w_string)
+            buf = space.readbuf_w(w_string)
             size = buf.getlength()
             assert size >= 0
             if pos > size:

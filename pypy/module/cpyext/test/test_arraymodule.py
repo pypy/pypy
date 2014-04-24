@@ -53,8 +53,11 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
     def test_buffer(self):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
+        buf = buffer(arr)
+        exc = raises(TypeError, "buf[1] = '1'")
+        assert str(exc.value) == "buffer is read-only"
         # XXX big-endian
-        assert str(buffer(arr)) == ('\x01\0\0\0'
-                                    '\x02\0\0\0'
-                                    '\x03\0\0\0'
-                                    '\x04\0\0\0')
+        assert str(buf) == ('\x01\0\0\0'
+                            '\x02\0\0\0'
+                            '\x03\0\0\0'
+                            '\x04\0\0\0')

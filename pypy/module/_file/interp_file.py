@@ -267,9 +267,14 @@ class W_File(W_AbstractStream):
 
     def direct_write(self, w_data):
         space = self.space
-        if not self.binary and space.isinstance_w(w_data, space.w_unicode):
-            w_data = space.call_method(w_data, "encode", space.wrap(self.encoding), space.wrap(self.errors))
-        data = space.bufferstr_w(w_data)
+        if self.binary:
+            data = space.getarg_w('s*', w_data).as_str()
+        else:
+            if space.isinstance_w(w_data, space.w_unicode):
+                w_data = space.call_method(w_data, "encode",
+                                           space.wrap(self.encoding),
+                                           space.wrap(self.errors))
+            data = space.charbuf_w(w_data)
         self.do_direct_write(data)
 
     def do_direct_write(self, data):
@@ -469,7 +474,7 @@ producing strings. This is equivalent to calling write() for each string."""
         """readinto() -> Undocumented.  Don't use this; it may go away."""
         # XXX not the most efficient solution as it doesn't avoid the copying
         space = self.space
-        rwbuffer = space.rwbuffer_w(w_rwbuffer)
+        rwbuffer = space.writebuf_w(w_rwbuffer)
         w_data = self.file_read(rwbuffer.getlength())
         data = space.str_w(w_data)
         rwbuffer.setslice(0, data)
