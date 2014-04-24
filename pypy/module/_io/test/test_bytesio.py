@@ -103,6 +103,8 @@ class AppTestBytesIO:
         assert str(exc.value) == "cannot use unicode as modifiable buffer"
         exc = raises(TypeError, b.readinto, buffer(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, b.readinto, buffer(bytearray("hello")))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, b.readinto, memoryview(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not memoryview"
         b.close()

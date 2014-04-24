@@ -143,6 +143,8 @@ class AppTestBufferedReader:
         assert str(exc.value) == "cannot use unicode as modifiable buffer"
         exc = raises(TypeError, f.readinto, buffer(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()

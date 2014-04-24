@@ -28,13 +28,13 @@ class W_BytearrayObject(W_Root):
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
     def buffer_w(self, space, flags):
-        return BytearrayBuffer(self.data)
+        return BytearrayBuffer(self.data, False)
 
     def readbuf_w(self, space):
-        return BytearrayBuffer(self.data)
+        return BytearrayBuffer(self.data, True)
 
     def writebuf_w(self, space):
-        return BytearrayBuffer(self.data)
+        return BytearrayBuffer(self.data, False)
 
     def charbuf_w(self, space):
         return ''.join(self.data)
@@ -1131,9 +1131,9 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
 class BytearrayBuffer(Buffer):
     _immutable_ = True
 
-    def __init__(self, data):
+    def __init__(self, data, readonly):
         self.data = data
-        self.readonly = False
+        self.readonly = readonly
 
     def getlength(self):
         return len(self.data)
