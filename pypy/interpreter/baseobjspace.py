@@ -1449,11 +1449,15 @@ class ObjSpace(object):
         try:
             buf = w_obj.buffer_w(self, 0)
         except TypeError:
-            try:
-                buf = w_obj.readbuf_w(self)
-            except TypeError:
-                self._getarg_error("string or buffer", w_obj)
-        return buf.as_str()
+            pass
+        else:
+            return buf.as_str()
+        try:
+            buf = w_obj.readbuf_w(self)
+        except TypeError:
+            self._getarg_error("string or buffer", w_obj)
+        else:
+            return buf.as_str()
 
     def str_or_None_w(self, w_obj):
         if self.is_w(w_obj, self.w_None):
