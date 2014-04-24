@@ -139,6 +139,8 @@ class AppTestBufferedReader:
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         assert f.readinto(a) == 5
+        exc = raises(TypeError, f.readinto, buffer(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()

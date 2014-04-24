@@ -97,6 +97,8 @@ class AppTestBytesIO:
         a2 = bytearray('testing')
         assert b.readinto(a1) == 1
         assert b.readinto(a2) == 4
+        exc = raises(TypeError, b.readinto, buffer(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, b.readinto, memoryview(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not memoryview"
         b.close()

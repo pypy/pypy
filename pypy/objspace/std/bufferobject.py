@@ -22,6 +22,7 @@ class W_Buffer(W_Root):
         self.buf = buf
 
     def buffer_w(self, space, flags):
+        space.check_buf_flags(flags, self.buf.readonly)
         return self.buf
 
     def readbuf_w(self, space):

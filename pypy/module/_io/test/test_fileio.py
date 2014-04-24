@@ -135,6 +135,8 @@ class AppTestFileIO:
         a = bytearray('x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         assert f.readinto(a) == 10
+        exc = raises(TypeError, f.readinto, buffer(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
