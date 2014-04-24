@@ -7,11 +7,12 @@ def pytest_runtest_setup(item):
         if 'dummy' in lcapi.reflection_library:
             # run only tests that are covered by the dummy backend and tests
             # that do not rely on reflex
-            if not item.location[0] in ['test_helper.py', 'test_cppyy.py']:
+            if not ('test_helper.py' in item.location[0] or \
+                    'test_cppyy.py' in item.location[0]):
                 py.test.skip("genreflex is not installed")
             import re
-            if item.location[0] == 'test_cppyy.py' and \
-                not re.search("test0[1-3]", item.location[2]):
+            if 'test_cppyy.py' in item.location[0] and \
+                not re.search("test0[1-36]", item.location[2]):
                 py.test.skip("genreflex is not installed")
 
 def pytest_configure(config):
