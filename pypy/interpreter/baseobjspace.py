@@ -1371,7 +1371,7 @@ class ObjSpace(object):
     BUF_CONTIG_RO = 3
 
     def buffer_w(self, w_obj, flags):
-        # New buffer interface, returns a buffer based on flags
+        # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
             return w_obj.buffer_w(self, flags)
         except TypeError:
@@ -1379,7 +1379,7 @@ class ObjSpace(object):
                         "'%T' does not have the buffer interface", w_obj)
 
     def readbuf_w(self, w_obj):
-        # Old buffer interface, returns a readonly buffer
+        # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
             return w_obj.readbuf_w(self)
         except TypeError:
@@ -1387,7 +1387,7 @@ class ObjSpace(object):
                         "expected a readable buffer object")
 
     def writebuf_w(self, w_obj):
-        # Old buffer interface, returns a writeable buffer
+        # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
             return w_obj.writebuf_w(self)
         except TypeError:
@@ -1395,7 +1395,7 @@ class ObjSpace(object):
                         "expected a writeable buffer object")
 
     def charbuf_w(self, w_obj):
-        # Old buffer interface, returns a character buffer
+        # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
         try:
             return w_obj.charbuf_w(self)
         except TypeError:
