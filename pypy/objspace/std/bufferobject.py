@@ -37,18 +37,7 @@ class W_Buffer(W_Root):
     @staticmethod
     @unwrap_spec(offset=int, size=int)
     def descr_new_buffer(space, w_subtype, w_object, offset=0, size=-1):
-        if space.isinstance_w(w_object, space.w_unicode):
-            # unicode objects support the old buffer interface
-            # but not the new buffer interface (change in python 2.7)
-            from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-            unistr = space.unicode_w(w_object)
-            builder = StringBuilder(len(unistr) * UNICODE_SIZE)
-            for unich in unistr:
-                pack_unichar(unich, builder)
-            buf = StringBuffer(builder.build())
-        else:
-            buf = space.readbuf_w(w_object)
-
+        buf = space.readbuf_w(w_object)
         if offset == 0 and size == -1:
             return W_Buffer(buf)
         # handle buffer slices

@@ -2,7 +2,8 @@
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.buffer import StringBuffer
+from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
     unicode_encode_ascii, unicode_encode_utf_8)
@@ -63,6 +64,17 @@ class W_UnicodeObject(W_Root):
 
     def unicode_w(self, space):
         return self._value
+
+    def readbuf_w(self, space):
+        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
+        builder = StringBuilder(len(self._value) * UNICODE_SIZE)
+        for unich in self._value:
+            pack_unichar(unich, builder)
+        return StringBuffer(builder.build())
+
+    def writebuf_w(self, space):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "cannot use unicode as modifiable buffer"))
 
     def listview_unicode(w_self):
         return _create_list_from_unicode(w_self._value)

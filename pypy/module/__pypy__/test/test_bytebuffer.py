@@ -25,3 +25,5 @@ class AppTest(object):
         assert str(b) == "\x00xy" + "\x00" * 7
         b[4:8:2] = 'zw'
         assert str(b) == "\x00xy\x00z\x00w" + "\x00" * 3
+        b[6:10] = u'#'
+        assert str(b) == "\x00xy\x00z\x00#" + "\x00" * 3
