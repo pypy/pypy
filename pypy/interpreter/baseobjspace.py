@@ -1437,7 +1437,7 @@ class ObjSpace(object):
             try:
                 return w_obj.readbuf_w(self).as_str()
             except TypeError:
-                self._getarg_error("string or read-only buffer")
+                self._getarg_error("string or read-only buffer", w_obj)
         elif code == 'w*':
             try:
                 try:
