@@ -61,7 +61,7 @@ class W_Buffer(W_Root):
         return space.wrap(res)
 
     def descr_setitem(self, space, w_index, w_obj):
-        if not self.buf.is_writable():
+        if self.buf.readonly:
             raise OperationError(space.w_TypeError,
                                  space.wrap("buffer is read-only"))
         start, stop, step, size = space.decode_index4(w_index, self.buf.getlength())
@@ -117,10 +117,10 @@ class W_Buffer(W_Root):
         return space.call_method(w_string, '__mul__', w_times)
 
     def descr_repr(self, space):
-        if self.buf.is_writable():
-            info = 'read-write buffer'
-        else:
+        if self.buf.readonly:
             info = 'read-only buffer'
+        else:
+            info = 'read-write buffer'
         addrstring = self.getaddrstring(space)
 
         return space.wrap("<%s for 0x%s, size %d>" %

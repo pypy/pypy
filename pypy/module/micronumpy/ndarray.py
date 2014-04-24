@@ -1218,7 +1218,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                                                   w_subtype=w_subtype,
                                                   w_base=w_buffer,
-                                                  writable=buf.is_writable())
+                                                  writable=not buf.readonly)
 
     order = order_converter(space, w_order, NPY.CORDER)
     if order == NPY.CORDER:

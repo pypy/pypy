@@ -37,9 +37,6 @@ class Buffer(object):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
-    def is_writable(self):
-        return not self.readonly
-
 
 class StringBuffer(Buffer):
     __slots__ = ['value']

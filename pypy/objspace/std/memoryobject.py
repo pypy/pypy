@@ -91,7 +91,7 @@ class W_MemoryView(W_Root):
         return space.wrap(res)
 
     def descr_setitem(self, space, w_index, w_obj):
-        if not self.buf.is_writable():
+        if self.buf.readonly:
             raise OperationError(space.w_TypeError, space.wrap(
                 "cannot modify read-only memory"))
         start, stop, step, size = space.decode_index4(w_index, self.buf.getlength())
@@ -119,7 +119,7 @@ class W_MemoryView(W_Root):
         return space.wrap(1)
 
     def w_is_readonly(self, space):
-        return space.wrap(not self.buf.is_writable())
+        return space.wrap(self.buf.readonly)
 
     def w_get_shape(self, space):
         return space.newtuple([space.wrap(self.getlength())])
