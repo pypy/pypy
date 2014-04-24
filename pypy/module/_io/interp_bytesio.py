@@ -50,10 +50,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def write_w(self, space, w_data):
         self._check_closed(space)
-        if space.isinstance_w(w_data, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "bytes string of buffer expected"))
-        buf = space.bufferstr_w(w_data)
+        buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
             return space.wrap(0)

@@ -1416,7 +1416,20 @@ class ObjSpace(object):
 
     @specialize.arg(1)
     def getarg_w(self, code, w_obj):
-        if code == 'w*':
+        if code == 's*':
+            if self.isinstance_w(w_obj, self.w_str):
+                return w_obj.readbuf_w(self)
+            if self.isinstance_w(w_obj, self.w_unicode):
+                return self.str(w_obj).readbuf_w(self)
+            try:
+                return w_obj.buffer_w(self, 0)
+            except TypeError:
+                pass
+            try:
+                return w_obj.readbuf_w(self)
+            except TypeError:
+                self._getarg_error("string or buffer", w_obj)
+        elif code == 'w*':
             try:
                 try:
                     return w_obj.buffer_w(self, self.BUF_WRITABLE)

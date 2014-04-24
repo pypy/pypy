@@ -333,7 +333,7 @@ class W_FileIO(W_RawIOBase):
     def write_w(self, space, w_data):
         self._check_closed(space)
         self._check_writable(space)
-        data = space.bufferstr_w(w_data)
+        data = space.getarg_w('s*', w_data).as_str()
 
         try:
             n = os.write(self.fd, data)
