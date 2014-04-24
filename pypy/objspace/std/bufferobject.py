@@ -10,7 +10,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rstring import StringBuilder
-from pypy.objspace.std.memoryobject import _buffer_setitem
 
 
 class W_Buffer(W_Root):
@@ -71,12 +70,26 @@ class W_Buffer(W_Root):
         res = self.buf.getslice(start, stop, step, size)
         return space.wrap(res)
 
-    @unwrap_spec(newstring='bufferstr')
-    def descr_setitem(self, space, w_index, newstring):
+    def descr_setitem(self, space, w_index, w_obj):
         if not self.buf.is_writable():
             raise OperationError(space.w_TypeError,
                                  space.wrap("buffer is read-only"))
-        _buffer_setitem(space, self.buf, w_index, newstring)
+        start, stop, step, size = space.decode_index4(w_index, self.buf.getlength())
+        value = space.readbuf_w(w_obj)
+        if step == 0:  # index only
+            if value.getlength() != 1:
+                msg = "right operand must be a single byte"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            self.buf.setitem(start, value.getitem(0))
+        else:
+            if value.getlength() != size:
+                msg = "right operand length must match slice length"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            if step == 1:
+                self.buf.setslice(start, value.as_str())
+            else:
+                for i in range(size):
+                    self.buf.setitem(start + i * step, value.getitem(i))
 
     def descr_str(self, space):
         return space.wrap(self.buf.as_str())

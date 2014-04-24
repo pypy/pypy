@@ -10,25 +10,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 
-def _buffer_setitem(space, buf, w_index, newstring):
-    start, stop, step, size = space.decode_index4(w_index, buf.getlength())
-    if step == 0:  # index only
-        if len(newstring) != 1:
-            msg = 'buffer[index]=x: x must be a single character'
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        char = newstring[0]   # annotator hint
-        buf.setitem(start, char)
-    elif step == 1:
-        if len(newstring) != size:
-            msg = "right operand length must match slice length"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
-        buf.setslice(start, newstring)
-    else:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("buffer object does not support"
-                                        " slicing with a step"))
-
-
 class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
@@ -40,7 +21,8 @@ class W_MemoryView(W_Root):
         self.buf = buf
 
     def buffer_w(self, space, flags):
-        return space.buffer_w(self.obj, flags)
+        space.check_buf_flags(flags, self.buf.readonly)
+        return self.buf
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
@@ -101,22 +83,28 @@ class W_MemoryView(W_Root):
 
     def descr_getitem(self, space, w_index):
         start, stop, step = space.decode_index(w_index, self.getlength())
+        if step not in (0, 1):
+            raise OperationError(space.w_NotImplementedError, space.wrap(""))
         if step == 0:  # index only
             return space.wrap(self.buf.getitem(start))
-        elif step == 1:
-            res = self.getslice(start, stop)
-            return space.wrap(res)
-        else:
-            raise OperationError(space.w_ValueError,
-                space.wrap("memoryview object does not support"
-                           " slicing with a step"))
+        res = self.getslice(start, stop)
+        return space.wrap(res)
 
-    @unwrap_spec(newstring='bufferstr')
-    def descr_setitem(self, space, w_index, newstring):
+    def descr_setitem(self, space, w_index, w_obj):
         if not self.buf.is_writable():
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("cannot modify read-only memory"))
-        _buffer_setitem(space, self.buf, w_index, newstring)
+            raise OperationError(space.w_TypeError, space.wrap(
+                "cannot modify read-only memory"))
+        start, stop, step, size = space.decode_index4(w_index, self.buf.getlength())
+        if step not in (0, 1):
+            raise OperationError(space.w_NotImplementedError, space.wrap(""))
+        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+        if value.getlength() != size:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "cannot modify size of memoryview object"))
+        if step == 0:  # index only
+            self.buf.setitem(start, value.getitem(0))
+        elif step == 1:
+            self.buf.setslice(start, value.as_str())
 
     def descr_len(self, space):
         return space.wrap(self.buf.getlength())
