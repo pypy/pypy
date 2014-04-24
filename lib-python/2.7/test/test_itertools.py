@@ -139,7 +139,6 @@ class TestBasicOps(unittest.TestCase):
 
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_combinations_tuple_reuse(self):
-        # Test implementation detail:  tuple re-use
         self.assertEqual(len(set(map(id, combinations('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(combinations('abcde', 3))))), 1)
 
@@ -211,7 +210,6 @@ class TestBasicOps(unittest.TestCase):
 
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_combinations_with_replacement_tuple_reuse(self):
-        # Test implementation detail:  tuple re-use
         cwr = combinations_with_replacement
         self.assertEqual(len(set(map(id, cwr('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(cwr('abcde', 3))))), 1)
@@ -278,7 +276,6 @@ class TestBasicOps(unittest.TestCase):
 
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_permutations_tuple_reuse(self):
-        # Test implementation detail:  tuple re-use
         self.assertEqual(len(set(map(id, permutations('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(permutations('abcde', 3))))), 1)
 
