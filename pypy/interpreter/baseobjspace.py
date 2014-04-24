@@ -1364,12 +1364,18 @@ class ObjSpace(object):
                                  self.wrap('cannot convert negative integer '
                                            'to unsigned int'))
 
-    # XXX define these flags correctly, possibly put elsewhere?
-    BUF_SIMPLE = 0
-    BUF_FULL_RO = 1
-    BUF_CONTIG = 2
-    BUF_CONTIG_RO = 3
-    BUF_WRITABLE = 4
+    BUF_SIMPLE   = 0x0000
+    BUF_WRITABLE = 0x0001
+    BUF_FORMAT   = 0x0004
+    BUF_ND       = 0x0008
+    BUF_STRIDES  = 0x0010 | BUF_ND
+    BUF_INDIRECT = 0x0100 | BUF_STRIDES
+
+    BUF_CONTIG_RO = BUF_ND
+    BUF_CONTIG    = BUF_ND | BUF_WRITABLE
+
+    BUF_FULL_RO = BUF_INDIRECT | BUF_FORMAT
+    BUF_FULL    = BUF_INDIRECT | BUF_FORMAT | BUF_WRITABLE
 
     def check_buf_flags(self, flags, readonly):
         if readonly and flags & self.BUF_WRITABLE == self.BUF_WRITABLE:
