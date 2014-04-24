@@ -477,8 +477,14 @@ class W_BytesObject(W_AbstractBytesObject):
     def _val(self, space):
         return self._value
 
-    def _op_val(self, space, w_other):
-        return space.bufferchar_w(w_other)
+    @staticmethod
+    def _op_val(space, w_other):
+        try:
+            return space.str_w(w_other)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+        return space.charbuf_w(w_other)
 
     def _chr(self, char):
         assert len(char) == 1

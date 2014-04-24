@@ -1431,7 +1431,7 @@ class ObjSpace(object):
         else:
             assert False
 
-    # XXX rename these/replace with code more like CPython getargs for buffers
+    # XXX rename/replace with code more like CPython getargs for buffers
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
@@ -1454,14 +1454,6 @@ class ObjSpace(object):
             except TypeError:
                 self._getarg_error("string or buffer", w_obj)
         return buf.as_str()
-
-    def bufferchar_w(self, w_obj):
-        try:
-            return self.str_w(w_obj)
-        except OperationError, e:
-            if not e.match(self, self.w_TypeError):
-                raise
-        return self.charbuf_w(w_obj)
 
     def str_or_None_w(self, w_obj):
         if self.is_w(w_obj, self.w_None):
