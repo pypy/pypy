@@ -1408,7 +1408,11 @@ class ObjSpace(object):
                         "expected a character buffer object")
 
     def _getarg_error(self, expected, w_obj):
-        raise oefmt(self.w_TypeError, "must be %s, not %T", expected, w_obj)
+        if self.is_none(w_obj):
+            name = "None"
+        else:
+            name = self.type(w_obj).getname(self)
+        raise oefmt(self.w_TypeError, "must be %s, not %s", expected, name)
 
     @specialize.arg(1)
     def getarg_w(self, code, w_obj):
@@ -1442,7 +1446,14 @@ class ObjSpace(object):
         except OperationError, e:
             if not e.match(self, self.w_TypeError):
                 raise
-        return self.readbuf_w(w_obj).as_str()
+        try:
+            buf = w_obj.buffer_w(self, 0)
+        except TypeError:
+            try:
+                buf = w_obj.readbuf_w(self)
+            except TypeError:
+                self._getarg_error("string or buffer", w_obj)
+        return buf.as_str()
 
     def bufferchar_w(self, w_obj):
         try:

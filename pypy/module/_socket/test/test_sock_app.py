@@ -545,8 +545,12 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
+        exc = raises(TypeError, s.send, None)
+        assert str(exc.value) == "must be string or buffer, not None"
         assert s.send(buffer('')) == 0
         assert s.sendall(buffer('')) is None
+        assert s.send(memoryview('')) == 0
+        assert s.sendall(memoryview('')) is None
         assert s.send(u'') == 0
         assert s.sendall(u'') is None
         raises(UnicodeEncodeError, s.send, u'\xe9')
