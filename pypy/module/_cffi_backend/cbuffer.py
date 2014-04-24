@@ -1,4 +1,4 @@
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
@@ -46,6 +46,14 @@ class MiniBuffer(W_Buffer):
     def __init__(self, buffer, keepalive=None):
         W_Buffer.__init__(self, buffer)
         self.keepalive = keepalive
+
+    def descr_setitem(self, space, w_index, w_obj):
+        try:
+            W_Buffer.descr_setitem(self, space, w_index, w_obj)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                e.w_type = space.w_ValueError
+            raise
 
 MiniBuffer.typedef = TypeDef(
     "buffer",
