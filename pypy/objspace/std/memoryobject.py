@@ -15,9 +15,8 @@ class W_MemoryView(W_Root):
     an interp-level buffer.
     """
 
-    def __init__(self, obj, buf):
+    def __init__(self, buf):
         assert isinstance(buf, Buffer)
-        self.obj = obj
         self.buf = buf
 
     def buffer_w(self, space, flags):
@@ -26,7 +25,7 @@ class W_MemoryView(W_Root):
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
-        return W_MemoryView(w_object, space.buffer_w(w_object, space.BUF_FULL_RO))
+        return W_MemoryView(space.buffer_w(w_object, space.BUF_FULL_RO))
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -69,7 +68,7 @@ class W_MemoryView(W_Root):
         if size < 0:
             size = 0
         buf = SubBuffer(self.buf, start, size)
-        return W_MemoryView(self.obj, buf)
+        return W_MemoryView(buf)
 
     def descr_tobytes(self, space):
         return space.wrap(self.as_str())
