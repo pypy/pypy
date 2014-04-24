@@ -560,6 +560,12 @@ bound using::
   Fixing these bootstrap problems is on the TODO list.
   The global namespace is ``cppyy.gbl``.
 
+* **NULL**: Is represented as ``cppyy.gbl.nullptr``.
+  In C++11, the keyword ``nullptr`` is used to represent ``NULL``.
+  For clarity of intent, it is recommended to use this instead of ``None``
+  (or the integer ``0``, which can serve in some cases), as ``None`` is better
+  understood as ``void`` in C++.
+
 * **operator conversions**: If defined in the C++ class and a python
   equivalent exists (i.e. all builtin integer and floating point types, as well
   as ``bool``), it will map onto that python conversion.
