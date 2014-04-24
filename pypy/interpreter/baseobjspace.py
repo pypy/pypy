@@ -1841,6 +1841,7 @@ ObjSpace.ExceptionTable = [
     'AssertionError',
     'AttributeError',
     'BaseException',
+    'BufferError',
     'DeprecationWarning',
     'EOFError',
     'EnvironmentError',
