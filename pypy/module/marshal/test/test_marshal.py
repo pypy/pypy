@@ -14,6 +14,10 @@ class AppTestMarshal:
         print(repr(s))
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
+
+        exc = raises(TypeError, marshal.loads, memoryview(s))
+        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
+
         f = StringIO.StringIO()
         marshal.dump(case, f)
         f.seek(0)
