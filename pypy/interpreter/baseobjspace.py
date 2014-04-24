@@ -1372,7 +1372,7 @@ class ObjSpace(object):
     BUF_WRITABLE = 4
 
     def check_buf_flags(self, flags, readonly):
-        if flags & self.BUF_WRITABLE == self.BUF_WRITABLE and readonly:
+        if readonly and flags & self.BUF_WRITABLE == self.BUF_WRITABLE:
             raise oefmt(self.w_BufferError, "Object is not writable.")
 
     def buffer_w(self, w_obj, flags):
