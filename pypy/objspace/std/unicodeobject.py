@@ -448,12 +448,12 @@ def decode_object(space, w_obj, encoding, errors):
     if errors is None or errors == 'strict':
         if encoding == 'ascii':
             # XXX error handling
-            s = space.bufferstr_w(w_obj)
+            s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_ascii(
                     s, len(s), None, final=True, errorhandler=eh)[0])
         if encoding == 'utf-8':
-            s = space.bufferstr_w(w_obj)
+            s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh,
