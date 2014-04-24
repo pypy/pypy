@@ -115,8 +115,8 @@ class AbstractMemoryTests:
         self.assertRaises(TypeError, setitem, (0,), b"a")
         self.assertRaises(TypeError, setitem, "a", b"a")
         # Trying to resize the memory object
-        self.assertRaises((ValueError, TypeError), setitem, 0, b"")
-        self.assertRaises((ValueError, TypeError), setitem, 0, b"ab")
+        self.assertRaises(ValueError, setitem, 0, b"")
+        self.assertRaises(ValueError, setitem, 0, b"ab")
         self.assertRaises(ValueError, setitem, slice(1,1), b"a")
         self.assertRaises(ValueError, setitem, slice(0,2), b"a")
 
