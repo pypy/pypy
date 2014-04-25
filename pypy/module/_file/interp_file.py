@@ -460,14 +460,17 @@ producing strings. This is equivalent to calling write() for each string."""
 
         space = self.space
         self.check_closed()
-        w_iterator = space.iter(w_lines)
-        while True:
-            try:
-                w_line = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
+        lines = space.fixedview(w_lines)
+        for i, w_line in enumerate(lines):
+            if not space.isinstance_w(w_line, space.w_str):
+                try:
+                    line = w_line.charbuf_w(space)
+                except TypeError:
+                    raise OperationError(space.w_TypeError, space.wrap(
+                        "writelines() argument must be a sequence of strings"))
+                else:
+                    lines[i] = space.wrap(line)
+        for w_line in lines:
             self.file_write(w_line)
 
     def file_readinto(self, w_rwbuffer):

@@ -292,7 +292,10 @@ class MsvcPlatform(Platform):
         rel_ofiles = [rel_cfile[:rel_cfile.rfind('.')]+'.obj' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
-        rel_includedirs = [rpyrel(incldir) for incldir in eci.include_dirs]
+        rel_includedirs = [rpyrel(incldir) for incldir in
+                           self.preprocess_include_dirs(eci.include_dirs)]
+        rel_libdirs = [rpyrel(libdir) for libdir in
+                       self.preprocess_library_dirs(eci.library_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [
@@ -302,7 +305,7 @@ class MsvcPlatform(Platform):
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
-            ('LIBDIRS', self._libdirs(eci.library_dirs)),
+            ('LIBDIRS', self._libdirs(rel_libdirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', self.cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),

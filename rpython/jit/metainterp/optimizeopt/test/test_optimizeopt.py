@@ -8356,6 +8356,31 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, ops)
 
+    def test_unroll_failargs(self):
+        ops = """
+        [p0, i1]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_add(i1, 1)
+        i3 = int_le(i2, 13)
+        guard_true(i3) [p1]
+        jump(p0, i2)      
+        """
+        expected = """
+        [p0, i1, p1]
+        i2 = int_add(i1, 1)
+        i3 = int_le(i2, 13)
+        guard_true(i3) [p1]
+        jump(p0, i2, p1)
+        """
+        preamble = """
+        [p0, i1]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_add(i1, 1)
+        i3 = int_le(i2, 13)
+        guard_true(i3) [p1]
+        jump(p0, i2, p1)        
+        """
+        self.optimize_loop(ops, expected, preamble)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
