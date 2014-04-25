@@ -15,6 +15,10 @@ def pytest_runtest_setup(item):
                 not re.search("test0[1-36]", item.location[2]):
                 py.test.skip("genreflex is not installed")
 
+def pytest_ignore_collect(path, config):
+    if py.path.local.sysfind('genreflex') is None and config.option.runappdirect:
+        return True          # "can't run dummy tests in -A"
+
 def pytest_configure(config):
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module.cppyy.capi.loadable_capi as lcapi
@@ -22,6 +26,9 @@ def pytest_configure(config):
             import ctypes
             ctypes.CDLL(lcapi.reflection_library)
         except Exception, e:
+            if config.option.runappdirect:
+                return       # "can't run dummy tests in -A"
+
             # build dummy backend (which has reflex info and calls hard-wired)
             import os
             from rpython.translator.tool.cbuild import ExternalCompilationInfo
