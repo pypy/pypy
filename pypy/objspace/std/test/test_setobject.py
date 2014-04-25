@@ -136,8 +136,8 @@ class TestW_SetObject:
 
         w_a = W_SetObject(self.space)
         _initialize_set(self.space, w_a, wb("abcdefg"))
-        assert sorted(self.space.listview_bytes(w_a)) == list("abcdefg")
-        assert self.space.listview_int(w_a) is None
+        assert sorted(self.space.listview_int(w_a)) == [97, 98, 99, 100, 101, 102, 103]
+        assert self.space.listview_bytes(w_a) is None
 
         w_b = W_SetObject(self.space)
         _initialize_set(self.space, w_b, self.space.newlist([w(1),w(2),w(3),w(4),w(5)]))
