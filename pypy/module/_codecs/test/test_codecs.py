@@ -276,7 +276,7 @@ class AppTestPartialEvaluation:
                 assert enc == "a\x00\x00\x00"
 
     def test_unicode_internal_decode(self):
-        import sys
+        import sys, _codecs, array
         if sys.maxunicode == 65535: # UCS2 build
             if sys.byteorder == "big":
                 bytes = "\x00a"
@@ -291,6 +291,9 @@ class AppTestPartialEvaluation:
                 bytes2 = "\x98\x00\x01\x00"
             assert bytes2.decode("unicode_internal") == u"\U00010098"
         assert bytes.decode("unicode_internal") == u"a"
+        assert _codecs.unicode_internal_decode(array.array('c', bytes))[0] == u"a"
+        exc = raises(TypeError, _codecs.unicode_internal_decode, memoryview(bytes))
+        assert str(exc.value) == "expected a readable buffer object"
 
     def test_raw_unicode_escape(self):
         assert unicode("\u0663", "raw-unicode-escape") == u"\u0663"

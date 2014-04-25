@@ -679,7 +679,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
     if space.isinstance_w(w_string, space.w_unicode):
         return space.newtuple([w_string, space.len(w_string)])
 
-    string = space.str_w(w_string)
+    string = space.readbuf_w(w_string).as_str()
 
     if len(string) == 0:
         return space.newtuple([space.wrap(u''), space.wrap(0)])
