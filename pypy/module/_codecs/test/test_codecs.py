@@ -420,9 +420,13 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
-    def test_array(self):
+    def test_buffer_encode(self):
         import _codecs, array
-        _codecs.readbuffer_encode(array.array('c', 'spam')) == ('spam', 4)
+        assert _codecs.readbuffer_encode(array.array('c', 'spam')) == ('spam', 4)
+        exc = raises(TypeError, _codecs.charbuffer_encode, array.array('c', 'spam'))
+        assert str(exc.value) == "must be string or read-only character buffer, not array.array"
+        assert _codecs.readbuffer_encode(u"test") == ('test', 4)
+        assert _codecs.charbuffer_encode(u"test") == ('test', 4)
 
     def test_utf8sig(self):
         import codecs

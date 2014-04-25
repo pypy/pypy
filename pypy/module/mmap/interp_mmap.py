@@ -2,8 +2,8 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib import rmmap, rarithmetic
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
@@ -17,9 +17,9 @@ class W_MMap(W_Root):
         self.space = space
         self.mmap = mmap_obj
 
-    def buffer_w(self, space):
+    def readbuf_w(self, space):
         self.check_valid()
-        return MMapBuffer(self.space, self.mmap)
+        return MMapBuffer(self.space, self.mmap, True)
 
     def close(self):
         self.mmap.close()
@@ -286,10 +286,13 @@ def mmap_error(space, e):
 mmap_error._dont_inline_ = True
 
 
-class MMapBuffer(RWBuffer):
-    def __init__(self, space, mmap):
+class MMapBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, space, mmap, readonly):
         self.space = space
         self.mmap = mmap
+        self.readonly = readonly
 
     def getlength(self):
         return self.mmap.size
@@ -303,7 +306,7 @@ class MMapBuffer(RWBuffer):
         if step == 1:
             return self.mmap.getslice(start, size)
         else:
-            return RWBuffer.getslice(self, start, stop, step, size)
+            return Buffer.getslice(self, start, stop, step, size)
 
     def setitem(self, index, char):
         self.check_valid_writeable()
@@ -312,14 +315,6 @@ class MMapBuffer(RWBuffer):
     def setslice(self, start, string):
         self.check_valid_writeable()
         self.mmap.setslice(start, string)
-
-    def is_writable(self):
-        try:
-            self.mmap.check_writeable()
-        except RMMapError:
-            return False
-        else:
-            return True
 
     def get_raw_address(self):
         self.check_valid()

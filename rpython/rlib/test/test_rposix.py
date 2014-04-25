@@ -104,9 +104,11 @@ class BasePosixUnicodeOrAscii:
             def f():
                 if isinstance(udir.as_unicode(), str):
                     _udir = udir.as_unicode()
+                    _res = ', '
                 else:
                     _udir = udir
-                return u', '.join(rposix.listdir(_udir))
+                    _res = u', '
+                return _res.join(rposix.listdir(_udir))
             result = interpret(f, [])
             assert os.path.basename(self.ufilename) in ll_to_string(result)
         else:

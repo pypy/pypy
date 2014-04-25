@@ -692,7 +692,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         else:
             # If object supports the buffer interface
             try:
-                buf = space.buffer_w(w_value)
+                buf = space.charbuf_w(w_value)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -700,8 +700,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                             "int() argument must be a string or a number, "
                             "not '%T'", w_value)
             else:
-                value, w_longval = _string_to_int_or_long(space, w_value,
-                                                          buf.as_str())
+                value, w_longval = _string_to_int_or_long(space, w_value, buf)
     else:
         base = space.int_w(w_base)
 
