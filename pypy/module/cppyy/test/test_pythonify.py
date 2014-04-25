@@ -321,7 +321,7 @@ class AppTestPYTHONIFY:
         e = cppyy.gbl.example01(2)
         assert 5 == meth(e, 3)
 
-    def test01_installable_function(self):
+    def test15_installable_function(self):
        """Test installing and calling global C++ function as python method"""
 
        import cppyy
