@@ -528,15 +528,9 @@ class Regalloc(object):
         return [loc1, res]
 
     def prepare_finish(self, op):
-        args = [None] * (op.numargs() + 1)
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            if arg:
-                args[i] = self.loc(arg)
-                self.possibly_free_var(arg)
-        n = self.cpu.get_fail_descr_number(op.getdescr())
-        args[-1] = imm(n)
-        return args
+        loc = self.loc(op.getarg(0))
+        self.possibly_free_var(op.getarg(0))
+        return [loc]
 
     def prepare_call_malloc_gc(self, op):
         return self._prepare_call(op)
