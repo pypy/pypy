@@ -386,6 +386,27 @@ class AppTestAFewExtra:
         assert len(somelines) > 200
         assert somelines == lines[:len(somelines)]
 
+    def test_writelines(self):
+        import array
+        fn = self.temptestfile
+        with file(fn, 'w') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'r').readlines() == ['abcdef']
+
+        with file(fn, 'wb') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'rb').readlines() == ['abcdef']
+
     def test_nasty_writelines(self):
         # The stream lock should be released between writes
         fn = self.temptestfile

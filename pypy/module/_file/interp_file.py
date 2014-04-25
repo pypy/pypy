@@ -468,7 +468,12 @@ producing strings. This is equivalent to calling write() for each string."""
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
-            self.file_write(w_line)
+            try:
+                line = w_line.charbuf_w(space)
+            except TypeError:
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "writelines() argument must be a sequence of strings"))
+            self.file_write(space.wrap(line))
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
