@@ -9,13 +9,8 @@ def test_echo():
     res = host.execute('echo', '42 24')
     assert res.out == '42 24\n'
 
-    if sys.platform == 'win32':
-        # echo is a shell builtin on Windows
-        res = host.execute('cmd', ['/c', 'echo', '42', '24'])
-        assert res.out == '42 24\n'
-    else:
-        res = host.execute('echo', ['42', '24'])
-        assert res.out == '42 24\n'
+    res = host.execute('echo', ['42', '24'])
+    assert res.out == '42 24\n'
 
 class TestMakefile(object):
     platform = host
