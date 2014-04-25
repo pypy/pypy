@@ -407,6 +407,11 @@ class AppTestAFewExtra:
             assert str(exc.value) == "writelines() argument must be a sequence of strings"
         assert open(fn, 'rb').readlines() == ['abcdef']
 
+        with file(fn, 'wb') as f:
+            exc = raises(TypeError, f.writelines, ['abc', memoryview('def')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'rb').readlines() == []
+
     def test_nasty_writelines(self):
         # The stream lock should be released between writes
         fn = self.temptestfile
