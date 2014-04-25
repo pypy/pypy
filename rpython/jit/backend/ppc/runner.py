@@ -55,28 +55,6 @@ class PPC_CPU(AbstractLLCPU):
         for index in range(count):
             setitem(index, null)
 
-    # executes the stored machine code in the token
-    def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
-
-        def execute_token(executable_token, *args):
-            clt = executable_token.compiled_loop_token
-            assert len(args) == clt._debug_nbargs
-            #
-            addr = executable_token._ppc_func_addr
-            func = rffi.cast(FUNCPTR, addr)
-            prev_interpreter = None   # help flow space
-            if not self.translate_support_code:
-                prev_interpreter = LLInterpreter.current_interpreter
-                LLInterpreter.current_interpreter = self.debug_ll_interpreter
-            try:
-                fail_index = func(*args)
-            finally:
-                if not self.translate_support_code:
-                    LLInterpreter.current_interpreter = prev_interpreter
-            return self.get_fail_descr_from_number(fail_index)
-        return execute_token
-
     @staticmethod
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
