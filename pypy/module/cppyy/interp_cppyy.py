@@ -604,12 +604,10 @@ class W_CPPDataMember(W_Root):
     def get_returntype(self):
         return self.space.wrap(self.converter.name)
 
-    @jit.elidable_promote()
     def _get_offset(self, cppinstance):
         if cppinstance:
             assert lltype.typeOf(cppinstance.cppclass.handle) == lltype.typeOf(self.scope.handle)
-            offset = self.offset + capi.c_base_offset(self.space,
-                cppinstance.cppclass, self.scope, cppinstance.get_rawobject(), 1)
+            offset = self.offset + cppinstance.cppclass.get_base_offset(cppinstance, self.scope)
         else:
             offset = self.offset
         return offset
@@ -739,7 +737,6 @@ class W_CPPScope(W_Root):
         self.datamembers[name] = new_dm
         return new_dm
 
-    @jit.elidable_promote()
     def dispatch(self, name, signature):
         overload = self.get_overload(name)
         sig = '(%s)' % signature
@@ -908,6 +905,10 @@ class W_CPPClass(W_CPPScope):
     def find_datamember(self, name):
         raise self.missing_attribute_error(name)
 
+    def get_base_offset(self, cppinstance, calling_scope):
+        assert self == cppinstance.cppclass
+        return 0
+
     def get_cppthis(self, cppinstance, calling_scope):
         assert self == cppinstance.cppclass
         return cppinstance.get_rawobject()
@@ -939,10 +940,15 @@ W_CPPClass.typedef.acceptable_as_base_class = False
 
 class W_ComplexCPPClass(W_CPPClass):
 
-    def get_cppthis(self, cppinstance, calling_scope):
+    def get_base_offset(self, cppinstance, calling_scope):
         assert self == cppinstance.cppclass
         offset = capi.c_base_offset(self.space,
                                     self, calling_scope, cppinstance.get_rawobject(), 1)
+        return offset
+
+    def get_cppthis(self, cppinstance, calling_scope):
+        assert self == cppinstance.cppclass
+        offset = self.get_base_offset(cppinstance, calling_scope)
         return capi.direct_ptradd(cppinstance.get_rawobject(), offset)
 
 W_ComplexCPPClass.typedef = TypeDef(

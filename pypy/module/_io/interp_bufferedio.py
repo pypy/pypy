@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.buffer import RWBuffer
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -80,7 +80,7 @@ class W_BufferedIOBase(W_IOBase):
         self._unsupportedoperation(space, "detach")
 
     def readinto_w(self, space, w_buffer):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         length = rwbuffer.getlength()
         w_data = space.call_method(self, "read", space.wrap(length))
 
@@ -101,11 +101,14 @@ W_BufferedIOBase.typedef = TypeDef(
     readinto = interp2app(W_BufferedIOBase.readinto_w),
 )
 
-class RawBuffer(RWBuffer):
+class RawBuffer(Buffer):
+    _immutable_ = True
+
     def __init__(self, buf, start, length):
         self.buf = buf
         self.start = start
         self.length = length
+        self.readonly = False
 
     def getlength(self):
         return self.length
@@ -698,7 +701,7 @@ class BufferedMixin:
     def write_w(self, space, w_data):
         self._check_init(space)
         self._check_closed(space, "write to closed file")
-        data = space.bufferstr_w(w_data)
+        data = space.getarg_w('s*', w_data).as_str()
         size = len(data)
 
         with self.lock:

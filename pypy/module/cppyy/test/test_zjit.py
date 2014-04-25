@@ -104,6 +104,7 @@ class FakeSpace(object):
         class dummy: pass
         self.config = dummy()
         self.config.translating = False
+        self.BUF_SIMPLE = 1
 
     def issequence_w(self, w_obj):
         return True
@@ -132,7 +133,10 @@ class FakeSpace(object):
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
-    def buffer_w(self, w_obj):
+    def buffer_w(self, w_obj, flags):
+        return FakeBuffer(w_obj)
+
+    def readbuf_w(self, w_obj):
         return FakeBuffer(w_obj)
 
     def exception_match(self, typ, sub):

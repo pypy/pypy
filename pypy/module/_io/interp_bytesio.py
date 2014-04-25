@@ -41,7 +41,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         size = rwbuffer.getlength()
 
         output = self.read(size)
@@ -50,10 +50,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def write_w(self, space, w_data):
         self._check_closed(space)
-        if space.isinstance_w(w_data, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "bytes string of buffer expected"))
-        buf = space.bufferstr_w(w_data)
+        buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
             return space.wrap(0)

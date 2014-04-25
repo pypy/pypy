@@ -63,7 +63,7 @@ def is_nullpointer_specialcase(space, w_obj):
 def get_rawbuffer(space, w_obj):
     # raw buffer
     try:
-        buf = space.buffer_w(w_obj)
+        buf = space.readbuf_w(w_obj)
         return rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except Exception:
         pass
@@ -163,7 +163,7 @@ class ArrayTypeConverterMixin(object):
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
-        buf = space.buffer_w(w_value)
+        buf = space.readbuf_w(w_value)
         # TODO: report if too many items given?
         for i in range(min(self.size*self.typesize, buf.getlength())):
             address[i] = buf.getitem(i)
@@ -204,7 +204,7 @@ class PtrTypeConverterMixin(object):
         # copy only the pointer value
         rawobject = get_rawobject_nonnull(space, w_obj)
         byteptr = rffi.cast(rffi.CCHARPP, capi.direct_ptradd(rawobject, offset))
-        buf = space.buffer_w(w_value)
+        buf = space.readbuf_w(w_value)
         try:
             byteptr[0] = buf.get_raw_address()
         except ValueError:
