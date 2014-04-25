@@ -113,16 +113,15 @@ class W_DictMultiObject(W_Root):
         if w_fill is None:
             w_fill = space.w_None
         if space.is_w(w_type, space.w_dict):
-            w_dict = W_DictMultiObject.allocate_and_init_instance(space,
-                                                                  w_type)
-
-            byteslist = space.listview_bytes(w_keys)
-            # XXX: py3k could switch this to listview_unicode, but our
-            # setitem_str accepts utf-8 encoded strs, not unicode!
-            if False and byteslist is not None:
-                for key in byteslist:
-                    w_dict.setitem_str(key, w_fill)
+            ulist = space.listview_unicode(w_keys)
+            if ulist is not None:
+                strategy = space.fromcache(UnicodeDictStrategy)
+                storage = strategy.get_storage_fromkeys(ulist, w_fill)
+                w_dict = space.allocate_instance(W_DictMultiObject, w_type)
+                W_DictMultiObject.__init__(w_dict, space, strategy, storage)
             else:
+                w_dict = W_DictMultiObject.allocate_and_init_instance(space,
+                                                                      w_type)
                 for w_key in space.listview(w_keys):
                     w_dict.setitem(w_key, w_fill)
         else:
@@ -942,6 +941,14 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
             values[i] = val
             i += 1
         return keys, values
+
+    def get_storage_fromkeys(self, keys_w, w_fill):
+        """Return an initialized storage with keys and fill values"""
+        storage = {}
+        mark_dict_non_null(storage)
+        for key in keys_w:
+            storage[key] = w_fill
+        return self.erase(storage)
 
 create_iterator_classes(UnicodeDictStrategy)
 

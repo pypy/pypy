@@ -127,9 +127,8 @@ class TestW_DictObject(object):
     def test_fromkeys_fastpath(self):
         space = self.space
         w = space.wrap
-        wb = space.wrapbytes
 
-        w_l = self.space.newlist([wb("a"),wb("b")])
+        w_l = space.newlist([w("a"),w("b")])
         w_l.getitems = None
         w_d = space.call_method(space.w_dict, "fromkeys", w_l)
 
