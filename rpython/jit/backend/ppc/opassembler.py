@@ -351,59 +351,9 @@ class MiscOpAssembler(object):
     _mixin_ = True
 
     def emit_finish(self, op, arglocs, regalloc):
-        for i in range(len(arglocs) - 1):
-            loc = arglocs[i]
-            box = op.getarg(i)
-            if loc is None:
-                continue
-            if loc.is_reg():
-                if box.type == REF:
-                    adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                elif box.type == INT:
-                    adr = self.fail_boxes_int.get_addr_for_num(i)
-                else:
-                    assert 0
-                with scratch_reg(self.mc):
-                    self.mc.load_imm(r.SCRATCH, adr)
-                    self.mc.storex(loc.value, 0, r.SCRATCH.value)
-            elif loc.is_fp_reg():
-                assert box.type == FLOAT
-                adr = self.fail_boxes_float.get_addr_for_num(i)
-                with scratch_reg(self.mc):
-                    self.mc.load_imm(r.SCRATCH, adr)
-                    self.mc.stfdx(loc.value, 0, r.SCRATCH.value)
-            elif loc.is_stack() or loc.is_imm() or loc.is_imm_float():
-                if box.type == FLOAT:
-                    adr = self.fail_boxes_float.get_addr_for_num(i)
-                    self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-                    self.mov_loc_loc(loc, r.f0)
-                    self.mc.load_imm(r.SCRATCH, adr)
-                    self.mc.stfdx(r.f0.value, 0, r.SCRATCH.value)
-                    self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-                elif box.type == REF or box.type == INT:
-                    if box.type == REF:
-                        adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                    elif box.type == INT:
-                        adr = self.fail_boxes_int.get_addr_for_num(i)
-                    else:
-                        assert 0
-                    with scratch_reg(self.mc):
-                        self.mov_loc_loc(loc, r.SCRATCH)
-                        # store content of r5 temporary in ENCODING AREA
-                        self.mc.store(r.r5.value, r.SPP.value, 0)
-                        self.mc.load_imm(r.r5, adr)
-                        self.mc.store(r.SCRATCH.value, r.r5.value, 0)
-                    # restore r5
-                    self.mc.load(r.r5.value, r.SPP.value, 0)
-            else:
-                assert 0
-        # note: no exception should currently be set in llop.get_exception_addr
-        # even if this finish may be an exit_frame_with_exception (in this case
-        # the exception instance is in arglocs[0]).
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
-        self.mc.call(addr)
-        self.mc.load_imm(r.RES, arglocs[-1].value)
+        [argloc] = arglocs
         self._gen_epilogue(self.mc)
+        # ARM has a fcond argument to this function, returned at the end
 
     def emit_jump(self, op, arglocs, regalloc):
         # The backend's logic assumes that the target code is in a piece of
