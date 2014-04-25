@@ -25,9 +25,12 @@ class CppyyClassMeta(CppyyScopeMeta):
 # class CppyyClass defined in _init_pythonify()
 
 class CppyyTemplateType(object):
-    def __init__(self, scope, name):
-        self._scope = scope
+    def __init__(self, name, scope=None):
         self._name = name
+        if scope is None:
+            self._scope = gbl
+        else:
+            self._scope = scope
 
     def _arg_to_str(self, arg):
         if arg == str:
@@ -206,7 +209,7 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
     return pycppclass
 
 def make_cpptemplatetype(scope, template_name):
-    return CppyyTemplateType(scope, template_name)
+    return CppyyTemplateType(template_name, scope)
 
 
 def get_pycppitem(scope, name):
