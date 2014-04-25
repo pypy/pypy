@@ -332,6 +332,33 @@ class AppTestPYTHONIFY:
        assert 2 == e.fresh(1)
        assert 3 == e.fresh(2)
 
+    def test16_subclassing(self):
+        """A sub-class on the python side should have that class as type"""
+
+        import cppyy
+        example01 = cppyy.gbl.example01
+
+        o = example01()
+        assert type(o) == example01
+
+        class MyClass1(example01):
+            def myfunc(self):
+                return 1
+
+        o = MyClass1()
+        assert type(o) == MyClass1
+        assert isinstance(o, example01)
+        assert o.myfunc() == 1
+
+        class MyClass2(example01):
+            def __init__(self, what):
+                example01.__init__(self)
+                self.what = what
+
+        o = MyClass2('hi')
+        assert type(o) == MyClass2
+        assert o.what == 'hi'
+
 
 class AppTestPYTHONIFY_UI:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])

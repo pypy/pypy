@@ -146,7 +146,12 @@ def make_new(class_name, cppclass):
             raise TypeError(msg)
     else:
         def __new__(cls, *args):
-            return constructor_overload.call(None, *args)
+            # create a place-holder only as there may be a derived class defined
+            import cppyy
+            instance = cppyy.bind_object(0, class_name, True)
+            if not instance.__class__ is cls:
+                instance.__class__ = cls     # happens for derived class
+            return instance
     return __new__
 
 def make_pycppclass(scope, class_name, final_class_name, cppclass):
@@ -427,7 +432,9 @@ def _init_pythonify():
         __metaclass__ = CppyyClassMeta
 
         def __init__(self, *args, **kwds):
-            pass   # ignored, for the C++ backend, ctor == __new__ + __init__
+            # self is only a placeholder; now create the actual C++ object
+            args = (self,) + args
+            self._cpp_proxy.get_overload(self._cpp_proxy.type_name).call(None, *args)
 
     # class generator callback
     cppyy._set_class_generator(clgen_callback)
