@@ -56,8 +56,13 @@ class TestMakefile(object):
         finally:
             del os.environ['PYPY_LOCALBASE']
         Makefile = tmpdir.join('Makefile').read()
-        assert 'INCLUDEDIRS = -I/foo/baz/include' in Makefile
-        assert 'LIBDIRS = -L/foo/baz/lib' in Makefile
+        include_prefix = '-I'
+        lib_prefix = '-L'
+        if self.platform.name == 'msvc':
+            include_prefix = '/I'
+            lib_prefix = '/LIBPATH:'
+        assert 'INCLUDEDIRS = %s/foo/baz/include' % include_prefix in Makefile
+        assert 'LIBDIRS = %s/foo/baz/lib' % lib_prefix in Makefile
 
 class TestMaemo(TestMakefile):
     strict_on_stderr = False
