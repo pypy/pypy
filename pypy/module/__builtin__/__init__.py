@@ -33,7 +33,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         # constants
-        '__debug__'     : '(space.w_True)',      # XXX
+        '__debug__'     : '(space.w_True)',
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',
