@@ -193,7 +193,7 @@ class W_ArrayInstance(W_DataInstance):
 
     def setslice(self, space, w_slice, w_value):
         start, stop = self.decodeslice(space, w_slice)
-        value = space.bufferstr_w(w_value)
+        value = space.str_w(w_value)
         if start + len(value) != stop:
             raise OperationError(space.w_ValueError,
                                  space.wrap("cannot resize array"))
