@@ -136,6 +136,9 @@ class FakeSpace(object):
     def buffer_w(self, w_obj, flags):
         return FakeBuffer(w_obj)
 
+    def readbuf_w(self, w_obj):
+        return FakeBuffer(w_obj)
+
     def exception_match(self, typ, sub):
         return typ is sub
 
