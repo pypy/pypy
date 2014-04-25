@@ -6,16 +6,16 @@ Based on two lists containing unwrapped key value pairs.
 from rpython.rlib import jit, rerased
 
 from pypy.objspace.std.dictmultiobject import (
-    BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
+    DictStrategy, EmptyDictStrategy, ObjectDictStrategy, UnicodeDictStrategy,
     create_iterator_classes)
 
 
 def _wrapkey(space, key):
-    return space.wrap(key)
+    return space.wrap(key.decode('utf-8'))
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
-    def switch_to_bytes_strategy(self, w_dict):
+    def switch_to_unicode_strategy(self, w_dict):
         strategy = self.space.fromcache(KwargsDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
@@ -39,7 +39,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_unicode)
 
     def _never_equal_to(self, w_lookup_type):
         return False
@@ -66,7 +66,7 @@ class KwargsDictStrategy(DictStrategy):
         else:
             # limit the size so that the linear searches don't become too long
             if len(keys) >= 16:
-                self.switch_to_bytes_strategy(w_dict)
+                self.switch_to_unicode_strategy(w_dict)
                 w_dict.setitem_str(key, w_value)
             else:
                 keys.append(key)
@@ -116,7 +116,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
-        return self.space.newlist_bytes(l[:])
+        return self.space.newlist_unicode(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable
@@ -145,13 +145,13 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
-    def switch_to_bytes_strategy(self, w_dict):
-        strategy = self.space.fromcache(BytesDictStrategy)
+    def switch_to_unicode_strategy(self, w_dict):
+        strategy = self.space.fromcache(UnicodeDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
-            d_new[keys[i]] = values_w[i]
+            d_new[self.decodekey_str(keys[i])] = values_w[i]
         w_dict.strategy = strategy
         w_dict.dstorage = storage
 

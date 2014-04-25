@@ -1439,7 +1439,7 @@ class BytesIteratorImplementation(IteratorImplementation):
 
     def next_entry(self):
         for key in self.iterator:
-            return self.space.wrap(key)
+            return self.space.wrapbytes(key)
         else:
             return None
 
