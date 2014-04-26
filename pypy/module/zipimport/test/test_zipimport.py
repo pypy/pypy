@@ -334,7 +334,9 @@ class AppTestZipimport:
         self.writefile("directory/package/__init__.py", "")
         importer = zipimport.zipimporter(self.zipfile + "/directory")
         l = [i for i in zipimport._zip_directory_cache]
-        assert len(l)
+        assert len(l) == 1
+        k = zipimport._zip_directory_cache[l[0]].keys()
+        assert k[0] == os.path.sep.join(['directory','package','__init__.py'])
 
     def test_path_hooks(self):
         import sys
