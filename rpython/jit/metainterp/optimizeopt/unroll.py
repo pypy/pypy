@@ -180,10 +180,11 @@ class UnrollOptimizer(Optimization):
 
         self.optimizer.clear_newoperations()
         for i in range(len(original_jump_args)):
+            srcbox = jump_args[i]
             if values[i].is_virtual():
-                values[i].force_box(self.optimizer)
-            if original_jump_args[i] is not jump_args[i]:
-                op = ResOperation(rop.SAME_AS, [jump_args[i]], original_jump_args[i])
+                srcbox = values[i].force_box(self.optimizer)
+            if original_jump_args[i] is not srcbox:
+                op = ResOperation(rop.SAME_AS, [srcbox], original_jump_args[i])
                 self.optimizer.emit_operation(op)
         inputarg_setup_ops = self.optimizer.get_newoperations()
 
