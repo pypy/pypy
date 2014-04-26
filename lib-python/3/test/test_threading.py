@@ -1,7 +1,9 @@
-# Very rudimentary test of threading module
+"""
+Tests for the threading module.
+"""
 
 import test.support
-from test.support import verbose, strip_python_stderr, import_module
+from test.support import verbose, strip_python_stderr, import_module, cpython_only
 from test.script_helper import assert_python_ok
 
 import random
@@ -15,6 +17,10 @@ import weakref
 import os
 from test.script_helper import assert_python_ok, assert_python_failure
 import subprocess
+try:
+    import _testcapi
+except ImportError:
+    _testcapi = None
 
 from test import lock_tests
 
@@ -176,7 +182,7 @@ class ThreadTests(BaseTestCase):
         exception = ctypes.py_object(AsyncExc)
 
         # First check it works when setting the exception from the same thread.
-        tid = _thread.get_ident()
+        tid = threading.get_ident()
 
         try:
             result = set_async_exc(ctypes.c_long(tid), exception)
@@ -205,7 +211,7 @@ class ThreadTests(BaseTestCase):
 
         class Worker(threading.Thread):
             def run(self):
-                self.id = _thread.get_ident()
+                self.id = threading.get_ident()
                 self.finished = False
 
                 try:
@@ -417,6 +423,14 @@ class ThreadTests(BaseTestCase):
         t.daemon = True
         self.assertTrue('daemon' in repr(t))
 
+    def test_deamon_param(self):
+        t = threading.Thread()
+        self.assertFalse(t.daemon)
+        t = threading.Thread(daemon=False)
+        self.assertFalse(t.daemon)
+        t = threading.Thread(daemon=True)
+        self.assertTrue(t.daemon)
+
     @unittest.skipUnless(hasattr(os, 'fork'), 'test needs fork()')
     def test_dummy_thread_after_fork(self):
         # Issue #14308: a dummy thread in the active list doesn't mess up
@@ -444,6 +458,45 @@ class ThreadTests(BaseTestCase):
         self.assertEqual(out, b'')
         self.assertEqual(err, b'')
 
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    def test_is_alive_after_fork(self):
+        # Try hard to trigger #18418: is_alive() could sometimes be True on
+        # threads that vanished after a fork.
+        old_interval = sys.getswitchinterval()
+        self.addCleanup(sys.setswitchinterval, old_interval)
+
+        # Make the bug more likely to manifest.
+        sys.setswitchinterval(1e-6)
+
+        for i in range(20):
+            t = threading.Thread(target=lambda: None)
+            t.start()
+            self.addCleanup(t.join)
+            pid = os.fork()
+            if pid == 0:
+                os._exit(1 if t.is_alive() else 0)
+            else:
+                pid, status = os.waitpid(pid, 0)
+                self.assertEqual(0, status)
+
+
+    def test_BoundedSemaphore_limit(self):
+        # BoundedSemaphore should raise ValueError if released too often.
+        for limit in range(1, 10):
+            bs = threading.BoundedSemaphore(limit)
+            threads = [threading.Thread(target=bs.acquire)
+                       for _ in range(limit)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            threads = [threading.Thread(target=bs.release)
+                       for _ in range(limit)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            self.assertRaises(ValueError, bs.release)
 
 class ThreadJoinOnShutdown(BaseTestCase):
 
@@ -452,7 +505,7 @@ class ThreadJoinOnShutdown(BaseTestCase):
     # problems with some operating systems (issue #3863): skip problematic tests
     # on platforms known to behave badly.
     platforms_to_skip = ('freebsd4', 'freebsd5', 'freebsd6', 'netbsd5',
-                         'os2emx')
+                         'os2emx', 'hp-ux11')
 
     def _run_and_join(self, script):
         script = """if 1:
@@ -728,6 +781,46 @@ class ThreadJoinOnShutdown(BaseTestCase):
         for t in threads:
             t.join()
 
+    @cpython_only
+    @unittest.skipIf(_testcapi is None, "need _testcapi module")
+    def test_frame_tstate_tracing(self):
+        # Issue #14432: Crash when a generator is created in a C thread that is
+        # destroyed while the generator is still used. The issue was that a
+        # generator contains a frame, and the frame kept a reference to the
+        # Python state of the destroyed C thread. The crash occurs when a trace
+        # function is setup.
+
+        def noop_trace(frame, event, arg):
+            # no operation
+            return noop_trace
+
+        def generator():
+            while 1:
+                yield "genereator"
+
+        def callback():
+            if callback.gen is None:
+                callback.gen = generator()
+            return next(callback.gen)
+        callback.gen = None
+
+        old_trace = sys.gettrace()
+        sys.settrace(noop_trace)
+        try:
+            # Install a trace function
+            threading.settrace(noop_trace)
+
+            # Create a generator in a C thread which exits after the call
+            _testcapi.call_in_temporary_c_thread(callback)
+
+            # Call the generator in a different Python thread, check that the
+            # generator didn't keep a reference to the destroyed thread state
+            for test in range(3):
+                # The trace function is still called here
+                callback()
+        finally:
+            sys.settrace(old_trace)
+
 
 class ThreadingExceptionTests(BaseTestCase):
     # A RuntimeError should be raised if Thread.start() is called
@@ -750,7 +843,12 @@ class ThreadingExceptionTests(BaseTestCase):
         thread.start()
         self.assertRaises(RuntimeError, setattr, thread, "daemon", True)
 
-    @unittest.skipUnless(sys.platform == 'darwin', 'test macosx problem')
+    def test_releasing_unacquired_lock(self):
+        lock = threading.Lock()
+        self.assertRaises(RuntimeError, lock.release)
+
+    @unittest.skipUnless(sys.platform == 'darwin' and test.support.python_is_optimized(),
+                         'test macosx problem')
     def test_recursion_limit(self):
         # Issue 9670
         # test that excessive recursion within a non-main thread causes
@@ -782,6 +880,32 @@ class ThreadingExceptionTests(BaseTestCase):
         self.assertEqual(p.returncode, 0, "Unexpected error: " + stderr.decode())
         self.assertEqual(data, expected_output)
 
+class TimerTests(BaseTestCase):
+
+    def setUp(self):
+        BaseTestCase.setUp(self)
+        self.callback_args = []
+        self.callback_event = threading.Event()
+
+    def test_init_immutable_default_args(self):
+        # Issue 17435: constructor defaults were mutable objects, they could be
+        # mutated via the object attributes and affect other Timer objects.
+        timer1 = threading.Timer(0.01, self._callback_spy)
+        timer1.start()
+        self.callback_event.wait()
+        timer1.args.append("blah")
+        timer1.kwargs["foo"] = "bar"
+        self.callback_event.clear()
+        timer2 = threading.Timer(0.01, self._callback_spy)
+        timer2.start()
+        self.callback_event.wait()
+        self.assertEqual(len(self.callback_args), 2)
+        self.assertEqual(self.callback_args, [((), {}), ((), {})])
+
+    def _callback_spy(self, *args, **kwargs):
+        self.callback_args.append((args[:], kwargs.copy()))
+        self.callback_event.set()
+
 class LockTests(lock_tests.LockTests):
     locktype = staticmethod(threading.Lock)
 
@@ -811,15 +935,5 @@ class BoundedSemaphoreTests(lock_tests.BoundedSemaphoreTests):
 class BarrierTests(lock_tests.BarrierTests):
     barriertype = staticmethod(threading.Barrier)
 
-def test_main():
-    test.support.run_unittest(LockTests, PyRLockTests, CRLockTests, EventTests,
-                              ConditionAsRLockTests, ConditionTests,
-                              SemaphoreTests, BoundedSemaphoreTests,
-                              ThreadTests,
-                              ThreadJoinOnShutdown,
-                              ThreadingExceptionTests,
-                              BarrierTests
-                              )
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

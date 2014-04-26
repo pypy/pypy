@@ -5,10 +5,14 @@ import os.path
 import sys
 import re
 import tempfile
+import importlib
 import py_compile
-from test.support import forget, make_legacy_pyc, run_unittest, unload, verbose
+from test.support import (
+    forget, make_legacy_pyc, run_unittest, unload, verbose, no_tracing,
+    create_empty_file)
 from test.script_helper import (
     make_pkg, make_script, make_zip_pkg, make_zip_script, temp_dir)
+
 
 import runpy
 from runpy import _run_code, _run_module_code, run_module, run_path
@@ -145,7 +149,7 @@ class ExecutionLayerTestCase(unittest.TestCase, CodeExecutionMixin):
                                     mod_package)
         self.check_code_execution(create_ns, expected_ns)
 
-
+# TODO: Use self.addCleanup to get rid of a lot of try-finally blocks
 class RunModuleTestCase(unittest.TestCase, CodeExecutionMixin):
     """Unit tests for runpy.run_module"""
 
@@ -175,8 +179,7 @@ class RunModuleTestCase(unittest.TestCase, CodeExecutionMixin):
     def _add_pkg_dir(self, pkg_dir):
         os.mkdir(pkg_dir)
         pkg_fname = os.path.join(pkg_dir, "__init__.py")
-        pkg_file = open(pkg_fname, "w")
-        pkg_file.close()
+        create_empty_file(pkg_fname)
         return pkg_fname
 
     def _make_pkg(self, source, depth, mod_base="runpy_test"):
@@ -252,11 +255,13 @@ class RunModuleTestCase(unittest.TestCase, CodeExecutionMixin):
         try:
             if verbose > 1: print("Running from source:", mod_name)
             self.check_code_execution(create_ns, expected_ns)
+            importlib.invalidate_caches()
             __import__(mod_name)
             os.remove(mod_fname)
             if not sys.dont_write_bytecode:
                 make_legacy_pyc(mod_fname)
                 unload(mod_name)  # In case loader caches paths
+                importlib.invalidate_caches()
                 if verbose > 1: print("Running from compiled:", mod_name)
                 self._fix_ns_for_legacy_pyc(expected_ns, alter_sys)
                 self.check_code_execution(create_ns, expected_ns)
@@ -286,12 +291,14 @@ class RunModuleTestCase(unittest.TestCase, CodeExecutionMixin):
         try:
             if verbose > 1: print("Running from source:", pkg_name)
             self.check_code_execution(create_ns, expected_ns)
+            importlib.invalidate_caches()
             __import__(mod_name)
             os.remove(mod_fname)
             if not sys.dont_write_bytecode:
                 make_legacy_pyc(mod_fname)
                 unload(mod_name)  # In case loader caches paths
                 if verbose > 1: print("Running from compiled:", pkg_name)
+                importlib.invalidate_caches()
                 self._fix_ns_for_legacy_pyc(expected_ns, alter_sys)
                 self.check_code_execution(create_ns, expected_ns)
         finally:
@@ -308,8 +315,7 @@ class RunModuleTestCase(unittest.TestCase, CodeExecutionMixin):
             module_dir = os.path.join(module_dir, pkg_name)
         # Add sibling module
         sibling_fname = os.path.join(module_dir, "sibling.py")
-        sibling_file = open(sibling_fname, "w")
-        sibling_file.close()
+        create_empty_file(sibling_fname)
         if verbose > 1: print("  Added sibling module:", sibling_fname)
         # Add nephew module
         uncle_dir = os.path.join(parent_dir, "uncle")
@@ -319,8 +325,7 @@ class RunModuleTestCase(unittest.TestCase, CodeExecutionMixin):
         self._add_pkg_dir(cousin_dir)
         if verbose > 1: print("  Added cousin package:", cousin_dir)
         nephew_fname = os.path.join(cousin_dir, "nephew.py")
-        nephew_file = open(nephew_fname, "w")
-        nephew_file.close()
+        create_empty_file(nephew_fname)
         if verbose > 1: print("  Added nephew module:", nephew_fname)
 
     def _check_relative_imports(self, depth, run_name=None):
@@ -345,12 +350,14 @@ from ..uncle.cousin import nephew
             self.assertIn("sibling", d1)
             self.assertIn("nephew", d1)
             del d1 # Ensure __loader__ entry doesn't keep file open
+            importlib.invalidate_caches()
             __import__(mod_name)
             os.remove(mod_fname)
             if not sys.dont_write_bytecode:
                 make_legacy_pyc(mod_fname)
                 unload(mod_name)  # In case the loader caches paths
                 if verbose > 1: print("Running from compiled:", mod_name)
+                importlib.invalidate_caches()
                 d2 = run_module(mod_name, run_name=run_name) # Read from bytecode
                 self.assertEqual(d2["__name__"], expected_name)
                 self.assertEqual(d2["__package__"], pkg_name)
@@ -410,6 +417,40 @@ from ..uncle.cousin import nephew
         finally:
             self._del_pkg(pkg_dir, depth, mod_name)
 
+    def test_pkgutil_walk_packages(self):
+        # This is a dodgy hack to use the test_runpy infrastructure to test
+        # issue #15343. Issue #15348 declares this is indeed a dodgy hack ;)
+        import pkgutil
+        max_depth = 4
+        base_name = "__runpy_pkg__"
+        package_suffixes = ["uncle", "uncle.cousin"]
+        module_suffixes = ["uncle.cousin.nephew", base_name + ".sibling"]
+        expected_packages = set()
+        expected_modules = set()
+        for depth in range(1, max_depth):
+            pkg_name = ".".join([base_name] * depth)
+            expected_packages.add(pkg_name)
+            for name in package_suffixes:
+                expected_packages.add(pkg_name + "." + name)
+            for name in module_suffixes:
+                expected_modules.add(pkg_name + "." + name)
+        pkg_name = ".".join([base_name] * max_depth)
+        expected_packages.add(pkg_name)
+        expected_modules.add(pkg_name + ".runpy_test")
+        pkg_dir, mod_fname, mod_name = (
+               self._make_pkg("", max_depth))
+        self.addCleanup(self._del_pkg, pkg_dir, max_depth, mod_name)
+        for depth in range(2, max_depth+1):
+            self._add_relative_modules(pkg_dir, "", depth)
+        for finder, mod_name, ispkg in pkgutil.walk_packages([pkg_dir]):
+            self.assertIsInstance(finder,
+                                  importlib.machinery.FileFinder)
+            if ispkg:
+                expected_packages.remove(mod_name)
+            else:
+                expected_modules.remove(mod_name)
+        self.assertEqual(len(expected_packages), 0, expected_packages)
+        self.assertEqual(len(expected_modules), 0, expected_modules)
 
 class RunPathTestCase(unittest.TestCase, CodeExecutionMixin):
     """Unit tests for runpy.run_path"""
@@ -511,6 +552,7 @@ class RunPathTestCase(unittest.TestCase, CodeExecutionMixin):
             msg = "can't find '__main__' module in %r" % zip_name
             self._check_import_error(zip_name, msg)
 
+    @no_tracing
     def test_main_recursion_error(self):
         with temp_dir() as script_dir, temp_dir() as dummy_dir:
             mod_name = '__main__'

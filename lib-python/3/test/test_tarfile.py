@@ -296,9 +296,6 @@ class Bz2ListTest(Bz2Test, ListTest):
 class LzmaListTest(LzmaTest, ListTest):
     pass
 
-    def test_issue14160(self):
-        self._test_fileobj_link("symtype2", "ustar/regtype")
-
 
 class CommonReadTest(ReadTest):
 

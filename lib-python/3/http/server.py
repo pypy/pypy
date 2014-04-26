@@ -526,7 +526,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         """
 
         sys.stderr.write("%s - - [%s] %s\n" %
-                         (self.client_address[0],
+                         (self.address_string(),
                           self.log_date_time_string(),
                           format%args))
 

@@ -111,7 +111,7 @@ class TestLoader(object):
         elif (isinstance(obj, types.FunctionType) and
               isinstance(parent, type) and
               issubclass(parent, case.TestCase)):
-            name = obj.__name__
+            name = parts[-1]
             inst = parent(name)
             # static methods follow a different path
             if not isinstance(getattr(inst, name), types.FunctionType):
@@ -263,8 +263,8 @@ class TestLoader(object):
                     yield _make_failed_import_test(name, self.suiteClass)
                 else:
                     mod_file = os.path.abspath(getattr(module, '__file__', full_path))
-                    realpath = _jython_aware_splitext(mod_file)
-                    fullpath_noext = _jython_aware_splitext(full_path)
+                    realpath = _jython_aware_splitext(os.path.realpath(mod_file))
+                    fullpath_noext = _jython_aware_splitext(os.path.realpath(full_path))
                     if realpath.lower() != fullpath_noext.lower():
                         module_dir = os.path.dirname(realpath)
                         mod_name = _jython_aware_splitext(os.path.basename(full_path))
