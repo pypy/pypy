@@ -1,11 +1,11 @@
-import itertools
-import os
-import posixpath
-import sys
 import unittest
-import warnings
-from posixpath import realpath, abspath, dirname, basename
 from test import support, test_genericpath
+
+import itertools
+import posixpath
+import os
+import sys
+from posixpath import realpath, abspath, dirname, basename
 
 try:
     import posix
@@ -245,9 +245,7 @@ class PosixPathTest(unittest.TestCase):
 
     def test_ismount(self):
         self.assertIs(posixpath.ismount("/"), True)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            self.assertIs(posixpath.ismount(b"/"), True)
+        self.assertIs(posixpath.ismount(b"/"), True)
 
     def test_ismount_non_existent(self):
         # Non-existent mountpoint.
@@ -318,8 +316,7 @@ class PosixPathTest(unittest.TestCase):
                 # expanduser should fall back to using the password database
                 del env['HOME']
                 home = pwd.getpwuid(os.getuid()).pw_dir
-                # $HOME can end with a trailing /, so strip it (see #17809)
-                self.assertEqual(posixpath.expanduser("~"), home.rstrip("/"))
+                self.assertEqual(posixpath.expanduser("~"), home)
 
     def test_normpath(self):
         self.assertEqual(posixpath.normpath(""), ".")
@@ -601,10 +598,14 @@ class PosixPathTest(unittest.TestCase):
             self.assertTrue(posixpath.sameopenfile(a.fileno(), b.fileno()))
 
 
-class PosixCommonTest(test_genericpath.CommonTest, unittest.TestCase):
+class PosixCommonTest(test_genericpath.CommonTest):
     pathmodule = posixpath
     attributes = ['relpath', 'samefile', 'sameopenfile', 'samestat']
 
 
+def test_main():
+    support.run_unittest(PosixPathTest, PosixCommonTest)
+
+
 if __name__=="__main__":
-    unittest.main()
+    test_main()

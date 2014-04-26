@@ -476,11 +476,11 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
-                    # the import library is named python27.lib, according
-                    # to the pragma in pyconfig.h
-                    libname = str(newsoname.dirpath().join('python27.lib'))
-                    shutil.copyfile(str(soname.new(ext='lib')), libname)
-                    self.log.info("copied: %s" % (libname,))
+                    # copy the import library as well
+                    libname = soname.new(ext='lib')
+                    newlibname = newexename.new(basename=soname.basename)
+                    shutil.copyfile(str(libname), str(newlibname.new(ext='lib')))
+                    self.log.info("copied: %s" % (newlibname,))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))

@@ -115,12 +115,22 @@ add --without-tk option to skip packaging binary CFFI extension."""
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        importlib_name = 'python27.lib'    
+        importlib_name = 'libpypy-c.lib'    
         if pypy_c.dirpath().join(importlib_name).check():
-            shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
-                        str(pypydir.join('include/python27.lib')))
-            print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
-                        pypydir.join('include/python27.lib'))
+            try:
+                ver = subprocess.check_output([r'pypy\goal\pypy-c','-c',
+                                            "import sys;print(sys.version)"])
+                importlib_target = 'python%s%s.lib' % (ver[0], ver[2])
+                shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
+                            str(pypydir.join(importlib_target)))
+                # XXX fix this, either an additional build step or rename
+                # both DLL and LIB to versioned names, like cpython
+                shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
+                            str(pypy_c.dirpath().join(importlib_target)))
+                print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
+                            pypydir.join('include', importlib_target))
+            except:
+                pass
         else:
             pass
             # XXX users will complain that they cannot compile cpyext

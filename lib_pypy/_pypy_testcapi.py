@@ -1,6 +1,7 @@
 import os, sys, imp
 import tempfile, binascii
 
+
 def get_hashed_dir(cfile):
     with open(cfile,'r') as fid:
         content = fid.read()
@@ -15,7 +16,7 @@ def get_hashed_dir(cfile):
     output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s%s' %(k1, k2)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    return output_dir 
+    return output_dir
 
 
 def _get_c_extension_suffix():
@@ -53,10 +54,10 @@ def compile_shared(csource, modulename, output_dir=None):
     if sys.platform == 'win32':
         # XXX pyconfig.h uses a pragma to link to the import library,
         #     which is currently python3.lib
-        library = os.path.join(thisdir, '..', 'include', 'python3')
+        library = os.path.join(thisdir, '..', 'include', 'python32')
         if not os.path.exists(library + '.lib'):
             # For a local translation or nightly build
-            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python3')
+            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python32')
         assert os.path.exists(library + '.lib'),'Could not find import library "%s"' % library
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST',  # needed for VC10

@@ -543,6 +543,9 @@ class OptRewrite(Optimization):
             return
         self.emit_operation(op)
 
+    def optimize_GUARD_FUTURE_CONDITION(self, op):
+        pass # just remove it
+
     def optimize_INT_FLOORDIV(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))

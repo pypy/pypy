@@ -10,14 +10,14 @@ import re
 import uu
 import base64
 import binascii
+import warnings
 from io import BytesIO, StringIO
 
 # Intrapackage imports
 from email import utils
 from email import errors
-from email._policybase import compat32
+from email import header
 from email import charset as _charset
-from email._encoded_words import decode_b
 Charset = _charset.Charset
 
 SEMISPACE = '; '
@@ -26,6 +26,24 @@ SEMISPACE = '; '
 # existence of which force quoting of the parameter value.
 tspecials = re.compile(r'[ \(\)<>@,;:\\"/\[\]\?=]')
 
+# How to figure out if we are processing strings that come from a byte
+# source with undecodable characters.
+_has_surrogates = re.compile(
+    '([^\ud800-\udbff]|\A)[\udc00-\udfff]([^\udc00-\udfff]|\Z)').search
+
+
+# Helper functions
+def _sanitize_header(name, value):
+    # If the header value contains surrogates, return a Header using
+    # the unknown-8bit charset to encode the bytes as encoded words.
+    if not isinstance(value, str):
+        # Assume it is already a header object
+        return value
+    if _has_surrogates(value):
+        return header.Header(value, charset=_charset.UNKNOWN8BIT,
+                             header_name=name)
+    else:
+        return value
 
 def _splitparam(param):
     # Split header parameters.  BAW: this may be too simple.  It isn't
@@ -118,8 +136,7 @@ class Message:
     you must use the explicit API to set or get all the headers.  Not all of
     the mapping methods are implemented.
     """
-    def __init__(self, policy=compat32):
-        self.policy = policy
+    def __init__(self):
         self._headers = []
         self._unixfrom = None
         self._payload = None
@@ -229,7 +246,7 @@ class Message:
         cte = str(self.get('content-transfer-encoding', '')).lower()
         # payload may be bytes here.
         if isinstance(payload, str):
-            if utils._has_surrogates(payload):
+            if _has_surrogates(payload):
                 bpayload = payload.encode('ascii', 'surrogateescape')
                 if not decode:
                     try:
@@ -250,12 +267,11 @@ class Message:
         if cte == 'quoted-printable':
             return utils._qdecode(bpayload)
         elif cte == 'base64':
-            # XXX: this is a bit of a hack; decode_b should probably be factored
-            # out somewhere, but I haven't figured out where yet.
-            value, defects = decode_b(b''.join(bpayload.splitlines()))
-            for defect in defects:
-                self.policy.handle_defect(self, defect)
-            return value
+            try:
+                return base64.b64decode(bpayload)
+            except binascii.Error:
+                # Incorrect padding
+                return bpayload
         elif cte in ('x-uuencode', 'uuencode', 'uue', 'x-uue'):
             in_file = BytesIO(bpayload)
             out_file = BytesIO()
@@ -275,17 +291,7 @@ class Message:
         Optional charset sets the message's default character set.  See
         set_charset() for details.
         """
-        if hasattr(payload, 'encode'):
-            if charset is None:
-                self._payload = payload
-                return
-            if not isinstance(charset, Charset):
-                charset = Charset(charset)
-            payload = payload.encode(charset.output_charset)
-        if hasattr(payload, 'decode'):
-            self._payload = payload.decode('ascii', 'surrogateescape')
-        else:
-            self._payload = payload
+        self._payload = payload
         if charset is not None:
             self.set_charset(charset)
 
@@ -324,16 +330,7 @@ class Message:
             try:
                 cte(self)
             except TypeError:
-                # This 'if' is for backward compatibility, it allows unicode
-                # through even though that won't work correctly if the
-                # message is serialized.
-                payload = self._payload
-                if payload:
-                    try:
-                        payload = payload.encode('ascii', 'surrogateescape')
-                    except UnicodeError:
-                        payload = payload.encode(charset.output_charset)
-                self._payload = charset.body_encode(payload)
+                self._payload = charset.body_encode(self._payload)
                 self.add_header('Content-Transfer-Encoding', cte)
 
     def get_charset(self):
@@ -365,17 +362,7 @@ class Message:
         Note: this does not overwrite an existing header with the same field
         name.  Use __delitem__() first to delete any existing headers.
         """
-        max_count = self.policy.header_max_count(name)
-        if max_count:
-            lname = name.lower()
-            found = 0
-            for k, v in self._headers:
-                if k.lower() == lname:
-                    found += 1
-                    if found >= max_count:
-                        raise ValueError("There may be at most {} {} headers "
-                                         "in a message".format(max_count, name))
-        self._headers.append(self.policy.header_store_parse(name, val))
+        self._headers.append((name, val))
 
     def __delitem__(self, name):
         """Delete all occurrences of a header, if present.
@@ -414,8 +401,7 @@ class Message:
         Any fields deleted and re-inserted are always appended to the header
         list.
         """
-        return [self.policy.header_fetch_parse(k, v)
-                for k, v in self._headers]
+        return [_sanitize_header(k, v) for k, v in self._headers]
 
     def items(self):
         """Get all the message's header fields and values.
@@ -425,8 +411,7 @@ class Message:
         Any fields deleted and re-inserted are always appended to the header
         list.
         """
-        return [(k, self.policy.header_fetch_parse(k, v))
-                for k, v in self._headers]
+        return [(k, _sanitize_header(k, v)) for k, v in self._headers]
 
     def get(self, name, failobj=None):
         """Get a header value.
@@ -437,27 +422,8 @@ class Message:
         name = name.lower()
         for k, v in self._headers:
             if k.lower() == name:
-                return self.policy.header_fetch_parse(k, v)
+                return _sanitize_header(k, v)
         return failobj
-
-    #
-    # "Internal" methods (public API, but only intended for use by a parser
-    # or generator, not normal application code.
-    #
-
-    def set_raw(self, name, value):
-        """Store name and value in the model without modification.
-
-        This is an "internal" API, intended only for use by a parser.
-        """
-        self._headers.append((name, value))
-
-    def raw_items(self):
-        """Return the (name, value) header pairs without modification.
-
-        This is an "internal" API, intended only for use by a generator.
-        """
-        return iter(self._headers.copy())
 
     #
     # Additional useful stuff
@@ -476,7 +442,7 @@ class Message:
         name = name.lower()
         for k, v in self._headers:
             if k.lower() == name:
-                values.append(self.policy.header_fetch_parse(k, v))
+                values.append(_sanitize_header(k, v))
         if not values:
             return failobj
         return values
@@ -509,7 +475,7 @@ class Message:
                 parts.append(_formatparam(k.replace('_', '-'), v))
         if _value is not None:
             parts.insert(0, _value)
-        self[_name] = SEMISPACE.join(parts)
+        self._headers.append((_name, SEMISPACE.join(parts)))
 
     def replace_header(self, _name, _value):
         """Replace a header.
@@ -521,7 +487,7 @@ class Message:
         _name = _name.lower()
         for i, (k, v) in zip(range(len(self._headers)), self._headers):
             if k.lower() == _name:
-                self._headers[i] = self.policy.header_store_parse(k, _value)
+                self._headers[i] = (k, _value)
                 break
         else:
             raise KeyError(_name)
@@ -653,7 +619,7 @@ class Message:
         If your application doesn't care whether the parameter was RFC 2231
         encoded, it can turn the return value into a string as follows:
 
-            rawparam = msg.get_param('foo')
+            param = msg.get_param('foo')
             param = email.utils.collapse_rfc2231_value(rawparam)
 
         """
@@ -837,8 +803,7 @@ class Message:
                         parts.append(k)
                     else:
                         parts.append('%s=%s' % (k, v))
-                val = SEMISPACE.join(parts)
-                newheaders.append(self.policy.header_store_parse(h, val))
+                newheaders.append((h, SEMISPACE.join(parts)))
 
             else:
                 newheaders.append((h, v))

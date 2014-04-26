@@ -2,12 +2,11 @@
 Tests common to genericpath, macpath, ntpath and posixpath
 """
 
-import genericpath
-import os
-import sys
 import unittest
-import warnings
 from test import support
+import os
+import genericpath
+import sys
 
 
 def safe_rmdir(dirname):
@@ -17,7 +16,9 @@ def safe_rmdir(dirname):
         pass
 
 
-class GenericTest:
+class GenericTest(unittest.TestCase):
+    # The path module to be tested
+    pathmodule = genericpath
     common_attributes = ['commonprefix', 'getsize', 'getatime', 'getctime',
                          'getmtime', 'exists', 'isdir', 'isfile']
     attributes = []
@@ -144,16 +145,6 @@ class GenericTest:
                 f.close()
             support.unlink(support.TESTFN)
 
-    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
-    def test_exists_fd(self):
-        r, w = os.pipe()
-        try:
-            self.assertTrue(self.pathmodule.exists(r))
-        finally:
-            os.close(r)
-            os.close(w)
-        self.assertFalse(self.pathmodule.exists(r))
-
     def test_isdir(self):
         self.assertIs(self.pathmodule.isdir(support.TESTFN), False)
         f = open(support.TESTFN, "wb")
@@ -188,16 +179,13 @@ class GenericTest:
             support.unlink(support.TESTFN)
             safe_rmdir(support.TESTFN)
 
-class TestGenericTest(GenericTest, unittest.TestCase):
-    # Issue 16852: GenericTest can't inherit from unittest.TestCase
-    # for test discovery purposes; CommonTest inherits from GenericTest
-    # and is only meant to be inherited by others.
-    pathmodule = genericpath
 
 # Following TestCase is not supposed to be run from test_genericpath.
 # It is inherited by other test modules (macpath, ntpath, posixpath).
 
 class CommonTest(GenericTest):
+    # The path module to be tested
+    pathmodule = None
     common_attributes = GenericTest.common_attributes + [
         # Properties
         'curdir', 'pardir', 'extsep', 'sep',
@@ -248,6 +236,7 @@ class CommonTest(GenericTest):
             self.assertEqual(expandvars("$[foo]bar"), "$[foo]bar")
             self.assertEqual(expandvars("$bar bar"), "$bar bar")
             self.assertEqual(expandvars("$?bar"), "$?bar")
+            self.assertEqual(expandvars("${foo}bar"), "barbar")
             self.assertEqual(expandvars("$foo}bar"), "bar}bar")
             self.assertEqual(expandvars("${foo"), "${foo")
             self.assertEqual(expandvars("${{foo}}"), "baz1}")
@@ -260,57 +249,24 @@ class CommonTest(GenericTest):
             self.assertEqual(expandvars(b"$[foo]bar"), b"$[foo]bar")
             self.assertEqual(expandvars(b"$bar bar"), b"$bar bar")
             self.assertEqual(expandvars(b"$?bar"), b"$?bar")
+            self.assertEqual(expandvars(b"${foo}bar"), b"barbar")
             self.assertEqual(expandvars(b"$foo}bar"), b"bar}bar")
             self.assertEqual(expandvars(b"${foo"), b"${foo")
             self.assertEqual(expandvars(b"${{foo}}"), b"baz1}")
             self.assertEqual(expandvars(b"$foo$foo"), b"barbar")
             self.assertEqual(expandvars(b"$bar$bar"), b"$bar$bar")
 
-    @unittest.skipUnless(support.FS_NONASCII, 'need support.FS_NONASCII')
-    def test_expandvars_nonascii(self):
-        if self.pathmodule.__name__ == 'macpath':
-            self.skipTest('macpath.expandvars is a stub')
-        expandvars = self.pathmodule.expandvars
-        def check(value, expected):
-            self.assertEqual(expandvars(value), expected)
-        with support.EnvironmentVarGuard() as env:
-            env.clear()
-            nonascii = support.FS_NONASCII
-            env['spam'] = nonascii
-            env[nonascii] = 'ham' + nonascii
-            check(nonascii, nonascii)
-            check('$spam bar', '%s bar' % nonascii)
-            check('${spam}bar', '%sbar' % nonascii)
-            check('${%s}bar' % nonascii, 'ham%sbar' % nonascii)
-            check('$bar%s bar' % nonascii, '$bar%s bar' % nonascii)
-            check('$spam}bar', '%s}bar' % nonascii)
-
-            check(os.fsencode(nonascii), os.fsencode(nonascii))
-            check(b'$spam bar', os.fsencode('%s bar' % nonascii))
-            check(b'${spam}bar', os.fsencode('%sbar' % nonascii))
-            check(os.fsencode('${%s}bar' % nonascii),
-                  os.fsencode('ham%sbar' % nonascii))
-            check(os.fsencode('$bar%s bar' % nonascii),
-                  os.fsencode('$bar%s bar' % nonascii))
-            check(b'$spam}bar', os.fsencode('%s}bar' % nonascii))
-
     def test_abspath(self):
         self.assertIn("foo", self.pathmodule.abspath("foo"))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            self.assertIn(b"foo", self.pathmodule.abspath(b"foo"))
+        self.assertIn(b"foo", self.pathmodule.abspath(b"foo"))
 
         # Abspath returns bytes when the arg is bytes
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            for path in (b'', b'foo', b'f\xf2\xf2', b'/foo', b'C:\\'):
-                self.assertIsInstance(self.pathmodule.abspath(path), bytes)
+        for path in (b'', b'foo', b'f\xf2\xf2', b'/foo', b'C:\\'):
+            self.assertIsInstance(self.pathmodule.abspath(path), bytes)
 
     def test_realpath(self):
         self.assertIn("foo", self.pathmodule.realpath("foo"))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            self.assertIn(b"foo", self.pathmodule.realpath(b"foo"))
+        self.assertIn(b"foo", self.pathmodule.realpath(b"foo"))
 
     def test_normpath_issue5827(self):
         # Make sure normpath preserves unicode
@@ -326,7 +282,8 @@ class CommonTest(GenericTest):
 
         unicwd = '\xe7w\xf0'
         try:
-            os.fsencode(unicwd)
+            fsencoding = support.TESTFN_ENCODING or "ascii"
+            unicwd.encode(fsencoding)
         except (AttributeError, UnicodeEncodeError):
             # FS encoding is probably ASCII
             pass
@@ -348,12 +305,13 @@ class CommonTest(GenericTest):
         else:
             self.skipTest("need support.TESTFN_NONASCII")
 
-        # Test non-ASCII, non-UTF8 bytes in the path.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            with support.temp_cwd(name):
-                self.test_abspath()
+        with support.temp_cwd(name):
+            self.test_abspath()
+
+
+def test_main():
+    support.run_unittest(GenericTest)
 
 
 if __name__=="__main__":
-    unittest.main()
+    test_main()

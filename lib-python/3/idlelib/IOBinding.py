@@ -1,6 +1,6 @@
 import os
 import types
-import shlex
+import pipes
 import sys
 import codecs
 import tempfile
@@ -63,8 +63,7 @@ locale_encoding = locale_encoding.lower()
 encoding = locale_encoding  ### KBK 07Sep07  This is used all over IDLE, check!
                             ### 'encoding' is used below in encode(), check!
 
-coding_re = re.compile(r'^[ \t\f]*#.*coding[:=][ \t]*([-\w.]+)', re.ASCII)
-blank_re = re.compile(r'^[ \t\f]*(?:[#\r\n]|$)', re.ASCII)
+coding_re = re.compile("coding[:=]\s*([-\w_.]+)")
 
 def coding_spec(data):
     """Return the encoding declaration according to PEP 263.
@@ -85,18 +84,14 @@ def coding_spec(data):
         lines = data
     # consider only the first two lines
     if '\n' in lines:
-        lst = lines.split('\n', 2)[:2]
+        lst = lines.split('\n')[:2]
     elif '\r' in lines:
-        lst = lines.split('\r', 2)[:2]
+        lst = lines.split('\r')[:2]
     else:
-        lst = [lines]
-    for line in lst:
-        match = coding_re.match(line)
-        if match is not None:
-            break
-        if not blank_re.match(line):
-            return None
-    else:
+        lst = list(lines)
+    str = '\n'.join(lst)
+    match = coding_re.search(str)
+    if not match:
         return None
     name = match.group(1)
     try:
@@ -213,11 +208,12 @@ class IOBinding:
         try:
             # open the file in binary mode so that we can handle
             # end-of-line convention ourselves.
-            with open(filename, 'rb') as f:
-                two_lines = f.readline() + f.readline()
-                f.seek(0)
-                bytes = f.read()
-        except OSError as msg:
+            f = open(filename,'rb')
+            two_lines = f.readline() + f.readline()
+            f.seek(0)
+            bytes = f.read()
+            f.close()
+        except IOError as msg:
             tkMessageBox.showerror("I/O Error", str(msg), master=self.text)
             return False
         chars, converted = self._decode(two_lines, bytes)
@@ -377,10 +373,12 @@ class IOBinding:
             text = text.replace("\n", self.eol_convention)
         chars = self.encode(text)
         try:
-            with open(filename, "wb") as f:
-                f.write(chars)
+            f = open(filename, "wb")
+            f.write(chars)
+            f.flush()
+            f.close()
             return True
-        except OSError as msg:
+        except IOError as msg:
             tkMessageBox.showerror("I/O Error", str(msg),
                                    master=self.text)
             return False
@@ -461,7 +459,7 @@ class IOBinding:
         else: #no printing for this platform
             printPlatform = False
         if printPlatform:  #we can try to print for this platform
-            command = command % shlex.quote(filename)
+            command = command % pipes.quote(filename)
             pipe = os.popen(command, "r")
             # things can get ugly on NT if there is no printer available.
             output = pipe.read().strip()
@@ -488,8 +486,6 @@ class IOBinding:
         ("All files", "*"),
         ]
 
-    defaultextension = '.py' if sys.platform == 'darwin' else ''
-
     def askopenfile(self):
         dir, base = self.defaultfilename("open")
         if not self.opendialog:
@@ -513,10 +509,8 @@ class IOBinding:
     def asksavefile(self):
         dir, base = self.defaultfilename("save")
         if not self.savedialog:
-            self.savedialog = tkFileDialog.SaveAs(
-                    master=self.text,
-                    filetypes=self.filetypes,
-                    defaultextension=self.defaultextension)
+            self.savedialog = tkFileDialog.SaveAs(master=self.text,
+                                                  filetypes=self.filetypes)
         filename = self.savedialog.show(initialdir=dir, initialfile=base)
         return filename
 

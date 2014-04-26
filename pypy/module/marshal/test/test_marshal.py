@@ -15,11 +15,14 @@ class AppTestMarshal:
         print(repr(s))
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
-        f = BytesIO()
-        marshal.dump(case, f)
-        f.seek(0)
-        x = marshal.load(f)
-        assert x == case and type(x) is type(case)
+
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            f = StringIO.StringIO()
+            marshal.dump(case, f)
+            f.seek(0)
+            x = marshal.load(f)
+            assert x == case and type(x) is type(case)
         return x
 
     def test_None(self):
@@ -190,8 +193,8 @@ class AppTestMarshal:
 
     def test_bad_typecode(self):
         import marshal
-        exc = raises(ValueError, marshal.loads, b'\x01')
-        assert r"'\x01'" in str(exc.value)
+        exc = raises(ValueError, marshal.loads, chr(1))
+        assert str(exc.value) == "bad marshal data (unknown type code)"
 
     def test_bad_data(self):
         import marshal

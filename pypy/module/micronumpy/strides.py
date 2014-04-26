@@ -233,30 +233,6 @@ def _find_dtype_for_seq(space, elems_w, dtype):
     return dtype
 
 
-def to_coords(space, shape, size, order, w_item_or_slice):
-    '''Returns a start coord, step, and length.
-    '''
-    start = lngth = step = 0
-    if not (space.isinstance_w(w_item_or_slice, space.w_int) or
-            space.isinstance_w(w_item_or_slice, space.w_slice)):
-        raise OperationError(space.w_IndexError,
-                             space.wrap('unsupported iterator index'))
-
-    start, stop, step, lngth = space.decode_index4(w_item_or_slice, size)
-
-    coords = [0] * len(shape)
-    i = start
-    if order == 'C':
-        for s in range(len(shape) -1, -1, -1):
-            coords[s] = i % shape[s]
-            i //= shape[s]
-    else:
-        for s in range(len(shape)):
-            coords[s] = i % shape[s]
-            i //= shape[s]
-    return coords, step, lngth
-
-
 @jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     if w_arr2 is None:
@@ -282,14 +258,16 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
 
 
 @jit.unroll_safe
-def shape_agreement_multiple(space, array_list):
+def shape_agreement_multiple(space, array_list, shape=None):
     """ call shape_agreement recursively, allow elements from array_list to
     be None (like w_out)
     """
-    shape = array_list[0].get_shape()
-    for arr in array_list[1:]:
+    for arr in array_list:
         if not space.is_none(arr):
-            shape = shape_agreement(space, shape, arr)
+            if shape is None:
+                shape = arr.get_shape()
+            else:
+                shape = shape_agreement(space, shape, arr)
     return shape
 
 

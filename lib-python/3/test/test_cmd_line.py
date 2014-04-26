@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from test.script_helper import (spawn_python, kill_python, assert_python_ok,
     assert_python_failure)
+from test.support import check_impl_detail
 
 
 # XXX (ncoghlan): Move to script_helper and make consistent with run_python
@@ -31,6 +32,12 @@ class CmdLineTest(unittest.TestCase):
     def test_optimize(self):
         self.verify_valid_flag('-O')
         self.verify_valid_flag('-OO')
+
+    def test_q(self):
+        self.verify_valid_flag('-Qold')
+        self.verify_valid_flag('-Qnew')
+        self.verify_valid_flag('-Qwarn')
+        self.verify_valid_flag('-Qwarnall')
 
     def test_site_flag(self):
         self.verify_valid_flag('-S')
@@ -142,7 +149,7 @@ class CmdLineTest(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'darwin', 'test specific to Mac OS X')
     def test_osx_utf8(self):
         def check_output(text):
-            decoded = text.decode('utf-8', 'surrogateescape')
+            decoded = text.decode('utf8', 'surrogateescape')
             expected = ascii(decoded).encode('ascii') + b'\n'
 
             env = os.environ.copy()
@@ -214,7 +221,7 @@ class CmdLineTest(unittest.TestCase):
         self.assertIn(path2.encode('ascii'), out)
 
     def test_displayhook_unencodable(self):
-        for encoding in ('ascii', 'latin-1', 'utf-8'):
+        for encoding in ('ascii', 'latin1', 'utf8'):
             env = os.environ.copy()
             env['PYTHONIOENCODING'] = encoding
             p = subprocess.Popen(
@@ -290,7 +297,7 @@ class CmdLineTest(unittest.TestCase):
         rc, out, err = assert_python_ok('-c', code)
         self.assertEqual(b'', out)
         self.assertRegex(err.decode('ascii', 'ignore'),
-                         'Exception OSError: .* ignored')
+                         'Exception IOError: .* ignored')
 
     def test_closed_stdout(self):
         # Issue #13444: if stdout has been explicitly closed, we should
@@ -344,14 +351,15 @@ class CmdLineTest(unittest.TestCase):
         hashes = []
         for i in range(2):
             code = 'print(hash("spam"))'
-            rc, out, err = assert_python_ok('-c', code)
+            rc, out, err = assert_python_ok('-R', '-c', code)
             self.assertEqual(rc, 0)
             hashes.append(out)
-        self.assertNotEqual(hashes[0], hashes[1])
+        if check_impl_detail(pypy=False):  # PyPy does not really implement it!
+            self.assertNotEqual(hashes[0], hashes[1])
 
         # Verify that sys.flags contains hash_randomization
         code = 'import sys; print("random is", sys.flags.hash_randomization)'
-        rc, out, err = assert_python_ok('-c', code)
+        rc, out, err = assert_python_ok('-R', '-c', code)
         self.assertEqual(rc, 0)
         self.assertIn(b'random is 1', out)
 

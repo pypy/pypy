@@ -162,6 +162,7 @@ class AutoFileTests(unittest.TestCase):
         # Remark: Do not perform more than one test per open file,
         # since that does NOT catch the readline error on Windows.
         data = 'xxx'
+        self.f.close()
         for mode in ['w', 'wb', 'a', 'ab']:
             for attr in ['read', 'readline', 'readlines']:
                 self.f = open(TESTFN, mode)

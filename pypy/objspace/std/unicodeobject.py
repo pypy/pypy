@@ -157,20 +157,18 @@ class W_UnicodeObject(W_Root):
         return space.newlist_unicode(lst)
 
     @staticmethod
-    @unwrap_spec(w_object=WrappedDefault(u''))
     def descr_new(space, w_unicodetype, w_object=None, w_encoding=None,
                   w_errors=None):
-        # NB. the default value of w_obj is really a *wrapped* empty string:
-        #     there is gateway magic at work
-        w_obj = w_object
-
-        encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                    w_errors)
-        if encoding is None and errors is None:
-            w_value = unicode_from_object(space, w_obj)
+        if w_object is None:
+            w_value = W_UnicodeObject.EMPTY
         else:
-            w_value = unicode_from_encoded_object(space, w_obj, encoding,
-                                                  errors)
+            encoding, errors = _get_encoding_and_errors(space, w_encoding,
+                                                        w_errors)
+            if encoding is None and errors is None:
+                w_value = unicode_from_object(space, w_object)
+            else:
+                w_value = unicode_from_encoded_object(space, w_object,
+                                                      encoding, errors)
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_value
 

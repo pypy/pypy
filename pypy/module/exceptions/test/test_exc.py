@@ -40,6 +40,14 @@ class AppTestExc(object):
         x = X(x=8)
         assert x.x == 8
 
+    def test_args(self):
+        class X(Exception):
+            def __init__(self, x=3):
+                self.x = x
+
+        assert X(8).args == (8,)
+        assert X(x=8).args == ()
+
     def test_exc(self):
         assert issubclass(Exception, BaseException)
         assert isinstance(Exception(), Exception)

@@ -177,6 +177,12 @@ article:
 
 .. __: https://bitbucket.org/pypy/extradoc/src/tip/talk/icooolps2009/bolz-tracing-jit-final.pdf
 
-as well as the `blog posts with the JIT tag.`__
+Chapters 5 and 6 of `Antonio Cuni's PhD thesis`__ contain an overview of how
+Tracing JITs work in general and more informations about the concrete case of
+PyPy's JIT.
+
+.. __: http://antocuni.eu/download/antocuni-phd-thesis.pdf
+
+The `blog posts with the JIT tag`__ might also contain additional information.
 
 .. __: http://morepypy.blogspot.com/search/label/jit

@@ -61,9 +61,9 @@ class BuildExtTestCase(TempdirManager,
             sys.stdout = old_stdout
 
         if ALREADY_TESTED:
-            self.skipTest('Already tested in %s' % ALREADY_TESTED)
+            return
         else:
-            ALREADY_TESTED = type(self).__name__
+            ALREADY_TESTED = True
 
         import xx
 
@@ -76,8 +76,8 @@ class BuildExtTestCase(TempdirManager,
         if support.HAVE_DOCSTRINGS:
             doc = 'This is a template module just for instruction.'
             self.assertEqual(xx.__doc__, doc)
-        self.assertIsInstance(xx.Null(), xx.Null)
-        self.assertIsInstance(xx.Str(), xx.Str)
+        self.assertTrue(isinstance(xx.Null(), xx.Null))
+        self.assertTrue(isinstance(xx.Str(), xx.Str))
 
     def tearDown(self):
         # Get everything back to normal
@@ -110,9 +110,13 @@ class BuildExtTestCase(TempdirManager,
                 _config_vars['Py_ENABLE_SHARED'] = old_var
 
         # make sure we get some library dirs under solaris
-        self.assertGreater(len(cmd.library_dirs), 0)
+        self.assertTrue(len(cmd.library_dirs) > 0)
 
     def test_user_site(self):
+        # site.USER_SITE was introduced in 2.6
+        if sys.version < '2.6':
+            return
+
         import site
         dist = Distribution({'name': 'xx'})
         cmd = build_ext(dist)
@@ -120,7 +124,7 @@ class BuildExtTestCase(TempdirManager,
         # making sure the user option is there
         options = [name for name, short, lable in
                    cmd.user_options]
-        self.assertIn('user', options)
+        self.assertTrue('user' in options)
 
         # setting a value
         cmd.user = 1
@@ -167,10 +171,10 @@ class BuildExtTestCase(TempdirManager,
 
         from distutils import sysconfig
         py_include = sysconfig.get_python_inc()
-        self.assertIn(py_include, cmd.include_dirs)
+        self.assertTrue(py_include in cmd.include_dirs)
 
         plat_py_include = sysconfig.get_python_inc(plat_specific=1)
-        self.assertIn(plat_py_include, cmd.include_dirs)
+        self.assertTrue(plat_py_include in cmd.include_dirs)
 
         # make sure cmd.libraries is turned into a list
         # if it's a string
@@ -251,13 +255,13 @@ class BuildExtTestCase(TempdirManager,
                              'some': 'bar'})]
         cmd.check_extensions_list(exts)
         ext = exts[0]
-        self.assertIsInstance(ext, Extension)
+        self.assertTrue(isinstance(ext, Extension))
 
         # check_extensions_list adds in ext the values passed
         # when they are in ('include_dirs', 'library_dirs', 'libraries'
         # 'extra_objects', 'extra_compile_args', 'extra_link_args')
         self.assertEqual(ext.libraries, 'foo')
-        self.assertFalse(hasattr(ext, 'some'))
+        self.assertTrue(not hasattr(ext, 'some'))
 
         # 'macros' element of build info dict must be 1- or 2-tuple
         exts = [('foo.bar', {'sources': [''], 'libraries': 'foo',

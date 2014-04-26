@@ -3,23 +3,20 @@ import re
 import sys
 from io import StringIO
 import unittest
-from math import copysign
+from test.support import check_impl_detail
 
 def disassemble(func):
     f = StringIO()
     tmp = sys.stdout
     sys.stdout = f
-    try:
-        dis.dis(func)
-    finally:
-        sys.stdout = tmp
+    dis.dis(func)
+    sys.stdout = tmp
     result = f.getvalue()
     f.close()
     return result
 
 def dis_single(line):
     return disassemble(compile(line, '', 'single'))
-
 
 class TestTranforms(unittest.TestCase):
 
@@ -47,14 +44,14 @@ class TestTranforms(unittest.TestCase):
     def test_global_as_constant(self):
         # LOAD_GLOBAL None/True/False  -->  LOAD_CONST None/True/False
         def f(x):
-            None
+            y = None
             None
             return x
         def g(x):
-            True
+            y = True
             return x
         def h(x):
-            False
+            y = False
             return x
         for func, name in ((f, 'None'), (g, 'True'), (h, 'False')):
             asm = disassemble(func)
@@ -81,10 +78,13 @@ class TestTranforms(unittest.TestCase):
             self.assertIn(elem, asm)
 
     def test_pack_unpack(self):
+        # On PyPy, "a, b = ..." is even more optimized, by removing
+        # the ROT_TWO.  But the ROT_TWO is not removed if assigning
+        # to more complex expressions, so check that.
         for line, elem in (
             ('a, = a,', 'LOAD_CONST',),
-            ('a, b = a, b', 'ROT_TWO',),
-            ('a, b, c = a, b, c', 'ROT_THREE',),
+            ('a[1], b = a, b', 'ROT_TWO',),
+            ('a, b[2], c = a, b, c', 'ROT_THREE',),
             ):
             asm = dis_single(line)
             self.assertIn(elem, asm)
@@ -92,6 +92,8 @@ class TestTranforms(unittest.TestCase):
             self.assertNotIn('UNPACK_TUPLE', asm)
 
     def test_folding_of_tuples_of_constants(self):
+        # On CPython, "a,b,c=1,2,3" turns into "a,b,c=<constant (1,2,3)>"
+        # but on PyPy, it turns into "a=1;b=2;c=3".
         for line, elem in (
             ('a = 1,2,3', '((1, 2, 3))'),
             ('("a","b","c")', "(('a', 'b', 'c'))"),
@@ -100,14 +102,9 @@ class TestTranforms(unittest.TestCase):
             ('((1, 2), 3, 4)', '(((1, 2), 3, 4))'),
             ):
             asm = dis_single(line)
-            self.assertIn(elem, asm)
+            self.assert_(elem in asm or (
+                line == 'a,b,c = 1,2,3' and 'UNPACK_TUPLE' not in asm))
             self.assertNotIn('BUILD_TUPLE', asm)
-
-        # Long tuples should be folded too.
-        asm = dis_single(repr(tuple(range(10000))))
-        # One LOAD_CONST for the tuple, one for the None return value
-        self.assertEqual(asm.count('LOAD_CONST'), 2)
-        self.assertNotIn('BUILD_TUPLE', asm)
 
         # Bug 1053819:  Tuple of constants misidentified when presented with:
         # . . . opcode_with_arg 100   unary_opcode   BUILD_TUPLE 1  . . .
@@ -206,41 +203,33 @@ class TestTranforms(unittest.TestCase):
         self.assertIn('(1000)', asm)
 
     def test_binary_subscr_on_unicode(self):
-        # valid code get optimized
+        # unicode strings don't get optimized
         asm = dis_single('"foo"[0]')
-        self.assertIn("('f')", asm)
-        self.assertNotIn('BINARY_SUBSCR', asm)
+        self.assertNotIn("('f')", asm)
+        self.assertIn('BINARY_SUBSCR', asm)
         asm = dis_single('"\u0061\uffff"[1]')
-        self.assertIn("('\\uffff')", asm)
-        self.assertNotIn('BINARY_SUBSCR', asm)
-        asm = dis_single('"\U00012345abcdef"[3]')
-        self.assertIn("('c')", asm)
-        self.assertNotIn('BINARY_SUBSCR', asm)
+        self.assertNotIn("('\\uffff')", asm)
+        self.assertIn('BINARY_SUBSCR', asm)
 
-        # invalid code doesn't get optimized
         # out of range
         asm = dis_single('"fuu"[10]')
         self.assertIn('BINARY_SUBSCR', asm)
+        # non-BMP char (see #5057)
+        asm = dis_single('"\U00012345"[0]')
+        self.assertIn('BINARY_SUBSCR', asm)
+        asm = dis_single('"\U00012345abcdef"[3]')
+        self.assertIn('BINARY_SUBSCR', asm)
+
 
     def test_folding_of_unaryops_on_constants(self):
         for line, elem in (
             ('-0.5', '(-0.5)'),                     # unary negative
-            ('-0.0', '(-0.0)'),                     # -0.0
-            ('-(1.0-1.0)','(-0.0)'),                # -0.0 after folding
-            ('-0', '(0)'),                          # -0
             ('~-2', '(1)'),                         # unary invert
             ('+1', '(1)'),                          # unary positive
         ):
             asm = dis_single(line)
             self.assertIn(elem, asm, asm)
             self.assertNotIn('UNARY_', asm)
-
-        # Check that -0.0 works after marshaling
-        def negzero():
-            return -(1.0-1.0)
-
-        self.assertNotIn('UNARY_', disassemble(negzero))
-        self.assertTrue(copysign(1.0, negzero()) < 0)
 
         # Verify that unfoldables are skipped
         for line, elem in (
@@ -303,25 +292,6 @@ class TestTranforms(unittest.TestCase):
             return g
         asm = disassemble(f)
         self.assertNotIn('BINARY_ADD', asm)
-
-    def test_constant_folding(self):
-        # Issue #11244: aggressive constant folding.
-        exprs = [
-            "3 * -5",
-            "-3 * 5",
-            "2 * (3 * 4)",
-            "(2 * 3) * 4",
-            "(-1, 2, 3)",
-            "(1, -2, 3)",
-            "(1, 2, -3)",
-            "(1, 2, -3) * 6",
-            "lambda x: x in {(3 * -5) + (-1 - 6), (1, -2, 3) * 2, None}",
-        ]
-        for e in exprs:
-            asm = dis_single(e)
-            self.assertNotIn('UNARY_', asm, e)
-            self.assertNotIn('BINARY_', asm, e)
-            self.assertNotIn('BUILD_', asm, e)
 
 class TestBuglets(unittest.TestCase):
 

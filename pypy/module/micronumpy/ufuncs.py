@@ -178,6 +178,8 @@ class W_Ufunc(W_Root):
         if space.is_none(w_axis):
             axis = maxint
         else:
+            if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
+                w_axis = space.getitem(w_axis, space.wrap(0))
             axis = space.int_w(w_axis)
             if axis < -shapelen or axis >= shapelen:
                 raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")

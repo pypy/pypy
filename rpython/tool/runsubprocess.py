@@ -16,6 +16,8 @@ if sys.platform == 'win32':
     shell_default = True
 
 def _run(executable, args, env, cwd):   # unless overridden below
+    if sys.platform == 'win32':
+        executable = executable.replace('/','\\')
     if isinstance(args, str):
         args = str(executable) + ' ' + args
         shell = True

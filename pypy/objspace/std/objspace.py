@@ -316,10 +316,8 @@ class StdObjSpace(ObjSpace):
         assert not list_w or sizehint == -1
         return W_ListObject(self, list_w, sizehint)
 
-    # XXX: BytesListStrategy is currently broken use the default
-    # implementation, which simply wraps
-    #def newlist_bytes(self, list_s):
-    #    return W_ListObject.newlist_bytes(self, list_s)
+    def newlist_bytes(self, list_s):
+        return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)
@@ -501,6 +499,9 @@ class StdObjSpace(ObjSpace):
         if type(w_obj) is W_DictMultiObject:
             return w_obj.listview_int()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+            return w_obj.listview_int()
+        if type(w_obj) is W_BytesObject:
+            # Python3 considers bytes strings as a list of numbers.
             return w_obj.listview_int()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_int()

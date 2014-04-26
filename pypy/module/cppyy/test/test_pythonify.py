@@ -1,4 +1,5 @@
 import py, os, sys
+
 from pypy.module.cppyy import interp_cppyy, executor
 
 
@@ -6,9 +7,6 @@ currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
 
 def setup_module(mod):
-    # force removal of ROOTSYS for this one test, which serves as a test itself
-    if os.getenv("ROOTSYS"):
-        os.unsetenv("ROOTSYS")
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
     err = os.system("cd '%s' && make example01Dict.so" % currpath)
@@ -16,7 +14,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestPYTHONIFY:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -323,9 +321,20 @@ class AppTestPYTHONIFY:
         e = cppyy.gbl.example01(2)
         assert 5 == meth(e, 3)
 
+    def test01_installable_function(self):
+       """Test installing and calling global C++ function as python method"""
+
+       import cppyy
+
+       cppyy.gbl.example01.fresh = cppyy.gbl.installableAddOneToInt
+
+       e =  cppyy.gbl.example01(0)
+       assert 2 == e.fresh(1)
+       assert 3 == e.fresh(2)
+
 
 class AppTestPYTHONIFY_UI:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)

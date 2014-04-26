@@ -343,12 +343,6 @@ class TestWeakSet(unittest.TestCase):
         self.assertFalse(self.s == WeakSet([Foo]))
         self.assertFalse(self.s == 1)
 
-    def test_ne(self):
-        self.assertTrue(self.s != set(self.items))
-        s1 = WeakSet()
-        s2 = WeakSet()
-        self.assertFalse(s1 != s2)
-
     def test_weak_destroy_while_iterating(self):
         # Issue #7105: iterators shouldn't crash when a key is implicitly removed
         # Create new items to be sure no-one else holds a reference
@@ -373,14 +367,10 @@ class TestWeakSet(unittest.TestCase):
         def testcontext():
             try:
                 it = iter(s)
-                # Start iterator
-                yielded = ustr(str(next(it)))
+                next(it)
+                del it
                 # Schedule an item for removal and recreate it
                 u = ustr(str(items.pop()))
-                if yielded == u:
-                    # The iterator still has a reference to the removed item,
-                    # advance it (issue #20006).
-                    next(it)
                 gc.collect()      # just in case
                 yield u
             finally:
@@ -416,11 +406,13 @@ class TestWeakSet(unittest.TestCase):
         n1 = len(s)
         del it
         gc.collect()
+        gc.collect()
         n2 = len(s)
         # one item may be kept alive inside the iterator
         self.assertIn(n1, (0, 1))
         self.assertEqual(n2, 0)
 
+    @support.impl_detail("PyPy has no cyclic collection", pypy=False)
     def test_len_race(self):
         # Extended sanity checks for len() in the face of cyclic collection
         self.addCleanup(gc.set_threshold, *gc.get_threshold())

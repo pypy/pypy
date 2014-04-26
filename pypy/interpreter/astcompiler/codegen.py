@@ -306,7 +306,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i, default in enumerate(args.kw_defaults):
             if default:
                 kwonly = args.kwonlyargs[i]
-                self.load_const(self.space.wrap(kwonly.arg.decode('utf-8')))
+                mangled = self.scope.mangle(kwonly.arg).decode('utf-8')
+                self.load_const(self.space.wrap(mangled))
                 default.walkabout(self)
                 defaults += 1
         return defaults

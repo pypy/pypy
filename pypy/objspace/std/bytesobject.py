@@ -401,7 +401,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def buffer_w(w_self, space):
         return StringBuffer(w_self._value)
 
-    def listview_bytes(self):
+    def listview_int(self):
         return _create_list_from_bytes(self._value)
 
     def ord(self, space):
@@ -620,8 +620,8 @@ class W_BytesObject(W_AbstractBytesObject):
         l = space.listview_bytes(w_list)
         if l is not None:
             if len(l) == 1:
-                return space.wrap(l[0])
-            return space.wrap(self._val(space).join(l))
+                return space.wrapbytes(l[0])
+            return space.wrapbytes(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
@@ -645,8 +645,8 @@ class W_BytesObject(W_AbstractBytesObject):
 
 def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
-    # listview_bytes
-    return [s for s in value]
+    # listview_int
+    return [ord(s) for s in value]
 
 W_BytesObject.EMPTY = W_BytesObject('')
 W_BytesObject.PREBUILT = [W_BytesObject(chr(i)) for i in range(256)]

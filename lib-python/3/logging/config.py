@@ -24,13 +24,13 @@ Copyright (C) 2001-2013 Vinay Sajip. All Rights Reserved.
 To use, simply 'import logging' and log away!
 """
 
-import sys, logging, logging.handlers, socket, struct, traceback, re
-import io
+import sys, logging, logging.handlers, socket, struct, os, traceback, re
+import types, io
 
 try:
     import _thread as thread
     import threading
-except ImportError: #pragma: no cover
+except ImportError:
     thread = None
 
 from socketserver import ThreadingTCPServer, StreamRequestHandler
@@ -97,6 +97,9 @@ def _resolve(name):
 
 def _strip_spaces(alist):
     return map(lambda x: x.strip(), alist)
+
+def _encoded(s):
+    return s if isinstance(s, str) else s.encode('utf-8')
 
 def _create_formatters(cp):
     """Create and return formatters"""
@@ -212,7 +215,7 @@ def _install_loggers(cp, handlers, disable_existing):
     #avoid disabling child loggers of explicitly
     #named loggers. With a sorted list it is easier
     #to find the child loggers.
-    existing.sort()
+    existing.sort(key=_encoded)
     #We'll keep the list of existing loggers
     #which are children of named loggers here...
     child_loggers = []
@@ -600,7 +603,7 @@ class DictConfigurator(BaseConfigurator):
                 #avoid disabling child loggers of explicitly
                 #named loggers. With a sorted list it is easier
                 #to find the child loggers.
-                existing.sort()
+                existing.sort(key=_encoded)
                 #We'll keep the list of existing loggers
                 #which are children of named loggers here...
                 child_loggers = []
@@ -669,8 +672,7 @@ class DictConfigurator(BaseConfigurator):
         else:
             fmt = config.get('format', None)
             dfmt = config.get('datefmt', None)
-            style = config.get('style', '%')
-            result = logging.Formatter(fmt, dfmt, style)
+            result = logging.Formatter(fmt, dfmt)
         return result
 
     def configure_filter(self, config):
@@ -692,7 +694,6 @@ class DictConfigurator(BaseConfigurator):
 
     def configure_handler(self, config):
         """Configure a handler from a dictionary."""
-        config_copy = dict(config)  # for restoring in case of error
         formatter = config.pop('formatter', None)
         if formatter:
             try:
@@ -716,7 +717,7 @@ class DictConfigurator(BaseConfigurator):
                 try:
                     th = self.config['handlers'][config['target']]
                     if not isinstance(th, logging.Handler):
-                        config.update(config_copy)  # restore for deferred cfg
+                        config['class'] = cname # restore for deferred configuration
                         raise TypeError('target not configured yet')
                     config['target'] = th
                 except Exception as e:
@@ -805,7 +806,7 @@ def listen(port=DEFAULT_LOGGING_CONFIG_PORT):
     and which you can join() when appropriate. To stop the server, call
     stopListening().
     """
-    if not thread: #pragma: no cover
+    if not thread:
         raise NotImplementedError("listen() needs threading to work")
 
     class ConfigStreamHandler(StreamRequestHandler):
@@ -823,6 +824,7 @@ def listen(port=DEFAULT_LOGGING_CONFIG_PORT):
             struct.pack(">L", n), followed by the config file.
             Uses fileConfig() to do the grunt work.
             """
+            import tempfile
             try:
                 conn = self.connection
                 chunk = conn.recv(4)
@@ -843,7 +845,7 @@ def listen(port=DEFAULT_LOGGING_CONFIG_PORT):
                         file = io.StringIO(chunk)
                         try:
                             fileConfig(file)
-                        except (KeyboardInterrupt, SystemExit): #pragma: no cover
+                        except (KeyboardInterrupt, SystemExit):
                             raise
                         except:
                             traceback.print_exc()

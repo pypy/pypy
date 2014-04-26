@@ -1,23 +1,10 @@
 import operator
+
 from rpython.flowspace.test.test_objspace import Base
-from rpython.rlib.unroll import unrolling_zero, unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
+
 
 class TestUnroll(Base):
-
-    def test_unrolling_int(self):
-        l = range(10)
-        def f(tot):
-            i = unrolling_zero
-            while i < len(l):
-                tot += l[i]
-                i = i + 1
-            return tot*2
-        assert f(0) == sum(l)*2
-
-        graph = self.codetest(f)
-        ops = self.all_operations(graph)
-        assert ops == {'inplace_add': 10, 'mul': 1}
-
     def test_unroller(self):
         l = unrolling_iterable(range(10))
         def f(tot):

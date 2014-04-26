@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import encode_utf8
 from rpython.rlib import rgc, jit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -348,6 +349,8 @@ callback_type = lltype.Ptr(lltype.FuncType(
 XML_SetUnknownEncodingHandler = expat_external(
     'XML_SetUnknownEncodingHandler',
     [XML_Parser, callback_type, rffi.VOIDP], lltype.Void)
+XML_SetEncoding = expat_external(
+    'XML_SetEncoding', [XML_Parser, rffi.CCHARP], rffi.INT)
 
 # Declarations of external functions
 
@@ -622,10 +625,17 @@ getting the advantage of providing document type information to the parser.
 
     # Parse methods
 
-    @unwrap_spec(data='bufferstr_or_u', isfinal=bool)
-    def Parse(self, space, data, isfinal=False):
+    @unwrap_spec(isfinal=bool)
+    def Parse(self, space, w_data, isfinal=False):
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
+        if space.isinstance_w(w_data, space.w_unicode):
+            u = w_data.unicode_w(space)
+            data = encode_utf8(space, w_data.unicode_w(space))
+            # Explicitly set UTF-8 encoding. Return code ignored.
+            XML_SetEncoding(self.itself, "utf-8")
+        else:
+            data = space.bufferstr_w(w_data)
         res = XML_Parse(self.itself, data, len(data), isfinal)
         if self._exc_info:
             e = self._exc_info
@@ -643,9 +653,8 @@ Parse XML data from file-like object."""
         eof = False
         while not eof:
             w_data = space.call_method(w_file, 'read', space.wrap(2048))
-            data = space.bytes_w(w_data)
-            eof = len(data) == 0
-            w_res = self.Parse(space, data, isfinal=eof)
+            eof = space.len_w(w_data) == 0
+            w_res = self.Parse(space, w_data, isfinal=eof)
         return w_res
 
     @unwrap_spec(base=str)

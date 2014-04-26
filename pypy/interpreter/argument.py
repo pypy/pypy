@@ -351,7 +351,7 @@ class Arguments(object):
                 limit -= len(self.keyword_names_w)
             for i in range(len(self.keywords)):
                 if i < limit:
-                    w_key = space.wrap(self.keywords[i])
+                    w_key = space.wrap(self.keywords[i].decode('utf-8'))
                 else:
                     w_key = self.keyword_names_w[i - limit]
                 space.setitem(w_kwds, w_key, self.keywords_w[i])
@@ -446,7 +446,7 @@ def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
                 break
         else:
             if i < limit:
-                w_key = space.wrap(keywords[i])
+                w_key = space.wrap(keywords[i].decode('utf-8'))
             else:
                 w_key = keyword_names_w[i - limit]
             space.setitem(w_kwds, w_key, keywords_w[i])

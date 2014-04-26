@@ -1,4 +1,4 @@
-# Copyright 2001-2013 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2012 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -18,19 +18,23 @@
 Additional handlers for the logging package for Python. The core package is
 based on PEP 282 and comments thereto in comp.lang.python.
 
-Copyright (C) 2001-2013 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2012 Vinay Sajip. All Rights Reserved.
 
 To use, simply 'import logging.handlers' and log away!
 """
 
 import errno, logging, socket, os, pickle, struct, time, re
-from codecs import BOM_UTF8
 from stat import ST_DEV, ST_INO, ST_MTIME
 import queue
 try:
     import threading
-except ImportError: #pragma: no cover
+except ImportError:
     threading = None
+
+try:
+    import codecs
+except ImportError:
+    codecs = None
 
 #
 # Some constants...
@@ -51,15 +55,15 @@ class BaseRotatingHandler(logging.FileHandler):
     Not meant to be instantiated directly.  Instead, use RotatingFileHandler
     or TimedRotatingFileHandler.
     """
-    def __init__(self, filename, mode, encoding=None, delay=False):
+    def __init__(self, filename, mode, encoding=None, delay=0):
         """
         Use the specified filename for streamed logging
         """
+        if codecs is None:
+            encoding = None
         logging.FileHandler.__init__(self, filename, mode, encoding, delay)
         self.mode = mode
         self.encoding = encoding
-        self.namer = None
-        self.rotator = None
 
     def emit(self, record):
         """
@@ -72,57 +76,17 @@ class BaseRotatingHandler(logging.FileHandler):
             if self.shouldRollover(record):
                 self.doRollover()
             logging.FileHandler.emit(self, record)
-        except (KeyboardInterrupt, SystemExit): #pragma: no cover
+        except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
-
-    def rotation_filename(self, default_name):
-        """
-        Modify the filename of a log file when rotating.
-
-        This is provided so that a custom filename can be provided.
-
-        The default implementation calls the 'namer' attribute of the
-        handler, if it's callable, passing the default name to
-        it. If the attribute isn't callable (the default is None), the name
-        is returned unchanged.
-
-        :param default_name: The default name for the log file.
-        """
-        if not callable(self.namer):
-            result = default_name
-        else:
-            result = self.namer(default_name)
-        return result
-
-    def rotate(self, source, dest):
-        """
-        When rotating, rotate the current log.
-
-        The default implementation calls the 'rotator' attribute of the
-        handler, if it's callable, passing the source and dest arguments to
-        it. If the attribute isn't callable (the default is None), the source
-        is simply renamed to the destination.
-
-        :param source: The source filename. This is normally the base
-                       filename, e.g. 'test.log'
-        :param dest:   The destination filename. This is normally
-                       what the source is rotated to, e.g. 'test.log.1'.
-        """
-        if not callable(self.rotator):
-            # Issue 18940: A file may not have been created if delay is True.
-            if os.path.exists(source):
-                os.rename(source, dest)
-        else:
-            self.rotator(source, dest)
 
 class RotatingFileHandler(BaseRotatingHandler):
     """
     Handler for logging to a set of files, which switches from one file
     to the next when the current file reaches a certain size.
     """
-    def __init__(self, filename, mode='a', maxBytes=0, backupCount=0, encoding=None, delay=False):
+    def __init__(self, filename, mode='a', maxBytes=0, backupCount=0, encoding=None, delay=0):
         """
         Open the specified file and use it as the stream for logging.
 
@@ -163,19 +127,17 @@ class RotatingFileHandler(BaseRotatingHandler):
             self.stream = None
         if self.backupCount > 0:
             for i in range(self.backupCount - 1, 0, -1):
-                sfn = self.rotation_filename("%s.%d" % (self.baseFilename, i))
-                dfn = self.rotation_filename("%s.%d" % (self.baseFilename,
-                                                        i + 1))
+                sfn = "%s.%d" % (self.baseFilename, i)
+                dfn = "%s.%d" % (self.baseFilename, i + 1)
                 if os.path.exists(sfn):
                     if os.path.exists(dfn):
                         os.remove(dfn)
                     os.rename(sfn, dfn)
-            dfn = self.rotation_filename(self.baseFilename + ".1")
+            dfn = self.baseFilename + ".1"
             if os.path.exists(dfn):
                 os.remove(dfn)
-            self.rotate(self.baseFilename, dfn)
-        if not self.delay:
-            self.stream = self._open()
+            os.rename(self.baseFilename, dfn)
+        self.stream = self._open()
 
     def shouldRollover(self, record):
         """
@@ -221,19 +183,19 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
         if self.when == 'S':
             self.interval = 1 # one second
             self.suffix = "%Y-%m-%d_%H-%M-%S"
-            self.extMatch = r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(\.\w+)?$"
+            self.extMatch = r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
         elif self.when == 'M':
             self.interval = 60 # one minute
             self.suffix = "%Y-%m-%d_%H-%M"
-            self.extMatch = r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(\.\w+)?$"
+            self.extMatch = r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}$"
         elif self.when == 'H':
             self.interval = 60 * 60 # one hour
             self.suffix = "%Y-%m-%d_%H"
-            self.extMatch = r"^\d{4}-\d{2}-\d{2}_\d{2}(\.\w+)?$"
+            self.extMatch = r"^\d{4}-\d{2}-\d{2}_\d{2}$"
         elif self.when == 'D' or self.when == 'MIDNIGHT':
             self.interval = 60 * 60 * 24 # one day
             self.suffix = "%Y-%m-%d"
-            self.extMatch = r"^\d{4}-\d{2}-\d{2}(\.\w+)?$"
+            self.extMatch = r"^\d{4}-\d{2}-\d{2}$"
         elif self.when.startswith('W'):
             self.interval = 60 * 60 * 24 * 7 # one week
             if len(self.when) != 2:
@@ -242,7 +204,7 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
                 raise ValueError("Invalid day specified for weekly rollover: %s" % self.when)
             self.dayOfWeek = int(self.when[1])
             self.suffix = "%Y-%m-%d"
-            self.extMatch = r"^\d{4}-\d{2}-\d{2}(\.\w+)?$"
+            self.extMatch = r"^\d{4}-\d{2}-\d{2}$"
         else:
             raise ValueError("Invalid rollover interval specified: %s" % self.when)
 
@@ -375,16 +337,14 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
                 else:
                     addend = -3600
                 timeTuple = time.localtime(t + addend)
-        dfn = self.rotation_filename(self.baseFilename + "." +
-                                     time.strftime(self.suffix, timeTuple))
+        dfn = self.baseFilename + "." + time.strftime(self.suffix, timeTuple)
         if os.path.exists(dfn):
             os.remove(dfn)
-        self.rotate(self.baseFilename, dfn)
+        os.rename(self.baseFilename, dfn)
         if self.backupCount > 0:
             for s in self.getFilesToDelete():
                 os.remove(s)
-        if not self.delay:
-            self.stream = self._open()
+        self.stream = self._open()
         newRolloverAt = self.computeRollover(currentTime)
         while newRolloverAt <= currentTime:
             newRolloverAt = newRolloverAt + self.interval
@@ -419,7 +379,7 @@ class WatchedFileHandler(logging.FileHandler):
     This handler is based on a suggestion and patch by Chad J.
     Schroeder.
     """
-    def __init__(self, filename, mode='a', encoding=None, delay=False):
+    def __init__(self, filename, mode='a', encoding=None, delay=0):
         logging.FileHandler.__init__(self, filename, mode, encoding, delay)
         self.dev, self.ino = -1, -1
         self._statstream()
@@ -478,15 +438,15 @@ class SocketHandler(logging.Handler):
         """
         Initializes the handler with a specific host address and port.
 
-        When the attribute *closeOnError* is set to True - if a socket error
-        occurs, the socket is silently closed and then reopened on the next
-        logging call.
+        The attribute 'closeOnError' is set to 1 - which means that if
+        a socket error occurs, the socket is silently closed and then
+        reopened on the next logging call.
         """
         logging.Handler.__init__(self)
         self.host = host
         self.port = port
         self.sock = None
-        self.closeOnError = False
+        self.closeOnError = 0
         self.retryTime = None
         #
         # Exponential backoff parameters.
@@ -503,12 +463,8 @@ class SocketHandler(logging.Handler):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if hasattr(s, 'settimeout'):
             s.settimeout(timeout)
-        try:
-            s.connect((self.host, self.port))
-            return s
-        except socket.error:
-            s.close()
-            raise
+        s.connect((self.host, self.port))
+        return s
 
     def createSocket(self):
         """
@@ -521,7 +477,7 @@ class SocketHandler(logging.Handler):
         # is the first time back after a disconnect, or
         # we've waited long enough.
         if self.retryTime is None:
-            attempt = True
+            attempt = 1
         else:
             attempt = (now >= self.retryTime)
         if attempt:
@@ -554,14 +510,14 @@ class SocketHandler(logging.Handler):
             try:
                 if hasattr(self.sock, "sendall"):
                     self.sock.sendall(s)
-                else: #pragma: no cover
+                else:
                     sentsofar = 0
                     left = len(s)
                     while left > 0:
                         sent = self.sock.send(s[sentsofar:])
                         sentsofar = sentsofar + sent
                         left = left - sent
-            except socket.error: #pragma: no cover
+            except socket.error:
                 self.sock.close()
                 self.sock = None  # so we can call createSocket next time
 
@@ -611,7 +567,7 @@ class SocketHandler(logging.Handler):
         try:
             s = self.makePickle(record)
             self.send(s)
-        except (KeyboardInterrupt, SystemExit): #pragma: no cover
+        except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
@@ -645,7 +601,7 @@ class DatagramHandler(SocketHandler):
         Initializes the handler with a specific host address and port.
         """
         SocketHandler.__init__(self, host, port)
-        self.closeOnError = False
+        self.closeOnError = 0
 
     def makeSocket(self):
         """
@@ -771,7 +727,7 @@ class SysLogHandler(logging.Handler):
     }
 
     def __init__(self, address=('localhost', SYSLOG_UDP_PORT),
-                 facility=LOG_USER, socktype=None):
+                 facility=LOG_USER, socktype=socket.SOCK_DGRAM):
         """
         Initialize a handler.
 
@@ -786,41 +742,22 @@ class SysLogHandler(logging.Handler):
         self.socktype = socktype
 
         if isinstance(address, str):
-            self.unixsocket = True
+            self.unixsocket = 1
             self._connect_unixsocket(address)
         else:
-            self.unixsocket = False
-            if socktype is None:
-                socktype = socket.SOCK_DGRAM
+            self.unixsocket = 0
             self.socket = socket.socket(socket.AF_INET, socktype)
             if socktype == socket.SOCK_STREAM:
                 self.socket.connect(address)
-            self.socktype = socktype
         self.formatter = None
 
     def _connect_unixsocket(self, address):
-        use_socktype = self.socktype
-        if use_socktype is None:
-            use_socktype = socket.SOCK_DGRAM
-        self.socket = socket.socket(socket.AF_UNIX, use_socktype)
+        self.socket = socket.socket(socket.AF_UNIX, self.socktype)
         try:
             self.socket.connect(address)
-            # it worked, so set self.socktype to the used type
-            self.socktype = use_socktype
         except socket.error:
             self.socket.close()
-            if self.socktype is not None:
-                # user didn't specify falling back, so fail
-                raise
-            use_socktype = socket.SOCK_STREAM
-            self.socket = socket.socket(socket.AF_UNIX, use_socktype)
-            try:
-                self.socket.connect(address)
-                # it worked, so set self.socktype to the used type
-                self.socktype = use_socktype
-            except socket.error:
-                self.socket.close()
-                raise
+            raise
 
     def encodePriority(self, facility, priority):
         """
@@ -841,7 +778,8 @@ class SysLogHandler(logging.Handler):
         """
         self.acquire()
         try:
-            self.socket.close()
+            if self.unixsocket:
+                self.socket.close()
             logging.Handler.close(self)
         finally:
             self.release()
@@ -856,7 +794,6 @@ class SysLogHandler(logging.Handler):
         """
         return self.priority_map.get(levelName, "warning")
 
-    ident = ''          # prepended to all messages
     append_nul = True   # some old syslog daemons expect a NUL terminator
 
     def emit(self, record):
@@ -867,8 +804,6 @@ class SysLogHandler(logging.Handler):
         exception information is present, it is NOT sent to the server.
         """
         msg = self.format(record)
-        if self.ident:
-            msg = self.ident + msg
         if self.append_nul:
             msg += '\000'
         """
@@ -886,14 +821,13 @@ class SysLogHandler(logging.Handler):
                 try:
                     self.socket.send(msg)
                 except socket.error:
-                    self.socket.close()
                     self._connect_unixsocket(self.address)
                     self.socket.send(msg)
             elif self.socktype == socket.SOCK_DGRAM:
                 self.socket.sendto(msg, self.address)
             else:
                 self.socket.sendall(msg)
-        except (KeyboardInterrupt, SystemExit): #pragma: no cover
+        except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
@@ -903,7 +837,7 @@ class SMTPHandler(logging.Handler):
     A handler class which sends an SMTP email for each logging event.
     """
     def __init__(self, mailhost, fromaddr, toaddrs, subject,
-                 credentials=None, secure=None, timeout=5.0):
+                 credentials=None, secure=None):
         """
         Initialize the handler.
 
@@ -917,8 +851,6 @@ class SMTPHandler(logging.Handler):
         will be either an empty tuple, or a single-value tuple with the name
         of a keyfile, or a 2-value tuple with the names of the keyfile and
         certificate file. (This tuple is passed to the `starttls` method).
-        A timeout in seconds can be specified for the SMTP connection (the
-        default is one second).
         """
         logging.Handler.__init__(self)
         if isinstance(mailhost, tuple):
@@ -935,7 +867,7 @@ class SMTPHandler(logging.Handler):
         self.toaddrs = toaddrs
         self.subject = subject
         self.secure = secure
-        self.timeout = timeout
+        self._timeout = 5.0
 
     def getSubject(self, record):
         """
@@ -958,7 +890,7 @@ class SMTPHandler(logging.Handler):
             port = self.mailport
             if not port:
                 port = smtplib.SMTP_PORT
-            smtp = smtplib.SMTP(self.mailhost, port, timeout=self.timeout)
+            smtp = smtplib.SMTP(self.mailhost, port, timeout=self._timeout)
             msg = self.format(record)
             msg = "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" % (
                             self.fromaddr,
@@ -973,7 +905,7 @@ class SMTPHandler(logging.Handler):
                 smtp.login(self.username, self.password)
             smtp.sendmail(self.fromaddr, self.toaddrs, msg)
             smtp.quit()
-        except (KeyboardInterrupt, SystemExit): #pragma: no cover
+        except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
@@ -1060,7 +992,7 @@ class NTEventLogHandler(logging.Handler):
                 type = self.getEventType(record)
                 msg = self.format(record)
                 self._welu.ReportEvent(self.appname, id, cat, type, [msg])
-            except (KeyboardInterrupt, SystemExit): #pragma: no cover
+            except (KeyboardInterrupt, SystemExit):
                 raise
             except:
                 self.handleError(record)
@@ -1143,11 +1075,9 @@ class HTTPHandler(logging.Handler):
                 s = ('u%s:%s' % self.credentials).encode('utf-8')
                 s = 'Basic ' + base64.b64encode(s).strip()
                 h.putheader('Authorization', s)
-            h.endheaders()
-            if self.method == "POST":
-                h.send(data.encode('utf-8'))
+            h.endheaders(data if self.method == "POST" else None)
             h.getresponse()    #can't do anything with the result
-        except (KeyboardInterrupt, SystemExit): #pragma: no cover
+        except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
@@ -1329,7 +1259,7 @@ class QueueHandler(logging.Handler):
         """
         try:
             self.enqueue(self.prepare(record))
-        except (KeyboardInterrupt, SystemExit): #pragma: no cover
+        except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
@@ -1426,16 +1356,6 @@ if threading:
                 except queue.Empty:
                     break
 
-        def enqueue_sentinel(self):
-            """
-            This is used to enqueue the sentinel record.
-
-            The base implementation uses put_nowait. You may want to override this
-            method if you want to use timeouts or work with custom queue
-            implementations.
-            """
-            self.queue.put_nowait(self._sentinel)
-
         def stop(self):
             """
             Stop the listener.
@@ -1445,6 +1365,6 @@ if threading:
             may be some records still left on the queue, which won't be processed.
             """
             self._stop.set()
-            self.enqueue_sentinel()
+            self.queue.put_nowait(self._sentinel)
             self._thread.join()
             self._thread = None
