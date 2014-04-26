@@ -5884,7 +5884,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_bug_unroll(self):
+    def test_bug_unroll_with_immutables(self):
         ops = """
         [p0]
         i2 = getfield_gc_pure(p0, descr=immut_intval)
