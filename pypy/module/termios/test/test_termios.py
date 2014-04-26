@@ -86,7 +86,7 @@ class TestTermios(object):
         child.expect('ok!')
 
     def test_ioctl_termios(self):
-        source = py.code.Source("""
+        source = py.code.Source(r"""
         import termios
         import fcntl
         lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, '\000'*8))
