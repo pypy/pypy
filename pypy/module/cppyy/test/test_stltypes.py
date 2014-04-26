@@ -477,3 +477,29 @@ class AppTestSTLITERATOR:
         assert b1 == e2
         assert b1 != b2
         assert b1 == e2
+
+
+class AppTestTEMPLATE_UI:
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+
+    def setup_class(cls):
+        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_stlstring = cls.space.appexec([], """():
+            import cppyy, sys
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+
+    def test01_explicit_templates(self):
+        """Explicit use of Template class"""
+
+        import cppyy
+
+        vector = cppyy.Template('vector', cppyy.gbl.std)
+        assert vector[int] == vector(int)
+
+        v = vector[int]()
+
+        N = 10
+        v += range(N)
+        assert len(v) == N
+        for i in range(N):
+            assert v[i] == i
