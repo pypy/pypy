@@ -436,6 +436,7 @@ W_XRange.typedef = TypeDef("xrange",
 )
 W_XRange.typedef.acceptable_as_base_class = False
 
+
 class W_XRangeIterator(W_Root):
     def __init__(self, space, current, remaining, step):
         self.space = space
@@ -483,7 +484,10 @@ W_XRangeIterator.typedef = TypeDef("rangeiterator",
 )
 W_XRangeIterator.typedef.acceptable_as_base_class = False
 
+
 class W_XRangeStepOneIterator(W_XRangeIterator):
+    _immutable_fields_ = ['stop']
+
     def __init__(self, space, start, stop):
         self.space = space
         self.current = start
