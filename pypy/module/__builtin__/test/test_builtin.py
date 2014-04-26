@@ -311,14 +311,14 @@ class AppTestBuiltinApp:
     def test_xrange_len(self):
         x = xrange(33)
         assert len(x) == 33
-        x = xrange(33.2)
-        assert len(x) == 33
+        exc = raises(TypeError, xrange, 33.2)
+        assert "integer" in str(exc.value)
         x = xrange(33,0,-1)
         assert len(x) == 33
         x = xrange(33,0)
         assert len(x) == 0
-        x = xrange(33,0.2)
-        assert len(x) == 0
+        exc = raises(TypeError, xrange, 33, 0.2)
+        assert "integer" in str(exc.value)
         x = xrange(0,33)
         assert len(x) == 33
         x = xrange(0,33,-1)

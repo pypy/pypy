@@ -351,17 +351,17 @@ class W_XRange(W_Root):
         self.promote_step = promote_step
 
     def descr_new(space, w_subtype, w_start, w_stop=None, w_step=None):
-        start = _toint(space, w_start)
+        start = space.int_w(w_start)
         if space.is_none(w_step):  # no step argument provided
             step = 1
             promote_step = True
         else:
-            step  = _toint(space, w_step)
+            step  = space.int_w(w_step)
             promote_step = False
         if space.is_none(w_stop):  # only 1 argument provided
             start, stop = 0, start
         else:
-            stop = _toint(space, w_stop)
+            stop = space.int_w(w_stop)
         howmany = get_len_of_range(space, start, stop, step)
         obj = space.allocate_instance(W_XRange, w_subtype)
         W_XRange.__init__(obj, space, start, howmany, step, promote_step)
@@ -424,11 +424,6 @@ class W_XRange(W_Root):
             return sys.maxint if last > sys.maxint - step else last + step
         minint = -sys.maxint - 1
         return minint if last < minint - step else last + step
-
-def _toint(space, w_obj):
-    # this also supports float arguments.  CPython still does, too.
-    # needs a bit more thinking in general...
-    return space.int_w(space.int(w_obj))
 
 W_XRange.typedef = TypeDef("xrange",
     __new__          = interp2app(W_XRange.descr_new.im_func),
