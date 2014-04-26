@@ -449,6 +449,19 @@ class AppTestRange:
         x = range(0, -M, 1 - M)
         assert repr(x) == 'range(0, %s, %s)' % (-M, 1 - M), repr(x)
 
+    def test_range_attributes(self):
+        rangeobj = range(3, 4, 5)
+        assert rangeobj.start == 3
+        assert rangeobj.stop == 4
+        assert rangeobj.step == 5
+
+        raises(AttributeError, "rangeobj.start = 0")
+        raises(AttributeError, "rangeobj.stop = 10")
+        raises(AttributeError, "rangeobj.step = 1")
+        raises(AttributeError, "del rangeobj.start")
+        raises(AttributeError, "del rangeobj.stop")
+        raises(AttributeError, "del rangeobj.step")
+
 
 class AppTestReversed:
     def test_reversed(self):

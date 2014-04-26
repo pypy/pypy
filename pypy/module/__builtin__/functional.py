@@ -7,7 +7,7 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -459,6 +459,9 @@ W_Range.typedef = TypeDef("range",
     __contains__     = interp2app(W_Range.descr_contains),
     count            = interp2app(W_Range.descr_count),
     index            = interp2app(W_Range.descr_index),
+    start            = interp_attrproperty_w('w_start', cls=W_Range),
+    stop             = interp_attrproperty_w('w_stop', cls=W_Range),
+    step             = interp_attrproperty_w('w_step', cls=W_Range),
 )
 W_Range.typedef.acceptable_as_base_class = False
 
