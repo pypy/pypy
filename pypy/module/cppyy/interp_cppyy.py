@@ -450,8 +450,8 @@ class CPPTemplatedCall(CPPMethod):
 
 class CPPConstructor(CPPMethod):
     """Method dispatcher that constructs new objects. This method can not have
-    a fast path, a the allocation of the object is currently left to the
-    reflection layer only, b/c the C++ class may have an overloaded operator
+    a fast path, as the allocation of the object is currently left to the
+    reflection layer only, since the C++ class may have an overloaded operator
     new, disallowing malloc here."""
 
     _immutable_ = True
@@ -460,8 +460,18 @@ class CPPConstructor(CPPMethod):
         # TODO: these casts are very, very un-pretty; need to find a way of
         # re-using CPPMethod's features w/o these roundabouts
         vscope = rffi.cast(capi.C_OBJECT, self.scope.handle)
-        w_result = CPPMethod.call(self, vscope, args_w)
+        cppinstance = None
+        try:
+            cppinstance = self.space.interp_w(W_CPPInstance, args_w[0], can_be_None=False)
+            use_args_w = args_w[1:]
+        except (OperationError, TypeError), e:
+            use_args_w = args_w
+        w_result = CPPMethod.call(self, vscope, use_args_w)
         newthis = rffi.cast(capi.C_OBJECT, self.space.int_w(w_result))
+        if cppinstance:
+            cppinstance._rawobject = newthis
+            memory_regulator.register(cppinstance)
+            return args_w[0]
         return wrap_cppobject(self.space, newthis, self.scope,
                               do_cast=False, python_owns=True, fresh=True)
 
@@ -1141,10 +1151,14 @@ class MemoryRegulator:
         self.objects = rweakref.RWeakValueDictionary(int, W_CPPInstance)
 
     def register(self, obj):
+        if not obj._rawobject:
+            return
         int_address = int(rffi.cast(rffi.LONG, obj._rawobject))
         self.objects.set(int_address, obj)
 
     def unregister(self, obj):
+        if not obj._rawobject:
+            return
         int_address = int(rffi.cast(rffi.LONG, obj._rawobject))
         self.objects.set(int_address, None)
 
@@ -1194,7 +1208,7 @@ def wrap_cppobject(space, rawobject, cppclass,
         w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
 
     # try to recycle existing object if this one is not newly created
-    if not fresh:
+    if not fresh and rawobject:
         obj = memory_regulator.retrieve(rawobject)
         if obj is not None and obj.cppclass is cppclass:
             return obj
