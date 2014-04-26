@@ -1,4 +1,5 @@
-import imp, os
+import imp
+import os
 
 try:
     import cpyext
@@ -17,7 +18,8 @@ else:
     output_dir = _pypy_testcapi.get_hashed_dir(os.path.join(thisdir, cfile))
     try:
         fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
-        imp.load_module('_ctypes_test', fp, filename, description)
+        with fp:
+            imp.load_module('_ctypes_test', fp, filename, description)
     except ImportError:
         print('could not find _ctypes_test in %s' % output_dir)
         _pypy_testcapi.compile_shared('_ctypes_test.c', '_ctypes_test', output_dir)

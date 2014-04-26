@@ -25,6 +25,7 @@ class Module(MixedModule):
         '_init_pythonify'        : 'pythonify._init_pythonify',
         'load_reflection_info'   : 'pythonify.load_reflection_info',
         'add_pythonization'      : 'pythonify.add_pythonization',
+        'Template'               : 'pythonify.CppyyTemplateType',
     }
 
     def __init__(self, space, *args):

@@ -5884,6 +5884,25 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bug_unroll_with_immutables(self):
+        ops = """
+        [p0]
+        i2 = getfield_gc_pure(p0, descr=immut_intval)
+        p1 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p1, 1242, descr=immut_intval)
+        jump(p1)
+        """
+        preamble = """
+        [p0]
+        i2 = getfield_gc_pure(p0, descr=immut_intval)
+        jump()
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_immutable_constantfold_recursive(self):
         ops = """
         []
@@ -8356,6 +8375,31 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, ops)
 
+    def test_unroll_failargs(self):
+        ops = """
+        [p0, i1]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_add(i1, 1)
+        i3 = int_le(i2, 13)
+        guard_true(i3) [p1]
+        jump(p0, i2)      
+        """
+        expected = """
+        [p0, i1, p1]
+        i2 = int_add(i1, 1)
+        i3 = int_le(i2, 13)
+        guard_true(i3) [p1]
+        jump(p0, i2, p1)
+        """
+        preamble = """
+        [p0, i1]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_add(i1, 1)
+        i3 = int_le(i2, 13)
+        guard_true(i3) [p1]
+        jump(p0, i2, p1)        
+        """
+        self.optimize_loop(ops, expected, preamble)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

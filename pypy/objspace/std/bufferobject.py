@@ -3,13 +3,12 @@ Implementation of the 'buffer' and 'memoryview' types.
 """
 import operator
 
-from rpython.rlib.buffer import Buffer, StringBuffer, SubBuffer
+from rpython.rlib.buffer import Buffer, SubBuffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib.rstring import StringBuilder
 
 
 class W_Buffer(W_Root):
