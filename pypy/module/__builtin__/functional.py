@@ -447,6 +447,31 @@ class W_Range(W_Root):
         w_index = space.sub(w_item, self.w_start)
         return space.floordiv(w_index, self.w_step)
 
+    def descr_eq(self, space, w_other):
+        # Compare two range objects.
+        if space.is_w(self, w_other):
+            return space.w_True
+        if not isinstance(w_other, W_Range):
+            return space.w_NotImplemented
+        if not space.eq_w(self.w_length, w_other.w_length):
+            return space.w_False
+        if space.eq_w(self.w_length, space.wrap(0)):
+            return space.w_True
+        if not space.eq_w(self.w_start, w_other.w_start):
+            return space.w_False
+        if space.eq_w(self.w_length, space.wrap(1)):
+            return space.w_True
+        return space.eq(self.w_step, w_other.w_step)
+
+    def descr_hash(self, space):
+        if space.eq_w(self.w_length, space.wrap(0)):
+            w_tup = space.newtuple([self.w_length, space.w_None, space.w_None])
+        elif space.eq_w(self.w_length, space.wrap(0)):
+            w_tup = space.newtuple([self.w_length, self.w_start, space.w_None])
+        else:
+            w_tup = space.newtuple([self.w_length, self.w_start, self.w_step])
+        return space.hash(w_tup)
+
 
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
@@ -457,6 +482,8 @@ W_Range.typedef = TypeDef("range",
     __reversed__     = interp2app(W_Range.descr_reversed),
     __reduce__       = interp2app(W_Range.descr_reduce),
     __contains__     = interp2app(W_Range.descr_contains),
+    __eq__           = interp2app(W_Range.descr_eq),
+    __hash__         = interp2app(W_Range.descr_hash),
     count            = interp2app(W_Range.descr_count),
     index            = interp2app(W_Range.descr_index),
     start            = interp_attrproperty_w('w_start', cls=W_Range),
