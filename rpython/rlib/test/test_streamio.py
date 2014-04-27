@@ -1117,8 +1117,6 @@ class TestDiskFile:
             x = fo('.test.file', 'r')
             assert x.read() == 'abc123456'
             x.close()
-        except:
-            raise
         finally:
             if os.path.exists('.test.file'):
                 os.remove('.test.file')
