@@ -1104,6 +1104,25 @@ class TestDiskFile:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+    def test_append_mode(self):
+        try:
+            fo = streamio.open_file_as_stream # shorthand
+            x = fo('.test.file', 'w')
+            x.write('abc123')
+            x.close()
+
+            x = fo('.test.file', 'a')
+            x.write('456')
+            x.close()
+            x = fo('.test.file', 'r')
+            assert x.read() == 'abc123456'
+            x.close()
+        except:
+            raise
+        finally:
+            if os.path.exists('.test.file'):
+                os.remove('.test.file')
+
 
 # Speed test
 
