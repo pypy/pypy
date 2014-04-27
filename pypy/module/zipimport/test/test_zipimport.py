@@ -157,7 +157,6 @@ class AppTestZipimport:
         import sys, os
         self.writefile("uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
-        print mod
         assert mod.f(3) == 3
         expected = {
             '__doc__' : None,
