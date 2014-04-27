@@ -48,8 +48,8 @@ OS_MODE = {('r', False): O_RDONLY,
            ('r', True):  O_RDWR,
            ('w', False): O_WRONLY | O_CREAT | O_TRUNC,
            ('w', True):  O_RDWR   | O_CREAT | O_TRUNC,
-           ('a', False): O_WRONLY | O_CREAT,
-           ('a', True):  O_RDWR   | O_CREAT,
+           ('a', False): O_WRONLY | O_CREAT | O_APPEND,
+           ('a', True):  O_RDWR   | O_CREAT | O_APPEND,
            }
 
 class MyNotImplementedError(Exception):
