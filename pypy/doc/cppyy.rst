@@ -560,6 +560,12 @@ bound using::
   Fixing these bootstrap problems is on the TODO list.
   The global namespace is ``cppyy.gbl``.
 
+* **NULL**: Is represented as ``cppyy.gbl.nullptr``.
+  In C++11, the keyword ``nullptr`` is used to represent ``NULL``.
+  For clarity of intent, it is recommended to use this instead of ``None``
+  (or the integer ``0``, which can serve in some cases), as ``None`` is better
+  understood as ``void`` in C++.
+
 * **operator conversions**: If defined in the C++ class and a python
   equivalent exists (i.e. all builtin integer and floating point types, as well
   as ``bool``), it will map onto that python conversion.
@@ -577,7 +583,7 @@ bound using::
   Special care needs to be taken for global operator overloads in C++: first,
   make sure that they are actually reflected, especially for the global
   overloads for ``operator==`` and ``operator!=`` of STL vector iterators in
-  the case of gcc (note that they are not needed to iterator over a vector).
+  the case of gcc (note that they are not needed to iterate over a vector).
   Second, make sure that reflection info is loaded in the proper order.
   I.e. that these global overloads are available before use.
 

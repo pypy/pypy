@@ -33,9 +33,11 @@ if _c.WIN32:
     from rpython.rlib import rwin32
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
-        res = _c.WSAStartup(1, wsadata)
-        lltype.free(wsadata, flavor='raw')
-        assert res == 0
+        try:
+            res = _c.WSAStartup(0x0101, wsadata)
+            assert res == 0
+        finally:
+            lltype.free(wsadata, flavor='raw')
 else:
     def rsocket_startup():
         pass
@@ -995,12 +997,8 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-if _c.WIN32:
-    def last_error():
-        return CSocketError(rwin32.GetLastError())
-else:
-    def last_error():
-        return CSocketError(_c.geterrno())
+def last_error():
+    return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
@@ -1148,9 +1146,9 @@ def getaddrinfo(host, port_or_service,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
-    if _c._MACOSX:
-        if port_or_service is None or port_or_service == '0':
-            port_or_service = '00'
+    if _c._MACOSX and flags & AI_NUMERICSERV and \
+            (port_or_service is None or port_or_service == '0'):
+        port_or_service = '00'
     hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
     rffi.setintfield(hints, 'c_ai_family',   family)
     rffi.setintfield(hints, 'c_ai_socktype', socktype)

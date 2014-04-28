@@ -3,15 +3,15 @@ try:
 except ImportError:
     idict = None
 
-from UserDict import DictMixin
+from collections import MutableMapping
 
 
-class IdentityDictPurePython(object, DictMixin):
+class IdentityDictPurePython(MutableMapping):
     __slots__ = "_dict _keys".split()
 
     def __init__(self):
         self._dict = {}
-        self._keys = {} # id(obj) -> obj
+        self._keys = {}  # id(obj) -> obj
 
     def __getitem__(self, arg):
         return self._dict[id(arg)]
@@ -24,8 +24,11 @@ class IdentityDictPurePython(object, DictMixin):
         del self._keys[id(arg)]
         del self._dict[id(arg)]
 
-    def keys(self):
-        return self._keys.values()
+    def __iter__(self):
+        return self._keys.itervalues()
+
+    def __len__(self):
+        return len(self._keys)
 
     def __contains__(self, arg):
         return id(arg) in self._dict
@@ -37,8 +40,7 @@ class IdentityDictPurePython(object, DictMixin):
         return d
 
 
-class IdentityDictPyPy(object, DictMixin):
-    __slots__ = ["_dict"]
+class IdentityDictPyPy(MutableMapping):
 
     def __init__(self):
         self._dict = idict()
@@ -52,8 +54,11 @@ class IdentityDictPyPy(object, DictMixin):
     def __delitem__(self, arg):
         del self._dict[arg]
 
-    def keys(self):
-        return self._dict.keys()
+    def __iter__(self):
+        return iter(self._dict.keys())
+
+    def __len__(self):
+        return len(self._dict)
 
     def __contains__(self, arg):
         return arg in self._dict
@@ -64,8 +69,10 @@ class IdentityDictPyPy(object, DictMixin):
         assert len(d) == len(self)
         return d
 
+    def __nonzero__(self):
+        return bool(self._dict)
+
 if idict is None:
     identity_dict = IdentityDictPurePython
 else:
     identity_dict = IdentityDictPyPy
-

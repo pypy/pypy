@@ -20,8 +20,7 @@ class TestThread(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
         i58 = getfield_gc(p18, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current .>)
-        i59 = getfield_gc(p18, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeStepOneIterator.inst_stop \d+>)
-        i60 = int_lt(i58, i59)
+        i60 = int_lt(i58, i31)
         guard_true(i60, descr=...)
         i61 = int_add(i58, 1)
         p62 = getfield_gc(ConstPtr(ptr37), descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy \d+>)

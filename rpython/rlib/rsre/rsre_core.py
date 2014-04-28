@@ -62,7 +62,8 @@ def specializectx(func):
     # Install a copy of the function under the name '_spec_funcname' in each
     # concrete subclass
     specialized_methods = []
-    for prefix, concreteclass in [('str', StrMatchContext),
+    for prefix, concreteclass in [('buf', BufMatchContext),
+                                  ('str', StrMatchContext),
                                   ('uni', UnicodeMatchContext)]:
         newfunc = func_with_new_name(func, prefix + specname)
         assert not hasattr(concreteclass, specname)
@@ -169,6 +170,27 @@ class AbstractMatchContext(object):
 
     def fresh_copy(self, start):
         raise NotImplementedError
+
+class BufMatchContext(AbstractMatchContext):
+    """Concrete subclass for matching in a buffer."""
+
+    _immutable_fields_ = ["_buffer"]
+
+    def __init__(self, pattern, buf, match_start, end, flags):
+        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+        self._buffer = buf
+
+    def str(self, index):
+        check_nonneg(index)
+        return ord(self._buffer.getitem(index))
+
+    def lowstr(self, index):
+        c = self.str(index)
+        return rsre_char.getlower(c, self.flags)
+
+    def fresh_copy(self, start):
+        return BufMatchContext(self.pattern, self._buffer, start,
+                               self.end, self.flags)
 
 class StrMatchContext(AbstractMatchContext):
     """Concrete subclass for matching in a plain string."""

@@ -56,6 +56,8 @@ class W_ZipCache(W_Root):
         w = space.wrap
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
+            if ZIPSEP != os.path.sep:
+                key = key.replace(ZIPSEP, os.path.sep)
             space.setitem(w_d, w(key), space.newtuple([
                 w(info.filename), w(info.compress_type), w(info.compress_size),
                 w(info.file_size), w(info.file_offset), w(info.dostime),

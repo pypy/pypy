@@ -2,10 +2,13 @@ import py
 import sys, stat, os
 from rpython.translator.sandbox.vfs import *
 from rpython.tool.udir import udir
+from rpython.translator.sandbox.test.test_sandbox import unsupported_platform
 
 HASLINK = hasattr(os, 'symlink')
 
 def setup_module(mod):
+    if unsupported_platform[0] == 'True':
+        py.test.skip(unsupported_platform[1])
     d = udir.ensure('test_vfs', dir=1)
     d.join('file1').write('somedata1')
     d.join('file2').write('somelongerdata2')

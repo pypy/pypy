@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
-                                     WrappedDefault
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
+    WrappedDefault
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, \
+    make_weakref_descr
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
@@ -12,10 +13,10 @@ from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops, loop, \
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.arrayops import repeat, choose, put
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
-     ArrayArgumentException, wrap_impl
+    ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
-from pypy.module.micronumpy.converters import order_converter, shape_converter, \
-    multi_axis_converter
+from pypy.module.micronumpy.converters import multi_axis_converter, \
+    order_converter, shape_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.flatiter import W_FlatIterator
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
@@ -33,15 +34,14 @@ def _match_dot_shapes(space, left, right):
         right_critical_dim = len(right_shape) - 2
         right_critical_dim_size = right_shape[right_critical_dim]
         assert right_critical_dim >= 0
-        out_shape = out_shape + left_shape[:-1] + \
-                    right_shape[0:right_critical_dim] + \
-                    right_shape[right_critical_dim + 1:]
+        out_shape = (out_shape + left_shape[:-1] +
+                     right_shape[0:right_critical_dim] +
+                     right_shape[right_critical_dim + 1:])
     elif len(right_shape) > 0:
         #dot does not reduce for scalars
         out_shape = out_shape + left_shape[:-1]
     if my_critical_dim_size != right_critical_dim_size:
-        raise OperationError(space.w_ValueError, space.wrap(
-                                        "objects are not aligned"))
+        raise oefmt(space.w_ValueError, "objects are not aligned")
     return out_shape, right_critical_dim
 
 
@@ -55,8 +55,8 @@ class __extend__(W_NDimArray):
         return self.implementation.get_shape()
 
     def descr_set_shape(self, space, w_new_shape):
-        self.implementation = self.implementation.set_shape(space, self,
-            get_shape_from_iterable(space, self.get_size(), w_new_shape))
+        shape = get_shape_from_iterable(space, self.get_size(), w_new_shape)
+        self.implementation = self.implementation.set_shape(space, self, shape)
 
     def descr_get_strides(self, space):
         strides = self.implementation.get_strides()
@@ -72,8 +72,8 @@ class __extend__(W_NDimArray):
         return self.implementation.dtype
 
     def descr_set_dtype(self, space, w_dtype):
-        dtype = space.interp_w(descriptor.W_Dtype,
-            space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
+        dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
+            space.gettypefor(descriptor.W_Dtype), w_dtype))
         if (dtype.elsize != self.get_dtype().elsize or
                 dtype.is_flexible() or self.get_dtype().is_flexible()):
             raise OperationError(space.w_ValueError, space.wrap(
@@ -115,7 +115,8 @@ class __extend__(W_NDimArray):
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
-        w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), w_instance=self)
+        w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(),
+                                       w_instance=self)
         return loop.getitem_filter(w_res, self, arr)
 
     def setitem_filter(self, space, idx, val):
@@ -128,10 +129,10 @@ class __extend__(W_NDimArray):
         size = loop.count_all_true(idx)
         if size > val.get_size() and val.get_size() != 1:
             raise oefmt(space.w_ValueError,
-                "NumPy boolean array indexing assignment "
-                "cannot assign %d input values to "
-                "the %d output values where the mask is true",
-                val.get_size(), size)
+                        "NumPy boolean array indexing assignment "
+                        "cannot assign %d input values to "
+                        "the %d output values where the mask is true",
+                        val.get_size(), size)
         loop.setitem_filter(space, self, idx, val)
 
     def _prepare_array_index(self, space, w_index):
@@ -151,7 +152,7 @@ class __extend__(W_NDimArray):
         prefix = []
         for i, w_item in enumerate(w_lst):
             if (isinstance(w_item, W_NDimArray) or
-                space.isinstance_w(w_item, space.w_list)):
+                    space.isinstance_w(w_item, space.w_list)):
                 w_item = convert_to_array(space, w_item)
                 if shape is None:
                     shape = w_item.get_shape()
@@ -163,7 +164,7 @@ class __extend__(W_NDimArray):
                     arr_index_in_shape = True
             else:
                 if space.isinstance_w(w_item, space.w_slice):
-                    _, _, _, lgt = space.decode_index4(w_item, self.get_shape()[i])
+                    lgt = space.decode_index4(w_item, self.get_shape()[i])[3]
                     if not arr_index_in_shape:
                         prefix.append(w_item)
                     res_shape.append(lgt)
@@ -178,7 +179,7 @@ class __extend__(W_NDimArray):
 
     def getitem_array_int(self, space, w_index):
         prefix, res_shape, iter_shape, indexes = \
-                self._prepare_array_index(space, w_index)
+            self._prepare_array_index(space, w_index)
         if iter_shape is None:
             # w_index is a list of slices, return a view
             chunks = self.implementation._prepare_slice_args(space, w_index)
@@ -194,7 +195,7 @@ class __extend__(W_NDimArray):
     def setitem_array_int(self, space, w_index, w_value):
         val_arr = convert_to_array(space, w_value)
         prefix, _, iter_shape, indexes = \
-                self._prepare_array_index(space, w_index)
+            self._prepare_array_index(space, w_index)
         if iter_shape is None:
             # w_index is a list of slices
             chunks = self.implementation._prepare_slice_args(space, w_index)
@@ -331,8 +332,8 @@ class __extend__(W_NDimArray):
     def descr_set_imag(self, space, w_value):
         # if possible, copy (broadcast) values into self
         if not self.get_dtype().is_complex():
-            raise OperationError(space.w_TypeError,
-                    space.wrap('array does not have imaginary part to set'))
+            raise oefmt(space.w_TypeError,
+                        'array does not have imaginary part to set')
         self.implementation.set_imag(space, self, w_value)
 
     def reshape(self, space, w_shape):
@@ -481,7 +482,7 @@ class __extend__(W_NDimArray):
                 assert isinstance(w_obj, boxes.W_GenericBox)
                 return w_obj.item(space)
             raise oefmt(space.w_ValueError,
-                "can only convert an array of size 1 to a Python scalar")
+                        "can only convert an array of size 1 to a Python scalar")
         elif len(args_w) == 1 and len(shape) != 1:
             value = support.index_w(space, args_w[0])
             value = support.check_and_adjust_index(space, value, self.get_size(), -1)
@@ -533,6 +534,7 @@ class __extend__(W_NDimArray):
         return w_d
 
     w_pypy_data = None
+
     def fget___pypy_data__(self, space):
         return self.w_pypy_data
 
@@ -556,16 +558,16 @@ class __extend__(W_NDimArray):
 
     def descr_astype(self, space, w_dtype):
         cur_dtype = self.get_dtype()
-        new_dtype = space.interp_w(descriptor.W_Dtype,
-            space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
+        new_dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
+            space.gettypefor(descriptor.W_Dtype), w_dtype))
         if new_dtype.num == NPY.VOID:
             raise oefmt(space.w_NotImplementedError,
                         "astype(%s) not implemented yet",
                         new_dtype.get_name())
         if new_dtype.num == NPY.STRING and new_dtype.elsize == 0:
             if cur_dtype.num == NPY.STRING:
-                new_dtype = descriptor.variable_dtype(space,
-                    'S' + str(cur_dtype.elsize))
+                new_dtype = descriptor.variable_dtype(
+                    space, 'S' + str(cur_dtype.elsize))
         impl = self.implementation
         new_impl = impl.astype(space, new_dtype)
         return wrap_impl(space, space.type(self), self, new_impl)
@@ -583,7 +585,8 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, self.implementation)
             return self
         else:
-            w_res = W_NDimArray.from_shape(space, self.get_shape(), self.get_dtype(), w_instance=self)
+            w_res = W_NDimArray.from_shape(space, self.get_shape(),
+                                           self.get_dtype(), w_instance=self)
             loop.byteswap(self.implementation, w_res.implementation)
             return w_res
 
@@ -599,8 +602,7 @@ class __extend__(W_NDimArray):
         min = convert_to_array(space, w_min)
         max = convert_to_array(space, w_max)
         shape = shape_agreement_multiple(space, [self, min, max, w_out])
-        out = descriptor.dtype_agreement(space, [self, min, max], shape,
-                                           w_out)
+        out = descriptor.dtype_agreement(space, [self, min, max], shape, w_out)
         loop.clip(space, self, shape, min, max, out)
         return out
 
@@ -608,11 +610,20 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ctypes not implemented yet"))
 
-    def buffer_w(self, space):
-        return self.implementation.get_buffer(space)
+    def buffer_w(self, space, flags):
+        return self.implementation.get_buffer(space, True)
+
+    def readbuf_w(self, space):
+        return self.implementation.get_buffer(space, True)
+
+    def writebuf_w(self, space):
+        return self.implementation.get_buffer(space, False)
+
+    def charbuf_w(self, space):
+        return self.implementation.get_buffer(space, True).as_str()
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.buffer_w(space))
+        return space.newbuffer(self.implementation.get_buffer(space, False))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -620,15 +631,14 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_ValueError, space.wrap(
                 "need at least 2 dimensions for diagonal"))
         if (axis1 < 0 or axis2 < 0 or axis1 >= len(self.get_shape()) or
-            axis2 >= len(self.get_shape())):
+                axis2 >= len(self.get_shape())):
             raise oefmt(space.w_ValueError,
                         "axis1(=%d) and axis2(=%d) must be withing range "
                         "(ndim=%d)", axis1, axis2, len(self.get_shape()))
         if axis1 == axis2:
             raise OperationError(space.w_ValueError, space.wrap(
                 "axis1 and axis2 cannot be the same"))
-        return arrayops.diagonal(space, self.implementation, offset,
-                                        axis1, axis2)
+        return arrayops.diagonal(space, self.implementation, offset, axis1, axis2)
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_trace(self, space, offset=0, axis1=0, axis2=1,
@@ -645,6 +655,7 @@ class __extend__(W_NDimArray):
             "dumps not implemented yet"))
 
     w_flags = None
+
     def descr_get_flags(self, space):
         if self.w_flags is None:
             self.w_flags = W_FlagsObject(self)
@@ -657,8 +668,8 @@ class __extend__(W_NDimArray):
 
     @unwrap_spec(new_order=str)
     def descr_newbyteorder(self, space, new_order=NPY.SWAP):
-        return self.descr_view(space,
-            self.get_dtype().descr_newbyteorder(space, new_order))
+        return self.descr_view(
+            space, self.get_dtype().descr_newbyteorder(space, new_order))
 
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None))
@@ -685,8 +696,7 @@ class __extend__(W_NDimArray):
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "return arrays must be of ArrayType"))
-        out = descriptor.dtype_agreement(space, [self], self.get_shape(),
-                                         w_out)
+        out = descriptor.dtype_agreement(space, [self], self.get_shape(), w_out)
         if out.get_dtype().is_bool() and self.get_dtype().is_bool():
             calc_dtype = descriptor.get_dtype_cache(space).w_longdtype
         else:
@@ -713,12 +723,10 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_ValueError,
                         "'%s' is an invalid value for keyword 'side'", side)
         if len(self.get_shape()) > 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "a must be a 1-d array")
+            raise oefmt(space.w_ValueError, "a must be a 1-d array")
         v = convert_to_array(space, w_v)
         if len(v.get_shape()) > 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                 "v must be a 1-d array-like")
+            raise oefmt(space.w_ValueError, "v must be a 1-d array-like")
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
         app_searchsort(space, self, v, space.wrap(side), ret)
@@ -753,7 +761,7 @@ class __extend__(W_NDimArray):
                 if axes[i]:
                     if cur_shape[i] != 1:
                         raise OperationError(space.w_ValueError, space.wrap(
-                            "cannot select an axis to squeeze out " \
+                            "cannot select an axis to squeeze out "
                             "which has size greater than one"))
                 else:
                     new_shape.append(cur_shape[i])
@@ -786,9 +794,8 @@ class __extend__(W_NDimArray):
                 else:
                     raise
         if w_dtype:
-            dtype = space.interp_w(descriptor.W_Dtype,
-                space.call_function(space.gettypefor(descriptor.W_Dtype),
-                                                                   w_dtype))
+            dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
+                space.gettypefor(descriptor.W_Dtype), w_dtype))
         else:
             dtype = self.get_dtype()
         old_itemsize = self.get_dtype().elsize
@@ -830,8 +837,8 @@ class __extend__(W_NDimArray):
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space, w_out=None):
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                                [self, w_out])
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [self, w_out])
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_pos = _unaryop_impl("positive")
@@ -844,14 +851,15 @@ class __extend__(W_NDimArray):
     def descr___nonzero__(self, space):
         if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
-                "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
+                "The truth value of an array with more than one element "
+                "is ambiguous. Use a.any() or a.all()"))
         iter, state = self.create_iter()
         return space.wrap(space.is_true(iter.getitem(state)))
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
-            return getattr(ufuncs.get(space), ufunc_name).call(space,
-                                                        [self, w_other, w_out])
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [self, w_other, w_out])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
@@ -915,7 +923,8 @@ class __extend__(W_NDimArray):
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             w_other = convert_to_array(space, w_other)
-            return getattr(ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
+            return getattr(ufuncs.get(space), ufunc_name).call(
+                space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     descr_radd = _binop_right_impl("add")
@@ -941,8 +950,7 @@ class __extend__(W_NDimArray):
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                    'output must be an array'))
+            raise oefmt(space.w_TypeError, 'output must be an array')
         else:
             out = w_out
         other = convert_to_array(space, w_other)
@@ -954,7 +962,7 @@ class __extend__(W_NDimArray):
             assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1), out)
         dtype = ufuncs.find_binop_result_dtype(space, self.get_dtype(),
-                                                             other.get_dtype())
+                                               other.get_dtype())
         if self.get_size() < 1 and other.get_size() < 1:
             # numpy compatability
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
@@ -986,16 +994,16 @@ class __extend__(W_NDimArray):
                                  other_critical_dim)
 
     def descr_mean(self, space, __args__):
-        return get_appbridge_cache(space).call_method(space,
-            'numpy.core._methods', '_mean', __args__.prepend(self))
+        return get_appbridge_cache(space).call_method(
+            space, 'numpy.core._methods', '_mean', __args__.prepend(self))
 
     def descr_var(self, space, __args__):
-        return get_appbridge_cache(space).call_method(space,
-            'numpy.core._methods', '_var', __args__.prepend(self))
+        return get_appbridge_cache(space).call_method(
+            space, 'numpy.core._methods', '_var', __args__.prepend(self))
 
     def descr_std(self, space, __args__):
-        return get_appbridge_cache(space).call_method(space,
-            'numpy.core._methods', '_std', __args__.prepend(self))
+        return get_appbridge_cache(space).call_method(
+            space, 'numpy.core._methods', '_std', __args__.prepend(self))
 
     # ----------------------- reduce -------------------------------
 
@@ -1005,8 +1013,7 @@ class __extend__(W_NDimArray):
             if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
-                raise OperationError(space.w_TypeError, space.wrap(
-                        'output must be an array'))
+                raise oefmt(space.w_TypeError, 'output must be an array')
             else:
                 out = w_out
             return getattr(ufuncs.get(space), ufunc_name).reduce(
@@ -1028,13 +1035,13 @@ class __extend__(W_NDimArray):
         def impl(self, space, w_axis=None, w_out=None):
             if not space.is_none(w_axis):
                 raise oefmt(space.w_NotImplementedError,
-                    "axis unsupported for %s", op_name)
+                            "axis unsupported for %s", op_name)
             if not space.is_none(w_out):
                 raise oefmt(space.w_NotImplementedError,
-                    "out unsupported for %s", op_name)
+                            "out unsupported for %s", op_name)
             if self.get_size() == 0:
                 raise oefmt(space.w_ValueError,
-                    "Can't call %s on zero-size arrays", op_name)
+                            "Can't call %s on zero-size arrays", op_name)
             try:
                 getattr(self.get_dtype().itemtype, raw_name)
             except AttributeError:
@@ -1117,8 +1124,8 @@ class __extend__(W_NDimArray):
         multiarray = numpypy.get("multiarray")
         assert isinstance(multiarray, MixedModule)
         reconstruct = multiarray.get("_reconstruct")
-        parameters = space.newtuple([self.getclass(space),
-                        space.newtuple([space.wrap(0)]), space.wrap("b")])
+        parameters = space.newtuple([self.getclass(space), space.newtuple(
+            [space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
         if isinstance(self.implementation, SliceArray):
@@ -1128,15 +1135,16 @@ class __extend__(W_NDimArray):
                 builder.append(box.raw_str())
                 state = iter.next(state)
         else:
-            builder.append_charpsize(self.implementation.get_storage(), self.implementation.get_storage_size())
+            builder.append_charpsize(self.implementation.get_storage(),
+                                     self.implementation.get_storage_size())
 
         state = space.newtuple([
-                space.wrap(1),      # version
-                self.descr_get_shape(space),
-                self.get_dtype(),
-                space.wrap(False),  # is_fortran
-                space.wrap(builder.build()),
-            ])
+            space.wrap(1),      # version
+            self.descr_get_shape(space),
+            self.get_dtype(),
+            space.wrap(False),  # is_fortran
+            space.wrap(builder.build()),
+        ])
 
         return space.newtuple([reconstruct, parameters, state])
 
@@ -1149,19 +1157,20 @@ class __extend__(W_NDimArray):
             base_index = 0
         else:
             raise oefmt(space.w_ValueError,
-                "__setstate__ called with len(args[1])==%d, not 5 or 4", lens)
+                        "__setstate__ called with len(args[1])==%d, not 5 or 4",
+                        lens)
         shape = space.getitem(w_state, space.wrap(base_index))
         dtype = space.getitem(w_state, space.wrap(base_index+1))
         #isfortran = space.getitem(w_state, space.wrap(base_index+2))
         storage = space.getitem(w_state, space.wrap(base_index+3))
         if not isinstance(dtype, descriptor.W_Dtype):
             raise oefmt(space.w_ValueError,
-                "__setstate__(self, (shape, dtype, .. called with "
-                "improper dtype '%R'", dtype)
-        self.implementation = W_NDimArray.from_shape_and_storage(space,
-                [space.int_w(i) for i in space.listview(shape)],
-                rffi.str2charp(space.str_w(storage), track_allocation=False),
-                dtype, owning=True).implementation
+                        "__setstate__(self, (shape, dtype, .. called with "
+                        "improper dtype '%R'", dtype)
+        self.implementation = W_NDimArray.from_shape_and_storage(
+            space, [space.int_w(i) for i in space.listview(shape)],
+            rffi.str2charp(space.str_w(storage), track_allocation=False),
+            dtype, owning=True).implementation
 
     def descr___array_finalize__(self, space, w_obj):
         pass
@@ -1179,8 +1188,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.concrete import ConcreteArray
     from pypy.module.micronumpy.strides import calc_strides
-    dtype = space.interp_w(descriptor.W_Dtype,
-          space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
+    dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
+        space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)
 
     if not space.is_none(w_buffer):
@@ -1188,7 +1197,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("unsupported param"))
 
-        buf = space.buffer_w(w_buffer)
+        try:
+            buf = space.writebuf_w(w_buffer)
+        except OperationError:
+            buf = space.readbuf_w(w_buffer)
         try:
             raw_ptr = buf.get_raw_address()
         except ValueError:
@@ -1206,7 +1218,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                                                   w_subtype=w_subtype,
                                                   w_base=w_buffer,
-                                                  writable=buf.is_writable())
+                                                  writable=not buf.readonly)
 
     order = order_converter(space, w_order, NPY.CORDER)
     if order == NPY.CORDER:
@@ -1216,8 +1228,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
-    impl = ConcreteArray(shape, dtype.base, order, strides,
-                                  backstrides)
+    impl = ConcreteArray(shape, dtype.base, order, strides, backstrides)
     w_ret = space.allocate_instance(W_NDimArray, w_subtype)
     W_NDimArray.__init__(w_ret, impl)
     space.call_function(space.getattr(w_ret,
@@ -1232,16 +1243,15 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtyp
     PyPy-only implementation detail.
     """
     storage = rffi.cast(RAW_STORAGE_PTR, addr)
-    dtype = space.interp_w(descriptor.W_Dtype,
-                     space.call_function(space.gettypefor(descriptor.W_Dtype),
-                             w_dtype))
+    dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
+        space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)
     if w_subtype:
         if not space.isinstance_w(w_subtype, space.w_type):
             raise OperationError(space.w_ValueError, space.wrap(
                 "subtype must be a subtype of ndarray, not a class instance"))
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
-                             'C', False, w_subtype)
+                                                  'C', False, w_subtype)
     else:
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype)
 
