@@ -30,15 +30,15 @@ projects are:
 
 * `NumPy`_ the work done is included in the PyPy 2.2 release. More details below.
 
-_`Py3k`: http://pypy.org/py3donate.html
-_`STM`: http://pypy.org/tmdonate2.html
-_ `Numpy`: http://pypy.org/numpydonate.html
-_`TDD`: http://doc.pypy.org/en/latest/how-to-contribute.html
-_`CFFI`: http://cffi.readthedocs.org
-_`cryptography`: https://cryptography.io
-_`Pillow`: https://pypi.python.org/pypi/Pillow/2.4.0
-_`pygame-cffi`: https://github.com/CTPUG/pygame_cffi
-_`uWSGI`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
+.. _`Py3k`: http://pypy.org/py3donate.html
+.. _`STM`: http://pypy.org/tmdonate2.html
+.. _ `Numpy`: http://pypy.org/numpydonate.html
+.. _`TDD`: http://doc.pypy.org/en/latest/how-to-contribute.html
+.. _`CFFI`: http://cffi.readthedocs.org
+.. _`cryptography`: https://cryptography.io
+.. _`Pillow`: https://pypi.python.org/pypi/Pillow/2.4.0
+.. _`pygame-cffi`: https://github.com/CTPUG/pygame_cffi
+.. _`uWSGI`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
 
 What is PyPy?
 =============
@@ -56,8 +56,8 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-_`pypy 2.2 and cpython 2.7.2`: http://speed.pypy.org
-_`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`pypy 2.2 and cpython 2.7.2`: http://speed.pypy.org
+.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -84,7 +84,7 @@ performance slowdowns as bugs.
 
 * Fix a rpython bug with loop-unrolling that appeared in the `HippyVM`_ PHP port
 
-`HippyVM`_: http://www.hippyvm.com
+.. _`HippyVM`: http://www.hippyvm.com
 
 New Platforms and Features
 --------------------------
