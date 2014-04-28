@@ -40,7 +40,7 @@ from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
 from rpython.rlib.rstring import StringBuilder
 
-from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
+from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
 O_BINARY = getattr(os, "O_BINARY", 0)
 
 #          (basemode, plus)
