@@ -231,3 +231,5 @@ void pypy_stm_become_globally_unique_transaction(void)
     _pypy_stm_inev_state();
     stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");
 }
+
+void stmcb_commit_soon(void) { /*XXX FIXME*/ }
