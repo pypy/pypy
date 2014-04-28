@@ -132,6 +132,16 @@ def update_marker_num(odd_num):
 def pop_marker():
     llop.stm_pop_marker(lltype.Void)
 
+def longest_abort_info():
+    state = llop.stm_longest_marker_state(lltype.Signed)
+    time = llop.stm_longest_marker_time(lltype.Float)
+    cself = llop.stm_longest_marker_self(rffi.CCHARP)
+    cother = llop.stm_longest_marker_other(rffi.CCHARP)
+    return (state, time, rffi.charp2str(cself), rffi.charp2str(cother))
+
+def reset_longest_abort_info():
+    llop.stm_reset_longest_marker_state(lltype.Void)
+
 # ____________________________________________________________
 
 def make_perform_transaction(func, CONTAINERP):

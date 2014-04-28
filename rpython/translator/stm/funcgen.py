@@ -239,3 +239,25 @@ def stm_setup_expand_marker_for_pypy(funcgen, op):
     assert len(offsets) == 4
     return 'pypy_stm_setup_expand_marker(%s, %s, %s, %s);' % (
         offsets[0], offsets[1], offsets[2], offsets[3])
+
+def stm_longest_marker_state(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (Signed)stm_thread_local.longest_marker_state;' % (result,)
+
+def stm_longest_marker_time(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_thread_local.longest_marker_time;' % (result,)
+
+def stm_longest_marker_self(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_thread_local.longest_marker_self;' % (result,)
+
+def stm_longest_marker_other(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_thread_local.longest_marker_other;' % (result,)
+
+def stm_reset_longest_marker_state(funcgen, op):
+    return ('stm_thread_local.longest_marker_state = 0;\n'
+            'stm_thread_local.longest_marker_time = 0.0;\n'
+            'stm_thread_local.longest_marker_self[0] = 0;\n'
+            'stm_thread_local.longest_marker_other[0] = 0;')

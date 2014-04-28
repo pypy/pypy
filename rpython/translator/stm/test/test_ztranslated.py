@@ -237,7 +237,6 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'ok\n' in data
 
     def test_abort_info(self):
-        py.test.skip("goes away")
         class Parent(object):
             pass
         class Foobar(Parent):
@@ -249,19 +248,12 @@ class TestSTMTranslated(CompiledSTMTests):
                 globf.xy = 100 + retry_counter
 
         def check(_, retry_counter):
-            rstm.abort_info_push(globf, ('[', 'xy', ']', 'yx'))
             setxy(globf, retry_counter)
             if retry_counter < 3:
                 rstm.abort_and_retry()
-            #
-            last = rstm.charp_inspect_abort_info()
-            if last:
-                print rffi.charp2str(last)
-            else:
-                print 'got abort_info=NULL!'
-            print int(bool(rstm.charp_inspect_abort_info()))
-            #
-            rstm.abort_info_pop(2)
+            print rstm.longest_abort_info()
+            rstm.reset_longest_abort_info()
+            print rstm.longest_abort_info()
             return 0
 
         PS = lltype.Ptr(lltype.GcStruct('S', ('got_exception', OBJECTPTR)))
@@ -275,7 +267,10 @@ class TestSTMTranslated(CompiledSTMTests):
             return 0
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
-        assert 'li102ee10:hi there 3e\n0\n' in data
+        #
+        # 6 == STM_TIME_RUN_ABORTED_OTHER
+        import re; r = re.compile(r'\(6, 0.00\d+, , \)\n\(0, 0.00+, , \)\n$')
+        assert r.match(data)
 
     def test_weakref(self):
         import weakref
