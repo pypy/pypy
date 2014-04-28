@@ -25,9 +25,12 @@ class CppyyClassMeta(CppyyScopeMeta):
 # class CppyyClass defined in _init_pythonify()
 
 class CppyyTemplateType(object):
-    def __init__(self, scope, name):
-        self._scope = scope
+    def __init__(self, name, scope=None):
         self._name = name
+        if scope is None:
+            self._scope = gbl
+        else:
+            self._scope = scope
 
     def _arg_to_str(self, arg):
         if arg == str:
@@ -54,6 +57,19 @@ class CppyyTemplateType(object):
 
 def clgen_callback(name):
     return get_pycppclass(name)
+
+def fngen_callback(func, npar): # todo, some kind of arg transform spec
+    if npar == 0:
+        def wrapper(a0, a1):
+            la0 = [a0[0], a0[1], a0[2], a0[3]]
+            return func(la0)
+        return wrapper
+    else:
+        def wrapper(a0, a1):
+            la0 = [a0[0], a0[1], a0[2], a0[3]]
+            la1 = [a1[i] for i in range(npar)]
+            return func(la0, la1)
+        return wrapper
 
 
 def make_static_function(func_name, cppol):
@@ -130,7 +146,12 @@ def make_new(class_name, cppclass):
             raise TypeError(msg)
     else:
         def __new__(cls, *args):
-            return constructor_overload.call(None, *args)
+            # create a place-holder only as there may be a derived class defined
+            import cppyy
+            instance = cppyy.bind_object(0, class_name, True)
+            if not instance.__class__ is cls:
+                instance.__class__ = cls     # happens for derived class
+            return instance
     return __new__
 
 def make_pycppclass(scope, class_name, final_class_name, cppclass):
@@ -193,7 +214,7 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
     return pycppclass
 
 def make_cpptemplatetype(scope, template_name):
-    return CppyyTemplateType(scope, template_name)
+    return CppyyTemplateType(template_name, scope)
 
 
 def get_pycppitem(scope, name):
@@ -411,10 +432,15 @@ def _init_pythonify():
         __metaclass__ = CppyyClassMeta
 
         def __init__(self, *args, **kwds):
-            pass   # ignored, for the C++ backend, ctor == __new__ + __init__
+            # self is only a placeholder; now create the actual C++ object
+            args = (self,) + args
+            self._cpp_proxy.get_overload(self._cpp_proxy.type_name).call(None, *args)
 
     # class generator callback
     cppyy._set_class_generator(clgen_callback)
+
+    # function generator callback
+    cppyy._set_function_generator(fngen_callback)
 
     # user interface objects (note the two-step of not calling scope_byname here:
     # creation of global functions may cause the creation of classes in the global
@@ -430,6 +456,9 @@ def _init_pythonify():
     # TODO: this is correct for C++98, not for C++11 and in general there will
     # be the same issue for all typedef'd builtin types
     setattr(gbl, 'unsigned int', int)
+
+    # install nullptr as a unique reference
+    setattr(gbl, 'nullptr', cppyy._get_nullptr())
 
     # install for user access
     cppyy.gbl = gbl

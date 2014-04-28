@@ -385,7 +385,6 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         self._add_pending_fields(pending_setfields)
 
         storage.rd_consts = self.memo.consts
-        dump_storage(storage, liveboxes)
         return liveboxes[:]
 
     def _number_virtuals(self, liveboxes, optimizer, num_env_virtuals):
@@ -1457,50 +1456,3 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
 
     def int_add_const(self, base, offset):
         return base + offset
-
-# ____________________________________________________________
-
-def dump_storage(storage, liveboxes):
-    "For profiling only."
-    debug_start("jit-resume")
-    if have_debug_prints():
-        debug_print('Log storage', compute_unique_id(storage))
-        frameinfo = storage.rd_frame_info_list
-        while frameinfo is not None:
-            try:
-                jitcodename = frameinfo.jitcode.name
-            except AttributeError:
-                jitcodename = str(compute_unique_id(frameinfo.jitcode))
-            debug_print('\tjitcode/pc', jitcodename,
-                        frameinfo.pc,
-                        'at', compute_unique_id(frameinfo))
-            frameinfo = frameinfo.prev
-        numb = storage.rd_numb
-        while numb:
-            debug_print('\tnumb', str([untag(numb.nums[i])
-                                       for i in range(len(numb.nums))]),
-                        'at', compute_unique_id(numb))
-            numb = numb.prev
-        for const in storage.rd_consts:
-            debug_print('\tconst', const.repr_rpython())
-        for box in liveboxes:
-            if box is None:
-                debug_print('\tbox', 'None')
-            else:
-                debug_print('\tbox', box.repr_rpython())
-        if storage.rd_virtuals is not None:
-            for virtual in storage.rd_virtuals:
-                if virtual is None:
-                    debug_print('\t\t', 'None')
-                else:
-                    virtual.debug_prints()
-        if storage.rd_pendingfields:
-            debug_print('\tpending setfields')
-            for i in range(len(storage.rd_pendingfields)):
-                lldescr = storage.rd_pendingfields[i].lldescr
-                num = storage.rd_pendingfields[i].num
-                fieldnum = storage.rd_pendingfields[i].fieldnum
-                itemindex = storage.rd_pendingfields[i].itemindex
-                debug_print("\t\t", str(lldescr), str(untag(num)), str(untag(fieldnum)), itemindex)
-
-    debug_stop("jit-resume")

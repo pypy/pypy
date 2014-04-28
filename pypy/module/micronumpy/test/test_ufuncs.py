@@ -772,6 +772,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         a = zeros((2, 2)) + 1
         assert (add.reduce(a, axis=1) == [2, 2]).all()
+        assert (add.reduce(a, axis=(1,)) == [2, 2]).all()
         exc = raises(ValueError, add.reduce, a, axis=2)
         assert exc.value[0] == "'axis' entry is out of bounds"
 

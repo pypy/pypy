@@ -347,6 +347,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.array([1,2,3])
         b = buffer(a)
         assert type(b) is buffer
+        assert 'read-only buffer' in repr(b)
+        exc = raises(TypeError, "b[0] = '0'")
+        assert str(exc.value) == 'buffer is read-only'
 
     def test_type(self):
         from numpypy import array
@@ -1506,6 +1509,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.max() == 5.7
+        assert a.max().shape == ()
+        assert a.max(axis=(0,)) == 5.7
+        assert a.max(axis=(0,)).shape == ()
         assert a.max(keepdims=True) == 5.7
         assert a.max(keepdims=True).shape == (1,)
         b = array([])
@@ -1521,6 +1527,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.min() == -3.0
+        assert a.min().shape == ()
+        assert a.min(axis=(0,)) == -3.0
+        assert a.min(axis=(0,)).shape == ()
         assert a.min(keepdims=True) == -3.0
         assert a.min(keepdims=True).shape == (1,)
         b = array([])
@@ -2236,6 +2245,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a.data[4] = '\xff'
         assert a[1] == 0xff
         assert len(a.data) == 16
+        assert type(a.data) is buffer
 
     def test_explicit_dtype_conversion(self):
         from numpypy import array

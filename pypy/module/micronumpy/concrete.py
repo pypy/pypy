@@ -1,6 +1,6 @@
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
@@ -316,8 +316,8 @@ class BaseConcreteArray(object):
     def get_storage(self):
         return self.storage
 
-    def get_buffer(self, space):
-        return ArrayBuffer(self)
+    def get_buffer(self, space, readonly):
+        return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
         strides, backstrides = calc_strides(self.get_shape(), dtype,
@@ -471,9 +471,12 @@ class VoidBoxStorage(BaseConcreteArray):
         free_raw_storage(self.storage)
 
 
-class ArrayBuffer(RWBuffer):
-    def __init__(self, impl):
+class ArrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, impl, readonly):
         self.impl = impl
+        self.readonly = readonly
 
     def getitem(self, item):
         return raw_storage_getitem(lltype.Char, self.impl.storage, item)

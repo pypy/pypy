@@ -512,7 +512,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                                      unicode_to_decimal_w(space, w_value))
         else:
             try:
-                buf = space.buffer_w(w_value)
+                buf = space.charbuf_w(w_value)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -520,8 +520,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
                             "long() argument must be a string or a number, "
                             "not '%T'", w_value)
             else:
-                return _string_to_w_long(space, w_longtype, w_value,
-                                         buf.as_str())
+                return _string_to_w_long(space, w_longtype, w_value, buf)
     else:
         base = space.int_w(w_base)
 

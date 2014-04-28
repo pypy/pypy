@@ -155,6 +155,11 @@ class BaseArrayTests:
         a.fromstring('Hi!')
         assert a[0] == 'H' and a[1] == 'i' and a[2] == '!' and len(a) == 3
         a = self.array('c')
+        a.fromstring(buffer('xyz'))
+        exc = raises(TypeError, a.fromstring, memoryview('xyz'))
+        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
+        assert a[0] == 'x' and a[1] == 'y' and a[2] == 'z' and len(a) == 3
+        a = self.array('c')
         a.fromstring('')
         assert not len(a)
 
@@ -421,12 +426,8 @@ class BaseArrayTests:
     def test_buffer_write(self):
         a = self.array('c', 'hello')
         buf = buffer(a)
-        print repr(buf)
-        try:
-            buf[3] = 'L'
-        except TypeError:
-            skip("buffer(array) returns a read-only buffer on CPython")
-        assert a.tostring() == 'helLo'
+        exc = raises(TypeError, "buf[3] = 'L'")
+        assert str(exc.value) == "buffer is read-only"
 
     def test_buffer_keepalive(self):
         buf = buffer(self.array('c', 'text'))

@@ -47,7 +47,8 @@ c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
                      rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 c_fileno = llexternal(fileno, [lltype.Ptr(FILE)], rffi.INT)
-c_fdopen = llexternal('fdopen', [rffi.INT, rffi.CCHARP], lltype.Ptr(FILE))
+c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
+                      [rffi.INT, rffi.CCHARP], lltype.Ptr(FILE))
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)

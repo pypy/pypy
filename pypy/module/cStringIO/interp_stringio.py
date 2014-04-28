@@ -160,10 +160,10 @@ class W_OutputType(RStringIO, W_InputOutputType):
             raise OperationError(space.w_IOError, space.wrap("negative size"))
         self.truncate(size)
 
-    @unwrap_spec(buffer='bufferstr')
-    def descr_write(self, buffer):
+    def descr_write(self, space, w_buffer):
+        buffer = space.getarg_w('s*', w_buffer)
         self.check_closed()
-        self.write(buffer)
+        self.write(buffer.as_str())
 
     def descr_writelines(self, w_lines):
         self.check_closed()
@@ -236,5 +236,5 @@ def StringIO(space, w_string=None):
     if space.is_none(w_string):
         return space.wrap(W_OutputType(space))
     else:
-        string = space.bufferstr_w(w_string)
+        string = space.getarg_w('s*', w_string).as_str()
         return space.wrap(W_InputType(space, string))
