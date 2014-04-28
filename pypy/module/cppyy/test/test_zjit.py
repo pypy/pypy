@@ -104,7 +104,6 @@ class FakeSpace(object):
         class dummy: pass
         self.config = dummy()
         self.config.translating = False
-        self.BUF_SIMPLE = 1
 
     def issequence_w(self, w_obj):
         return True

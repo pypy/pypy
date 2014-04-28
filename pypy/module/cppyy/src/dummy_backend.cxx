@@ -521,6 +521,15 @@ int cppyy_num_datamembers(cppyy_scope_t /* handle */) {
 
 
 /* misc helpers ----------------------------------------------------------- */
+#if defined(_MSC_VER)
+long long cppyy_strtoll(const char* str) {
+    return _strtoi64(str, NULL, 0);
+}
+
+extern "C" unsigned long long cppyy_strtoull(const char* str) {
+    return _strtoui64(str, NULL, 0);
+}
+#else
 long long cppyy_strtoll(const char* str) {
     return strtoll(str, NULL, 0);
 }
@@ -528,6 +537,7 @@ long long cppyy_strtoll(const char* str) {
 extern "C" unsigned long long cppyy_strtoull(const char* str) {
     return strtoull(str, NULL, 0);
 }
+#endif
 
 void cppyy_free(void* ptr) {
     free(ptr);

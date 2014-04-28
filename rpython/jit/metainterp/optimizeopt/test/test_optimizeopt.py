@@ -5884,6 +5884,25 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bug_unroll_with_immutables(self):
+        ops = """
+        [p0]
+        i2 = getfield_gc_pure(p0, descr=immut_intval)
+        p1 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p1, 1242, descr=immut_intval)
+        jump(p1)
+        """
+        preamble = """
+        [p0]
+        i2 = getfield_gc_pure(p0, descr=immut_intval)
+        jump()
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_immutable_constantfold_recursive(self):
         ops = """
         []

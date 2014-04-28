@@ -1104,6 +1104,21 @@ class TestDiskFile:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+    def test_append_mode(self):
+        tfn = str(udir.join('streamio-append-mode'))
+        fo = streamio.open_file_as_stream # shorthand
+        x = fo(tfn, 'w')
+        x.write('abc123')
+        x.close()
+
+        x = fo(tfn, 'a')
+        x.seek(0, 0)
+        x.write('456')
+        x.close()
+        x = fo(tfn, 'r')
+        assert x.read() == 'abc123456'
+        x.close()
+
 
 # Speed test
 

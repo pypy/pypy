@@ -9,7 +9,7 @@ Taken from http://twistedmatrix.com/trac/browser/sandbox/exarkun/force-builds.py
 modified by PyPy team
 """
 
-import os, sys, pwd, urllib
+import os, sys, urllib
 
 from twisted.internet import reactor, defer
 from twisted.python import log
@@ -34,6 +34,13 @@ BUILDERS = [
     'build-pypy-c-jit-linux-armel',
 ]
 
+def get_user():
+    if sys.platform == 'win32':
+        return os.environ['USERNAME']
+    else:
+        import pwd
+        return pwd.getpwuid(os.getuid())[0]
+
 def main():
     #XXX: handle release tags
     #XXX: handle validity checks
@@ -49,7 +56,7 @@ def main():
         print 'Forcing', builder, '...'
         url = "http://buildbot.pypy.org/builders/" + builder + "/force"
         args = [
-            ('username', pwd.getpwuid(os.getuid())[0]),
+            ('username', get_user()),
             ('revision', ''),
             ('submit', 'Force Build'),
             ('branch', branch),

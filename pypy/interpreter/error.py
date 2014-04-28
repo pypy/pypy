@@ -299,9 +299,13 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
-@specialize.memo()
+
+class ClearedOpErr:
+    def __init__(self, space):
+        self.operr = OperationError(space.w_None, space.w_None)
+
 def get_cleared_operation_error(space):
-    return OperationError(space.w_None, space.w_None)
+    return space.fromcache(ClearedOpErr).operr
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
