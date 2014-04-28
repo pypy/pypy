@@ -130,6 +130,23 @@ class TestSTMTranslated(CompiledSTMTests):
         data, dataerr = cbuilder.cmdexec('4 5000', err=True)
         assert 'check ok!' in data
 
+    def test_retry_counter_starts_at_zero(self):
+        #
+        def check(foobar, retry_counter):
+            print '<', retry_counter, '>'
+            return 0
+        #
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
+        def entry_point(argv):
+            perform_transaction(lltype.malloc(S))
+            return 0
+        #
+        t, cbuilder = self.compile(entry_point, backendopt=True)
+        data = cbuilder.cmdexec('a b c d')
+        assert '< 0 >\n' in data
+
     def test_bug1(self):
         #
         def check(foobar, retry_counter):
