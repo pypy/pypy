@@ -207,5 +207,6 @@ class LexingDFARunner(AbstractLexingDFARunner):
         source_pos = self.token_position_class(index, self.lineno, self.columnno)
         if eof:
             return self.token_class("EOF", "EOF", source_pos)
+
         return self.token_class(self.automaton.names[self.last_matched_state],
                                 text, source_pos)
