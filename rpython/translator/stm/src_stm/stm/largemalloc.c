@@ -354,6 +354,9 @@ char *_stm_large_malloc(size_t request_size)
     mscan->size = request_size;
     mscan->prev_size = BOTH_CHUNKS_USED;
     increment_total_allocated(request_size + LARGE_MALLOC_OVERHEAD);
+#ifndef NDEBUG
+    memset((char *)&mscan->d, 0xda, request_size);
+#endif
 
     lm_unlock();
 

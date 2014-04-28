@@ -67,6 +67,7 @@ enum stm_time_e {
     STM_TIME_WAIT_WRITE_READ,
     STM_TIME_WAIT_INEVITABLE,
     STM_TIME_WAIT_OTHER,
+    STM_TIME_SYNC_COMMIT_SOON,
     STM_TIME_BOOKKEEPING,
     STM_TIME_MINOR_GC,
     STM_TIME_MAJOR_GC,
@@ -217,9 +218,13 @@ static inline void stm_write(object_t *obj)
    The "size rounded up" must be a multiple of 8 and at least 16.
    "Tracing" an object means enumerating all GC references in it,
    by invoking the callback passed as argument.
+   stmcb_commit_soon() is called when it is advised to commit
+   the transaction as soon as possible in order to avoid conflicts
+   or improve performance in general.
 */
 extern ssize_t stmcb_size_rounded_up(struct object_s *);
 extern void stmcb_trace(struct object_s *, void (object_t **));
+extern void stmcb_commit_soon(void);
 
 
 /* Allocate an object of the given size, which must be a multiple

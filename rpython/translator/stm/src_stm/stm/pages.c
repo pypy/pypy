@@ -109,18 +109,20 @@ static void page_privatize(uintptr_t pagenum)
 {
     /* check this thread's 'pages_privatized' bit */
     uint64_t bitmask = 1UL << (STM_SEGMENT->segment_num - 1);
-    struct page_shared_s *ps = &pages_privatized[pagenum - PAGE_FLAG_START];
+    volatile struct page_shared_s *ps = (volatile struct page_shared_s *)
+        &pages_privatized[pagenum - PAGE_FLAG_START];
     if (ps->by_segment & bitmask) {
         /* the page is already privatized; nothing to do */
         return;
     }
 
-#ifndef NDEBUG
-    spinlock_acquire(lock_pages_privatizing[STM_SEGMENT->segment_num]);
-#endif
+    long i;
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        spinlock_acquire(get_priv_segment(i)->privatization_lock);
+    }
 
     /* add this thread's 'pages_privatized' bit */
-    __sync_fetch_and_add(&ps->by_segment, bitmask);
+    ps->by_segment |= bitmask;
 
     /* "unmaps" the page to make the address space location correspond
        again to its underlying file offset (XXX later we should again
@@ -134,9 +136,9 @@ static void page_privatize(uintptr_t pagenum)
     /* copy the content from the shared (segment 0) source */
     pagecopy(new_page, stm_object_pages + pagenum * 4096UL);
 
-#ifndef NDEBUG
-    spinlock_release(lock_pages_privatizing[STM_SEGMENT->segment_num]);
-#endif
+    for (i = NB_SEGMENTS; i >= 1; i--) {
+        spinlock_release(get_priv_segment(i)->privatization_lock);
+    }
 }
 
 static void _page_do_reshare(long segnum, uintptr_t pagenum)

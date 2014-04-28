@@ -79,8 +79,16 @@ struct stm_priv_segment_info_s {
     /* List of old objects (older than the current transaction) that the
        current transaction attempts to modify.  This is used to track
        the STM status: they are old objects that where written to and
-       that need to be copied to other segments upon commit. */
+       that need to be copied to other segments upon commit.  Note that
+       every object takes three list items: the object, and two words for
+       the location marker. */
     struct list_s *modified_old_objects;
+
+    /* For each entry in 'modified_old_objects', we have two entries
+       in the following list, which give the marker at the time we added
+       the entry to modified_old_objects. */
+    struct list_s *modified_old_objects_markers;
+    uintptr_t modified_old_objects_markers_num_old;
 
     /* List of out-of-nursery objects that may contain pointers to
        nursery objects.  This is used to track the GC status: they are
@@ -149,11 +157,30 @@ struct stm_priv_segment_info_s {
     /* For sleeping contention management */
     bool signal_when_done;
 
+    /* This lock is acquired when that segment calls synchronize_object_now.
+       On the rare event of a page_privatize(), the latter will acquire
+       all the locks in all segments.  Otherwise, for the common case,
+       it's cheap.  (The set of all 'privatization_lock' in all segments
+       works like one single read-write lock, with page_privatize() acquiring
+       the write lock; but this variant is more efficient for the case of
+       many reads / rare writes.) */
+    uint8_t privatization_lock;
+
+    /* This lock is acquired when we mutate 'modified_old_objects' but
+       we don't have the global mutex.  It is also acquired during minor
+       collection.  It protects against a different thread that tries to
+       get this segment's marker corresponding to some object, or to
+       expand the marker into a full description. */
+    uint8_t marker_lock;
+
     /* In case of abort, we restore the 'shadowstack' field and the
        'thread_local_obj' field. */
     struct stm_shadowentry_s *shadowstack_at_start_of_transaction;
     object_t *threadlocal_at_start_of_transaction;
     struct stm_shadowentry_s *shadowstack_at_abort;
+
+    /* Already signalled to commit soon: */
+    bool signalled_to_commit_soon;
 
     /* For debugging */
 #ifndef NDEBUG
@@ -162,6 +189,8 @@ struct stm_priv_segment_info_s {
 
     /* Temporarily stores the marker information */
     char marker_self[_STM_MARKER_LEN];
+    char marker_other[_STM_MARKER_LEN];
+    uintptr_t marker_inev[2];  /* marker where this thread became inevitable */
 };
 
 enum /* safe_point */ {
@@ -231,3 +260,31 @@ static inline void _duck(void) {
 
 static void copy_object_to_shared(object_t *obj, int source_segment_num);
 static void synchronize_object_now(object_t *obj);
+
+static inline void acquire_privatization_lock(void)
+{
+    uint8_t *lock = (uint8_t *)REAL_ADDRESS(STM_SEGMENT->segment_base,
+                                            &STM_PSEGMENT->privatization_lock);
+    spinlock_acquire(*lock);
+}
+
+static inline void release_privatization_lock(void)
+{
+    uint8_t *lock = (uint8_t *)REAL_ADDRESS(STM_SEGMENT->segment_base,
+                                            &STM_PSEGMENT->privatization_lock);
+    spinlock_release(*lock);
+}
+
+static inline void acquire_marker_lock(char *segment_base)
+{
+    uint8_t *lock = (uint8_t *)REAL_ADDRESS(segment_base,
+                                            &STM_PSEGMENT->marker_lock);
+    spinlock_acquire(*lock);
+}
+
+static inline void release_marker_lock(char *segment_base)
+{
+    uint8_t *lock = (uint8_t *)REAL_ADDRESS(segment_base,
+                                            &STM_PSEGMENT->marker_lock);
+    spinlock_release(*lock);
+}

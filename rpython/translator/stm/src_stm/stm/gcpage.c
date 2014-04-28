@@ -93,17 +93,20 @@ static char *allocate_outside_nursery_large(uint64_t size)
     /* uncommon case: need to initialize some more pages */
     spinlock_acquire(lock_growth_large);
 
-    if (addr + size > uninitialized_page_start) {
+    char *start = uninitialized_page_start;
+    if (addr + size > start) {
         uintptr_t npages;
-        npages = (addr + size - uninitialized_page_start) / 4096UL;
+        npages = (addr + size - start) / 4096UL;
         npages += GCPAGE_NUM_PAGES;
-        if (uninitialized_page_stop - uninitialized_page_start <
-                npages * 4096UL) {
+        if (uninitialized_page_stop - start < npages * 4096UL) {
             stm_fatalerror("out of memory!");   /* XXX */
         }
-        setup_N_pages(uninitialized_page_start, npages);
-        __sync_synchronize();
-        uninitialized_page_start += npages * 4096UL;
+        setup_N_pages(start, npages);
+        if (!__sync_bool_compare_and_swap(&uninitialized_page_start,
+                                          start,
+                                          start + npages * 4096UL)) {
+            stm_fatalerror("uninitialized_page_start changed?");
+        }
     }
     spinlock_release(lock_growth_large);
     return addr;
@@ -419,6 +422,23 @@ static void mark_visit_from_modified_objects(void)
     }
 }
 
+static void mark_visit_from_markers(void)
+{
+    long j;
+    for (j = 1; j <= NB_SEGMENTS; j++) {
+        char *base = get_segment_base(j);
+        struct list_s *lst = get_priv_segment(j)->modified_old_objects_markers;
+        uintptr_t i;
+        for (i = list_count(lst); i > 0; i -= 2) {
+            mark_visit_object((object_t *)list_item(lst, i - 1), base);
+        }
+        if (get_priv_segment(j)->transaction_state == TS_INEVITABLE) {
+            uintptr_t marker_inev_obj = get_priv_segment(j)->marker_inev[1];
+            mark_visit_object((object_t *)marker_inev_obj, base);
+        }
+    }
+}
+
 static void clean_up_segment_lists(void)
 {
     long i;
@@ -521,6 +541,7 @@ static void major_collection_now_at_safe_point(void)
     /* marking */
     LIST_CREATE(mark_objects_to_trace);
     mark_visit_from_modified_objects();
+    mark_visit_from_markers();
     mark_visit_from_roots();
     LIST_FREE(mark_objects_to_trace);
 
