@@ -2,16 +2,16 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.buffer import RWBuffer
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
-from pypy.objspace.std.memoryview import W_MemoryView
+from pypy.objspace.std.memoryobject import W_MemoryView
 import sys
 
 
-class BytesIOBuffer(RWBuffer):
+class BytesIOBuffer(Buffer):
     def __init__(self, w_bytesio):
         self.w_bytesio = w_bytesio
 

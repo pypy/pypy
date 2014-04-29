@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import buffer
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_buffer)
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef
-from pypy.interpreter import buffer
 
 @cpython_api([lltype.Ptr(Py_buffer), lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
 def PyBuffer_IsContiguous(space, view, fortran):

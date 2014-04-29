@@ -3,7 +3,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
-from pypy.objspace.std.memoryview import _buffer_setitem
+from pypy.objspace.std.memoryobject import _buffer_setitem
 
 from rpython.rlib.buffer import Buffer
 from rpython.rtyper.annlowlevel import llstr
