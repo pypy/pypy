@@ -1,20 +1,17 @@
-"""
-Implementation of the 'buffer' and 'memoryview' types.
-"""
+"""Implementation of the 'buffer' type"""
 import operator
 
 from rpython.rlib.buffer import Buffer, SubBuffer
+from rpython.rlib.objectmodel import compute_hash
+
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from rpython.rlib.objectmodel import compute_hash
 
 
 class W_Buffer(W_Root):
-    """Implement the built-in 'buffer' type as a wrapper around
-    an interp-level buffer.
-    """
+    """The 'buffer' type: a wrapper around an interp-level buffer"""
 
     def __init__(self, buf):
         assert isinstance(buf, Buffer)
@@ -29,8 +26,7 @@ class W_Buffer(W_Root):
 
     def writebuf_w(self, space):
         if self.buf.readonly:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "buffer is read-only"))
+            raise oefmt(space.w_TypeError, "buffer is read-only")
         return self.buf
 
     def charbuf_w(self, space):
@@ -44,11 +40,9 @@ class W_Buffer(W_Root):
             return W_Buffer(buf)
         # handle buffer slices
         if offset < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("offset must be zero or positive"))
+            raise oefmt(space.w_ValueError, "offset must be zero or positive")
         if size < -1:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("size must be zero or positive"))
+            raise oefmt(space.w_ValueError, "size must be zero or positive")
         buf = SubBuffer(buf, offset, size)
         return W_Buffer(buf)
 
@@ -56,7 +50,8 @@ class W_Buffer(W_Root):
         return space.wrap(self.buf.getlength())
 
     def descr_getitem(self, space, w_index):
-        start, stop, step, size = space.decode_index4(w_index, self.buf.getlength())
+        start, stop, step, size = space.decode_index4(w_index,
+                                                      self.buf.getlength())
         if step == 0:  # index only
             return space.wrap(self.buf.getitem(start))
         res = self.buf.getslice(start, stop, step, size)
@@ -64,19 +59,19 @@ class W_Buffer(W_Root):
 
     def descr_setitem(self, space, w_index, w_obj):
         if self.buf.readonly:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("buffer is read-only"))
-        start, stop, step, size = space.decode_index4(w_index, self.buf.getlength())
+            raise oefmt(space.w_TypeError, "buffer is read-only")
+        start, stop, step, size = space.decode_index4(w_index,
+                                                      self.buf.getlength())
         value = space.readbuf_w(w_obj)
         if step == 0:  # index only
             if value.getlength() != 1:
-                msg = "right operand must be a single byte"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "right operand must be a single byte")
             self.buf.setitem(start, value.getitem(0))
         else:
             if value.getlength() != size:
-                msg = "right operand length must match slice length"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "right operand length must match slice length")
             if step == 1:
                 self.buf.setslice(start, value.as_str())
             else:
