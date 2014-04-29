@@ -433,6 +433,9 @@ class __extend__(pyframe.PyFrame):
     def getconstant_w(self, index):
         return self.getcode().co_consts_w[index]
 
+    def getname_u(self, index):
+        return self.space.identifier_w(self.getname_w(index))
+
     def getname_w(self, index):
         return self.getcode().co_names_w[index]
 
@@ -753,9 +756,9 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
-        w_varname = self.getname_w(varindex)
+        varname = self.getname_u(varindex)
         w_newvalue = self.popvalue()
-        self.space.setitem(self.w_locals, w_varname, w_newvalue)
+        self.space.setitem_str(self.w_locals, varname, w_newvalue)
 
     def DELETE_NAME(self, varindex, next_instr):
         w_varname = self.getname_w(varindex)
@@ -765,8 +768,8 @@ class __extend__(pyframe.PyFrame):
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
-            raise oefmt(self.space.w_NameError, "name '%s' is not defined",
-                        self.space.str_w(w_varname))
+            raise oefmt(self.space.w_NameError,
+                        "name %R is not defined", w_varname)
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
@@ -817,7 +820,7 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.space.str_w(self.getname_w(nameindex))
+        varname = self.getname_u(nameindex)
         w_newvalue = self.popvalue()
         self.space.setitem_str(self.w_globals, varname, w_newvalue)
 
@@ -827,24 +830,24 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_NAME(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
+        varname = self.space.identifier_w(w_varname)
         if self.w_locals is not self.w_globals:
-            w_value = self.space.finditem(self.w_locals, w_varname)
+            w_value = self.space.finditem_str(self.w_locals, varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
         # fall-back
-        w_value = self._load_global(w_varname)
+        w_value = self._load_global(varname)
         if w_value is None:
             raise oefmt(self.space.w_NameError,
                         "name %R is not defined", w_varname)
         self.pushvalue(w_value)
 
-    def _load_global(self, w_varname):
-        w_value = self.space.finditem(self.w_globals, w_varname)
+    def _load_global(self, varname):
+        w_value = self.space.finditem_str(self.w_globals, varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
-            w_value = self.get_builtin().getdictvalue(
-                self.space, self.space.identifier_w(w_varname))
+            w_value = self.get_builtin().getdictvalue(self.space, varname)
         return w_value
     _load_global._always_inline_ = True
 
@@ -855,7 +858,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
-        w_value = self._load_global(w_varname)
+        w_value = self._load_global(self.space.identifier_w(w_varname))
         if w_value is None:
             self._load_global_failed(w_varname)
         self.pushvalue(w_value)
@@ -993,7 +996,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
             raise oefmt(self.space.w_ImportError,
-                        "cannot import name '%s'", self.space.str_w(w_name))
+                        "cannot import name %R", w_name)
         self.pushvalue(w_obj)
 
     def YIELD_VALUE(self, oparg, next_instr):

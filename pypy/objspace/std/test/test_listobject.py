@@ -402,7 +402,6 @@ class TestW_ListObject(object):
                            self.space.w_True)
 
     def test_sizehint(self):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         space = self.space
         w_l = space.newlist([], sizehint=10)
         assert isinstance(w_l.strategy, SizeListStrategy)
@@ -419,7 +418,6 @@ class TestW_ListObject(object):
         assert w_lst.strategy.sizehint == 13
 
     def test_find_fast_on_intlist(self, monkeypatch):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         monkeypatch.setattr(self.space, "eq_w", None)
         w = self.space.wrap
         intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])

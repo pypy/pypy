@@ -3,7 +3,7 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    BytesDictStrategy, ObjectDictStrategy)
+    BytesDictStrategy, ObjectDictStrategy, UnicodeDictStrategy)
 
 
 class TestW_DictObject(object):
@@ -125,12 +125,10 @@ class TestW_DictObject(object):
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
     def test_fromkeys_fastpath(self):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         space = self.space
         w = space.wrap
-        wb = space.wrapbytes
 
-        w_l = self.space.newlist([wb("a"),wb("b")])
+        w_l = space.newlist([w("a"),w("b")])
         w_l.getitems = None
         w_d = space.call_method(space.w_dict, "fromkeys", w_l)
 
@@ -138,7 +136,6 @@ class TestW_DictObject(object):
         assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
     def test_listview_bytes_dict(self):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
         wb = self.space.wrapbytes
         w_d = self.space.newdict()
@@ -152,30 +149,30 @@ class TestW_DictObject(object):
         assert self.space.listview_unicode(w_d) == [u"a", u"b"]
 
     def test_listview_int_dict(self):
-        py.test.py3k_skip("IntDictStrategy not supported yet")
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
         assert self.space.listview_int(w_d) == [1, 2]
 
     def test_keys_on_string_unicode_int_dict(self, monkeypatch):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
         wb = self.space.wrapbytes
         
         w_d = self.space.newdict()
         w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
-        w_l = self.space.call_method(w_d, "keys")
+        w_k = self.space.call_method(w_d, "keys")
+        w_l = self.space.call_function(self.space.w_list, w_k)
         assert sorted(self.space.listview_int(w_l)) == [1,2]
         
-        # make sure that .keys() calls newlist_bytes for string dicts
+        # make sure that list(d.keys()) calls newlist_bytes for byte dicts
         def not_allowed(*args):
             assert False, 'should not be called'
         monkeypatch.setattr(self.space, 'newlist', not_allowed)
         #
         w_d = self.space.newdict()
-        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
-        w_l = self.space.call_method(w_d, "keys")
+        w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(6))])
+        w_k = self.space.call_method(w_d, "keys")
+        w_l = self.space.call_function(self.space.w_list, w_k)
         assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
@@ -183,7 +180,8 @@ class TestW_DictObject(object):
         monkeypatch.undo() 
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
-        w_l = self.space.call_method(w_d, "keys")
+        w_k = self.space.call_method(w_d, "keys")
+        w_l = self.space.call_function(self.space.w_list, w_k)
         assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
 
 class AppTest_DictObject:
@@ -952,10 +950,9 @@ class AppTestStrategies(object):
         return r[r.find("(") + 1: r.find(")")]
 
     def test_empty_to_string(self):
-        py3k_skip("StringDictStrategy not supported yet")
         d = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
-        d["a"] = 1
+        d[b"a"] = 1
         assert "BytesDictStrategy" in self.get_strategy(d)
 
         class O(object):
@@ -964,7 +961,7 @@ class AppTestStrategies(object):
         d = o.__dict__ = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
         o.a = 1
-        assert "BytesDictStrategy" in self.get_strategy(d)
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
 
     def test_empty_to_unicode(self):
         d = {}
@@ -1017,9 +1014,16 @@ class AppTestStrategies(object):
         # gives us (1, 2), but 1 is not in the dict any longer.
         #raises(RuntimeError, list, it)
 
+    def test_bytes_to_object(self):
+        d = {b'a': 'b'}
+        d[object()] = None
+        assert b'a' in list(d)
 
-class FakeWrapper(object):
+
+class FakeString(str):
+
     hash_count = 0
+
     def unwrap(self, space):
         self.unwrapped = True
         return str(self)
@@ -1028,11 +1032,18 @@ class FakeWrapper(object):
         self.hash_count += 1
         return str.__hash__(self)
 
-class FakeString(FakeWrapper, str):
-    pass
+class FakeUnicode(unicode):
 
-class FakeUnicode(FakeWrapper, unicode):
-    pass
+    hash_count = 0
+
+    def unwrap(self, space):
+        self.unwrapped = True
+        return unicode(self)
+
+    def __hash__(self):
+        self.hash_count += 1
+        return unicode.__hash__(self)
+
 
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
@@ -1054,15 +1065,30 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
+    def newlist_unicode(self, l):
+        return l
     DictObjectCls = W_DictMultiObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
             return str
+        if isinstance(w_obj, FakeUnicode):
+            return unicode
         return type(w_obj)
     w_str = str
+    w_unicode = unicode
 
     def str_w(self, string):
+        if isinstance(string, unicode):
+            return string.encode('utf-8')
         assert isinstance(string, str)
+        return string
+
+    def bytes_w(self, string):
+        assert isinstance(string, str)
+        return string
+
+    def unicode_w(self, string):
+        assert isinstance(string, unicode)
         return string
 
     def int_w(self, integer, allow_conversion=True):
@@ -1070,6 +1096,11 @@ class FakeSpace:
         return integer
 
     def wrap(self, obj):
+        if isinstance(obj, str):
+            return obj.decode('ascii')
+        return obj
+
+    def wrapbytes(self, obj):
         return obj
 
     def isinstance_w(self, obj, klass):
@@ -1144,12 +1175,17 @@ class TestDictImplementation:
             assert value == d.descr_getitem(self.space, key)
 
 class BaseTestRDictImplementation:
+    FakeString = FakeUnicode
+    _str_devolves = False
 
     def setup_method(self,method):
         self.fakespace = FakeSpace()
-        self.string = self.fakespace.wrap("fish")
-        self.string2 = self.fakespace.wrap("fish2")
+        self.string = self.wrapstrorunicode("fish")
+        self.string2 = self.wrapstrorunicode("fish2")
         self.impl = self.get_impl()
+
+    def wrapstrorunicode(self, obj):
+        return self.fakespace.wrap(obj)
 
     def get_impl(self):
         strategy = self.StrategyClass(self.fakespace)
@@ -1178,21 +1214,22 @@ class BaseTestRDictImplementation:
         else:
             assert a == self.string2
             assert b == 2000
-            assert self.impl.getitem_str(self.string) == 1000
+            if not self._str_devolves:
+                result = self.impl.getitem_str(self.string)
+            else:
+                result = self.impl.getitem(self.string)
+            assert result == 1000
         self.check_not_devolved()
 
     def test_setitem(self):
         self.impl.setitem(self.string, 1000)
         assert self.impl.length() == 1
         assert self.impl.getitem(self.string) == 1000
-        assert self.impl.getitem_str(self.string) == 1000
-        self.check_not_devolved()
-
-    def test_setitem_str(self):
-        self.impl.setitem_str(self.fakespace.str_w(self.string), 1000)
-        assert self.impl.length() == 1
-        assert self.impl.getitem(self.string) == 1000
-        assert self.impl.getitem_str(self.string) == 1000
+        if not self._str_devolves:
+            result = self.impl.getitem_str(self.string)
+        else:
+            result = self.impl.getitem(self.string)
+        assert result == 1000
         self.check_not_devolved()
 
     def test_delitem(self):
@@ -1256,14 +1293,14 @@ class BaseTestRDictImplementation:
     def test_setdefault_fast(self):
         on_pypy = "__pypy__" in sys.builtin_module_names
         impl = self.impl
-        key = FakeString(self.string)
+        key = self.FakeString(self.string)
         x = impl.setdefault(key, 1)
         assert x == 1
-        if on_pypy:
+        if on_pypy and self.FakeString is FakeString:
             assert key.hash_count == 1
         x = impl.setdefault(key, 2)
         assert x == 1
-        if on_pypy:
+        if on_pypy and self.FakeString is FakeString:
             assert key.hash_count == 2
 
     def test_fallback_evil_key(self):
@@ -1296,19 +1333,33 @@ class BaseTestRDictImplementation:
         assert w_key not in d.w_keys()
         assert F() not in d.w_keys()
 
-class TestBytesDictImplementation(BaseTestRDictImplementation):
-    StrategyClass = BytesDictStrategy
+class TestUnicodeDictImplementation(BaseTestRDictImplementation):
+    StrategyClass = UnicodeDictStrategy
 
     def test_str_shortcut(self):
         self.fill_impl()
-        s = FakeString(self.string)
+        s = self.FakeString(self.string)
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
 
     def test_view_as_kwargs(self):
-        py.test.py3k_skip("XXX: strategies are currently broken")
         self.fill_impl()
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
+
+    def test_setitem_str(self):
+        self.impl.setitem_str(self.fakespace.str_w(self.string), 1000)
+        assert self.impl.length() == 1
+        assert self.impl.getitem(self.string) == 1000
+        assert self.impl.getitem_str(self.string) == 1000
+        self.check_not_devolved()
+
+class TestBytesDictImplementation(BaseTestRDictImplementation):
+    StrategyClass = BytesDictStrategy
+    FakeString = FakeString
+    _str_devolves = True
+
+    def wrapstrorunicode(self, obj):
+        return self.fakespace.wrapbytes(obj)
 
 
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
@@ -1319,13 +1370,12 @@ class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def check_not_devolved(self):
         pass
 
-class TestDevolvedBytesDictImplementation(BaseTestDevolvedDictImplementation):
-    StrategyClass = BytesDictStrategy
+class TestDevolvedUnicodeDictImplementation(BaseTestDevolvedDictImplementation):
+    StrategyClass = UnicodeDictStrategy
 
 
 def test_module_uses_strdict():
-    py.test.py3k_skip("XXX: strategies are currently broken")
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
-    assert type(d.strategy) is BytesDictStrategy
+    assert type(d.strategy) is UnicodeDictStrategy
 

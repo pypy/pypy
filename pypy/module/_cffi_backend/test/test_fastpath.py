@@ -16,7 +16,6 @@ class AppTest_fast_path_from_list(object):
         W_CType.pack_list_of_items = self._original
 
     def test_fast_init_from_list(self):
-        py3k_skip('XXX: strategies are currently broken')
         import _cffi_backend
         LONG = _cffi_backend.new_primitive_type('long')
         P_LONG = _cffi_backend.new_pointer_type(LONG)
@@ -37,7 +36,6 @@ class AppTest_fast_path_from_list(object):
         assert buf[2] == 3.3
 
     def test_fast_init_short_from_list(self):
-        py3k_skip('XXX: strategies are currently broken')
         import _cffi_backend
         SHORT = _cffi_backend.new_primitive_type('short')
         P_SHORT = _cffi_backend.new_pointer_type(SHORT)
@@ -50,7 +48,6 @@ class AppTest_fast_path_from_list(object):
         raises(OverflowError, _cffi_backend.newp, SHORT_ARRAY, [-40000])
 
     def test_fast_init_longlong_from_list(self):
-        py3k_skip('XXX: strategies are currently broken')
         import _cffi_backend
         import sys
         large_int = 2 ** (50 if sys.maxsize > 2**31 - 1 else 30)
@@ -64,7 +61,6 @@ class AppTest_fast_path_from_list(object):
         assert buf[3] == large_int
 
     def test_fast_init_ushort_from_list(self):
-        py3k_skip('XXX: strategies are currently broken')
         import _cffi_backend
         USHORT = _cffi_backend.new_primitive_type('unsigned short')
         P_USHORT = _cffi_backend.new_pointer_type(USHORT)
@@ -77,18 +73,17 @@ class AppTest_fast_path_from_list(object):
         raises(OverflowError, _cffi_backend.newp, USHORT_ARRAY, [-1])
 
     def test_fast_init_ulong_from_list(self):
-        py3k_skip('XXX: strategies are currently broken')
         import sys
         import _cffi_backend
         ULONG = _cffi_backend.new_primitive_type('unsigned long')
         P_ULONG = _cffi_backend.new_pointer_type(ULONG)
         ULONG_ARRAY = _cffi_backend.new_array_type(P_ULONG, None)
-        buf = _cffi_backend.newp(ULONG_ARRAY, [1, 2, sys.maxint])
+        buf = _cffi_backend.newp(ULONG_ARRAY, [1, 2, sys.maxsize])
         assert buf[0] == 1
         assert buf[1] == 2
-        assert buf[2] == sys.maxint
+        assert buf[2] == sys.maxsize
         raises(OverflowError, _cffi_backend.newp, ULONG_ARRAY, [-1])
-        raises(OverflowError, _cffi_backend.newp, ULONG_ARRAY, [-sys.maxint])
+        raises(OverflowError, _cffi_backend.newp, ULONG_ARRAY, [-sys.maxsize])
 
     def test_fast_init_cfloat_from_list(self):
         import _cffi_backend
@@ -109,7 +104,6 @@ class AppTest_fast_path_from_list(object):
         assert float(buf[1]) == -3.5
 
     def test_fast_init_bool_from_list(self):
-        py3k_skip('XXX: strategies are currently broken')
         import _cffi_backend
         BOOL = _cffi_backend.new_primitive_type('_Bool')
         P_BOOL = _cffi_backend.new_pointer_type(BOOL)

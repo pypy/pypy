@@ -55,10 +55,10 @@ class W_DictMultiObject(W_Root):
         elif space.config.objspace.std.withmapdict and instance:
             from pypy.objspace.std.mapdict import MapDictStrategy
             strategy = space.fromcache(MapDictStrategy)
-        #elif instance or strdict or module:
-        #    assert w_type is None
-        #    strategy = space.fromcache(BytesDictStrategy)
-        elif False and kwargs:
+        elif instance or strdict or module:
+            assert w_type is None
+            strategy = space.fromcache(UnicodeDictStrategy)
+        elif kwargs:
             assert w_type is None
             from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
             strategy = space.fromcache(EmptyKwargsDictStrategy)
@@ -113,14 +113,15 @@ class W_DictMultiObject(W_Root):
         if w_fill is None:
             w_fill = space.w_None
         if space.is_w(w_type, space.w_dict):
-            w_dict = W_DictMultiObject.allocate_and_init_instance(space,
-                                                                  w_type)
-
-            byteslist = space.listview_bytes(w_keys)
-            if byteslist is not None:
-                for key in byteslist:
-                    w_dict.setitem_str(key, w_fill)
+            ulist = space.listview_unicode(w_keys)
+            if ulist is not None:
+                strategy = space.fromcache(UnicodeDictStrategy)
+                storage = strategy.get_storage_fromkeys(ulist, w_fill)
+                w_dict = space.allocate_instance(W_DictMultiObject, w_type)
+                W_DictMultiObject.__init__(w_dict, space, strategy, storage)
             else:
+                w_dict = W_DictMultiObject.allocate_and_init_instance(space,
+                                                                      w_type)
                 for w_key in space.listview(w_keys):
                     w_dict.setitem(w_key, w_fill)
         else:
@@ -360,6 +361,9 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    def decodekey_str(self, key):
+        return key.decode('utf-8')
+
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):
@@ -430,18 +434,18 @@ class EmptyDictStrategy(DictStrategy):
         return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
+        from pypy.objspace.std.intobject import W_IntObject
         withidentitydict = self.space.config.objspace.std.withidentitydict
-        # if type(w_key) is self.space.StringObjectCls:
-        #     self.switch_to_bytes_strategy(w_dict)
-        #     return
+        if type(w_key) is self.space.StringObjectCls:
+            self.switch_to_bytes_strategy(w_dict)
+            return
         if type(w_key) is self.space.UnicodeObjectCls:
             self.switch_to_unicode_strategy(w_dict)
             return
+        if type(w_key) is W_IntObject:
+            self.switch_to_int_strategy(w_dict)
+            return
         w_type = self.space.type(w_key)
-        # XXX: disable IntDictStrategy for now, because in py3k ints are
-        # actually long
-        ## if self.space.is_w(w_type, self.space.w_int):
-        ##     self.switch_to_int_strategy(w_dict)
         if withidentitydict and w_type.compares_by_identity():
             self.switch_to_identity_strategy(w_dict)
         else:
@@ -500,7 +504,7 @@ class EmptyDictStrategy(DictStrategy):
         w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
-        self.switch_to_bytes_strategy(w_dict)
+        self.switch_to_unicode_strategy(w_dict)
         w_dict.setitem_str(key, w_value)
 
     def delitem(self, w_dict, w_key):
@@ -700,7 +704,7 @@ class AbstractTypedStrategy(object):
 
     def setitem_str(self, w_dict, key, w_value):
         self.switch_to_object_strategy(w_dict)
-        w_dict.setitem(self.space.wrap(key), w_value)
+        w_dict.setitem(self.space.wrap(self.decodekey_str(key)), w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         if self.is_correct_type(w_key):
@@ -722,7 +726,7 @@ class AbstractTypedStrategy(object):
         return len(self.unerase(w_dict.dstorage))
 
     def getitem_str(self, w_dict, key):
-        return self.getitem(w_dict, self.space.wrap(key))
+        return self.getitem(w_dict, self.space.wrap(self.decodekey_str(key)))
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -802,7 +806,7 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
     def setitem_str(self, w_dict, s, w_value):
-        self.setitem(w_dict, self.space.wrap(s), w_value)
+        self.setitem(w_dict, self.space.wrap(self.decodekey_str(s)), w_value)
 
     def switch_to_object_strategy(self, w_dict):
         assert 0, "should be unreachable"
@@ -816,10 +820,10 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrap(unwrapped)
+        return self.space.wrapbytes(unwrapped)
 
     def unwrap(self, wrapped):
-        return self.space.str_w(wrapped)
+        return self.space.bytes_w(wrapped)
 
     def is_correct_type(self, w_obj):
         space = self.space
@@ -833,21 +837,21 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def _never_equal_to(self, w_lookup_type):
         return _never_equal_to_string(self.space, w_lookup_type)
 
-    def setitem_str(self, w_dict, key, w_value):
-        assert key is not None
-        self.unerase(w_dict.dstorage)[key] = w_value
+    ##def setitem_str(self, w_dict, key, w_value):
+    ##    assert key is not None
+    ##    self.unerase(w_dict.dstorage)[key] = w_value
 
-    def getitem(self, w_dict, w_key):
-        space = self.space
-        # -- This is called extremely often.  Hack for performance --
-        if type(w_key) is space.StringObjectCls:
-            return self.getitem_str(w_dict, w_key.unwrap(space))
-        # -- End of performance hack --
-        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
+    ##def getitem(self, w_dict, w_key):
+    ##    space = self.space
+    ##    # -- This is called extremely often.  Hack for performance --
+    ##    if type(w_key) is space.StringObjectCls:
+    ##        return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
+    ##    # -- End of performance hack --
+    ##    return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
-    def getitem_str(self, w_dict, key):
-        assert key is not None
-        return self.unerase(w_dict.dstorage).get(key, None)
+    ##def getitem_str(self, w_dict, key):
+    ##    assert key is not None
+    ##    return self.unerase(w_dict.dstorage).get(key, None)
 
     def listview_bytes(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
@@ -856,21 +860,21 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.wrapbytes(key)
 
-    @jit.look_inside_iff(lambda self, w_dict:
-                         w_dict_unrolling_heuristic(w_dict))
-    def view_as_kwargs(self, w_dict):
-        return (None, None) # XXX: fix me to return unicode keys
-        d = self.unerase(w_dict.dstorage)
-        l = len(d)
-        keys, values = [None] * l, [None] * l
-        i = 0
-        for key, val in d.iteritems():
-            keys[i] = key
-            values[i] = val
-            i += 1
-        return keys, values
+    ##@jit.look_inside_iff(lambda self, w_dict:
+    ##                     w_dict_unrolling_heuristic(w_dict))
+    ##def view_as_kwargs(self, w_dict):
+    ##    return (None, None) # XXX: fix me to return unicode keys
+    ##    d = self.unerase(w_dict.dstorage)
+    ##    l = len(d)
+    ##    keys, values = [None] * l, [None] * l
+    ##    i = 0
+    ##    for key, val in d.iteritems():
+    ##        keys[i] = key
+    ##        values[i] = val
+    ##        i += 1
+    ##    return keys, values
 
 create_iterator_classes(BytesDictStrategy)
 
@@ -900,43 +904,51 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
-    ## def setitem_str(self, w_dict, key, w_value):
-    ##     assert key is not None
-    ##     self.unerase(w_dict.dstorage)[key] = w_value
+    def setitem_str(self, w_dict, key, w_value):
+        assert key is not None
+        self.unerase(w_dict.dstorage)[self.decodekey_str(key)] = w_value
 
-    ## def getitem(self, w_dict, w_key):
-    ##     space = self.space
-    ##     # -- This is called extremely often.  Hack for performance --
-    ##     if type(w_key) is space.StringObjectCls:
-    ##         return self.getitem_str(w_dict, w_key.unwrap(space))
-    ##     # -- End of performance hack --
-    ##     return AbstractTypedStrategy.getitem(self, w_dict, w_key)
+    def getitem(self, w_dict, w_key):
+        space = self.space
+        # -- This is called extremely often.  Hack for performance --
+        if type(w_key) is space.UnicodeObjectCls:
+            return self.unerase(w_dict.dstorage).get(w_key.unwrap(space), None)
+        # -- End of performance hack --
+        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
-    ## def getitem_str(self, w_dict, key):
-    ##     assert key is not None
-    ##     return self.unerase(w_dict.dstorage).get(key, None)
+    def getitem_str(self, w_dict, key):
+        assert key is not None
+        return self.unerase(w_dict.dstorage).get(self.decodekey_str(key), None)
 
     def listview_unicode(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
-    ## def w_keys(self, w_dict):
-    ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
+    def w_keys(self, w_dict):
+        return self.space.newlist_unicode(self.listview_unicode(w_dict))
 
     def wrapkey(space, key):
         return space.wrap(key)
 
-    ## @jit.look_inside_iff(lambda self, w_dict:
-    ##                      w_dict_unrolling_heuristic(w_dict))
-    ## def view_as_kwargs(self, w_dict):
-    ##     d = self.unerase(w_dict.dstorage)
-    ##     l = len(d)
-    ##     keys, values = [None] * l, [None] * l
-    ##     i = 0
-    ##     for key, val in d.iteritems():
-    ##         keys[i] = key
-    ##         values[i] = val
-    ##         i += 1
-    ##     return keys, values
+    @jit.look_inside_iff(lambda self, w_dict:
+                         w_dict_unrolling_heuristic(w_dict))
+    def view_as_kwargs(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        l = len(d)
+        keys, values = [None] * l, [None] * l
+        i = 0
+        for key, val in d.iteritems():
+            keys[i] = key.encode('utf-8')
+            values[i] = val
+            i += 1
+        return keys, values
+
+    def get_storage_fromkeys(self, keys_w, w_fill):
+        """Return an initialized storage with keys and fill values"""
+        storage = {}
+        mark_dict_non_null(storage)
+        for key in keys_w:
+            storage[key] = w_fill
+        return self.erase(storage)
 
 create_iterator_classes(UnicodeDictStrategy)
 
@@ -956,8 +968,8 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.erase({})
 
     def is_correct_type(self, w_obj):
-        space = self.space
-        return space.is_w(space.type(w_obj), space.w_int)
+        from pypy.objspace.std.intobject import W_IntObject
+        return type(w_obj) is W_IntObject
 
     def _never_equal_to(self, w_lookup_type):
         space = self.space
