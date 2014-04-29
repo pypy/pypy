@@ -58,7 +58,6 @@ List of extension modules that we support:
     math
     mmap
     operator
-    oracle
     parser
     posix
     pyexpat
