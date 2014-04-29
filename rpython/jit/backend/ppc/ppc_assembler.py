@@ -16,6 +16,7 @@ import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt, BoxInt
+from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
@@ -822,7 +823,12 @@ class AssemblerPPC(OpAssembler):
         size_excluding_failure_stuff = self.mc.currpos()
         clt.frame_depth = spilling_area
         clt.param_depth = param_depth
-     
+        frame_info = self.datablockwrapper.malloc_aligned(jitframe.JITFRAMEINFO_SIZE,
+                                                          alignment=WORD)
+        clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
+        clt.allgcreafs = []
+        clt.frame_info.clear()
+
         direct_bootstrap_code = self.mc.currpos()
         frame_depth = self.compute_frame_depth(spilling_area, param_depth)
         self.gen_bootstrap_code(start_pos, frame_depth)
@@ -837,16 +843,16 @@ class AssemblerPPC(OpAssembler):
 
         real_start = loop_start + direct_bootstrap_code
         if IS_PPC_32:
-            looptoken._ppc_func_addr = real_start
+            looptoken._ppc_func_addr = looptoken._ll_function_addr = real_start
         else:
             self.write_64_bit_func_descr(fdescr, real_start)
-            looptoken._ppc_func_addr = fdescr
+            looptoken._ppc_func_addr = looptoken._ll_function_addr = fdescr
 
         self.process_pending_guards(loop_start)
 
         if log and not we_are_translated():
             self.mc._dump_trace(real_start,
-                    'loop_%s.asm' % self.cpu.total_compiled_loops)
+                    'loop.asm')
 
         ops_offset = self.mc.ops_offset
         self._teardown()
@@ -877,20 +883,22 @@ class AssemblerPPC(OpAssembler):
 
 
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
-        operations = self.setup(looptoken, operations)
-        descr_number = self.cpu.get_fail_descr_number(faildescr)
+        if not we_are_translated():
+            assert len(set(inputargs)) == len(inputargs)
+
+        self.setup(looptoken)
+        descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
         assert isinstance(faildescr, AbstractFailDescr)
-        code = self._find_failure_recovery_bytecode(faildescr)
-        arglocs = self.decode_inputargs(code)
-        if not we_are_translated():
-            assert len(inputargs) == len(arglocs)
-        regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
-        regalloc.prepare_bridge(inputargs, arglocs, operations)
+        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
 
-        sp_patch_location = self._prepare_sp_patch_position()
+        regalloc = Regalloc(assembler=self)
+        operations = regalloc.prepare_bridge(inputargs, arglocs,
+                                             operations,
+                                             self.current_clt.allgcrefs,
+                                             self.current_clt.frame_info)
 
         startpos = self.mc.currpos()
         spilling_area, param_depth = self._assemble(operations, regalloc)
