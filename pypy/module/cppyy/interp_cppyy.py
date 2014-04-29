@@ -155,8 +155,7 @@ class CPPMethod(object):
     the memory_regulator."""
 
     _attrs_ = ['space', 'scope', 'index', 'cppmethod', 'arg_defs', 'args_required',
-               'args_expected', 'converters', 'executor', '_funcaddr', 'cif_descr',
-               'uses_local']
+               'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
     _immutable_ = True
 
     def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
@@ -166,7 +165,6 @@ class CPPMethod(object):
         self.cppmethod = capi.c_get_method(self.space, self.scope, method_index)
         self.arg_defs = arg_defs
         self.args_required = args_required
-        self.args_expected = len(arg_defs)
 
         # Setup of the method dispatch's innards is done lazily, i.e. only when
         # the method is actually used.
@@ -182,6 +180,12 @@ class CPPMethod(object):
         stride = 2*rffi.sizeof(rffi.VOIDP)
         loc_idx = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, call_local), idx*stride)
         return rffi.cast(rffi.VOIDP, loc_idx)
+
+    def call_w(self, w_cppinstance, args_w):
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+        cppinstance._nullcheck()
+        cppthis = cppinstance.get_cppthis(self.scope)
+        return self.call(cppthis, args_w)
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):
@@ -277,7 +281,7 @@ class CPPMethod(object):
                 funcaddr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
                 self._funcaddr = rffi.cast(rffi.VOIDP, funcaddr)
 
-                nargs = self.args_expected + 1                   # +1: cppthis
+                nargs = len(self.arg_defs) + 1                   # +1: cppthis
 
                 # memory block for CIF description (note: not tracked as the life
                 # time of methods is normally the duration of the application)
@@ -335,7 +339,7 @@ class CPPMethod(object):
 
                 # extra
                 cif_descr.abi = clibffi.FFI_DEFAULT_ABI
-                cif_descr.nargs = self.args_expected + 1         # +1: cppthis
+                cif_descr.nargs = len(self.arg_defs) + 1         # +1: cppthis
 
                 res = jit_libffi.jit_ffi_prep_cif(cif_descr)
                 if res != clibffi.FFI_OK:
@@ -405,21 +409,21 @@ class CPPMethod(object):
 
 
 class CPPFunction(CPPMethod):
-    """Global (namespaced) function dispatcher. For now, the base class has
-    all the needed functionality, by allowing the C++ this pointer to be null
-    in the call. An optimization is expected there, however."""
+    """Global (namespaced) function dispatcher."""
 
     _immutable_ = True
+
+    def call_w(self, w_cppinstance, args_w):
+        return CPPMethod.call(self, capi.C_NULL_OBJECT, args_w)
 
     def __repr__(self):
         return "CPPFunction: %s" % self.signature()
 
 
 class CPPTemplatedCall(CPPMethod):
-    """Method dispatcher that first needs to resolve the template instance.
-    Note that the derivation is from object: the CPPMethod is a data member."""
+    """Method dispatcher that first resolves the template instance."""
 
-    _attrs_ = ['space', 'templ_args', 'method']
+    _attrs_ = ['space', 'templ_args']
     _immutable_ = True
 
     def __init__(self, space, templ_args, containing_scope, method_index, arg_defs, args_required):
@@ -456,22 +460,17 @@ class CPPConstructor(CPPMethod):
 
     _immutable_ = True
 
-    def call(self, cppthis, args_w):
+    def call_w(self, w_cppinstance, args_w):
         # TODO: these casts are very, very un-pretty; need to find a way of
         # re-using CPPMethod's features w/o these roundabouts
         vscope = rffi.cast(capi.C_OBJECT, self.scope.handle)
-        cppinstance = None
-        try:
-            cppinstance = self.space.interp_w(W_CPPInstance, args_w[0], can_be_None=False)
-            use_args_w = args_w[1:]
-        except (OperationError, TypeError), e:
-            use_args_w = args_w
-        w_result = CPPMethod.call(self, vscope, use_args_w)
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        w_result = CPPMethod.call(self, vscope, args_w)
         newthis = rffi.cast(capi.C_OBJECT, self.space.int_w(w_result))
-        if cppinstance:
+        if cppinstance is not None:
             cppinstance._rawobject = newthis
             memory_regulator.register(cppinstance)
-            return args_w[0]
+            return w_cppinstance
         return wrap_cppobject(self.space, newthis, self.scope,
                               do_cast=False, python_owns=True, fresh=True)
 
@@ -508,6 +507,7 @@ class W_CPPOverload(W_Root):
     def __init__(self, space, containing_scope, functions):
         self.space = space
         self.scope = containing_scope
+        assert len(functions)
         from rpython.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
 
@@ -520,14 +520,6 @@ class W_CPPOverload(W_Root):
     @jit.unroll_safe
     @unwrap_spec(args_w='args_w')
     def call(self, w_cppinstance, args_w):
-        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
-        if cppinstance is not None:
-            cppinstance._nullcheck()
-            cppthis = cppinstance.get_cppthis(self.scope)
-        else:
-            cppthis = capi.C_NULL_OBJECT
-        assert lltype.typeOf(cppthis) == capi.C_OBJECT
-
         # The following code tries out each of the functions in order. If
         # argument conversion fails (or simply if the number of arguments do
         # not match), that will lead to an exception, The JIT will snip out
@@ -542,7 +534,7 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call(cppthis, args_w)
+                return cppyyfunc.call_w(w_cppinstance, args_w)
             except Exception:
                 pass
 
@@ -553,7 +545,7 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call(cppthis, args_w)
+                return cppyyfunc.call_w(w_cppinstance, args_w)
             except OperationError, e:
                 # special case if there's just one function, to prevent clogging the error message
                 if len(self.functions) == 1:
@@ -906,7 +898,7 @@ class W_CPPClass(W_CPPScope):
 
     def construct(self):
         if self.default_constructor is not None:
-            return self.default_constructor.call(capi.C_NULL_OBJECT, [])
+            return self.default_constructor.call(capi.C_NULL_OBJECT, None, [])
         raise self.missing_attribute_error("default_constructor")
 
     def find_overload(self, name):
@@ -1046,6 +1038,16 @@ class W_CPPInstance(W_Root):
                 raise
         return None
 
+    def instance__init__(self, args_w):
+        try:
+            constructor_overload = self.cppclass.get_overload(self.cppclass.name)
+            constructor_overload.call(self, args_w)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_AttributeError):
+                raise
+            raise OperationError(self.space.w_TypeError,
+                self.space.wrap("cannot instantiate abstract class '%s'" % self.cppclass.name))
+
     def instance__eq__(self, w_other):
         # special case: if other is None, compare pointer-style
         if self.space.is_w(w_other, self.space.w_None):
@@ -1128,6 +1130,7 @@ W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
     cppclass = interp_attrproperty('cppclass', cls=W_CPPInstance),
     _python_owns = GetSetProperty(W_CPPInstance.fget_python_owns, W_CPPInstance.fset_python_owns),
+    __init__ = interp2app(W_CPPInstance.instance__init__),
     __eq__ = interp2app(W_CPPInstance.instance__eq__),
     __ne__ = interp2app(W_CPPInstance.instance__ne__),
     __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__),

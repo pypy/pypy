@@ -338,8 +338,13 @@ class AppTestPYTHONIFY:
         import cppyy
         example01 = cppyy.gbl.example01
 
+        assert example01.getCount() == 0
+
         o = example01()
         assert type(o) == example01
+        assert example01.getCount() == 1
+        o.destruct()
+        assert example01.getCount() == 0
 
         class MyClass1(example01):
             def myfunc(self):
@@ -348,7 +353,10 @@ class AppTestPYTHONIFY:
         o = MyClass1()
         assert type(o) == MyClass1
         assert isinstance(o, example01)
+        assert example01.getCount() == 1
         assert o.myfunc() == 1
+        o.destruct()
+        assert example01.getCount() == 0
 
         class MyClass2(example01):
             def __init__(self, what):
@@ -357,7 +365,11 @@ class AppTestPYTHONIFY:
 
         o = MyClass2('hi')
         assert type(o) == MyClass2
+        assert example01.getCount() == 1
         assert o.what == 'hi'
+        o.destruct()
+
+        assert example01.getCount() == 0
 
 
 class AppTestPYTHONIFY_UI:
