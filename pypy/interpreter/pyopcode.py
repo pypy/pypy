@@ -4,7 +4,7 @@ Implementation of a part of the standard Python opcodes.
 The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
-from rpython.rlib import jit, rstackovf
+from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -1556,12 +1556,13 @@ def source_as_str(space, w_source, funcname, what, flags):
         source = space.bytes0_w(w_source)
     else:
         try:
-            source = space.bufferstr0_new_w(w_source)
+            buf = space.buffer_w(w_source, space.BUF_SIMPLE)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             raise oefmt(space.w_TypeError,
                         "%s() arg 1 must be a %s object", funcname, what)
+        source = rstring.assert_str0(buf.as_str())
     return source, flags
 
 

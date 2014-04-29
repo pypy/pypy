@@ -3,6 +3,7 @@ import sys
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize)
@@ -207,7 +208,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_memoryview):
                 return w_result.readbuf_w(space)
-        raise TypeError
+        return self.buffer_w(space, space.BUF_SIMPLE)
 
     def writebuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -215,7 +216,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_memoryview):
                 return w_result.writebuf_w(space)
-        raise TypeError
+        return self.buffer_w(space, space.BUF_WRITABLE)
 
     def charbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -223,7 +224,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_memoryview):
                 return w_result.charbuf_w(space)
-        raise TypeError
+        return self.buffer_w(space, space.BUF_SIMPLE).as_str()
 
     def bytes_w(self, space):
         self._typed_unwrap_error(space, "bytes")
@@ -1406,10 +1407,10 @@ class ObjSpace(object):
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
-            name = "None"
+            e = oefmt(self.w_TypeError, "must be %s, not None", expected)
         else:
-            name = self.type(w_obj).get_module_type_name()
-        raise oefmt(self.w_TypeError, "must be %s, not %s", expected, name)
+            e = oefmt(self.w_TypeError, "must be %s, not %T", expected, w_obj)
+        raise e
 
     @specialize.arg(1)
     def getarg_w(self, code, w_obj):
@@ -1421,7 +1422,7 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_str):
                 return w_obj.readbuf_w(self)
             if self.isinstance_w(w_obj, self.w_unicode):
-                return self.str(w_obj).readbuf_w(self)
+                return StringBuffer(w_obj.identifier_w(self))
             try:
                 return w_obj.buffer_w(self, 0)
             except TypeError:
@@ -1432,9 +1433,9 @@ class ObjSpace(object):
                 self._getarg_error("string or buffer", w_obj)
         elif code == 's#':
             if self.isinstance_w(w_obj, self.w_str):
-                return w_obj.str_w(self)
+                return w_obj.bytes_w(self)
             if self.isinstance_w(w_obj, self.w_unicode):
-                return self.str(w_obj).str_w(self)
+                return w_obj.identifier_w(self)
             try:
                 return w_obj.readbuf_w(self).as_str()
             except TypeError:
@@ -1458,14 +1459,6 @@ class ObjSpace(object):
                 self._getarg_error("string or read-only character buffer", w_obj)
         else:
             assert False
-
-    def bufferstr0_new_w(self, w_obj):
-        from rpython.rlib import rstring
-        result = self.bufferstr_new_w(w_obj)
-        if '\x00' in result:
-            raise OperationError(self.w_TypeError, self.wrap(
-                    'argument must be a string without NUL characters'))
-        return rstring.assert_str0(result)
 
     # XXX rename/replace with code more like CPython getargs for buffers
     def bufferstr_w(self, w_obj):
