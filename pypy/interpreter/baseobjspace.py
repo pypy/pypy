@@ -5,7 +5,7 @@ from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
-     compute_unique_id)
+     compute_unique_id, specialize)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX
@@ -193,14 +193,37 @@ class W_Root(object):
     def immutable_unique_id(self, space):
         return None
 
-    def buffer_w(self, space):
+    def buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_memoryview):
-                return w_result.buffer_w(space)
-        raise oefmt(space.w_TypeError,
-                    "'%T' does not support the buffer interface", self)
+                return w_result.buffer_w(space, flags)
+        raise TypeError
+
+    def readbuf_w(self, space):
+        w_impl = space.lookup(self, '__buffer__')
+        if w_impl is not None:
+            w_result = space.get_and_call_function(w_impl, self)
+            if space.isinstance_w(w_result, space.w_memoryview):
+                return w_result.readbuf_w(space)
+        raise TypeError
+
+    def writebuf_w(self, space):
+        w_impl = space.lookup(self, '__buffer__')
+        if w_impl is not None:
+            w_result = space.get_and_call_function(w_impl, self)
+            if space.isinstance_w(w_result, space.w_memoryview):
+                return w_result.writebuf_w(space)
+        raise TypeError
+
+    def charbuf_w(self, space):
+        w_impl = space.lookup(self, '__buffer__')
+        if w_impl is not None:
+            w_result = space.get_and_call_function(w_impl, self)
+            if space.isinstance_w(w_result, space.w_memoryview):
+                return w_result.charbuf_w(space)
+        raise TypeError
 
     def bytes_w(self, space):
         self._typed_unwrap_error(space, "bytes")
@@ -1332,24 +1355,109 @@ class ObjSpace(object):
                                  self.wrap('cannot convert negative integer '
                                            'to unsigned int'))
 
-    def buffer_w(self, w_obj):
-        return w_obj.buffer_w(self)
+    BUF_SIMPLE   = 0x0000
+    BUF_WRITABLE = 0x0001
+    BUF_FORMAT   = 0x0004
+    BUF_ND       = 0x0008
+    BUF_STRIDES  = 0x0010 | BUF_ND
+    BUF_INDIRECT = 0x0100 | BUF_STRIDES
 
-    def rwbuffer_w(self, w_obj):
-        # returns a RWBuffer instance
-        from pypy.interpreter.buffer import RWBuffer
-        buffer = self.buffer_w(w_obj)
-        if not isinstance(buffer, RWBuffer):
-            raise OperationError(self.w_TypeError,
-                                 self.wrap('read-write buffer expected'))
-        return buffer
+    BUF_CONTIG_RO = BUF_ND
+    BUF_CONTIG    = BUF_ND | BUF_WRITABLE
 
-    def bufferstr_new_w(self, w_obj):
-        # Implement the "new buffer interface" (new in Python 2.7)
-        # returning an unwrapped string. It doesn't accept unicode
-        # strings
-        buffer = self.buffer_w(w_obj)
-        return buffer.as_str()
+    BUF_FULL_RO = BUF_INDIRECT | BUF_FORMAT
+    BUF_FULL    = BUF_INDIRECT | BUF_FORMAT | BUF_WRITABLE
+
+    def check_buf_flags(self, flags, readonly):
+        if readonly and flags & self.BUF_WRITABLE == self.BUF_WRITABLE:
+            raise oefmt(self.w_BufferError, "Object is not writable.")
+
+    def buffer_w(self, w_obj, flags):
+        # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
+        try:
+            return w_obj.buffer_w(self, flags)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "'%T' does not have the buffer interface", w_obj)
+
+    def readbuf_w(self, w_obj):
+        # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
+        try:
+            return w_obj.readbuf_w(self)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "expected a readable buffer object")
+
+    def writebuf_w(self, w_obj):
+        # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
+        try:
+            return w_obj.writebuf_w(self)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "expected a writeable buffer object")
+
+    def charbuf_w(self, w_obj):
+        # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
+        try:
+            return w_obj.charbuf_w(self)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "expected a character buffer object")
+
+    def _getarg_error(self, expected, w_obj):
+        if self.is_none(w_obj):
+            name = "None"
+        else:
+            name = self.type(w_obj).get_module_type_name()
+        raise oefmt(self.w_TypeError, "must be %s, not %s", expected, name)
+
+    @specialize.arg(1)
+    def getarg_w(self, code, w_obj):
+        if code == 'z*':
+            if self.is_none(w_obj):
+                return None
+            code = 's*'
+        if code == 's*':
+            if self.isinstance_w(w_obj, self.w_str):
+                return w_obj.readbuf_w(self)
+            if self.isinstance_w(w_obj, self.w_unicode):
+                return self.str(w_obj).readbuf_w(self)
+            try:
+                return w_obj.buffer_w(self, 0)
+            except TypeError:
+                pass
+            try:
+                return w_obj.readbuf_w(self)
+            except TypeError:
+                self._getarg_error("string or buffer", w_obj)
+        elif code == 's#':
+            if self.isinstance_w(w_obj, self.w_str):
+                return w_obj.str_w(self)
+            if self.isinstance_w(w_obj, self.w_unicode):
+                return self.str(w_obj).str_w(self)
+            try:
+                return w_obj.readbuf_w(self).as_str()
+            except TypeError:
+                self._getarg_error("string or read-only buffer", w_obj)
+        elif code == 'w*':
+            try:
+                try:
+                    return w_obj.buffer_w(self, self.BUF_WRITABLE)
+                except OperationError:
+                    self._getarg_error("read-write buffer", w_obj)
+            except TypeError:
+                pass
+            try:
+                return w_obj.writebuf_w(self)
+            except TypeError:
+                self._getarg_error("read-write buffer", w_obj)
+        elif code == 't#':
+            try:
+                return w_obj.charbuf_w(self)
+            except TypeError:
+                self._getarg_error("string or read-only character buffer", w_obj)
+        else:
+            assert False
 
     def bufferstr0_new_w(self, w_obj):
         from rpython.rlib import rstring
@@ -1359,6 +1467,7 @@ class ObjSpace(object):
                     'argument must be a string without NUL characters'))
         return rstring.assert_str0(result)
 
+    # XXX rename/replace with code more like CPython getargs for buffers
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
@@ -1373,8 +1482,18 @@ class ObjSpace(object):
         except OperationError, e:
             if not e.match(self, self.w_TypeError):
                 raise
-            buffer = self.buffer_w(w_obj)
-            return buffer.as_str()
+        try:
+            buf = w_obj.buffer_w(self, 0)
+        except TypeError:
+            pass
+        else:
+            return buf.as_str()
+        try:
+            buf = w_obj.readbuf_w(self)
+        except TypeError:
+            self._getarg_error("string or buffer", w_obj)
+        else:
+            return buf.as_str()
 
     def bufferstr_or_u_w(self, w_obj):
         """Returns an interp-level str, directly if possible.

@@ -428,14 +428,12 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
-    def test_readbuffer_encode(self):
-        import _codecs
-        assert _codecs.readbuffer_encode("") ==  (b"", 0)
-
-    def test_readbuffer_encode_array(self):
+    def test_buffer_encode(self):
         import _codecs, array
         assert (_codecs.readbuffer_encode(array.array('b', b'spam')) ==
                 (b'spam', 4))
+        assert _codecs.readbuffer_encode(u"test") == (b'test', 4)
+        assert _codecs.readbuffer_encode("") ==  (b"", 0)
 
     def test_utf8sig(self):
         import codecs

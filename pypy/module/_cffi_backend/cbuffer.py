@@ -1,22 +1,23 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.objspace.std.memoryview import _buffer_setitem
 
+from rpython.rlib.buffer import Buffer
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
-class LLBuffer(RWBuffer):
+class LLBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, raw_cdata, size):
         self.raw_cdata = raw_cdata
         self.size = size
+        self.readonly = False
 
     def getlength(self):
         return self.size
@@ -33,7 +34,7 @@ class LLBuffer(RWBuffer):
     def getslice(self, start, stop, step, size):
         if step == 1:
             return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
-        return RWBuffer.getslice(self, start, stop, step, size)
+        return Buffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)

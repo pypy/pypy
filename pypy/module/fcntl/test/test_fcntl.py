@@ -47,6 +47,8 @@ class AppTestFcntl:
         assert fcntl.fcntl(f, 1, 0) == 0
         assert fcntl.fcntl(f, 2, "foo") == b"foo"
         assert fcntl.fcntl(f, 2, memoryview(b"foo")) == b"foo"
+        exc = raises(TypeError, fcntl.fcntl, f, 2, memoryview(b"foo"))
+        assert 'integer' in str(exc.value)
 
         try:
             os.O_LARGEFILE
@@ -221,6 +223,16 @@ class AppTestFcntl:
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf)
             assert res == 0
             assert buf.tostring() == expected
+
+            buf = array.array('i', [0])
+            res = fcntl.ioctl(mfd, TIOCGPGRP, buffer(buf))
+            assert res == expected
+            assert buf.tostring() == b'\x00' * 4
+
+            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, memoryview(b'abc'))
+            assert 'integer' in str(exc.value)
+            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, memoryview(b'abc'), False)
+            assert str(exc.value) == "ioctl requires a file or file descriptor, an integer and optionally an integer or buffer argument"
 
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, False)
             assert res == expected

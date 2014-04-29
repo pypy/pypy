@@ -25,6 +25,8 @@ class AppTestMarshalMore:
         s = marshal.dumps(array.array('b', b'asd'))
         t = marshal.loads(s)
         assert type(t) is bytes and t == b'asd'
+        exc = raises(ValueError, marshal.dumps, memoryview(b'asd'))
+        assert str(exc.value) == "unmarshallable object"
 
     def test_unmarshal_evil_long(self):
         import marshal

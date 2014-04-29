@@ -542,20 +542,16 @@ class AppTestMMap:
         m.close()
         f.close()
 
-    def test_buffer_write(self):
+    def test_memoryview(self):
         from mmap import mmap
-        f = open(self.tmpname + "y", "wb+")
-        f.write(b"foobar")
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
-        m[5] = ord('?')
-        b = memoryview(m)
-        b[:3] = b"FOO"
-        del b  # For CPython: "cannot close exported pointers exist"
+        m[5] = '?'
+        exc = raises(TypeError, memoryview, m)
+        assert 'buffer interface' in str(exc.value)
         m.close()
-        f.seek(0)
-        got = f.read()
-        assert got == b"FOOba?"
         f.close()
 
     def test_offset(self):

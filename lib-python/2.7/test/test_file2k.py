@@ -479,11 +479,10 @@ class FileThreadingTests(unittest.TestCase):
 
     def _create_file(self):
         if self.use_buffering:
-            f = open(self.filename, "w+", buffering=1024*16)
+            self.f = open(self.filename, "w+", buffering=1024*16)
         else:
-            f = open(self.filename, "w+")
-        self.f = f
-        self.all_files.append(f)
+            self.f = open(self.filename, "w+")
+        self.all_files.append(self.f)
         oldf = self.all_files.pop(0)
         if oldf is not None:
             oldf.close()

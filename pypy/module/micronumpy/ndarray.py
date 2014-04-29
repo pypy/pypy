@@ -610,11 +610,20 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ctypes not implemented yet"))
 
-    def buffer_w(self, space):
-        return self.implementation.get_buffer(space)
+    def buffer_w(self, space, flags):
+        return self.implementation.get_buffer(space, True)
+
+    def readbuf_w(self, space):
+        return self.implementation.get_buffer(space, True)
+
+    def writebuf_w(self, space):
+        return self.implementation.get_buffer(space, False)
+
+    def charbuf_w(self, space):
+        return self.implementation.get_buffer(space, True).as_str()
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.buffer_w(space))
+        return space.newbuffer(self.implementation.get_buffer(space, False))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -1178,7 +1187,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("unsupported param"))
 
-        buf = space.buffer_w(w_buffer)
+        try:
+            buf = space.writebuf_w(w_buffer)
+        except OperationError:
+            buf = space.readbuf_w(w_buffer)
         try:
             raw_ptr = buf.get_raw_address()
         except ValueError:
@@ -1196,7 +1208,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                                                   w_subtype=w_subtype,
                                                   w_base=w_buffer,
-                                                  writable=buf.is_writable())
+                                                  writable=not buf.readonly)
 
     order = order_converter(space, w_order, NPY.CORDER)
     if order == NPY.CORDER:

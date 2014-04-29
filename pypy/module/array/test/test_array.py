@@ -131,7 +131,14 @@ class BaseArrayTests:
             raises(OverflowError, a.append, 2 ** (8 * b))
 
     def test_fromstring(self):
-        a = self.array('l')
+        a = self.array('b')
+        a.fromstring('Hi!')
+        assert a[0] == b'H' and a[1] == b'i' and a[2] == b'!' and len(a) == 3
+        a = self.array('b')
+        exc = raises(TypeError, a.fromstring, memoryview(b'xyz'))
+        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
+        assert a[0] == b'x' and a[1] == b'y' and a[2] == b'z' and len(a) == 3
+        a = self.array('b')
         a.fromstring('')
         assert not len(a)
 
@@ -404,7 +411,6 @@ class BaseArrayTests:
     def test_buffer_write(self):
         a = self.array('b', b'hello')
         buf = memoryview(a)
-        print(repr(buf))
         try:
             buf[3] = b'L'
         except TypeError:

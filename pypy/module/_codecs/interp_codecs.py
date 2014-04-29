@@ -423,8 +423,9 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
     return space.getitem(w_res, space.wrap(0))
 
-@unwrap_spec(s='bufferstr_or_u', errors='str_or_None')
-def buffer_encode(space, s, errors='strict'):
+@unwrap_spec(errors='str_or_None')
+def readbuffer_encode(space, w_data, errors='strict'):
+    s = space.getarg_w('s#', w_data)
     return space.newtuple([space.wrapbytes(s), space.wrap(len(s))])
 
 @unwrap_spec(errors=str)

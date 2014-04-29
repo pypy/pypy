@@ -3,32 +3,28 @@ Implementation of the 'buffer' and 'memoryview' types.
 """
 import operator
 
-from pypy.interpreter import buffer
+from rpython.rlib.buffer import Buffer, SubBuffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib.rstring import StringBuilder
 
 
-def _buffer_setitem(space, buf, w_index, newstring):
+def _buffer_setitem(space, buf, w_index, w_obj):
+    if buf.readonly:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "cannot modify read-only memory"))
     start, stop, step, size = space.decode_index4(w_index, buf.getlength())
+    if step not in (0, 1):
+        raise OperationError(space.w_NotImplementedError, space.wrap(""))
+    value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+    if value.getlength() != size:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "cannot modify size of memoryview object"))
     if step == 0:  # index only
-        if len(newstring) != 1:
-            msg = 'buffer[index]=x: x must be a single character'
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        char = newstring[0]   # annotator hint
-        buf.setitem(start, char)
+        buf.setitem(start, value.getitem(0))
     elif step == 1:
-        if len(newstring) != size:
-            msg = "right operand length must match slice length"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
-        buf.setslice(start, newstring)
-    else:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("buffer object does not support"
-                                        " slicing with a step"))
+        buf.setslice(start, value.as_str())
 
 
 class W_MemoryView(W_Root):
@@ -37,24 +33,17 @@ class W_MemoryView(W_Root):
     """
 
     def __init__(self, buf):
-        assert isinstance(buf, buffer.Buffer)
+        assert isinstance(buf, Buffer)
         self.buf = buf
 
-    def buffer_w(self, space):
-        """
-        Note that memoryview() is very inconsistent in CPython: it does not
-        support the buffer interface but does support the new buffer
-        interface: as a result, it is possible to pass memoryview to
-        e.g. socket.send() but not to file.write().  For simplicity and
-        consistency, in PyPy memoryview DOES support buffer(), which means
-        that it is accepted in more places than CPython.
-        """
+    def buffer_w(self, space, flags):
         self._check_released(space)
+        space.check_buf_flags(flags, self.buf.readonly)
         return self.buf
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
-        return W_MemoryView(space.buffer_w(w_object))
+        return W_MemoryView(space.buffer_w(w_object, space.BUF_FULL_RO))
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -67,7 +56,7 @@ class W_MemoryView(W_Root):
                 return space.wrap(getattr(operator, name)(str1, str2))
 
             try:
-                buf = space.buffer_w(w_other)
+                buf = space.buffer_w(w_other, space.BUF_CONTIG_RO)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -94,11 +83,7 @@ class W_MemoryView(W_Root):
         size = stop - start
         if size < 0:
             size = 0
-        buf = self.buf
-        if isinstance(buf, buffer.RWBuffer):
-            buf = buffer.RWSubBuffer(buf, start, size)
-        else:
-            buf = buffer.SubBuffer(buf, start, size)
+        buf = SubBuffer(self.buf, start, size)
         return W_MemoryView(buf)
 
     def descr_tobytes(self, space):
@@ -116,23 +101,16 @@ class W_MemoryView(W_Root):
     def descr_getitem(self, space, w_index):
         self._check_released(space)
         start, stop, step = space.decode_index(w_index, self.getlength())
+        if step not in (0, 1):
+            raise OperationError(space.w_NotImplementedError, space.wrap(""))
         if step == 0:  # index only
             return space.wrapbytes(self.buf.getitem(start))
-        elif step == 1:
-            res = self.getslice(start, stop)
-            return space.wrap(res)
-        else:
-            raise OperationError(space.w_ValueError,
-                space.wrap("memoryview object does not support"
-                           " slicing with a step"))
+        res = self.getslice(start, stop)
+        return space.wrap(res)
 
-    @unwrap_spec(newstring='bufferstr')
-    def descr_setitem(self, space, w_index, newstring):
+    def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
-        if not isinstance(self.buf, buffer.RWBuffer):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("cannot modify read-only memory"))
-        _buffer_setitem(space, self.buf, w_index, newstring)
+        _buffer_setitem(space, self.buf, w_index, w_obj)
 
     def descr_len(self, space):
         self._check_released(space)
@@ -152,7 +130,7 @@ class W_MemoryView(W_Root):
 
     def w_is_readonly(self, space):
         self._check_released(space)
-        return space.wrap(not isinstance(self.buf, buffer.RWBuffer))
+        return space.wrap(self.buf.readonly)
 
     def w_get_shape(self, space):
         self._check_released(space)

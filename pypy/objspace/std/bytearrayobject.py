@@ -2,10 +2,10 @@
 
 from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint)
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.bytesobject import (
     getbytevalue, makebytesdata_w, newbytesdata_w)
@@ -28,8 +28,17 @@ class W_BytearrayObject(W_Root):
         """representation for debugging purposes"""
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
-    def buffer_w(w_self, space):
-        return BytearrayBuffer(w_self.data)
+    def buffer_w(self, space, flags):
+        return BytearrayBuffer(self.data, False)
+
+    def readbuf_w(self, space):
+        return BytearrayBuffer(self.data, True)
+
+    def writebuf_w(self, space):
+        return BytearrayBuffer(self.data, False)
+
+    def charbuf_w(self, space):
+        return ''.join(self.data)
 
     def _new(self, value):
         return W_BytearrayObject(_make_data(value))
@@ -50,11 +59,11 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_IndexError, "bytearray index out of range")
         return space.wrap(ord(character))
 
-    def _val(self, space):
-        return space.bufferstr_w(self)
+    _val = charbuf_w
 
-    def _op_val(self, space, w_other):
-        return space.bufferstr_new_w(w_other)
+    @staticmethod
+    def _op_val(space, w_other):
+        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
         assert len(char) == 1
@@ -1046,9 +1055,12 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-class BytearrayBuffer(RWBuffer):
-    def __init__(self, data):
+class BytearrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, data, readonly):
         self.data = data
+        self.readonly = readonly
 
     def getlength(self):
         return len(self.data)

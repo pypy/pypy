@@ -5,7 +5,7 @@ from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.module.struct.formatiterator import (
     PackFormatIterator, UnpackFormatIterator
@@ -29,6 +29,7 @@ def _calcsize(space, format):
         raise OperationError(w_error, space.wrap(e.msg))
     return fmtiter.totalsize
 
+
 @unwrap_spec(format=str)
 def pack(space, format, args_w):
     if jit.isconstant(format):
@@ -47,6 +48,23 @@ def pack(space, format, args_w):
     return space.wrapbytes(fmtiter.result.build())
 
 
+# XXX inefficient
+@unwrap_spec(format=str, offset=int)
+def pack_into(space, format, w_buf, offset, args_w):
+    res = pack(space, format, args_w).str_w(space)
+    buf = space.writebuf_w(w_buf)
+    if offset < 0:
+        offset += buf.getlength()
+    size = len(res)
+    if offset < 0 or (buf.getlength() - offset) < size:
+        w_module = space.getbuiltinmodule('struct')
+        w_error = space.getattr(w_module, space.wrap('error'))
+        raise oefmt(w_error,
+                    "pack_into requires a buffer of at least %d bytes",
+                    size)
+    buf.setslice(offset, res)
+
+
 @unwrap_spec(format=str, input='bufferstr')
 def unpack(space, format, input):
     fmtiter = UnpackFormatIterator(space, input)
@@ -63,6 +81,27 @@ def unpack(space, format, input):
 def clearcache(space):
     "Clear the internal cache."
     # No cache in this implementation
+
+
+# XXX inefficient
+@unwrap_spec(format=str, offset=int)
+def unpack_from(space, format, w_buf, offset=0):
+    size = _calcsize(space, format)
+    buf = space.getarg_w('z*', w_buf)
+    if buf is None:
+        w_module = space.getbuiltinmodule('struct')
+        w_error = space.getattr(w_module, space.wrap('error'))
+        raise oefmt(w_error, "unpack_from requires a buffer argument")
+    if offset < 0:
+        offset += buf.getlength()
+    if offset < 0 or (buf.getlength() - offset) < size:
+        w_module = space.getbuiltinmodule('struct')
+        w_error = space.getattr(w_module, space.wrap('error'))
+        raise oefmt(w_error,
+                    "unpack_from requires a buffer of at least %d bytes",
+                    size)
+    data = buf.getslice(offset, offset + size, 1, size)
+    return unpack(space, format, data)
 
 
 class W_Struct(W_Root):

@@ -81,8 +81,9 @@ class W_BaseConnection(W_Root):
             raise OperationError(space.w_IOError,
                                  space.wrap("connection is read-only"))
 
-    @unwrap_spec(buf='bufferstr', offset='index', size='index')
-    def send_bytes(self, space, buf, offset=0, size=PY_SSIZE_T_MIN):
+    @unwrap_spec(offset='index', size='index')
+    def send_bytes(self, space, w_buf, offset=0, size=PY_SSIZE_T_MIN):
+        buf = space.getarg_w('s*', w_buf).as_str()
         length = len(buf)
         self._check_writable(space)
         if offset < 0:
@@ -123,7 +124,7 @@ class W_BaseConnection(W_Root):
 
     @unwrap_spec(offset='index')
     def recv_bytes_into(self, space, w_buffer, offset=0):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
 
         res, newbuf = self.do_recv_string(
@@ -150,7 +151,7 @@ class W_BaseConnection(W_Root):
         w_pickled = space.call_method(
             w_picklemodule, "dumps", w_obj, w_protocol)
 
-        buf = space.bufferstr_w(w_pickled)
+        buf = space.str_w(w_pickled)
         self.do_send_string(space, buf, 0, len(buf))
 
     def recv(self, space):

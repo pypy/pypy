@@ -10,11 +10,60 @@ class AppTestMemoryView:
         assert v.tolist() == [97, 98, 99]
         assert v[1] == b"b"
         assert v[-1] == b"c"
-        raises(TypeError, "v[1] = 'x'")
+        exc = raises(TypeError, "v[1] = b'x'")
+        assert str(exc.value) == "cannot modify read-only memory"
         assert v.readonly is True
         w = v[1:234]
         assert isinstance(w, memoryview)
         assert len(w) == 2
+        exc = raises(NotImplementedError, "v[0:2:2]")
+        assert str(exc.value) == ""
+
+    def test_rw(self):
+        data = bytearray(b'abcefg')
+        v = memoryview(data)
+        assert v.readonly is False
+        v[0] = b'z'
+        assert data == bytearray(eval("b'zbcefg'"))
+        v[1:4] = b'123'
+        assert data == bytearray(eval("b'z123fg'"))
+        v[0:3] = v[2:5]
+        assert data == bytearray(eval("b'23f3fg'"))
+        exc = raises(ValueError, "v[2] = 'spam'")
+        assert str(exc.value) == "cannot modify size of memoryview object"
+        exc = raises(NotImplementedError, "v[0:2:2] = 'spam'")
+        assert str(exc.value) == ""
+
+    def test_memoryview_attrs(self):
+        v = memoryview(b"a"*100)
+        assert v.format == "B"
+        assert v.itemsize == 1
+        assert v.shape == (100,)
+        assert v.ndim == 1
+        assert v.strides == (1,)
+
+    def test_suboffsets(self):
+        v = memoryview(b"a"*100)
+        assert v.suboffsets == None
+
+    def test_compare(self):
+        assert memoryview(b"abc") == b"abc"
+        assert memoryview(b"abc") == bytearray(b"abc")
+        assert memoryview(b"abc") != 3
+        assert memoryview(b'ab') == b'ab'
+        assert b'ab' == memoryview(b'ab')
+        assert not (memoryview(b'ab') != b'ab')
+        assert memoryview(b'ab') == memoryview(b'ab')
+        assert not (memoryview(b'ab') != memoryview(b'ab'))
+        assert memoryview(b'ab') != memoryview(b'abc')
+        raises(TypeError, "memoryview(b'ab') <  memoryview(b'ab')")
+        raises(TypeError, "memoryview(b'ab') <= memoryview(b'ab')")
+        raises(TypeError, "memoryview(b'ab') >  memoryview(b'ab')")
+        raises(TypeError, "memoryview(b'ab') >= memoryview(b'ab')")
+        raises(TypeError, "memoryview(b'ab') <  memoryview(b'abc')")
+        raises(TypeError, "memoryview(b'ab') <= memoryview(b'ab')")
+        raises(TypeError, "memoryview(b'ab') >  memoryview(b'aa')")
+        raises(TypeError, "memoryview(b'ab') >= memoryview(b'ab')")
 
     def test_array_buffer(self):
         import array
@@ -35,24 +84,6 @@ class AppTestMemoryView:
     def test_repr(self):
         assert repr(memoryview(b'hello')).startswith('<memory at 0x')
 
-    def test_compare(self):
-        assert memoryview(b"abc") == bytearray(b"abc")
-        assert memoryview(b"abc") != 3
-        assert memoryview(b'ab') == b'ab'
-        assert b'ab' == memoryview(b'ab')
-        assert not (memoryview(b'ab') != b'ab')
-        assert memoryview(b'ab') == memoryview(b'ab')
-        assert not (memoryview(b'ab') != memoryview(b'ab'))
-        assert memoryview(b'ab') != memoryview(b'abc')
-        raises(TypeError, "memoryview(b'ab') <  memoryview(b'ab')")
-        raises(TypeError, "memoryview(b'ab') <= memoryview(b'ab')")
-        raises(TypeError, "memoryview(b'ab') >  memoryview(b'ab')")
-        raises(TypeError, "memoryview(b'ab') >= memoryview(b'ab')")
-        raises(TypeError, "memoryview(b'ab') <  memoryview(b'abc')")
-        raises(TypeError, "memoryview(b'ab') <= memoryview(b'ab')")
-        raises(TypeError, "memoryview(b'ab') >  memoryview(b'aa')")
-        raises(TypeError, "memoryview(b'ab') >= memoryview(b'ab')")
-
     def test_hash(self):
         raises(TypeError, "hash(memoryview(b'hello'))")
 
@@ -67,28 +98,6 @@ class AppTestMemoryView:
         buf = memoryview(b'hello world')
         raises(TypeError, "buf[MyInt(0)]")
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
-
-    def test_rw(self):
-        data = bytearray(b'abcefg')
-        v = memoryview(data)
-        assert v.readonly is False
-        v[0] = b'z'
-        assert data == bytearray(eval("b'zbcefg'"))
-        v[1:4] = b'123'
-        assert data == bytearray(eval("b'z123fg'"))
-        raises((ValueError, TypeError), "v[2] = 'spam'")
-
-    def test_memoryview_attrs(self):
-        v = memoryview(b"a"*100)
-        assert v.format == "B"
-        assert v.itemsize == 1
-        assert v.shape == (100,)
-        assert v.ndim == 1
-        assert v.strides == (1,)
-
-    def test_suboffsets(self):
-        v = memoryview(b"a"*100)
-        assert v.suboffsets == None
 
     def test_release(self):
         v = memoryview(b"a"*100)

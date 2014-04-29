@@ -1,6 +1,7 @@
 from __future__ import with_statement
 
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -9,7 +10,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
@@ -138,8 +138,11 @@ class W_ArrayBase(W_Root):
         self.len = 0
         self.allocated = 0
 
-    def buffer_w(self, space):
-        return ArrayBuffer(self)
+    def readbuf_w(self, space):
+        return ArrayBuffer(self, True)
+
+    def writebuf_w(self, space):
+        return ArrayBuffer(self, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -247,9 +250,8 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
         return self.space.wrapbytes(s)
 
-    @unwrap_spec(s='bufferstr_or_u')
-    def descr_fromstring(self, space, s):
-        """fromstring(string)
+    def descr_fromstring(self, space, w_s):
+        """ fromstring(string)
 
         Appends items from the string, interpreting it as an array of
         machine values, as if it had been read from a file using the
@@ -257,6 +259,7 @@ class W_ArrayBase(W_Root):
 
         This method is deprecated. Use frombytes instead.
         """
+        s = space.getarg_w('s#', w_s)
         msg = "fromstring() is deprecated. Use frombytes() instead."
         space.warn(space.wrap(msg), self.space.w_DeprecationWarning)
         self.descr_frombytes(space, s)
@@ -303,7 +306,7 @@ class W_ArrayBase(W_Root):
             self.descr_frombytes(space, item)
             msg = "not enough items in file"
             raise OperationError(space.w_EOFError, space.wrap(msg))
-        self.descr_fromstring(space, item)
+        self.descr_fromstring(space, w_item)
 
     def descr_tofile(self, space, w_f):
         """ tofile(f)
@@ -628,9 +631,12 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(RWBuffer):
-    def __init__(self, array):
+class ArrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, array, readonly):
         self.array = array
+        self.readonly = readonly
 
     def getlength(self):
         return self.array.len * self.array.itemsize

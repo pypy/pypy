@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
@@ -39,6 +40,9 @@ class W_MyObject(W_Root):
     def setclass(self, space, w_subtype):
         is_root(w_subtype)
 
+    def buffer_w(self, space, flags):
+        return StringBuffer("foobar")
+
     def str_w(self, space):
         return NonConstant("foobar")
     identifier_w = bytes_w = str_w
@@ -69,6 +73,9 @@ class W_MyType(W_MyObject):
 
     def get_module(self):
         return w_some_obj()
+
+    def get_module_type_name(self):
+        return self.name
 
 def w_some_obj():
     if NonConstant(False):
@@ -304,11 +311,6 @@ class FakeObjSpace(ObjSpace):
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = None
         return ec
-
-    def buffer_w(self, w_obj):
-        from pypy.interpreter.buffer import Buffer
-        is_root(w_obj)
-        return Buffer()
 
     def unicode_from_object(self, w_obj):
         return w_some_obj()

@@ -16,6 +16,9 @@ class AppTestMarshal:
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
 
+        exc = raises(TypeError, marshal.loads, memoryview(s))
+        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
+
         import sys
         if '__pypy__' in sys.builtin_module_names:
             f = StringIO.StringIO()
