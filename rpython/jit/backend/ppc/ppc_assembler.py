@@ -22,7 +22,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import (INT, REF, FLOAT)
-#from rpython.jit.backend.x86.support import values_array
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
 from rpython.rlib import rgc
@@ -84,10 +83,6 @@ class AssemblerPPC(OpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
-        #self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
-        #self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
-        #                                                    failargs_limit)
-        #self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
         self.memcpy_addr = 0
         self.pending_guards = None
