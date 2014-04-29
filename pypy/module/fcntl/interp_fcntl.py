@@ -103,7 +103,7 @@ def fcntl(space, w_fd, op, w_arg):
             if rv < 0:
                 raise _get_error(space, "fcntl")
             arg = rffi.charpsize2str(ll_arg, len(arg))
-            return space.wrap(arg)
+            return space.wrapbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -112,7 +112,7 @@ def fcntl(space, w_fd, op, w_arg):
     rv = fcntl_int(fd, op, intarg)
     if rv < 0:
         raise _get_error(space, "fcntl")
-    return space.wrapbytes(rv)
+    return space.wrap(rv)
 
 @unwrap_spec(op=int)
 def flock(space, w_fd, op):
@@ -204,7 +204,8 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     try:
         rwbuffer = space.writebuf_w(w_arg)
     except OperationError, e:
-        if not e.match(space, space.w_TypeError):
+        if not (e.match(space, space.w_TypeError) or
+                e.match(space, space.w_BufferError)):
             raise
     else:
         arg = rwbuffer.as_str()
@@ -217,7 +218,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
             if mutate_flag != 0:
                 rwbuffer.setslice(0, arg)
                 return space.wrap(rv)
-            return space.wrap(arg)
+            return space.wrapbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -238,7 +239,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
             if rv < 0:
                 raise _get_error(space, "ioctl")
             arg = rffi.charpsize2str(ll_arg, len(arg))
-            return space.wrap(arg)
+            return space.wrapbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -247,4 +248,4 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     rv = ioctl_int(fd, op, intarg)
     if rv < 0:
         raise _get_error(space, "ioctl")
-    return space.wrapbytes(rv)
+    return space.wrap(rv)
