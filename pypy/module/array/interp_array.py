@@ -138,6 +138,9 @@ class W_ArrayBase(W_Root):
         self.len = 0
         self.allocated = 0
 
+    def buffer_w(self, space, flags):
+        return ArrayBuffer(self, False)
+
     def readbuf_w(self, space):
         return ArrayBuffer(self, True)
 
