@@ -220,42 +220,6 @@ class Regalloc(object):
         self._prepare(inputargs, ops)
         self._update_bindings(arglocs, inputargs)
 
-    def _set_initial_bindings(self, inputargs):
-        arg_index = 0
-        fparg_index = 0
-        n_register_args = len(r.PARAM_REGS)
-        n_fpregister_args = len(r.PARAM_FPREGS)
-        cur_frame_pos = -self.assembler.OFFSET_STACK_ARGS // WORD + 1
-        for box in inputargs:
-            assert isinstance(box, Box)
-            if box.type == FLOAT:
-                if fparg_index < n_fpregister_args:
-                    loc = r.PARAM_FPREGS[fparg_index]
-                    self.try_allocate_reg(box, selected_reg=loc)
-                    fparg_index += 1
-                    # XXX stdarg placing float args in FPRs and GPRs
-                    if arg_index < n_register_args:
-                        arg_index += 1
-                    else:
-                        cur_frame_pos -= 1
-                else:
-                    if IS_PPC_32:
-                        cur_frame_pos -= 2
-                    else:
-                        cur_frame_pos -= 1
-                    loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                    self.frame_manager.set_binding(box, loc)
-            else:
-                if arg_index < n_register_args:
-                    loc = r.PARAM_REGS[arg_index]
-                    self.try_allocate_reg(box, selected_reg=loc)
-                    arg_index += 1
-                else:
-                # treat stack args as stack locations with a negative offset
-                    cur_frame_pos -= 1
-                    loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                    self.frame_manager.set_binding(box, loc)
-
     def _update_bindings(self, locs, inputargs):
         used = {}
         i = 0
