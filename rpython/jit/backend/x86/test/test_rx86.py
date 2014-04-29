@@ -261,3 +261,8 @@ def test_mov8_jr():
     s = CodeBuilder64()
     s.MOV8_jr((SEGMENT_GS, 51), ebx | BYTE_REG_FLAG)
     assert s.getvalue() == '\x65\x88\x1C\x25\x33\x00\x00\x00'
+
+def test_pop_j():
+    s = CodeBuilder64()
+    s.POP_j((SEGMENT_GS, -440))
+    assert s.getvalue() == '\x65\x8f\x04\x25\x48\xfe\xff\xff'
