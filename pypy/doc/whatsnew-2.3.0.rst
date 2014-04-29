@@ -152,3 +152,12 @@ add 'lib' prefix to link libraries on OpenBSD
 
 .. branch: small-unroll-improvements
 Improve optimization of small allocation-heavy loops in the JIT
+
+.. branch: reflex-support
+   
+.. branch: asmosoinio/fixed-pip-installation-url-github-githu-1398674840188
+
+.. branch: lexer_token_position_class
+
+.. branch: refactor-buffer-api
+Properly implement old/new buffer API for objects and start work on replacing bufferstr usage
