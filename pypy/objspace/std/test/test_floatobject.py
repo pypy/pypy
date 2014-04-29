@@ -145,10 +145,8 @@ class AppTestAppFloatTest:
         assert repr(float("+nan")) == "nan"
         assert repr(float("-nAn")) == "nan"
 
-        assert float(buffer("inf")) == inf
-        assert float(bytearray("inf")) == inf
-        exc = raises(TypeError, float, memoryview("inf"))
-        assert str(exc.value) == "float() argument must be a string or a number"
+        assert float(memoryview(b"inf")) == inf
+        assert float(bytearray(b"inf")) == inf
 
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
