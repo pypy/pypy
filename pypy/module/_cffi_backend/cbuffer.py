@@ -62,9 +62,8 @@ class MiniBuffer(W_Root):
         res = self.buffer.getslice(start, stop, step, size)
         return space.wrapbytes(res)
 
-    @unwrap_spec(newstring='bufferstr')
-    def descr_setitem(self, space, w_index, newstring):
-        _buffer_setitem(space, self.buffer, w_index, newstring)
+    def descr_setitem(self, space, w_index, w_newstring):
+        _buffer_setitem(space, self.buffer, w_index, w_newstring)
 
 
 MiniBuffer.typedef = TypeDef(
