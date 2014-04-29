@@ -12,6 +12,8 @@ import sys
 
 
 class BytesIOBuffer(Buffer):
+    _immutable_ = True
+
     def __init__(self, w_bytesio):
         self.w_bytesio = w_bytesio
 

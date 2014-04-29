@@ -48,7 +48,7 @@ class MiniBuffer(W_Root):
         self.buffer = buffer
         self.keepalive = keepalive
 
-    def buffer_w(self, space):
+    def buffer_w(self, space, flags):
         return self.buffer
 
     def descr_len(self, space):

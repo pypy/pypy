@@ -36,5 +36,7 @@ class CBufferMixin(object):
                                   self.c_len)
         
 class CBuffer(CBufferMixin, buffer.Buffer):
+    _immutable_ = True
+
     def __del__(self):
         CBufferMixin.destructor(self)
