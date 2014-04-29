@@ -436,7 +436,7 @@ class W_BytesObject(W_AbstractBytesObject):
     @staticmethod
     def _op_val(space, w_other):
         try:
-            return space.str_w(w_other)
+            return space.bytes_w(w_other)
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -740,12 +740,12 @@ def makebytesdata_w(space, w_source):
 
     # String-like argument
     try:
-        string = space.bufferstr_new_w(w_source)
+        buf = space.buffer_w(w_source, space.BUF_FULL_RO)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return [c for c in string]
+        return [c for c in buf.as_str()]
 
     if space.isinstance_w(w_source, space.w_unicode):
         raise OperationError(

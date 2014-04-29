@@ -51,7 +51,7 @@ def pack(space, format, args_w):
 # XXX inefficient
 @unwrap_spec(format=str, offset=int)
 def pack_into(space, format, w_buf, offset, args_w):
-    res = pack(space, format, args_w).str_w(space)
+    res = pack(space, format, args_w).bytes_w(space)
     buf = space.writebuf_w(w_buf)
     if offset < 0:
         offset += buf.getlength()

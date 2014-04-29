@@ -72,19 +72,6 @@ class W_UnicodeObject(W_Root):
         self._utf8 = identifier
         return identifier
 
-    def readbuf_w(self, space):
-        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-        builder = StringBuilder(len(self._value) * UNICODE_SIZE)
-        for unich in self._value:
-            pack_unichar(unich, builder)
-        return StringBuffer(builder.build())
-
-    def writebuf_w(self, space):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "cannot use unicode as modifiable buffer"))
-
-    #charbuf_w = str_w # XXX:
-
     def listview_unicode(w_self):
         return _create_list_from_unicode(w_self._value)
 
