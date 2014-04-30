@@ -13,9 +13,7 @@ output_dir = _pypy_testcapi.get_hashed_dir(os.path.join(thisdir, cfile))
 
 try:
     fp, filename, description = imp.find_module('_testcapi', path=[output_dir])
-    try:
+    with fp:
         imp.load_module('_testcapi', fp, filename, description)
-    finally:
-        fp.close()
 except ImportError:
     _pypy_testcapi.compile_shared(cfile, '_testcapi', output_dir)

@@ -27,21 +27,10 @@ in addition to any features explicitly specified.
 """
     from pypy.interpreter.pyopcode import source_as_str
     ec = space.getexecutioncontext()
-    if flags & ~(ec.compiler.compiler_flags |
-                 consts.PyCF_ONLY_AST |
-                 consts.PyCF_DONT_IMPLY_DEDENT |
-                 consts.PyCF_SOURCE_IS_UTF8):
+    if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
+                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
         raise OperationError(space.w_ValueError,
                              space.wrap("compile() unrecognized flags"))
-
-    flags |= consts.PyCF_SOURCE_IS_UTF8
-    ast_node = source = None
-    if space.isinstance_w(w_source, space.gettypeobject(ast.AST.typedef)):
-        ast_node = space.interp_w(ast.mod, w_source)
-        ast_node.sync_app_attrs(space)
-    else:
-        source, flags = source_as_str(space, w_source, 'compile',
-                                      "string, bytes or AST", flags)
 
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
@@ -55,11 +44,18 @@ in addition to any features explicitly specified.
 
     # XXX: optimize flag is not used
 
-    if ast_node is not None:
+    if space.isinstance_w(w_source, space.gettypeobject(ast.AST.typedef)):
+        ast_node = space.interp_w(ast.mod, w_source)
+        ast_node.sync_app_attrs(space)
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
-    elif flags & consts.PyCF_ONLY_AST:
-        ast_node = ec.compiler.compile_to_ast(source, filename, mode, flags)
-        return space.wrap(ast_node)
+        return space.wrap(code)
+
+    flags |= consts.PyCF_SOURCE_IS_UTF8
+    source, flags = source_as_str(space, w_source, 'compile',
+                                  "string, bytes or AST", flags)
+
+    if flags & consts.PyCF_ONLY_AST:
+        code = ec.compiler.compile_to_ast(source, filename, mode, flags)
     else:
         code = ec.compiler.compile(source, filename, mode, flags)
     return space.wrap(code)
