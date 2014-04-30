@@ -933,7 +933,7 @@ class W_CPPClass(W_CPPScope):
             self.datamembers[datamember_name] = datamember
 
     def construct(self):
-        self.get_overload(self.name).call(None, [])
+        return self.get_overload(self.name).call(None, [])
 
     def find_overload(self, name):
         raise self.missing_attribute_error(name)
