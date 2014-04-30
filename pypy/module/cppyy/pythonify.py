@@ -1,6 +1,7 @@
 # NOT_RPYTHON
 # do not load cppyy here, see _init_pythonify()
-import types, sys
+import types
+import sys
 
 
 # For now, keep namespaces and classes separate as namespaces are extensible
@@ -11,7 +12,7 @@ class CppyyScopeMeta(type):
     def __getattr__(self, name):
         try:
             return get_pycppitem(self, name)  # will cache on self
-        except Exception, e:
+        except Exception as e:
             raise AttributeError("%s object has no attribute '%s' (details: %s)" %
                                  (self, name, str(e)))
 
@@ -309,7 +310,7 @@ def python_style_getitem(self, idx):
     return self._getitem__unchecked(idx)
 
 def python_style_sliceable_getitem(self, slice_or_idx):
-    if type(slice_or_idx) == types.SliceType:
+    if type(slice_or_idx) == slice:
         nseq = self.__class__()
         nseq += [python_style_getitem(self, i) \
                     for i in range(*slice_or_idx.indices(len(self)))]
