@@ -662,7 +662,8 @@ class LocationCodeBuilder(object):
     PXOR  = _binaryop('PXOR')
     PCMPEQD = _binaryop('PCMPEQD')
 
-    MOVD = _binaryop('MOVD')
+    MOVDQ = _binaryop('MOVDQ')
+    MOVD32 = _binaryop('MOVD32')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')
