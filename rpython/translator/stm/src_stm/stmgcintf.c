@@ -140,6 +140,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     STM_PUSH_ROOT(stm_thread_local, arg);
 
     while (1) {
+        long counter;
 
         if (pypy_stm_ready_atomic == 1) {
             /* Not in an atomic transaction; but it might be an inevitable
@@ -156,11 +157,13 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
                declared below than this point only.
             */
             while (__builtin_setjmp(jmpbuf) == 1) { /*redo setjmp*/ }
+            counter = v_counter;
             pypy_stm_start_transaction(&jmpbuf, &v_counter);
         }
         else {
             /* In an atomic transaction */
             assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
+            counter = v_counter;
         }
 
         /* invoke the callback in the new transaction */
@@ -168,7 +171,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         assert(v_old_shadowstack == stm_thread_local.shadowstack - 1);
         STM_PUSH_ROOT(stm_thread_local, arg);
 
-        long result = v_callback(arg, v_counter);
+        long result = v_callback(arg, counter);
         if (result <= 0)
             break;
         v_counter = 0;
@@ -231,3 +234,5 @@ void pypy_stm_become_globally_unique_transaction(void)
     _pypy_stm_inev_state();
     stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");
 }
+
+void stmcb_commit_soon(void) { /*XXX FIXME*/ }

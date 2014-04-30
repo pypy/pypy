@@ -34,6 +34,18 @@ static inline struct list_s *list_append(struct list_s *lst, uintptr_t item)
 
 #define LIST_APPEND(lst, e)   ((lst) = list_append((lst), (uintptr_t)(e)))
 
+static inline struct list_s *list_append2(struct list_s *lst,
+                                          uintptr_t item0, uintptr_t item1)
+{
+    uintptr_t index = lst->count;
+    lst->count += 2;
+    if (UNLIKELY(index >= lst->last_allocated))
+        lst = _list_grow(lst, index + 1);
+    lst->items[index + 0] = item0;
+    lst->items[index + 1] = item1;
+    return lst;
+}
+
 
 static inline void list_clear(struct list_s *lst)
 {
@@ -65,6 +77,11 @@ static inline void list_set_item(struct list_s *lst, uintptr_t index,
                                  uintptr_t newitem)
 {
     lst->items[index] = newitem;
+}
+
+static inline uintptr_t *list_ptr_to_item(struct list_s *lst, uintptr_t index)
+{
+    return &lst->items[index];
 }
 
 #define LIST_FOREACH_R(lst, TYPE, CODE)         \

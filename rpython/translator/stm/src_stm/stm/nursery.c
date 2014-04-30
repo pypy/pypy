@@ -216,7 +216,9 @@ static void collect_oldrefs_to_nursery(void)
                content); or add the object to 'large_overflow_objects'.
             */
             if (STM_PSEGMENT->minor_collect_will_commit_now) {
+                acquire_privatization_lock();
                 synchronize_object_now(obj);
+                release_privatization_lock();
             }
             else
                 LIST_APPEND(STM_PSEGMENT->large_overflow_objects, obj);
@@ -231,6 +233,18 @@ static void collect_modified_old_objects(void)
 {
     LIST_FOREACH_R(STM_PSEGMENT->modified_old_objects, object_t * /*item*/,
                    _collect_now(item));
+}
+
+static void collect_roots_from_markers(uintptr_t num_old)
+{
+    /* visit the marker objects */
+    struct list_s *mlst = STM_PSEGMENT->modified_old_objects_markers;
+    STM_PSEGMENT->modified_old_objects_markers_num_old = list_count(mlst);
+    uintptr_t i, total = list_count(mlst);
+    assert((total & 1) == 0);
+    for (i = num_old + 1; i < total; i += 2) {
+        minor_trace_if_young((object_t **)list_ptr_to_item(mlst, i));
+    }
 }
 
 static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
@@ -282,6 +296,8 @@ static void _do_minor_collection(bool commit)
 
     dprintf(("minor_collection commit=%d\n", (int)commit));
 
+    acquire_marker_lock(STM_SEGMENT->segment_base);
+
     STM_PSEGMENT->minor_collect_will_commit_now = commit;
     if (!commit) {
         /* 'STM_PSEGMENT->overflow_number' is used now by this collection,
@@ -297,6 +313,7 @@ static void _do_minor_collection(bool commit)
     /* All the objects we move out of the nursery become "overflow"
        objects.  We use the list 'objects_pointing_to_nursery'
        to hold the ones we didn't trace so far. */
+    uintptr_t num_old;
     if (STM_PSEGMENT->objects_pointing_to_nursery == NULL) {
         STM_PSEGMENT->objects_pointing_to_nursery = list_create();
 
@@ -306,7 +323,12 @@ static void _do_minor_collection(bool commit)
            into objects_pointing_to_nursery, but instead we use the
            following shortcut */
         collect_modified_old_objects();
+        num_old = 0;
     }
+    else
+        num_old = STM_PSEGMENT->modified_old_objects_markers_num_old;
+
+    collect_roots_from_markers(num_old);
 
     collect_roots_in_nursery();
 
@@ -319,6 +341,8 @@ static void _do_minor_collection(bool commit)
 
     assert(MINOR_NOTHING_TO_DO(STM_PSEGMENT));
     assert(list_is_empty(STM_PSEGMENT->objects_pointing_to_nursery));
+
+    release_marker_lock(STM_SEGMENT->segment_base);
 }
 
 static void minor_collection(bool commit)

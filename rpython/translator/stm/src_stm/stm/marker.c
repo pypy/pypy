@@ -12,38 +12,73 @@ void (*stmcb_debug_print)(const char *cause, double time,
                           const char *marker);
 
 
-static void marker_fetch_expand(struct stm_priv_segment_info_s *pseg)
+static void marker_fetch(stm_thread_local_t *tl, uintptr_t marker[2])
+{
+    /* fetch the current marker from the tl's shadow stack,
+       and return it in 'marker[2]'. */
+    struct stm_shadowentry_s *current = tl->shadowstack - 1;
+    struct stm_shadowentry_s *base = tl->shadowstack_base;
+
+    /* The shadowstack_base contains STM_STACK_MARKER_OLD, which is
+       a convenient stopper for the loop below but which shouldn't
+       be returned. */
+    assert(base->ss == (object_t *)STM_STACK_MARKER_OLD);
+
+    while (!(((uintptr_t)current->ss) & 1)) {
+        current--;
+        assert(current >= base);
+    }
+    if (current != base) {
+        /* found the odd marker */
+        marker[0] = (uintptr_t)current[0].ss;
+        marker[1] = (uintptr_t)current[1].ss;
+    }
+    else {
+        /* no marker found */
+        marker[0] = 0;
+        marker[1] = 0;
+    }
+}
+
+static void marker_expand(uintptr_t marker[2], char *segment_base,
+                          char *outmarker)
+{
+    /* Expand the marker given by 'marker[2]' into a full string.  This
+       works assuming that the marker was produced inside the segment
+       given by 'segment_base'.  If that's from a different thread, you
+       must first acquire the corresponding 'marker_lock'. */
+    assert(_has_mutex());
+    outmarker[0] = 0;
+    if (marker[0] == 0)
+        return;   /* no marker entry found */
+    if (stmcb_expand_marker != NULL) {
+        stmcb_expand_marker(segment_base, marker[0], (object_t *)marker[1],
+                            outmarker, _STM_MARKER_LEN);
+    }
+}
+
+static void marker_default_for_abort(struct stm_priv_segment_info_s *pseg)
 {
     if (pseg->marker_self[0] != 0)
         return;   /* already collected an entry */
 
-    if (stmcb_expand_marker != NULL) {
-        stm_thread_local_t *tl = pseg->pub.running_thread;
-        struct stm_shadowentry_s *current = tl->shadowstack - 1;
-        struct stm_shadowentry_s *base = tl->shadowstack_base;
-        /* stop walking just before shadowstack_base, which contains
-           STM_STACK_MARKER_OLD which shouldn't be expanded */
-        while (--current > base) {
-            uintptr_t x = (uintptr_t)current->ss;
-            if (x & 1) {
-                /* the stack entry is an odd number */
-                stmcb_expand_marker(pseg->pub.segment_base, x, current[1].ss,
-                                    pseg->marker_self, _STM_MARKER_LEN);
-
-                if (pseg->marker_self[0] != 0)
-                    break;
-            }
-        }
-    }
+    uintptr_t marker[2];
+    marker_fetch(pseg->pub.running_thread, marker);
+    marker_expand(marker, pseg->pub.segment_base, pseg->marker_self);
+    pseg->marker_other[0] = 0;
 }
 
 char *_stm_expand_marker(void)
 {
-    struct stm_priv_segment_info_s *pseg =
-        get_priv_segment(STM_SEGMENT->segment_num);
-    pseg->marker_self[0] = 0;
-    marker_fetch_expand(pseg);
-    return pseg->marker_self;
+    /* for tests only! */
+    static char _result[_STM_MARKER_LEN];
+    uintptr_t marker[2];
+    _result[0] = 0;
+    s_mutex_lock();
+    marker_fetch(STM_SEGMENT->running_thread, marker);
+    marker_expand(marker, STM_SEGMENT->segment_base, _result);
+    s_mutex_unlock();
+    return _result;
 }
 
 static void marker_copy(stm_thread_local_t *tl,
@@ -65,6 +100,105 @@ static void marker_copy(stm_thread_local_t *tl,
         tl->longest_marker_state = attribute_to;
         tl->longest_marker_time = time;
         memcpy(tl->longest_marker_self, pseg->marker_self, _STM_MARKER_LEN);
+        memcpy(tl->longest_marker_other, pseg->marker_other, _STM_MARKER_LEN);
     }
     pseg->marker_self[0] = 0;
+    pseg->marker_other[0] = 0;
+}
+
+static void marker_fetch_obj_write(uint8_t in_segment_num, object_t *obj,
+                                   uintptr_t marker[2])
+{
+    assert(_has_mutex());
+
+    /* here, we acquired the other thread's marker_lock, which means that:
+
+       (1) it has finished filling 'modified_old_objects' after it sets
+           up the write_locks[] value that we're conflicting with
+
+       (2) it is not mutating 'modified_old_objects' right now (we have
+           the global mutex_lock at this point too).
+    */
+    long i;
+    struct stm_priv_segment_info_s *pseg = get_priv_segment(in_segment_num);
+    struct list_s *mlst = pseg->modified_old_objects;
+    struct list_s *mlstm = pseg->modified_old_objects_markers;
+    for (i = list_count(mlst); --i >= 0; ) {
+        if (list_item(mlst, i) == (uintptr_t)obj) {
+            assert(list_count(mlstm) == 2 * list_count(mlst));
+            marker[0] = list_item(mlstm, i * 2 + 0);
+            marker[1] = list_item(mlstm, i * 2 + 1);
+            return;
+        }
+    }
+    marker[0] = 0;
+    marker[1] = 0;
+}
+
+static void marker_contention(int kind, bool abort_other,
+                              uint8_t other_segment_num, object_t *obj)
+{
+    uintptr_t self_marker[2];
+    uintptr_t other_marker[2];
+    struct stm_priv_segment_info_s *my_pseg, *other_pseg;
+
+    my_pseg = get_priv_segment(STM_SEGMENT->segment_num);
+    other_pseg = get_priv_segment(other_segment_num);
+
+    char *my_segment_base = STM_SEGMENT->segment_base;
+    char *other_segment_base = get_segment_base(other_segment_num);
+
+    acquire_marker_lock(other_segment_base);
+
+    /* Collect the location for myself.  It's usually the current
+       location, except in a write-read abort, in which case it's the
+       older location of the write. */
+    if (kind == WRITE_READ_CONTENTION)
+        marker_fetch_obj_write(my_pseg->pub.segment_num, obj, self_marker);
+    else
+        marker_fetch(my_pseg->pub.running_thread, self_marker);
+
+    /* Expand this location into either my_pseg->marker_self or
+       other_pseg->marker_other, depending on who aborts. */
+    marker_expand(self_marker, my_segment_base,
+                  abort_other ? other_pseg->marker_other
+                              : my_pseg->marker_self);
+
+    /* For some categories, we can also collect the relevant information
+       for the other segment. */
+    switch (kind) {
+    case WRITE_WRITE_CONTENTION:
+        marker_fetch_obj_write(other_segment_num, obj, other_marker);
+        break;
+    case INEVITABLE_CONTENTION:
+        assert(abort_other == false);
+        other_marker[0] = other_pseg->marker_inev[0];
+        other_marker[1] = other_pseg->marker_inev[1];
+        break;
+    default:
+        other_marker[0] = 0;
+        other_marker[1] = 0;
+        break;
+    }
+
+    marker_expand(other_marker, other_segment_base,
+                  abort_other ? other_pseg->marker_self
+                              : my_pseg->marker_other);
+
+    if (abort_other && other_pseg->marker_self[0] == 0) {
+        if (kind == WRITE_READ_CONTENTION)
+            strcpy(other_pseg->marker_self, "<read at unknown location>");
+        else
+            strcpy(other_pseg->marker_self, "<no location information>");
+    }
+
+    release_marker_lock(other_segment_base);
+}
+
+static void marker_fetch_inev(void)
+{
+    uintptr_t marker[2];
+    marker_fetch(STM_SEGMENT->running_thread, marker);
+    STM_PSEGMENT->marker_inev[0] = marker[0];
+    STM_PSEGMENT->marker_inev[1] = marker[1];
 }

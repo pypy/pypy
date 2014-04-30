@@ -130,6 +130,23 @@ class TestSTMTranslated(CompiledSTMTests):
         data, dataerr = cbuilder.cmdexec('4 5000', err=True)
         assert 'check ok!' in data
 
+    def test_retry_counter_starts_at_zero(self):
+        #
+        def check(foobar, retry_counter):
+            print '<', retry_counter, '>'
+            return 0
+        #
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
+        def entry_point(argv):
+            perform_transaction(lltype.malloc(S))
+            return 0
+        #
+        t, cbuilder = self.compile(entry_point, backendopt=True)
+        data = cbuilder.cmdexec('a b c d')
+        assert '< 0 >\n' in data
+
     def test_bug1(self):
         #
         def check(foobar, retry_counter):
@@ -237,7 +254,6 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'ok\n' in data
 
     def test_abort_info(self):
-        py.test.skip("goes away")
         class Parent(object):
             pass
         class Foobar(Parent):
@@ -249,19 +265,12 @@ class TestSTMTranslated(CompiledSTMTests):
                 globf.xy = 100 + retry_counter
 
         def check(_, retry_counter):
-            rstm.abort_info_push(globf, ('[', 'xy', ']', 'yx'))
             setxy(globf, retry_counter)
             if retry_counter < 3:
                 rstm.abort_and_retry()
-            #
-            last = rstm.charp_inspect_abort_info()
-            if last:
-                print rffi.charp2str(last)
-            else:
-                print 'got abort_info=NULL!'
-            print int(bool(rstm.charp_inspect_abort_info()))
-            #
-            rstm.abort_info_pop(2)
+            print rstm.longest_abort_info()
+            rstm.reset_longest_abort_info()
+            print rstm.longest_abort_info()
             return 0
 
         PS = lltype.Ptr(lltype.GcStruct('S', ('got_exception', OBJECTPTR)))
@@ -275,7 +284,10 @@ class TestSTMTranslated(CompiledSTMTests):
             return 0
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
-        assert 'li102ee10:hi there 3e\n0\n' in data
+        #
+        # 6 == STM_TIME_RUN_ABORTED_OTHER
+        import re; r = re.compile(r'\(6, 0.00\d+, , \)\n\(0, 0.00+, , \)\n$')
+        assert r.match(data)
 
     def test_weakref(self):
         import weakref

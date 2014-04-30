@@ -59,8 +59,16 @@ change the limit (or at least lower it) with setsegmentlimit().
     else:
         return space.wrap(1)
 
-def last_abort_info(space):
-    return space.w_None
+def longest_abort_info(space):
+    if space.config.translation.stm:
+        from rpython.rlib.rstm import longest_abort_info
+        a, b, c, d = longest_abort_info()
+        return space.newtuple([space.wrap(a), space.wrap(b),
+                               space.wrap(c), space.wrap(d)])
+    else:
+        return space.w_None
 
-def discard_last_abort_info(space):
-    pass
+def reset_longest_abort_info(space):
+    if space.config.translation.stm:
+        from rpython.rlib.rstm import reset_longest_abort_info
+        reset_longest_abort_info()

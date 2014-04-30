@@ -2,6 +2,7 @@
 
 /* '_stm_nursery_section_end' is either NURSERY_END or NSE_SIGxxx */
 #define NSE_SIGPAUSE   STM_TIME_WAIT_OTHER
+#define NSE_SIGCOMMITSOON   STM_TIME_SYNC_COMMIT_SOON
 
 
 static uint32_t highest_overflow_number;

@@ -457,22 +457,11 @@ LL_OPERATIONS = {
     'stm_expand_marker':      LLOp(),
     'stm_setup_expand_marker_for_pypy': LLOp(),
 
-##    'stm_allocate_nonmovable_int_adr': LLOp(sideeffects=False, canmallocgc=True),
-##    'stm_become_inevitable':  LLOp(canmallocgc=True),
-##    'stm_stop_all_other_threads': LLOp(canmallocgc=True),
-##    'stm_partial_commit_and_resume_other_threads': LLOp(canmallocgc=True),
-##    'stm_minor_collect':      LLOp(canmallocgc=True),
-##    'stm_major_collect':      LLOp(canmallocgc=True),
-##    'stm_get_tid':            LLOp(canfold=True),
-##    'stm_ptr_eq':             LLOp(canfold=True),
-
-##    'stm_weakref_allocate':   LLOp(sideeffects=False, canmallocgc=True),
-
-##    'stm_get_adr_of_private_rev_num':LLOp(),
-##    'stm_get_adr_of_read_barrier_cache':LLOp(),
-##    'stm_get_adr_of_nursery_current': LLOp(),
-##    'stm_get_adr_of_nursery_nextlimit': LLOp(),
-##    'stm_get_adr_of_active': LLOp(),
+    'stm_longest_marker_state':       LLOp(),
+    'stm_longest_marker_time':        LLOp(),
+    'stm_longest_marker_self':        LLOp(),
+    'stm_longest_marker_other':       LLOp(),
+    'stm_reset_longest_marker_state': LLOp(),
 
     # __________ address operations __________
 
