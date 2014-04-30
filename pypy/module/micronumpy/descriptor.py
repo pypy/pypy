@@ -1,3 +1,4 @@
+import string
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -497,7 +498,9 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         return w_dtype
     elif space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
-        if ',' in name:
+        if ',' in name or \
+                name[0] in string.digits or \
+                name[0] in '<>=|' and name[1] in string.digits:
             return dtype_from_spec(space, w_dtype)
         cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
