@@ -343,6 +343,7 @@ class W_Profiler(W_Root):
 
     def _enter_builtin_call(self, key):
         self = jit.promote(self)
+        key = jit.promote_string(key)
         entry = self._get_or_make_builtin_entry(key)
         self.current_context = ProfilerContext(self, entry)
 
@@ -351,6 +352,7 @@ class W_Profiler(W_Root):
         if context is None:
             return
         self = jit.promote(self)
+        key = jit.promote_string(key)
         try:
             entry = self._get_or_make_builtin_entry(key, False)
         except KeyError:
