@@ -1132,30 +1132,22 @@ def gethost_common(hostname, hostent, addr=None):
 
 def gethostbyname_ex(name):
     # XXX use gethostbyname_r() if available instead of locks
-    with lltype.scoped_alloc(rffi.CArray(_c.hostent), 1) as hostent:
-        addr = gethostbyname(name)
-        ll_locks['gethostbyname'].acquire(True)
-        _hostent = _c.gethostbyname(name)
-        if not _hostent:
-            raise HSocketError(name)
-        rffi.structcopy(hostent[0], _hostent)
-        ll_locks['gethostbyname'].release()
-        return gethost_common(name, hostent[0], addr)
+    addr = gethostbyname(name)
+    with ll_locks['gethostbyname']:
+        hostent = _c.gethostbyname(name)
+        return gethost_common(name, hostent, addr)
 
 def gethostbyaddr(ip):
     # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    p, size = addr.lock_in_addr()
-    try:
-        with lltype.scoped_alloc(rffi.CArray(_c.hostent), 1) as hostent:
-            ll_locks['gethostbyaddr'].acquire(True)
-            _hostent = _c.gethostbyaddr(p, size, addr.family)
-            rffi.structcopy(hostent[0], _hostent)
-            ll_locks['gethostbyaddr'].release()
-            return gethost_common(ip, hostent[0], addr)
-    finally:
-        addr.unlock()
+    with ll_locks['gethostbyaddr']:
+        p, size = addr.lock_in_addr()
+        try:
+            hostent = _c.gethostbyaddr(p, size, addr.family)
+        finally:
+            addr.unlock()
+        return gethost_common(ip, hostent, addr)
 
 def getaddrinfo(host, port_or_service,
                 family=AF_UNSPEC, socktype=0, proto=0, flags=0,

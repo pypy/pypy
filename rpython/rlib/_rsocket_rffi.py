@@ -447,7 +447,6 @@ in_addr = cConfig.in_addr
 #in_addr_size = sizeof(in_addr)
 in6_addr = cConfig.in6_addr
 addrinfo = cConfig.addrinfo
-hostent = cConfig.hostent
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
