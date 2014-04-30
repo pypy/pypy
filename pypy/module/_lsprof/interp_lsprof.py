@@ -208,15 +208,11 @@ def create_spec_for_method(space, w_function, w_type):
 
 
 def create_spec_for_function(space, w_func):
-    if w_func.w_module is None:
-        module = ''
-    else:
+    if w_func.w_module is not None:
         module = space.str_w(w_func.w_module)
-        if module == '__builtin__':
-            module = ''
-        else:
-            module += '.'
-    return '{%s%s}' % (module, w_func.name)
+        if module != '__builtin__':
+            return '{%s.%s}' % (module, w_func.name)
+    return '{%s}' % w_func.name
 
 
 def create_spec_for_object(space, w_obj):
