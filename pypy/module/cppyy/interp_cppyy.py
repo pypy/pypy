@@ -158,9 +158,9 @@ class CPPMethod(object):
                'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
     _immutable_ = True
 
-    def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
+    def __init__(self, space, declaring_scope, method_index, arg_defs, args_required):
         self.space = space
-        self.scope = containing_scope
+        self.scope = declaring_scope
         self.index = method_index
         self.cppmethod = capi.c_get_method(self.space, self.scope, method_index)
         self.arg_defs = arg_defs
@@ -174,18 +174,18 @@ class CPPMethod(object):
         self._funcaddr = lltype.nullptr(rffi.VOIDP.TO)
         self.uses_local = False
 
+    @staticmethod
+    def unpack_cppthis(space, w_cppinstance, declaring_scope):
+        cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+        cppinstance._nullcheck()
+        return cppinstance.get_cppthis(declaring_scope)
+
     def _address_from_local_buffer(self, call_local, idx):
         if not call_local:
             return call_local
         stride = 2*rffi.sizeof(rffi.VOIDP)
         loc_idx = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, call_local), idx*stride)
         return rffi.cast(rffi.VOIDP, loc_idx)
-
-    def call_w(self, w_cppinstance, args_w):
-        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
-        cppinstance._nullcheck()
-        cppthis = cppinstance.get_cppthis(self.scope)
-        return self.call(cppthis, args_w)
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):
@@ -413,8 +413,9 @@ class CPPFunction(CPPMethod):
 
     _immutable_ = True
 
-    def call_w(self, w_cppinstance, args_w):
-        return CPPMethod.call(self, capi.C_NULL_OBJECT, args_w)
+    @staticmethod
+    def unpack_cppthis(space, w_cppinstance, declaring_scope):
+        return capi.C_NULL_OBJECT
 
     def __repr__(self):
         return "CPPFunction: %s" % self.signature()
@@ -426,11 +427,11 @@ class CPPTemplatedCall(CPPMethod):
     _attrs_ = ['space', 'templ_args']
     _immutable_ = True
 
-    def __init__(self, space, templ_args, containing_scope, method_index, arg_defs, args_required):
+    def __init__(self, space, templ_args, declaring_scope, method_index, arg_defs, args_required):
         self.space = space
         self.templ_args = templ_args
         # TODO: might have to specialize for CPPTemplatedCall on CPPMethod/CPPFunction here
-        CPPMethod.__init__(self, space, containing_scope, method_index, arg_defs, args_required)
+        CPPMethod.__init__(self, space, declaring_scope, method_index, arg_defs, args_required)
 
     def call(self, cppthis, args_w):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
@@ -460,19 +461,15 @@ class CPPConstructor(CPPMethod):
 
     _immutable_ = True
 
-    def call_w(self, w_cppinstance, args_w):
-        # TODO: these casts are very, very un-pretty; need to find a way of
-        # re-using CPPMethod's features w/o these roundabouts
-        vscope = rffi.cast(capi.C_OBJECT, self.scope.handle)
-        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
-        w_result = CPPMethod.call(self, vscope, args_w)
-        newthis = rffi.cast(capi.C_OBJECT, self.space.int_w(w_result))
-        if cppinstance is not None:
-            cppinstance._rawobject = newthis
-            memory_regulator.register(cppinstance)
-            return w_cppinstance
-        return wrap_cppobject(self.space, newthis, self.scope,
-                              do_cast=False, python_owns=True, fresh=True)
+    @staticmethod
+    def unpack_cppthis(space, w_cppinstance, declaring_scope):
+        return rffi.cast(capi.C_OBJECT, declaring_scope.handle)
+
+    def call(self, cppthis, args_w):
+        # Note: this does not return a wrapped instance, just a pointer to the
+        # new instance; the overload must still wrap it before returning. Also,
+        # cppthis is declaring_scope.handle (as per unpack_cppthis(), above).
+        return CPPMethod.call(self, cppthis, args_w)
 
     def __repr__(self):
         return "CPPConstructor: %s" % self.signature()
@@ -501,12 +498,12 @@ class W_CPPOverload(W_Root):
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
 
-    _attrs_ = ['space', 'scope', 'functions']
-    _immutable_fields_ = ['scope', 'functions[*]']
+    _attrs_ = ['space', 'functions']
+    _immutable_fields_ = ['functions[*]']
 
-    def __init__(self, space, containing_scope, functions):
+    def __init__(self, space, declaring_scope, functions):
         self.space = space
-        self.scope = containing_scope
+        self.scope = declaring_scope
         assert len(functions)
         from rpython.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
@@ -520,6 +517,12 @@ class W_CPPOverload(W_Root):
     @jit.unroll_safe
     @unwrap_spec(args_w='args_w')
     def call(self, w_cppinstance, args_w):
+        # instance handling is specific to the function type only, so take it out
+        # of the loop over function overloads
+        cppthis = self.functions[0].unpack_cppthis(
+            self.space, w_cppinstance, self.functions[0].scope)
+        assert lltype.typeOf(cppthis) == capi.C_OBJECT
+
         # The following code tries out each of the functions in order. If
         # argument conversion fails (or simply if the number of arguments do
         # not match), that will lead to an exception, The JIT will snip out
@@ -534,7 +537,7 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call_w(w_cppinstance, args_w)
+                return cppyyfunc.call(cppthis, args_w)
             except Exception:
                 pass
 
@@ -545,7 +548,7 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call_w(w_cppinstance, args_w)
+                return cppyyfunc.call(cppthis, args_w)
             except OperationError, e:
                 # special case if there's just one function, to prevent clogging the error message
                 if len(self.functions) == 1:
@@ -577,6 +580,39 @@ W_CPPOverload.typedef = TypeDef(
 )
 
 
+class W_CPPConstructorOverload(W_CPPOverload):
+    @jit.elidable_promote()
+    def is_static(self):
+        return self.space.w_False
+
+    @jit.elidable_promote()
+    def unpack_cppthis(self, w_cppinstance):
+        return rffi.cast(capi.C_OBJECT, self.scope.handle)
+
+    @jit.unroll_safe
+    @unwrap_spec(args_w='args_w')
+    def call(self, w_cppinstance, args_w):
+        w_result = W_CPPOverload.call(self, w_cppinstance, args_w)
+        newthis = rffi.cast(capi.C_OBJECT, self.space.int_w(w_result))
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        if cppinstance is not None:
+            cppinstance._rawobject = newthis
+            memory_regulator.register(cppinstance)
+            return w_cppinstance
+        return wrap_cppobject(self.space, newthis, self.functions[0].scope,
+                              do_cast=False, python_owns=True, fresh=True)
+
+    def __repr__(self):
+        return "W_CPPConstructorOverload(%s)" % [f.signature() for f in self.functions]
+
+W_CPPConstructorOverload.typedef = TypeDef(
+    'CPPConstructorOverload',
+    is_static = interp2app(W_CPPConstructorOverload.is_static),
+    call = interp2app(W_CPPConstructorOverload.call),
+    signature = interp2app(W_CPPOverload.signature),
+)
+
+
 class W_CPPBoundMethod(W_Root):
     _attrs_ = ['cppthis', 'method']
 
@@ -597,9 +633,9 @@ class W_CPPDataMember(W_Root):
     _attrs_ = ['space', 'scope', 'converter', 'offset']
     _immutable_fields = ['scope', 'converter', 'offset']
 
-    def __init__(self, space, containing_scope, type_name, offset):
+    def __init__(self, space, declaring_scope, type_name, offset):
         self.space = space
-        self.scope = containing_scope
+        self.scope = declaring_scope
         self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
 
@@ -709,7 +745,10 @@ class W_CPPScope(W_Root):
         # create the overload methods from the method sets
         for pyname, methods in methods_temp.iteritems():
             CPPMethodSort(methods).sort()
-            overload = W_CPPOverload(self.space, self, methods[:])
+            if pyname == self.name:
+                overload = W_CPPConstructorOverload(self.space, self, methods[:])
+            else:
+                overload = W_CPPOverload(self.space, self, methods[:])
             self.methods[pyname] = overload
 
     def full_name(self):
@@ -849,14 +888,13 @@ W_CPPNamespace.typedef.acceptable_as_base_class = False
 
 
 class W_CPPClass(W_CPPScope):
-    _attrs_ = ['space', 'default_constructor', 'name', 'handle', 'methods', 'datamembers']
-    _immutable_fields_ = ['kind', 'default_constructor', 'methods[*]', 'datamembers[*]']
+    _attrs_ = ['space', 'name', 'handle', 'methods', 'datamembers']
+    _immutable_fields_ = ['kind', 'constructor', 'methods[*]', 'datamembers[*]']
 
     kind = "class"
 
     def __init__(self, space, name, opaque_handle):
         W_CPPScope.__init__(self, space, name, opaque_handle)
-        self.default_constructor = None
 
     def _make_cppfunction(self, pyname, index):
         num_args = capi.c_method_num_args(self.space, self, index)
@@ -868,8 +906,6 @@ class W_CPPClass(W_CPPScope):
             arg_defs.append((arg_type, arg_dflt))
         if capi.c_is_constructor(self.space, self, index):
             cppfunction = CPPConstructor(self.space, self, index, arg_defs, args_required)
-            if args_required == 0:
-                self.default_constructor = cppfunction
         elif capi.c_method_is_template(self.space, self, index):
             templ_args = capi.c_template_args(self.space, self, index)
             cppfunction = CPPTemplatedCall(self.space, templ_args, self, index, arg_defs, args_required)
@@ -897,9 +933,7 @@ class W_CPPClass(W_CPPScope):
             self.datamembers[datamember_name] = datamember
 
     def construct(self):
-        if self.default_constructor is not None:
-            return self.default_constructor.call(capi.C_NULL_OBJECT, None, [])
-        raise self.missing_attribute_error("default_constructor")
+        self.get_overload(self.name).call(None, [])
 
     def find_overload(self, name):
         raise self.missing_attribute_error(name)
