@@ -189,25 +189,24 @@ class ProfilerContext(object):
                 subentry._stop(tt, it)
 
 
-@jit.elidable_promote()
 def create_spec_for_method(space, w_function, w_type):
-    w_function = w_function
+    class_name = None
     if isinstance(w_function, Function):
         name = w_function.name
+        # try to get the real class that defines the method,
+        # which is a superclass of the class of the instance
+        from pypy.objspace.std.typeobject import W_TypeObject   # xxx
+        if isinstance(w_type, W_TypeObject):
+            w_realclass, _ = space.lookup_in_type_where(w_type, name)
+            if isinstance(w_realclass, W_TypeObject):
+                class_name = w_realclass.get_module_type_name()
     else:
         name = '?'
-    # try to get the real class that defines the method,
-    # which is a superclass of the class of the instance
-    from pypy.objspace.std.typeobject import W_TypeObject   # xxx
-    class_name = w_type.getname(space)    # if the rest doesn't work
-    if isinstance(w_type, W_TypeObject) and name != '?':
-        w_realclass, _ = space.lookup_in_type_where(w_type, name)
-        if isinstance(w_realclass, W_TypeObject):
-            class_name = w_realclass.get_module_type_name()
+    if class_name is None:
+        class_name = w_type.getname(space)    # if the rest doesn't work
     return "{method '%s' of '%s' objects}" % (name, class_name)
 
 
-@jit.elidable_promote()
 def create_spec_for_function(space, w_func):
     if w_func.w_module is None:
         module = ''
@@ -220,7 +219,6 @@ def create_spec_for_function(space, w_func):
     return '{%s%s}' % (module, w_func.name)
 
 
-@jit.elidable_promote()
 def create_spec_for_object(space, w_obj):
     class_name = space.type(w_obj).getname(space)
     return "{'%s' object}" % (class_name,)
