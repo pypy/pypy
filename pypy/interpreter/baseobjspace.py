@@ -1415,10 +1415,10 @@ class ObjSpace(object):
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
-            e = oefmt(self.w_TypeError, "must be %s, not None", expected)
+            name = "None"
         else:
-            e = oefmt(self.w_TypeError, "must be %s, not %T", expected, w_obj)
-        raise e
+            name = self.type(w_obj).get_module_type_name()
+        raise oefmt(self.w_TypeError, "must be %s, not %s", expected, name)
 
     @specialize.arg(1)
     def getarg_w(self, code, w_obj):
