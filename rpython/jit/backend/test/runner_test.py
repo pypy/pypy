@@ -4347,3 +4347,10 @@ class LLtypeBackendTest(BaseBackendTest):
                                'void')
         assert foo[0] == 1789201
         lltype.free(foo, flavor='raw')
+
+    def test_cast_float_to_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
+                                   [BoxFloat(12.5)], 'int')
+        assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]
