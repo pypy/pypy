@@ -92,7 +92,7 @@ New Platforms and Features
 * Support for OpenBSD 
 
 * Code cleanup: we continue to prune out old and unused code, and to refactor
-  large parts of the codebase. We have sepearated rpython from the PyPy python
+  large parts of the codebase. We have separated rpython from the PyPy python
   interpreter, and rpython is seeing use in other dynamic language projects.
 
 * Support for precompiled headers in the build process for MSVC
