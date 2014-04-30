@@ -67,21 +67,27 @@ def test_thread_safe_gethostbyname_ex():
     domain = 'google.com'
     result = [0] * nthreads
     threads = [None] * nthreads
+    print 'starting', 70
     def lookup_name(i):
         name, aliases, address_list = gethostbyname_ex(domain)
         if name == domain:
             result[i] += 1
+        print 'done',i,75
     for i in range(nthreads):
         threads[i] = threading.Thread(target = lookup_name, args=[i])
         threads[i].start()
+        print 'threads', 78
+    print 'done', 79
     for i in range(nthreads):
         threads[i].join()
     assert sum(result) == nthreads
+    print 'done', 82
 
 def test_thread_safe_gethostbyaddr():
     import threading
     nthreads = 10
     ip = '8.8.8.8'
+    print 'starting', 87
     domain = gethostbyaddr(ip)[0]
     result = [0] * nthreads
     threads = [None] * nthreads
@@ -92,6 +98,7 @@ def test_thread_safe_gethostbyaddr():
     for i in range(nthreads):
         threads[i] = threading.Thread(target = lookup_addr, args=[ip, i])
         threads[i].start()
+        print 'threads', 98
     for i in range(nthreads):
         threads[i].join()
     assert sum(result) == nthreads
