@@ -515,30 +515,9 @@ class OptRewrite(Optimization):
             return True # 0-length arraycopy
         return False
 
-    def optimize_CALL_PURE(self, op):
-        arg_consts = []
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            const = self.get_constant_box(arg)
-            if const is None:
-                break
-            arg_consts.append(const)
-        else:
-            # all constant arguments: check if we already know the result
-            try:
-                result = self.optimizer.call_pure_results[arg_consts]
-            except KeyError:
-                pass
-            else:
-                # this removes a CALL_PURE with all constant arguments.
-                self.make_constant(op.result, result)
-                self.last_emitted_operation = REMOVED
-                return
-        self.emit_operation(op)
-
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
-            # it was a CALL_PURE or a CALL_LOOPINVARIANT that was killed;
+            # it was a CALL_LOOPINVARIANT that was killed;
             # so we also kill the following GUARD_NO_EXCEPTION
             return
         self.emit_operation(op)
