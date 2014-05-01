@@ -522,6 +522,8 @@ class FunctionGcRootTracker(object):
         'movnt', 'mfence', 'lfence', 'sfence',
         # bit manipulations
         'bextr',
+        # invalid instruction
+        'ud2',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
