@@ -27,6 +27,32 @@ class AppTestCProfile(object):
         for entry in stats:
             assert entry.code in expected
 
+    def test_builtins_callers(self):
+        import _lsprof
+        prof = _lsprof.Profiler(subcalls=True)
+        lst = []
+        def f1():
+            lst.append(len(lst))
+        prof.enable(subcalls=True)
+        f1()
+        prof.disable()
+        stats = prof.getstats()
+        expected = (
+            "<len>",
+            "<method 'append' of 'list' objects>",
+        )
+        by_id = set()
+        for entry in stats:
+            if entry.code == f1.func_code:
+                assert len(entry.calls) == 2
+                for subentry in entry.calls:
+                    assert subentry.code in expected
+                    by_id.add(id(subentry.code))
+            elif entry.code in expected:
+                by_id.add(id(entry.code))
+        #  :-(  cProfile.py relies on the id() of the strings...
+        assert len(by_id) == len(expected)
+
     def test_direct(self):
         import _lsprof
         def getticks():

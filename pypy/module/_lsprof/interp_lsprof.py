@@ -59,7 +59,7 @@ class W_StatsEntry(W_Root):
             self.tt, self.it, calls_repr))
 
     def get_code(self, space):
-        return self.frame
+        return returns_code(space, self.frame)
 
 W_StatsEntry.typedef = TypeDef(
     'StatsEntry',
@@ -86,7 +86,7 @@ class W_StatsSubEntry(W_Root):
             frame_repr, self.callcount, self.reccallcount, self.tt, self.it))
 
     def get_code(self, space):
-        return self.frame
+        return returns_code(space, self.frame)
 
 W_StatsSubEntry.typedef = TypeDef(
     'SubStatsEntry',
@@ -215,18 +215,55 @@ def create_spec_for_function(space, w_func):
     return '<%s>' % w_func.name
 
 
-def create_spec_for_object(space, w_obj):
-    class_name = space.type(w_obj).getname(space)
+def create_spec_for_object(space, w_type):
+    class_name = w_type.getname(space)
     return "<'%s' object>" % (class_name,)
 
 
-def create_spec(space, w_arg):
+class W_DelayedBuiltinStr(W_Root):
+    # This class should not be seen at app-level, but is useful to
+    # contain a (w_func, w_type) pair returned by prepare_spec().
+    # Turning this pair into a string cannot be done eagerly in
+    # an @elidable function because of space.str_w(), but it can
+    # be done lazily when we really want it.
+
+    _immutable_fields_ = ['w_func', 'w_type']
+
+    def __init__(self, w_func, w_type):
+        self.w_func = w_func
+        self.w_type = w_type
+        self.w_string = None
+
+    def wrap_string(self, space):
+        if self.w_string is None:
+            if self.w_type is None:
+                s = create_spec_for_function(space, self.w_func)
+            elif self.w_func is None:
+                s = create_spec_for_object(space, self.w_type)
+            else:
+                s = create_spec_for_method(space, self.w_func, self.w_type)
+            self.w_string = space.wrap(s)
+        return self.w_string
+
+W_DelayedBuiltinStr.typedef = TypeDef(
+    'DelayedBuiltinStr',
+    __str__ = interp2app(W_DelayedBuiltinStr.wrap_string),
+)
+
+def returns_code(space, w_frame):
+    if isinstance(w_frame, W_DelayedBuiltinStr):
+        return w_frame.wrap_string(space)
+    return w_frame    # actually a PyCode object
+
+
+def prepare_spec(w_arg):
     if isinstance(w_arg, Method):
-        return create_spec_for_method(space, w_arg.w_function, w_arg.w_class)
+        return (w_arg.w_function, w_arg.w_class)
     elif isinstance(w_arg, Function):
-        return create_spec_for_function(space, w_arg)
+        return (w_arg, None)
     else:
-        return create_spec_for_object(space, w_arg)
+        return (None, space.type(w_arg))
+prepare_spec._always_inline_ = True
 
 
 def lsprof_call(space, w_self, frame, event, w_arg):
@@ -239,12 +276,10 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         w_self._enter_return(code)
     elif event == 'c_call':
         if w_self.builtins:
-            key = create_spec(space, w_arg)
-            w_self._enter_builtin_call(key)
+            w_self._enter_builtin_call(w_arg)
     elif event == 'c_return' or event == 'c_exception':
         if w_self.builtins:
-            key = create_spec(space, w_arg)
-            w_self._enter_builtin_return(key)
+            w_self._enter_builtin_return(w_arg)
     else:
         # ignore or raise an exception???
         pass
@@ -307,13 +342,14 @@ class W_Profiler(W_Root):
                 return entry
             raise
 
-    @jit.elidable
-    def _get_or_make_builtin_entry(self, key, make=True):
+    @jit.elidable_promote()
+    def _get_or_make_builtin_entry(self, w_func, w_type, make):
+        key = (w_func, w_type)
         try:
             return self.builtin_data[key]
         except KeyError:
             if make:
-                entry = ProfilerEntry(self.space.wrap(key))
+                entry = ProfilerEntry(W_DelayedBuiltinStr(w_func, w_type))
                 self.builtin_data[key] = entry
                 return entry
             raise
@@ -337,20 +373,18 @@ class W_Profiler(W_Root):
             context._stop(self, entry)
         self.current_context = context.previous
 
-    def _enter_builtin_call(self, key):
-        self = jit.promote(self)
-        key = jit.promote_string(key)
-        entry = self._get_or_make_builtin_entry(key)
+    def _enter_builtin_call(self, w_arg):
+        w_func, w_type = prepare_spec(w_arg)
+        entry = self._get_or_make_builtin_entry(w_func, w_type, True)
         self.current_context = ProfilerContext(self, entry)
 
-    def _enter_builtin_return(self, key):
+    def _enter_builtin_return(self, w_arg):
         context = self.current_context
         if context is None:
             return
-        self = jit.promote(self)
-        key = jit.promote_string(key)
+        w_func, w_type = prepare_spec(w_arg)
         try:
-            entry = self._get_or_make_builtin_entry(key, False)
+            entry = self._get_or_make_builtin_entry(w_func, w_type, False)
         except KeyError:
             pass
         else:
