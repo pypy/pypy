@@ -17,7 +17,8 @@ class Module(MixedModule):
     def startup(self, space):
         from rpython.rlib.rsocket import rsocket_startup
         rsocket_startup()
-        space.socket_gethostbyxxx_lock = space.allocate_lock()
+        from pypy.module._socket.interp_func import State
+        space.fromcache(State).alloc_lock(space)
 
     def buildloaders(cls):
         from rpython.rlib import rsocket
