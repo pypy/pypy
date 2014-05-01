@@ -809,6 +809,7 @@ Function.typedef = TypeDef("function",
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
     __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
+    __closure__ = GetSetProperty(Function.fget_func_closure),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
 )

@@ -697,6 +697,8 @@ class BaseArrayTests:
         for i in a:
             b.append(i)
         assert repr(b) == "array('i', [1, 2, 3])"
+        assert hasattr(b, '__iter__')
+        assert next(b.__iter__()) == 1
 
     def test_lying_iterable(self):
         class lier(object):

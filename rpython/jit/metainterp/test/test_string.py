@@ -478,7 +478,7 @@ class StringTests:
             return len(sa.val)
         assert self.meta_interp(f, ['a']) == f('a')
 
-    def test_string_comepare_quasiimmutable(self):
+    def test_string_compare_quasiimmutable(self):
         class Sys(object):
             _immutable_fields_ = ["defaultencoding?"]
             def __init__(self, s):

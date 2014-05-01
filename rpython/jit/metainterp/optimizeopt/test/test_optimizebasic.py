@@ -5183,6 +5183,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         }
         self.optimize_loop(ops, expected, call_pure_results)
 
+    def test_call_pure_quasiimmut(self):
+        ops = """
+        []
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = call_pure(123, i0, descr=nonwritedescr)
+        finish(i1)
+        """
+        expected = """
+        []
+        guard_not_invalidated() []
+        finish(5)
+        """
+        call_pure_results = {
+            (ConstInt(123), ConstInt(-4247)): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+
     def test_guard_not_forced_2_virtual(self):
         ops = """
         [i0]
