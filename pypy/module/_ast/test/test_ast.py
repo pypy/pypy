@@ -218,19 +218,19 @@ from __future__ import generators""")
         x = ast.Num()
         assert x._fields == ('n',)
         exc = raises(AttributeError, getattr, x, 'n')
-        assert exc.value.args[0] == "'Num' object has no attribute 'n'"
+        assert "Num' object has no attribute 'n'" in exc.value.args[0]
 
         x = ast.Num(42)
         assert x.n == 42
         exc = raises(AttributeError, getattr, x, 'lineno')
-        assert exc.value.args[0] == "'Num' object has no attribute 'lineno'"
+        assert "Num' object has no attribute 'lineno'" in exc.value.args[0]
 
         y = ast.Num()
         x.lineno = y
         assert x.lineno == y
 
         exc = raises(AttributeError, getattr, x, 'foobar')
-        assert exc.value.args[0] == "'Num' object has no attribute 'foobar'"
+        assert "Num' object has no attribute 'foobar'" in exc.value.args[0]
 
         x = ast.Num(lineno=2)
         assert x.lineno == 2
@@ -423,4 +423,3 @@ from __future__ import generators""")
         str_node2 = copy.deepcopy(str_node)
         dict_res = str_node2.__dict__
         assert dict_res == {'n':2, 'lineno':2}
-    
