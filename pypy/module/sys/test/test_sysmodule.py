@@ -495,6 +495,24 @@ class AppTestSysModulePortedFromCPython:
         import sys
         assert sys.implementation.name == 'pypy'
 
+        # This test applies to all implementations equally.
+        levels = {'alpha': 0xA, 'beta': 0xB, 'candidate': 0xC, 'final': 0xF}
+
+        assert sys.implementation.version
+        assert sys.implementation.hexversion
+        assert sys.implementation.cache_tag
+
+        version = sys.implementation.version
+        assert version[:2] == (version.major, version.minor)
+
+        hexversion = (version.major << 24 | version.minor << 16 |
+                      version.micro << 8 | levels[version.releaselevel] << 4 |
+                      version.serial << 0)
+        assert sys.implementation.hexversion == hexversion
+
+        # PEP 421 requires that .name be lower case.
+        assert sys.implementation.name == sys.implementation.name.lower()
+
     def test_settrace(self):
         import sys
         counts = []

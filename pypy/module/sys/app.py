@@ -133,5 +133,7 @@ class SimpleNamespace:
 
 implementation = SimpleNamespace(
     name='pypy',
+    version=sys.version_info,
+    hexversion=sys.hexversion,
     cache_tag=_imp.get_tag(),
     )
