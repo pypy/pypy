@@ -526,7 +526,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             if name[0] == NPY.OPPBYTE:
                 dtype = dtype.descr_newbyteorder(space)
             return dtype
-        if name[0] in 'VSUc' or name[0] in '<>=|' and name[1] in 'VSUc':
+        if name[0] in 'VSUca' or name[0] in '<>=|' and name[1] in 'VSUca':
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
@@ -607,7 +607,7 @@ def variable_dtype(space, name):
             raise oefmt(space.w_TypeError, "data type not understood")
     if char == NPY.CHARLTR:
         return new_string_dtype(space, 1, NPY.CHARLTR)
-    elif char == NPY.STRINGLTR:
+    elif char == NPY.STRINGLTR or char == NPY.STRINGLTR2:
         return new_string_dtype(space, size)
     elif char == NPY.UNICODELTR:
         return new_unicode_dtype(space, size)
