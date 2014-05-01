@@ -70,6 +70,13 @@ class AppTestTypeObject:
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
+    def test_attribute_error(self):
+        class X(object):
+            __module__ = 'test'
+        x = X()
+        exc = raises(AttributeError, "x.a")
+        assert str(exc.value) == "'X' object has no attribute 'a'"
+
     def test_call_type(self):
         assert type(42) is int
         C = type('C', (object,), {'x': lambda: 42})

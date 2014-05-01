@@ -489,11 +489,12 @@ class W_TypeObject(W_Object):
 
     def get_module_type_name(w_self):
         space = w_self.space
-        w_mod = w_self.get_module()
-        if space.isinstance_w(w_mod, space.w_str):
-            mod = space.str_w(w_mod)
-            if mod != '__builtin__':
-                return '%s.%s' % (mod, w_self.name)
+        if not w_self.is_heaptype():
+            w_mod = w_self.get_module()
+            if space.isinstance_w(w_mod, space.w_str):
+                mod = space.str_w(w_mod)
+                if mod != '__builtin__':
+                    return '%s.%s' % (mod, w_self.name)
         return w_self.name
 
     def getname(w_self, space):
