@@ -11,6 +11,22 @@ class AppTestCProfile(object):
         import _lsprof
         assert repr(_lsprof.Profiler) == "<type '_lsprof.Profiler'>"
 
+    def test_builtins(self):
+        import _lsprof
+        prof = _lsprof.Profiler()
+        lst = []
+        prof.enable()
+        lst.append(len(lst))
+        prof.disable()
+        stats = prof.getstats()
+        expected = (
+            "<len>",
+            "<method 'append' of 'list' objects>",
+            "<method 'disable' of '_lsprof.Profiler' objects>",
+        )
+        for entry in stats:
+            assert entry.code in expected
+
     def test_direct(self):
         import _lsprof
         def getticks():
@@ -37,10 +53,8 @@ class AppTestCProfile(object):
         stats = prof.getstats()
         entries = {}
         for entry in stats:
-            if not hasattr(entry.code, 'co_name'):
-                print entry.code
-            else:
-                entries[entry.code.co_name] = entry
+            assert hasattr(entry.code, 'co_name')
+            entries[entry.code.co_name] = entry
         efoo = entries['foo']
         assert efoo.callcount == 2
         assert efoo.reccallcount == 1

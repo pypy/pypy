@@ -204,20 +204,20 @@ def create_spec_for_method(space, w_function, w_type):
         name = '?'
     if class_name is None:
         class_name = w_type.getname(space)    # if the rest doesn't work
-    return "{method '%s' of '%s' objects}" % (name, class_name)
+    return "<method '%s' of '%s' objects>" % (name, class_name)
 
 
 def create_spec_for_function(space, w_func):
     if w_func.w_module is not None:
         module = space.str_w(w_func.w_module)
         if module != '__builtin__':
-            return '{%s.%s}' % (module, w_func.name)
-    return '{%s}' % w_func.name
+            return '<%s.%s>' % (module, w_func.name)
+    return '<%s>' % w_func.name
 
 
 def create_spec_for_object(space, w_obj):
     class_name = space.type(w_obj).getname(space)
-    return "{'%s' object}" % (class_name,)
+    return "<'%s' object>" % (class_name,)
 
 
 def create_spec(space, w_arg):
