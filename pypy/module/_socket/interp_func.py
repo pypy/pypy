@@ -42,8 +42,8 @@ def gethostbyname_ex(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
+    lock = space.fromcache(State).gethostbyxxx_lock
     try:
-        lock = space.fromcache(State).gethostbyxxx_lock
         res = rsocket.gethostbyname_ex(host, lock)
     except SocketError, e:
         raise converted_error(space, e)
@@ -56,8 +56,8 @@ def gethostbyaddr(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
+    lock = space.fromcache(State).gethostbyxxx_lock
     try:
-        lock = space.fromcache(State).gethostbyxxx_lock
         res = rsocket.gethostbyaddr(host, lock)
     except SocketError, e:
         raise converted_error(space, e)
