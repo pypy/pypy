@@ -43,7 +43,7 @@ def gethostbyname_ex(space, host):
     for a host.  The host argument is a string giving a host name or IP number.
     """
     try:
-        res = rsocket.gethostbyname_ex(host)
+        res = rsocket.gethostbyname_ex(host, space.socket_gethostbyxxx_lock)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
@@ -56,7 +56,7 @@ def gethostbyaddr(space, host):
     for a host.  The host argument is a string giving a host name or IP number.
     """
     try:
-        res = rsocket.gethostbyaddr(host)
+        res = rsocket.gethostbyaddr(host, space.socket_gethostbyxxx_lock)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
