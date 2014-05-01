@@ -3,6 +3,14 @@ from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
 
+class DummyLock(object):
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
+
+
 def setup_module(mod):
     rsocket_startup()
 
@@ -47,7 +55,7 @@ def test_gethostbyname():
 
 def test_gethostbyname_ex():
     for host in ["localhost", "127.0.0.1"]:
-        name, aliases, address_list = gethostbyname_ex(host)
+        name, aliases, address_list = gethostbyname_ex(host, DummyLock())
         allnames = [name] + aliases
         for n in allnames:
             assert isinstance(n, str)
@@ -67,8 +75,9 @@ def test_thread_safe_gethostbyname_ex():
     domain = 'google.com'
     result = [0] * nthreads
     threads = [None] * nthreads
+    lock = threading.Lock()
     def lookup_name(i):
-        name, aliases, address_list = gethostbyname_ex(domain)
+        name, aliases, address_list = gethostbyname_ex(domain, lock)
         if name == domain:
             result[i] += 1
     for i in range(nthreads):
@@ -82,11 +91,12 @@ def test_thread_safe_gethostbyaddr():
     import threading
     nthreads = 10
     ip = '8.8.8.8'
-    domain = gethostbyaddr(ip)[0]
+    lock = threading.Lock()
+    domain = gethostbyaddr(ip, lock)[0]
     result = [0] * nthreads
     threads = [None] * nthreads
     def lookup_addr(ip, i):
-        name, aliases, address_list = gethostbyaddr(ip)
+        name, aliases, address_list = gethostbyaddr(ip, lock)
         if name == domain:
             result[i] += 1
     for i in range(nthreads):
@@ -110,7 +120,7 @@ def test_gethostbyaddr():
             with py.test.raises(ipv6):
                 gethostbyaddr(host)
             continue
-        name, aliases, address_list = gethostbyaddr(host)
+        name, aliases, address_list = gethostbyaddr(host, DummyLock())
         allnames = [name] + aliases
         for n in allnames:
             assert isinstance(n, str)

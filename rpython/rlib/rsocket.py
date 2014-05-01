@@ -20,7 +20,6 @@ from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
-from rpython.rlib import rthread
 INVALID_SOCKET = _c.INVALID_SOCKET
 
 def mallocbuf(buffersize):
@@ -29,8 +28,6 @@ def mallocbuf(buffersize):
 
 constants = _c.constants
 locals().update(constants) # Define constants from _c
-
-ll_locks = {}
 
 if _c.WIN32:
     from rpython.rlib import rwin32
@@ -41,12 +38,9 @@ if _c.WIN32:
             assert res == 0
         finally:
             lltype.free(wsadata, flavor='raw')
-        ll_locks['gethostbyname'] = rthread.allocate_lock()
-        ll_locks['gethostbyaddr'] = rthread.allocate_lock()
 else:
     def rsocket_startup():
-        ll_locks['gethostbyname'] = rthread.allocate_lock()
-        ll_locks['gethostbyaddr'] = rthread.allocate_lock()
+        pass
 
 
 def ntohs(x):
@@ -1130,18 +1124,18 @@ def gethost_common(hostname, hostent, addr=None):
         paddr = h_addr_list[i]
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
-def gethostbyname_ex(name):
+def gethostbyname_ex(name, lock):
     # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
-    with ll_locks['gethostbyname']:
+    with lock:
         hostent = _c.gethostbyname(name)
         return gethost_common(name, hostent, addr)
 
-def gethostbyaddr(ip):
+def gethostbyaddr(ip, lock):
     # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    with ll_locks['gethostbyaddr']:
+    with lock:
         p, size = addr.lock_in_addr()
         try:
             hostent = _c.gethostbyaddr(p, size, addr.family)
