@@ -692,23 +692,17 @@ class ObjSpace(object):
     def allocate_lock(self):
         """Return an interp-level Lock object if threads are enabled,
         and a dummy object if they are not."""
-        if self.config.objspace.usemodules.thread:
-            # we use a sub-function to avoid putting the 'import' statement
-            # here, where the flow space would see it even if thread=False
-            return self.__allocate_lock()
-        else:
-            return dummy_lock
-
-    def __allocate_lock(self):
-        from rpython.rlib.rthread import allocate_lock, error
+        from rpython.rlib import rthread
+        if not self.config.objspace.usemodules.thread:
+            return rthread.dummy_lock
         # hack: we can't have prebuilt locks if we're translating.
         # In this special situation we should just not lock at all
         # (translation is not multithreaded anyway).
         if not we_are_translated() and self.config.translating:
             raise CannotHaveLock()
         try:
-            return allocate_lock()
-        except error:
+            return rthread.allocate_lock()
+        except rthread.error:
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("out of resources"))
 
@@ -1721,24 +1715,6 @@ class AppExecCache(SpaceCache):
         space.exec_(str(source), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
 
-
-class DummyLock(object):
-    def acquire(self, flag):
-        return True
-
-    def release(self):
-        pass
-
-    def _freeze_(self):
-        return True
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, *args):
-        pass
-
-dummy_lock = DummyLock()
 
 # Table describing the regular part of the interface of object spaces,
 # namely all methods which only take w_ arguments and return a w_ result
