@@ -19,13 +19,13 @@ class TestCProfile(BaseTestPyPyC):
         #
         log = self.run(main, [500])
         assert sorted(log.result) == [
-            ("{method 'append' of 'list' objects}", 500),
-            ("{method 'disable' of '_lsprof.Profiler' objects}", 1),
-            ("{method 'pop' of 'list' objects}", 500),
+            ("<method 'append' of 'list' objects>", 500),
+            ("<method 'disable' of '_lsprof.Profiler' objects>", 1),
+            ("<method 'pop' of 'list' objects>", 500),
             ]
         for method in ['append', 'pop']:
             loop, = log.loops_by_id(method)
             print loop.ops_by_id(method)
-            assert 'call(' not in repr(loop.ops_by_id(method))
-            assert 'call_may_force(' not in repr(loop.ops_by_id(method))
-            assert 'call_cond(' in repr(loop.ops_by_id(method))
+            assert ' call(' not in repr(loop.ops_by_id(method))
+            assert ' call_may_force(' not in repr(loop.ops_by_id(method))
+            assert ' cond_call(' in repr(loop.ops_by_id(method))
