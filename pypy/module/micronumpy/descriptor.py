@@ -29,9 +29,11 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
     if not space.is_none(out):
         return out
-    dtype = w_arr_list[0].get_dtype()
-    for w_arr in w_arr_list[1:]:
-        dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    dtype = None
+    for w_arr in w_arr_list:
+        if not space.is_none(w_arr):
+            dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    assert dtype is not None
     out = base.W_NDimArray.from_shape(space, shape, dtype)
     return out
 
