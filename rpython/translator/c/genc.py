@@ -421,24 +421,12 @@ class CStandaloneBuilder(CBuilder):
 
         #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
-            trackgcfiles = [cfile[:cfile.rfind('.')] for cfile in mk.cfiles]
             if self.translator.platform.name == 'msvc':
-                trackgcfiles = [f for f in trackgcfiles
-                                if f.startswith(('implement', 'testing',
-                                                 '../module_cache/module'))]
-            sfiles = ['%s.s' % (c,) for c in trackgcfiles]
-            lblsfiles = ['%s.lbl.s' % (c,) for c in trackgcfiles]
-            gcmapfiles = ['%s.gcmap' % (c,) for c in trackgcfiles]
-            mk.definition('ASMFILES', sfiles)
-            mk.definition('ASMLBLFILES', lblsfiles)
-            mk.definition('GCMAPFILES', gcmapfiles)
-            if self.translator.platform.name == 'msvc':
-                mk.definition('DEBUGFLAGS', '-MD -Zi')
+                raise Exception("msvc no longer supports asmgcc")
+            if self.config.translation.shared:
+                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
             else:
-                if self.config.translation.shared:
-                    mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
-                else:
-                    mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -447,46 +435,28 @@ class CStandaloneBuilder(CBuilder):
 
             mk.definition('PYTHON', get_recent_cpython_executable())
 
-            if self.translator.platform.name == 'msvc':
-                lblofiles = []
-                for cfile in mk.cfiles:
-                    f = cfile[:cfile.rfind('.')]
-                    if f in trackgcfiles:
-                        ofile = '%s.lbl.obj' % (f,)
-                    else:
-                        ofile = '%s.obj' % (f,)
+            mk.definition('GCMAPFILES', '$(subst .c,.gcmap,$(SOURCES))')
+            mk.definition('OBJECTS1', '$(subst .c,.o,$(SOURCES))')
+            mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
 
-                    lblofiles.append(ofile)
-                mk.definition('ASMLBLOBJFILES', lblofiles)
-                mk.definition('OBJECTS', 'gcmaptable.obj $(ASMLBLOBJFILES)')
-                # /Oi (enable intrinsics) and /Ob1 (some inlining) are mandatory
-                # even in debug builds
-                mk.definition('ASM_CFLAGS', '$(CFLAGS) $(CFLAGSEXTRA) /Oi /Ob1')
-                mk.rule('.SUFFIXES', '.s', [])
-                mk.rule('.s.obj', '',
-                        'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
-                mk.rule('.c.gcmap', '',
-                        ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c $(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
-                        )
-                mk.rule('gcmaptable.c', '$(GCMAPFILES)',
-                        'cmd /c $(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
+            # the rule that transforms %.c into %.o, by compiling it to
+            # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
+            # finally by using the assembler ($(CC) again for now) to get %.o
+            mk.rule('%.o %.gcmap', '%.c', [
+                '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< '
+                    '-o $*.s -S $< $(INCLUDEDIRS)',
+                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
+                    '-t $*.s > $*.gctmp',
+                '$(CC) -o $*.o -c $*.lbl.s',
+                'mv $*.gctmp $*.gcmap',
+                'rm $*.s $*.lbl.s'])
 
-            else:
-                mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
-                mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
-                mk.rule('%.s', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
-                mk.rule('%.lbl.s %.gcmap', '%.s',
-                        [
-                             '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                             '-t $< > $*.gctmp',
-                         'mv $*.gctmp $*.gcmap'])
-                mk.rule('gcmaptable.s', '$(GCMAPFILES)',
-                        [
-                             '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                             '$(GCMAPFILES) > $@.tmp',
-                         'mv $@.tmp $@'])
-                mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
+            # the rule to compute gcmaptable.s
+            mk.rule('gcmaptable.s', '$(GCMAPFILES)',
+                    [
+                         '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
+                         '$(GCMAPFILES) > $@.tmp',
+                     'mv $@.tmp $@'])
 
         else:
             if self.translator.platform.name == 'msvc':
