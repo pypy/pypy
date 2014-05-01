@@ -16,3 +16,13 @@ class AppTestDecimalModule:
         assert type(flags).__name__ == 'SignalDict'
         bases = type(flags).__bases__
         assert bases[1] is MutableMapping
+
+    def test_exceptions(self):
+        import _decimal
+        for name in ('Clamped', 'Rounded', 'Inexact', 'Subnormal',
+                     'Underflow', 'Overflow', 'DivisionByZero',
+                     'InvalidOperation', 'FloatOperation'):
+            ex = getattr(_decimal, name)
+            assert issubclass(ex, _decimal.DecimalException)
+            assert issubclass(ex, ArithmeticError)
+
