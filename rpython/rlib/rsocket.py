@@ -1124,14 +1124,22 @@ def gethost_common(hostname, hostent, addr=None):
         paddr = h_addr_list[i]
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
-def gethostbyname_ex(name, lock):
+class DummyLock(object):
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
+
+
+def gethostbyname_ex(name, lock=DummyLock()):
     # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
     with lock:
         hostent = _c.gethostbyname(name)
         return gethost_common(name, hostent, addr)
 
-def gethostbyaddr(ip, lock):
+def gethostbyaddr(ip, lock=DummyLock()):
     # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)

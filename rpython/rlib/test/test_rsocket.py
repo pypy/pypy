@@ -3,13 +3,6 @@ from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
 
-class DummyLock(object):
-    def __enter__(self):
-        pass
-
-    def __exit__(self, *args):
-        pass
-
 
 def setup_module(mod):
     rsocket_startup()
@@ -55,7 +48,7 @@ def test_gethostbyname():
 
 def test_gethostbyname_ex():
     for host in ["localhost", "127.0.0.1"]:
-        name, aliases, address_list = gethostbyname_ex(host, DummyLock())
+        name, aliases, address_list = gethostbyname_ex(host)
         allnames = [name] + aliases
         for n in allnames:
             assert isinstance(n, str)
@@ -120,7 +113,7 @@ def test_gethostbyaddr():
             with py.test.raises(ipv6):
                 gethostbyaddr(host)
             continue
-        name, aliases, address_list = gethostbyaddr(host, DummyLock())
+        name, aliases, address_list = gethostbyaddr(host)
         allnames = [name] + aliases
         for n in allnames:
             assert isinstance(n, str)
