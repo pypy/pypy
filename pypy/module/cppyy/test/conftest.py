@@ -7,13 +7,17 @@ def pytest_runtest_setup(item):
         if 'dummy' in lcapi.reflection_library:
             # run only tests that are covered by the dummy backend and tests
             # that do not rely on reflex
-            if not ('test_helper.py' in item.location[0] or \
-                    'test_cppyy.py' in item.location[0] or \
-                    'test_pythonify.py' in item.location[0]):
+            import os
+            tst = os.path.basename(item.location[0])
+            if not tst in ('test_helper.py', 'test_cppyy.py', 'test_pythonify.py',
+                           'test_datatypes.py'):
                 py.test.skip("genreflex is not installed")
             import re
-            if 'test_pythonify.py' in item.location[0] and \
+            if tst == 'test_pythonify.py' and \
                 not re.search("AppTestPYTHONIFY.test0[1-6]", item.location[2]):
+                py.test.skip("genreflex is not installed")
+            elif tst == 'test_datatypes.py' and \
+                not re.search("AppTestDATATYPES.test0[1-8]", item.location[2]):
                 py.test.skip("genreflex is not installed")
 
 def pytest_ignore_collect(path, config):

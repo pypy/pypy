@@ -191,6 +191,9 @@ class AppTestDtypes(BaseAppTestDtypes):
         d = dtype('S5')
         assert repr(d) == "dtype('S5')"
         assert str(d) == "|S5"
+        d = dtype('a5')
+        assert repr(d) == "dtype('S5')"
+        assert str(d) == "|S5"
         d = dtype('U5')
         assert repr(d) == "dtype('%sU5')" % b
         assert str(d) == "%sU5" % b

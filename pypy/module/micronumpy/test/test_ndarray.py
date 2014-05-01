@@ -2229,7 +2229,13 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_clip(self):
         from numpypy import array
         a = array([1, 2, 17, -3, 12])
+        exc = raises(ValueError, a.clip)
+        assert str(exc.value) == "One of max or min must be given."
         assert (a.clip(-2, 13) == [1, 2, 13, -2, 12]).all()
+        assert (a.clip(min=-2) == [1, 2, 17, -2, 12]).all()
+        assert (a.clip(min=-2, max=None) == [1, 2, 17, -2, 12]).all()
+        assert (a.clip(max=13) == [1, 2, 13, -3, 12]).all()
+        assert (a.clip(min=None, max=13) == [1, 2, 13, -3, 12]).all()
         assert (a.clip(-1, 1, out=None) == [1, 1, 1, -1, 1]).all()
         assert (a == [1, 2, 17, -3, 12]).all()
         assert (a.clip(-1, [1, 2, 3, 4, 5]) == [1, 2, 3, -1, 5]).all()

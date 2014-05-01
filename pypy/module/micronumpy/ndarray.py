@@ -593,17 +593,25 @@ class __extend__(W_NDimArray):
     def descr_choose(self, space, w_choices, w_out=None, w_mode=None):
         return choose(space, self, w_choices, w_out, w_mode)
 
-    def descr_clip(self, space, w_min, w_max, w_out=None):
+    def descr_clip(self, space, w_min=None, w_max=None, w_out=None):
+        if space.is_none(w_min):
+            w_min = None
+        else:
+            w_min = convert_to_array(space, w_min)
+        if space.is_none(w_max):
+            w_max = None
+        else:
+            w_max = convert_to_array(space, w_max)
         if space.is_none(w_out):
             w_out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "return arrays must be of ArrayType"))
-        min = convert_to_array(space, w_min)
-        max = convert_to_array(space, w_max)
-        shape = shape_agreement_multiple(space, [self, min, max, w_out])
-        out = descriptor.dtype_agreement(space, [self, min, max], shape, w_out)
-        loop.clip(space, self, shape, min, max, out)
+        if not w_min and not w_max:
+            raise oefmt(space.w_ValueError, "One of max or min must be given.")
+        shape = shape_agreement_multiple(space, [self, w_min, w_max, w_out])
+        out = descriptor.dtype_agreement(space, [self, w_min, w_max], shape, w_out)
+        loop.clip(space, self, shape, w_min, w_max, out)
         return out
 
     def descr_get_ctypes(self, space):
