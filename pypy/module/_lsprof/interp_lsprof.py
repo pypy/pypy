@@ -208,6 +208,7 @@ def create_spec_for_method(space, w_function, w_type):
 
 
 def create_spec_for_function(space, w_func):
+    assert isinstance(w_func, Function)
     if w_func.w_module is not None:
         module = space.str_w(w_func.w_module)
         if module != '__builtin__':
@@ -256,7 +257,7 @@ def returns_code(space, w_frame):
     return w_frame    # actually a PyCode object
 
 
-def prepare_spec(w_arg):
+def prepare_spec(space, w_arg):
     if isinstance(w_arg, Method):
         return (w_arg.w_function, w_arg.w_class)
     elif isinstance(w_arg, Function):
@@ -374,7 +375,7 @@ class W_Profiler(W_Root):
         self.current_context = context.previous
 
     def _enter_builtin_call(self, w_arg):
-        w_func, w_type = prepare_spec(w_arg)
+        w_func, w_type = prepare_spec(self.space, w_arg)
         entry = self._get_or_make_builtin_entry(w_func, w_type, True)
         self.current_context = ProfilerContext(self, entry)
 
@@ -382,7 +383,7 @@ class W_Profiler(W_Root):
         context = self.current_context
         if context is None:
             return
-        w_func, w_type = prepare_spec(w_arg)
+        w_func, w_type = prepare_spec(self.space, w_arg)
         try:
             entry = self._get_or_make_builtin_entry(w_func, w_type, False)
         except KeyError:
