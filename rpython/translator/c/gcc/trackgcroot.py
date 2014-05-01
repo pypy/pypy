@@ -522,8 +522,6 @@ class FunctionGcRootTracker(object):
         'movnt', 'mfence', 'lfence', 'sfence',
         # bit manipulations
         'bextr',
-        # invalid instruction
-        'ud2',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
@@ -694,6 +692,9 @@ class FunctionGcRootTracker(object):
         if line.split()[:2] == ['rep', 'ret']:
             return self.visit_ret(line)
         return []
+
+    def visit_ud2(self, line):
+        return InsnStop("ud2")    # unreachable instruction
 
     def visit_jmp(self, line):
         tablelabels = []
