@@ -362,9 +362,9 @@ def get_operrcls2(valuefmt):
                     value = getattr(self, attr)
                     if fmt == 'R':
                         result = space.str_w(space.repr(value))
-                    elif fmt in 'NT':
-                        if fmt == 'T':
-                            value = space.type(value)
+                    elif fmt == 'T':
+                        result = space.type(value).get_module_type_name()
+                    elif fmt == 'N':
                         result = value.getname(space)
                     else:
                         result = str(value)
@@ -404,7 +404,7 @@ def oefmt(w_type, valuefmt, *args):
 
     %N - The result of w_arg.getname(space)
     %R - The result of space.str_w(space.repr(w_arg))
-    %T - The result of space.type(w_arg).getname(space)
+    %T - The result of space.type(w_arg).get_module_type_name()
 
     """
     if not len(args):
