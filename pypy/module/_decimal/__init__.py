@@ -5,5 +5,6 @@ class Module(MixedModule):
         }
     
     interpleveldefs = {
+        'Decimal': 'interp_decimal.W_Decimal',
         'IEEE_CONTEXT_MAX_BITS': 'space.wrap(interp_decimal.IEEE_CONTEXT_MAX_BITS)',
         }
