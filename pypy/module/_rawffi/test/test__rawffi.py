@@ -1084,27 +1084,27 @@ class AppTestFfi:
         s = S(autofree=True)
         b = buffer(s)
         assert len(b) == 40
-        b[4] = 'X'
-        b[:3] = 'ABC'
-        assert b[:6] == 'ABC\x00X\x00'
+        b[4] = b'X'
+        b[:3] = b'ABC'
+        assert b[:6] == b'ABC\x00X\x00'
 
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
-        a[3] = 'x'
+        a[3] = b'x'
         b = buffer(a)
         assert len(b) == 10
-        assert b[3] == 'x'
-        b[6] = 'y'
-        assert a[6] == 'y'
-        b[3:5] = 'zt'
-        assert a[3] == 'z'
-        assert a[4] == 't'
+        assert b[3] == b'x'
+        b[6] = b'y'
+        assert a[6] == b'y'
+        b[3:5] = b'zt'
+        assert a[3] == b'z'
+        assert a[4] == b't'
 
         b = memoryview(a)
         assert len(b) == 10
-        assert b[3] == 'z'
-        b[3] = 'x'
-        assert b[3] == 'x'
+        assert b[3] == b'z'
+        b[3] = b'x'
+        assert b[3] == b'x'
 
     def test_union(self):
         import _rawffi
