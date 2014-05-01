@@ -6,3 +6,5 @@ What's new in PyPy 2.3+
 .. startrev: 0524dae88c75
 
 .. branch: reflex-support
+
+.. branch: issue1430
