@@ -18,6 +18,7 @@ a drop-in replacement for the 'socket' module.
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rthread import dummy_lock
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 INVALID_SOCKET = _c.INVALID_SOCKET
@@ -1124,22 +1125,14 @@ def gethost_common(hostname, hostent, addr=None):
         paddr = h_addr_list[i]
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
-class DummyLock(object):
-    def __enter__(self):
-        pass
-
-    def __exit__(self, *args):
-        pass
-
-
-def gethostbyname_ex(name, lock=DummyLock()):
+def gethostbyname_ex(name, lock=dummy_lock):
     # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
     with lock:
         hostent = _c.gethostbyname(name)
         return gethost_common(name, hostent, addr)
 
-def gethostbyaddr(ip, lock=DummyLock()):
+def gethostbyaddr(ip, lock=dummy_lock):
     # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
