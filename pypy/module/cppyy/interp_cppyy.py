@@ -498,8 +498,8 @@ class W_CPPOverload(W_Root):
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
 
-    _attrs_ = ['space', 'functions']
-    _immutable_fields_ = ['functions[*]']
+    _attrs_ = ['space', 'scope', 'functions']
+    _immutable_fields_ = ['scope', 'functions[*]']
 
     def __init__(self, space, declaring_scope, functions):
         self.space = space
