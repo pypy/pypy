@@ -202,6 +202,12 @@ class AppTestFRAGILE:
         f = fragile.fglobal
         assert f.__doc__ == "void fragile::fglobal(int, double, char)"
 
+        try:
+            o = fragile.O()       # raises TypeError
+            assert 0
+        except TypeError, e:
+            assert "cannot instantiate abstract class 'O'" in str(e)
+
     def test11_dir(self):
         """Test __dir__ method"""
 

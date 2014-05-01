@@ -127,19 +127,18 @@ def tf1_tf1(space, w_self, args_w):
     argc = len(args_w)
 
     try:
-        # Note: argcount is +1 for the class (== w_self)
-        if argc < 5 or 6 < argc:
+        if argc < 4 or 5 < argc:
             raise TypeError("wrong number of arguments")
 
-        # second argument must be a name
-        funcname = space.str_w(args_w[1])
+        # first argument must be a name
+        funcname = space.str_w(args_w[0])
 
         # last (optional) argument is number of parameters
         npar = 0
-        if argc == 6: npar = space.int_w(args_w[5])
+        if argc == 5: npar = space.int_w(args_w[4])
 
-        # third argument must be a callable python object
-        w_callable = args_w[2]
+        # second argument must be a callable python object
+        w_callable = args_w[1]
         if not space.is_true(space.callable(w_callable)):
             raise TypeError("2nd argument is not a valid python callable")
 
@@ -159,17 +158,21 @@ def tf1_tf1(space, w_self, args_w):
         # so far, so good; leaves on issue: CINT is expecting a wrapper, but
         # we need the overload that takes a function pointer, which is not in
         # the dictionary, hence this helper:
-        newinst = _create_tf1(space.str_w(args_w[1]), funcaddr,
-                      space.float_w(args_w[3]), space.float_w(args_w[4]), npar)
- 
-        from pypy.module.cppyy import interp_cppyy
-        w_instance = interp_cppyy.wrap_cppobject(space, newinst, tf1_class,
-                                      do_cast=False, python_owns=True, fresh=True)
+        newinst = _create_tf1(space.str_w(args_w[0]), funcaddr,
+                      space.float_w(args_w[2]), space.float_w(args_w[3]), npar)
+
+        # w_self is a null-ptr bound as TF1 
+        from pypy.module.cppyy.interp_cppyy import W_CPPInstance, memory_regulator
+        cppself = space.interp_w(W_CPPInstance, w_self, can_be_None=False)
+        cppself._rawobject = newinst
+        memory_regulator.register(cppself)
 
         # tie all the life times to the TF1 instance
-        space.setattr(w_instance, space.wrap('_callback'), w_callback)
+        space.setattr(w_self, space.wrap('_callback'), w_callback)
 
-        return w_instance
+        # by definition for __init__
+        return None
+
     except (OperationError, TypeError, IndexError), e:
         newargs_w = args_w[1:]     # drop class
 
@@ -312,7 +315,7 @@ def ttree_getattr(space, w_self, args_w):
 
         # location
         w_address = space.call_method(w_leaf, "GetValuePointer")
-        buf = space.buffer_w(w_address)
+        buf = space.getarg_w('s*', w_address)
         from pypy.module._rawffi import buffer
         assert isinstance(buf, buffer.RawFFIBuffer)
         address = rffi.cast(rffi.CCHARP, buf.datainstance.ll_buffer)
@@ -395,7 +398,7 @@ def pythonize(space, name, w_pycppclass):
         _method_alias(space, w_pycppclass, "__len__", "GetSize")
 
     elif name == "TF1":
-        space.setattr(w_pycppclass, space.wrap("__new__"), _pythonizations["tf1_tf1"])
+        space.setattr(w_pycppclass, space.wrap("__init__"), _pythonizations["tf1_tf1"])
 
     elif name == "TFile":
         _method_alias(space, w_pycppclass, "__getattr__", "Get")
