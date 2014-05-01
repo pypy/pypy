@@ -469,6 +469,23 @@ def dtype_from_spec(space, w_spec):
         return dtype_from_list(space, w_lst, True)
 
 
+def _check_for_commastring(s):
+    if s[0] in string.digits or s[0] in '<>=|' and s[1] in string.digits:
+        return True
+    if s[0] == '(' and s[1] == ')' or s[0] in '<>=|' and s[1] == '(' and s[2] == ')':
+        return True
+    sqbracket = 0
+    for c in s:
+        if c == ',':
+            if sqbracket == 0:
+                return True
+        elif c == '[':
+            sqbracket += 1
+        elif c == ']':
+            sqbracket -= 1
+    return False
+
+
 def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
     # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
@@ -498,9 +515,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         return w_dtype
     elif space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
-        if ',' in name or \
-                name[0] in string.digits or \
-                name[0] in '<>=|' and name[1] in string.digits:
+        if _check_for_commastring(name):
             return dtype_from_spec(space, w_dtype)
         cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
