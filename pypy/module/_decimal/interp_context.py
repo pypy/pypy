@@ -45,9 +45,21 @@ class W_Context(W_Root):
     def __init__(self, space):
         self.w_flags = space.call_function(state_get(space).W_SignalDict)
 
+    def copy_w(self, space):
+        w_copy = W_Context(space)
+        # XXX incomplete
+        return w_copy
+
+def descr_new_context(space, w_subtype, __args__):
+    w_result = space.allocate_instance(W_Context, w_subtype)
+    W_Context.__init__(w_result, space)
+    return w_result
+
 W_Context.typedef = TypeDef(
     'Context',
+    copy=interp2app(W_Context.copy_w),
     flags=interp_attrproperty_w('w_flags', W_Context),
+    __new__ = interp2app(descr_new_context),
     )
 
 
@@ -59,3 +71,7 @@ def getcontext(space):
         # Set up a new thread local context
         ec.decimal_context = W_Context(space)
     return ec.decimal_context
+
+def setcontext(space, w_context):
+    ec = space.getexecutioncontext()
+    ec.decimal_context = w_context

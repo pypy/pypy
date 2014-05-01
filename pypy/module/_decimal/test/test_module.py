@@ -9,6 +9,14 @@ class AppTestDecimalModule:
         import _decimal
         assert isinstance(_decimal.Decimal, type)
 
+    def test_context(self):
+        import _decimal
+        context = _decimal.Context(
+            prec=9, rounding=_decimal.ROUND_HALF_EVEN,
+            traps=dict.fromkeys(_decimal.getcontext().flags.keys(), 0))
+        _decimal.setcontext(context)
+        assert _decimal.getcontext() is context
+
     def test_contextflags(self):
         import _decimal
         from collections.abc import MutableMapping

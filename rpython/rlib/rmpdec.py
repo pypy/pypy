@@ -34,10 +34,21 @@ eci = ExternalCompilationInfo(
     libraries=['m'],
     )
 
+
+ROUND_CONSTANTS = (
+    'ROUND_UP', 'ROUND_DOWN', 'ROUND_CEILING', 'ROUND_FLOOR',
+    'ROUND_HALF_UP', 'ROUND_HALF_DOWN', 'ROUND_HALF_EVEN',
+    'ROUND_05UP', 'ROUND_TRUNC')
+
 class CConfig:
     _compilation_info_ = eci
 
     MPD_IEEE_CONTEXT_MAX_BITS = platform.ConstantInteger(
         'MPD_IEEE_CONTEXT_MAX_BITS')
+
+    for name in ROUND_CONSTANTS:
+        name = 'MPD_' + name
+        locals()[name] = platform.ConstantInteger(name)
+
 
 globals().update(platform.configure(CConfig))
