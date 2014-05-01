@@ -84,10 +84,10 @@ def test_thread_safe_gethostbyaddr():
     import threading
     nthreads = 10
     ip = '8.8.8.8'
-    lock = threading.Lock()
-    domain = gethostbyaddr(ip, lock)[0]
+    domain = gethostbyaddr(ip)[0]
     result = [0] * nthreads
     threads = [None] * nthreads
+    lock = threading.Lock()
     def lookup_addr(ip, i):
         name, aliases, address_list = gethostbyaddr(ip, lock)
         if name == domain:

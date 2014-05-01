@@ -42,7 +42,7 @@ def gethostbyname_ex(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    lock = space.fromcache(State).gethostbyxxx_lock
+    lock = space.fromcache(State).netdb_lock
     try:
         res = rsocket.gethostbyname_ex(host, lock)
     except SocketError, e:
@@ -56,7 +56,7 @@ def gethostbyaddr(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    lock = space.fromcache(State).gethostbyxxx_lock
+    lock = space.fromcache(State).netdb_lock
     try:
         res = rsocket.gethostbyaddr(host, lock)
     except SocketError, e:
@@ -315,8 +315,7 @@ def setdefaulttimeout(space, w_timeout):
 
 class State(object):
     def __init__(self, space):
-        self.gethostbyxxx_lock = None
+        self.netdb_lock = None
 
-    def alloc_lock(self, space):
-        self.gethostbyxxx_lock = space.allocate_lock()
-
+    def startup(self, space):
+        self.netdb_lock = space.allocate_lock()
