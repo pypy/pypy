@@ -1,3 +1,5 @@
 This libmpdec directory was directly copied from CPython.
 
-pyconfig.h was added, with a default configuration which works on Linux.
+- pyconfig.h was added, with a default configuration which works on Linux.
+
+- in mpdecimal.h the "MPD_HIDE_SYMBOLS" pragmas have been disabled.

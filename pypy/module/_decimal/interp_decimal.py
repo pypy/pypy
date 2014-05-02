@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
 
 
 IEEE_CONTEXT_MAX_BITS = rmpdec.MPD_IEEE_CONTEXT_MAX_BITS
+MAX_PREC = rmpdec.MPD_MAX_PREC
 
 class W_Decimal(W_Root):
     pass

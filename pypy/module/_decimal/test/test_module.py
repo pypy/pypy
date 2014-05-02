@@ -25,6 +25,20 @@ class AppTestDecimalModule:
         bases = type(flags).__bases__
         assert bases[1] is MutableMapping
 
+    def test_context_changes(self):
+        import _decimal
+        context = _decimal.getcontext()
+        context.prec
+        context.prec = 30
+        context.rounding
+        context.rounding = _decimal.ROUND_HALF_UP
+        context.Emin
+        context.Emin = -100
+        context.Emax
+        context.Emax = 100
+        context.clamp
+        context.clamp = 1
+
     def test_exceptions(self):
         import _decimal
         for name in ('Clamped', 'Rounded', 'Inexact', 'Subnormal',

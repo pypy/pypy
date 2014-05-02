@@ -12,10 +12,10 @@ class Module(MixedModule):
         'setcontext': 'interp_context.setcontext',
 
         'IEEE_CONTEXT_MAX_BITS': 'space.wrap(interp_decimal.IEEE_CONTEXT_MAX_BITS)',
+        'MAX_PREC': 'space.wrap(interp_decimal.MAX_PREC)',
         }
     for name in rmpdec.ROUND_CONSTANTS:
-        interpleveldefs[name] = 'space.wrap(%r)' % (
-            getattr(rmpdec, 'MPD_' + name),)
+        interpleveldefs[name] = 'space.wrap(%r)' % name
     for name in ('DecimalException', 'Clamped', 'Rounded', 'Inexact',
                  'Subnormal', 'Underflow', 'Overflow', 'DivisionByZero',
                  'InvalidOperation', 'FloatOperation'):

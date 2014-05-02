@@ -86,7 +86,8 @@ extern "C" {
 
 /* This header file is internal for the purpose of building _decimal.so.
  * All symbols should have local scope in the DSO. */
-MPD_PRAGMA(MPD_HIDE_SYMBOLS_START)
+/* Removed for PyPy */
+// MPD_PRAGMA(MPD_HIDE_SYMBOLS_START)
 
 
 #if !defined(LEGACY_COMPILER)
@@ -807,7 +808,8 @@ int mpd_resize(mpd_t *result, mpd_ssize_t size, mpd_context_t *ctx);
 int mpd_resize_zero(mpd_t *result, mpd_ssize_t size, mpd_context_t *ctx);
 
 
-MPD_PRAGMA(MPD_HIDE_SYMBOLS_END) /* restore previous scope rules */
+/* Removed for PyPy */
+// MPD_PRAGMA(MPD_HIDE_SYMBOLS_END) /* restore previous scope rules */
 
 
 #ifdef __cplusplus
