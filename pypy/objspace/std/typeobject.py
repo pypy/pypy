@@ -479,7 +479,7 @@ class W_TypeObject(W_Object):
             return self.getdictvalue(space, '__module__')
         else:
             dot = self.name.find('.')
-            if dot != -1:
+            if dot >= 0:
                 mod = self.name[:dot]
             else:
                 mod = "__builtin__"
@@ -490,7 +490,7 @@ class W_TypeObject(W_Object):
             return self.name
         else:
             dot = self.name.find('.')
-            if dot != -1:
+            if dot >= 0:
                 return self.name[dot+1:]
             else:
                 return self.name
