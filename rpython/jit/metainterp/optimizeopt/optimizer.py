@@ -351,7 +351,7 @@ class Optimization(object):
         arg_consts = []
         for i in range(op.numargs()):
             arg = op.getarg(i)
-            const = self.get_constant_box(arg)
+            const = self.optimizer.get_constant_box(arg)
             if const is None:
                 return None
             arg_consts.append(const)

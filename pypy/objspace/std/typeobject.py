@@ -487,11 +487,12 @@ class W_TypeObject(W_Object):
 
     def get_module_type_name(w_self):
         space = w_self.space
-        w_mod = w_self.get_module()
-        if space.isinstance_w(w_mod, space.w_unicode):
-            mod = space.unicode_w(w_mod)
-            if mod != u'builtins':
-                return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
+        if not w_self.is_heaptype():
+            w_mod = w_self.get_module()
+            if space.isinstance_w(w_mod, space.w_unicode):
+                mod = space.unicode_w(w_mod)
+                if mod != u'builtins':
+                    return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
         return w_self.name.decode('utf-8')
 
     def getname(w_self, space):
@@ -631,7 +632,10 @@ def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
-    w_type.name = space.str_w(w_value)
+    name = space.str_w(w_value)
+    if '\x00' in name:
+        raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
+    w_type.name = name
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)

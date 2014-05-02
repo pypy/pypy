@@ -43,7 +43,7 @@ class AppTestCProfile(object):
         )
         by_id = set()
         for entry in stats:
-            if entry.code == f1.func_code:
+            if entry.code == f1.__code__:
                 assert len(entry.calls) == 2
                 for subentry in entry.calls:
                     assert subentry.code in expected
@@ -219,10 +219,10 @@ class AppTestCProfile(object):
                             lines.remove(line)
                             break
                     else:
-                        print('NOT FOUND:', pattern.rstrip('\n'))
+                        print('NOT FOUND: %s' % pattern.rstrip('\n'))
                         print('--- GOT ---')
                         print(got)
-                        print()
+                        print('')
                         print('--- EXPECTED ---')
                         print(expected)
                         assert False

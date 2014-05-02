@@ -492,13 +492,15 @@ class W_NDIter(W_Root):
              w_op_dtypes=WrappedDefault(None), order=str,
              w_casting=WrappedDefault(None), w_op_axes=WrappedDefault(None),
              w_itershape=WrappedDefault(None), w_buffersize=WrappedDefault(None))
-def nditer(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-           w_itershape, w_buffersize, order='K'):
+def descr__new__(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
+                 w_casting, w_op_axes, w_itershape, w_buffersize, order='K'):
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                     w_itershape, w_buffersize, order)
 
-W_NDIter.typedef = TypeDef(
-    'nditer',
+W_NDIter.typedef = TypeDef('nditer',
+    __module__ = 'numpy',
+    __new__ = interp2app(descr__new__),
+
     __iter__ = interp2app(W_NDIter.descr_iter),
     __getitem__ = interp2app(W_NDIter.descr_getitem),
     __setitem__ = interp2app(W_NDIter.descr_setitem),
@@ -530,3 +532,4 @@ W_NDIter.typedef = TypeDef(
     shape = GetSetProperty(W_NDIter.descr_get_shape),
     value = GetSetProperty(W_NDIter.descr_get_value),
 )
+W_NDIter.typedef.acceptable_as_base_class = False

@@ -18,17 +18,18 @@ You can download the PyPy 2.3 release here:
     http://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
-project. We showed quite a bit of progress on all three projects (see below)
-and we're slowly running out of funds.
-Please consider donating more so we can finish those projects!  The three
-projects are:
+project, and for those who donate to our three sub-projects.
+We showed quite a bit of progress 
+but we're slowly running out of funds.
+Please consider donating more, or even better convince your employer to donate,
+so we can finish those projects!  The three sub-projects are:
 
 * `Py3k`_ (supporting Python 3.x): the release PyPy3 2.2 is imminent.
 
 * `STM`_ (software transactional memory): a preview will be released very soon,
   once we fix a few bugs
 
-* `NumPy`_ the work done is included in the PyPy 2.2 release. More details below.
+* `NumPy`_ which is included in the PyPy 2.3 release. More details below.
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
@@ -44,8 +45,8 @@ What is PyPy?
 =============
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
-CPython 2.7. It's fast (`pypy 2.2 and cpython 2.7.2`_ performance comparison;
-note that the latest cpython is not faster than cpython 2.7.2)
+CPython 2.7. It's fast (`pypy 2.3 and cpython 2.7.x`_ performance comparison;
+note that cpython's speed has not changed since 2.7.2)
 due to its integrated tracing JIT compiler.
 
 This release supports x86 machines running Linux 32/64, Mac OS X 64, Windows,
@@ -56,13 +57,13 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`pypy 2.2 and cpython 2.7.2`: http://speed.pypy.org
+.. _`pypy 2.3 and cpython 2.7.x`: http://speed.pypy.org
 .. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
 
-Bugfixes
+Bugfixes 
 --------
 
 Many issues were cleaned up after being reported by users to https://bugs.pypy.org (ignore the bad SSL certificate) or on IRC at #pypy. Note that we consider
@@ -71,7 +72,7 @@ performance slowdowns as bugs.
 * The ARM port no longer crashes on unaligned memory access to floats and doubles,
   and singlefloats are supported in the JIT.
 
-* Generators are faster since they now skip unecessary cleanup
+* Generators are faster since they now skip unnecessary cleanup
 
 * A first time contributor simplified JIT traces by adding integer bound
   propagation in indexing and logical operations.
@@ -83,6 +84,8 @@ performance slowdowns as bugs.
 * Fix issues with reimporting builtin modules
 
 * Fix a rpython bug with loop-unrolling that appeared in the `HippyVM`_ PHP port
+
+* Support for corner cases on objects with __int__ and __float__ methods
 
 .. _`HippyVM`: http://www.hippyvm.com
 
@@ -96,8 +99,6 @@ New Platforms and Features
   interpreter, and rpython is seeing use in other dynamic language projects.
 
 * Support for precompiled headers in the build process for MSVC
-
-* Support for objects with __int__ and __float__ methods
 
 * Tweak support of errno in cpyext (the PyPy implemenation of the capi)
 
@@ -127,8 +128,12 @@ You need to install NumPy separately with a virtualenv:
 * A cffi-based ``numpy.random`` module is available as a branch in the numpy
   repository, it will be merged soon after this release.
 
-* enhancements to the PyPy JIT were made to support virtualizing the raw_store/raw_load memory operations used in numpy arrays. Further work remains here in virtualizing the alloc_raw_storage when possible. This will allow scalars to have storages but still be virtualized when possible in loops.
+* enhancements to the PyPy JIT were made to support virtualizing the raw_store/raw_load 
+  memory operations used in numpy arrays. Further work remains here in virtualizing the 
+  alloc_raw_storage when possible. This will allow scalars to have storages but still be 
+  virtualized when possible in loops.
 
 Cheers
+
 The PyPy Team
 

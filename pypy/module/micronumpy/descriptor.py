@@ -131,12 +131,13 @@ class W_Dtype(W_Root):
         return dtype
 
     def get_name(self):
-        return self.w_box_type.name
+        name = self.w_box_type.name
+        if name.endswith('_'):
+            name = name[:-1]
+        return name
 
     def descr_get_name(self, space):
         name = self.get_name()
-        if name[-1] == '_':
-            name = name[:-1]
         if self.is_flexible() and self.elsize != 0:
             return space.wrap(name + str(self.elsize * 8))
         return space.wrap(name)
@@ -820,7 +821,7 @@ class DtypeCache(object):
             w_box_type=space.gettypefor(boxes.W_ULongBox),
         )
         aliases = {
-            NPY.BOOL:        ['bool', 'bool8'],
+            NPY.BOOL:        ['bool_', 'bool8'],
             NPY.BYTE:        ['byte'],
             NPY.UBYTE:       ['ubyte'],
             NPY.SHORT:       ['short'],
@@ -835,8 +836,8 @@ class DtypeCache(object):
             NPY.CFLOAT:      ['csingle'],
             NPY.CDOUBLE:     ['complex', 'cfloat', 'cdouble'],
             NPY.CLONGDOUBLE: ['clongdouble', 'clongfloat'],
-            NPY.STRING:      ['string', 'str'],
-            NPY.UNICODE:     ['unicode'],
+            NPY.STRING:      ['string_', 'str'],
+            NPY.UNICODE:     ['unicode_'],
         }
         self.alternate_constructors = {
             NPY.BOOL:     [space.w_bool],
