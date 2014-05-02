@@ -313,6 +313,11 @@ class AppTestSocket:
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
 
+    def test_module(self):
+        import _socket
+        assert _socket.socket.__name__ == 'socket'
+        assert _socket.socket.__module__ == '_socket'
+
     def test_ntoa_exception(self):
         import _socket
         raises(_socket.error, _socket.inet_ntoa, "ab")

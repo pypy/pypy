@@ -606,25 +606,34 @@ clip_driver = jit.JitDriver(name='numpy_clip_driver',
                             reds = 'auto')
 
 def clip(space, arr, shape, min, max, out):
+    assert min or max
     arr_iter, arr_state = arr.create_iter(shape)
-    dtype = out.get_dtype()
-    shapelen = len(shape)
-    min_iter, min_state = min.create_iter(shape)
-    max_iter, max_state = max.create_iter(shape)
+    if min is not None:
+        min_iter, min_state = min.create_iter(shape)
+    else:
+        min_iter, min_state = None, None
+    if max is not None:
+        max_iter, max_state = max.create_iter(shape)
+    else:
+        max_iter, max_state = None, None
     out_iter, out_state = out.create_iter(shape)
+    shapelen = len(shape)
+    dtype = out.get_dtype()
     while not arr_iter.done(arr_state):
         clip_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
         w_v = arr_iter.getitem(arr_state).convert_to(space, dtype)
-        w_min = min_iter.getitem(min_state).convert_to(space, dtype)
-        w_max = max_iter.getitem(max_state).convert_to(space, dtype)
-        if dtype.itemtype.lt(w_v, w_min):
-            w_v = w_min
-        elif dtype.itemtype.gt(w_v, w_max):
-            w_v = w_max
-        out_iter.setitem(out_state, w_v)
         arr_state = arr_iter.next(arr_state)
-        min_state = min_iter.next(min_state)
-        max_state = max_iter.next(max_state)
+        if min_iter is not None:
+            w_min = min_iter.getitem(min_state).convert_to(space, dtype)
+            if dtype.itemtype.lt(w_v, w_min):
+                w_v = w_min
+            min_state = min_iter.next(min_state)
+        if max_iter is not None:
+            w_max = max_iter.getitem(max_state).convert_to(space, dtype)
+            if dtype.itemtype.gt(w_v, w_max):
+                w_v = w_max
+            max_state = max_iter.next(max_state)
+        out_iter.setitem(out_state, w_v)
         out_state = out_iter.next(out_state)
 
 round_driver = jit.JitDriver(name='numpy_round_driver',

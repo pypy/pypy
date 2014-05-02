@@ -3,6 +3,19 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestNDIter(BaseNumpyAppTest):
+    def test_type(self):
+        import numpy as np
+        assert type(np.nditer) is type
+        assert np.nditer.__name__ == 'nditer'
+        assert np.nditer.__module__ == 'numpy'
+        try:
+            class Sub(np.nditer):
+                pass
+        except TypeError as e:
+            assert "not an acceptable base" in str(e)
+        else:
+            assert False
+
     def test_basic(self):
         from numpy import arange, nditer, ndarray
         a = arange(6).reshape(2,3)

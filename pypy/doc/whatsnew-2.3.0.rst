@@ -161,3 +161,7 @@ Improve optimization of small allocation-heavy loops in the JIT
 
 .. branch: refactor-buffer-api
 Properly implement old/new buffer API for objects and start work on replacing bufferstr usage
+
+.. branch: issue1430
+Add a lock for unsafe calls to gethostbyname and gethostbyaddr
+

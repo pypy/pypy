@@ -4352,5 +4352,5 @@ class LLtypeBackendTest(BaseBackendTest):
         if not self.cpu.supports_singlefloats:
             py.test.skip("requires singlefloats")
         res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
-                                   [BoxFloat(12.5)], 'int')
+                                   [boxfloat(12.5)], 'int')
         assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]

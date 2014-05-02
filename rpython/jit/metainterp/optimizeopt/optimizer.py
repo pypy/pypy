@@ -347,6 +347,21 @@ class Optimization(object):
     def forget_numberings(self, box):
         self.optimizer.forget_numberings(box)
 
+    def _can_optimize_call_pure(self, op):
+        arg_consts = []
+        for i in range(op.numargs()):
+            arg = op.getarg(i)
+            const = self.optimizer.get_constant_box(arg)
+            if const is None:
+                return None
+            arg_consts.append(const)
+        else:
+            # all constant arguments: check if we already know the result
+            try:
+                return self.optimizer.call_pure_results[arg_consts]
+            except KeyError:
+                return None
+
 
 class Optimizer(Optimization):
 

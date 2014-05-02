@@ -16,7 +16,7 @@ class Module(MixedModule):
         '_register_class'        : 'interp_cppyy.register_class',
         '_is_static'             : 'interp_cppyy.is_static',
         '_get_nullptr'           : 'interp_cppyy.get_nullptr',
-        'CPPInstance'            : 'interp_cppyy.W_CPPInstance',
+        'CPPInstanceBase'        : 'interp_cppyy.W_CPPInstance',
         'addressof'              : 'interp_cppyy.addressof',
         'bind_object'            : 'interp_cppyy.bind_object',
     }
@@ -25,7 +25,7 @@ class Module(MixedModule):
         '_init_pythonify'        : 'pythonify._init_pythonify',
         'load_reflection_info'   : 'pythonify.load_reflection_info',
         'add_pythonization'      : 'pythonify.add_pythonization',
-        'Template'               : 'pythonify.CppyyTemplateType',
+        'Template'               : 'pythonify.CPPTemplate',
     }
 
     def __init__(self, space, *args):
