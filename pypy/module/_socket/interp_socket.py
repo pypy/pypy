@@ -612,7 +612,8 @@ for methodname in socketmethodnames:
     method = getattr(W_RSocket, methodname + '_w')
     socketmethods[methodname] = interp2app(method)
 
-W_RSocket.typedef = TypeDef("_socket.socket",
+W_RSocket.typedef = TypeDef("socket",
+    __module__ = "_socket",
     __doc__ = """\
 socket([family[, type[, proto]]]) -> socket object
 

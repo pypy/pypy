@@ -1,3 +1,4 @@
+import string
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -28,9 +29,11 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
     if not space.is_none(out):
         return out
-    dtype = w_arr_list[0].get_dtype()
-    for w_arr in w_arr_list[1:]:
-        dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    dtype = None
+    for w_arr in w_arr_list:
+        if not space.is_none(w_arr):
+            dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    assert dtype is not None
     out = base.W_NDimArray.from_shape(space, shape, dtype)
     return out
 
@@ -469,6 +472,23 @@ def dtype_from_spec(space, w_spec):
         return dtype_from_list(space, w_lst, True)
 
 
+def _check_for_commastring(s):
+    if s[0] in string.digits or s[0] in '<>=|' and s[1] in string.digits:
+        return True
+    if s[0] == '(' and s[1] == ')' or s[0] in '<>=|' and s[1] == '(' and s[2] == ')':
+        return True
+    sqbracket = 0
+    for c in s:
+        if c == ',':
+            if sqbracket == 0:
+                return True
+        elif c == '[':
+            sqbracket += 1
+        elif c == ']':
+            sqbracket -= 1
+    return False
+
+
 def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
     # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
@@ -498,7 +518,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         return w_dtype
     elif space.isinstance_w(w_dtype, space.w_unicode):
         name = space.str_w(w_dtype)
-        if ',' in name:
+        if _check_for_commastring(name):
             return dtype_from_spec(space, w_dtype)
         cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
@@ -509,7 +529,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             if name[0] == NPY.OPPBYTE:
                 dtype = dtype.descr_newbyteorder(space)
             return dtype
-        if name[0] in 'VSUc' or name[0] in '<>=|' and name[1] in 'VSUc':
+        if name[0] in 'VSUca' or name[0] in '<>=|' and name[1] in 'VSUca':
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
@@ -590,7 +610,7 @@ def variable_dtype(space, name):
             raise oefmt(space.w_TypeError, "data type not understood")
     if char == NPY.CHARLTR:
         return new_string_dtype(space, 1, NPY.CHARLTR)
-    elif char == NPY.STRINGLTR:
+    elif char == NPY.STRINGLTR or char == NPY.STRINGLTR2:
         return new_string_dtype(space, size)
     elif char == NPY.UNICODELTR:
         return new_unicode_dtype(space, size)

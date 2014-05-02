@@ -148,4 +148,7 @@ class AppTestTermios(object):
 
     def test_error_tcsetattr(self):
         import termios
-        raises(ValueError, termios.tcsetattr, 0, 1, (1, 2))
+        exc = raises(TypeError, termios.tcsetattr, 0, 1, (1, 2))
+        assert str(exc.value) == "tcsetattr, arg 3: must be 7 element list"
+        exc = raises(TypeError, termios.tcsetattr, 0, 1, (1, 2, 3, 4, 5, 6, 7))
+        assert str(exc.value) == "tcsetattr, arg 3: must be 7 element list"

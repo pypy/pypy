@@ -1095,9 +1095,9 @@ class AppTestFfi:
 
         b = memoryview(a)
         assert len(b) == 10
-        assert b[3] == 'z'
-        b[3] = 'x'
-        assert b[3] == 'x'
+        assert b[3] == b'z'
+        b[3] = b'x'
+        assert b[3] == b'x'
 
     def test_union(self):
         import _rawffi

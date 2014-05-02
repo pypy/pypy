@@ -488,14 +488,11 @@ class W_TypeObject(W_Object):
     def get_module_type_name(w_self):
         space = w_self.space
         w_mod = w_self.get_module()
-        if not space.isinstance_w(w_mod, space.w_unicode):
-            mod = u'builtins'
-        else:
+        if space.isinstance_w(w_mod, space.w_unicode):
             mod = space.unicode_w(w_mod)
-        if mod != u'builtins':
-            return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
-        else:
-            return w_self.name.decode('utf-8')
+            if mod != u'builtins':
+                return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
+        return w_self.name.decode('utf-8')
 
     def getname(w_self, space):
         name = w_self.name

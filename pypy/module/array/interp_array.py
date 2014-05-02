@@ -494,6 +494,9 @@ class W_ArrayBase(W_Root):
             return
         return self.delitem(space, start, stop)
 
+    def descr_iter(self, space):
+        return space.newseqiter(self)
+
     def descr_add(self, space, w_other):
         raise NotImplementedError
 
@@ -545,6 +548,7 @@ W_ArrayBase.typedef = TypeDef(
     __getitem__ = interp2app(W_ArrayBase.descr_getitem),
     __setitem__ = interp2app(W_ArrayBase.descr_setitem),
     __delitem__ = interp2app(W_ArrayBase.descr_delitem),
+    __iter__ = interp2app(W_ArrayBase.descr_iter),
 
     __add__ = interpindirect2app(W_ArrayBase.descr_add),
     __iadd__ = interpindirect2app(W_ArrayBase.descr_inplace_add),

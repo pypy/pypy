@@ -349,9 +349,13 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
-@specialize.memo()
+
+class ClearedOpErr:
+    def __init__(self, space):
+        self.operr = OperationError(space.w_None, space.w_None)
+
 def get_cleared_operation_error(space):
-    return OperationError(space.w_None, space.w_None)
+    return space.fromcache(ClearedOpErr).operr
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
@@ -409,14 +413,14 @@ def get_operrcls2(valuefmt):
                     value = getattr(self, attr)
                     if fmt == 'd':
                         result = str(value).decode('ascii')
-                    elif fmt == '8':
-                        result = value.decode('utf-8')
                     elif fmt == 'R':
                         result = space.unicode_w(space.repr(value))
-                    elif fmt in 'NT':
-                        if fmt == 'T':
-                            value = space.type(value)
+                    elif fmt == 'T':
+                        result = space.type(value).get_module_type_name()
+                    elif fmt == 'N':
                         result = value.getname(space)
+                    elif fmt == '8':
+                        result = value.decode('utf-8')
                     else:
                         result = unicode(value)
                     lst[i + i + 1] = result
@@ -457,7 +461,7 @@ def oefmt(w_type, valuefmt, *args):
     %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
     %R - The result of space.unicode_w(space.repr(w_arg))
-    %T - The result of space.type(w_arg).getname(space)
+    %T - The result of space.type(w_arg).get_module_type_name()
 
     """
     if not len(args):

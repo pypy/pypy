@@ -583,7 +583,7 @@ bound using::
   Special care needs to be taken for global operator overloads in C++: first,
   make sure that they are actually reflected, especially for the global
   overloads for ``operator==`` and ``operator!=`` of STL vector iterators in
-  the case of gcc (note that they are not needed to iterator over a vector).
+  the case of gcc (note that they are not needed to iterate over a vector).
   Second, make sure that reflection info is loaded in the proper order.
   I.e. that these global overloads are available before use.
 

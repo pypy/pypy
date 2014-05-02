@@ -1,5 +1,4 @@
 class AppTestMap:
-
     def test_trivial_map_one_seq(self):
         assert list(map(lambda x: x+2, [1, 2, 3, 4])) == [3, 4, 5, 6]
 
@@ -105,6 +104,7 @@ class AppTestMap2:
         raises(TypeError, map, bool)
         raises(TypeError, map, 42)
 
+
 class AppTestZip:
     def test_one_list(self):
         assert list(zip([1,2,3])) == [(1,), (2,), (3,)]
@@ -123,6 +123,7 @@ class AppTestZip:
 
     def test_repr(self):
         assert repr(zip([1,2,3], [1,2], [1,2,3])).startswith('<zip object ')
+
 
 class AppTestFilter:
     def test_None(self):
@@ -463,6 +464,7 @@ class AppTestReversed:
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
 
+
 class AppTestAllAny:
     """
     These are copied directly and replicated from the Python 2.5 source code.
@@ -511,6 +513,7 @@ class AppTestAllAny:
         assert any([x > 42 for x in S]) == True
         S = [10, 20, 30]
         assert any([x > 42 for x in S]) == False
+
 
 class AppTestMinMax:
     def test_min(self):

@@ -462,6 +462,7 @@ W_Range.typedef = TypeDef("range",
 )
 W_Range.typedef.acceptable_as_base_class = False
 
+
 class W_RangeIterator(W_Root):
     def __init__(self, space, w_start, w_step, w_len, w_index=None):
         self.w_start = w_start

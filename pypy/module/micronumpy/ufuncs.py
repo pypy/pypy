@@ -477,6 +477,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         promote_bools=False):
     if dt2 is None:
         return dt1
+    if dt1 is None:
+        return dt2
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
