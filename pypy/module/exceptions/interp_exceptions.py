@@ -244,7 +244,7 @@ def _new_exception(name, base, docstring, **kwargs):
     for k, v in kwargs.items():
         kwargs[k] = interp2app(v.__get__(None, realbase))
     W_Exc.typedef = TypeDef(
-        name,
+        'exceptions.' + name,
         base.typedef,
         __doc__ = W_Exc.__doc__,
         __module__ = 'exceptions',

@@ -485,16 +485,6 @@ class W_TypeObject(W_Object):
                 mod = "__builtin__"
             return space.wrap(mod)
 
-    def get_module_type_name(w_self):
-        space = w_self.space
-        if not w_self.is_heaptype():
-            w_mod = w_self.get_module()
-            if space.isinstance_w(w_mod, space.w_str):
-                mod = space.str_w(w_mod)
-                if mod != '__builtin__':
-                    return '%s.%s' % (mod, w_self.name)
-        return w_self.name
-
     def getname(self, space):
         if self.is_heaptype():
             return self.name
@@ -1113,7 +1103,7 @@ def repr__Type(space, w_obj):
     else:
         kind = 'class'
     if mod is not None and mod != '__builtin__':
-        return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
+        return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.getname(space)))
     else:
         return space.wrap("<%s '%s'>" % (kind, w_obj.name))
 
