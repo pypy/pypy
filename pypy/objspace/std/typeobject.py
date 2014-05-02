@@ -634,7 +634,10 @@ def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
-    w_type.name = space.str_w(w_value)
+    name = space.str_w(w_value)
+    if '\x00' in name:
+        raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
+    w_type.name = name
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
