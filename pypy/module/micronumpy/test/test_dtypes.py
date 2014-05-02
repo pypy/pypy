@@ -47,6 +47,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d.kind == 'b'
         assert dtype(d) is d
         assert dtype('bool') is d
+        assert dtype('bool_') is d
         assert dtype('|b1') is d
         b = '>' if sys.byteorder == 'little' else '<'
         assert dtype(b + 'i4') is not dtype(b + 'i4')
@@ -63,10 +64,12 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype(int).names is None
         assert dtype(int).hasobject is False
         assert dtype(int).subdtype is None
+        assert dtype(str) is dtype('string') is dtype('string_')
+        assert dtype(unicode) is dtype('unicode') is dtype('unicode_')
 
         assert dtype(None) is dtype(float)
 
-        for d in [dtype('<c8'), dtype('>i4')]:
+        for d in [dtype('<c8'), dtype('>i4'), dtype('bool')]:
             for key in ["d[2]", "d['z']", "d[None]"]:
                 exc = raises(KeyError, key)
                 assert exc.value[0] == "There are no fields in dtype %s." % str(d)
