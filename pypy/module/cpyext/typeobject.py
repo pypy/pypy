@@ -513,7 +513,7 @@ def type_attach(space, py_obj, w_type):
         from pypy.module.cpyext.stringobject import PyString_AsString
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
-        pto.c_tp_name = rffi.str2charp(w_type.getname(space))
+        pto.c_tp_name = rffi.str2charp(w_type.name)
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
     # uninitialized fields:

@@ -6,6 +6,7 @@ from pypy.interpreter.function import ClassMethod, Method, StaticMethod
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp_attrproperty_w)
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
@@ -158,7 +159,9 @@ class W_PyCWrapperObject(W_Root):
         self.doc = doc
         self.func = func
         pyo = rffi.cast(PyObject, pto)
-        self.w_objclass = from_ref(space, pyo)
+        w_type = from_ref(space, pyo)
+        assert isinstance(w_type, W_TypeObject)
+        self.w_objclass = w_type
 
     def call(self, space, w_self, w_args, w_kw):
         if self.wrapper_func is None:
