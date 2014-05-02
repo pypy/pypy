@@ -495,11 +495,15 @@ class W_TypeObject(W_Object):
                     return '%s.%s' % (mod, w_self.name)
         return w_self.name
 
-    def getname(w_self, space):
-        name = w_self.name
-        if name is None:
-            name = '?'
-        return name
+    def getname(self, space):
+        if self.is_heaptype():
+            return self.name
+        else:
+            dot = self.name.find('.')
+            if dot != -1:
+                return self.name[dot+1:]
+            else:
+                return self.name
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
