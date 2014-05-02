@@ -473,19 +473,17 @@ class W_TypeObject(W_Object):
                 return res
         return _issubtype(w_self, w_type)
 
-    def get_module(w_self):
-        space = w_self.space
-        if w_self.is_heaptype() and w_self.getdictvalue(space, '__module__') is not None:
-            return w_self.getdictvalue(space, '__module__')
+    def get_module(self):
+        space = self.space
+        if self.is_heaptype():
+            return self.getdictvalue(space, '__module__')
         else:
-            # for non-heap types, CPython checks for a module.name in the
-            # type name.  That's a hack, so we're allowed to use a different
-            # hack...
-            if ('__module__' in w_self.dict_w and
-                space.isinstance_w(w_self.getdictvalue(space, '__module__'),
-                                               space.w_str)):
-                return w_self.getdictvalue(space, '__module__')
-            return space.wrap('__builtin__')
+            dot = self.name.find('.')
+            if dot != -1:
+                mod = self.name[:dot]
+            else:
+                mod = "__builtin__"
+            return space.wrap(mod)
 
     def get_module_type_name(w_self):
         space = w_self.space
