@@ -7,6 +7,8 @@ test_dct = str(currpath.join("datatypesDict.so"))
 def setup_module(mod):
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
+    if sys.maxsize < 2 ** 31:
+        py.test.skip("32 bit not supported so far")
     err = os.system("cd '%s' && make datatypesDict.so" % currpath)
     if err:
         raise OSError("'make' failed (see stderr)")
@@ -30,7 +32,7 @@ class AppTestDATATYPES:
     def test02_instance_data_read_access(self):
         """Test read access to instance public data and verify values"""
 
-        import cppyy, sys
+        import cppyy
         cppyy_test_data = cppyy.gbl.cppyy_test_data
 
         c = cppyy_test_data()
@@ -117,7 +119,7 @@ class AppTestDATATYPES:
     def test03_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
 
-        import cppyy, sys
+        import cppyy
         cppyy_test_data = cppyy.gbl.cppyy_test_data
 
         c = cppyy_test_data()
@@ -489,14 +491,14 @@ class AppTestDATATYPES:
 
         import cppyy
         four_vector = cppyy.gbl.four_vector
-        
+
         t1 = four_vector(1., 2., 3., -4.)
         t2 = four_vector(0., 0., 0.,  0.)
         t3 = four_vector(t1)
-  
+
         assert t1 == t3
         assert t1 != t2
-        
+
         for i in range(4):
             assert t1[i] == t3[i]
 
@@ -625,8 +627,8 @@ class AppTestDATATYPES:
 
     def test18_object_and_pointer_comparisons(self):
         """Verify object and pointer comparisons"""
-    
-        import cppyy 
+
+        import cppyy
         gbl = cppyy.gbl
 
         c1 = cppyy.bind_object(0, gbl.cppyy_test_data)
@@ -662,11 +664,11 @@ class AppTestDATATYPES:
 
     def test19_object_validity(self):
         """Test object validity checking"""
-        
+
         from cppyy import gbl
 
         d = gbl.cppyy_test_pod()
-                     
+
         assert d
         assert not not d
 
