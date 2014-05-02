@@ -43,7 +43,7 @@ class AppTestCProfile(object):
         )
         by_id = set()
         for entry in stats:
-            if entry.code == f1.func_code:
+            if entry.code == f1.__code__:
                 assert len(entry.calls) == 2
                 for subentry in entry.calls:
                     assert subentry.code in expected
@@ -144,8 +144,8 @@ class AppTestCProfile(object):
         entries = {}
         for entry in stats:
             entries[entry.code] = entry
-        efoo = entries[foo.func_code]
-        ebar = entries[bar.func_code]
+        efoo = entries[foo.__code__]
+        ebar = entries[bar.__code__]
         assert 0.9 < efoo.totaltime < 2.9
         # --- cannot test .inlinetime, because it does not include
         # --- the time spent doing the call to time.time()
