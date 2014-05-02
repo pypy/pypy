@@ -174,7 +174,7 @@ class W_PyCWrapperObject(W_Root):
     def descr_method_repr(self):
         return self.space.wrap("<slot wrapper '%s' of '%s' objects>" %
                                (self.method_name,
-                                self.w_objclass.getname(self.space)))
+                                self.w_objclass.name))
 
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)
