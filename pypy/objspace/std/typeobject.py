@@ -1098,7 +1098,7 @@ def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
-    if not space.isinstance_w(w_mod, space.w_str):
+    if w_mod is None or not space.isinstance_w(w_mod, space.w_str):
         mod = None
     else:
         mod = space.str_w(w_mod)
