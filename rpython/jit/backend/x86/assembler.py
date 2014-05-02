@@ -395,10 +395,6 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         #
         if not for_frame:
-            if self.cpu.gc_ll_descr.stm:
-                assert IS_X86_64
-                mc.PUSH_r(X86_64_SCRATCH_REG.value)
-            #
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
             #
             if self.cpu.gc_ll_descr.stm:
@@ -407,7 +403,7 @@ class Assembler386(BaseAssembler):
                 # current 'stm_location' so that it is found.  The easiest
                 # is to simply push it on the shadowstack, from its source
                 # location as two extra arguments on the machine stack
-                # (at this point containing: [ref][retaddr][num][obj]...)
+                # (at this point containing: [retaddr][ref][num][obj]...)
                 # XXX this should also be done if 'for_frame' is true...
                 mc.MOV(esi, self.heap_shadowstack_top())
                 mc.MOV_rs(edi.value, 2 * WORD)   # [num]
@@ -416,9 +412,8 @@ class Assembler386(BaseAssembler):
                 mc.LEA_ra(edi.value, (self.SEGMENT_NO, rx86.NO_BASE_REGISTER,
                                       edi.value, 1, +1))
                 mc.MOV_mr((self.SEGMENT_NO, esi.value, 0), edi.value)
-                mc.MOV_rs(edi.value, 0 * WORD)   # [ref]
+                mc.MOV_rs(edi.value, 1 * WORD)   # [ref]
                 mc.MOV_mr((self.SEGMENT_NO, esi.value, WORD), edi.value)
-                mc.MOV_sr(0 * WORD, esi.value)   # save org shadowstack_top
                 mc.LEA_rm(esi.value, (self.SEGMENT_NO, esi.value, 2 * WORD))
                 mc.MOV(self.heap_shadowstack_top(), esi)
                 mc.MOV_rs(edi.value, 3 * WORD)   # [obj]
@@ -466,13 +461,17 @@ class Assembler386(BaseAssembler):
         #
 
         if not for_frame:
+            if self.cpu.gc_ll_descr.stm:
+                # SUB touches CPU flags
+                mc.MOV(esi, self.heap_shadowstack_top())
+                mc.LEA_rm(esi.value, (self.SEGMENT_NO, esi.value, -2 * WORD))
+                mc.MOV(self.heap_shadowstack_top(), esi)
             if IS_X86_32:
                 # ADD touches CPU flags
                 mc.LEA_rs(esp.value, 2 * WORD)
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
             if self.cpu.gc_ll_descr.stm:
-                mc.POP(self.heap_shadowstack_top())
-                mc.RET16_i(2 * WORD)
+                mc.RET16_i(3 * WORD)
             else:
                 mc.RET16_i(WORD)
         else:
@@ -2269,7 +2268,7 @@ class Assembler386(BaseAssembler):
                 num, ref = extract_raw_stm_location(
                     self._regalloc.stm_location)
                 mc.PUSH(imm(rffi.cast(lltype.Signed, num)))
-                mc.MOV(X86_64_SCRATCH_REG, imm(rffi.cast(lltype.Signed, ref)))
+                mc.PUSH(imm(rffi.cast(lltype.Signed, ref)))
         if is_frame and align_stack:
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.CALL(imm(self.wb_slowpath[helper_num]))
