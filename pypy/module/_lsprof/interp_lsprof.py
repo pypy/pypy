@@ -215,7 +215,7 @@ def create_spec_for_function(space, w_func):
         module = space.unicode_w(w_func.w_module)
         if module != u'builtins':
             return u'<%s%s.%s>' % (pre, module, w_func.getname(space))
-    return '<%s%s>' % (pre, w_func.getname(space))
+    return u'<%s%s>' % (pre, w_func.getname(space))
 
 
 def create_spec_for_object(space, w_type):
