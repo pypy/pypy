@@ -441,7 +441,6 @@ def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
 
 W_Profiler.typedef = TypeDef(
     '_lsprof.Profiler',
-    __module__ = '_lsprof',
     __new__ = interp2app(descr_new_profile),
     enable = interp2app(W_Profiler.enable),
     disable = interp2app(W_Profiler.disable),
