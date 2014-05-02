@@ -517,9 +517,6 @@ class W_ArrayBase(W_Root):
 
     # Misc methods
 
-    def descr_iter(self, space):
-        return space.wrap(ArrayIterator(self))
-
     def descr_repr(self, space):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -557,7 +554,6 @@ W_ArrayBase.typedef = TypeDef(
     __radd__ = interp2app(W_ArrayBase.descr_radd),
     __rmul__ = interp2app(W_ArrayBase.descr_rmul),
 
-    __iter__ = interp2app(W_ArrayBase.descr_iter),
     __repr__ = interp2app(W_ArrayBase.descr_repr),
 
     itemsize = GetSetProperty(descr_itemsize),
@@ -663,28 +659,6 @@ class ArrayBuffer(Buffer):
 
     def get_raw_address(self):
         return self.array._charbuf_start()
-
-
-class ArrayIterator(W_Root):
-    def __init__(self, array):
-        self.index = 0
-        self.array = array
-
-    def iter_w(self, space):
-        return space.wrap(self)
-        
-    def next_w(self, space):
-        if self.index < self.array.len:
-            w_value = self.array.w_getitem(space, self.index)
-            self.index += 1
-            return w_value
-        raise OperationError(space.w_StopIteration, space.w_None)
-
-ArrayIterator.typedef = TypeDef(
-    'arrayiterator',
-    __iter__ = interp2app(ArrayIterator.iter_w),
-    __next__ = interp2app(ArrayIterator.next_w),
-    )
 
 
 def make_array(mytype):
