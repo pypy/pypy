@@ -490,7 +490,6 @@ class W_ArrayBase(W_Root):
 W_ArrayBase.typedef = TypeDef(
     'array.array',
     __new__ = interp2app(w_array),
-    __module__ = 'array',
 
     __len__ = interp2app(W_ArrayBase.descr_len),
     __eq__ = interp2app(W_ArrayBase.descr_eq),
