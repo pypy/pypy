@@ -693,6 +693,9 @@ class FunctionGcRootTracker(object):
             return self.visit_ret(line)
         return []
 
+    def visit_ud2(self, line):
+        return InsnStop("ud2")    # unreachable instruction
+
     def visit_jmp(self, line):
         tablelabels = []
         match = self.r_jmp_switch.match(line)

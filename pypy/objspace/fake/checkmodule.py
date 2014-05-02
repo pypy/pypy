@@ -10,6 +10,7 @@ def checkmodule(*modnames):
         mod = __import__('pypy.module.%s' % modname, None, None, ['__doc__'])
         # force computation and record what we wrap
         module = mod.Module(space, W_Root())
+        module.startup(space)
         for name in module.loaders:
             seeobj_w.append(module._load_lazily(space, name))
         if hasattr(module, 'submodules'):

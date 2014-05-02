@@ -1123,6 +1123,8 @@ class UsingFrameworkTest(object):
             #
             fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0666)
             fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0666)
+            # try to ensure we get twice the exact same output below
+            gc.collect(); gc.collect(); gc.collect()
             rgc.dump_rpy_heap(fd1)
             rgc.dump_rpy_heap(fd2)      # try twice in a row
             keepalive_until_here(s2)
