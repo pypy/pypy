@@ -2,7 +2,7 @@ import py
 import sys
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.conftest import cdir
 
@@ -25,6 +25,7 @@ eci = ExternalCompilationInfo(
                            libdir.join('convolute.c'),
                            libdir.join('constants.c'),
                            libdir.join('context.c'),
+                           libdir.join('io.c'),
                            libdir.join('fourstep.c'),
                            libdir.join('sixstep.c'),
                            libdir.join('transpose.c'),
@@ -35,10 +36,11 @@ eci = ExternalCompilationInfo(
                            libdir.join('memory.c'),
                            ],
     export_symbols=[
-        "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround",
-        "mpd_getclamp",
-        "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround",
-        "mpd_qsetclamp",
+        "mpd_qset_ssize", "mpd_qset_string",
+        "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
+        "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
+        "mpd_maxcontext",
+        "mpd_qcmp",
         ],
     compile_extra=compile_extra,
     libraries=['m'],
@@ -56,13 +58,28 @@ class CConfig:
     MPD_IEEE_CONTEXT_MAX_BITS = platform.ConstantInteger(
         'MPD_IEEE_CONTEXT_MAX_BITS')
     MPD_MAX_PREC = platform.ConstantInteger('MPD_MAX_PREC')
+    MPD_STATIC = platform.ConstantInteger('MPD_STATIC')
+    MPD_STATIC_DATA = platform.ConstantInteger('MPD_STATIC_DATA')
+
+    MPD_Malloc_error = platform.ConstantInteger('MPD_Malloc_error')
 
     for name in ROUND_CONSTANTS:
         name = 'MPD_' + name
         locals()[name] = platform.ConstantInteger(name)
 
+    MPD_T = platform.Struct('mpd_t',
+                            [('flags', rffi.UINT),
+                             ('exp', rffi.SSIZE_T),
+                             ('digits', rffi.SSIZE_T),
+                             ('len', rffi.SSIZE_T),
+                             ('alloc', rffi.SSIZE_T),
+                             ('data', rffi.UINTP),
+                             ])
     MPD_CONTEXT_T = platform.Struct('mpd_context_t',
-                                    [])
+                                    [('traps', rffi.UINT),
+                                     ('status', rffi.UINT),
+                                     ])
+
 
 globals().update(platform.configure(CConfig))
 
@@ -70,8 +87,16 @@ globals().update(platform.configure(CConfig))
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
 
-MPD_CONTEXT_PTR = rffi.CArrayPtr(MPD_CONTEXT_T)
+MPD_PTR = lltype.Ptr(MPD_T)
+MPD_CONTEXT_PTR = lltype.Ptr(MPD_CONTEXT_T)
 
+# Initialization
+mpd_qset_ssize = external(
+    'mpd_qset_ssize', [MPD_PTR, rffi.SSIZE_T, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qset_string = external(
+    'mpd_qset_string', [MPD_PTR, rffi.CCHARP, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+
+# Context operations
 mpd_getprec = external(
     'mpd_getprec', [MPD_CONTEXT_PTR], rffi.SSIZE_T)
 mpd_getemin = external(
@@ -94,3 +119,9 @@ mpd_qsetround = external(
 mpd_qsetclamp = external(
     'mpd_qsetclamp', [MPD_CONTEXT_PTR, rffi.INT], rffi.INT)
 
+mpd_maxcontext = external(
+    'mpd_maxcontext', [MPD_CONTEXT_PTR], lltype.Void)
+
+# Operations
+mpd_qcmp = external(
+    'mpd_qcmp', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)

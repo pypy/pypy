@@ -1,3 +1,12 @@
+SIGNAL_NAMES = (
+    'DecimalException', 'Clamped', 'Rounded', 'Inexact',
+    'Subnormal', 'Underflow', 'Overflow', 'DivisionByZero',
+    'InvalidOperation', 'FloatOperation')
+
+def flags_as_exception(space, flags):
+    raise ValueError(hex(flags))
+
+
 class SignalState:
     def __init__(self, space):
         self.w_DecimalException = space.call_function(

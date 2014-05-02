@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty_w)
 from pypy.interpreter.executioncontext import ExecutionContext
+from pypy.module._decimal import interp_signals
 
 
 # The SignalDict is a MutableMapping that provides access to the
@@ -50,13 +51,23 @@ ROUND_CONSTANTS = unrolling_iterable([
 
 class W_Context(W_Root):
     def __init__(self, space):
-        self.ctx = lltype.malloc(rmpdec.MPD_CONTEXT_PTR.TO, 1, flavor='raw',
+        self.ctx = lltype.malloc(rmpdec.MPD_CONTEXT_PTR.TO, flavor='raw',
+                                 zero=True,
                                  track_allocation=False)
         self.w_flags = space.call_function(state_get(space).W_SignalDict)
 
     def __del__(self):
         if self.ctx:
-            lltype.free(self.ctx, flavor='raw')
+            lltype.free(self.ctx, flavor='raw', track_allocation=False)
+
+    def addstatus(self, space, status):
+        "Add resulting status to context, and eventually raise an exception."
+        self.ctx.c_status |= status
+        if status & rmpdec.MPD_Malloc_error:
+            raise OperationError(space.w_MemoryError, space.w_None)
+        if status & self.ctx.c_traps:
+            raise interp_signals.flags_as_exception(
+                space, self.ctx.c_traps & status)
 
     def copy_w(self, space):
         w_copy = W_Context(space)
@@ -148,3 +159,20 @@ def getcontext(space):
 def setcontext(space, w_context):
     ec = space.getexecutioncontext()
     ec.decimal_context = w_context
+
+class ConvContext:
+    def __init__(self, context, exact):
+        self.exact = exact
+        if self.exact:
+            self.ctx = lltype.malloc(rmpdec.MPD_CONTEXT_PTR.TO, flavor='raw',
+                                     zero=True)
+            rmpdec.mpd_maxcontext(self.ctx)
+        else:
+            self.ctx = context.ctx
+
+    def __enter__(self):
+        return self.ctx
+
+    def __exit__(self, *args):
+        if self.exact:
+            lltype.free(self.ctx, flavor='raw')

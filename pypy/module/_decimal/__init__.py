@@ -1,5 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rmpdec
+from pypy.module._decimal import interp_signals
+
 
 class Module(MixedModule):
     appleveldefs = {
@@ -16,8 +18,6 @@ class Module(MixedModule):
         }
     for name in rmpdec.ROUND_CONSTANTS:
         interpleveldefs[name] = 'space.wrap(%r)' % name
-    for name in ('DecimalException', 'Clamped', 'Rounded', 'Inexact',
-                 'Subnormal', 'Underflow', 'Overflow', 'DivisionByZero',
-                 'InvalidOperation', 'FloatOperation'):
+    for name in interp_signals.SIGNAL_NAMES:
         interpleveldefs[name] = 'interp_signals.get(space).w_%s' % name
         
