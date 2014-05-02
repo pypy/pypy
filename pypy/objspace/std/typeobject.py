@@ -620,7 +620,7 @@ def _check(space, w_type, w_msg=None):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.name)
+    return space.wrap(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
