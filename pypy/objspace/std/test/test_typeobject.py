@@ -885,6 +885,12 @@ class AppTestTypeObject:
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
+        try:
+            Abc.__name__ = 'G\x00hi'
+        except ValueError as e:
+            assert str(e) == "__name__ must not contain null bytes"
+        else:
+            assert False
 
     def test_compare(self):
         class A(object):
