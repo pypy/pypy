@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 class TestCProfile(BaseTestPyPyC):
@@ -26,6 +26,10 @@ class TestCProfile(BaseTestPyPyC):
         for method in ['append', 'pop']:
             loop, = log.loops_by_id(method)
             print loop.ops_by_id(method)
-            assert ' call(' not in repr(loop.ops_by_id(method))
+            # on 32-bit, there is f1=read_timestamp(); ...;
+            # f2=read_timestamp(); f3=call(llong_sub,f1,f2)
+            # which should turn into a single PADDQ/PSUBQ
+            if sys.maxint != 2147483647:
+                assert ' call(' not in repr(loop.ops_by_id(method))
             assert ' call_may_force(' not in repr(loop.ops_by_id(method))
             assert ' cond_call(' in repr(loop.ops_by_id(method))
