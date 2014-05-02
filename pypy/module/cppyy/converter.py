@@ -386,7 +386,7 @@ class VoidPtrConverter(TypeConverter):
             try:
                 # TODO: accept a 'capsule' rather than naked int
                 # (do accept int(0), though)
-                obj = rffi.cast(rffi.VOIDP, space.int_w(w_obj))
+                obj = rffi.cast(rffi.VOIDP, space.uint_w(w_obj))
             except Exception:
                 obj = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         return obj
