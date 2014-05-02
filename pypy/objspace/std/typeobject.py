@@ -997,7 +997,7 @@ def setup_builtin_type(w_self):
     w_self.weakrefable = w_self.instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(w_self.instancetypedef.doc)
     ensure_common_attributes(w_self)
-    w_self.flag_heaptype = '__module__' in w_self.instancetypedef.rawdict
+    w_self.flag_heaptype = w_self.instancetypedef.heaptype
 
 def ensure_common_attributes(w_self):
     ensure_static_new(w_self)

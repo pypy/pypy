@@ -352,6 +352,7 @@ class AppExposeVisitor(ASDLVisitor):
         if needs_init:
             self.emit("__init__=interp2app(%s_init)," % (name,), 1)
         self.emit(")")
+        self.emit("%s.typedef.heaptype = True" % name)
         self.emit("")
 
     def make_init(self, name, fields):
