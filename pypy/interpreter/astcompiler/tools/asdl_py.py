@@ -669,10 +669,9 @@ def AST_init(space, w_self, __args__):
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
 
-AST.typedef = typedef.TypeDef("AST",
+AST.typedef = typedef.TypeDef("_ast.AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
-    __module__='_ast',
     __reduce__=interp2app(AST.reduce_w),
     __setstate__=interp2app(AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
