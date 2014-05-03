@@ -17,13 +17,9 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'gc_identityhash', 'gc_id', 'gc_can_move', 'gc__collect',
     'gc_adr_of_root_stack_top', 'gc_add_memory_pressure',
     'weakref_create', 'weakref_deref',
-    'stm_threadlocalref_get', 'stm_threadlocalref_set',
-    'stm_threadlocalref_count', 'stm_threadlocalref_addr',
     'jit_assembler_call', 'gc_writebarrier',
     'shrink_array', 'jit_stm_transaction_break_point',
     'jit_stm_should_break_transaction',
-    'stm_longest_marker_state', 'stm_longest_marker_time',
-    'stm_longest_marker_self', 'stm_longest_marker_other',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
