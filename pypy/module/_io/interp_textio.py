@@ -1015,11 +1015,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self.chunk_size = size
 
 W_TextIOWrapper.typedef = TypeDef(
-    'TextIOWrapper', W_TextIOBase.typedef,
+    '_io.TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
     __init__  = interp2app(W_TextIOWrapper.descr_init),
     __repr__ = interp2app(W_TextIOWrapper.descr_repr),
-    __module__ = "_io",
 
     next = interp2app(W_TextIOWrapper.next_w),
     read = interp2app(W_TextIOWrapper.read_w),

@@ -497,8 +497,7 @@ def descr__new__(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                     w_itershape, w_buffersize, order)
 
-W_NDIter.typedef = TypeDef('nditer',
-    __module__ = 'numpy',
+W_NDIter.typedef = TypeDef('numpy.nditer',
     __new__ = interp2app(descr__new__),
 
     __iter__ = interp2app(W_NDIter.descr_iter),

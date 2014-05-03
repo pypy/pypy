@@ -87,6 +87,10 @@ performance slowdowns as bugs.
 
 * Support for corner cases on objects with __int__ and __float__ methods
 
+* Fix multithreaded support for gethostbyname_ex and gethostbyaddr
+
+* Fix handling of tp_name for type objects
+
 .. _`HippyVM`: http://www.hippyvm.com
 
 New Platforms and Features
