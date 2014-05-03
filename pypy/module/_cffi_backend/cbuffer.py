@@ -56,8 +56,7 @@ class MiniBuffer(W_Buffer):
             raise
 
 MiniBuffer.typedef = TypeDef(
-    "buffer",
-    __module__ = "_cffi_backend",
+    "_cffi_backend.buffer",
     __len__ = interp2app(MiniBuffer.descr_len),
     __getitem__ = interp2app(MiniBuffer.descr_getitem),
     __setitem__ = interp2app(MiniBuffer.descr_setitem),

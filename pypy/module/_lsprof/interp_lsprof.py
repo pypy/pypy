@@ -199,7 +199,7 @@ def create_spec_for_method(space, w_function, w_type):
         if isinstance(w_type, W_TypeObject):
             w_realclass, _ = space.lookup_in_type_where(w_type, name)
             if isinstance(w_realclass, W_TypeObject):
-                class_name = w_realclass.get_module_type_name()
+                class_name = w_realclass.name
     else:
         name = '?'
     if class_name is None:
@@ -440,8 +440,7 @@ def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
     return space.wrap(p)
 
 W_Profiler.typedef = TypeDef(
-    'Profiler',
-    __module__ = '_lsprof',
+    '_lsprof.Profiler',
     __new__ = interp2app(descr_new_profile),
     enable = interp2app(W_Profiler.enable),
     disable = interp2app(W_Profiler.disable),

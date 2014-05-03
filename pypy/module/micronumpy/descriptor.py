@@ -132,6 +132,8 @@ class W_Dtype(W_Root):
 
     def get_name(self):
         name = self.w_box_type.name
+        if name.startswith('numpy.'):
+            name = name[6:]
         if name.endswith('_'):
             name = name[:-1]
         return name
@@ -557,8 +559,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     raise oefmt(space.w_TypeError, "data type not understood")
 
 
-W_Dtype.typedef = TypeDef("dtype",
-    __module__ = "numpy",
+W_Dtype.typedef = TypeDef("numpy.dtype",
     __new__ = interp2app(descr__new__),
 
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
