@@ -1417,6 +1417,11 @@ class ObjSpace(object):
             except TypeError:
                 pass
             self._getarg_error("read-write buffer", w_obj)
+        elif code == 'y*':
+            try:
+                return w_obj.buffer_w(self, self.BUF_SIMPLE)
+            except TypeError:
+                self._getarg_error("bytes or buffer", w_obj)
         else:
             assert False
 
