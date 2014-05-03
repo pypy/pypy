@@ -166,30 +166,25 @@ static void marker_contention(int kind, bool abort_other,
 
     /* For some categories, we can also collect the relevant information
        for the other segment. */
+    char *outmarker = abort_other ? other_pseg->marker_self
+                                  : my_pseg->marker_other;
     switch (kind) {
     case WRITE_WRITE_CONTENTION:
         marker_fetch_obj_write(other_segment_num, obj, other_marker);
+	marker_expand(other_marker, other_segment_base, outmarker);
         break;
     case INEVITABLE_CONTENTION:
         assert(abort_other == false);
         other_marker[0] = other_pseg->marker_inev[0];
         other_marker[1] = other_pseg->marker_inev[1];
+	marker_expand(other_marker, other_segment_base, outmarker);
         break;
+    case WRITE_READ_CONTENTION:
+	strcpy(outmarker, "<read at unknown location>");
+	break;
     default:
-        other_marker[0] = 0;
-        other_marker[1] = 0;
+	outmarker[0] = 0;
         break;
-    }
-
-    marker_expand(other_marker, other_segment_base,
-                  abort_other ? other_pseg->marker_self
-                              : my_pseg->marker_other);
-
-    if (abort_other && other_pseg->marker_self[0] == 0) {
-        if (kind == WRITE_READ_CONTENTION)
-            strcpy(other_pseg->marker_self, "<read at unknown location>");
-        else
-            strcpy(other_pseg->marker_self, "<no location information>");
     }
 
     release_marker_lock(other_segment_base);
