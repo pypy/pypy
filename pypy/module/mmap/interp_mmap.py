@@ -17,9 +17,9 @@ class W_MMap(W_Root):
         self.space = space
         self.mmap = mmap_obj
 
-    def readbuf_w(self, space):
+    def buffer_w(self, space, flags):
         self.check_valid()
-        return MMapBuffer(self.space, self.mmap, True)
+        return MMapBuffer(self.space, self.mmap, flags & space.BUF_WRITABLE)
 
     def close(self):
         self.mmap.close()

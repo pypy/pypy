@@ -31,15 +31,6 @@ class W_BytearrayObject(W_Root):
     def buffer_w(self, space, flags):
         return BytearrayBuffer(self.data, False)
 
-    def readbuf_w(self, space):
-        return BytearrayBuffer(self.data, True)
-
-    def writebuf_w(self, space):
-        return BytearrayBuffer(self.data, False)
-
-    def charbuf_w(self, space):
-        return ''.join(self.data)
-
     def _new(self, value):
         return W_BytearrayObject(_make_data(value))
 

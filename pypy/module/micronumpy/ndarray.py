@@ -621,15 +621,6 @@ class __extend__(W_NDimArray):
     def buffer_w(self, space, flags):
         return self.implementation.get_buffer(space, True)
 
-    def readbuf_w(self, space):
-        return self.implementation.get_buffer(space, True)
-
-    def writebuf_w(self, space):
-        return self.implementation.get_buffer(space, False)
-
-    def charbuf_w(self, space):
-        return self.implementation.get_buffer(space, True).as_str()
-
     def descr_get_data(self, space):
         return space.newbuffer(self.implementation.get_buffer(space, False))
 

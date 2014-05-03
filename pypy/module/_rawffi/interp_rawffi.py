@@ -363,12 +363,6 @@ class W_DataInstance(W_Root):
     def buffer_w(self, space, flags):
         return RawFFIBuffer(self)
 
-    def readbuf_w(self, space):
-        return RawFFIBuffer(self)
-
-    def writebuf_w(self, space):
-        return RawFFIBuffer(self)
-
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
 
