@@ -50,7 +50,8 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_IndexError, "bytearray index out of range")
         return space.wrap(ord(character))
 
-    _val = charbuf_w
+    def _val(self, space):
+        return ''.join(self.data)
 
     @staticmethod
     def _op_val(space, w_other):
