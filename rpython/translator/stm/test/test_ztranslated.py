@@ -268,6 +268,7 @@ class TestSTMTranslated(CompiledSTMTests):
             setxy(globf, retry_counter)
             if retry_counter < 3:
                 rstm.abort_and_retry()
+            print rstm.longest_marker_time()
             print rstm.longest_abort_info()
             rstm.reset_longest_abort_info()
             print rstm.longest_abort_info()
@@ -286,7 +287,7 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('a b')
         #
         # 6 == STM_TIME_RUN_ABORTED_OTHER
-        import re; r = re.compile(r'\(6, 0.00\d+, , \)\n\(0, 0.00+, , \)\n$')
+        import re; r = re.compile(r'0.00\d+\n\(6, 0.00\d+, , \)\n\(0, 0.00+, , \)\n$')
         assert r.match(data)
 
     def test_weakref(self):

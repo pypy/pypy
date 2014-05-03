@@ -41,10 +41,11 @@ else:
     _fullfilenames = {}
 
     def print_abort_info(mintime=0.0):
-        a, b, c, d = _thread.longest_abort_info()
-        if b <= mintime:
+        info = _thread.longest_abort_info(mintime)
+        if info is None:
             return
         print >> sys.stderr, "Conflict",
+        a, b, c, d = info
         try:
             reason = _timing_reasons[a]
         except IndexError:

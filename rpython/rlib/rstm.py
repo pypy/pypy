@@ -132,6 +132,10 @@ def update_marker_num(odd_num):
 def pop_marker():
     llop.stm_pop_marker(lltype.Void)
 
+@dont_look_inside    # XXX allow looking inside this function
+def longest_marker_time():
+    return llop.stm_longest_marker_time(lltype.Float)
+
 @dont_look_inside
 def longest_abort_info():
     state = llop.stm_longest_marker_state(lltype.Signed)

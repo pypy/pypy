@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.thread.error import wrap_thread_error
 from rpython.rtyper.lltypesystem import rffi
 
@@ -59,10 +60,13 @@ change the limit (or at least lower it) with setsegmentlimit().
     else:
         return space.wrap(1)
 
-def longest_abort_info(space):
+@unwrap_spec(mintime=float)
+def longest_abort_info(space, mintime=0.0):
     if space.config.translation.stm:
-        from rpython.rlib.rstm import longest_abort_info
-        a, b, c, d = longest_abort_info()
+        from rpython.rlib import rstm
+        if rstm.longest_marker_time() <= mintime:
+            return space.w_None
+        a, b, c, d = rstm.longest_abort_info()
         return space.newtuple([space.wrap(a), space.wrap(b),
                                space.wrap(c), space.wrap(d)])
     else:
