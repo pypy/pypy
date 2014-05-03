@@ -711,7 +711,7 @@ class BufferedMixin:
     def write_w(self, space, w_data):
         self._check_init(space)
         self._check_closed(space, "write to closed file")
-        data = space.getarg_w('s*', w_data).as_str()
+        data = space.bufferstr_w(w_data)
         size = len(data)
 
         with self.lock:
