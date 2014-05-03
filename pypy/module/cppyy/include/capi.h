@@ -48,7 +48,7 @@ extern "C" {
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, cppyy_index_t idx);
 
     /* handling of function argument buffer ----------------------------------- */
-    void*  cppyy_allocate_function_args(size_t nargs);
+    void*  cppyy_allocate_function_args(int nargs);
     void   cppyy_deallocate_function_args(void* args);
     size_t cppyy_function_arg_sizeof();
     size_t cppyy_function_arg_typeoffset();
@@ -66,7 +66,7 @@ extern "C" {
     int cppyy_is_subtype(cppyy_type_t derived, cppyy_type_t base);
 
     /* calculate offsets between declared and actual type, up-cast: direction > 0; down-cast: direction < 0 */
-    size_t cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address, int direction);
+    ptrdiff_t cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address, int direction);
 
     /* method/function reflection information --------------------------------- */
     int cppyy_num_methods(cppyy_scope_t scope);
@@ -97,7 +97,7 @@ extern "C" {
     int cppyy_num_datamembers(cppyy_scope_t scope);
     char* cppyy_datamember_name(cppyy_scope_t scope, int datamember_index);
     char* cppyy_datamember_type(cppyy_scope_t scope, int datamember_index);
-    size_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
+    ptrdiff_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
 
     int cppyy_datamember_index(cppyy_scope_t scope, const char* name);
 

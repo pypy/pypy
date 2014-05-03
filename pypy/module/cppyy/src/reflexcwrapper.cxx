@@ -212,9 +212,9 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t handle, cppyy_index_
 
 
 /* handling of function argument buffer ----------------------------------- */
-void* cppyy_allocate_function_args(size_t nargs) {
+void* cppyy_allocate_function_args(int nargs) {
     CPPYY_G__value* args = (CPPYY_G__value*)malloc(nargs*sizeof(CPPYY_G__value));
-    for (size_t i = 0; i < nargs; ++i)
+    for (int i = 0; i < nargs; ++i)
         args[i].type = 'l';
     return (void*)args;
 }
@@ -310,7 +310,7 @@ int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
     return (int)derived_type.HasBase(base_type);
 }
 
-size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
+ptrdiff_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
                        cppyy_object_t address, int direction) {
     Reflex::Type derived_type = type_from_handle(derived_handle);
     Reflex::Type base_type = type_from_handle(base_handle);
@@ -336,8 +336,8 @@ size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
             if (ibase->first.ToType() == base_type) {
                 long offset = (long)ibase->first.Offset((void*)address);
                 if (direction < 0)
-                   return (size_t) -offset;  // note negative; rolls over
-                return (size_t)offset;
+                    return (ptrdiff_t) -offset;  // note negative; rolls over
+                return (ptrdiff_t)offset;
             }
         }
 
@@ -561,12 +561,12 @@ char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
     return cppstring_to_cstring(name);
 }
 
-size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
+ptrdiff_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(datamember_index);
     if (m.IsArtificial() && m.TypeOf().IsEnum())
-        return (size_t)&m.InterpreterOffset();
-    return m.Offset();
+        return (ptrdiff_t)&m.InterpreterOffset();
+    return (ptrdiff_t)m.Offset();
 }
 
 int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
