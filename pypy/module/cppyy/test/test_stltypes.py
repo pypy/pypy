@@ -211,8 +211,6 @@ class AppTestSTLSTRING:
     def test01_string_argument_passing(self):
         """Test mapping of python strings and std::string"""
 
-        return
-
         import cppyy
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
@@ -244,8 +242,6 @@ class AppTestSTLSTRING:
     def test02_string_data_access(self):
         """Test access to std::string object data members"""
 
-        return
-
         import cppyy
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
@@ -265,13 +261,9 @@ class AppTestSTLSTRING:
     def test03_string_with_null_character(self):
         """Test that strings with NULL do not get truncated"""
 
-        return
-
         import cppyy
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
-
-        return
 
         t0 = "aap\0noot"
         self.assertEqual(t0, "aap\0noot")
