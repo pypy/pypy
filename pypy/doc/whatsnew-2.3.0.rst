@@ -164,3 +164,6 @@ Properly implement old/new buffer API for objects and start work on replacing bu
 
 .. branch: issue1430
 Add a lock for unsafe calls to gethostbyname and gethostbyaddr
+
+.. branch: fix-tpname
+Changes hacks surrounding W_TypeObject.name to match CPython's tp_name

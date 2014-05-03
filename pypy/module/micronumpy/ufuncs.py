@@ -457,9 +457,7 @@ class W_Ufunc2(W_Ufunc):
                           res_dtype, w_lhs, w_rhs, out)
 
 
-W_Ufunc.typedef = TypeDef("ufunc",
-    __module__ = "numpy",
-
+W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
     __name__ = GetSetProperty(W_Ufunc.descr_get_name),

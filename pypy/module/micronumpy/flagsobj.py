@@ -62,8 +62,7 @@ class W_FlagsObject(W_Root):
     def descr_ne(self, space, w_other):
         return space.wrap(not self.eq(space, w_other))
 
-W_FlagsObject.typedef = TypeDef("flagsobj",
-    __module__ = "numpy",
+W_FlagsObject.typedef = TypeDef("numpy.flagsobj",
     __new__ = interp2app(W_FlagsObject.descr__new__.im_func),
 
     __getitem__ = interp2app(W_FlagsObject.descr_getitem),
