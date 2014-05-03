@@ -91,7 +91,7 @@ class State(object):
 
         # TODO: the following need to match up with the globally defined C_XYZ low-level
         # types (see capi/__init__.py), but by using strings here, that isn't guaranteed
-        c_opaque_ptr = nt.new_primitive_type(space, 'unsigned long')
+        c_opaque_ptr = nt.new_primitive_type(space, 'long')
  
         c_scope  = c_opaque_ptr
         c_type   = c_scope
@@ -259,10 +259,10 @@ def call_capi(space, name, args):
     return c_call.ctype.rcall(c_call._cdata, args)
 
 def _cdata_to_cobject(space, w_cdata):
-    return rffi.cast(C_OBJECT, space.uint_w(w_cdata))
+    return rffi.cast(C_OBJECT, space.int_w(w_cdata))
 
 def _cdata_to_size_t(space, w_cdata):
-    return rffi.cast(rffi.SIZE_T, space.uint_w(w_cdata))
+    return rffi.cast(rffi.SIZE_T, space.int_w(w_cdata))
 
 def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully slow
     return rffi.cast(rffi.VOIDP,
@@ -281,12 +281,12 @@ def c_scope_name(space, cppscope, iscope):
 def c_resolve_name(space, name):
     return charp2str_free(space, call_capi(space, 'resolve_name', [_Arg(s=name)]))
 def c_get_scope_opaque(space, name):
-    return rffi.cast(C_SCOPE, space.uint_w(call_capi(space, 'get_scope', [_Arg(s=name)])))
+    return rffi.cast(C_SCOPE, space.int_w(call_capi(space, 'get_scope', [_Arg(s=name)])))
 def c_get_template(space, name):
-    return rffi.cast(C_TYPE, space.uint_w(call_capi(space, 'get_template', [_Arg(s=name)])))
+    return rffi.cast(C_TYPE, space.int_w(call_capi(space, 'get_template', [_Arg(s=name)])))
 def c_actual_class(space, cppclass, cppobj):
     args = [_Arg(l=cppclass.handle), _Arg(l=cppobj)]
-    return rffi.cast(C_TYPE, space.uint_w(call_capi(space, 'actual_class', args)))
+    return rffi.cast(C_TYPE, space.int_w(call_capi(space, 'actual_class', args)))
 
 # memory management ----------------------------------------------------------
 def c_allocate(space, cppclass):
@@ -302,7 +302,7 @@ def c_call_v(space, cppmethod, cppobject, nargs, cargs):
     call_capi(space, 'call_v', args)
 def c_call_b(space, cppmethod, cppobject, nargs, cargs):
     args = [_Arg(l=cppmethod), _Arg(l=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
-    return rffi.cast(rffi.UCHAR, space.c_uint_w(call_capi(space, 'call_b', args)))
+    return rffi.cast(rffi.UCHAR, space.c_int_w(call_capi(space, 'call_b', args)))
 def c_call_c(space, cppmethod, cppobject, nargs, cargs):
     args = [_Arg(l=cppmethod), _Arg(l=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
     return rffi.cast(rffi.CHAR, space.str_w(call_capi(space, 'call_c', args))[0])
@@ -452,7 +452,7 @@ def c_template_args(space, cppscope, index):
 
 def c_get_method(space, cppscope, index):
     args = [_Arg(l=cppscope.handle), _Arg(l=index)]
-    return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method', args)))
+    return rffi.cast(C_METHOD, space.int_w(call_capi(space, 'get_method', args)))
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
         args = [_Arg(l=nss.handle), _Arg(l=lc.handle), _Arg(l=rc.handle), _Arg(s=op)]

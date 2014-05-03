@@ -7,10 +7,10 @@
 extern "C" {
 #endif // ifdef __cplusplus
 
-    typedef unsigned long cppyy_scope_t;
+    typedef long cppyy_scope_t;
     typedef cppyy_scope_t cppyy_type_t;
-    typedef unsigned long cppyy_object_t;
-    typedef unsigned long cppyy_method_t;
+    typedef long cppyy_object_t;
+    typedef long cppyy_method_t;
     typedef long cppyy_index_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 

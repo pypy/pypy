@@ -7,6 +7,8 @@ test_dct = str(currpath.join("datatypesDict.so"))
 def setup_module(mod):
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
+    if sys.maxsize < 2 ** 31:
+        py.test.skip("32 bit not supported so far")
     err = os.system("cd '%s' && make datatypesDict.so" % currpath)
     if err:
         raise OSError("'make' failed (see stderr)")
