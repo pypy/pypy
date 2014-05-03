@@ -22,6 +22,8 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_assembler_call', 'gc_writebarrier',
     'shrink_array', 'jit_stm_transaction_break_point',
     'jit_stm_should_break_transaction',
+    'stm_longest_marker_state', 'stm_longest_marker_time',
+    'stm_longest_marker_self', 'stm_longest_marker_other',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
