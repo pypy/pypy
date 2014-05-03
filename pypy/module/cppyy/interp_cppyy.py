@@ -593,7 +593,7 @@ class W_CPPConstructorOverload(W_CPPOverload):
     @unwrap_spec(args_w='args_w')
     def call(self, w_cppinstance, args_w):
         w_result = W_CPPOverload.call(self, w_cppinstance, args_w)
-        newthis = rffi.cast(capi.C_OBJECT, self.space.uint_w(w_result))
+        newthis = rffi.cast(capi.C_OBJECT, self.space.int_w(w_result))
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance is not None:
             cppinstance._rawobject = newthis
