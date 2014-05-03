@@ -265,8 +265,6 @@ class AppTestSTLSTRING:
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
 
-        return
-
         t0 = "aap\0noot"
         self.assertEqual(t0, "aap\0noot")
 

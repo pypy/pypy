@@ -50,12 +50,12 @@ struct Cppyy_PseudoMethodInfo {
 struct Cppyy_PseudoDatambrInfo {
     Cppyy_PseudoDatambrInfo(const std::string& name,
                             const std::string& type,
-                            size_t offset, bool isstatic) :
+                            ptrdiff_t offset, bool isstatic) :
         m_name(name), m_type(type), m_offset(offset), m_isstatic(isstatic) {}
 
     std::string m_name;
     std::string m_type;
-    size_t m_offset;
+    ptrdiff_t m_offset;
     bool m_isstatic;
 };
 
@@ -120,7 +120,7 @@ static std::map<std::string, long> s_methods;
 
 #define PUBLIC_CPPYY_STATIC_DATA(dmname, dmtype)                              \
     data.push_back(Cppyy_PseudoDatambrInfo("s_"#dmname, #dmtype,              \
-        (size_t)&dummy::cppyy_test_data::s_##dmname, true))
+        (ptrdiff_t)&dummy::cppyy_test_data::s_##dmname, true))
 
 
 struct Cppyy_InitPseudoReflectionInfo {
@@ -765,9 +765,9 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /* handle */, cppyy_
 
 
 /* handling of function argument buffer ----------------------------------- */
-void* cppyy_allocate_function_args(size_t nargs) {
+void* cppyy_allocate_function_args(int nargs) {
     CPPYY_G__value* args = (CPPYY_G__value*)malloc(nargs*sizeof(CPPYY_G__value));
-    for (size_t i = 0; i < nargs; ++i)
+    for (int i = 0; i < nargs; ++i)
         args[i].type = 'l';
     return (void*)args;
 }
@@ -900,7 +900,7 @@ char* cppyy_datamember_type(cppyy_scope_t handle, int idatambr) {
     return cppstring_to_cstring(s_scopes[handle].m_datambrs[idatambr].m_type);
 }
 
-size_t cppyy_datamember_offset(cppyy_scope_t handle, int idatambr) {
+ptrdiff_t cppyy_datamember_offset(cppyy_scope_t handle, int idatambr) {
     return s_scopes[handle].m_datambrs[idatambr].m_offset;
 }
 

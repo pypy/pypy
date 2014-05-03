@@ -520,12 +520,12 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /*handle*/, cppyy_in
 
 
 /* handling of function argument buffer ----------------------------------- */
-void* cppyy_allocate_function_args(size_t nargs) {
+void* cppyy_allocate_function_args(int nargs) {
     assert(sizeof(CPPYY_G__value) == sizeof(G__value));
     G__param* libp = (G__param*)malloc(
         offsetof(G__param, para) + nargs*sizeof(CPPYY_G__value));
     libp->paran = (int)nargs;
-    for (size_t i = 0; i < nargs; ++i)
+    for (int i = 0; i < nargs; ++i)
         libp->para[i].type = 'l';
     return (void*)libp->para;
 }
@@ -613,7 +613,7 @@ int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
     return derived_type->GetBaseClass(base_type) != 0;
 }
 
-size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
+ptrdiff_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
                        cppyy_object_t address, int /* direction */) {
     R__LOCKGUARD2(gCINTMutex);
 
@@ -642,7 +642,7 @@ size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
          }
     }
 
-    return (size_t) offset;   // may be negative (will roll over)
+    return (ptrdiff_t) offset;   // may be negative (will roll over)
 }
 
 
@@ -941,16 +941,16 @@ char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
     return cppstring_to_cstring(gbl.GetFullTypeName());
 }
 
-size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
+ptrdiff_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
     R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
-        return (size_t)m->GetOffsetCint();
+        return (ptrdiff_t)m->GetOffsetCint();
     }
     assert(handle == (cppyy_type_t)GLOBAL_HANDLE);
     TGlobal& gbl = g_globalvars[datamember_index];
-    return (size_t)gbl.GetAddress();
+    return (ptrdiff_t)gbl.GetAddress();
 }
 
 int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
