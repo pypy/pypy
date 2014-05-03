@@ -701,7 +701,9 @@ class AppTestTypeObject:
         class A(object):
             pass
         assert repr(A) == "<class 'a.A'>"
-        assert repr(type(type)) == "<type 'type'>" 
+        A.__module__ = 123
+        assert repr(A) == "<class 'A'>"
+        assert repr(type(type)) == "<type 'type'>"
         assert repr(complex) == "<type 'complex'>"
         assert repr(property) == "<type 'property'>"
         assert repr(TypeError) == "<type 'exceptions.TypeError'>"

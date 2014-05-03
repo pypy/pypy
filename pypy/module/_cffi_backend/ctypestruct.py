@@ -307,8 +307,7 @@ class W_CField(W_Root):
 
 
 W_CField.typedef = TypeDef(
-    'CField',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.CField',
     type = interp_attrproperty('ctype', W_CField),
     offset = interp_attrproperty('offset', W_CField),
     bitshift = interp_attrproperty('bitshift', W_CField),
