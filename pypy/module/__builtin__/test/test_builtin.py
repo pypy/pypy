@@ -487,13 +487,11 @@ class AppTestBuiltinApp:
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
-        co = compile(buffer('1+2'), '?', 'eval')
+        co = compile(memoryview(b'1+2'), '?', 'eval')
         assert eval(co) == 3
         exc = raises(TypeError, compile, chr(0), '?', 'eval')
         assert str(exc.value) == "compile() expected string without null bytes"
-        exc = raises(TypeError, compile, unichr(0), '?', 'eval')
-        assert str(exc.value) == "compile() expected string without null bytes"
-        exc = raises(TypeError, compile, memoryview('1+2'), '?', 'eval')
+        exc = raises(TypeError, compile, memoryview(b'1+2'), '?', 'eval')
         assert str(exc.value) == "expected a readable buffer object"
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')

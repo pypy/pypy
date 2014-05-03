@@ -133,11 +133,12 @@ class BaseArrayTests:
     def test_fromstring(self):
         a = self.array('b')
         a.fromstring('Hi!')
-        assert a[0] == b'H' and a[1] == b'i' and a[2] == b'!' and len(a) == 3
+        assert len(a) == 3
+        assert a[0] == ord(b'H') and a[1] == ord(b'i') and a[2] == ord(b'!')
         a = self.array('b')
-        exc = raises(TypeError, a.fromstring, memoryview(b'xyz'))
-        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
-        assert a[0] == b'x' and a[1] == b'y' and a[2] == b'z' and len(a) == 3
+        a.fromstring(memoryview(b'xyz'))
+        assert len(a) == 3
+        assert a[0] == ord(b'x') and a[1] == ord(b'y') and a[2] == ord(b'z')
         a = self.array('b')
         a.fromstring('')
         assert not len(a)

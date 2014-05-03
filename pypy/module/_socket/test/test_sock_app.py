@@ -540,7 +540,7 @@ class AppTestSocket:
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         exc = raises(TypeError, s.send, None)
-        assert str(exc.value) == "must be string or buffer, not None"
+        assert str(exc.value) == "'NoneType' does not support the buffer interface"
         assert s.send(memoryview(b'')) == 0
         assert s.sendall(memoryview(b'')) is None
         exc = raises(TypeError, s.send, '')
