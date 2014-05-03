@@ -16,6 +16,7 @@ class BytesIOBuffer(Buffer):
 
     def __init__(self, w_bytesio):
         self.w_bytesio = w_bytesio
+        self.readonly = False
 
     def getlength(self):
         return int(self.w_bytesio.getsize())
