@@ -1424,7 +1424,7 @@ class ObjSpace(object):
             try:
                 return w_obj.readbuf_w(self)
             except TypeError:
-                self._getarg_error("string or buffer", w_obj)
+                self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
             if self.isinstance_w(w_obj, self.w_str):
                 return w_obj.bytes_w(self)
@@ -1433,7 +1433,7 @@ class ObjSpace(object):
             try:
                 return w_obj.readbuf_w(self).as_str()
             except TypeError:
-                self._getarg_error("string or read-only buffer", w_obj)
+                self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
             try:
                 try:
@@ -1446,11 +1446,6 @@ class ObjSpace(object):
                 return w_obj.writebuf_w(self)
             except TypeError:
                 self._getarg_error("read-write buffer", w_obj)
-        elif code == 't#':
-            try:
-                return w_obj.charbuf_w(self)
-            except TypeError:
-                self._getarg_error("string or read-only character buffer", w_obj)
         else:
             assert False
 
@@ -1478,7 +1473,8 @@ class ObjSpace(object):
         try:
             buf = w_obj.readbuf_w(self)
         except TypeError:
-            self._getarg_error("string or buffer", w_obj)
+            raise oefmt(self.w_TypeError,
+                        "'%T' does not support the buffer interface", w_obj)
         else:
             return buf.as_str()
 
