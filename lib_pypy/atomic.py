@@ -61,9 +61,9 @@ else:
                 if match and match.group(1) != '?':
                     filename = match.group(1)
                     lineno = int(match.group(2))
-                    if filename.startswith('...'):
+                    if filename.startswith('<') and not filename.endswith('>'):
                         if filename not in _fullfilenames:
-                            partial = filename[3:]
+                            partial = filename[1:]
                             found = set()
                             for module in sys.modules.values():
                                 try:
