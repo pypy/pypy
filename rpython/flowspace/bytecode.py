@@ -108,7 +108,11 @@ class HostCode(object):
 
         if opnum in opcode.hasjrel:
             oparg += next_offset
-        return next_offset, BCInstruction(opnum, oparg, offset)
+        try:
+            op = BCInstruction.num2op[opnum](oparg, offset)
+        except KeyError:
+            op = BCInstruction(opnum, oparg, offset)
+        return next_offset, op
 
     @property
     def is_generator(self):
@@ -117,11 +121,35 @@ class HostCode(object):
 OPNAMES = host_bytecode_spec.method_names
 
 class BCInstruction(object):
-    """A bytecode instruction, comprising an opcode and an optional argument."""
+    """
+    A bytecode instruction, comprising an opcode and an optional argument.
+
+    """
+    num2op = {}
+
     def __init__(self, opcode, arg, offset=-1):
         self.name = OPNAMES[opcode]
+        self.num = opcode
         self.arg = arg
         self.offset = offset
 
     def eval(self, ctx):
         return getattr(ctx, self.name)(self.arg)
+
+    @classmethod
+    def register_name(cls, name, op_class):
+        try:
+            num = OPNAMES.index(name)
+            cls.num2op[num] = op_class
+            return num
+        except ValueError:
+            return -1
+
+    def __repr__(self):
+        return "%s(%s)" % (self.name, self.arg)
+
+def register_opcode(cls):
+    """Class decorator: register opcode class as real Python opcode"""
+    name = cls.__name__
+    cls.num = Opcode.register_name(name, cls)
+    return cls
