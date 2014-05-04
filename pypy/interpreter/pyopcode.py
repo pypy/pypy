@@ -72,7 +72,7 @@ class __extend__(pyframe.PyFrame):
                 stmonly_jitdriver.jit_merge_point(
                     self=self, co_code=co_code,
                     next_instr=next_instr, ec=ec)
-            rstm.push_marker(intmask(next_instr) * 2 + 1, co_code)
+            rstm.push_marker(intmask(next_instr) * 2 + 1, self.pycode)
             try:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
             except ExitFrame:

@@ -62,7 +62,7 @@ class __extend__(PyFrame):
 
             co_code = pycode.co_code
             self.valuestackdepth = hint(self.valuestackdepth, promote=True)
-            rstm.push_marker(intmask(next_instr) * 2 + 1, co_code)
+            rstm.push_marker(intmask(next_instr) * 2 + 1, self.pycode)
             try:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
             except Yield:
