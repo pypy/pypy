@@ -21,7 +21,6 @@ class Buffer(object):
         "Returns the index'th character in the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
 
-    @jit.look_inside_iff(lambda self, start, stop, step, size: jit.isconstant(size))
     def getslice(self, start, stop, step, size):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
