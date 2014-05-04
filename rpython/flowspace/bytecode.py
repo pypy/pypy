@@ -108,7 +108,7 @@ class HostCode(object):
 
         if opnum in opcode.hasjrel:
             oparg += next_offset
-        return next_offset, BCInstruction(opnum, oparg, pos)
+        return next_offset, BCInstruction(opnum, oparg, offset)
 
     @property
     def is_generator(self):
