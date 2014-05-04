@@ -133,7 +133,7 @@ class UnpackFormatIterator(FormatIterator):
         end = self.pos + count
         if end > self.length:
             raise StructError("unpack str size too short for format")
-        s = self.buf.getslice(self.pos, end, 1, end - self.pos)
+        s = self.buf.getslice(self.pos, end, 1, count)
         self.pos = end
         return s
 
