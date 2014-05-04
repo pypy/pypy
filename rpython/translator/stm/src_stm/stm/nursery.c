@@ -245,6 +245,12 @@ static void collect_roots_from_markers(uintptr_t num_old)
     for (i = num_old + 1; i < total; i += 2) {
         minor_trace_if_young((object_t **)list_ptr_to_item(mlst, i));
     }
+    if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
+        uintptr_t *pmarker_inev_obj = (uintptr_t *)
+            REAL_ADDRESS(STM_SEGMENT->segment_base,
+                         &STM_PSEGMENT->marker_inev[1]);
+        minor_trace_if_young((object_t **)pmarker_inev_obj);
+    }
 }
 
 static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
