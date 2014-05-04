@@ -29,7 +29,7 @@ class FlowingError(Exception):
         msg = ["\n"]
         msg += map(str, self.args)
         msg += [""]
-        msg += source_lines(self.ctx.graph, None, offset=self.ctx.last_instr)
+        msg += source_lines(self.ctx.graph, None, offset=self.ctx.last_offset)
         return "\n".join(msg)
 
 
@@ -288,7 +288,7 @@ class FlowContext(object):
 
         self.init_closure(func.func_closure)
         self.f_lineno = code.co_firstlineno
-        self.last_instr = 0
+        self.last_offset = 0
 
         self.init_locals_stack(code)
 
@@ -359,7 +359,7 @@ class FlowContext(object):
         self.locals_stack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
 
-    def getstate(self, next_pos):
+    def getstate(self, next_offset):
         # getfastscope() can return real None, for undefined locals
         data = self.save_locals_stack()
         if self.last_exception is None:
@@ -369,7 +369,7 @@ class FlowContext(object):
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
         recursively_flatten(data)
-        return FrameState(data, self.blockstack[:], next_pos)
+        return FrameState(data, self.blockstack[:], next_offset)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
@@ -393,7 +393,7 @@ class FlowContext(object):
         if getattr(recorder, 'final_state', None) is not None:
             self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
-        spaceop.offset = self.last_instr
+        spaceop.offset = self.last_offset
         recorder.append(spaceop)
 
     def do_op(self, op):
@@ -424,12 +424,12 @@ class FlowContext(object):
 
     def record_block(self, block):
         self.setstate(block.framestate)
-        next_pos = block.framestate.next_instr
+        next_offset = block.framestate.next_offset
         self.recorder = block.make_recorder()
         try:
             while True:
-                next_pos = self.handle_bytecode(next_pos)
-                self.recorder.final_state = self.getstate(next_pos)
+                next_offset = self.handle_bytecode(next_offset)
+                self.recorder.final_state = self.getstate(next_offset)
 
         except RaiseImplicit as e:
             w_exc = e.w_exc
@@ -467,10 +467,10 @@ class FlowContext(object):
         self.recorder = None
 
     def mergeblock(self, currentblock, currentstate):
-        next_instr = currentstate.next_instr
+        next_offset = currentstate.next_offset
         # can 'currentstate' be merged with one of the blocks that
         # already exist for this bytecode position?
-        candidates = self.joinpoints.setdefault(next_instr, [])
+        candidates = self.joinpoints.setdefault(next_offset, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
             if newstate is not None:
@@ -526,12 +526,12 @@ class FlowContext(object):
                     stack_items_w[i] = w_new
                     break
 
-    def handle_bytecode(self, next_instr):
-        self.last_instr = next_instr
-        next_instr, methodname, oparg = self.pycode.read(next_instr)
+    def handle_bytecode(self, next_offset):
+        self.last_offset = next_offset
+        next_offset, methodname, oparg = self.pycode.read(next_offset)
         try:
-            res = getattr(self, methodname)(oparg)
-            return res if res is not None else next_instr
+            offset = getattr(self, methodname)(oparg)
+            return offset if offset is not None else next_offset
         except FlowSignal as signal:
             return self.unroll(signal)
 
