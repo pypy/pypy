@@ -98,7 +98,7 @@ static void _stm_expand_marker_for_pypy(
         name = _RPyString_AsString(co_name);
         if (nlen > remaining / 2) {
             nlen = remaining / 2;
-            ntrunc = "<";
+            ntrunc = ">";
         }
         remaining -= nlen;
 
@@ -107,7 +107,7 @@ static void _stm_expand_marker_for_pypy(
         if (fnlen > remaining) {
             fn += (fnlen - remaining);
             fnlen = remaining;
-            fntrunc = ">";
+            fntrunc = "<";
         }
 
         long lnotablen = RPyString_Size(co_lnotab);
