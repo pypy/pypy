@@ -52,28 +52,29 @@ class __extend__(PyFrame):
     def dispatch(self, pycode, next_instr, ec):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
-        is_being_profiled = self.is_being_profiled
-        try:
-            while True:
-                pypyjitdriver.jit_merge_point(ec=ec,
-                    frame=self, next_instr=next_instr, pycode=pycode,
-                    is_being_profiled=is_being_profiled)
-                # nothing inbetween!
-                if rstm.jit_stm_should_break_transaction(False):
-                    rstm.jit_stm_transaction_break_point()
-                co_code = pycode.co_code
-                self.valuestackdepth = hint(self.valuestackdepth, promote=True)
+        while True:
+            pypyjitdriver.jit_merge_point(ec=ec,
+                frame=self, next_instr=next_instr, pycode=pycode,
+                is_being_profiled=self.is_being_profiled)
+            # nothing inbetween!
+            if rstm.jit_stm_should_break_transaction(False):
+                rstm.jit_stm_transaction_break_point()
+
+            co_code = pycode.co_code
+            self.valuestackdepth = hint(self.valuestackdepth, promote=True)
+            rstm.push_marker(intmask(next_instr) * 2 + 1, co_code)
+            try:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                rstm.update_marker_num(intmask(next_instr) * 2 + 1)
-                is_being_profiled = self.is_being_profiled
-        except Yield:
-            self.last_exception = None
-            w_result = self.popvalue()
-            jit.hint(self, force_virtualizable=True)
-            return w_result
-        except ExitFrame:
-            self.last_exception = None
-            return self.popvalue()
+            except Yield:
+                self.last_exception = None
+                w_result = self.popvalue()
+                jit.hint(self, force_virtualizable=True)
+                return w_result
+            except ExitFrame:
+                self.last_exception = None
+                return self.popvalue()
+            finally:
+                rstm.pop_marker()
 
     def jump_absolute(self, jumpto, ec):
         if we_are_jitted():

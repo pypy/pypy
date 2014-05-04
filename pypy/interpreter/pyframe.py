@@ -210,15 +210,12 @@ class PyFrame(W_Root):
                 if next_instr != 0:
                     self.pushvalue(w_inputvalue)
             #
-            rstm.push_marker(intmask(next_instr) * 2 + 1, self.pycode)
             try:
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
             except Exception:
-                rstm.pop_marker()
                 executioncontext.return_trace(self, self.space.w_None)
                 raise
-            rstm.pop_marker()
             executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
             # this is now done by the code in pypyjit module

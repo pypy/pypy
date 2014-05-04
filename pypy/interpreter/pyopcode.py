@@ -65,18 +65,20 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-        try:
-            while True:
-                if self.space.config.translation.stm:
-                    # only used for no-jit. The jit-jitdriver is
-                    # in interp_jit.py
-                    stmonly_jitdriver.jit_merge_point(
-                        self=self, co_code=co_code,
-                        next_instr=next_instr, ec=ec)
+        while True:
+            if self.space.config.translation.stm:
+                # only used for no-jit. The jit-jitdriver is
+                # in interp_jit.py
+                stmonly_jitdriver.jit_merge_point(
+                    self=self, co_code=co_code,
+                    next_instr=next_instr, ec=ec)
+            rstm.push_marker(intmask(next_instr) * 2 + 1, co_code)
+            try:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                rstm.update_marker_num(intmask(next_instr) * 2 + 1)
-        except ExitFrame:
-            return self.popvalue()
+            except ExitFrame:
+                return self.popvalue()
+            finally:
+                rstm.pop_marker()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
