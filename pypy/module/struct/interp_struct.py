@@ -115,18 +115,18 @@ class W_Struct(W_Root):
         return self
 
     def descr_pack(self, space, args_w):
-        return pack(space, self.format, args_w)
+        return pack(space, jit.promote_string(self.format), args_w)
 
     @unwrap_spec(offset=int)
     def descr_pack_into(self, space, w_buffer, offset, args_w):
-        return pack_into(space, self.format, w_buffer, offset, args_w)
+        return pack_into(space, jit.promote_string(self.format), w_buffer, offset, args_w)
 
     def descr_unpack(self, space, w_str):
-        return unpack(space, self.format, w_str)
+        return unpack(space, jit.promote_string(self.format), w_str)
 
     @unwrap_spec(offset=int)
     def descr_unpack_from(self, space, w_buffer, offset=0):
-        return unpack_from(space, self.format, w_buffer, offset)
+        return unpack_from(space, jit.promote_string(self.format), w_buffer, offset)
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),

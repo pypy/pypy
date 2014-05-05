@@ -44,7 +44,6 @@ class TestStruct(BaseTestPyPyC):
         """)
 
     def test_struct_object(self):
-        skip("XXX broken")
         def main(n):
             import struct
             s = struct.Struct("i")
