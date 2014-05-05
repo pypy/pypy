@@ -84,7 +84,7 @@ for more information see `whats-new`_:
 
 * Fix issues with reimporting builtin modules
 
-* Fix a RPython bug with loop-unrolling that appeared in the `HippyVM`_ PHP port
+* Fix an RPython bug with loop-unrolling that appeared in the `HippyVM`_ PHP port
 
 * Support for corner cases on objects with __int__ and __float__ methods
 
@@ -125,7 +125,7 @@ You need to install NumPy separately with a virtualenv:
   and scalars were corrected. We are slowly approaching our goal of passing
   the NumPy test suite. We still do not support object or unicode ndarrays.
 
-* speed of iteration in dot() is now within 1.5x of the NumPy c 
+* Speed of iteration in dot() is now within 1.5x of the NumPy c 
   implementation (without BLAS acceleration). Since the same array
   iterator is used throughout the ``_numpy`` module, speed increases should
   be apparent in all NumPy functionality.
@@ -135,7 +135,7 @@ You need to install NumPy separately with a virtualenv:
 * A cffi-based ``numpy.random`` module is available as a branch;
   it will be merged soon after this release.
 
-* enhancements to the PyPy JIT were made to support virtualizing the raw_store/raw_load 
+* Enhancements to the PyPy JIT were made to support virtualizing the raw_store/raw_load 
   memory operations used in NumPy arrays. Further work remains here in virtualizing the 
   alloc_raw_storage when possible. This will allow scalars to have storages but still be 
   virtualized when possible in loops.
