@@ -354,32 +354,33 @@ class AppTestStruct(object):
 
     def test_pack_unpack_buffer(self):
         import array
-        b = array.array('c', '\x00' * 19)
+        b = array.array('b', b'\x00' * 19)
         sz = self.struct.calcsize("ii")
         for offset in [2, -17]:
             self.struct.pack_into("ii", b, offset, 17, 42)
-            assert str(buffer(b)) == ('\x00' * 2 +
-                                      self.struct.pack("ii", 17, 42) +
-                                      '\x00' * (19-sz-2))
-        exc = raises(TypeError, self.struct.pack_into, "ii", buffer(b), 0, 17, 42)
-        assert str(exc.value) == "buffer is read-only"
+            assert bytes(memoryview(b)) == (b'\x00' * 2 +
+                                            self.struct.pack("ii", 17, 42) +
+                                            b'\x00' * (19-sz-2))
+        b2 = array.array('b', b'\x00' * 19)
+        self.struct.pack_into("ii", memoryview(b2), 0, 17, 42)
+        assert bytes(b2) == self.struct.pack("ii", 17, 42) + (b'\x00' * 11)
+
         exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
-        assert str(exc.value) == "Cannot use string as modifiable buffer"
+        assert str(exc.value) == "expected an object with a writable buffer interface"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
         assert self.struct.unpack_from("ii", b, 2) == (17, 42)
         assert self.struct.unpack_from("ii", b, -17) == (17, 42)
-        assert self.struct.unpack_from("ii", buffer(b, 2)) == (17, 42)
-        assert self.struct.unpack_from("ii", buffer(b), 2) == (17, 42)
-        assert self.struct.unpack_from("ii", memoryview(buffer(b)), 2) == (17, 42)
+        assert self.struct.unpack_from("ii", memoryview(b)[2:]) == (17, 42)
+        assert self.struct.unpack_from("ii", memoryview(b), 2) == (17, 42)
         exc = raises(TypeError, self.struct.unpack_from, "ii", 123)
-        assert 'must be string or buffer, not int' in str(exc.value)
-        exc = raises(self.struct.error, self.struct.unpack_from, "ii", None)
-        assert str(exc.value) == "unpack_from requires a buffer argument"
-        exc = raises(self.struct.error, self.struct.unpack_from, "ii", '')
+        assert str(exc.value) == "'int' does not support the buffer interface"
+        exc = raises(TypeError, self.struct.unpack_from, "ii", None)
+        assert str(exc.value) == "'NoneType' does not support the buffer interface"
+        exc = raises(self.struct.error, self.struct.unpack_from, "ii", b'')
         assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
-        exc = raises(self.struct.error, self.struct.unpack_from, "ii", memoryview(''))
+        exc = raises(self.struct.error, self.struct.unpack_from, "ii", memoryview(b''))
         assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
 
     def test___float__(self):
