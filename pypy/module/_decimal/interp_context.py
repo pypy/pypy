@@ -16,17 +16,34 @@ from pypy.module._decimal import interp_signals
 # initialized to new SignalDicts.
 # Once a SignalDict is tied to a context, it cannot be deleted.
 class W_SignalDictMixin(W_Root):
-    pass
+    def __init__(self, flag_ptr):
+        self.flag_ptr = flag_ptr
 
-def descr_new_signaldict(space, w_subtype):
-    w_result = space.allocate_instance(W_SignalDictMixin, w_subtype)
-    W_SignalDictMixin.__init__(w_result)
-    return w_result
+    def descr_getitem(self, space, w_key):
+        flag = interp_signals.exception_as_flag(space, w_key)
+        return space.wrap(bool(flag & self.flag_ptr[0]))
+
+    def descr_setitem(self, space, w_key, w_value):
+        flag = interp_signals.exception_as_flag(space, w_key)
+        if space.is_true(w_value):
+            self.flag_ptr[0] |= flag
+        else:
+            self.flag_ptr[0] &= ~flag
+
+
+def new_signal_dict(space, flag_ptr):
+    w_dict = space.allocate_instance(W_SignalDictMixin,
+                                     state_get(space).W_SignalDict)
+    W_SignalDictMixin.__init__(w_dict, flag_ptr)
+    return w_dict
+
 
 W_SignalDictMixin.typedef = TypeDef(
     'SignalDictMixin',
-    __new__ = interp2app(descr_new_signaldict),
+    __getitem__ = interp2app(W_SignalDictMixin.descr_getitem),
+    __setitem__ = interp2app(W_SignalDictMixin.descr_setitem),
     )
+W_SignalDictMixin.typedef.acceptable_as_base_class = True
 
 
 class State:
@@ -54,8 +71,11 @@ class W_Context(W_Root):
         self.ctx = lltype.malloc(rmpdec.MPD_CONTEXT_PTR.TO, flavor='raw',
                                  zero=True,
                                  track_allocation=False)
-        self.w_flags = space.call_function(state_get(space).W_SignalDict)
-        self.capitals = 0
+        self.w_flags = new_signal_dict(
+            space, lltype.direct_fieldptr(self.ctx, 'c_status'))
+        self.w_traps = new_signal_dict(
+            space, lltype.direct_fieldptr(self.ctx, 'c_traps'))
+        self.capitals = 1
 
     def __del__(self):
         if self.ctx:
@@ -142,6 +162,7 @@ W_Context.typedef = TypeDef(
     'Context',
     copy=interp2app(W_Context.copy_w),
     flags=interp_attrproperty_w('w_flags', W_Context),
+    traps=interp_attrproperty_w('w_traps', W_Context),
     prec=GetSetProperty(W_Context.get_prec, W_Context.set_prec),
     rounding=GetSetProperty(W_Context.get_rounding, W_Context.set_rounding),
     Emin=GetSetProperty(W_Context.get_emin, W_Context.set_emin),

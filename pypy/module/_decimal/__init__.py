@@ -5,6 +5,7 @@ from pypy.module._decimal import interp_signals
 
 class Module(MixedModule):
     appleveldefs = {
+        'localcontext': 'app_context.localcontext',
         }
     
     interpleveldefs = {

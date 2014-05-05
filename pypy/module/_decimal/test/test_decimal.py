@@ -42,3 +42,51 @@ class AppTestExplicitConstruction:
                     d = Decimal(i)
                     assert str(d) == str(i)
 
+    def test_explicit_from_string(self):
+        Decimal = self.decimal.Decimal
+        InvalidOperation = self.decimal.InvalidOperation
+        localcontext = self.decimal.localcontext
+
+        #empty
+        assert str(Decimal('')) == 'NaN'
+
+        #int
+        assert str(Decimal('45')) == '45'
+
+        #float
+        assert str(Decimal('45.34')) == '45.34'
+
+        #engineer notation
+        assert str(Decimal('45e2')) == '4.5E+3'
+
+        #just not a number
+        assert str(Decimal('ugly')) == 'NaN'
+
+        #leading and trailing whitespace permitted
+        assert str(Decimal('1.3E4 \n')) == '1.3E+4'
+        assert str(Decimal('  -7.89')) == '-7.89'
+        assert str(Decimal("  3.45679  ")) == '3.45679'
+
+        # unicode whitespace
+        for lead in ["", ' ', '\u00a0', '\u205f']:
+            for trail in ["", ' ', '\u00a0', '\u205f']:
+                assert str(Decimal(lead + '9.311E+28' + trail)) == '9.311E+28'
+
+        with localcontext() as c:
+            c.traps[InvalidOperation] = True
+            # Invalid string
+            raises(InvalidOperation, Decimal, "xyz")
+            # Two arguments max
+            raises(TypeError, Decimal, "1234", "x", "y")
+
+            # space within the numeric part
+            raises(InvalidOperation, Decimal, "1\u00a02\u00a03")
+            raises(InvalidOperation, Decimal, "\u00a01\u00a02\u00a0")
+
+            # unicode whitespace
+            raises(InvalidOperation, Decimal, "\u00a0")
+            raises(InvalidOperation, Decimal, "\u00a0\u00a0")
+
+            # embedded NUL
+            raises(InvalidOperation, Decimal, "12\u00003")
+

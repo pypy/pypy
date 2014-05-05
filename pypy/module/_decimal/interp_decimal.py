@@ -5,6 +5,7 @@ from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
+from pypy.objspace.std import unicodeobject
 from pypy.module._decimal import interp_context
 
 
@@ -80,7 +81,9 @@ def decimal_from_cstring(space, w_subtype, value, context, exact=True):
 
 def decimal_from_unicode(space, w_subtype, w_value, context, exact=True,
                          strip_whitespace=True):
-    s = space.str_w(w_value)  # XXX numeric_as_ascii() is different
+    s = unicodeobject.unicode_to_decimal_w(space, w_value)
+    if '\0' in s:
+        s = ''  # empty string triggers ConversionSyntax.
     if strip_whitespace:
         s = s.strip()
     return decimal_from_cstring(space, w_subtype, s, context, exact=exact)

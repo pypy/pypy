@@ -1,6 +1,6 @@
 from rpython.rlib import rmpdec
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 
 SIGNAL_MAP = unrolling_iterable([
     ('InvalidOperation', rmpdec.MPD_IEEE_Invalid_operation),
@@ -31,9 +31,14 @@ def flags_as_exception(space, flags):
     if w_exc is None:
         raise oefmt(space.w_RuntimeError,
                     "invalid error flag")
-    
-        
-    raise ValueError(hex(flags))
+    return OperationError(w_exc, space.w_None)
+
+def exception_as_flag(space, w_exc):
+    for name, flag in SIGNAL_MAP:
+        if space.is_w(w_exc, getattr(get(space), 'w_' + name)):
+            return flag
+    raise oefmt(space.w_KeyError,
+                "invalid error flag")
 
 
 class SignalState:
