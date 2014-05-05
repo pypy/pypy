@@ -10,6 +10,7 @@
 #include <src/rtyper.h>
 #include <src/exception.h>
 #include <src/debug_traceback.h>
+#include <src/asm.h>
 
 #include <stdlib.h>
 #include <stdio.h>
