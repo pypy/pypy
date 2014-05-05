@@ -72,13 +72,21 @@ class HostCode(object):
         and **varkwarg, if they exist."""
         return self.signature.scope_length()
 
+    @property
+    def is_generator(self):
+        return bool(self.co_flags & CO_GENERATOR)
+
     def read(self, offset):
+        return bc_reader.read(self, offset)
+
+class BytecodeReader(object):
+    def read(self, code, offset):
         """
         Decode the instruction starting at position ``offset``.
 
         Returns (next_offset, instruction).
         """
-        co_code = self.co_code
+        co_code = code.co_code
         opnum = ord(co_code[offset])
         next_offset = offset + 1
 
@@ -102,16 +110,15 @@ class HostCode(object):
         if opnum in opcode.hasjrel:
             oparg += next_offset
         elif opnum in opcode.hasname:
-            oparg = self.names[oparg]
+            oparg = code.names[oparg]
         try:
-            op = BCInstruction.num2op[opnum].decode(oparg, offset, self)
+            op = BCInstruction.num2op[opnum].decode(oparg, offset, code)
         except KeyError:
             op = GenericOpcode(opnum, oparg, offset)
         return next_offset, op
 
-    @property
-    def is_generator(self):
-        return bool(self.co_flags & CO_GENERATOR)
+bc_reader = BytecodeReader()
+
 
 OPNAMES = host_bytecode_spec.method_names
 
