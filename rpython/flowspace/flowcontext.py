@@ -15,6 +15,7 @@ from rpython.flowspace.model import (Constant, Variable, Block, Link,
 from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
+from rpython.flowspace.bytecode import BytecodeBlock
 from rpython.flowspace.operation import op
 from rpython.flowspace.bytecode import BytecodeCorruption
 
@@ -449,13 +450,18 @@ class FlowContext(object):
                     break
 
     def handle_bytecode(self, next_offset):
-        self.last_offset = next_offset
+        bc_graph = self.pycode.graph
         next_offset, instr = self.pycode.read(next_offset)
+        self.last_offset = instr.offset
         try:
             offset = instr.eval(self)
-            return offset if offset is not None else next_offset
         except FlowSignal as signal:
             return self.unroll(signal)
+        if next_offset is None:
+            next_offset = bc_graph.next_pos(instr)
+        elif isinstance(next_offset, BytecodeBlock):
+            next_offset = next_offset.startpos
+        return next_offset
 
     def unroll(self, signal):
         while self.blockstack:

@@ -70,9 +70,9 @@ class HostCode(object):
         for block in pendingblocks:
             for i, op in enumerate(block.operations):
                 graph.pos_index[op.offset] = block, i
-        graph.next_pos = dict([(offsets[i], offsets[i+1])
+        graph._next_pos = dict([(offsets[i], offsets[i+1])
             for i in range(len(offsets) - 1)])
-        graph.next_pos[offsets[-1]] = len(self.co_code)
+        graph._next_pos[offsets[-1]] = len(self.co_code)
         while pendingblocks:
             block = pendingblocks.pop()
             for i, op in enumerate(block.operations):
@@ -97,6 +97,7 @@ class HostCode(object):
     @property
     def is_generator(self):
         return bool(self.co_flags & CO_GENERATOR)
+
 
 class BytecodeReader(object):
     def __init__(self, opnames):
@@ -176,11 +177,17 @@ class BytecodeGraph(object):
         self.entry.set_exits([startblock])
         self.pos_index = {}
 
-    def read(self, offset):
-        block, i = self.pos_index[offset]
-        op = block[i]
-        next_offset = self.next_pos[offset]
-        return next_offset, op
+    def read(self, pos):
+        bc_block, i = self.pos_index[pos]
+        return bc_block[i]
+
+    def next_pos(self, opcode):
+        return self._next_pos[opcode.offset]
+
+    def add_jump(self, block, target_block):
+        last_op = block.operations[-1]
+        self._next_pos[last_op.offset] = target_block.startpos
+        block.set_exits([target_block])
 
 
 class BytecodeBlock(object):
