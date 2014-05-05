@@ -403,6 +403,11 @@ class AppTestStruct(object):
         assert type(obj2) is float
         assert obj2 == 42.3
 
+    def test_struct_object(self):
+        s = self.struct.Struct('i')
+        assert s.unpack(s.pack(42)) == (42,)
+        assert s.unpack_from(memoryview(s.pack(42))) == (42,)
+
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])

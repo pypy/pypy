@@ -2,7 +2,6 @@ from rpython.rlib import jit
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
-from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -51,9 +50,9 @@ def pack(space, format, args_w):
 
 # XXX inefficient
 @unwrap_spec(format=str, offset=int)
-def pack_into(space, format, w_buf, offset, args_w):
+def pack_into(space, format, w_buffer, offset, args_w):
     res = pack(space, format, args_w).str_w(space)
-    buf = space.writebuf_w(w_buf)
+    buf = space.writebuf_w(w_buffer)
     if offset < 0:
         offset += buf.getlength()
     size = len(res)
@@ -118,21 +117,19 @@ class W_Struct(W_Root):
         W_Struct.__init__(self, space, format)
         return self
 
-    def wrap_struct_method(name):
-        def impl(self, space, __args__):
-            w_module = space.getbuiltinmodule('struct')
-            w_method = space.getattr(w_module, space.wrap(name))
-            return space.call_obj_args(
-                w_method, space.wrap(self.format), __args__
-            )
+    def descr_pack(self, space, args_w):
+        return pack(space, self.format, args_w)
 
-        return func_with_new_name(impl, 'descr_' + name)
+    @unwrap_spec(offset=int)
+    def descr_pack_into(self, space, w_buffer, offset, args_w):
+        return pack_into(space, self.format, w_buffer, offset, args_w)
 
-    descr_pack = wrap_struct_method("pack")
-    descr_unpack = wrap_struct_method("unpack")
-    descr_pack_into = wrap_struct_method("pack_into")
-    descr_unpack_from = wrap_struct_method("unpack_from")
+    def descr_unpack(self, space, w_str):
+        return unpack(space, self.format, w_str)
 
+    @unwrap_spec(offset=int)
+    def descr_unpack_from(self, space, w_buffer, offset=0):
+        return unpack_from(space, self.format, w_buffer, offset)
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
