@@ -56,6 +56,7 @@ class HostCode(object):
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
         self.signature = cpython_code_signature(self)
+        self.build_flow()
 
     def disassemble(self):
         contents = []
@@ -72,6 +73,14 @@ class HostCode(object):
             pos = next_pos
             i += 1
         return contents, offsets, jumps
+
+    def build_flow(self):
+        next_pos = pos = 0
+        contents, offsets, jumps = self.disassemble()
+        self.contents = zip(offsets, contents)
+        self.pos_index = dict((offset, i) for i, offset in enumerate(offsets))
+        # add end marker
+        self.contents.append((len(self.co_code), None))
 
 
     @classmethod
@@ -95,6 +104,12 @@ class HostCode(object):
         return bool(self.co_flags & CO_GENERATOR)
 
     def read(self, offset):
+        i = self.pos_index[offset]
+        op = self.contents[i][1]
+        next_offset = self.contents[i+1][0]
+        return next_offset, op
+
+    def decode(self, offset):
         return bc_reader.read(self, offset)
 
 class BytecodeReader(object):
