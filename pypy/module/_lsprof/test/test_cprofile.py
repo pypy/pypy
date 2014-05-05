@@ -38,7 +38,7 @@ class AppTestCProfile(object):
         prof.disable()
         stats = prof.getstats()
         expected = (
-            "<len>",
+            "<built-in function len>",
             "<method 'append' of 'list' objects>",
         )
         by_id = set()
