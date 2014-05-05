@@ -331,6 +331,13 @@ def JUMP_FORWARD(self, block, graph):
     target_block, _ = graph.pos_index[self.arg]
     graph.add_jump(block, target_block)
 
+@bc_reader.register_opcode
+class SETUP_EXCEPT(BCInstruction):
+    def eval(self, ctx):
+        from rpython.flowspace.flowcontext import ExceptBlock
+        block = ExceptBlock(ctx, self.arg)
+        ctx.blockstack.append(block)
+
 _unary_ops = [
     ('UNARY_POSITIVE', op.pos),
     ('UNARY_NEGATIVE', op.neg),

@@ -734,10 +734,6 @@ class FlowContext(object):
         block = LoopBlock(self, target)
         self.blockstack.append(block)
 
-    def SETUP_EXCEPT(self, target):
-        block = ExceptBlock(self, target)
-        self.blockstack.append(block)
-
     def SETUP_FINALLY(self, target):
         block = FinallyBlock(self, target)
         self.blockstack.append(block)
