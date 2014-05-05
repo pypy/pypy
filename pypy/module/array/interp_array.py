@@ -656,6 +656,15 @@ class ArrayBuffer(Buffer):
         data[index] = char
         array._charbuf_stop()
 
+    def getslice(self, start, stop, step, size):
+        if step == 1:
+            data = self.array._charbuf_start()
+            try:
+                return rffi.charpsize2str(rffi.ptradd(data, start), size)
+            finally:
+                self.array._charbuf_stop()
+        return Buffer.getslice(self, start, stop, step, size)
+
     def get_raw_address(self):
         return self.array._charbuf_start()
 

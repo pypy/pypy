@@ -627,7 +627,7 @@ def _real_getenv(var):
     elif output.startswith('T'):
         return output[1:]
     else:
-        raise ValueError, 'probing for env var returned %r' % (output,)
+        raise ValueError('probing for env var returned %r' % (output,))
 
 def test_dictlike_environ_getitem():
     def fn(s):

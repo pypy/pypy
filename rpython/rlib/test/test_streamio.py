@@ -95,7 +95,7 @@ class TWriter(streamio.Stream):
         elif whence == 2:
             offset += len(self.buf)
         else:
-            raise ValueError, "whence should be 0, 1 or 2"
+            raise ValueError("whence should be 0, 1 or 2")
         if offset < 0:
             offset = 0
         self.pos = offset

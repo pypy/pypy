@@ -903,7 +903,9 @@ def generate_macros(export_symbols, prefix):
         ("SIZEOF_TIME_T", rffi.TIME_T),
         ("SIZEOF_LONG", rffi.LONG),
         ("SIZEOF_SHORT", rffi.SHORT),
-        ("SIZEOF_INT", rffi.INT)
+        ("SIZEOF_INT", rffi.INT),
+        ("SIZEOF_FLOAT", rffi.FLOAT),
+        ("SIZEOF_DOUBLE", rffi.DOUBLE),
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')

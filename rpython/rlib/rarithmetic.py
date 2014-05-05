@@ -173,7 +173,7 @@ def ovfcheck(r):
     if type(r) is long and not is_valid_int(r):
         # checks only if applicable to r's type.
         # this happens in the garbage collector.
-        raise OverflowError, "signed integer expression did overflow"
+        raise OverflowError("signed integer expression did overflow")
     return r
 
 # Strange things happening for float to int on 64 bit:
@@ -213,7 +213,7 @@ def compute_restype(self_type, other_type):
         return other_type
     if self_type.SIGNED == other_type.SIGNED:
         return build_int(None, self_type.SIGNED, max(self_type.BITS, other_type.BITS))
-    raise AssertionError, "Merging these types (%s, %s) is not supported" % (self_type, other_type)
+    raise AssertionError("Merging these types (%s, %s) is not supported" % (self_type, other_type))
 
 def signedtype(t):
     if t in (bool, int, long):

@@ -1,4 +1,5 @@
 from rpython.rlib import jit
+from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 from rpython.tool.sourcetools import func_with_new_name
@@ -65,9 +66,8 @@ def pack_into(space, format, w_buf, offset, args_w):
     buf.setslice(offset, res)
 
 
-@unwrap_spec(format=str, input='bufferstr')
-def unpack(space, format, input):
-    fmtiter = UnpackFormatIterator(space, input)
+def _unpack(space, format, buf):
+    fmtiter = UnpackFormatIterator(space, buf)
     try:
         fmtiter.interpret(format)
     except StructOverflowError, e:
@@ -83,11 +83,16 @@ def clearcache(space):
     # No cache in this implementation
 
 
-# XXX inefficient
+@unwrap_spec(format=str)
+def unpack(space, format, w_str):
+    buf = space.getarg_w('s*', w_str)
+    return _unpack(space, format, buf)
+
+
 @unwrap_spec(format=str, offset=int)
-def unpack_from(space, format, w_buf, offset=0):
+def unpack_from(space, format, w_buffer, offset=0):
     size = _calcsize(space, format)
-    buf = space.getarg_w('z*', w_buf)
+    buf = space.getarg_w('z*', w_buffer)
     if buf is None:
         w_module = space.getbuiltinmodule('struct')
         w_error = space.getattr(w_module, space.wrap('error'))
@@ -100,8 +105,8 @@ def unpack_from(space, format, w_buf, offset=0):
         raise oefmt(w_error,
                     "unpack_from requires a buffer of at least %d bytes",
                     size)
-    data = buf.getslice(offset, offset + size, 1, size)
-    return unpack(space, format, data)
+    buf = SubBuffer(buf, offset, size)
+    return _unpack(space, format, buf)
 
 
 class W_Struct(W_Root):

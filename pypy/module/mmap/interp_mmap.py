@@ -40,10 +40,10 @@ class W_MMap(W_Root):
         self.check_valid()
         return self.space.wrapbytes(self.mmap.read(num))
 
-    @unwrap_spec(tofind='bufferstr')
-    def find(self, tofind, w_start=None, w_end=None):
+    def find(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
+        tofind = space.getarg_w('s#', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -54,10 +54,10 @@ class W_MMap(W_Root):
             end = space.getindex_w(w_end, None)
         return space.wrap(self.mmap.find(tofind, start, end))
 
-    @unwrap_spec(tofind='bufferstr')
-    def rfind(self, tofind, w_start=None, w_end=None):
+    def rfind(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
+        tofind = space.getarg_w('s#', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -87,9 +87,9 @@ class W_MMap(W_Root):
         except OSError, e:
             raise mmap_error(self.space, e)
 
-    @unwrap_spec(data='bufferstr')
-    def write(self, data):
+    def write(self, w_data):
         self.check_valid()
+        data = self.space.getarg_w('s#', w_data)
         self.check_writeable()
         try:
             self.mmap.write(data)
