@@ -24,6 +24,10 @@ class AppTestStruct(object):
         struct.error should be an exception class.
         """
         assert issubclass(self.struct.error, Exception)
+        assert self.struct.error.__mro__ == (self.struct.error, Exception,
+                                             BaseException, object)
+        assert self.struct.error.__name__ == "error"
+        assert self.struct.error.__module__ == "struct"
 
     def test_calcsize_standard(self):
         """

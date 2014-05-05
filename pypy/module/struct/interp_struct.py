@@ -12,6 +12,15 @@ from pypy.module.struct.formatiterator import (
 )
 
 
+class Cache:
+    def __init__(self, space):
+        self.error = space.new_exception_class("struct.error", space.w_Exception)
+
+
+def get_error(space):
+    return space.fromcache(Cache).error
+
+
 @unwrap_spec(format=str)
 def calcsize(space, format):
     return space.wrap(_calcsize(space, format))
@@ -24,9 +33,7 @@ def _calcsize(space, format):
     except StructOverflowError, e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
     except StructError, e:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise OperationError(w_error, space.wrap(e.msg))
+        raise OperationError(get_error(space), space.wrap(e.msg))
     return fmtiter.totalsize
 
 
@@ -42,9 +49,7 @@ def pack(space, format, args_w):
     except StructOverflowError, e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
     except StructError, e:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise OperationError(w_error, space.wrap(e.msg))
+        raise OperationError(get_error(space), space.wrap(e.msg))
     return space.wrap(fmtiter.result.build())
 
 
@@ -57,9 +62,7 @@ def pack_into(space, format, w_buffer, offset, args_w):
         offset += buf.getlength()
     size = len(res)
     if offset < 0 or (buf.getlength() - offset) < size:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise oefmt(w_error,
+        raise oefmt(get_error(space),
                     "pack_into requires a buffer of at least %d bytes",
                     size)
     buf.setslice(offset, res)
@@ -72,9 +75,7 @@ def _unpack(space, format, buf):
     except StructOverflowError, e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
     except StructError, e:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise OperationError(w_error, space.wrap(e.msg))
+        raise OperationError(get_error(space), space.wrap(e.msg))
     return space.newtuple(fmtiter.result_w[:])
 
 
@@ -89,15 +90,11 @@ def unpack_from(space, format, w_buffer, offset=0):
     size = _calcsize(space, format)
     buf = space.getarg_w('z*', w_buffer)
     if buf is None:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise oefmt(w_error, "unpack_from requires a buffer argument")
+        raise oefmt(get_error(space), "unpack_from requires a buffer argument")
     if offset < 0:
         offset += buf.getlength()
     if offset < 0 or (buf.getlength() - offset) < size:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise oefmt(w_error,
+        raise oefmt(get_error(space),
                     "unpack_from requires a buffer of at least %d bytes",
                     size)
     buf = SubBuffer(buf, offset, size)
