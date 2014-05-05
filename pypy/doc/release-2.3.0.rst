@@ -33,7 +33,7 @@ so we can finish those projects!  The three sub-projects are:
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
-.. _ `Numpy`: http://pypy.org/numpydonate.html
+.. _ `NumPy`: http://pypy.org/numpydonate.html
 .. _`TDD`: http://doc.pypy.org/en/latest/how-to-contribute.html
 .. _`CFFI`: http://cffi.readthedocs.org
 .. _`cryptography`: https://cryptography.io
@@ -66,8 +66,9 @@ Highlights
 Bugfixes 
 --------
 
-Many issues were cleaned up after being reported by users to https://bugs.pypy.org (ignore the bad SSL certificate) or on IRC at #pypy. Note that we consider
-performance slowdowns as bugs.
+Many issues were cleaned up after being reported by users to https://bugs.pypy.org or on IRC at #pypy. Note that we consider
+performance slowdowns as bugs. Here is a summary of the user-facing changes;
+for more information see `whats-new`_:
 
 * The ARM port no longer crashes on unaligned memory access to floats and doubles,
   and singlefloats are supported in the JIT.
@@ -83,7 +84,7 @@ performance slowdowns as bugs.
 
 * Fix issues with reimporting builtin modules
 
-* Fix a rpython bug with loop-unrolling that appeared in the `HippyVM`_ PHP port
+* Fix a RPython bug with loop-unrolling that appeared in the `HippyVM`_ PHP port
 
 * Support for corner cases on objects with __int__ and __float__ methods
 
@@ -92,6 +93,8 @@ performance slowdowns as bugs.
 * Fix handling of tp_name for type objects
 
 .. _`HippyVM`: http://www.hippyvm.com
+.. _`whats-new`: :http://doc.pypy.org/en/latest/whatsnew-2.3.0.html
+
 
 New Platforms and Features
 --------------------------
@@ -99,18 +102,18 @@ New Platforms and Features
 * Support for OpenBSD 
 
 * Code cleanup: we continue to prune out old and unused code, and to refactor
-  large parts of the codebase. We have separated rpython from the PyPy python
-  interpreter, and rpython is seeing use in other dynamic language projects.
+  large parts of the codebase. We have separated RPython from the PyPy python
+  interpreter, and RPython is seeing use in other dynamic language projects.
 
 * Support for precompiled headers in the build process for MSVC
 
 * Tweak support of errno in cpyext (the PyPy implemenation of the capi)
 
 
-Numpy
+NumPy
 -----
-Numpy support has been split into a builtin ``_numpy`` module and a
-fork of the numpy code base adapted to pypy at 
+NumPy support has been split into a builtin ``_numpy`` module and a
+fork of the NumPy code base adapted to PyPy at 
   ``https://bitbucket.org/pypy/numpy``.
 You need to install NumPy separately with a virtualenv:
   ``pip install git+https://bitbucket.org/pypy/numpy.git``;
@@ -120,20 +123,20 @@ You need to install NumPy separately with a virtualenv:
 
 * NumPy support has been improved, many failures in indexing, dtypes,
   and scalars were corrected. We are slowly approaching our goal of passing
-  the numpy test suite. We still do not support object or unicode ndarrays.
+  the NumPy test suite. We still do not support object or unicode ndarrays.
 
-* speed of iteration in dot() is now within 1.5x of the numpy c 
+* speed of iteration in dot() is now within 1.5x of the NumPy c 
   implementation (without BLAS acceleration). Since the same array
   iterator is used throughout the ``_numpy`` module, speed increases should
-  be apparent in all Numpy functionality.
+  be apparent in all NumPy functionality.
 
 * Most of the core functionality of nditer has been implemented.
 
-* A cffi-based ``numpy.random`` module is available as a branch in the numpy
-  repository, it will be merged soon after this release.
+* A cffi-based ``numpy.random`` module is available as a branch;
+  it will be merged soon after this release.
 
 * enhancements to the PyPy JIT were made to support virtualizing the raw_store/raw_load 
-  memory operations used in numpy arrays. Further work remains here in virtualizing the 
+  memory operations used in NumPy arrays. Further work remains here in virtualizing the 
   alloc_raw_storage when possible. This will allow scalars to have storages but still be 
   virtualized when possible in loops.
 
