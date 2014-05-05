@@ -431,7 +431,7 @@ def get_operrcls2(valuefmt):
 
 class OpErrFmtNoArgs(OperationError):
     def __init__(self, w_type, value):
-        self._value = value
+        self._value = value.decode('ascii')
         self.setup(w_type)
 
     def _compute_value(self, space):

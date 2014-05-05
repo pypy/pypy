@@ -143,6 +143,9 @@ mpd_maxcontext = external(
 mpd_free = external(
     'mpd_free', [rffi.VOIDP], lltype.Void, macro=True)
 
+mpd_seterror = external(
+    'mpd_seterror', [MPD_PTR, rffi.UINT, rffi.UINTP], lltype.Void)
+
 # Conversion
 mpd_to_sci_size = external(
     'mpd_to_sci_size', [rffi.CCHARPP, MPD_PTR, rffi.INT], rffi.SSIZE_T)

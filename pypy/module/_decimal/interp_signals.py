@@ -1,5 +1,6 @@
 from rpython.rlib import rmpdec
 from rpython.rlib.unroll import unrolling_iterable
+from pypy.interpreter.error import oefmt
 
 SIGNAL_MAP = unrolling_iterable([
     ('InvalidOperation', rmpdec.MPD_IEEE_Invalid_operation),

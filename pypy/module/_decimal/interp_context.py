@@ -197,8 +197,8 @@ class ConvContext:
             if status & (rmpdec.MPD_Inexact |
                          rmpdec.MPD_Rounded |
                          rmpdec.MPD_Clamped):
-                rmpdec.seterror(self.mpd,
-                                rmpdec.MPD_Invalid_operation, status_ptr)
+                rmpdec.mpd_seterror(
+                    self.mpd, rmpdec.MPD_Invalid_operation, self.status_ptr)
         status = rffi.cast(lltype.Signed, self.status_ptr[0])
         lltype.free(self.status_ptr, flavor='raw')
         status &= rmpdec.MPD_Errors
