@@ -1308,8 +1308,7 @@ app_searchsort = applevel(r"""
         return result
 """, filename=__file__).interphook('searchsort')
 
-W_NDimArray.typedef = TypeDef("ndarray",
-    __module__ = "numpy",
+W_NDimArray.typedef = TypeDef("numpy.ndarray",
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),
@@ -1475,8 +1474,7 @@ def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
 
-W_FlatIterator.typedef = TypeDef("flatiter",
-    __module__ = "numpy",
+W_FlatIterator.typedef = TypeDef("numpy.flatiter",
     __iter__ = interp2app(W_FlatIterator.descr_iter),
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),

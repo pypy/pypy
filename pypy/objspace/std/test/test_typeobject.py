@@ -677,11 +677,13 @@ class AppTestTypeObject:
         class A(object):
             pass
         assert repr(A) == "<class 'a.A'>"
+        A.__module__ = 123
+        assert repr(A) == "<class 'A'>"
         assert repr(type(type)) == "<class 'type'>" 
         assert repr(complex) == "<class 'complex'>"
         assert repr(property) == "<class 'property'>"
         assert repr(TypeError) == "<class 'TypeError'>"
-        
+
     def test_repr_issue1292(self):
         d = {'object': object}    # no __name__
         exec("class A(object): pass\n", d)

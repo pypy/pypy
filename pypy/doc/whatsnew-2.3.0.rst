@@ -154,7 +154,7 @@ add 'lib' prefix to link libraries on OpenBSD
 Improve optimization of small allocation-heavy loops in the JIT
 
 .. branch: reflex-support
-   
+
 .. branch: asmosoinio/fixed-pip-installation-url-github-githu-1398674840188
 
 .. branch: lexer_token_position_class
@@ -165,3 +165,5 @@ Properly implement old/new buffer API for objects and start work on replacing bu
 .. branch: issue1430
 Add a lock for unsafe calls to gethostbyname and gethostbyaddr
 
+.. branch: fix-tpname
+Changes hacks surrounding W_TypeObject.name to match CPython's tp_name

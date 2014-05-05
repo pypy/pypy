@@ -154,8 +154,7 @@ def _get_quotechar(space, dialect):
 
 
 W_Dialect.typedef = TypeDef(
-        'Dialect',
-        __module__ = '_csv',
+        '_csv.Dialect',
         __new__ = interp2app(W_Dialect___new__),
 
         delimiter        = interp_attrproperty('delimiter', W_Dialect),

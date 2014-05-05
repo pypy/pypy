@@ -21,9 +21,9 @@ class AppTestAST:
         assert isinstance(ast.__version__, str)
 
     def test_flags(self):
-        skip("broken")
         from copy_reg import _HEAPTYPE
-        assert self.ast.Module.__flags__ & _HEAPTYPE
+        assert self.ast.AST.__flags__ & _HEAPTYPE == 0
+        assert self.ast.Module.__flags__ & _HEAPTYPE == _HEAPTYPE
 
     def test_build_ast(self):
         ast = self.ast
@@ -239,19 +239,19 @@ from __future__ import generators""")
         x = ast.Num()
         assert x._fields == ('n',)
         exc = raises(AttributeError, getattr, x, 'n')
-        assert "Num' object has no attribute 'n'" in exc.value.args[0]
+        assert str(exc.value) == "'Num' object has no attribute 'n'"
 
         x = ast.Num(42)
         assert x.n == 42
         exc = raises(AttributeError, getattr, x, 'lineno')
-        assert "Num' object has no attribute 'lineno'" in exc.value.args[0]
+        assert str(exc.value) == "'Num' object has no attribute 'lineno'"
 
         y = ast.Num()
         x.lineno = y
         assert x.lineno == y
 
         exc = raises(AttributeError, getattr, x, 'foobar')
-        assert "Num' object has no attribute 'foobar'" in exc.value.args[0]
+        assert str(exc.value) == "'Num' object has no attribute 'foobar'"
 
         x = ast.Num(lineno=2)
         assert x.lineno == 2
@@ -423,7 +423,7 @@ from __future__ import generators""")
 
     def test_issue1673_Num_fullinit(self):
         import ast
-        import copy 
+        import copy
         num_node = ast.Num(n=2,lineno=2,col_offset=3)
         num_node2 = copy.deepcopy(num_node)
         assert num_node.n == num_node2.n

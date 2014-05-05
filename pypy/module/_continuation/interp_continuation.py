@@ -136,8 +136,7 @@ def unpickle(space, w_subtype):
 
 
 W_Continulet.typedef = TypeDef(
-    'continulet',
-    __module__ = '_continuation',
+    '_continuation.continulet',
     __new__     = interp2app(W_Continulet___new__),
     __init__    = interp2app(W_Continulet.descr_init),
     switch      = interp2app(W_Continulet.descr_switch),

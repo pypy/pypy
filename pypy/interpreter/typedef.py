@@ -22,6 +22,7 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        self.heaptype = False
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)

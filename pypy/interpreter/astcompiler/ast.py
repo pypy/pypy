@@ -121,10 +121,9 @@ def AST_init(space, w_self, __args__):
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
 
-AST.typedef = typedef.TypeDef("AST",
+AST.typedef = typedef.TypeDef("_ast.AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
-    __module__='_ast',
     __reduce__=interp2app(AST.reduce_w),
     __setstate__=interp2app(AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
@@ -2883,6 +2882,7 @@ mod.typedef = typedef.TypeDef("mod",
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(mod)),
 )
+mod.typedef.heaptype = True
 
 def Module_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -2930,6 +2930,7 @@ Module.typedef = typedef.TypeDef("Module",
     __new__=interp2app(get_AST_new(Module)),
     __init__=interp2app(Module_init),
 )
+Module.typedef.heaptype = True
 
 def Interactive_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -2977,6 +2978,7 @@ Interactive.typedef = typedef.TypeDef("Interactive",
     __new__=interp2app(get_AST_new(Interactive)),
     __init__=interp2app(Interactive_init),
 )
+Interactive.typedef.heaptype = True
 
 def Expression_get_body(space, w_self):
     if w_self.w_dict is not None:
@@ -3030,6 +3032,7 @@ Expression.typedef = typedef.TypeDef("Expression",
     __new__=interp2app(get_AST_new(Expression)),
     __init__=interp2app(Expression_init),
 )
+Expression.typedef.heaptype = True
 
 def Suite_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -3077,6 +3080,7 @@ Suite.typedef = typedef.TypeDef("Suite",
     __new__=interp2app(get_AST_new(Suite)),
     __init__=interp2app(Suite_init),
 )
+Suite.typedef.heaptype = True
 
 def stmt_get_lineno(space, w_self):
     if w_self.w_dict is not None:
@@ -3142,6 +3146,7 @@ stmt.typedef = typedef.TypeDef("stmt",
     col_offset=typedef.GetSetProperty(stmt_get_col_offset, stmt_set_col_offset, stmt_del_col_offset, cls=stmt),
     __new__=interp2app(get_AST_new(stmt)),
 )
+stmt.typedef.heaptype = True
 
 def FunctionDef_get_name(space, w_self):
     if w_self.w_dict is not None:
@@ -3302,6 +3307,7 @@ FunctionDef.typedef = typedef.TypeDef("FunctionDef",
     __new__=interp2app(get_AST_new(FunctionDef)),
     __init__=interp2app(FunctionDef_init),
 )
+FunctionDef.typedef.heaptype = True
 
 def ClassDef_get_name(space, w_self):
     if w_self.w_dict is not None:
@@ -3512,6 +3518,7 @@ ClassDef.typedef = typedef.TypeDef("ClassDef",
     __new__=interp2app(get_AST_new(ClassDef)),
     __init__=interp2app(ClassDef_init),
 )
+ClassDef.typedef.heaptype = True
 
 def Return_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -3565,6 +3572,7 @@ Return.typedef = typedef.TypeDef("Return",
     __new__=interp2app(get_AST_new(Return)),
     __init__=interp2app(Return_init),
 )
+Return.typedef.heaptype = True
 
 def Delete_get_targets(space, w_self):
     if not w_self.initialization_state & 4:
@@ -3612,6 +3620,7 @@ Delete.typedef = typedef.TypeDef("Delete",
     __new__=interp2app(get_AST_new(Delete)),
     __init__=interp2app(Delete_init),
 )
+Delete.typedef.heaptype = True
 
 def Assign_get_targets(space, w_self):
     if not w_self.initialization_state & 4:
@@ -3689,6 +3698,7 @@ Assign.typedef = typedef.TypeDef("Assign",
     __new__=interp2app(get_AST_new(Assign)),
     __init__=interp2app(Assign_init),
 )
+Assign.typedef.heaptype = True
 
 def AugAssign_get_target(space, w_self):
     if w_self.w_dict is not None:
@@ -3802,6 +3812,7 @@ AugAssign.typedef = typedef.TypeDef("AugAssign",
     __new__=interp2app(get_AST_new(AugAssign)),
     __init__=interp2app(AugAssign_init),
 )
+AugAssign.typedef.heaptype = True
 
 def For_get_target(space, w_self):
     if w_self.w_dict is not None:
@@ -3933,6 +3944,7 @@ For.typedef = typedef.TypeDef("For",
     __new__=interp2app(get_AST_new(For)),
     __init__=interp2app(For_init),
 )
+For.typedef.heaptype = True
 
 def While_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -4034,6 +4046,7 @@ While.typedef = typedef.TypeDef("While",
     __new__=interp2app(get_AST_new(While)),
     __init__=interp2app(While_init),
 )
+While.typedef.heaptype = True
 
 def If_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -4135,6 +4148,7 @@ If.typedef = typedef.TypeDef("If",
     __new__=interp2app(get_AST_new(If)),
     __init__=interp2app(If_init),
 )
+If.typedef.heaptype = True
 
 def With_get_context_expr(space, w_self):
     if w_self.w_dict is not None:
@@ -4242,6 +4256,7 @@ With.typedef = typedef.TypeDef("With",
     __new__=interp2app(get_AST_new(With)),
     __init__=interp2app(With_init),
 )
+With.typedef.heaptype = True
 
 def Raise_get_exc(space, w_self):
     if w_self.w_dict is not None:
@@ -4325,6 +4340,7 @@ Raise.typedef = typedef.TypeDef("Raise",
     __new__=interp2app(get_AST_new(Raise)),
     __init__=interp2app(Raise_init),
 )
+Raise.typedef.heaptype = True
 
 def TryExcept_get_body(space, w_self):
     if not w_self.initialization_state & 4:
@@ -4420,6 +4436,7 @@ TryExcept.typedef = typedef.TypeDef("TryExcept",
     __new__=interp2app(get_AST_new(TryExcept)),
     __init__=interp2app(TryExcept_init),
 )
+TryExcept.typedef.heaptype = True
 
 def TryFinally_get_body(space, w_self):
     if not w_self.initialization_state & 4:
@@ -4491,6 +4508,7 @@ TryFinally.typedef = typedef.TypeDef("TryFinally",
     __new__=interp2app(get_AST_new(TryFinally)),
     __init__=interp2app(TryFinally_init),
 )
+TryFinally.typedef.heaptype = True
 
 def Assert_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -4574,6 +4592,7 @@ Assert.typedef = typedef.TypeDef("Assert",
     __new__=interp2app(get_AST_new(Assert)),
     __init__=interp2app(Assert_init),
 )
+Assert.typedef.heaptype = True
 
 def Import_get_names(space, w_self):
     if not w_self.initialization_state & 4:
@@ -4621,6 +4640,7 @@ Import.typedef = typedef.TypeDef("Import",
     __new__=interp2app(get_AST_new(Import)),
     __init__=interp2app(Import_init),
 )
+Import.typedef.heaptype = True
 
 def ImportFrom_get_module(space, w_self):
     if w_self.w_dict is not None:
@@ -4731,6 +4751,7 @@ ImportFrom.typedef = typedef.TypeDef("ImportFrom",
     __new__=interp2app(get_AST_new(ImportFrom)),
     __init__=interp2app(ImportFrom_init),
 )
+ImportFrom.typedef.heaptype = True
 
 def Global_get_names(space, w_self):
     if not w_self.initialization_state & 4:
@@ -4778,6 +4799,7 @@ Global.typedef = typedef.TypeDef("Global",
     __new__=interp2app(get_AST_new(Global)),
     __init__=interp2app(Global_init),
 )
+Global.typedef.heaptype = True
 
 def Nonlocal_get_names(space, w_self):
     if not w_self.initialization_state & 4:
@@ -4825,6 +4847,7 @@ Nonlocal.typedef = typedef.TypeDef("Nonlocal",
     __new__=interp2app(get_AST_new(Nonlocal)),
     __init__=interp2app(Nonlocal_init),
 )
+Nonlocal.typedef.heaptype = True
 
 def Expr_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -4878,6 +4901,7 @@ Expr.typedef = typedef.TypeDef("Expr",
     __new__=interp2app(get_AST_new(Expr)),
     __init__=interp2app(Expr_init),
 )
+Expr.typedef.heaptype = True
 
 def Pass_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Pass, w_self)
@@ -4895,6 +4919,7 @@ Pass.typedef = typedef.TypeDef("Pass",
     __new__=interp2app(get_AST_new(Pass)),
     __init__=interp2app(Pass_init),
 )
+Pass.typedef.heaptype = True
 
 def Break_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Break, w_self)
@@ -4912,6 +4937,7 @@ Break.typedef = typedef.TypeDef("Break",
     __new__=interp2app(get_AST_new(Break)),
     __init__=interp2app(Break_init),
 )
+Break.typedef.heaptype = True
 
 def Continue_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Continue, w_self)
@@ -4929,6 +4955,7 @@ Continue.typedef = typedef.TypeDef("Continue",
     __new__=interp2app(get_AST_new(Continue)),
     __init__=interp2app(Continue_init),
 )
+Continue.typedef.heaptype = True
 
 def expr_get_lineno(space, w_self):
     if w_self.w_dict is not None:
@@ -4994,6 +5021,7 @@ expr.typedef = typedef.TypeDef("expr",
     col_offset=typedef.GetSetProperty(expr_get_col_offset, expr_set_col_offset, expr_del_col_offset, cls=expr),
     __new__=interp2app(get_AST_new(expr)),
 )
+expr.typedef.heaptype = True
 
 def BoolOp_get_op(space, w_self):
     if w_self.w_dict is not None:
@@ -5071,6 +5099,7 @@ BoolOp.typedef = typedef.TypeDef("BoolOp",
     __new__=interp2app(get_AST_new(BoolOp)),
     __init__=interp2app(BoolOp_init),
 )
+BoolOp.typedef.heaptype = True
 
 def BinOp_get_left(space, w_self):
     if w_self.w_dict is not None:
@@ -5184,6 +5213,7 @@ BinOp.typedef = typedef.TypeDef("BinOp",
     __new__=interp2app(get_AST_new(BinOp)),
     __init__=interp2app(BinOp_init),
 )
+BinOp.typedef.heaptype = True
 
 def UnaryOp_get_op(space, w_self):
     if w_self.w_dict is not None:
@@ -5267,6 +5297,7 @@ UnaryOp.typedef = typedef.TypeDef("UnaryOp",
     __new__=interp2app(get_AST_new(UnaryOp)),
     __init__=interp2app(UnaryOp_init),
 )
+UnaryOp.typedef.heaptype = True
 
 def Lambda_get_args(space, w_self):
     if w_self.w_dict is not None:
@@ -5348,6 +5379,7 @@ Lambda.typedef = typedef.TypeDef("Lambda",
     __new__=interp2app(get_AST_new(Lambda)),
     __init__=interp2app(Lambda_init),
 )
+Lambda.typedef.heaptype = True
 
 def IfExp_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -5461,6 +5493,7 @@ IfExp.typedef = typedef.TypeDef("IfExp",
     __new__=interp2app(get_AST_new(IfExp)),
     __init__=interp2app(IfExp_init),
 )
+IfExp.typedef.heaptype = True
 
 def Dict_get_keys(space, w_self):
     if not w_self.initialization_state & 4:
@@ -5532,6 +5565,7 @@ Dict.typedef = typedef.TypeDef("Dict",
     __new__=interp2app(get_AST_new(Dict)),
     __init__=interp2app(Dict_init),
 )
+Dict.typedef.heaptype = True
 
 def Set_get_elts(space, w_self):
     if not w_self.initialization_state & 4:
@@ -5579,6 +5613,7 @@ Set.typedef = typedef.TypeDef("Set",
     __new__=interp2app(get_AST_new(Set)),
     __init__=interp2app(Set_init),
 )
+Set.typedef.heaptype = True
 
 def ListComp_get_elt(space, w_self):
     if w_self.w_dict is not None:
@@ -5656,6 +5691,7 @@ ListComp.typedef = typedef.TypeDef("ListComp",
     __new__=interp2app(get_AST_new(ListComp)),
     __init__=interp2app(ListComp_init),
 )
+ListComp.typedef.heaptype = True
 
 def SetComp_get_elt(space, w_self):
     if w_self.w_dict is not None:
@@ -5733,6 +5769,7 @@ SetComp.typedef = typedef.TypeDef("SetComp",
     __new__=interp2app(get_AST_new(SetComp)),
     __init__=interp2app(SetComp_init),
 )
+SetComp.typedef.heaptype = True
 
 def DictComp_get_key(space, w_self):
     if w_self.w_dict is not None:
@@ -5840,6 +5877,7 @@ DictComp.typedef = typedef.TypeDef("DictComp",
     __new__=interp2app(get_AST_new(DictComp)),
     __init__=interp2app(DictComp_init),
 )
+DictComp.typedef.heaptype = True
 
 def GeneratorExp_get_elt(space, w_self):
     if w_self.w_dict is not None:
@@ -5917,6 +5955,7 @@ GeneratorExp.typedef = typedef.TypeDef("GeneratorExp",
     __new__=interp2app(get_AST_new(GeneratorExp)),
     __init__=interp2app(GeneratorExp_init),
 )
+GeneratorExp.typedef.heaptype = True
 
 def Yield_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -5970,6 +6009,7 @@ Yield.typedef = typedef.TypeDef("Yield",
     __new__=interp2app(get_AST_new(Yield)),
     __init__=interp2app(Yield_init),
 )
+Yield.typedef.heaptype = True
 
 def Compare_get_left(space, w_self):
     if w_self.w_dict is not None:
@@ -6071,6 +6111,7 @@ Compare.typedef = typedef.TypeDef("Compare",
     __new__=interp2app(get_AST_new(Compare)),
     __init__=interp2app(Compare_init),
 )
+Compare.typedef.heaptype = True
 
 def Call_get_func(space, w_self):
     if w_self.w_dict is not None:
@@ -6232,6 +6273,7 @@ Call.typedef = typedef.TypeDef("Call",
     __new__=interp2app(get_AST_new(Call)),
     __init__=interp2app(Call_init),
 )
+Call.typedef.heaptype = True
 
 def Num_get_n(space, w_self):
     if w_self.w_dict is not None:
@@ -6284,6 +6326,7 @@ Num.typedef = typedef.TypeDef("Num",
     __new__=interp2app(get_AST_new(Num)),
     __init__=interp2app(Num_init),
 )
+Num.typedef.heaptype = True
 
 def Str_get_s(space, w_self):
     if w_self.w_dict is not None:
@@ -6336,6 +6379,7 @@ Str.typedef = typedef.TypeDef("Str",
     __new__=interp2app(get_AST_new(Str)),
     __init__=interp2app(Str_init),
 )
+Str.typedef.heaptype = True
 
 def Bytes_get_s(space, w_self):
     if w_self.w_dict is not None:
@@ -6388,6 +6432,7 @@ Bytes.typedef = typedef.TypeDef("Bytes",
     __new__=interp2app(get_AST_new(Bytes)),
     __init__=interp2app(Bytes_init),
 )
+Bytes.typedef.heaptype = True
 
 def Ellipsis_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Ellipsis, w_self)
@@ -6405,6 +6450,7 @@ Ellipsis.typedef = typedef.TypeDef("Ellipsis",
     __new__=interp2app(get_AST_new(Ellipsis)),
     __init__=interp2app(Ellipsis_init),
 )
+Ellipsis.typedef.heaptype = True
 
 def Attribute_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -6519,6 +6565,7 @@ Attribute.typedef = typedef.TypeDef("Attribute",
     __new__=interp2app(get_AST_new(Attribute)),
     __init__=interp2app(Attribute_init),
 )
+Attribute.typedef.heaptype = True
 
 def Subscript_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -6632,6 +6679,7 @@ Subscript.typedef = typedef.TypeDef("Subscript",
     __new__=interp2app(get_AST_new(Subscript)),
     __init__=interp2app(Subscript_init),
 )
+Subscript.typedef.heaptype = True
 
 def Starred_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -6715,6 +6763,7 @@ Starred.typedef = typedef.TypeDef("Starred",
     __new__=interp2app(get_AST_new(Starred)),
     __init__=interp2app(Starred_init),
 )
+Starred.typedef.heaptype = True
 
 def Name_get_id(space, w_self):
     if w_self.w_dict is not None:
@@ -6799,6 +6848,7 @@ Name.typedef = typedef.TypeDef("Name",
     __new__=interp2app(get_AST_new(Name)),
     __init__=interp2app(Name_init),
 )
+Name.typedef.heaptype = True
 
 def List_get_elts(space, w_self):
     if not w_self.initialization_state & 4:
@@ -6876,6 +6926,7 @@ List.typedef = typedef.TypeDef("List",
     __new__=interp2app(get_AST_new(List)),
     __init__=interp2app(List_init),
 )
+List.typedef.heaptype = True
 
 def Tuple_get_elts(space, w_self):
     if not w_self.initialization_state & 4:
@@ -6953,6 +7004,7 @@ Tuple.typedef = typedef.TypeDef("Tuple",
     __new__=interp2app(get_AST_new(Tuple)),
     __init__=interp2app(Tuple_init),
 )
+Tuple.typedef.heaptype = True
 
 def Const_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -7005,6 +7057,7 @@ Const.typedef = typedef.TypeDef("Const",
     __new__=interp2app(get_AST_new(Const)),
     __init__=interp2app(Const_init),
 )
+Const.typedef.heaptype = True
 
 expr_context.typedef = typedef.TypeDef("expr_context",
     AST.typedef,
@@ -7012,6 +7065,7 @@ expr_context.typedef = typedef.TypeDef("expr_context",
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(expr_context)),
 )
+expr_context.typedef.heaptype = True
 
 _Load.typedef = typedef.TypeDef("Load",
     expr_context.typedef,
@@ -7019,6 +7073,7 @@ _Load.typedef = typedef.TypeDef("Load",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Load)),
 )
+_Load.typedef.heaptype = True
 
 _Store.typedef = typedef.TypeDef("Store",
     expr_context.typedef,
@@ -7026,6 +7081,7 @@ _Store.typedef = typedef.TypeDef("Store",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Store)),
 )
+_Store.typedef.heaptype = True
 
 _Del.typedef = typedef.TypeDef("Del",
     expr_context.typedef,
@@ -7033,6 +7089,7 @@ _Del.typedef = typedef.TypeDef("Del",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Del)),
 )
+_Del.typedef.heaptype = True
 
 _AugLoad.typedef = typedef.TypeDef("AugLoad",
     expr_context.typedef,
@@ -7040,6 +7097,7 @@ _AugLoad.typedef = typedef.TypeDef("AugLoad",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_AugLoad)),
 )
+_AugLoad.typedef.heaptype = True
 
 _AugStore.typedef = typedef.TypeDef("AugStore",
     expr_context.typedef,
@@ -7047,6 +7105,7 @@ _AugStore.typedef = typedef.TypeDef("AugStore",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_AugStore)),
 )
+_AugStore.typedef.heaptype = True
 
 _Param.typedef = typedef.TypeDef("Param",
     expr_context.typedef,
@@ -7054,6 +7113,7 @@ _Param.typedef = typedef.TypeDef("Param",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Param)),
 )
+_Param.typedef.heaptype = True
 
 slice.typedef = typedef.TypeDef("slice",
     AST.typedef,
@@ -7061,6 +7121,7 @@ slice.typedef = typedef.TypeDef("slice",
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(slice)),
 )
+slice.typedef.heaptype = True
 
 def Slice_get_lower(space, w_self):
     if w_self.w_dict is not None:
@@ -7174,6 +7235,7 @@ Slice.typedef = typedef.TypeDef("Slice",
     __new__=interp2app(get_AST_new(Slice)),
     __init__=interp2app(Slice_init),
 )
+Slice.typedef.heaptype = True
 
 def ExtSlice_get_dims(space, w_self):
     if not w_self.initialization_state & 1:
@@ -7221,6 +7283,7 @@ ExtSlice.typedef = typedef.TypeDef("ExtSlice",
     __new__=interp2app(get_AST_new(ExtSlice)),
     __init__=interp2app(ExtSlice_init),
 )
+ExtSlice.typedef.heaptype = True
 
 def Index_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -7274,6 +7337,7 @@ Index.typedef = typedef.TypeDef("Index",
     __new__=interp2app(get_AST_new(Index)),
     __init__=interp2app(Index_init),
 )
+Index.typedef.heaptype = True
 
 boolop.typedef = typedef.TypeDef("boolop",
     AST.typedef,
@@ -7281,6 +7345,7 @@ boolop.typedef = typedef.TypeDef("boolop",
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(boolop)),
 )
+boolop.typedef.heaptype = True
 
 _And.typedef = typedef.TypeDef("And",
     boolop.typedef,
@@ -7288,6 +7353,7 @@ _And.typedef = typedef.TypeDef("And",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_And)),
 )
+_And.typedef.heaptype = True
 
 _Or.typedef = typedef.TypeDef("Or",
     boolop.typedef,
@@ -7295,6 +7361,7 @@ _Or.typedef = typedef.TypeDef("Or",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Or)),
 )
+_Or.typedef.heaptype = True
 
 operator.typedef = typedef.TypeDef("operator",
     AST.typedef,
@@ -7302,6 +7369,7 @@ operator.typedef = typedef.TypeDef("operator",
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(operator)),
 )
+operator.typedef.heaptype = True
 
 _Add.typedef = typedef.TypeDef("Add",
     operator.typedef,
@@ -7309,6 +7377,7 @@ _Add.typedef = typedef.TypeDef("Add",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Add)),
 )
+_Add.typedef.heaptype = True
 
 _Sub.typedef = typedef.TypeDef("Sub",
     operator.typedef,
@@ -7316,6 +7385,7 @@ _Sub.typedef = typedef.TypeDef("Sub",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Sub)),
 )
+_Sub.typedef.heaptype = True
 
 _Mult.typedef = typedef.TypeDef("Mult",
     operator.typedef,
@@ -7323,6 +7393,7 @@ _Mult.typedef = typedef.TypeDef("Mult",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Mult)),
 )
+_Mult.typedef.heaptype = True
 
 _Div.typedef = typedef.TypeDef("Div",
     operator.typedef,
@@ -7330,6 +7401,7 @@ _Div.typedef = typedef.TypeDef("Div",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Div)),
 )
+_Div.typedef.heaptype = True
 
 _Mod.typedef = typedef.TypeDef("Mod",
     operator.typedef,
@@ -7337,6 +7409,7 @@ _Mod.typedef = typedef.TypeDef("Mod",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Mod)),
 )
+_Mod.typedef.heaptype = True
 
 _Pow.typedef = typedef.TypeDef("Pow",
     operator.typedef,
@@ -7344,6 +7417,7 @@ _Pow.typedef = typedef.TypeDef("Pow",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Pow)),
 )
+_Pow.typedef.heaptype = True
 
 _LShift.typedef = typedef.TypeDef("LShift",
     operator.typedef,
@@ -7351,6 +7425,7 @@ _LShift.typedef = typedef.TypeDef("LShift",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_LShift)),
 )
+_LShift.typedef.heaptype = True
 
 _RShift.typedef = typedef.TypeDef("RShift",
     operator.typedef,
@@ -7358,6 +7433,7 @@ _RShift.typedef = typedef.TypeDef("RShift",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_RShift)),
 )
+_RShift.typedef.heaptype = True
 
 _BitOr.typedef = typedef.TypeDef("BitOr",
     operator.typedef,
@@ -7365,6 +7441,7 @@ _BitOr.typedef = typedef.TypeDef("BitOr",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitOr)),
 )
+_BitOr.typedef.heaptype = True
 
 _BitXor.typedef = typedef.TypeDef("BitXor",
     operator.typedef,
@@ -7372,6 +7449,7 @@ _BitXor.typedef = typedef.TypeDef("BitXor",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitXor)),
 )
+_BitXor.typedef.heaptype = True
 
 _BitAnd.typedef = typedef.TypeDef("BitAnd",
     operator.typedef,
@@ -7379,6 +7457,7 @@ _BitAnd.typedef = typedef.TypeDef("BitAnd",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitAnd)),
 )
+_BitAnd.typedef.heaptype = True
 
 _FloorDiv.typedef = typedef.TypeDef("FloorDiv",
     operator.typedef,
@@ -7386,6 +7465,7 @@ _FloorDiv.typedef = typedef.TypeDef("FloorDiv",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_FloorDiv)),
 )
+_FloorDiv.typedef.heaptype = True
 
 unaryop.typedef = typedef.TypeDef("unaryop",
     AST.typedef,
@@ -7393,6 +7473,7 @@ unaryop.typedef = typedef.TypeDef("unaryop",
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(unaryop)),
 )
+unaryop.typedef.heaptype = True
 
 _Invert.typedef = typedef.TypeDef("Invert",
     unaryop.typedef,
@@ -7400,6 +7481,7 @@ _Invert.typedef = typedef.TypeDef("Invert",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Invert)),
 )
+_Invert.typedef.heaptype = True
 
 _Not.typedef = typedef.TypeDef("Not",
     unaryop.typedef,
@@ -7407,6 +7489,7 @@ _Not.typedef = typedef.TypeDef("Not",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Not)),
 )
+_Not.typedef.heaptype = True
 
 _UAdd.typedef = typedef.TypeDef("UAdd",
     unaryop.typedef,
@@ -7414,6 +7497,7 @@ _UAdd.typedef = typedef.TypeDef("UAdd",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_UAdd)),
 )
+_UAdd.typedef.heaptype = True
 
 _USub.typedef = typedef.TypeDef("USub",
     unaryop.typedef,
@@ -7421,6 +7505,7 @@ _USub.typedef = typedef.TypeDef("USub",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_USub)),
 )
+_USub.typedef.heaptype = True
 
 cmpop.typedef = typedef.TypeDef("cmpop",
     AST.typedef,
@@ -7428,6 +7513,7 @@ cmpop.typedef = typedef.TypeDef("cmpop",
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(cmpop)),
 )
+cmpop.typedef.heaptype = True
 
 _Eq.typedef = typedef.TypeDef("Eq",
     cmpop.typedef,
@@ -7435,6 +7521,7 @@ _Eq.typedef = typedef.TypeDef("Eq",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Eq)),
 )
+_Eq.typedef.heaptype = True
 
 _NotEq.typedef = typedef.TypeDef("NotEq",
     cmpop.typedef,
@@ -7442,6 +7529,7 @@ _NotEq.typedef = typedef.TypeDef("NotEq",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_NotEq)),
 )
+_NotEq.typedef.heaptype = True
 
 _Lt.typedef = typedef.TypeDef("Lt",
     cmpop.typedef,
@@ -7449,6 +7537,7 @@ _Lt.typedef = typedef.TypeDef("Lt",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Lt)),
 )
+_Lt.typedef.heaptype = True
 
 _LtE.typedef = typedef.TypeDef("LtE",
     cmpop.typedef,
@@ -7456,6 +7545,7 @@ _LtE.typedef = typedef.TypeDef("LtE",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_LtE)),
 )
+_LtE.typedef.heaptype = True
 
 _Gt.typedef = typedef.TypeDef("Gt",
     cmpop.typedef,
@@ -7463,6 +7553,7 @@ _Gt.typedef = typedef.TypeDef("Gt",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Gt)),
 )
+_Gt.typedef.heaptype = True
 
 _GtE.typedef = typedef.TypeDef("GtE",
     cmpop.typedef,
@@ -7470,6 +7561,7 @@ _GtE.typedef = typedef.TypeDef("GtE",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_GtE)),
 )
+_GtE.typedef.heaptype = True
 
 _Is.typedef = typedef.TypeDef("Is",
     cmpop.typedef,
@@ -7477,6 +7569,7 @@ _Is.typedef = typedef.TypeDef("Is",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Is)),
 )
+_Is.typedef.heaptype = True
 
 _IsNot.typedef = typedef.TypeDef("IsNot",
     cmpop.typedef,
@@ -7484,6 +7577,7 @@ _IsNot.typedef = typedef.TypeDef("IsNot",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_IsNot)),
 )
+_IsNot.typedef.heaptype = True
 
 _In.typedef = typedef.TypeDef("In",
     cmpop.typedef,
@@ -7491,6 +7585,7 @@ _In.typedef = typedef.TypeDef("In",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_In)),
 )
+_In.typedef.heaptype = True
 
 _NotIn.typedef = typedef.TypeDef("NotIn",
     cmpop.typedef,
@@ -7498,6 +7593,7 @@ _NotIn.typedef = typedef.TypeDef("NotIn",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_NotIn)),
 )
+_NotIn.typedef.heaptype = True
 
 def comprehension_get_target(space, w_self):
     if w_self.w_dict is not None:
@@ -7605,6 +7701,7 @@ comprehension.typedef = typedef.TypeDef("comprehension",
     __new__=interp2app(get_AST_new(comprehension)),
     __init__=interp2app(comprehension_init),
 )
+comprehension.typedef.heaptype = True
 
 def excepthandler_get_lineno(space, w_self):
     if w_self.w_dict is not None:
@@ -7670,6 +7767,7 @@ excepthandler.typedef = typedef.TypeDef("excepthandler",
     col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, excepthandler_del_col_offset, cls=excepthandler),
     __new__=interp2app(get_AST_new(excepthandler)),
 )
+excepthandler.typedef.heaptype = True
 
 def ExceptHandler_get_type(space, w_self):
     if w_self.w_dict is not None:
@@ -7781,6 +7879,7 @@ ExceptHandler.typedef = typedef.TypeDef("ExceptHandler",
     __new__=interp2app(get_AST_new(ExceptHandler)),
     __init__=interp2app(ExceptHandler_init),
 )
+ExceptHandler.typedef.heaptype = True
 
 def arguments_get_args(space, w_self):
     if not w_self.initialization_state & 1:
@@ -8028,6 +8127,7 @@ arguments.typedef = typedef.TypeDef("arguments",
     __new__=interp2app(get_AST_new(arguments)),
     __init__=interp2app(arguments_init),
 )
+arguments.typedef.heaptype = True
 
 def arg_get_arg(space, w_self):
     if w_self.w_dict is not None:
@@ -8112,6 +8212,7 @@ arg.typedef = typedef.TypeDef("arg",
     __new__=interp2app(get_AST_new(arg)),
     __init__=interp2app(arg_init),
 )
+arg.typedef.heaptype = True
 
 def keyword_get_arg(space, w_self):
     if w_self.w_dict is not None:
@@ -8196,6 +8297,7 @@ keyword.typedef = typedef.TypeDef("keyword",
     __new__=interp2app(get_AST_new(keyword)),
     __init__=interp2app(keyword_init),
 )
+keyword.typedef.heaptype = True
 
 def alias_get_name(space, w_self):
     if w_self.w_dict is not None:
@@ -8284,4 +8386,5 @@ alias.typedef = typedef.TypeDef("alias",
     __new__=interp2app(get_AST_new(alias)),
     __init__=interp2app(alias_init),
 )
+alias.typedef.heaptype = True
 

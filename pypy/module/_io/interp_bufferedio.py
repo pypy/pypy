@@ -217,17 +217,16 @@ class BufferedMixin:
         return space.call_method(self.w_raw, "isatty")
 
     def repr_w(self, space):
-        typename = space.type(self).getname(space)
-        module = space.unicode_w(space.type(self).get_module())
+        typename = space.type(self).name.decode('utf-8')
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            return space.wrap(u"<%s.%s>" % (module, typename,))
+            return space.wrap(u"<%s>" % (typename,))
         else:
             name_repr = space.unicode_w(space.repr(w_name))
-            return space.wrap(u"<%s.%s name=%s>" % (module, typename, name_repr))
+            return space.wrap(u"<%s name=%s>" % (typename, name_repr))
 
     # ______________________________________________
 
@@ -854,11 +853,10 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedReader.typedef = TypeDef(
-    'BufferedReader', W_BufferedIOBase.typedef,
+    '_io.BufferedReader', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedReader),
     __init__  = interp2app(W_BufferedReader.descr_init),
     __getstate__ = interp2app(W_BufferedReader.getstate_w),
-    __module__ = "_io",
 
     read = interp2app(W_BufferedReader.read_w),
     peek = interp2app(W_BufferedReader.peek_w),
@@ -903,11 +901,10 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedWriter.typedef = TypeDef(
-    'BufferedWriter', W_BufferedIOBase.typedef,
+    '_io.BufferedWriter', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedWriter),
     __init__  = interp2app(W_BufferedWriter.descr_init),
     __getstate__ = interp2app(W_BufferedWriter.getstate_w),
-    __module__ = "_io",
 
     write = interp2app(W_BufferedWriter.write_w),
     flush = interp2app(W_BufferedWriter.flush_w),
@@ -1028,11 +1025,10 @@ class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedRandom.typedef = TypeDef(
-    'BufferedRandom', W_BufferedIOBase.typedef,
+    '_io.BufferedRandom', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRandom),
     __init__ = interp2app(W_BufferedRandom.descr_init),
     __getstate__ = interp2app(W_BufferedRandom.getstate_w),
-    __module__ = "_io",
 
     read = interp2app(W_BufferedRandom.read_w),
     peek = interp2app(W_BufferedRandom.peek_w),

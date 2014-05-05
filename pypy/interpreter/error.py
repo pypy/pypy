@@ -416,7 +416,7 @@ def get_operrcls2(valuefmt):
                     elif fmt == 'R':
                         result = space.unicode_w(space.repr(value))
                     elif fmt == 'T':
-                        result = space.type(value).get_module_type_name()
+                        result = space.type(value).name.decode('utf-8')
                     elif fmt == 'N':
                         result = value.getname(space)
                     elif fmt == '8':
@@ -461,7 +461,7 @@ def oefmt(w_type, valuefmt, *args):
     %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
     %R - The result of space.unicode_w(space.repr(w_arg))
-    %T - The result of space.type(w_arg).get_module_type_name()
+    %T - The result of space.type(w_arg).name
 
     """
     if not len(args):

@@ -249,7 +249,7 @@ elif rmmap._MS_WINDOWS:
             raise mmap_error(space, e)
         return space.wrap(self)
 
-W_MMap.typedef = TypeDef("mmap",
+W_MMap.typedef = TypeDef("mmap.mmap",
     __new__ = interp2app(mmap),
     close = interp2app(W_MMap.close),
     read_byte = interp2app(W_MMap.read_byte),
@@ -265,7 +265,6 @@ W_MMap.typedef = TypeDef("mmap",
     flush = interp2app(W_MMap.flush),
     move = interp2app(W_MMap.move),
     resize = interp2app(W_MMap.resize),
-    __module__ = "mmap",
 
     __len__ = interp2app(W_MMap.__len__),
     __getitem__ = interp2app(W_MMap.descr_getitem),

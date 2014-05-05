@@ -471,35 +471,28 @@ class W_TypeObject(W_Object):
                 return res
         return _issubtype(w_self, w_type)
 
-    def get_module(w_self):
-        space = w_self.space
-        if w_self.is_heaptype() and w_self.getdictvalue(space, '__module__') is not None:
-            return w_self.getdictvalue(space, '__module__')
+    def get_module(self):
+        space = self.space
+        if self.is_heaptype():
+            return self.getdictvalue(space, '__module__')
         else:
-            # for non-heap types, CPython checks for a module.name in the
-            # type name.  That's a hack, so we're allowed to use a different
-            # hack...
-            if ('__module__' in w_self.dict_w and
-                space.isinstance_w(w_self.getdictvalue(space, '__module__'),
-                                               space.w_unicode)):
-                return w_self.getdictvalue(space, '__module__')
-            return space.wrap('builtins')
+            dot = self.name.find('.')
+            if dot >= 0:
+                mod = self.name[:dot]
+            else:
+                mod = "builtins"
+            return space.wrap(mod)
 
-    def get_module_type_name(w_self):
-        space = w_self.space
-        if not w_self.is_heaptype():
-            w_mod = w_self.get_module()
-            if space.isinstance_w(w_mod, space.w_unicode):
-                mod = space.unicode_w(w_mod)
-                if mod != u'builtins':
-                    return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
-        return w_self.name.decode('utf-8')
-
-    def getname(w_self, space):
-        name = w_self.name
-        if name is None:
-            name = '?'
-        return name.decode('utf-8')
+    def getname(self, space):
+        if self.is_heaptype():
+            result = self.name
+        else:
+            dot = self.name.find('.')
+            if dot >= 0:
+                result = self.name[dot+1:]
+            else:
+                result = self.name
+        return result.decode('utf-8')
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -626,7 +619,7 @@ def _check(space, w_type, w_msg=None):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.name.decode('utf-8'))
+    return space.wrap(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -1009,6 +1002,7 @@ def setup_builtin_type(w_self):
     w_self.weakrefable = w_self.instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(w_self.instancetypedef.doc)
     ensure_common_attributes(w_self)
+    w_self.flag_heaptype = w_self.instancetypedef.heaptype
 
 def ensure_common_attributes(w_self):
     ensure_static_new(w_self)
@@ -1116,15 +1110,14 @@ def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
-    if not space.isinstance_w(w_mod, space.w_unicode):
+    if w_mod is None or not space.isinstance_w(w_mod, space.w_unicode):
         mod = None
     else:
         mod = space.unicode_w(w_mod)
-    name = w_obj.name.decode('utf-8')
     if mod is not None and mod != u'builtins':
-        return space.wrap(u"<class '%s.%s'>" % (mod, name))
+        return space.wrap(u"<class '%s.%s'>" % (mod, w_obj.getname(space)))
     else:
-        return space.wrap(u"<class '%s'>" % (name))
+        return space.wrap(u"<class '%s'>" % (w_obj.name.decode('utf-8')))
 
 def getattr__Type_ANY(space, w_type, w_name):
     name = space.str_w(w_name)

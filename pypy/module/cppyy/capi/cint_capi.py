@@ -249,7 +249,7 @@ def ttree_Branch(space, w_self, args_w):
 
 def activate_branch(space, w_branch):
     w_branches = space.call_method(w_branch, "GetListOfBranches")
-    for i in range(space.int_w(space.call_method(w_branches, "GetEntriesFast"))):
+    for i in range(space.r_longlong_w(space.call_method(w_branches, "GetEntriesFast"))):
         w_b = space.call_method(w_branches, "At", space.wrap(i))
         activate_branch(space, w_b)
     space.call_method(w_branch, "SetStatus", space.wrap(1))
@@ -292,7 +292,7 @@ def ttree_getattr(space, w_self, args_w):
     activate_branch(space, w_branch)
 
     # figure out from where we're reading
-    entry = space.int_w(space.call_method(w_self, "GetReadEntry"))
+    entry = space.r_longlong_w(space.call_method(w_self, "GetReadEntry"))
     if entry == -1:
         entry = 0
 
@@ -341,7 +341,7 @@ class W_TTreeIter(W_Root):
         self.w_tree = w_tree
 
         self.current  = 0
-        self.maxentry = space.int_w(space.call_method(w_tree, "GetEntriesFast"))
+        self.maxentry = space.r_longlong_w(space.call_method(w_tree, "GetEntriesFast"))
 
         space = self.space = tree.space          # holds the class cache in State
         space.call_method(w_tree, "SetBranchStatus", space.wrap("*"), space.wrap(0))
