@@ -196,7 +196,7 @@ class AppTestMarshal:
 
     def test_bad_typecode(self):
         import marshal
-        exc = raises(ValueError, marshal.loads, chr(1))
+        exc = raises(ValueError, marshal.loads, bytes([1]))
         assert str(exc.value) == "bad marshal data (unknown type code)"
 
     def test_bad_data(self):

@@ -528,7 +528,7 @@ class AppTestMMap:
 
         f.close()
 
-    def test_buffer(self):
+    def test_memoryview(self):
         from mmap import mmap
         f = open(self.tmpname + "y", "bw+")
         f.write(b"foobar")
@@ -539,18 +539,6 @@ class AppTestMMap:
         assert b[3] == b"b"
         assert b[:] == b"foobar"
         del b  # For CPython: "exported pointers exist"
-        m.close()
-        f.close()
-
-    def test_memoryview(self):
-        from mmap import mmap
-        f = open(self.tmpname + "y", "w+")
-        f.write("foobar")
-        f.flush()
-        m = mmap(f.fileno(), 6)
-        m[5] = '?'
-        exc = raises(TypeError, memoryview, m)
-        assert 'buffer interface' in str(exc.value)
         m.close()
         f.close()
 
