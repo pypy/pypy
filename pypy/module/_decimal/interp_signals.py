@@ -1,9 +1,37 @@
-SIGNAL_NAMES = (
-    'DecimalException', 'Clamped', 'Rounded', 'Inexact',
-    'Subnormal', 'Underflow', 'Overflow', 'DivisionByZero',
-    'InvalidOperation', 'FloatOperation')
+from rpython.rlib import rmpdec
+from rpython.rlib.unroll import unrolling_iterable
+
+SIGNAL_MAP = unrolling_iterable([
+    ('InvalidOperation', rmpdec.MPD_IEEE_Invalid_operation),
+    ('FloatOperation', rmpdec.MPD_Float_operation),
+    ('DivisionByZero', rmpdec.MPD_Division_by_zero),
+    ('Overflow', rmpdec.MPD_Overflow),
+    ('Underflow', rmpdec.MPD_Underflow),
+    ('Subnormal', rmpdec.MPD_Subnormal),
+    ('Inexact', rmpdec.MPD_Inexact),
+    ('Rounded', rmpdec.MPD_Rounded),
+    ('Clamped', rmpdec.MPD_Clamped),
+    ])
+# Exceptions that inherit from InvalidOperation
+COND_MAP = unrolling_iterable([
+    ('InvalidOperation', rmpdec.MPD_Invalid_operation),
+    ('ConversionSyntax', rmpdec.MPD_Conversion_syntax),
+    ('DivisionImpossible', rmpdec.MPD_Division_impossible),
+    ('DivisionUndefined', rmpdec.MPD_Division_undefined),
+    ('InvalidContext', rmpdec.MPD_Invalid_context),
+    ])
 
 def flags_as_exception(space, flags):
+    w_exc = None
+    err_list = []
+    for name, flag in SIGNAL_MAP:
+        if flags & flag:
+            w_exc = getattr(get(space), 'w_' + name)
+    if w_exc is None:
+        raise oefmt(space.w_RuntimeError,
+                    "invalid error flag")
+    
+        
     raise ValueError(hex(flags))
 
 

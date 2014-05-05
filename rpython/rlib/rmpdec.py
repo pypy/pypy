@@ -40,6 +40,7 @@ eci = ExternalCompilationInfo(
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
+        "mpd_to_sci_size",
         "mpd_qcmp",
         ],
     compile_extra=compile_extra,
@@ -52,19 +53,32 @@ ROUND_CONSTANTS = (
     'ROUND_HALF_UP', 'ROUND_HALF_DOWN', 'ROUND_HALF_EVEN',
     'ROUND_05UP', 'ROUND_TRUNC')
 
+STATUS_FLAGS_CONSTANTS = (
+    'MPD_Clamped',  'MPD_Conversion_syntax', 'MPD_Division_by_zero', 
+    'MPD_Division_impossible', 'MPD_Division_undefined', 'MPD_Fpu_error',
+    'MPD_Inexact', 'MPD_Invalid_context', 'MPD_Invalid_operation', 
+    'MPD_Malloc_error', 'MPD_Not_implemented', 'MPD_Overflow', 
+    'MPD_Rounded', 'MPD_Subnormal', 'MPD_Underflow', 'MPD_Max_status',
+    'MPD_IEEE_Invalid_operation', 'MPD_Errors')
+
 class CConfig:
     _compilation_info_ = eci
 
     MPD_IEEE_CONTEXT_MAX_BITS = platform.ConstantInteger(
         'MPD_IEEE_CONTEXT_MAX_BITS')
     MPD_MAX_PREC = platform.ConstantInteger('MPD_MAX_PREC')
+
+    # Flags
+    MPD_POS = platform.ConstantInteger('MPD_POS')
+    MPD_NEG = platform.ConstantInteger('MPD_NEG')
     MPD_STATIC = platform.ConstantInteger('MPD_STATIC')
     MPD_STATIC_DATA = platform.ConstantInteger('MPD_STATIC_DATA')
 
-    MPD_Malloc_error = platform.ConstantInteger('MPD_Malloc_error')
-
     for name in ROUND_CONSTANTS:
         name = 'MPD_' + name
+        locals()[name] = platform.ConstantInteger(name)
+
+    for name in STATUS_FLAGS_CONSTANTS:
         locals()[name] = platform.ConstantInteger(name)
 
     MPD_T = platform.Struct('mpd_t',
@@ -83,6 +97,7 @@ class CConfig:
 
 globals().update(platform.configure(CConfig))
 
+MPD_Float_operation = MPD_Not_implemented
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
@@ -95,6 +110,9 @@ mpd_qset_ssize = external(
     'mpd_qset_ssize', [MPD_PTR, rffi.SSIZE_T, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qset_string = external(
     'mpd_qset_string', [MPD_PTR, rffi.CCHARP, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qimport_u32 = external(
+    'mpd_qimport_u32', [MPD_PTR, rffi.UINTP, rffi.SIZE_T,
+                        rffi.UCHAR, rffi.UINT, MPD_CONTEXT_PTR, rffi.UINTP], rffi.SIZE_T)
 
 # Context operations
 mpd_getprec = external(
@@ -121,6 +139,13 @@ mpd_qsetclamp = external(
 
 mpd_maxcontext = external(
     'mpd_maxcontext', [MPD_CONTEXT_PTR], lltype.Void)
+
+mpd_free = external(
+    'mpd_free', [rffi.VOIDP], lltype.Void, macro=True)
+
+# Conversion
+mpd_to_sci_size = external(
+    'mpd_to_sci_size', [rffi.CCHARPP, MPD_PTR, rffi.INT], rffi.SSIZE_T)
 
 # Operations
 mpd_qcmp = external(

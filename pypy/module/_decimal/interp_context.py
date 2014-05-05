@@ -1,7 +1,7 @@
 from rpython.rlib import rmpdec
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
@@ -55,6 +55,7 @@ class W_Context(W_Root):
                                  zero=True,
                                  track_allocation=False)
         self.w_flags = space.call_function(state_get(space).W_SignalDict)
+        self.capitals = 0
 
     def __del__(self):
         if self.ctx:
@@ -62,12 +63,15 @@ class W_Context(W_Root):
 
     def addstatus(self, space, status):
         "Add resulting status to context, and eventually raise an exception."
-        self.ctx.c_status |= status
-        if status & rmpdec.MPD_Malloc_error:
+        new_status = (rffi.cast(lltype.Signed, status) |
+                      rffi.cast(lltype.Signed, self.ctx.c_status))
+        self.ctx.c_status = rffi.cast(rffi.UINT, new_status)
+        if new_status & rmpdec.MPD_Malloc_error:
             raise OperationError(space.w_MemoryError, space.w_None)
-        if status & self.ctx.c_traps:
-            raise interp_signals.flags_as_exception(
-                space, self.ctx.c_traps & status)
+        to_trap = (rffi.cast(lltype.Signed, status) &
+                   rffi.cast(lltype.Signed, self.ctx.c_traps))
+        if to_trap:
+            raise interp_signals.flags_as_exception(space, to_trap)
 
     def copy_w(self, space):
         w_copy = W_Context(space)
@@ -158,21 +162,45 @@ def getcontext(space):
 
 def setcontext(space, w_context):
     ec = space.getexecutioncontext()
-    ec.decimal_context = w_context
+    ec.decimal_context = space.interp_w(W_Context, w_context)
+
+def ensure_context(space, w_context):
+    context = space.interp_w(W_Context, w_context,
+                             can_be_None=True)
+    if context is None:
+        context = getcontext(space)
+    return context
 
 class ConvContext:
-    def __init__(self, context, exact):
+    def __init__(self, space, mpd, context, exact):
+        self.space = space
+        self.mpd = mpd
+        self.context = context
         self.exact = exact
+
+    def __enter__(self):
         if self.exact:
             self.ctx = lltype.malloc(rmpdec.MPD_CONTEXT_PTR.TO, flavor='raw',
                                      zero=True)
             rmpdec.mpd_maxcontext(self.ctx)
         else:
-            self.ctx = context.ctx
-
-    def __enter__(self):
-        return self.ctx
+            self.ctx = self.context.ctx
+        self.status_ptr = lltype.malloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                        flavor='raw', zero=True)
+        return self.ctx, self.status_ptr
 
     def __exit__(self, *args):
         if self.exact:
             lltype.free(self.ctx, flavor='raw')
+            # we want exact results
+            status = rffi.cast(lltype.Signed, self.status_ptr[0])
+            if status & (rmpdec.MPD_Inexact |
+                         rmpdec.MPD_Rounded |
+                         rmpdec.MPD_Clamped):
+                rmpdec.seterror(self.mpd,
+                                rmpdec.MPD_Invalid_operation, status_ptr)
+        status = rffi.cast(lltype.Signed, self.status_ptr[0])
+        lltype.free(self.status_ptr, flavor='raw')
+        status &= rmpdec.MPD_Errors
+        # May raise a DecimalException
+        self.context.addstatus(self.space, status)

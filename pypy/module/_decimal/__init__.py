@@ -12,12 +12,13 @@ class Module(MixedModule):
         'Context': 'interp_context.W_Context',
         'getcontext': 'interp_context.getcontext',
         'setcontext': 'interp_context.setcontext',
+        'DecimalException': 'interp_signals.get(space).w_DecimalException',
 
         'IEEE_CONTEXT_MAX_BITS': 'space.wrap(interp_decimal.IEEE_CONTEXT_MAX_BITS)',
         'MAX_PREC': 'space.wrap(interp_decimal.MAX_PREC)',
         }
     for name in rmpdec.ROUND_CONSTANTS:
         interpleveldefs[name] = 'space.wrap(%r)' % name
-    for name in interp_signals.SIGNAL_NAMES:
+    for name, flag in interp_signals.SIGNAL_MAP:
         interpleveldefs[name] = 'interp_signals.get(space).w_%s' % name
         
