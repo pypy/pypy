@@ -1,5 +1,5 @@
 =======================
-What's new in PyPy 2.2+
+What's new since PyPy 2.2.1?
 =======================
 
 .. this is a revision shortly after release-2.2.x
