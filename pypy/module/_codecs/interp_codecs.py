@@ -769,9 +769,9 @@ class UnicodeData_Handler:
             return -1
         return space.int_w(w_code)
 
-@unwrap_spec(string='bufferstr_or_u', errors='str_or_None',
-             w_final=WrappedDefault(False))
-def unicode_escape_decode(space, string, errors="strict", w_final=None):
+@unwrap_spec(errors='str_or_None', w_final=WrappedDefault(False))
+def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
+    string = space.getarg_w('s*', w_string).as_str()
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -789,9 +789,9 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 # ____________________________________________________________
 # Raw Unicode escape (accepts bytes or str)
 
-@unwrap_spec(string='bufferstr_or_u', errors='str_or_None',
-             w_final=WrappedDefault(False))
-def raw_unicode_escape_decode(space, string, errors="strict", w_final=None):
+@unwrap_spec(errors='str_or_None', w_final=WrappedDefault(False))
+def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
+    string = space.getarg_w('s*', w_string).as_str()
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -828,14 +828,16 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 # support for the "string escape" translation
 # This is a bytes-to bytes transformation
 
-@unwrap_spec(data="bufferstr", errors='str_or_None')
-def escape_encode(space, data, errors='strict'):
+@unwrap_spec(errors='str_or_None')
+def escape_encode(space, w_data, errors='strict'):
+    data = space.bytes_w(w_data)
     from pypy.objspace.std.bytesobject import string_escape_encode
     result = string_escape_encode(data, False)
     return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])
 
-@unwrap_spec(data='bufferstr_or_u', errors='str_or_None')
-def escape_decode(space, data, errors='strict'):
+@unwrap_spec(errors='str_or_None')
+def escape_decode(space, w_data, errors='strict'):
+    data = space.getarg_w('s#', w_data)
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     result = PyString_DecodeEscape(space, data, errors, None)
     return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])

@@ -340,12 +340,6 @@ class W_GenericBox(W_Root):
     def buffer_w(self, space, flags):
         return self.descr_ravel(space).buffer_w(space, flags)
 
-    def readbuf_w(self, space):
-        return self.descr_ravel(space).readbuf_w(space)
-
-    def charbuf_w(self, space):
-        return self.descr_ravel(space).charbuf_w(space)
-
     def descr_byteswap(self, space):
         return self.get_dtype(space).itemtype.byteswap(self)
 

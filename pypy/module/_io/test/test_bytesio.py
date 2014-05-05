@@ -44,7 +44,7 @@ class AppTestBytesIO:
         assert f.write(b"") == 0
         assert f.write(b"hello") == 5
         exc = raises(TypeError, f.write, u"lo")
-        assert str(exc.value) == "'str' does not have the buffer interface"
+        assert str(exc.value) == "'str' does not support the buffer interface"
         import gc; gc.collect()
         assert f.getvalue() == b"hello"
         f.close()
