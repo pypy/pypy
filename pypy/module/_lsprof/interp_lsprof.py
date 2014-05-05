@@ -199,7 +199,7 @@ def create_spec_for_method(space, w_function, w_type):
         if isinstance(w_type, W_TypeObject):
             w_realclass, _ = space.lookup_in_type_where(w_type, name)
             if isinstance(w_realclass, W_TypeObject):
-                class_name = w_realclass.name
+                class_name = w_realclass.name.decode('utf-8')
     else:
         name = '?'
     if class_name is None:
