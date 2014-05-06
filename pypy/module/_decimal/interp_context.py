@@ -21,14 +21,16 @@ class W_SignalDictMixin(W_Root):
 
     def descr_getitem(self, space, w_key):
         flag = interp_signals.exception_as_flag(space, w_key)
-        return space.wrap(bool(flag & self.flag_ptr[0]))
+        cur_flag = rffi.cast(lltype.Signed, self.flag_ptr[0])
+        return space.wrap(bool(flag & cur_flag))
 
     def descr_setitem(self, space, w_key, w_value):
         flag = interp_signals.exception_as_flag(space, w_key)
+        cur_flag = rffi.cast(lltype.Signed, self.flag_ptr[0])
         if space.is_true(w_value):
-            self.flag_ptr[0] |= flag
+            self.flag_ptr[0] = rffi.cast(rffi.UINT, cur_flag | flag)
         else:
-            self.flag_ptr[0] &= ~flag
+            self.flag_ptr[0] = rffi.cast(rffi.UINT, cur_flag & ~flag)
 
 
 def new_signal_dict(space, flag_ptr):

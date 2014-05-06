@@ -36,11 +36,12 @@ eci = ExternalCompilationInfo(
                            libdir.join('memory.c'),
                            ],
     export_symbols=[
-        "mpd_qset_ssize", "mpd_qset_string",
+        "mpd_qset_ssize", "mpd_qset_string", "mpd_qcopy", "mpd_setspecial",
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
         "mpd_to_sci_size",
+        "mpd_iszero", "mpd_isnan",
         "mpd_qcmp",
         ],
     compile_extra=compile_extra,
@@ -71,6 +72,7 @@ class CConfig:
     # Flags
     MPD_POS = platform.ConstantInteger('MPD_POS')
     MPD_NEG = platform.ConstantInteger('MPD_NEG')
+    MPD_NAN = platform.ConstantInteger('MPD_NAN')
     MPD_STATIC = platform.ConstantInteger('MPD_STATIC')
     MPD_STATIC_DATA = platform.ConstantInteger('MPD_STATIC_DATA')
 
@@ -113,6 +115,10 @@ mpd_qset_string = external(
 mpd_qimport_u32 = external(
     'mpd_qimport_u32', [MPD_PTR, rffi.UINTP, rffi.SIZE_T,
                         rffi.UCHAR, rffi.UINT, MPD_CONTEXT_PTR, rffi.UINTP], rffi.SIZE_T)
+mpd_qcopy = external(
+    'mpd_qcopy', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)
+mpd_setspecial = external(
+    'mpd_setspecial', [MPD_PTR, rffi.UCHAR, rffi.UCHAR], lltype.Void)
 
 # Context operations
 mpd_getprec = external(
@@ -151,5 +157,9 @@ mpd_to_sci_size = external(
     'mpd_to_sci_size', [rffi.CCHARPP, MPD_PTR, rffi.INT], rffi.SSIZE_T)
 
 # Operations
+mpd_iszero = external(
+    'mpd_iszero', [MPD_PTR], rffi.INT)
+mpd_isnan = external(
+    'mpd_isnan', [MPD_PTR], rffi.INT)
 mpd_qcmp = external(
     'mpd_qcmp', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)

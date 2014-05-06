@@ -35,6 +35,20 @@ class W_Decimal(W_Root):
         if self.data:
             lltype.free(self.data, flavor='raw')
 
+    def apply(self, context, w_subtype=None):
+        # Apply the context to the input operand. Return a new W_Decimal.
+        if subtype:
+            w_result = space.allocate_instance(W_Decimal, w_subtype)
+            W_Decimal.__init__(w_result, space)
+        else:
+            w_result = W_Decimal(space)
+        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
+            rpmdec.mpd_qcopy(w_result.mpd, self.mpd, status_ptr)
+            context.addstatus(self.space, status_ptr[0])
+            rpmdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
+            context.addstatus(self.space, status_ptr[0])
+        return w_result
+
     def descr_str(self, space):
         context = interp_context.getcontext(space)
         with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as cp_ptr:
@@ -47,6 +61,9 @@ class W_Decimal(W_Root):
             finally:
                 rmpdec.mpd_free(cp)
         return space.wrap(result)  # Convert bytes to unicode
+
+    def descr_bool(self, space):
+        return space.wrap(not rmpdec.mpd_iszero(self.mpd))
 
     def compare(self, space, w_other, op):
         if not isinstance(w_other, W_Decimal):  # So far
@@ -145,12 +162,12 @@ def decimal_from_tuple(space, w_subtype, w_value, context, exact=True):
         # special
         is_special = True
         val = space.unicode_w(w_exponent)
-        if val == 'F':
+        if val == u'F':
             builder.append('Inf')
             is_infinite = True
-        elif val == 'n':
+        elif val == u'n':
             builder.append('Nan')
-        elif val == 'N':
+        elif val == u'N':
             builder.append('sNan')
         else:
             raise oefmt(space.w_ValueError,
@@ -171,7 +188,7 @@ def decimal_from_tuple(space, w_subtype, w_value, context, exact=True):
 
     if not digits_w and not is_special:
         # empty tuple: zero coefficient, except for special numbers
-        strval += '0'
+        builder.append('0')
     for w_digit in digits_w:
         try:
             digit = space.int_w(w_digit)
@@ -195,9 +212,35 @@ def decimal_from_tuple(space, w_subtype, w_value, context, exact=True):
     strval = builder.build()
     return decimal_from_cstring(space, w_subtype, strval, context, exact=exact)
 
+def decimal_from_decimal(space, w_subtype, w_value, context, exact=True):
+    assert isinstance(w_value, W_Decimal)
+    if exact:
+        if space.is_w(w_subtype, space.gettypeobject(W_Decimal.typedef)):
+            return w_value
+        w_result = space.allocate_instance(W_Decimal, w_subtype)
+        W_Decimal.__init__(w_result, space)
+        with interp_context.ConvContext(
+                space, w_result.mpd, context, exact) as (ctx, status_ptr):
+            rmpdec.mpd_qcopy(w_result.mpd, w_value.mpd, status_ptr)
+        return w_result
+    else:
+        if (rmpdec.mpd_isnan(w_value.mpd) and
+            w_value.mpd.digits > (context.ctx.prec - context.ctx.clamp)):
+            # Special case: too many NaN payload digits
+            context.addstatus(space, rmpdec.MPD_Conversion_syntax)
+            w_result = space.allocate_instance(W_Decimal, w_subtype)
+            W_Decimal.__init__(w_result, space)
+            rmpdec.mpd_setspecial(w_result.mpd, rmpdec.MPD_POS, rmpdec.MPD_NAN)
+        else:
+            return w_value.apply(context)
+        
+
 def decimal_from_object(space, w_subtype, w_value, context, exact=True):
     if w_value is None:
         return decimal_from_ssize(space, w_subtype, 0, context, exact=exact)
+    elif isinstance(w_value, W_Decimal):
+        return decimal_from_decimal(space, w_subtype, w_value, context,
+                                    exact=exact)
     elif space.isinstance_w(w_value, space.w_unicode):
         return decimal_from_unicode(space, w_subtype, w_value, context,
                                     exact=exact, strip_whitespace=exact)
@@ -222,5 +265,6 @@ W_Decimal.typedef = TypeDef(
     'Decimal',
     __new__ = interp2app(descr_new_decimal),
     __str__ = interp2app(W_Decimal.descr_str),
+    __bool__ = interp2app(W_Decimal.descr_bool),
     __eq__ = interp2app(W_Decimal.descr_eq),
     )

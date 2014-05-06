@@ -148,3 +148,34 @@ class AppTestExplicitConstruction:
         d = Decimal((1, [4, 3, 4, 9, 1, 3, 5, 3, 4], -25))
         assert str(d) == '-4.34913534E-17'
 
+    def test_explicit_from_bool(self):
+        Decimal = self.decimal.Decimal
+
+        assert bool(Decimal(0)) is False
+        assert bool(Decimal(1)) is True
+        assert Decimal(False) == Decimal(0)
+        assert Decimal(True) == Decimal(1)
+
+    def test_explicit_from_Decimal(self):
+        Decimal = self.decimal.Decimal
+
+        #positive
+        d = Decimal(45)
+        e = Decimal(d)
+        assert str(e) == '45'
+
+        #very large positive
+        d = Decimal(500000123)
+        e = Decimal(d)
+        assert str(e) == '500000123'
+
+        #negative
+        d = Decimal(-45)
+        e = Decimal(d)
+        assert str(e) == '-45'
+
+        #zero
+        d = Decimal(0)
+        e = Decimal(d)
+        assert str(e) == '0'
+
