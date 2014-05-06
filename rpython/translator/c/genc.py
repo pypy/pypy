@@ -537,6 +537,8 @@ class SourceGenerator:
                     pypkgpath = localpath.pypkgpath()
                     if pypkgpath:
                         relpypath = localpath.relto(pypkgpath.dirname)
+                        assert relpypath, ("%r should be relative to %r" %
+                            (localpath, pypkgpath.dirname))
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):
