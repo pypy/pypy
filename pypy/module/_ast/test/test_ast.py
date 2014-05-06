@@ -21,7 +21,7 @@ class AppTestAST:
         assert isinstance(ast.__version__, str)
 
     def test_flags(self):
-        from copy_reg import _HEAPTYPE
+        from copyreg import _HEAPTYPE
         assert self.ast.AST.__flags__ & _HEAPTYPE == 0
         assert self.ast.Module.__flags__ & _HEAPTYPE == _HEAPTYPE
 
