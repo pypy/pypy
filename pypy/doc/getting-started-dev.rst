@@ -373,6 +373,12 @@ writing, logging and some other support  functionality.
 You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
+PYPY_IRC_TOPIC
++++++++++++++++
+
+Set the ``PYPY_IRC_TOPIC`` environment variable to a non-empty string
+to print a random #pypy IRC topic at startup of interactive mode.
+
 Getting involved
 -----------------
 
