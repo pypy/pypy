@@ -381,5 +381,6 @@ class AppTestOpen:
 
     def test_mod(self):
         import _io
-        assert all(t.__module__ in ('io', '_io') for t in vars(_io).values()
-                   if isinstance(t, type))
+        typemods = dict((t, t.__module__) for t in vars(_io).values()
+                        if isinstance(t, type))
+        assert all(mod in ('io', '_io') for mod in typemods.values()), typemods

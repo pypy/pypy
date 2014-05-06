@@ -729,6 +729,8 @@ class __extend__(W_NDimArray):
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
         app_searchsort(space, self, v, space.wrap(side), ret)
+        if ret.is_scalar():
+            return ret.get_scalar_value()
         return ret
 
     def descr_setasflat(self, space, w_v):
