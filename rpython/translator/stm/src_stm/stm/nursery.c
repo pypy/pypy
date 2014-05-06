@@ -261,6 +261,11 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 
     realnursery = REAL_ADDRESS(pseg->pub.segment_base, _stm_nursery_start);
     nursery_used = pseg->pub.nursery_current - (stm_char *)_stm_nursery_start;
+    if (nursery_used > NB_NURSERY_PAGES * 4096) {
+        /* possible in rare cases when the program artificially advances
+           its own nursery_current */
+        nursery_used = NB_NURSERY_PAGES * 4096;
+    }
     OPT_ASSERT((nursery_used & 7) == 0);
     memset(realnursery, 0, nursery_used);
 
