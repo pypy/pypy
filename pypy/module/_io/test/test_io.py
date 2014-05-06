@@ -383,4 +383,10 @@ class AppTestOpen:
         import _io
         typemods = dict((t, t.__module__) for t in vars(_io).values()
                         if isinstance(t, type))
-        assert all(mod in ('io', '_io') for mod in typemods.values()), typemods
+        for t, mod in typemods.items():
+            if t is _io.BlockingIOError:
+                assert mod == '__builtin__'
+            elif t is _io.UnsupportedOperation:
+                assert mod == 'io'
+            else:
+                assert mod == '_io'

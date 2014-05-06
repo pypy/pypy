@@ -24,6 +24,10 @@ class AppTestStruct(object):
         struct.error should be an exception class.
         """
         assert issubclass(self.struct.error, Exception)
+        assert self.struct.error.__mro__ == (self.struct.error, Exception,
+                                             BaseException, object)
+        assert self.struct.error.__name__ == "error"
+        assert self.struct.error.__module__ == "struct"
 
     def test_calcsize_standard(self):
         """
@@ -395,6 +399,11 @@ class AppTestStruct(object):
         obj2, = self.struct.unpack('d', data)
         assert type(obj2) is float
         assert obj2 == 42.3
+
+    def test_struct_object(self):
+        s = self.struct.Struct('i')
+        assert s.unpack(s.pack(42)) == (42,)
+        assert s.unpack_from(memoryview(s.pack(42))) == (42,)
 
     def test_trailing_counter(self):
         import array

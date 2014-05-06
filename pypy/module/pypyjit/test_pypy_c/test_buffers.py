@@ -56,7 +56,7 @@ class TestBuffers(BaseTestPyPyC):
             guard_false(i99, descr=...)
             i100 = int_lshift(i98, 24)
             i101 = int_or(i97, i100)
-            i102 = getfield_raw(50657056, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i102 = getfield_raw(\d+, descr=<FieldS pypysig_long_struct.c_value 0>)
             i103 = int_lt(i102, 0)
             guard_false(i103, descr=...)
         """)
