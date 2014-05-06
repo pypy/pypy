@@ -1174,7 +1174,9 @@ class MappingTestCase(TestBase):
                 yield Object(v), v
             finally:
                 it = None           # should commit all removals
-        self.check_weak_destroy_and_mutate_while_iterating(dict, testcontext)
+        if not support.check_impl_detail(pypy=True):
+            # XXX: http://bugs.python.org/issue21173
+            self.check_weak_destroy_and_mutate_while_iterating(dict, testcontext)
 
     def test_weak_values_destroy_while_iterating(self):
         # Issue #7105: iterators shouldn't crash when a key is implicitly removed
