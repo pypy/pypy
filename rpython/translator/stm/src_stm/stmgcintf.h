@@ -73,7 +73,7 @@ static inline void pypy_stm_decrement_atomic(void) {
     case 1:
         pypy_stm_nursery_low_fill_mark = pypy_stm_nursery_low_fill_mark_saved;
         assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
-        assert((STM_SEGMENT->jmpbuf_ptr == NULL) ==
+        assert(!(STM_SEGMENT->jmpbuf_ptr == NULL) ||
                (pypy_stm_nursery_low_fill_mark == 0));
         break;
     case 0:

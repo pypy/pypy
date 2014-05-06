@@ -23,6 +23,16 @@ inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
     pypy_stmcb_trace(obj, (void(*)(void*))visit);
 }
 
+inline void stmcb_commit_soon()
+{
+    if (pypy_stm_nursery_low_fill_mark == (uintptr_t)-1) {
+        /* atomic */
+        pypy_stm_nursery_low_fill_mark_saved = 0;
+    } else {
+        pypy_stm_nursery_low_fill_mark >>= 2;
+    }
+}
+
 
 /************************************************************/
 /* "include" the stmgc.c file here */
@@ -147,7 +157,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
                transaction.
              */
             assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
-            assert((STM_SEGMENT->jmpbuf_ptr == NULL) ==
+            assert(!(STM_SEGMENT->jmpbuf_ptr == NULL) ||
                    (pypy_stm_nursery_low_fill_mark == 0));
 
             stm_commit_transaction();
@@ -182,7 +192,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
            transaction whose jmpbuf points into this function
         */
         if (pypy_stm_ready_atomic == 1) {
-            assert(pypy_stm_nursery_low_fill_mark != 0);
+            //assert(pypy_stm_nursery_low_fill_mark != 0);
             assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
             stm_commit_transaction();
             pypy_stm_nursery_low_fill_mark = 0;
@@ -196,7 +206,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     }
     /* double-check */
     if (pypy_stm_ready_atomic == 1) {
-        assert((STM_SEGMENT->jmpbuf_ptr == NULL) ==
+        assert(!(STM_SEGMENT->jmpbuf_ptr == NULL) ||
                (pypy_stm_nursery_low_fill_mark == 0));
     }
     else {
@@ -234,5 +244,3 @@ void pypy_stm_become_globally_unique_transaction(void)
     _pypy_stm_inev_state();
     stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");
 }
-
-void stmcb_commit_soon(void) { /*XXX FIXME*/ }

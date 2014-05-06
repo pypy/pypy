@@ -306,6 +306,12 @@ static void _do_minor_collection(bool commit)
 
     STM_PSEGMENT->minor_collect_will_commit_now = commit;
     if (!commit) {
+        /* We should commit soon, probably. This is kind of a
+           workaround for the broken stm_should_break_transaction of
+           pypy that doesn't want to commit any more after a minor
+           collection. It may, however, always be a good idea... */
+        stmcb_commit_soon();
+
         /* 'STM_PSEGMENT->overflow_number' is used now by this collection,
            in the sense that it's copied to the overflow objects */
         STM_PSEGMENT->overflow_number_has_been_used = true;
