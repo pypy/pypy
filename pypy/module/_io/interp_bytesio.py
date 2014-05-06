@@ -152,7 +152,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
             space.call_method(self.getdict(space), "update", w_dict)
 
 W_BytesIO.typedef = TypeDef(
-    'BytesIO', W_BufferedIOBase.typedef,
+    '_io.BytesIO', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BytesIO),
     __init__  = interp2app(W_BytesIO.descr_init),
 
