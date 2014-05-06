@@ -159,7 +159,12 @@ class AbstractAttribute(object):
             size_est = (oldattr._size_estimate + attr.size_estimate()
                                                - oldattr.size_estimate())
             assert size_est >= (oldattr.length() * NUM_DIGITS_POW2)
-            oldattr._size_estimate = size_est
+            # This write is "stm ignored", which means that we're doing
+            # a best-effort attempt at updating the value, but other threads
+            # may or may not see the update.  The benefit is that it will
+            # never create conflicts.
+            with objectmodel.stm_ignored:
+                oldattr._size_estimate = size_est
         if attr.length() > obj._mapdict_storage_length():
             # note that attr.size_estimate() is always at least attr.length()
             new_storage = [None] * attr.size_estimate()
