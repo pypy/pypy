@@ -21,11 +21,6 @@ def get_error(space):
     return space.fromcache(Cache).error
 
 
-@unwrap_spec(format=str)
-def calcsize(space, format):
-    return space.wrap(_calcsize(space, format))
-
-
 def _calcsize(space, format):
     fmtiter = CalcSizeFormatIterator()
     try:
@@ -38,7 +33,11 @@ def _calcsize(space, format):
 
 
 @unwrap_spec(format=str)
-def pack(space, format, args_w):
+def calcsize(space, format):
+    return space.wrap(_calcsize(space, format))
+
+
+def _pack(space, format, args_w):
     if jit.isconstant(format):
         size = _calcsize(space, format)
     else:
@@ -50,13 +49,18 @@ def pack(space, format, args_w):
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
     except StructError, e:
         raise OperationError(get_error(space), space.wrap(e.msg))
-    return space.wrap(fmtiter.result.build())
+    return fmtiter.result.build()
+
+
+@unwrap_spec(format=str)
+def pack(space, format, args_w):
+    return space.wrap(_pack(space, format, args_w))
 
 
 # XXX inefficient
 @unwrap_spec(format=str, offset=int)
 def pack_into(space, format, w_buffer, offset, args_w):
-    res = pack(space, format, args_w).str_w(space)
+    res = _pack(space, format, args_w)
     buf = space.writebuf_w(w_buffer)
     if offset < 0:
         offset += buf.getlength()
