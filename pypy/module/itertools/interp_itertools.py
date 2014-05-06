@@ -251,7 +251,6 @@ def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
 
 W_FilterFalse.typedef = TypeDef(
         'itertools.ifilterfalse',
-        __module__ = 'itertools',
         __new__  = interp2app(W_FilterFalse___new__),
         __iter__ = interp2app(W_FilterFalse.iter_w),
         __next__ = interp2app(W_FilterFalse.next_w),
@@ -492,7 +491,6 @@ def W_ZipLongest___new__(space, w_subtype, __args__):
 
 W_ZipLongest.typedef = TypeDef(
         'itertools.zip_longest',
-        __module__ = 'itertools',
         __new__  = interp2app(W_ZipLongest___new__),
         __iter__ = interp2app(W_ZipLongest.iter_w),
         __next__ = interp2app(W_ZipLongest.next_w),
