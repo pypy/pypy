@@ -1,4 +1,5 @@
 from rpython.rlib.rarithmetic import r_singlefloat, r_uint
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -154,7 +155,11 @@ class JitCounter:
 
     def cleanup_chain(self, hash):
         self.reset(hash)
-        self.install_new_cell(hash, None)
+        # Next, clean up the chained list by removing the cells that
+        # need to be removed.  For now we don't do it with STM because
+        # this creates pointless conflicts.
+        if not rgc.stm_is_enabled():
+            self.install_new_cell(hash, None)
 
     def install_new_cell(self, hash, newcell):
         index = self._get_index(hash)
