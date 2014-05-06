@@ -2555,14 +2555,16 @@ class Assembler386(BaseAssembler):
         #
         if not IS_X86_64:
             todo()   # "needed for X86_64_SCRATCH_REG"
-        psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
         nf_adr = rstm.adr_nursery_free        # STM_SEGMENT->nursery_current
         assert rx86.fits_in_32bits(nf_adr)    # nf_adr is in page 1
         self.mc.MOV_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
         if increase_nursery:
             self.mc.ADD_ri(X86_64_SCRATCH_REG.value, WORD)
             self.mc.MOV_jr((self.SEGMENT_GC, nf_adr), X86_64_SCRATCH_REG.value)
-        self.mc.CMP(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
+        psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
+        psnlfm_adr -= stmtlocal.threadlocal_base()
+        assert rx86.fits_in_32bits(psnlfm_adr)  # should be %fs-local
+        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_TL, psnlfm_adr))
 
     def genop_stm_should_break_transaction(self, op, arglocs, result_loc):
         increase_nursery = op.getarg(0).getint()
