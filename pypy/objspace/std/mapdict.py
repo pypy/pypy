@@ -132,6 +132,18 @@ class AbstractAttribute(object):
     def size_estimate(self):
         return self._size_estimate >> NUM_DIGITS
 
+    @jit.dont_look_inside
+    def _update_size_estimate(self, new_size_estimate):
+        size_est = (self._size_estimate + new_size_estimate
+                                        - self.size_estimate())
+        assert size_est >= (self.length() * NUM_DIGITS_POW2)
+        # This write is "stm ignored", which means that we're doing
+        # a best-effort attempt at updating the value, but other threads
+        # may or may not see the update.  The benefit is that it will
+        # never create conflicts.
+        with objectmodel.stm_ignored:
+            self._size_estimate = size_est
+
     def search(self, attrtype):
         return None
 
@@ -156,15 +168,7 @@ class AbstractAttribute(object):
         attr = self._get_new_attr(selector[0], selector[1])
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
-            size_est = (oldattr._size_estimate + attr.size_estimate()
-                                               - oldattr.size_estimate())
-            assert size_est >= (oldattr.length() * NUM_DIGITS_POW2)
-            # This write is "stm ignored", which means that we're doing
-            # a best-effort attempt at updating the value, but other threads
-            # may or may not see the update.  The benefit is that it will
-            # never create conflicts.
-            with objectmodel.stm_ignored:
-                oldattr._size_estimate = size_est
+            oldattr._update_size_estimate(attr.size_estimate())
         if attr.length() > obj._mapdict_storage_length():
             # note that attr.size_estimate() is always at least attr.length()
             new_storage = [None] * attr.size_estimate()
