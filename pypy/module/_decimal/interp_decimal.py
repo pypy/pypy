@@ -1,4 +1,5 @@
 from rpython.rlib import rmpdec, rarithmetic, rbigint
+from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, OperationError
@@ -118,6 +119,82 @@ def decimal_from_long(space, w_subtype, w_value, context, exact=True):
             raise ValueError("Bad rbigint size")
     return w_result
 
+def decimal_from_tuple(space, w_subtype, w_value, context, exact=True):
+    w_sign, w_digits, w_exponent  = space.unpackiterable(w_value, 3)
+
+    # Make a string representation of a DecimalTuple
+    builder = StringBuilder(20)
+
+    # sign
+    try:
+        sign = space.int_w(w_sign)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        sign = -1
+    if sign != 0 and sign != 1:
+        raise oefmt(space.w_ValueError,
+                    "sign must be an integer with the value 0 or 1")
+    builder.append('-' if sign else '+')
+
+    # exponent or encoding for a special number
+    is_infinite = False
+    is_special = False
+    exponent = 0
+    if space.isinstance_w(w_exponent, space.w_unicode):
+        # special
+        is_special = True
+        val = space.unicode_w(w_exponent)
+        if val == 'F':
+            builder.append('Inf')
+            is_infinite = True
+        elif val == 'n':
+            builder.append('Nan')
+        elif val == 'N':
+            builder.append('sNan')
+        else:
+            raise oefmt(space.w_ValueError,
+                        "string argument in the third position "
+                        "must be 'F', 'n' or 'N'")
+    else:
+        # exponent
+        try:
+            exponent = space.int_w(w_exponent)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise oefmt(space.w_ValueError,
+                        "exponent must be an integer")            
+
+    # coefficient
+    digits_w = space.unpackiterable(w_digits)
+
+    if not digits_w and not is_special:
+        # empty tuple: zero coefficient, except for special numbers
+        strval += '0'
+    for w_digit in digits_w:
+        try:
+            digit = space.int_w(w_digit)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            digit = -1
+        if not 0 <= digit <= 9:
+            raise oefmt(space.w_ValueError,
+                        "coefficient must be a tuple of digits")
+        if is_infinite:
+            # accept but ignore any well-formed coefficient for
+            # compatibility with decimal.py
+            continue
+        builder.append(chr(ord('0') + digit))
+            
+    if not is_special:
+        builder.append('E')
+        builder.append(str(exponent))
+
+    strval = builder.build()
+    return decimal_from_cstring(space, w_subtype, strval, context, exact=exact)
+
 def decimal_from_object(space, w_subtype, w_value, context, exact=True):
     if w_value is None:
         return decimal_from_ssize(space, w_subtype, 0, context, exact=exact)
@@ -126,6 +203,10 @@ def decimal_from_object(space, w_subtype, w_value, context, exact=True):
                                     exact=exact, strip_whitespace=exact)
     elif space.isinstance_w(w_value, space.w_int):
         return decimal_from_long(space, w_subtype, w_value, context,
+                                 exact=exact)
+    elif (space.isinstance_w(w_value, space.w_list) or
+          space.isinstance_w(w_value, space.w_tuple)):
+        return decimal_from_tuple(space, w_subtype, w_value, context,
                                  exact=exact)
     raise oefmt(space.w_TypeError,
                 "conversion from %N to Decimal is not supported",

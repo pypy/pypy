@@ -90,3 +90,61 @@ class AppTestExplicitConstruction:
             # embedded NUL
             raises(InvalidOperation, Decimal, "12\u00003")
 
+    def test_explicit_from_tuples(self):
+        Decimal = self.decimal.Decimal
+
+        #zero
+        d = Decimal( (0, (0,), 0) )
+        assert str(d) == '0'
+
+        #int
+        d = Decimal( (1, (4, 5), 0) )
+        assert str(d) == '-45'
+
+        #float
+        d = Decimal( (0, (4, 5, 3, 4), -2) )
+        assert str(d) == '45.34'
+
+        #weird
+        d = Decimal( (1, (4, 3, 4, 9, 1, 3, 5, 3, 4), -25) )
+        assert str(d) == '-4.34913534E-17'
+
+        #inf
+        d = Decimal( (0, (), "F") )
+        assert str(d) == 'Infinity'
+
+        #wrong number of items
+        raises(ValueError, Decimal, (1, (4, 3, 4, 9, 1)) )
+
+        #bad sign
+        raises(ValueError, Decimal, (8, (4, 3, 4, 9, 1), 2) )
+        raises(ValueError, Decimal, (0., (4, 3, 4, 9, 1), 2) )
+        raises(ValueError, Decimal, (Decimal(1), (4, 3, 4, 9, 1), 2))
+
+        #bad exp
+        raises(ValueError, Decimal, (1, (4, 3, 4, 9, 1), 'wrong!') )
+        raises(ValueError, Decimal, (1, (4, 3, 4, 9, 1), 0.) )
+        raises(ValueError, Decimal, (1, (4, 3, 4, 9, 1), '1') )
+
+        #bad coefficients
+        raises(ValueError, Decimal, (1, "xyz", 2) )
+        raises(ValueError, Decimal, (1, (4, 3, 4, None, 1), 2) )
+        raises(ValueError, Decimal, (1, (4, -3, 4, 9, 1), 2) )
+        raises(ValueError, Decimal, (1, (4, 10, 4, 9, 1), 2) )
+        raises(ValueError, Decimal, (1, (4, 3, 4, 'a', 1), 2) )
+
+    def test_explicit_from_list(self):
+        Decimal = self.decimal.Decimal
+
+        d = Decimal([0, [0], 0])
+        assert str(d) == '0'
+
+        d = Decimal([1, [4, 3, 4, 9, 1, 3, 5, 3, 4], -25])
+        assert str(d) == '-4.34913534E-17'
+
+        d = Decimal([1, (4, 3, 4, 9, 1, 3, 5, 3, 4), -25])
+        assert str(d) == '-4.34913534E-17'
+
+        d = Decimal((1, [4, 3, 4, 9, 1, 3, 5, 3, 4], -25))
+        assert str(d) == '-4.34913534E-17'
+
