@@ -52,7 +52,8 @@ class OperationError(Exception):
     def setup_context(self, space):
         # Implicit exception chaining
         last_operror = space.getexecutioncontext().sys_exc_info()
-        if last_operror is None:
+        if (last_operror is None or
+            last_operror is get_cleared_operation_error(space)):
             return
 
         # We must normalize the value right now to check for cycles
