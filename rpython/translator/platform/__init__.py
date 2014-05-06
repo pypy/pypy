@@ -170,6 +170,9 @@ class Platform(object):
         ofile = cfile.new(ext=ext)
         if ofile.relto(udir):
             return ofile
+        assert ofile.relto(rpythonroot), (
+            "%r should be relative to either %r or %r" % (
+                ofile, rpythonroot, udir))
         ofile = udir.join(ofile.relto(rpythonroot))
         ofile.dirpath().ensure(dir=True)
         return ofile

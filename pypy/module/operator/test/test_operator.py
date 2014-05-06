@@ -179,6 +179,8 @@ class AppTestOperator:
         assert operator.index(42) == 42
         assert operator.__index__(42) == 42
         raises(TypeError, operator.index, "abc")
+        exc = raises(TypeError, operator.index, "abc")
+        assert str(exc.value) == "'str' object cannot be interpreted as an index"
 
     def test_indexOf(self):
         import operator
