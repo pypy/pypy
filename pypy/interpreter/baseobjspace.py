@@ -390,11 +390,7 @@ class ObjSpace(object):
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
 
-        from pypy.interpreter.pycode import cpython_magic, default_magic
-        self.our_magic = default_magic
-        self.host_magic = cpython_magic
         # can be overridden to a subclass
-
         self.initialize()
 
     def startup(self):

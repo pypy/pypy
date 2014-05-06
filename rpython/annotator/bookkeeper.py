@@ -353,7 +353,7 @@ class Bookkeeper(object):
                 result = description.FunctionDesc(self, pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
-                    raise Exception, "ClassDesc for object not supported"
+                    raise Exception("ClassDesc for object not supported")
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
@@ -591,7 +591,7 @@ def origin_of_meth(boundmeth):
         for name, value in dict.iteritems():
             if value is func:
                 return cls, name
-    raise Exception, "could not match bound-method to attribute name: %r" % (boundmeth,)
+    raise Exception("could not match bound-method to attribute name: %r" % (boundmeth,))
 
 def ishashable(x):
     try:

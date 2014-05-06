@@ -394,7 +394,7 @@ class ClassDef(object):
         return SomePBC([subdef.classdesc for subdef in self.getallsubdefs()])
 
     def _freeze_(self):
-        raise Exception, "ClassDefs are used as knowntype for instances but cannot be used as immutablevalue arguments directly"
+        raise Exception("ClassDefs are used as knowntype for instances but cannot be used as immutablevalue arguments directly")
 
 # ____________________________________________________________
 

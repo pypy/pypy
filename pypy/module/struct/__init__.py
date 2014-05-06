@@ -46,6 +46,8 @@ Whitespace between formats is ignored.
 The variable struct.error is an exception raised on errors."""
 
     interpleveldefs = {
+        'error': 'interp_struct.get_error(space)',
+
         'calcsize': 'interp_struct.calcsize',
         'pack': 'interp_struct.pack',
         'pack_into': 'interp_struct.pack_into',
@@ -56,5 +58,4 @@ The variable struct.error is an exception raised on errors."""
     }
 
     appleveldefs = {
-        'error': 'app_struct.error',
     }

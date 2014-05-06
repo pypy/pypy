@@ -58,7 +58,7 @@ def callparse(rtyper, graph, hop, opname, r_self=None):
     try:
         holders = arguments.match_signature(signature, defs_h)
     except ArgErr, e:
-        raise TyperError, "signature mismatch: %s" % e.getmsg(graph.name)
+        raise TyperError("signature mismatch: %s" % e.getmsg(graph.name))
 
     assert len(holders) == len(rinputs), "argument parsing mismatch"
     vlist = []

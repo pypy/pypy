@@ -39,7 +39,7 @@ def trie_lookup(name):
             charnode = left
         else:
             charnode = right
-    raise KeyError, name
+    raise KeyError(name)
 
 def name_of_node(charnode):
     res = []
@@ -112664,7 +112664,7 @@ def lookup_charcode(code):
     if code == 917505: res = 9201
     if 917536 <= code <= 917631: res = _charnames_917536[code-917536]
     if 917760 <= code <= 917999: res = _charnames_917760[code-917760]
-    if res == -1: raise KeyError, code
+    if res == -1: raise KeyError(code)
     return name_of_node(res)
 
 # the following dictionary is used by modules that take this as a base

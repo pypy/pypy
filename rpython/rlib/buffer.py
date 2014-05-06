@@ -1,7 +1,7 @@
 """
 Buffer protocol support.
 """
-from rpython.rlib.objectmodel import import_from_mixin
+from rpython.rlib import jit
 
 
 class Buffer(object):
@@ -61,7 +61,7 @@ class StringBuffer(Buffer):
         if step == 1:
             assert 0 <= start <= stop
             return self.value[start:stop]
-        return "".join([self.value[start + i*step] for i in xrange(size)])
+        return Buffer.getslice(self, start, stop, step, size)
 
 
 class SubBuffer(Buffer):
