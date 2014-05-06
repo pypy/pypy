@@ -3,144 +3,401 @@
 Software Transactional Memory
 =============================
 
+.. contents::
+
+
+This page is about ``pypy-stm``, a special in-development version of
+PyPy which can run multiple independent CPU-hungry threads in the same
+process in parallel.  It is a solution to what is known in the Python
+world as the "global interpreter lock (GIL)" problem --- it is an
+implementation of Python without the GIL.
+
+"STM" stands for Software `Transactional Memory`_, the technique used
+internally.  This page describes ``pypy-stm`` from the perspective of a
+user, describes work in progress, and finally gives references to more
+implementation details.
+
+This work was done by Remi Meier and Armin Rigo.  Thanks to all donors
+for crowd-funding the work so far!  Please have a look at the `2nd call
+for donation`_.
+
+.. _`Transactional Memory`: http://en.wikipedia.org/wiki/Transactional_memory
+.. _`2nd call for donation`: http://pypy.org/tmdonate2.html
+
 
 Introduction
 ============
 
-PyPy can be translated in a special mode based on Software Transactional
-Memory (STM).  This mode is not compatible with the JIT so far, and moreover
-adds a constant run-time overhead (so far 4-5x).
+``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats_
+listed below, it should be in theory within 20%-50% slower than a
+regular PyPy, comparing the JIT version in both cases.  It is called
+STM for Software Transactional Memory, which is the internal technique
+used (see `Reference to implementation details`_).
+
 The benefit is that the resulting ``pypy-stm`` can execute multiple
-threads of Python code in parallel.
+threads of Python code in parallel.  Programs running two threads or
+more in parallel should ideally run faster than in a regular PyPy
+(either now, or soon as bugs are fixed).
 
-* ``pypy-stm`` is fully compatible with a GIL-based PyPy; you can use it
-  as a drop-in replacement and multithreaded programs will run on multiple
-  cores.
+* ``pypy-stm`` is fully compatible with a GIL-based PyPy; you can use
+  it as a drop-in replacement and multithreaded programs will run on
+  multiple cores.
 
-* ``pypy-stm`` adds a low-level API in the ``thread`` module, namely
-  ``thread.atomic``, that can be used as described below.  This is meant
-  to improve existing multithread-based programs.  It is also meant to
-  be used to build higher-level interfaces on top of it.
+* ``pypy-stm`` does not impose any special API to the user, but it
+  provides a new pure Python module called `transactional_memory`_ with
+  features to inspect the state or debug conflicts_ that prevent
+  parallelization.  This module can also be imported on top of a non-STM
+  PyPy or CPython.
 
-* A number of higher-level interfaces are planned, using internally
-  threads and ``thread.atomic``.  They are meant to be used in
-  non-thread-based programs.  Given the higher level, we also recommend
-  using them in new programs instead of structuring your program to use
-  raw threads.
+* Building on top of the way the GIL is removed, we will talk
+  about `Atomic sections, Transactions, etc.: a better way to write
+  parallel programs`_.
 
+
+Getting Started
+===============
+
+**pypy-stm requires 64-bit Linux for now.**
+
+Development is done in the branch `stmgc-c7`_.  If you are only
+interested in trying it out, you can download a Ubuntu binary here__
+(``pypy-2.3.x-stm*.tar.bz2``, Ubuntu 12.04-14.04; these versions are
+release mode, but not stripped of debug symbols).  The current version
+supports four "segments", which means that it will run up to four
+threads in parallel.
+
+To build a version from sources, you first need to compile a custom
+version of clang(!); we recommend downloading `llvm and clang like
+described here`__, but at revision 201645 (use ``svn co -r 201645 <path>``
+for all checkouts).  Then apply all the patches in `this directory`__:
+they are fixes for a clang-only feature that hasn't been used so heavily
+in the past (without the patches, you get crashes of clang).  Then get
+the branch `stmgc-c7`_ of PyPy and run::
+
+   rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
+
+.. _`stmgc-c7`: https://bitbucket.org/pypy/pypy/src/stmgc-c7/
+.. __: http://cobra.cs.uni-duesseldorf.de/~buildmaster/misc/
+.. __: http://clang.llvm.org/get_started.html
+.. __: https://bitbucket.org/pypy/stmgc/src/default/c7/llvmfix/
+
+
+.. _caveats:
+
+Current status
+--------------
+
+* So far, small examples work fine, but there are still a few bugs.
+  We're busy fixing them as we find them; feel free to `report bugs`_.
+
+* Currently limited to 1.5 GB of RAM (this is just a parameter in
+  `core.h`__).  Memory overflows are not correctly handled; they cause
+  segfaults.
+
+* The JIT warm-up time improved recently but is still bad.  In order to
+  produce machine code, the JIT needs to enter a special single-threaded
+  mode for now.  This means that you will get bad performance results if
+  your program doesn't run for several seconds, where *several* can mean
+  *many.*  When trying benchmarks, be sure to check that you have
+  reached the warmed state, i.e. the performance is not improving any
+  more.  This should be clear from the fact that as long as it's
+  producing more machine code, ``pypy-stm`` will run on a single core.
+
+* The GC is new; although clearly inspired by PyPy's regular GC, it
+  misses a number of optimizations for now.  Programs allocating large
+  numbers of small objects that don't immediately die, as well as
+  programs that modify large lists or dicts, suffer from these missing
+  optimizations.
+
+* The GC has no support for destructors: the ``__del__`` method is never
+  called (including on file objects, which won't be closed for you).
+  This is of course temporary.  Also, weakrefs might appear to work a
+  bit strangely for now (staying alive even though ``gc.collect()``, or
+  even dying but then un-dying for a short time before dying again).
+
+* The STM system is based on very efficient read/write barriers, which
+  are mostly done (their placement could be improved a bit in
+  JIT-generated machine code).  But the overall bookkeeping logic could
+  see more improvements (see `Low-level statistics`_ below).
+
+* Forking the process is slow because the complete memory needs to be
+  copied manually.  A warning is printed to this effect.
+
+* Very long-running processes (on the order of days) will eventually
+  crash on an assertion error because of a non-implemented overflow of
+  an internal 29-bit number.
+
+.. _`report bugs`: https://bugs.pypy.org/
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
+.. __: 
+
+
+
+User Guide
+==========
+  
 
 Drop-in replacement
-===================
+-------------------
 
 Multithreaded, CPU-intensive Python programs should work unchanged on
 ``pypy-stm``.  They will run using multiple CPU cores in parallel.
 
-(The existing semantics of the GIL (Global Interpreter Lock) are
+The existing semantics of the GIL (Global Interpreter Lock) are
 unchanged: although running on multiple cores in parallel, ``pypy-stm``
 gives the illusion that threads are run serially, with switches only
-occurring between bytecodes, not in the middle of one.)
+occurring between bytecodes, not in the middle of them.  Programs can
+rely on this: using ``shared_list.append()/pop()`` or
+``shared_dict.setdefault()`` as synchronization mecanisms continues to
+work as expected.
+
+This works by internally considering the points where a standard PyPy or
+CPython would release the GIL, and replacing them with the boundaries of
+"transaction".  Like their database equivalent, multiple transactions
+can execute in parallel, but will commit in some serial order.  They
+appear to behave as if they were completely run in this serialization
+order.
 
 
-High-level interface
-====================
+Atomic sections
+---------------
 
-Alternatively, if you have a program not using threads, but containing a
-loop that runs "chunks" of work in random order::
+PyPy supports *atomic sections,* which are blocks of code which you want
+to execute without "releasing the GIL".  *This is experimental and may
+be removed in the future.*  In STM terms, this means blocks of code that
+are executed while guaranteeing that the transaction is not interrupted
+in the middle.
 
-    somedict = {...}
-    while len(somedict) > 0:
-        key, value = somedict.popitem()
-        do_work(key, value)   # which may add more things to 'somedict'
+Here is a usage example::
 
-Then you can parallelize it *without using threads* by replacing this
-loop with code like this::
+    with __pypy__.thread.atomic:
+        assert len(lst1) == 10
+        x = lst1.pop(0)
+        lst1.append(x)
 
-    transaction.add(do_work, initialkey1, initialvalue1)
-    transaction.add(do_work, initialkey2, initialvalue2)
+In this (bad) example, we are sure that the item popped off one end of
+the list is appened again at the other end atomically.  It means that
+another thread can run ``len(lst1)`` or ``x in lst1`` without any
+particular synchronization, and always see the same results,
+respectively ``10`` and ``True``.  It will never see the intermediate
+state where ``lst1`` only contains 9 elements.  Atomic sections are
+similar to re-entrant locks (they can be nested), but additionally they
+protect against the concurrent execution of *any* code instead of just
+code that happens to be protected by the same lock in other threads.
+
+Note that the notion of atomic sections is very strong. If you write
+code like this::
+
+    with __pypy__.thread.atomic:
+        time.sleep(10)
+
+then, if you think about it as if we had a GIL, you are executing a
+10-seconds-long atomic transaction without releasing the GIL at all.
+This prevents all other threads from progressing at all.  While it is
+not strictly true in ``pypy-stm``, the exact rules for when other
+threads can progress or not are rather complicated; you have to consider
+it likely that such a piece of code will eventually block all other
+threads anyway.
+
+Note that if you want to experiment with ``atomic``, you may have to add
+manually a transaction break just before the atomic block.  This is
+because the boundaries of the block are not guaranteed to be the
+boundaries of the transaction: the latter is at least as big as the
+block, but maybe bigger.  Therefore, if you run a big atomic block, it
+is a good idea to break the transaction just before.  This can be done
+e.g. by the hack of calling ``time.sleep(0)``.  (This may be fixed at
+some point.)
+
+There are also issues with the interaction of locks and atomic blocks.
+This can be seen if you write to files (which have locks), including
+with a ``print`` to standard output.  If one thread tries to acquire a
+lock while running in an atomic block, and another thread has got the
+same lock, then the former may fail with a ``thread.error``.  The reason
+is that "waiting" for some condition to become true --while running in
+an atomic block-- does not really make sense.  For now you can work
+around it by making sure that, say, all your prints are either in an
+``atomic`` block or none of them are.  (This kind of issue is
+theoretically hard to solve.)
+
+
+Locks
+-----
+
+**Not Implemented Yet**
+
+The thread module's locks have their basic semantic unchanged.  However,
+using them (e.g. in ``with my_lock:`` blocks) starts an alternative
+running mode, called `Software lock elision`_.  This means that PyPy
+will try to make sure that the transaction extends until the point where
+the lock is released, and if it succeeds, then the acquiring and
+releasing of the lock will be "elided".  This means that in this case,
+the whole transaction will technically not cause any write into the lock
+object --- it was unacquired before, and is still unacquired after the
+transaction.
+
+This is specially useful if two threads run ``with my_lock:`` blocks
+with the same lock.  If they each run a transaction that is long enough
+to contain the whole block, then all writes into the lock will be elided
+and the two transactions will not conflict with each other.  As usual,
+they will be serialized in some order: one of the two will appear to run
+before the other.  Simply, each of them executes an "acquire" followed
+by a "release" in the same transaction.  As explained above, the lock
+state goes from "unacquired" to "unacquired" and can thus be left
+unchanged.
+
+This approach can gracefully fail: unlike atomic sections, there is no
+guarantee that the transaction runs until the end of the block.  If you
+perform any input/output while you hold the lock, the transaction will
+end as usual just before the input/output operation.  If this occurs,
+then the lock elision mode is cancelled and the lock's "acquired" state
+is really written.
+
+Even if the lock is really acquired already, a transaction doesn't have
+to wait for it to become free again.  It can enter the elision-mode anyway
+and tentatively execute the content of the block.  It is only at the end,
+when trying to commit, that the thread will pause.  As soon as the real
+value stored in the lock is switched back to "unacquired", it can then
+proceed and attempt to commit its already-executed transaction (which
+can fail and abort and restart from the scratch, as usual).
+
+Note that this is all *not implemented yet,* but we expect it to work
+even if you acquire and release several locks.  The elision-mode
+transaction will extend until the first lock you acquired is released,
+or until the code performs an input/output or a wait operation (for
+example, waiting for another lock that is currently not free).  In the
+common case of acquiring several locks in nested order, they will all be
+elided by the same transaction.
+
+
+Atomic sections, Transactions, etc.: a better way to write parallel programs
+----------------------------------------------------------------------------
+
+(This section describes locks as we plan to implement them, but also
+works with the existing atomic sections.)
+
+In the cases where elision works, the block of code can run in parallel
+with other blocks of code *even if they are protected by the same lock.*
+You still get the illusion that the blocks are run sequentially.  This
+works even for multiple threads that run each a series of such blocks
+and nothing else, protected by one single global lock.  This is
+basically the Python application-level equivalent of what was done with
+the interpreter in ``pypy-stm``: while you think you are writing
+thread-unfriendly code because of this global lock, actually the
+underlying system is able to make it run on multiple cores anyway.
+
+...
+
+``pypy-stm`` enables a better programming model whereby you can run
+non-threaded programs on multiple cores, simply by starting multiple
+threads but running each of them protected by the same lock.  (Note that
+"protected by the same lock" means right now "they are all protected by
+``__pypy__.thread.atomic``", but this might change in the future.)
+
+This capability can be hidden in a library or in the framework you use;
+the end user's code does not need to be explicitly aware of using
+threads.  For a simple example of this, there is `transaction.py`_ in
+``lib_pypy``.  The idea is that you write, or already have, some program
+where the function ``f(key, value)`` runs on every item of some big
+dictionary, say::
+
+    for key, value in bigdict.items():
+        f(key, value)
+
+Then you simply replace the loop with::
+
+    for key, value in bigdict.items():
+        transaction.add(f, key, value)
     transaction.run()
-    # and 'do_work()' may call more 'transaction.add(do_work, key, value)'
 
-The ``transaction`` module works as if it ran each 'do_work()' call
-serially in some unspecified order.  Under the hood, it creates a pool
-of threads.  But this is not visible: each 'do_work()' is run as one
-"atomic" block.  Multiple atomic block can actually run in parallel, but
-behave as if they were run serially.  This works as long as they are
-doing "generally independent" things.  More details about this later.
+This code runs the various calls to ``f(key, value)`` using a thread
+pool, but every single call is executed under the protection of a unique
+lock.  The end result is that the behavior is exactly equivalent --- in
+fact it makes little sense to do it in this way on a non-STM PyPy or on
+CPython.  But on ``pypy-stm``, the various locked calls to ``f(key,
+value)`` can tentatively be executed in parallel, even if the observable
+result is as if they were executed in some serial order.
 
-The module is written in pure Python (`lib_pypy/transaction.py`_).
-See the source code to see how it is based on the `low-level interface`_.
-
-
-Low-level interface
-===================
-
-Besides replacing the GIL with STM techniques, ``pypy-stm`` offers one
-additional explicit low-level API: ``thread.atomic``.  This is a context
-manager to use in a ``with`` statement.  Any code running in the ``with
-thread.atomic`` block is guaranteed to be fully serialized with respect
-to any code run by other threads (so-called *strong isolation*).
-
-Note that this is a *guarantee of observed behavior:* under the conditions
-described below, a ``thread.atomic`` block can internally run in parallel
-with other threads, whether they are in a ``thread.atomic`` or not.  But
-the behavior is as if the threads don't overlap.
-
-Classical minimal example: in a thread, you want to pop an item from
-``list1`` and append it to ``list2``, knowing that both lists can be
-mutated concurrently by other threads.  Using ``thread.atomic`` this can
-be done without careful usage of locks on all the mutations of the lists::
-
-    with thread.atomic:
-        x = list1.pop()
-        list2.append(x)
-
-Note that, unlike this minimal example, the expected usage is that
-``thread.atomic`` blocks are potentially very complex and long-running.
-This is what you typically get with the `high-level interface`_.
+This approach hides the notion of threads from the end programmer,
+including all the hard multithreading-related issues.  This is not the
+first alternative approach to explicit threads; for example, OpenMP_ is
+one.  However, it is one of the first ones which does not require the
+code to be organized in a particular fashion.  Instead, it works on any
+Python program which has got latent, imperfect parallelism.  Ideally, it
+only requires that the end programmer identifies where this parallelism
+is likely to be found, and communicates it to the system, using for
+example the ``transaction.add()`` scheme.
+    
+.. _`transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
+.. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
 
-Interaction with locks
-======================
+API of transactional_memory
+---------------------------
 
-Existing multi-threaded programs usually rely on locks, either directly
-from ``thread.allocate_lock()`` or by using variants from the
-``threading`` module.  Actually, some operations in the interpreter
-itself acquire locks internally too; most notably, any file access does.
+The new pure Python module ``transactional_memory`` runs on both CPython
+and PyPy, both with and without STM.  It contains:
 
-These locks work fine in ``pypy-stm`` either outside ``thread.atomic``
-blocks or inside ``thread.atomic`` blocks.  However, due to hard
-technical issues, it is not really possible for them to work correctly
-if a ``thread.atomic`` block tries to acquire a lock that has already
-been acquired outside.  In that situation (only), trying to acquire the
-lock will raise ``thread.error``.
+* ``getsegmentlimit()``: return the number of "segments" in
+  this pypy-stm.  This is the limit above which more threads will not be
+  able to execute on more cores.  (Right now it is limited to 4 due to
+  inter-segment overhead, but should be increased in the future.  It
+  should also be settable, and the default value should depend on the
+  number of actual CPUs.)  If STM is not available, this returns 1.
 
-Importantly, note that this is not issue with the `high-level
-interface`_, but only if you use ``thread.atomic`` directly.  In the
-high-level interface, the running code is either single-threaded
-(outside ``transaction.run()``) or systematically running in
-``thread.atomic`` blocks.
+* ``print_abort_info(minimum_time=0.0)``: debugging help.  Each thread
+  remembers the longest abort or pause it did because of cross-thread
+  contention_.  This function prints it to ``stderr`` if the time lost
+  is greater than ``minimum_time`` seconds.  The record is then
+  cleared, to make it ready for new events.  This function returns
+  ``True`` if it printed a report, and ``False`` otherwise.
 
-If you *are* using ``thread.atomic`` directly, then a common way for
-this issue to show up is using ``print`` statements: this is due to the
-internal lock on ``stdout``.  You are free to use ``print`` either
-outside ``thread.atomic`` blocks or inside them, but not both
-concurrently.  A way to fix this is to put all ``print`` statements
-inside ``thread.atomic`` blocks, by writing this kind of code::
 
-    with thread.atomic:
-        print "hello, the value is:", value
+API of __pypy__.thread
+----------------------
 
-Note that this actually also helps ensuring that the whole line (or
-lines) is printed atomically, instead of being broken up with
-interleaved output from other threads.
+The ``__pypy__.thread`` submodule is a built-in module of PyPy that
+contains a few internal built-in functions used by the
+``transactional_memory`` module.
 
-In this case, it is always a good idea to protect ``print`` statements
-with ``thread.atomic``.  The reason it is not done automatically is that
-it is not useful for the high-level interface, and moreover not all file
-operations would benefit: if you have a read or write that may block,
-putting it in a ``thread.atomic`` would have the negative effect of
-suspending all other threads while we wait for the call to complete, as
-described next__.
+* ``__pypy__.thread.signals_enabled``: a context manager that runs its
+  block with signals enabled.  By default, signals are only enabled in
+  the main thread; a non-main thread will not receive signals (this is
+  like CPython).  Enabling signals in non-main threads is useful for
+  libraries where threads are hidden and the end user is not expecting
+  his code to run elsewhere than in the main thread.
+
+
+Conflicts
+---------
+
+Based on Software Transactional Memory, the ``pypy-stm`` solution is
+prone to "conflicts".  The basic idea is that threads execute their code
+speculatively, and at known points (e.g. between bytecodes) they
+coordinate with each other to agree on which order their respective
+actions should be "committed", i.e. become globally visible.  Each
+duration of time between two commit-points is called a "transaction"
+(this is related to, but slightly different from, the transactions
+above).
+
+A conflict occurs when there is no consistent ordering.  The classical
+example is if two threads both tried to change the value of the same
+global variable.  In that case, only one of them can be allowed to
+proceed, and the other one must be either paused or aborted (restarting
+the transaction).
+
+
+
+
+
+
+
+
+
+
+Implementation
+==============
+
+
 
 .. __: Parallelization_
 
@@ -252,3 +509,70 @@ https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/project-ideas.rst
 
 
 .. include:: _ref.txt
+
+
+
+---------------++++++++++++++++++++++++--------------------
+
+
+with lock:
+    sleep(1)
+
+
+option 1: lock.is_acquired is never touched, and all is done
+atomically; from the sleep() it is also inevitable; however other
+transactions can commit other "with lock" blocks as long as it goes
+into the past, so progress is not hindered if the other thread never
+needs inevitable; drawback = no other inevitable allowed
+
+option 2: lock.is_acquired=True is realized by the sleep() and the
+transaction commits; then other transactions cannot commit if they
+elided an acquire() until we have a real write to
+lock.is_acquired=False again; in the common case we need to make the
+transaction longer, to try to go until the release of the lock
+
+
+
+
+Low-level statistics
+--------------------
+
+When a non-main thread finishes, you get low-level statistics printed to
+stderr, looking like that::
+
+      thread 0x7f73377fe600:
+          outside transaction          42182    0.506 s
+          run current                  85466    0.000 s
+          run committed                34262    3.178 s
+          run aborted write write       6982    0.083 s
+          run aborted write read         550    0.005 s
+          run aborted inevitable         388    0.010 s
+          run aborted other                0    0.000 s
+          wait free segment                0    0.000 s
+          wait write read                 78    0.027 s
+          wait inevitable                887    0.490 s
+          wait other                       0    0.000 s
+          sync commit soon                 1    0.000 s
+          bookkeeping                  51418    0.606 s
+          minor gc                    162970    1.135 s
+          major gc                         1    0.019 s
+          sync pause                   59173    1.738 s
+          longest recordered marker          0.000826 s
+          "File "x.py", line 5, in f"
+
+On each line, the first number is a counter, and the second number gives
+the associated time --- the amount of real time that the thread was in
+this state.  The sum of all the times should be equal to the total time
+between the thread's start and the thread's end.  The most important
+points are "run committed", which gives the amount of useful work, and
+"outside transaction", which should give the time spent e.g. in library
+calls (right now it seems to be larger than that; to investigate).  The
+various "run aborted" and "wait" entries are time lost due to
+conflicts_.  Everything else is overhead of various forms.  (Short-,
+medium- and long-term future work involves reducing this overhead :-)
+
+The last two lines are special; they are an internal marker read by
+`transactional_memory.print_longest_marker`_.
+
+These statistics are not printed out for the main thread, for now.
+
