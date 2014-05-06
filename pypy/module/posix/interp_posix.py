@@ -136,7 +136,7 @@ def read(space, fd, buffersize):
 def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
-    data = space.getarg_w('s*', w_data)
+    data = space.getarg_w('y*', w_data)
     try:
         res = os.write(fd, data.as_str())
     except OSError, e:
