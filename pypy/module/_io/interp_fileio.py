@@ -429,7 +429,7 @@ class W_FileIO(W_RawIOBase):
         return w_size
 
 W_FileIO.typedef = TypeDef(
-    'FileIO', W_RawIOBase.typedef,
+    '_io.FileIO', W_RawIOBase.typedef,
     __new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_FileIO.descr_init),
     __repr__ = interp2app(W_FileIO.repr_w),
