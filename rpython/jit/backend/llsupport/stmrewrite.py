@@ -26,7 +26,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  transaction breaks  ----------
         if opnum == rop.STM_SHOULD_BREAK_TRANSACTION:
-            self.newops.append(op)
+            self.handle_should_break_transaction()
             return
         if opnum == rop.STM_TRANSACTION_BREAK:
             self.emitting_an_operation_that_can_collect()
@@ -119,6 +119,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             op1 = ResOperation(rop.STM_READ, [v_ptr], None)
             self.newops.append(op1)
             self.read_barrier_applied[v_ptr] = None
+
+    def handle_should_break_transaction(self):
+        op1 = ResOperation(rop.STM_SHOULD_BREAK_TRANSACTION,
+                           [ConstInt(not self.does_any_allocation)], None)
+        self.newops.append(op1)
+        self.does_any_allocation = True
 
 
     def must_apply_write_barrier(self, val, v=None):

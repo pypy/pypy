@@ -1229,3 +1229,35 @@ class TestStm(RewriteTests):
         i3 = call_assembler(p1, descr=casmdescr) {54}
         guard_not_forced() [] {55}
         """)
+
+    def test_stm_should_break_transaction_no_malloc(self):
+        self.check_rewrite("""
+        []
+        stm_should_break_transaction(0)
+        """, """
+        []
+        stm_should_break_transaction(1)
+        """)
+
+    def test_stm_should_break_transaction_with_malloc(self):
+        self.check_rewrite("""
+        []
+        p2 = new(descr=tdescr)
+        stm_should_break_transaction(0)
+        """, """
+        []
+        p2 = call_malloc_nursery(%(tdescr.size)d)
+        setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
+        stm_should_break_transaction(0)
+        """)
+
+    def test_double_stm_should_break_allocation(self):
+        self.check_rewrite("""
+        []
+        stm_should_break_transaction(0)
+        stm_should_break_transaction(0)
+        """, """
+        []
+        stm_should_break_transaction(1)
+        stm_should_break_transaction(0)
+        """)

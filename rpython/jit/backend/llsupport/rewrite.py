@@ -36,7 +36,7 @@ class GcRewriterAssembler(object):
     _previous_size = -1
     _op_malloc_nursery = None
     _v_last_malloced_nursery = None
-    c_zero = ConstInt(0)
+    does_any_allocation = False
 
     def __init__(self, gc_ll_descr, cpu):
         self.gc_ll_descr = gc_ll_descr
@@ -89,6 +89,7 @@ class GcRewriterAssembler(object):
     # ----------
 
     def handle_malloc_operation(self, op):
+        self.does_any_allocation = True
         opnum = op.getopnum()
         if opnum == rop.NEW:
             self.handle_new_fixedsize(op.getdescr(), op)
@@ -161,6 +162,7 @@ class GcRewriterAssembler(object):
                 raise NotImplementedError(op.getopname())
 
     def gen_malloc_frame(self, frame_info, frame):
+        self.does_any_allocation = True
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
             size_box = history.BoxInt()

@@ -207,7 +207,8 @@ class MIFrame(object):
         if val:
             # app-level loop: only one of these per loop is really needed
             resbox = history.BoxInt(0)
-            mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
+            mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION,
+                              [history.CONST_FALSE], resbox)
             self.metainterp.heapcache.stm_break_done()
             return resbox
         else:
