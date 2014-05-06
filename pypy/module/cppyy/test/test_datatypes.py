@@ -108,9 +108,8 @@ class AppTestDATATYPES:
         # can not access an instance member on the class
         raises(ReferenceError, getattr, cppyy_test_data, 'm_bool')
         raises(ReferenceError, getattr, cppyy_test_data, 'm_int')
-
-        assert not hasattr(cppyy_test_data, 'm_bool')
-        assert not hasattr(cppyy_test_data, 'm_int')
+        raises(ReferenceError, hasattr, cppyy_test_data, 'm_bool')
+        raises(ReferenceError, hasattr, cppyy_test_data, 'm_int')
 
         c.destruct()
 
