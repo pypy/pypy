@@ -385,7 +385,7 @@ class AppTestOpen:
                         if isinstance(t, type))
         for t, mod in typemods.items():
             if t is _io.BlockingIOError:
-                assert mod == '__builtin__'
+                assert mod == 'builtins'
             elif t is _io.UnsupportedOperation:
                 assert mod == 'io'
             else:
