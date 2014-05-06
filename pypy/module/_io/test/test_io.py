@@ -340,3 +340,9 @@ class AppTestOpen:
             assert res == "world\n"
             assert f.newlines == "\n"
             assert type(f.newlines) is unicode
+
+    def test_mod(self):
+        import _io
+        typemods = dict((t, t.__module__) for t in vars(_io).values()
+                        if isinstance(t, type))
+        assert all(mod in ('io', '_io') for mod in typemods.values()), typemods

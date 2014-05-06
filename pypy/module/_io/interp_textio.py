@@ -178,7 +178,7 @@ class W_IncrementalNewlineDecoder(W_Root):
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
-    'IncrementalNewlineDecoder',
+    '_io.IncrementalNewlineDecoder',
     __new__ = generic_new_descr(W_IncrementalNewlineDecoder),
     __init__  = interp2app(W_IncrementalNewlineDecoder.descr_init),
 
@@ -255,7 +255,7 @@ class W_TextIOBase(W_IOBase):
 
 
 W_TextIOBase.typedef = TypeDef(
-    '_TextIOBase', W_IOBase.typedef,
+    '_io._TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
 
     read = interp2app(W_TextIOBase.read_w),
