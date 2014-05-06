@@ -442,7 +442,6 @@ class W_CDataHandle(W_CData):
 
 W_CData.typedef = TypeDef(
     '_cffi_backend.CData',
-    __module__ = '_cffi_backend',
     __name__ = '<cdata>',
     __repr__ = interp2app(W_CData.repr),
     __bool__ = interp2app(W_CData.bool),
