@@ -2565,7 +2565,7 @@ class Assembler386(BaseAssembler):
         self.mc.CMP(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
 
     def genop_stm_should_break_transaction(self, op, arglocs, result_loc):
-        increase_nursery = op.args[0].getint()
+        increase_nursery = op.getarg(0).getint()
         self._generate_cmp_break_transaction(increase_nursery=increase_nursery)
         rl = result_loc.lowest8bits()
         self.mc.SET_ir(rx86.Conditions['A'], rl.value)
@@ -2574,7 +2574,7 @@ class Assembler386(BaseAssembler):
     def genop_guard_stm_should_break_transaction(self, op, guard_op,
                                                  guard_token, arglocs,
                                                  result_loc):
-        increase_nursery = op.args[0].getint()
+        increase_nursery = op.getarg(0).getint()
         self._generate_cmp_break_transaction(increase_nursery=increase_nursery)
         if guard_op.getopnum() == rop.GUARD_FALSE:
             self.implement_guard(guard_token, 'A')   # JA goes to "yes, break"
