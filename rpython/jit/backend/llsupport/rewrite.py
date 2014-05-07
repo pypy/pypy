@@ -36,6 +36,8 @@ class GcRewriterAssembler(object):
     _previous_size = -1
     _op_malloc_nursery = None
     _v_last_malloced_nursery = None
+
+    # does_any_alloc tells us if we did any allocation since the last LABEL
     does_any_allocation = False
 
     def __init__(self, gc_ll_descr, cpu):
@@ -64,6 +66,7 @@ class GcRewriterAssembler(object):
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
                 self.known_lengths.clear()
+                self.does_any_allocation = False
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:

@@ -1267,3 +1267,19 @@ class TestStm(RewriteTests):
         i2 = stm_should_break_transaction(0)
         jump(i1, i2)
         """)
+
+    def test_label_stm_should_break_allocation(self):
+        self.check_rewrite("""
+        []
+        p2 = new(descr=tdescr)
+        label()
+        i1 = stm_should_break_transaction(0)
+        jump(i1)
+        """, """
+        []
+        p2 = call_malloc_nursery(%(tdescr.size)d)
+        setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
+        label()
+        i1 = stm_should_break_transaction(1)
+        jump(i1)
+        """)
