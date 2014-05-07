@@ -490,9 +490,7 @@ class AppTestBuiltinApp:
         co = compile(memoryview(b'1+2'), '?', 'eval')
         assert eval(co) == 3
         exc = raises(TypeError, compile, chr(0), '?', 'eval')
-        assert str(exc.value) == "compile() expected string without null bytes"
-        exc = raises(TypeError, compile, memoryview(b'1+2'), '?', 'eval')
-        assert str(exc.value) == "expected a readable buffer object"
+        assert str(exc.value) == "source code string cannot contain null bytes"
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(SyntaxError, compile, '"\\xt"', '?', 'eval')
