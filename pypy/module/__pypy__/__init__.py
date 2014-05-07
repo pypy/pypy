@@ -31,7 +31,6 @@ class ThreadModule(MixedModule):
         'signals_enabled': 'app_signal.signals_enabled',
         'atomic':                  'app_atomic.atomic',
         'exclusive_atomic':        'app_atomic.exclusive_atomic',
-        'error':                   'app_atomic.error',
     }
     interpleveldefs = {
         '_signals_enter':  'interp_signal.signals_enter',
@@ -42,6 +41,7 @@ class ThreadModule(MixedModule):
         'longest_abort_info':      'interp_atomic.longest_abort_info',
         'reset_longest_abort_info':'interp_atomic.reset_longest_abort_info',
         'getsegmentlimit':         'interp_atomic.getsegmentlimit',
+        'error': 'space.fromcache(pypy.module.thread.error.Cache).w_error',
     }
     def activate(self, space):
         return self.space.config.objspace.usemodules.thread
