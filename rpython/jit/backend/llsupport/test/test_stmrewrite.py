@@ -52,6 +52,7 @@ class TestStm(RewriteTests):
                                                really_not_translated=True)
         self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
             lambda cpu: False)   # for now
+        self.gc_ll_descr.minimal_size_in_nursery = 16
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
@@ -1237,7 +1238,7 @@ class TestStm(RewriteTests):
         jump(i1)
         """, """
         []
-        p99 = call_malloc_nursery(8)
+        p99 = call_malloc_nursery(16)
         i1 = stm_should_break_transaction()
         jump(i1)
         """)
@@ -1264,7 +1265,7 @@ class TestStm(RewriteTests):
         jump(i1, i2)
         """, """
         []
-        p99 = call_malloc_nursery(8)
+        p99 = call_malloc_nursery(16)
         i1 = stm_should_break_transaction()
         i2 = stm_should_break_transaction()
         jump(i1, i2)
@@ -1282,7 +1283,7 @@ class TestStm(RewriteTests):
         p2 = call_malloc_nursery(%(tdescr.size)d)
         setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
         label()
-        p99 = call_malloc_nursery(8)
+        p99 = call_malloc_nursery(16)
         i1 = stm_should_break_transaction()
         jump(i1)
         """)

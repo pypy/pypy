@@ -123,18 +123,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # do a fake allocation since this is needed to check
             # for requested safe-points:
             self.does_any_allocation = True
-            self.emitting_an_operation_that_can_collect()
 
-            size = WORD
+            # minimum size for the slowpath of MALLOC_NURSERY:
+            size = self.gc_ll_descr.minimal_size_in_nursery
             v_result = BoxPtr()
             assert self._op_malloc_nursery is None # no ongoing allocation
-            malloc_op = ResOperation(rop.CALL_MALLOC_NURSERY,
-                              [ConstInt(size)], v_result)
-            self._op_malloc_nursery = malloc_op
-            self.newops.append(malloc_op)
-            self._previous_size = size
-            self._v_last_malloced_nursery = v_result
-            self.write_barrier_applied[v_result] = None
+            self.gen_malloc_nursery(size, v_result)
 
         self.newops.append(op)
 
