@@ -1,6 +1,5 @@
 #ifdef PYPY_X86_CHECK_SSE2
 #include <intrin.h>
-#include <stdio.h>
 void pypy_x86_check_sse2(void)
 {
     int features;
