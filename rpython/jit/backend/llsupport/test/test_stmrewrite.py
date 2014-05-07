@@ -1233,11 +1233,11 @@ class TestStm(RewriteTests):
     def test_stm_should_break_transaction_no_malloc(self):
         self.check_rewrite("""
         []
-        i1 = stm_should_break_transaction(0)
+        i1 = stm_should_break_transaction()
         jump(i1)
         """, """
         []
-        i1 = stm_should_break_transaction(1)
+        i1 = stm_should_break_transaction()
         jump(i1)
         """)
 
@@ -1245,26 +1245,26 @@ class TestStm(RewriteTests):
         self.check_rewrite("""
         []
         p2 = new(descr=tdescr)
-        i1 = stm_should_break_transaction(0)
+        i1 = stm_should_break_transaction()
         jump(i1)
         """, """
         []
         p2 = call_malloc_nursery(%(tdescr.size)d)
         setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
-        i1 = stm_should_break_transaction(0)
+        i1 = stm_should_break_transaction()
         jump(i1)
         """)
 
     def test_double_stm_should_break_allocation(self):
         self.check_rewrite("""
         []
-        i1 = stm_should_break_transaction(0)
-        i2 = stm_should_break_transaction(0)
+        i1 = stm_should_break_transaction()
+        i2 = stm_should_break_transaction()
         jump(i1, i2)
         """, """
         []
-        i1 = stm_should_break_transaction(1)
-        i2 = stm_should_break_transaction(0)
+        i1 = stm_should_break_transaction()
+        i2 = stm_should_break_transaction()
         jump(i1, i2)
         """)
 
@@ -1273,13 +1273,13 @@ class TestStm(RewriteTests):
         []
         p2 = new(descr=tdescr)
         label()
-        i1 = stm_should_break_transaction(0)
+        i1 = stm_should_break_transaction()
         jump(i1)
         """, """
         []
         p2 = call_malloc_nursery(%(tdescr.size)d)
         setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
         label()
-        i1 = stm_should_break_transaction(1)
+        i1 = stm_should_break_transaction()
         jump(i1)
         """)

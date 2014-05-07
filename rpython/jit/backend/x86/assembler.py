@@ -619,7 +619,7 @@ class Assembler386(BaseAssembler):
         self.patch_jump_for_descr(faildescr, rawstart)
         if self.cpu.gc_ll_descr.stm:
             rstm.partial_commit_and_resume_other_threads()
-        
+
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -940,7 +940,7 @@ class Assembler386(BaseAssembler):
         mc.copy_to_raw_memory(oldadr)
         if self.cpu.gc_ll_descr.stm:
             rstm.partial_commit_and_resume_other_threads()
-        
+
 
     def dump(self, text):
         if not self.verbose:
@@ -2554,7 +2554,7 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
-    def _generate_cmp_break_transaction(self, increase_nursery=False):
+    def _generate_cmp_break_transaction(self):
         # emits the check with a CMP instruction:
         #    pypy_stm_nursery_low_fill_mark < STM_SEGMENT->nursery_current
         # so if it is followed with a JB, it will follow the jump if
@@ -2562,33 +2562,26 @@ class Assembler386(BaseAssembler):
         #
         if not IS_X86_64:
             todo()   # "needed for X86_64_SCRATCH_REG"
-        nf_adr = rstm.adr_nursery_free        # STM_SEGMENT->nursery_current
-        assert rx86.fits_in_32bits(nf_adr)    # nf_adr is in page 1
-        self.mc.MOV_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
-        if increase_nursery:
-            self.mc.ADD_ri(X86_64_SCRATCH_REG.value, WORD)
-            self.mc.MOV_jr((self.SEGMENT_GC, nf_adr), X86_64_SCRATCH_REG.value)
         psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
-        psnlfm_adr -= stmtlocal.threadlocal_base()
-        assert rx86.fits_in_32bits(psnlfm_adr)  # should be %fs-local
-        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_TL, psnlfm_adr))
+        self.mc.MOV(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
+        nf_adr = rstm.adr_nursery_free
+        assert rx86.fits_in_32bits(nf_adr)    # because it is in the 2nd page
+        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
 
     def genop_stm_should_break_transaction(self, op, arglocs, result_loc):
-        increase_nursery = op.getarg(0).getint()
-        self._generate_cmp_break_transaction(increase_nursery=increase_nursery)
+        self._generate_cmp_break_transaction()
         rl = result_loc.lowest8bits()
-        self.mc.SET_ir(rx86.Conditions['A'], rl.value)
+        self.mc.SET_ir(rx86.Conditions['B'], rl.value)
         self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
     def genop_guard_stm_should_break_transaction(self, op, guard_op,
                                                  guard_token, arglocs,
                                                  result_loc):
-        increase_nursery = op.getarg(0).getint()
-        self._generate_cmp_break_transaction(increase_nursery=increase_nursery)
+        self._generate_cmp_break_transaction()
         if guard_op.getopnum() == rop.GUARD_FALSE:
-            self.implement_guard(guard_token, 'A')   # JA goes to "yes, break"
+            self.implement_guard(guard_token, 'B')   # JB goes to "yes, break"
         else:
-            self.implement_guard(guard_token, 'BE')  # JBE goes to "no, don't"
+            self.implement_guard(guard_token, 'AE')  # JAE goes to "no, don't"
 
     def genop_guard_stm_transaction_break(self, op, guard_op, guard_token,
                                           arglocs, result_loc):
@@ -2601,9 +2594,9 @@ class Assembler386(BaseAssembler):
 
         mc = self.mc
         self._generate_cmp_break_transaction()
-        # use JBE to jump over the following piece of code if we don't need
+        # use JAE to jump over the following piece of code if we don't need
         # to break the transaction now
-        mc.J_il(rx86.Conditions['BE'], 0xfffff)    # patched later
+        mc.J_il(rx86.Conditions['AE'], 0xfffff)    # patched later
         jae_location = mc.get_relative_pos()
 
         # This is the case in which we have to do the same as the logic

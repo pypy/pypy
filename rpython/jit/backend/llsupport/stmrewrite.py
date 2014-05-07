@@ -121,11 +121,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.read_barrier_applied[v_ptr] = None
 
     def handle_should_break_transaction(self, op):
-        op1 = ResOperation(rop.STM_SHOULD_BREAK_TRANSACTION,
-                           [ConstInt(not self.does_any_allocation)],
-                           op.result)
-        self.newops.append(op1)
-        self.does_any_allocation = True
+        self.newops.append(op)
+        #self.does_any_allocation = True
 
 
     def must_apply_write_barrier(self, val, v=None):
