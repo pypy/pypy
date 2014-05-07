@@ -129,7 +129,6 @@ Current status
 
 .. _`report bugs`: https://bugs.pypy.org/
 .. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
-.. __: 
 
 
 
@@ -268,11 +267,13 @@ example, waiting for another lock that is currently not free).  In the
 common case of acquiring several locks in nested order, they will all be
 elided by the same transaction.
 
+.. _`software lock elision`: https://www.repository.cam.ac.uk/handle/1810/239410
+
 
 Atomic sections, Transactions, etc.: a better way to write parallel programs
 ----------------------------------------------------------------------------
 
-(This section describes locks as we plan to implement them, but also
+(This section is based on locks as we plan to implement them, but also
 works with the existing atomic sections.)
 
 In the cases where elision works, the block of code can run in parallel
@@ -284,14 +285,6 @@ basically the Python application-level equivalent of what was done with
 the interpreter in ``pypy-stm``: while you think you are writing
 thread-unfriendly code because of this global lock, actually the
 underlying system is able to make it run on multiple cores anyway.
-
-...
-
-``pypy-stm`` enables a better programming model whereby you can run
-non-threaded programs on multiple cores, simply by starting multiple
-threads but running each of them protected by the same lock.  (Note that
-"protected by the same lock" means right now "they are all protected by
-``__pypy__.thread.atomic``", but this might change in the future.)
 
 This capability can be hidden in a library or in the framework you use;
 the end user's code does not need to be explicitly aware of using
@@ -331,6 +324,8 @@ example the ``transaction.add()`` scheme.
 .. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
 
+.. _`transactional_memory`:
+
 API of transactional_memory
 ---------------------------
 
@@ -357,7 +352,11 @@ API of __pypy__.thread
 
 The ``__pypy__.thread`` submodule is a built-in module of PyPy that
 contains a few internal built-in functions used by the
-``transactional_memory`` module.
+``transactional_memory`` module, plus the following:
+    
+* ``__pypy__.thread.atomic``: a context manager to run a block in
+  fully atomic mode, without "releasing the GIL".  (May be eventually
+  removed?)
 
 * ``__pypy__.thread.signals_enabled``: a context manager that runs its
   block with signals enabled.  By default, signals are only enabled in
@@ -367,171 +366,82 @@ contains a few internal built-in functions used by the
   his code to run elsewhere than in the main thread.
 
 
+.. _contention:
+
 Conflicts
 ---------
 
 Based on Software Transactional Memory, the ``pypy-stm`` solution is
-prone to "conflicts".  The basic idea is that threads execute their code
+prone to "conflicts".  To repeat the basic idea, threads execute their code
 speculatively, and at known points (e.g. between bytecodes) they
 coordinate with each other to agree on which order their respective
 actions should be "committed", i.e. become globally visible.  Each
-duration of time between two commit-points is called a "transaction"
-(this is related to, but slightly different from, the transactions
-above).
+duration of time between two commit-points is called a transaction.
 
 A conflict occurs when there is no consistent ordering.  The classical
 example is if two threads both tried to change the value of the same
 global variable.  In that case, only one of them can be allowed to
 proceed, and the other one must be either paused or aborted (restarting
-the transaction).
-
-
-
-
-
-
-
-
-
-
-Implementation
-==============
-
-
-
-.. __: Parallelization_
-
-
-Parallelization
-===============
+the transaction).  If this occurs too often, parallelization fails.
 
 How much actual parallelization a multithreaded program can see is a bit
-subtle.  Basically, a program not using ``thread.atomic`` or using it
-for very short amounts of time will parallelize almost freely.  However,
-using ``thread.atomic`` for longer periods of time comes with less
-obvious rules.  The exact details may vary from version to version, too,
-until they are a bit more stabilized.  Here is an overview.
+subtle.  Basically, a program not using ``__pypy__.thread.atomic`` or
+eliding locks, or doing so for very short amounts of time, will
+parallelize almost freely (as long as it's not some artificial example
+where, say, all threads try to increase the same global counter and do
+nothing else).
 
-Each thread is actually running as a sequence of "transactions", which
-are separated by "transaction breaks".  The execution of the whole
-multithreaded program works as if all transactions were serialized.  The
-transactions are actually running in parallel, but this is invisible.
+However, using if the program requires longer transactions, it comes
+with less obvious rules.  The exact details may vary from version to
+version, too, until they are a bit more stabilized.  Here is an
+overview.
 
-This parallelization works as long as two principles are respected.  The
+Parallelization works as long as two principles are respected.  The
 first one is that the transactions must not *conflict* with each other.
 The most obvious sources of conflicts are threads that all increment a
 global shared counter, or that all store the result of their
 computations into the same list --- or, more subtly, that all ``pop()``
 the work to do from the same list, because that is also a mutation of
 the list.  (It is expected that some STM-aware library will eventually
-be designed to help with sharing problems, like a STM-aware list or
-queue.)
+be designed to help with conflict problems, like a STM-aware queue.)
 
 A conflict occurs as follows: when a transaction commits (i.e. finishes
 successfully) it may cause other transactions that are still in progress
 to abort and retry.  This is a waste of CPU time, but even in the worst
 case senario it is not worse than a GIL, because at least one
-transaction succeeded (so we get at worst N-1 CPUs doing useless jobs
-and 1 CPU doing a job that commits successfully).
+transaction succeeds (so we get at worst N-1 CPUs doing useless jobs and
+1 CPU doing a job that commits successfully).
 
-Conflicts do occur, of course, and it is
-pointless to try to avoid them all.  For example they can be abundant
-during some warm-up phase.  What is important is to keep them rare
-enough in total.
+Conflicts do occur, of course, and it is pointless to try to avoid them
+all.  For example they can be abundant during some warm-up phase.  What
+is important is to keep them rare enough in total.
 
-The other principle is that of avoiding long-running so-called
-"inevitable" transactions ("inevitable" is taken in the sense of "which
-cannot be avoided", i.e. transactions which cannot abort any more).  We
-can consider that a transaction can be in three possible modes (this is
-actually a slight simplification):
-
-* *non-atomic:* in this mode, the interpreter is free to insert
-  transaction breaks more or less where it wants to.  This is similar to
-  how, in CPython, the interpreter is free to release and reacquire the
-  GIL where it wants to.  So in non-atomic mode, transaction breaks
-  occur from time to time between the execution of two bytecodes, as
-  well as across an external system call (the previous transaction is
-  committed, the system call is done outside any transaction, and
-  finally the next transaction is started).
-
-* *atomic but abortable:* transactions start in this mode at the
-  beginning of a ``with thread.atomic`` block.  In atomic mode,
-  transaction breaks *never* occur, making a single potentially long
-  transaction.  This transaction can be still be aborted if a conflict
-  arises, and retried as usual.
-
-* *atomic and inevitable:* as soon as an atomic block does a system
-  call, it cannot be aborted any more, because it has visible
-  side-effects.  So we turn the transaction "inevitable" --- more
-  precisely, this occurs just before doing the system call.  Once the
-  system call is started, the transaction cannot be aborted any more:
-  it must "inevitably" complete.  This results in the following
-  internal restrictions: only one transaction in the whole process can
-  be inevitable, and moreover no other transaction can commit before
-  the inevitable one.  In other words, as soon as there is an inevitable
-  transaction, the other transactions can continue and run until the end,
-  but then they will be paused.
-
-So what you should avoid is transactions that are inevitable for a long
-period of time.  Doing so blocks essentially all other transactions and
-gives an effect similar to the GIL again.  To work around the issue, you
-need to organize your code in such a way that for any ``thread.atomic``
-block that runs for a noticable amount of time, you perform no I/O at
-all before you are close to reaching the end of the block.
-
-Similarly, you should avoid doing any *blocking* I/O in ``thread.atomic``
-blocks.  They work, but because the transaction is turned inevitable
-*before* the I/O is performed, they will prevent any parallel work at
-all.  You need to organize the code so that such operations are done
-completely outside ``thread.atomic``, e.g. in a separate thread.
+Another issue is that of avoiding long-running so-called "inevitable"
+transactions ("inevitable" is taken in the sense of "which cannot be
+avoided", i.e. transactions which cannot abort any more).  Transactions
+like that should only occur if you use ``__pypy__.thread.atomic``,
+generally become of I/O in atomic blocks.  They work, but the
+transaction is turned inevitable before the I/O is performed.  For all
+the remaining execution time of the atomic block, they will impede
+parallel work.  The best is to organize the code so that such operations
+are done completely outside ``__pypy__.thread.atomic``.
 
 (This is related to the fact that blocking I/O operations are
 discouraged with Twisted, and if you really need them, you should do
-them on its own separate thread.  One can say that the behavior within
-``thread.atomic`` looks, in a way, like the opposite of the usual
-effects of the GIL: if the ``with`` block is computationally intensive
-it will nicely be parallelized, but if it does any long I/O then it
-prevents any parallel work.)
+them on their own separate thread.)
+
+In case of lock elision, we don't get long-running inevitable
+transactions, but a different problem can occur: doing I/O cancels lock
+elision, and the lock turns into a real lock, preventing other threads
+from committing if they also need this lock.  (More about it when lock
+elision is implemented and tested.)
+
 
 
 Implementation
 ==============
 
-XXX
-
-
-See also
-========
-
-See also
-https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/project-ideas.rst
-(section about STM).
-
-
-.. include:: _ref.txt
-
-
-
----------------++++++++++++++++++++++++--------------------
-
-
-with lock:
-    sleep(1)
-
-
-option 1: lock.is_acquired is never touched, and all is done
-atomically; from the sleep() it is also inevitable; however other
-transactions can commit other "with lock" blocks as long as it goes
-into the past, so progress is not hindered if the other thread never
-needs inevitable; drawback = no other inevitable allowed
-
-option 2: lock.is_acquired=True is realized by the sleep() and the
-transaction commits; then other transactions cannot commit if they
-elided an acquire() until we have a real write to
-lock.is_acquired=False again; in the common case we need to make the
-transaction longer, to try to go until the release of the lock
-
-
+XXX this section mostly empty for now
 
 
 Low-level statistics
@@ -572,7 +482,46 @@ conflicts_.  Everything else is overhead of various forms.  (Short-,
 medium- and long-term future work involves reducing this overhead :-)
 
 The last two lines are special; they are an internal marker read by
-`transactional_memory.print_longest_marker`_.
+``transactional_memory.print_abort_info()``.
 
 These statistics are not printed out for the main thread, for now.
 
+
+Reference to implementation details
+-----------------------------------
+
+The core of the implementation is in a separate C library called stmgc_,
+in the c7_ subdirectory.  Please see the `README.txt`_ for more
+information.  In particular, the notion of segment is discussed there.
+
+.. _stmgc: https://bitbucket.org/pypy/stmgc/src/default/
+.. _c7: https://bitbucket.org/pypy/stmgc/src/default/c7/
+.. _`README.txt`: https://bitbucket.org/pypy/stmgc/raw/default/c7/README.txt
+
+PyPy itself adds on top of it the automatic placement of read__ and write__
+barriers and of `"becomes-inevitable-now" barriers`__, the logic to
+`start/stop transactions as an RPython transformation`__ and as
+`supporting`__ `C code`__, and the support in the JIT (mostly as a
+`transformation step on the trace`__ and generation of custom assembler
+in `assembler.py`__).
+
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/readbarrier.py
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/memory/gctransform/stmframework.py
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/inevitable.py
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/jitdriver.py
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stmgcintf.h
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stmgcintf.c
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/jit/backend/llsupport/stmrewrite.py
+.. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/jit/backend/x86/assembler.py
+
+
+
+See also
+========
+
+See also
+https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/project-ideas.rst
+(section about STM).
+
+
+.. include:: _ref.txt
