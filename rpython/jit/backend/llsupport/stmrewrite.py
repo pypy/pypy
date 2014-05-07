@@ -1,13 +1,11 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
-from rpython.jit.backend.llsupport.descr import (
-    CallDescr, FieldDescr, InteriorFieldDescr, ArrayDescr)
+from rpython.jit.backend.llsupport.descr import CallDescr, FieldDescr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
+from rpython.jit.metainterp.history import BoxPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
                                 debug_print)
-from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.backend.llsupport.symbolic import WORD
 
 
 class GcStmRewriterAssembler(GcRewriterAssembler):
@@ -121,8 +119,24 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.read_barrier_applied[v_ptr] = None
 
     def handle_should_break_transaction(self, op):
+        if not self.does_any_allocation:
+            # do a fake allocation since this is needed to check
+            # for requested safe-points:
+            self.does_any_allocation = True
+            self.emitting_an_operation_that_can_collect()
+
+            size = WORD
+            v_result = BoxPtr()
+            assert self._op_malloc_nursery is None # no ongoing allocation
+            malloc_op = ResOperation(rop.CALL_MALLOC_NURSERY,
+                              [ConstInt(size)], v_result)
+            self._op_malloc_nursery = malloc_op
+            self.newops.append(malloc_op)
+            self._previous_size = size
+            self._v_last_malloced_nursery = v_result
+            self.write_barrier_applied[v_result] = None
+
         self.newops.append(op)
-        #self.does_any_allocation = True
 
 
     def must_apply_write_barrier(self, val, v=None):
@@ -148,7 +162,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         debug_print("fallback for", op.repr())
 
     def maybe_handle_raw_accesses(self, op):
-        from rpython.jit.backend.llsupport.descr import FieldDescr
         descr = op.getdescr()
         assert isinstance(descr, FieldDescr)
         if descr.stm_dont_track_raw_accesses:

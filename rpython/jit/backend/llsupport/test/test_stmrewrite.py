@@ -1237,6 +1237,7 @@ class TestStm(RewriteTests):
         jump(i1)
         """, """
         []
+        p99 = call_malloc_nursery(8)
         i1 = stm_should_break_transaction()
         jump(i1)
         """)
@@ -1263,6 +1264,7 @@ class TestStm(RewriteTests):
         jump(i1, i2)
         """, """
         []
+        p99 = call_malloc_nursery(8)
         i1 = stm_should_break_transaction()
         i2 = stm_should_break_transaction()
         jump(i1, i2)
@@ -1280,6 +1282,7 @@ class TestStm(RewriteTests):
         p2 = call_malloc_nursery(%(tdescr.size)d)
         setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
         label()
+        p99 = call_malloc_nursery(8)
         i1 = stm_should_break_transaction()
         jump(i1)
         """)
