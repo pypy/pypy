@@ -633,7 +633,7 @@ for targetname, specialname, checkerspec in [
                 for x in checkerspec]
     checker = " or ".join(l)
     if targetname == 'index':
-        msg = "'%%T' object cannot be interpreted as an index"
+        msg = "'%%T' object cannot be interpreted as an integer"
     else:
         msg = "unsupported operand type for %(targetname)s(): '%%T'"
     msg = msg % locals()

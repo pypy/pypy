@@ -99,7 +99,7 @@ class AppTestBuiltinApp:
             def __int__(self):
                 return 42
         exc = raises(TypeError, bin, D())
-        assert "index" in str(exc.value)
+        assert "integer" in str(exc.value)
 
     def test_oct(self):
         class Foo:
