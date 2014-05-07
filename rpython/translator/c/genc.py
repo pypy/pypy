@@ -751,6 +751,8 @@ def commondefs(defines):
 
 def add_extra_files(eci):
     srcdir = py.path.local(__file__).join('..', 'src')
+    _MSVC = eci.platform.name == 'msvc'
+
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
         srcdir / 'allocator.c',        # ifdef PYPY_STANDALONE
@@ -767,6 +769,8 @@ def add_extra_files(eci):
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
+    if _MSVC:
+        files.append(srcdir / 'asm_msvc.c')
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 
