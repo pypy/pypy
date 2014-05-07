@@ -97,6 +97,13 @@ if we can re-enable it...
 
 ------------------------------------------------------------
 
+allocating dummy 16 bytes if a loop doesn't allocate anything else:
+could be replaced by lowering the nursery's limit, to avoid creating
+holes (or even mostly-empty, already-zero nurseries that must still be
+entirely memset)
+
+------------------------------------------------------------
+
 
 
 
