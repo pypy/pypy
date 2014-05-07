@@ -178,7 +178,7 @@ class FunctionCodeGenerator(object):
             else:
                 return self.db.get(value)
         else:
-            raise TypeError, "expr(%r)" % (v,)
+            raise TypeError("expr(%r)" % (v,))
 
     # ____________________________________________________________
 

@@ -298,6 +298,7 @@ class BaseTest(unittest.TestCase):
         b = array.array(self.badtypecode())
         with self.assertRaises(TypeError):
             a + b
+
         with self.assertRaises(TypeError):
             a + 'bad'
 
@@ -320,6 +321,7 @@ class BaseTest(unittest.TestCase):
         b = array.array(self.badtypecode())
         with self.assertRaises(TypeError):
             a += b
+
         with self.assertRaises(TypeError):
             a += 'bad'
 

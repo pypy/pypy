@@ -51,3 +51,6 @@ utility must be accessible through ``$PATH`` (e.g. by adding ``$ROOTSYS/bin``
 to ``PATH``).
 In case of the former, include files are expected under ``$ROOTSYS/include``
 and libraries under ``$ROOTSYS/lib``.
+
+
+.. include:: _ref.txt

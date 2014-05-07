@@ -379,7 +379,7 @@ class __extend__(AbstractStringRepr):
     def rtype_method_replace(self, hop):
         rstr = hop.args_r[0].repr
         if not (hop.args_r[1] == rstr.char_repr and hop.args_r[2] == rstr.char_repr):
-            raise TyperError, 'replace only works for char args'
+            raise TyperError('replace only works for char args')
         v_str, v_c1, v_c2 = hop.inputargs(rstr.repr, rstr.char_repr, rstr.char_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_replace_chr_chr, v_str, v_c1, v_c2)

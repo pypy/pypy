@@ -102,7 +102,7 @@ class LongTypeMixin(object):
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
     libffitype  = jit_libffi.types.slong
-    c_type      =  rffi.LONG
+    c_type      = rffi.LONG
     c_ptrtype   = rffi.LONGP
 
     def _unwrap_object(self, space, w_obj):

@@ -173,6 +173,12 @@ class EffectInfo(object):
     def call_needs_inevitable(self):
         return self.needs_inevitable
 
+    def __repr__(self):
+        more = ''
+        if self.oopspecindex:
+            more = ' OS=%r' % (self.oopspecindex,)
+        return '<EffectInfo 0x%x: EF=%r%s>' % (id(self), self.extraeffect, more)
+
 
 def frozenset_or_none(x):
     if x is None:

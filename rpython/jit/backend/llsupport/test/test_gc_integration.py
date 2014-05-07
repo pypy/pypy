@@ -916,3 +916,73 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
                                        cpu.execute_token(token, 1, a))
         assert getmap(frame).count('1') == 4
 
+    def test_finish_without_gcmap(self):
+        cpu = self.cpu
+
+        loop = self.parse("""
+        [i0]
+        finish(i0, descr=finaldescr)
+        """, namespace={'finaldescr': BasicFinalDescr(2)})
+
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
+                                       cpu.execute_token(token, 10))
+        assert not frame.jf_gcmap
+
+    def test_finish_with_trivial_gcmap(self):
+        cpu = self.cpu
+
+        loop = self.parse("""
+        [p0]
+        finish(p0, descr=finaldescr)
+        """, namespace={'finaldescr': BasicFinalDescr(2)})
+
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        n = lltype.nullptr(llmemory.GCREF.TO)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
+                                       cpu.execute_token(token, n))
+        assert getmap(frame) == '1'
+
+    def test_finish_with_guard_not_forced_2_ref(self):
+        cpu = self.cpu
+
+        loop = self.parse("""
+        [p0, p1]
+        guard_not_forced_2(descr=faildescr) [p1]
+        finish(p0, descr=finaldescr)
+        """, namespace={'faildescr': BasicFailDescr(1),
+                        'finaldescr': BasicFinalDescr(2)})
+
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        n = lltype.nullptr(llmemory.GCREF.TO)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
+                                       cpu.execute_token(token, n, n))
+        assert getmap(frame).count('1') == 2
+
+    def test_finish_with_guard_not_forced_2_int(self):
+        cpu = self.cpu
+
+        loop = self.parse("""
+        [i0, p1]
+        guard_not_forced_2(descr=faildescr) [p1]
+        finish(i0, descr=finaldescr)
+        """, namespace={'faildescr': BasicFailDescr(1),
+                        'finaldescr': BasicFinalDescr(2)})
+
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        n = lltype.nullptr(llmemory.GCREF.TO)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
+                                       cpu.execute_token(token, 10, n))
+        assert getmap(frame).count('1') == 1

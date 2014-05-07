@@ -313,6 +313,11 @@ class AppTestSocket:
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
 
+    def test_module(self):
+        import _socket
+        assert _socket.socket.__name__ == 'socket'
+        assert _socket.socket.__module__ == '_socket'
+
     def test_ntoa_exception(self):
         import _socket
         raises(_socket.error, _socket.inet_ntoa, "ab")
@@ -545,8 +550,12 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
+        exc = raises(TypeError, s.send, None)
+        assert str(exc.value) == "must be string or buffer, not None"
         assert s.send(buffer('')) == 0
         assert s.sendall(buffer('')) is None
+        assert s.send(memoryview('')) == 0
+        assert s.sendall(memoryview('')) is None
         assert s.send(u'') == 0
         assert s.sendall(u'') is None
         raises(UnicodeEncodeError, s.send, u'\xe9')
@@ -678,6 +687,13 @@ class AppTestSocketTCP:
         msg = buf.tostring()[:len(MSG)]
         assert msg == MSG
 
+        conn.send(MSG)
+        buf = bytearray(1024)
+        nbytes = cli.recv_into(memoryview(buf))
+        assert nbytes == len(MSG)
+        msg = buf[:len(MSG)]
+        assert msg == MSG
+
     def test_recvfrom_into(self):
         import socket
         import array
@@ -691,6 +707,13 @@ class AppTestSocketTCP:
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]
+        assert msg == MSG
+
+        conn.send(MSG)
+        buf = bytearray(1024)
+        nbytes, addr = cli.recvfrom_into(memoryview(buf))
+        assert nbytes == len(MSG)
+        msg = buf[:len(MSG)]
         assert msg == MSG
 
     def test_family(self):

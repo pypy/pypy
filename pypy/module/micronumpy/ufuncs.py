@@ -178,6 +178,8 @@ class W_Ufunc(W_Root):
         if space.is_none(w_axis):
             axis = maxint
         else:
+            if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
+                w_axis = space.getitem(w_axis, space.wrap(0))
             axis = space.int_w(w_axis)
             if axis < -shapelen or axis >= shapelen:
                 raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
@@ -455,9 +457,7 @@ class W_Ufunc2(W_Ufunc):
                           res_dtype, w_lhs, w_rhs, out)
 
 
-W_Ufunc.typedef = TypeDef("ufunc",
-    __module__ = "numpy",
-
+W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
     __name__ = GetSetProperty(W_Ufunc.descr_get_name),
@@ -475,6 +475,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         promote_bools=False):
     if dt2 is None:
         return dt1
+    if dt1 is None:
+        return dt2
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1

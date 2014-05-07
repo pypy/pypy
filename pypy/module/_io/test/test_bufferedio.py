@@ -139,6 +139,14 @@ class AppTestBufferedReader:
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         assert f.readinto(a) == 5
+        exc = raises(TypeError, f.readinto, u"hello")
+        assert str(exc.value) == "cannot use unicode as modifiable buffer"
+        exc = raises(TypeError, f.readinto, buffer(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
         assert a == 'a\nb\ncxxxxx'
 
@@ -235,7 +243,8 @@ class AppTestBufferedWriter:
         import _io
         raw = _io.FileIO(self.tmpfile, 'w')
         f = _io.BufferedWriter(raw)
-        f.write("abcd")
+        f.write("ab")
+        f.write(u"cd")
         f.close()
         assert self.readfile() == "abcd"
 

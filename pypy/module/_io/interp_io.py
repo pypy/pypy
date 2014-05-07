@@ -28,8 +28,8 @@ class W_BlockingIOError(W_IOError):
 
 W_BlockingIOError.typedef = TypeDef(
     'BlockingIOError', W_IOError.typedef,
-    __doc__ = ("Exception raised when I/O would block "
-               "on a non-blocking I/O stream"),
+    __doc__ = ("Exception raised when I/O would block on a non-blocking "
+               "I/O stream"),
     __new__  = generic_new_descr(W_BlockingIOError),
     __init__ = interp2app(W_BlockingIOError.descr_init),
     characters_written = interp_attrproperty('written', W_BlockingIOError),

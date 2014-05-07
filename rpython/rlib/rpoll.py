@@ -141,8 +141,9 @@ def select(inl, outl, excl, timeout=-1.0, handle_eintr=False):
 # poll() for Win32
 #
 if hasattr(_c, 'WSAEventSelect'):
-
-    def poll(fddict, timeout=-1):
+    # WSAWaitForMultipleEvents is broken. If you wish to try it,
+    # rename the function to poll() and run test_exchange in test_rpoll
+    def _poll(fddict, timeout=-1):
         """'fddict' maps file descriptors to interesting events.
         'timeout' is an integer in milliseconds, and NOT a float
         number of seconds, but it's the same in CPython.  Use -1 for infinite.
@@ -188,6 +189,7 @@ if hasattr(_c, 'WSAEventSelect'):
             if timeout < 0:
                 timeout = _c.INFINITE
 
+            # XXX does not correctly report write status of a port
             ret = _c.WSAWaitForMultipleEvents(numevents, socketevents,
                                               False, timeout, False)
 

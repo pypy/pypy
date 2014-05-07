@@ -137,11 +137,15 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_SetValueEx(self):
-        from _winreg import CreateKey, SetValueEx
+        from _winreg import CreateKey, SetValueEx, REG_BINARY
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
         for name, value, type in self.test_data:
             SetValueEx(sub_key, name, 0, type, value)
+        exc = raises(TypeError, SetValueEx, sub_key, 'test_name', None,
+                                            REG_BINARY, memoryview('abc'))
+        assert str(exc.value) == ("Objects of type 'memoryview' can not "
+                                  "be used as binary registry values")
 
     def test_readValues(self):
         from _winreg import OpenKey, EnumValue, QueryValueEx, EnumKey

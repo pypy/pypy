@@ -1074,7 +1074,9 @@ def appdef(source, applevel=ApplevelClass, filename=None):
                            return x+y
                     ''')
     """
+    prefix = ""
     if not isinstance(source, str):
+        flags = source.__code__.co_flags
         source = py.std.inspect.getsource(source).lstrip()
         while source.startswith(('@py.test.mark.', '@pytest.mark.')):
             # these decorators are known to return the same function
@@ -1083,12 +1085,21 @@ def appdef(source, applevel=ApplevelClass, filename=None):
             source = source[source.find('\n') + 1:].lstrip()
         assert source.startswith("def "), "can only transform functions"
         source = source[4:]
+        import __future__
+        if flags & __future__.CO_FUTURE_DIVISION:
+            prefix += "from __future__ import division\n"
+        if flags & __future__.CO_FUTURE_ABSOLUTE_IMPORT:
+            prefix += "from __future__ import absolute_import\n"
+        if flags & __future__.CO_FUTURE_PRINT_FUNCTION:
+            prefix += "from __future__ import print_function\n"
+        if flags & __future__.CO_FUTURE_UNICODE_LITERALS:
+            prefix += "from __future__ import unicode_literals\n"
     p = source.find('(')
     assert p >= 0
     funcname = source[:p].strip()
     source = source[p:]
     assert source.strip()
-    funcsource = "def %s%s\n" % (funcname, source)
+    funcsource = prefix + "def %s%s\n" % (funcname, source)
     #for debugging of wrong source code: py.std.parser.suite(funcsource)
     a = applevel(funcsource, filename=filename)
     return a.interphook(funcname)

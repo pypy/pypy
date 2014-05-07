@@ -986,7 +986,7 @@ def select_function_code_generators(fnobj, db, functionname):
     elif hasattr(fnobj._callable, "c_name"):
         return []
     else:
-        raise ValueError, "don't know how to generate code for %r" % (fnobj,)
+        raise ValueError("don't know how to generate code for %r" % (fnobj,))
 
 class ExtType_OpaqueNode(ContainerNode):
     nodekind = 'rpyopaque'

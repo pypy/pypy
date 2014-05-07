@@ -22,27 +22,12 @@ the effects of any future statements in effect in the code calling
 compile; if absent or zero these statements do influence the compilation,
 in addition to any features explicitly specified.
 """
-
-    ast_node = None
-    w_ast_type = space.gettypeobject(ast.AST.typedef)
-    str_ = None
-    if space.isinstance_w(w_source, w_ast_type):
-        ast_node = space.interp_w(ast.mod, w_source)
-        ast_node.sync_app_attrs(space)
-    elif space.isinstance_w(w_source, space.w_unicode):
-        w_utf_8_source = space.call_method(w_source, "encode",
-                                           space.wrap("utf-8"))
-        str_ = space.str_w(w_utf_8_source)
-        # This flag tells the parser to reject any coding cookies it sees.
-        flags |= consts.PyCF_SOURCE_IS_UTF8
-    else:
-        str_ = space.str_w(w_source)
-
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
         raise OperationError(space.w_ValueError,
                              space.wrap("compile() unrecognized flags"))
+
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
         if caller:
@@ -53,14 +38,29 @@ in addition to any features explicitly specified.
                              space.wrap("compile() arg 3 must be 'exec' "
                                         "or 'eval' or 'single'"))
 
-    if ast_node is None:
-        if flags & consts.PyCF_ONLY_AST:
-            mod = ec.compiler.compile_to_ast(str_, filename, mode, flags)
-            return space.wrap(mod)
-        else:
-            code = ec.compiler.compile(str_, filename, mode, flags)
-    else:
+    if space.isinstance_w(w_source, space.gettypeobject(ast.AST.typedef)):
+        ast_node = space.interp_w(ast.mod, w_source)
+        ast_node.sync_app_attrs(space)
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
+        return space.wrap(code)
+
+    if space.isinstance_w(w_source, space.w_unicode):
+        w_utf_8_source = space.call_method(w_source, "encode",
+                                           space.wrap("utf-8"))
+        source = space.str_w(w_utf_8_source)
+        # This flag tells the parser to reject any coding cookies it sees.
+        flags |= consts.PyCF_SOURCE_IS_UTF8
+    else:
+        source = space.readbuf_w(w_source).as_str()
+
+    if '\x00' in source:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "compile() expected string without null bytes"))
+
+    if flags & consts.PyCF_ONLY_AST:
+        code = ec.compiler.compile_to_ast(source, filename, mode, flags)
+    else:
+        code = ec.compiler.compile(source, filename, mode, flags)
     return space.wrap(code)
 
 

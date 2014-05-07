@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module.micronumpy import descriptor, loop, ufuncs
+from pypy.module.micronumpy import descriptor, loop
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.converters import shape_converter
 
@@ -48,6 +48,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         order = 'C'
     else:
         order = space.str_w(w_order)
+        if order == 'K':
+            order = 'C'
         if order != 'C':  # or order != 'F':
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
@@ -100,7 +102,7 @@ def zeros(space, w_shape, w_dtype=None, w_order=None):
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     w_a = convert_to_array(space, w_a)
-    if w_dtype is None:
+    if space.is_none(w_dtype):
         dtype = w_a.get_dtype()
     else:
         dtype = space.interp_w(descriptor.W_Dtype,
@@ -154,10 +156,10 @@ def _fromstring_text(space, s, count, sep, length, dtype):
             "string is smaller than requested size"))
 
     a = W_NDimArray.from_shape(space, [num_items], dtype=dtype)
-    ai = a.create_iter()
+    ai, state = a.create_iter()
     for val in items:
-        ai.setitem(val)
-        ai.next()
+        ai.setitem(state, val)
+        state = ai.next(state)
 
     return space.wrap(a)
 

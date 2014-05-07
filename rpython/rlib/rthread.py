@@ -1,4 +1,3 @@
-
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.conftest import cdir
@@ -121,6 +120,24 @@ def start_new_thread(x, y):
     assert len(y) == 0
     return rffi.cast(lltype.Signed, ll_start_new_thread(x))
 
+class DummyLock(object):
+    def acquire(self, flag):
+        return True
+
+    def release(self):
+        pass
+
+    def _freeze_(self):
+        return True
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
+
+dummy_lock = DummyLock()
+
 class Lock(object):
     """ Container for low-level implementation
     of a lock object
@@ -163,6 +180,9 @@ class Lock(object):
 
     def __exit__(self, *args):
         self.release()
+
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt rpython.rlib.rthread.Lock instance")
 
 # ____________________________________________________________
 #

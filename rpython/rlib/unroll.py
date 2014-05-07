@@ -6,30 +6,13 @@ from rpython.tool.uid import uid
 
 class SpecTag(object):
     __slots__ = ()
-    
+
     def __repr__(self):
         return '%s(0x%x)' % (self.__class__.__name__, uid(self))
+
     def _freeze_(self):
         return True
 
-
-class unrolling_int(int, SpecTag):
-
-    def __add__(self, other):
-        return unrolling_int(int.__add__(self, other))
-
-    __radd__ = __add__
-
-    def __sub__(self, other):
-        return unrolling_int(int.__sub__(self, other))
-
-    def __rsub__(self, other):
-        return unrolling_int(int.__rsub__(self, other))
-
-
-unrolling_zero = unrolling_int(0)
-
-# ____________________________________________________________
 
 # 'for' iteration over iterables wrapped in an instance
 # of unrolling_iterable will be unrolled by the flow space,

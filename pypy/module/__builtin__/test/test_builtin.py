@@ -311,14 +311,14 @@ class AppTestBuiltinApp:
     def test_xrange_len(self):
         x = xrange(33)
         assert len(x) == 33
-        x = xrange(33.2)
-        assert len(x) == 33
+        exc = raises(TypeError, xrange, 33.2)
+        assert "integer" in str(exc.value)
         x = xrange(33,0,-1)
         assert len(x) == 33
         x = xrange(33,0)
         assert len(x) == 0
-        x = xrange(33,0.2)
-        assert len(x) == 0
+        exc = raises(TypeError, xrange, 33, 0.2)
+        assert "integer" in str(exc.value)
         x = xrange(0,33)
         assert len(x) == 33
         x = xrange(0,33,-1)
@@ -490,6 +490,14 @@ class AppTestBuiltinApp:
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
+        co = compile(buffer('1+2'), '?', 'eval')
+        assert eval(co) == 3
+        exc = raises(TypeError, compile, chr(0), '?', 'eval')
+        assert str(exc.value) == "compile() expected string without null bytes"
+        exc = raises(TypeError, compile, unichr(0), '?', 'eval')
+        assert str(exc.value) == "compile() expected string without null bytes"
+        exc = raises(TypeError, compile, memoryview('1+2'), '?', 'eval')
+        assert str(exc.value) == "expected a readable buffer object"
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(ValueError, compile, '"\\xt"', '?', 'eval')

@@ -51,19 +51,20 @@ class PureShapeIter(object):
         self.shapelen = len(shape)
         self.indexes = [0] * len(shape)
         self._done = False
-        self.idx_w = [None] * len(idx_w)
+        self.idx_w_i = [None] * len(idx_w)
+        self.idx_w_s = [None] * len(idx_w)
         for i, w_idx in enumerate(idx_w):
             if isinstance(w_idx, W_NDimArray):
-                self.idx_w[i] = w_idx.create_iter(shape)
+                self.idx_w_i[i], self.idx_w_s[i] = w_idx.create_iter(shape)
 
     def done(self):
         return self._done
 
     @jit.unroll_safe
     def next(self):
-        for w_idx in self.idx_w:
-            if w_idx is not None:
-                w_idx.next()
+        for i, idx_w_i in enumerate(self.idx_w_i):
+            if idx_w_i is not None:
+                self.idx_w_s[i] = idx_w_i.next(self.idx_w_s[i])
         for i in range(self.shapelen - 1, -1, -1):
             if self.indexes[i] < self.shape[i] - 1:
                 self.indexes[i] += 1
@@ -78,6 +79,16 @@ class PureShapeIter(object):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
 
+class IterState(object):
+    _immutable_fields_ = ['iterator', 'index', 'indices[*]', 'offset']
+
+    def __init__(self, iterator, index, indices, offset):
+        self.iterator = iterator
+        self.index = index
+        self.indices = indices
+        self.offset = offset
+
+
 class ArrayIter(object):
     _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]']
@@ -90,53 +101,66 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
-        self.reset()
 
     def reset(self):
-        self.index = 0
-        self.indices = [0] * len(self.shape_m1)
-        self.offset = self.array.start
+        return IterState(self, 0, [0] * len(self.shape_m1), self.array.start)
 
-    def next(self):
-        self.index += 1
+    @jit.unroll_safe
+    def next(self, state):
+        assert state.iterator is self
+        index = state.index + 1
+        indices = state.indices
+        offset = state.offset
         for i in xrange(self.ndim_m1, -1, -1):
-            if self.indices[i] < self.shape_m1[i]:
-                self.indices[i] += 1
-                self.offset += self.strides[i]
+            idx = indices[i]
+            if idx < self.shape_m1[i]:
+                indices[i] = idx + 1
+                offset += self.strides[i]
                 break
             else:
-                self.indices[i] = 0
-                self.offset -= self.backstrides[i]
+                indices[i] = 0
+                offset -= self.backstrides[i]
+        return IterState(self, index, indices, offset)
 
-    def next_skip_x(self, step):
+    @jit.unroll_safe
+    def next_skip_x(self, state, step):
+        assert state.iterator is self
         assert step >= 0
         if step == 0:
-            return
-        self.index += step
+            return state
+        index = state.index + step
+        indices = state.indices
+        offset = state.offset
         for i in xrange(self.ndim_m1, -1, -1):
-            if self.indices[i] < (self.shape_m1[i] + 1) - step:
-                self.indices[i] += step
-                self.offset += self.strides[i] * step
+            idx = indices[i]
+            if idx < (self.shape_m1[i] + 1) - step:
+                indices[i] = idx + step
+                offset += self.strides[i] * step
                 break
             else:
-                rem_step = (self.indices[i] + step) // (self.shape_m1[i] + 1)
+                rem_step = (idx + step) // (self.shape_m1[i] + 1)
                 cur_step = step - rem_step * (self.shape_m1[i] + 1)
-                self.indices[i] += cur_step
-                self.offset += self.strides[i] * cur_step
+                indices[i] = idx + cur_step
+                offset += self.strides[i] * cur_step
                 step = rem_step
                 assert step > 0
+        return IterState(self, index, indices, offset)
 
-    def done(self):
-        return self.index >= self.size
+    def done(self, state):
+        assert state.iterator is self
+        return state.index >= self.size
 
-    def getitem(self):
-        return self.array.getitem(self.offset)
+    def getitem(self, state):
+        assert state.iterator is self
+        return self.array.getitem(state.offset)
 
-    def getitem_bool(self):
-        return self.array.getitem_bool(self.offset)
+    def getitem_bool(self, state):
+        assert state.iterator is self
+        return self.array.getitem_bool(state.offset)
 
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
+    def setitem(self, state, elem):
+        assert state.iterator is self
+        self.array.setitem(state.offset, elem)
 
 
 def AxisIter(array, shape, axis, cumulative):

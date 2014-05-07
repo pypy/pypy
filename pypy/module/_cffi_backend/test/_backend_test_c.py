@@ -1091,7 +1091,7 @@ def test_load_and_call_function():
 def test_read_variable():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
-    if sys.platform == 'win32' or sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+    if not sys.platform.startswith("linux"):
         py.test.skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
@@ -1101,7 +1101,7 @@ def test_read_variable():
 def test_read_variable_as_unknown_length_array():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
-    if sys.platform == 'win32' or sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+    if not sys.platform.startswith("linux"):
         py.test.skip("untested")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BArray = new_array_type(BCharP, None)
@@ -1113,7 +1113,7 @@ def test_read_variable_as_unknown_length_array():
 def test_write_variable():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
-    if sys.platform == 'win32' or sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+    if not sys.platform.startswith("linux"):
         py.test.skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')

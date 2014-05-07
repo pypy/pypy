@@ -122,7 +122,7 @@ def enforceargs(*types_, **kwds):
     """
     typecheck = kwds.pop('typecheck', True)
     if types_ and kwds:
-        raise TypeError, 'Cannot mix positional arguments and keywords'
+        raise TypeError('Cannot mix positional arguments and keywords')
 
     if not typecheck:
         def decorator(f):
@@ -177,7 +177,7 @@ def enforceargs(*types_, **kwds):
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument %r must be of type %s" % (
                         f.func_name, srcargs[i], expected_type)
-                    raise TypeError, msg
+                    raise TypeError(msg)
         #
         template = """
             def {name}({arglist}):
@@ -581,7 +581,7 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 def hlinvoke(repr, llcallable, *args):
-    raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
+    raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
 def invoke_around_extcall(before, after,
                           enter_callback=None, leave_callback=None):
@@ -756,11 +756,6 @@ class _r_dictkey(object):
     def __repr__(self):
         return repr(self.key)
 
-class _r_dictkey_with_hash(_r_dictkey):
-    def __init__(self, dic, key, hash):
-        self.dic = dic
-        self.key = key
-        self.hash = hash
 
 # ____________________________________________________________
 

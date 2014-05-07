@@ -478,7 +478,7 @@ class StringTests:
             return len(sa.val)
         assert self.meta_interp(f, ['a']) == f('a')
 
-    def test_string_comepare_quasiimmutable(self):
+    def test_string_compare_quasiimmutable(self):
         class Sys(object):
             _immutable_fields_ = ["defaultencoding?"]
             def __init__(self, s):
@@ -654,3 +654,23 @@ class TestLLtypeUnicode(TestLLtype):
         self.check_resops(call_pure=0, unicodesetitem=0, call=2,
                           newunicode=0, unicodegetitem=0,
                           copyunicodecontent=0)
+
+    def test_string_interpolation(self):
+        def f(x, y):
+            return len('<%d %d>' % (x, y))
+        res = self.interp_operations(f, [222, 3333])
+        assert res == 10
+
+    def test_string_interpolation_constants(self):
+        jitdriver = JitDriver(greens=['x', 'y'], reds=['z'])
+        def f(x, y):
+            z = 0
+            while z < 10:
+                jitdriver.jit_merge_point(x=x, y=y, z=z)
+                if len('<%d %d>' % (x, y)) != 10:
+                    raise Exception
+                z += 1
+            return 0
+        self.meta_interp(f, [222, 3333])
+        self.check_simple_loop({'guard_true': 1, 'int_add': 1,
+                                'int_lt': 1, 'jump': 1})

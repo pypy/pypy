@@ -65,14 +65,14 @@ def builtin_range(*args):
         s_start, s_stop = args[:2]
         s_step = args[2]
     else:
-        raise Exception, "range() takes 1 to 3 arguments"
+        raise Exception("range() takes 1 to 3 arguments")
     empty = False  # so far
     if not s_step.is_constant():
         step = 0 # this case signals a variable step
     else:
         step = s_step.const
         if step == 0:
-            raise Exception, "range() with step zero"
+            raise Exception("range() with step zero")
         if s_start.is_constant() and s_stop.is_constant():
             try:
                 if len(xrange(s_start.const, s_stop.const, step)) == 0:

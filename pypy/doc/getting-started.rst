@@ -76,7 +76,7 @@ install distribute_ and pip_:
 .. code-block:: console
 
     $ curl -O http://python-distribute.org/distribute_setup.py
-    $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
+    $ curl -O https://raw.githubusercontent.com/pypa/pip/master/contrib/get-pip.py
     $ ./pypy-2.1/bin/pypy distribute_setup.py
     $ ./pypy-2.1/bin/pypy get-pip.py
     $ ./pypy-2.1/bin/pip install pygments  # for example

@@ -10,6 +10,7 @@
 #include <src/rtyper.h>
 #include <src/exception.h>
 #include <src/debug_traceback.h>
+#include <src/asm.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -34,9 +35,6 @@ int pypy_main_function(int argc, char *argv[])
     pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
 #endif
     pypy_asm_stack_bottom();
-#ifdef PYPY_X86_CHECK_SSE2_DEFINED
-    pypy_x86_check_sse2();
-#endif
     instrument_setup();
 
 #ifndef MS_WINDOWS
@@ -74,6 +72,9 @@ int pypy_main_function(int argc, char *argv[])
 
 int PYPY_MAIN_FUNCTION(int argc, char *argv[])
 {
+#ifdef PYPY_X86_CHECK_SSE2_DEFINED
+    pypy_x86_check_sse2();
+#endif
     return pypy_main_function(argc, argv);
 }
 

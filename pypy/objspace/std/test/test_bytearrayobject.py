@@ -426,10 +426,10 @@ class AppTestBytesArray:
         b = bytearray('abcdefghi')
         buf = buffer(b)
         assert buf[2] == 'c'
-        buf[3] = 'D'
-        assert b == 'abcDefghi'
-        buf[4:6] = 'EF'
-        assert b == 'abcDEFghi'
+        exc = raises(TypeError, "buf[2] = 'D'")
+        assert str(exc.value) == "buffer is read-only"
+        exc = raises(TypeError, "buf[4:6] = 'EF'")
+        assert str(exc.value) == "buffer is read-only"
 
     def test_decode(self):
         b = bytearray('abcdefghi')
