@@ -12,8 +12,7 @@ import cffi
 try:
     from .tklib import tklib, tkffi
 except cffi.VerificationError:
-    raise ImportError(
-            "Tk and X11 headers and development libraries are required")
+    raise ImportError("Tk headers and development libraries are required")
 
 from .app import TkApp
 
