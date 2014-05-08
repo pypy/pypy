@@ -50,10 +50,6 @@ def _split_complex(s):
 
     realstop = i
 
-    # ignore whitespace
-    while i < slen and s[i] == ' ':
-        i += 1
-
     # return appropriate strings is only one number is there
     if i >= slen:
         newstop = realstop - 1
