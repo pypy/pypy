@@ -4,7 +4,8 @@
 #endif
 
 
-static char *setup_mmap(char *reason)
+#ifdef USE_REMAP_FILE_PAGES
+static char *setup_mmap(char *reason, int *ignored)
 {
     char *result = mmap(NULL, TOTAL_MEMORY,
                         PROT_READ | PROT_WRITE,
@@ -14,6 +15,45 @@ static char *setup_mmap(char *reason)
 
     return result;
 }
+static void close_fd_mmap(int ignored)
+{
+}
+#else
+#include <fcntl.h>           /* For O_* constants */
+static char *setup_mmap(char *reason, int *map_fd)
+{
+    char name[128];
+    sprintf(name, "/stmgc-c7-bigmem-%ld-%.18e",
+            (long)getpid(), get_stm_time());
+
+    /* Create the big shared memory object, and immediately unlink it.
+       There is a small window where if this process is killed the
+       object is left around.  It doesn't seem possible to do anything
+       about it...
+    */
+    int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
+    shm_unlink(name);
+
+    if (fd == -1) {
+        stm_fatalerror("%s failed (stm_open): %m", reason);
+    }
+    if (ftruncate(fd, TOTAL_MEMORY) != 0) {
+        stm_fatalerror("%s failed (ftruncate): %m", reason);
+    }
+    char *result = mmap(NULL, TOTAL_MEMORY,
+                        PROT_READ | PROT_WRITE,
+                        MAP_PAGES_FLAGS & ~MAP_ANONYMOUS, fd, 0);
+    if (result == MAP_FAILED) {
+        stm_fatalerror("%s failed (mmap): %m", reason);
+    }
+    *map_fd = fd;
+    return result;
+}
+static void close_fd_mmap(int map_fd)
+{
+    close(map_fd);
+}
+#endif
 
 static void setup_protection_settings(void)
 {
@@ -57,7 +97,8 @@ void stm_setup(void)
            (FIRST_READMARKER_PAGE * 4096UL));
     assert(_STM_FAST_ALLOC <= NB_NURSERY_PAGES * 4096);
 
-    stm_object_pages = setup_mmap("initial stm_object_pages mmap()");
+    stm_object_pages = setup_mmap("initial stm_object_pages mmap()",
+                                  &stm_object_pages_fd);
     setup_protection_settings();
 
     long i;
@@ -87,15 +128,16 @@ void stm_setup(void)
         pr->callbacks_on_abort = tree_create();
         pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * i;
         highest_overflow_number = pr->overflow_number;
+        pr->pub.transaction_read_version = 0xff;
     }
 
     /* The pages are shared lazily, as remap_file_pages() takes a relatively
        long time for each page.
 
-       The read markers are initially zero, which is correct:
-       STM_SEGMENT->transaction_read_version never contains zero,
-       so a null read marker means "not read" whatever the
-       current transaction_read_version is.
+       The read markers are initially zero, but we set anyway
+       transaction_read_version to 0xff in order to force the first
+       transaction to "clear" the read markers by mapping a different,
+       private range of addresses.
     */
 
     setup_sync();
@@ -127,6 +169,7 @@ void stm_teardown(void)
 
     munmap(stm_object_pages, TOTAL_MEMORY);
     stm_object_pages = NULL;
+    close_fd_mmap(stm_object_pages_fd);
 
     teardown_core();
     teardown_sync();

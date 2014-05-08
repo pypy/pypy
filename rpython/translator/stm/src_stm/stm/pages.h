@@ -20,6 +20,8 @@
 #define PAGE_FLAG_START   END_NURSERY_PAGE
 #define PAGE_FLAG_END     NB_PAGES
 
+#define USE_REMAP_FILE_PAGES
+
 struct page_shared_s {
 #if NB_SEGMENTS <= 8
     uint8_t by_segment;

@@ -82,9 +82,18 @@ static void d_remap_file_pages(char *addr, size_t size, ssize_t pgoff)
        can only be remapped to page N in another segment */
     assert(((addr - stm_object_pages) / 4096UL - pgoff) % NB_PAGES == 0);
 
+#ifdef USE_REMAP_FILE_PAGES
     int res = remap_file_pages(addr, size, 0, pgoff, 0);
     if (UNLIKELY(res < 0))
         stm_fatalerror("remap_file_pages: %m");
+#else
+    char *res = mmap(addr, size,
+                     PROT_READ | PROT_WRITE,
+                     (MAP_PAGES_FLAGS & ~MAP_ANONYMOUS) | MAP_FIXED,
+                     stm_object_pages_fd, pgoff * 4096UL);
+    if (UNLIKELY(res != addr))
+        stm_fatalerror("mmap (remapping page): %m");
+#endif
 }
 
 static void pages_initialize_shared(uintptr_t pagenum, uintptr_t count)
@@ -170,6 +179,7 @@ static void page_reshare(uintptr_t pagenum)
 
 static void pages_setup_readmarkers_for_nursery(void)
 {
+#ifdef USE_REMAP_FILE_PAGES
     /* The nursery page's read markers are never read, but must still
        be writeable.  We'd like to map the pages to a general "trash
        page"; missing one, we remap all the pages over to the same one.
@@ -188,4 +198,5 @@ static void pages_setup_readmarkers_for_nursery(void)
             /* errors here ignored */
         }
     }
+#endif
 }

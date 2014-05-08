@@ -9,13 +9,9 @@
 
 
 static char *fork_big_copy = NULL;
+static int fork_big_copy_fd;
 static stm_thread_local_t *fork_this_tl;
 static bool fork_was_in_transaction;
-
-static char *setup_mmap(char *reason);            /* forward, in setup.c */
-static void setup_protection_settings(void);      /* forward, in setup.c */
-static pthread_t *_get_cpth(stm_thread_local_t *);/* forward, in setup.c */
-
 
 static bool page_is_null(char *p)
 {
@@ -75,7 +71,8 @@ static void forksupport_prepare(void)
     /* Make a new mmap at some other address, but of the same size as
        the standard mmap at stm_object_pages
     */
-    char *big_copy = setup_mmap("stmgc's fork support");
+    int big_copy_fd;
+    char *big_copy = setup_mmap("stmgc's fork support", &big_copy_fd);
 
     /* Copy each of the segment infos into the new mmap, nurseries,
        and associated read markers
@@ -140,6 +137,7 @@ static void forksupport_prepare(void)
 
     assert(fork_big_copy == NULL);
     fork_big_copy = big_copy;
+    fork_big_copy_fd = big_copy_fd;
     fork_this_tl = this_tl;
     fork_was_in_transaction = was_in_transaction;
 
@@ -164,6 +162,7 @@ static void forksupport_parent(void)
     assert(fork_big_copy != NULL);
     munmap(fork_big_copy, TOTAL_MEMORY);
     fork_big_copy = NULL;
+    close_fd_mmap(fork_big_copy_fd);
     bool was_in_transaction = fork_was_in_transaction;
 
     s_mutex_unlock();
@@ -215,6 +214,8 @@ static void forksupport_child(void)
     if (res != stm_object_pages)
         stm_fatalerror("after fork: mremap failed: %m");
     fork_big_copy = NULL;
+    close_fd_mmap(stm_object_pages_fd);
+    stm_object_pages_fd = fork_big_copy_fd;
 
     /* Unregister all other stm_thread_local_t, mostly as a way to free
        the memory used by the shadowstacks

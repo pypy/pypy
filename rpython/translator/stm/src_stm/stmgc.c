@@ -8,6 +8,7 @@
 #include "stm/pages.h"
 #include "stm/gcpage.h"
 #include "stm/sync.h"
+#include "stm/setup.h"
 #include "stm/largemalloc.h"
 #include "stm/nursery.h"
 #include "stm/contention.h"
