@@ -1,5 +1,5 @@
 =======================================
-PyPy 2.3 - Easier Than Ever
+PyPy 2.3 - Terrestrial Arthropod Trap
 =======================================
 
 We're pleased to announce PyPy 2.3, which targets version 2.7.6 of the Python

@@ -167,3 +167,6 @@ Add a lock for unsafe calls to gethostbyname and gethostbyaddr
 
 .. branch: fix-tpname
 Changes hacks surrounding W_TypeObject.name to match CPython's tp_name
+
+.. branch: tkinter_osx_packaging
+OS/X specific header path
