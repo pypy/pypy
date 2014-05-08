@@ -77,9 +77,6 @@ def _split_complex(s):
         raise ValueError
 
     i += 1
-    # whitespace
-    while i < slen and s[i] == ' ':
-        i += 1
     if i >= slen:
         raise ValueError
 
