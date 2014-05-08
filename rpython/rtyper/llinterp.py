@@ -859,6 +859,12 @@ class LLFrame(object):
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
 
+    def op_gc_pin(self, obj):
+        return self.heap.pin(obj)
+
+    def op_gc_unpin(self, obj):
+        self.heap.unpin(obj)
+
     def op_gc_detach_callback_pieces(self):
         raise NotImplementedError("gc_detach_callback_pieces")
     def op_gc_reattach_callback_pieces(self):

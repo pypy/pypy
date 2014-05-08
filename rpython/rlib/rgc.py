@@ -8,6 +8,9 @@ from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
+# XXX remove (groggi)
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+
 # ____________________________________________________________
 # General GC features
 
@@ -36,6 +39,8 @@ def pin(obj):
     # XXX doc string based on gc-minimark-pinning branch
     # XXX use doc string a basis for implementation behavior
     # XXX update doc string to match actual behavior
+    debug_start("groggi-rgc-pin")
+    debug_stop("groggi-rgc-pin")
     return False
 
 def unpin(obj):
@@ -601,6 +606,33 @@ class Entry(ExtRegistryEntry):
         vlist += hop.inputargs(*hop.args_r)
         hop.exception_cannot_occur()
         return hop.genop('gc_gcflag_extra', vlist, resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry): # XXX understand this, is it correct? (groggi)
+    _about_ = pin
+
+    def compute_result_annotation(self, s_arg):
+        from rpython.annotator.model import SomeBool
+        return SomeBool()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_obj, = hop.inputargs(hop.args_r[0])
+        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
+                           resulttype=llmemory.Address)
+        return hop.genop('gc_pin', [v_addr], resulttype=lltype.Bool)
+
+class Entry(ExtRegistryEntry): # XXX understand this, is it correct? (groggi)
+    _about_ = unpin
+
+    def compute_result_annotation(self, s_arg):
+        pass
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_obj, = hop.inputargs(hop.args_r[0])
+        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
+                           resulttype=llmemory.Address)
+        hop.genop('gc_unpin', [v_addr])
 
 def lltype_is_gc(TP):
     return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'

@@ -175,6 +175,12 @@ class GCBase(object):
     def can_move(self, addr):
         return False
 
+    def pin(self, addr):
+        return False
+
+    def unpin(self, addr):
+        pass
+
     def set_max_heap_size(self, size):
         raise NotImplementedError
 

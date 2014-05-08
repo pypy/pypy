@@ -65,6 +65,9 @@ from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
 
+# XXX remove (groggi)
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+
 
 #
 # Handles the objects in 2 generations:
@@ -890,6 +893,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def can_move(self, obj):
         """Overrides the parent can_move()."""
         return self.is_in_nursery(obj)
+
+    def pin(self, obj):
+        debug_start("groggi-incminimark-pin")
+        debug_stop("groggi-incminimark-pin")
+        return False
+
+
+    def unpin(self, obj):
+        debug_start("groggi-incminimark-unpin")
+        debug_stop("groggi-incminimark-unpin")
 
 
     def shrink_array(self, obj, smallerlength):

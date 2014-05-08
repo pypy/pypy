@@ -5,6 +5,9 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
 
+# XXX remove (groggi)
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+
 
 class GCManagedHeap(object):
 
@@ -121,6 +124,16 @@ class GCManagedHeap(object):
 
     def can_move(self, addr):
         return self.gc.can_move(addr)
+
+    def pin(self, addr):
+        debug_start("groggi-gcwrapper-pin")
+        debug_stop("groggi-gcwrapper-pin")
+        return self.gc.pin(addr)
+
+    def unpin(self, addr):
+        debug_start("groggi-gcwrapper-unpin")
+        self.gc.unpin(addr)
+        debug_stop("groggi-gcwrapper-unpin")
 
     def weakref_create_getlazy(self, objgetter):
         # we have to be lazy in reading the llinterp variable containing
