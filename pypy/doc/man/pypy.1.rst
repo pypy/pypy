@@ -113,6 +113,11 @@ ENVIRONMENT
     generate a log suitable for *jitviewer*, a tool for debugging
     performance issues under PyPy.
 
+``PYPY_IRC_TOPIC``
+    If set to a non-empty value, print a random #pypy IRC
+    topic at startup of interactive mode.
+
+
 .. include:: ../gc_info.rst
    :start-line: 7
 
