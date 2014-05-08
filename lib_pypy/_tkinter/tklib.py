@@ -122,7 +122,7 @@ elif sys.platform == 'win32':
     linklibs = ['tcl85', 'tk85']
     libdirs = []
 elif sys.platform == 'darwin':
-    incdirs = ['/System/Library/Frameworks/Tk.framework/Versions/8.5/Headers/']
+    incdirs = ['/System/Library/Frameworks/Tk.framework/Versions/Current/Headers/']
     linklibs = ['tcl', 'tk']
     libdirs = []
 else:
