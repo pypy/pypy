@@ -18,6 +18,34 @@ def set_max_heap_size(nbytes):
     """
     pass
 
+def pin(obj):
+    """If 'obj' can move, then attempt to temporarily fix it.  This
+    function returns True if and only if 'obj' could be pinned; this is
+    a special state in the GC.  Note that can_move(obj) still returns
+    True even on pinned objects, because once unpinned it will indeed be
+    able to move again.  In other words, the code that succeeded in
+    pinning 'obj' can assume that it won't move until the corresponding
+    call to unpin(obj), despite can_move(obj) still being True.  (This
+    is important if multiple threads try to os.write() the same string:
+    only one of them will succeed in pinning the string.)
+
+    Note that this can return False for any reason, e.g. if the 'obj' is
+    already non-movable or already pinned, if the GC doesn't support
+    pinning, or if there are too many pinned objects.
+    """
+    # XXX doc string based on gc-minimark-pinning branch
+    # XXX use doc string a basis for implementation behavior
+    # XXX update doc string to match actual behavior
+    return False
+
+def unpin(obj):
+    """Unpin 'obj', allowing it to move again.
+    Must only be called after a call to pin(obj) returned True.
+    """
+    # XXX update doc string to match actual behavior
+    raise AssertionError("pin() always returns False, "
+                         "so unpin() should not be called")
+
 # ____________________________________________________________
 # Annotation and specialization
 
