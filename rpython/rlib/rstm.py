@@ -50,6 +50,12 @@ def jit_stm_should_break_transaction(if_there_is_no_other):
                                                  if_there_is_no_other)
 
 @dont_look_inside
+def hint_commit_soon():
+    """As the name says, just a hint. Maybe calling it
+    several times in a row is more persuasive"""
+    llop.stm_hint_commit_soon(lltype.Void)
+
+@dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 

@@ -76,3 +76,9 @@ def reset_longest_abort_info(space):
     if space.config.translation.stm:
         from rpython.rlib.rstm import reset_longest_abort_info
         reset_longest_abort_info()
+
+
+def hint_commit_soon(space):
+    if space.config.translation.stm:
+        from rpython.rlib.rstm import hint_commit_soon
+        hint_commit_soon()

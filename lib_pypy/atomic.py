@@ -5,7 +5,7 @@ import thread
 
 try:
     from __pypy__ import thread as _thread
-    from __pypy__.thread import atomic, getsegmentlimit
+    from __pypy__.thread import atomic, getsegmentlimit, hint_commit_soon
 except ImportError:
     # Not a STM-enabled PyPy.  We can still provide a version of 'atomic'
     # that is good enough for our purposes.  With this limited version,
@@ -17,6 +17,9 @@ except ImportError:
         return 1
 
     def print_abort_info(mintime=0.0):
+        pass
+
+    def hint_commit_soon():
         pass
 
 else:

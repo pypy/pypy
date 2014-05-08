@@ -43,6 +43,9 @@ class StmHeader_OpaqueNode(ContainerNode):
         #    self.obj.prebuilt_hash
 
 
+def stm_hint_commit_soon(funcgen, op):
+    return 'stmcb_commit_soon();'
+
 def stm_register_thread_local(funcgen, op):
     return 'pypy_stm_register_thread_local();'
 

@@ -41,6 +41,7 @@ class ThreadModule(MixedModule):
         'longest_abort_info':      'interp_atomic.longest_abort_info',
         'reset_longest_abort_info':'interp_atomic.reset_longest_abort_info',
         'getsegmentlimit':         'interp_atomic.getsegmentlimit',
+        'hint_commit_soon':        'interp_atomic.hint_commit_soon',
         'error': 'space.fromcache(pypy.module.thread.error.Cache).w_error',
     }
     def activate(self, space):
