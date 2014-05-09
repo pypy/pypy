@@ -142,3 +142,6 @@ W_Struct.typedef = TypeDef("Struct",
     pack_into=interp2app(W_Struct.descr_pack_into),
     unpack_from=interp2app(W_Struct.descr_unpack_from),
 )
+
+def clearcache(space):
+    """No-op on PyPy"""
