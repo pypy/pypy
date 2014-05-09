@@ -112,20 +112,23 @@ class ConstFloatLoc(AssemblerLocation):
 class StackLocation(AssemblerLocation):
     _immutable_ = True
 
-    def __init__(self, position, num_words=1, type=INT):
+    def __init__(self, position, fp_offset, type=INT):
         if type == FLOAT:
             self.width = FWORD
         else:
             self.width = WORD
         self.position = position
+        self.value = fp_offset
         self.type = type
-        self.value = get_spp_offset(position)
 
     def __repr__(self):
-        return 'SPP(%s)+%d' % (self.type, self.value)
+        return 'FP(%s)+%d' % (self.type, self.value)
 
     def location_code(self):
         return 'b'
+
+    def get_position(self):
+        return self.position
 
     def assembler(self):
         return repr(self)
@@ -134,13 +137,16 @@ class StackLocation(AssemblerLocation):
         return True
 
     def as_key(self):
-        return -self.position + 10000
+        return self.position + 10000
 
 def imm(val):
     return ImmLocation(val)
 
 def get_spp_offset(pos):
     if pos < 0:
-        return -pos * WORD
+        return pos * WORD
     else:
-        return -(pos + 1) * WORD
+        return (pos + 1) * WORD
+
+def get_fp_offset(base_ofs, position):
+    return base_ofs + position
