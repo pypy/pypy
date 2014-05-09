@@ -1,10 +1,11 @@
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
-                                                    TempBox, compute_vars_longevity)
+                                                    TempBox, compute_vars_longevity,
+                                                    BaseRegalloc)
 from rpython.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.ppc.jump import (remap_frame_layout,
                                           remap_frame_layout_mixed)
-from rpython.jit.backend.ppc.locations import imm
+from rpython.jit.backend.ppc.locations import imm, get_fp_offset, get_spp_offset
 from rpython.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                      prepare_cmp_op,
                                                      prepare_unary_int_op,
@@ -174,14 +175,14 @@ class PPCRegisterManager(RegisterManager):
         return reg
 
 class PPCFrameManager(FrameManager):
-    def __init__(self):
+    def __init__(self, base_ofs):
         FrameManager.__init__(self)
         self.used = []
+        self.base_ofs = base_ofs
 
-    @staticmethod
-    def frame_pos(loc, type):
-        num_words = PPCFrameManager.frame_size(type)
-        return locations.StackLocation(loc, num_words=num_words, type=type)
+    def frame_pos(self, loc, box_type):
+        #return locations.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
+        return locations.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -192,18 +193,19 @@ class PPCFrameManager(FrameManager):
         assert loc.is_stack()
         return loc.position
 
-class Regalloc(object):
+class Regalloc(BaseRegalloc):
 
-    def __init__(self, frame_manager=None, assembler=None):
+    def __init__(self, assembler=None):
         self.cpu = assembler.cpu
-        self.frame_manager = frame_manager
+        self.frame_manager = PPCFrameManager(self.cpu.get_baseofs_of_frame_field())
         self.assembler = assembler
         self.jump_target_descr = None
         self.final_jump_op = None
 
     def _prepare(self,  inputargs, operations):
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        self.fm = self.frame_manager
+        longevity, last_real_usage = compute_vars_longevity(inputargs,
+                                                            operations)
         self.longevity = longevity
         self.last_real_usage = last_real_usage
         fm = self.frame_manager
@@ -211,9 +213,9 @@ class Regalloc(object):
         self.fprm = FPRegisterManager(longevity, fm, asm)
         self.rm = PPCRegisterManager(longevity, fm, asm)
 
-    def prepare_loop(self, inputargs, operations):
+    def prepare_loop(self, inputargs, operations, looptoken):
         self._prepare(inputargs, operations)
-        self._set_initial_bindings(inputargs)
+        self._set_initial_bindings(inputargs, looptoken)
         self.possibly_free_vars(inputargs)
 
     def prepare_bridge(self, inputargs, arglocs, ops):

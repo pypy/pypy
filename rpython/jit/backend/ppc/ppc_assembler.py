@@ -812,9 +812,9 @@ class AssemblerPPC(OpAssembler):
                                                      'e', looptoken.number)
 
         self.startpos = self.mc.currpos()
-        regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
+        regalloc = Regalloc(assembler=self)
 
-        regalloc.prepare_loop(inputargs, operations)
+        regalloc.prepare_loop(inputargs, operations, looptoken)
 
         start_pos = self.mc.currpos()
         looptoken._ppc_loop_code = start_pos
