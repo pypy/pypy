@@ -12,7 +12,7 @@ compile_extra = []
 if sys.maxsize > 1<<32:
     compile_extra.append("-DCONFIG_64")
     # This suppose a x64 platform with gcc inline assembler.
-    compile_extra.append("-DASM")
+    compile_extra.append("-DANSI")
 else:
     compile_extra.append("-DCONFIG_32")
     compile_extra.append("-DANSI")
@@ -36,13 +36,17 @@ eci = ExternalCompilationInfo(
                            libdir.join('memory.c'),
                            ],
     export_symbols=[
-        "mpd_qset_ssize", "mpd_qset_string", "mpd_qcopy", "mpd_setspecial",
+        "mpd_qset_ssize", "mpd_qset_uint", "mpd_qset_string", "mpd_qcopy", "mpd_setspecial",
+        "mpd_set_sign", "mpd_qfinalize",
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
+        "mpd_qnew",
         "mpd_to_sci_size",
-        "mpd_iszero", "mpd_isnan",
+        "mpd_iszero", "mpd_isnegative", "mpd_isinfinite",
+        "mpd_isnan", "mpd_issnan", "mpd_isqnan",
         "mpd_qcmp",
+        "mpd_qpow", "mpd_qmul",
         ],
     compile_extra=compile_extra,
     libraries=['m'],
@@ -64,6 +68,13 @@ STATUS_FLAGS_CONSTANTS = (
 
 class CConfig:
     _compilation_info_ = eci
+    MPD_UINT_T = platform.SimpleType('mpd_uint_t', rffi.INT)
+
+MPD_UINT_T = platform.configure(CConfig)['MPD_UINT_T']
+MPD_UINT_PTR = rffi.CArrayPtr(MPD_UINT_T)
+
+class CConfig:
+    _compilation_info_ = eci
 
     MPD_IEEE_CONTEXT_MAX_BITS = platform.ConstantInteger(
         'MPD_IEEE_CONTEXT_MAX_BITS')
@@ -73,6 +84,7 @@ class CConfig:
     MPD_POS = platform.ConstantInteger('MPD_POS')
     MPD_NEG = platform.ConstantInteger('MPD_NEG')
     MPD_NAN = platform.ConstantInteger('MPD_NAN')
+    MPD_INF = platform.ConstantInteger('MPD_INF')
     MPD_STATIC = platform.ConstantInteger('MPD_STATIC')
     MPD_STATIC_DATA = platform.ConstantInteger('MPD_STATIC_DATA')
 
@@ -84,12 +96,12 @@ class CConfig:
         locals()[name] = platform.ConstantInteger(name)
 
     MPD_T = platform.Struct('mpd_t',
-                            [('flags', rffi.UINT),
+                            [('flags', rffi.UCHAR),
                              ('exp', rffi.SSIZE_T),
                              ('digits', rffi.SSIZE_T),
                              ('len', rffi.SSIZE_T),
                              ('alloc', rffi.SSIZE_T),
-                             ('data', rffi.UINTP),
+                             ('data', MPD_UINT_PTR),
                              ])
     MPD_CONTEXT_T = platform.Struct('mpd_context_t',
                                     [('traps', rffi.UINT),
@@ -110,6 +122,8 @@ MPD_CONTEXT_PTR = lltype.Ptr(MPD_CONTEXT_T)
 # Initialization
 mpd_qset_ssize = external(
     'mpd_qset_ssize', [MPD_PTR, rffi.SSIZE_T, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qset_uint = external(
+    'mpd_qset_uint', [MPD_PTR, rffi.UINT, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qset_string = external(
     'mpd_qset_string', [MPD_PTR, rffi.CCHARP, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qimport_u32 = external(
@@ -119,6 +133,10 @@ mpd_qcopy = external(
     'mpd_qcopy', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)
 mpd_setspecial = external(
     'mpd_setspecial', [MPD_PTR, rffi.UCHAR, rffi.UCHAR], lltype.Void)
+mpd_set_sign = external(
+    'mpd_set_sign', [MPD_PTR, rffi.UCHAR], lltype.Void)
+mpd_qfinalize = external(
+    'mpd_qfinalize', [MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 
 # Context operations
 mpd_getprec = external(
@@ -146,6 +164,8 @@ mpd_qsetclamp = external(
 mpd_maxcontext = external(
     'mpd_maxcontext', [MPD_CONTEXT_PTR], lltype.Void)
 
+mpd_qnew = external(
+    'mpd_qnew', [], MPD_PTR)
 mpd_free = external(
     'mpd_free', [rffi.VOIDP], lltype.Void, macro=True)
 
@@ -159,7 +179,24 @@ mpd_to_sci_size = external(
 # Operations
 mpd_iszero = external(
     'mpd_iszero', [MPD_PTR], rffi.INT)
+mpd_isnegative = external(
+    'mpd_isnegative', [MPD_PTR], rffi.INT)
+mpd_isinfinite = external(
+    'mpd_isinfinite', [MPD_PTR], rffi.INT)
 mpd_isnan = external(
     'mpd_isnan', [MPD_PTR], rffi.INT)
+mpd_issnan = external(
+    'mpd_issnan', [MPD_PTR], rffi.INT)
+mpd_isqnan = external(
+    'mpd_isqnan', [MPD_PTR], rffi.INT)
 mpd_qcmp = external(
     'mpd_qcmp', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)
+
+mpd_qpow = external(
+    'mpd_qpow',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qmul = external(
+    'mpd_qmul',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)

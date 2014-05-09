@@ -1,4 +1,4 @@
-from rpython.rlib import rmpdec, rarithmetic, rbigint
+from rpython.rlib import rmpdec, rarithmetic, rbigint, rfloat
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
@@ -20,7 +20,8 @@ class W_Decimal(W_Root):
 
     def __init__(self, space):
         self.mpd = lltype.malloc(rmpdec.MPD_PTR.TO, flavor='raw')
-        self.data = lltype.malloc(rffi.UINTP.TO, DEC_MINALLOC, flavor='raw')
+        self.data = lltype.malloc(rmpdec.MPD_UINT_PTR.TO,
+                                  DEC_MINALLOC, flavor='raw')
         rffi.setintfield(self.mpd, 'c_flags',
                          rmpdec.MPD_STATIC | rmpdec.MPD_STATIC_DATA)
         self.mpd.c_exp = 0
@@ -43,9 +44,9 @@ class W_Decimal(W_Root):
         else:
             w_result = W_Decimal(space)
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
-            rpmdec.mpd_qcopy(w_result.mpd, self.mpd, status_ptr)
+            rmpdec.mpd_qcopy(w_result.mpd, self.mpd, status_ptr)
             context.addstatus(self.space, status_ptr[0])
-            rpmdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
+            rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
             context.addstatus(self.space, status_ptr[0])
         return w_result
 
@@ -65,6 +66,19 @@ class W_Decimal(W_Root):
     def descr_bool(self, space):
         return space.wrap(not rmpdec.mpd_iszero(self.mpd))
 
+    def descr_float(self, space):
+        if rmpdec.mpd_isnan(self.mpd):
+            if rmpdec.mpd_issnan(self.mpd):
+                raise oefmt(space.w_ValueError,
+                            "cannot convert signaling NaN to float")
+            if rmpdec.mpd_isnegative(self.mpd):
+                w_s = space.wrap("-nan")
+            else:
+                w_s = space.wrap("nan")
+        else:
+            w_s = self.descr_str(space)
+        return space.call_function(space.w_float, w_s)
+
     def compare(self, space, w_other, op):
         if not isinstance(w_other, W_Decimal):  # So far
             return space.w_NotImplemented
@@ -77,6 +91,12 @@ class W_Decimal(W_Root):
 
     def descr_eq(self, space, w_other):
         return self.compare(space, w_other, 'eq')
+
+    # Boolean functions
+    def is_qnan_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_isqnan(self.mpd)))
+    def is_infinite_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_isinfinite(self.mpd)))
 
 
 # Constructors
@@ -106,11 +126,9 @@ def decimal_from_unicode(space, w_subtype, w_value, context, exact=True,
         s = s.strip()
     return decimal_from_cstring(space, w_subtype, s, context, exact=exact)
 
-def decimal_from_long(space, w_subtype, w_value, context, exact=True):
+def decimal_from_bigint(space, w_subtype, value, context, exact=True):
     w_result = space.allocate_instance(W_Decimal, w_subtype)
     W_Decimal.__init__(w_result, space)
-
-    value = space.bigint_w(w_value)
 
     with interp_context.ConvContext(
             space, w_result.mpd, context, exact) as (ctx, status_ptr):
@@ -233,7 +251,55 @@ def decimal_from_decimal(space, w_subtype, w_value, context, exact=True):
             rmpdec.mpd_setspecial(w_result.mpd, rmpdec.MPD_POS, rmpdec.MPD_NAN)
         else:
             return w_value.apply(context)
-        
+
+def decimal_from_float(space, w_subtype, w_value, context, exact=True):
+    value = space.float_w(w_value)
+    sign = 0 if rfloat.copysign(1.0, value) == 1.0 else 1
+
+    if rfloat.isnan(value):
+        w_result = space.allocate_instance(W_Decimal, w_subtype)
+        W_Decimal.__init__(w_result, space)
+        # decimal.py calls repr(float(+-nan)), which always gives a
+        # positive result.
+        rmpdec.mpd_setspecial(w_result.mpd, rmpdec.MPD_POS, rmpdec.MPD_NAN)
+        return w_result
+    if rfloat.isinf(value):
+        w_result = space.allocate_instance(W_Decimal, w_subtype)
+        W_Decimal.__init__(w_result, space)
+        rmpdec.mpd_setspecial(w_result.mpd, sign, rmpdec.MPD_INF)
+        return w_result
+
+    # float as integer ratio: numerator/denominator
+    num, den = rfloat.float_as_rbigint_ratio(abs(value))
+    k = den.bit_length() - 1
+
+    w_result = decimal_from_bigint(space, w_subtype, num, context, exact=True)
+
+    # Compute num * 5**k
+    d1 = rmpdec.mpd_qnew()
+    if not d1:
+        raise OperationError(space.w_MemoryError, space.w_None)
+    d2 = rmpdec.mpd_qnew()
+    if not d2:
+        raise OperationError(space.w_MemoryError, space.w_None)
+    with interp_context.ConvContext(
+            space, w_result.mpd, context, exact=True) as (ctx, status_ptr):
+        rmpdec.mpd_qset_uint(d1, 5, ctx, status_ptr)
+        rmpdec.mpd_qset_ssize(d2, k, ctx, status_ptr)
+        rmpdec.mpd_qpow(d1, d1, d2, ctx, status_ptr)
+    with interp_context.ConvContext(
+            space, w_result.mpd, context, exact=True) as (ctx, status_ptr):
+        rmpdec.mpd_qmul(w_result.mpd, w_result.mpd, d1, ctx, status_ptr)
+
+    # result = +- n * 5**k * 10**-k
+    rmpdec.mpd_set_sign(w_result.mpd, sign)
+    w_result.mpd.c_exp = - k
+
+    if not exact:
+        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
+            rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
+            context.addstatus(space, status_ptr[0])
+    return w_result
 
 def decimal_from_object(space, w_subtype, w_value, context, exact=True):
     if w_value is None:
@@ -245,12 +311,17 @@ def decimal_from_object(space, w_subtype, w_value, context, exact=True):
         return decimal_from_unicode(space, w_subtype, w_value, context,
                                     exact=exact, strip_whitespace=exact)
     elif space.isinstance_w(w_value, space.w_int):
-        return decimal_from_long(space, w_subtype, w_value, context,
-                                 exact=exact)
+        value = space.bigint_w(w_value)
+        return decimal_from_bigint(space, w_subtype, value, context,
+                                   exact=exact)
     elif (space.isinstance_w(w_value, space.w_list) or
           space.isinstance_w(w_value, space.w_tuple)):
         return decimal_from_tuple(space, w_subtype, w_value, context,
                                  exact=exact)
+    elif space.isinstance_w(w_value, space.w_float):
+        context.addstatus(space, rmpdec.MPD_Float_operation)
+        return decimal_from_float(space, w_subtype, w_value, context,
+                                  exact=exact)
     raise oefmt(space.w_TypeError,
                 "conversion from %N to Decimal is not supported",
                 space.type(w_value))
@@ -266,5 +337,8 @@ W_Decimal.typedef = TypeDef(
     __new__ = interp2app(descr_new_decimal),
     __str__ = interp2app(W_Decimal.descr_str),
     __bool__ = interp2app(W_Decimal.descr_bool),
+    __float__ = interp2app(W_Decimal.descr_float),
     __eq__ = interp2app(W_Decimal.descr_eq),
+    is_qnan = interp2app(W_Decimal.is_qnan_w),
+    is_infinite = interp2app(W_Decimal.is_infinite_w),
     )

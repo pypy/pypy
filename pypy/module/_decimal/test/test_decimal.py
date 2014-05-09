@@ -1,11 +1,18 @@
+from pypy.interpreter import gateway
+import random
+
 class AppTestExplicitConstruction:
-    spaceconfig = dict(usemodules=('_decimal',))
+    spaceconfig = dict(usemodules=('_decimal', '_random'))
 
     def setup_class(cls):
         space = cls.space
         cls.w_decimal = space.call_function(space.builtin.get('__import__'),
                                             space.wrap("_decimal"))
         cls.w_Decimal = space.getattr(cls.w_decimal, space.wrap("Decimal"))
+        def random_float(space):
+            f = random.expovariate(0.01) * (random.random() * 2.0 - 1.0)
+            return space.wrap(f)
+        cls.w_random_float = space.wrap(gateway.interp2app(random_float))
 
     def test_explicit_empty(self):
         Decimal = self.Decimal
@@ -179,3 +186,20 @@ class AppTestExplicitConstruction:
         e = Decimal(d)
         assert str(e) == '0'
 
+    def test_explicit_from_float(self):
+        Decimal = self.decimal.Decimal
+
+        r = Decimal(0.1)
+        assert type(r) is Decimal
+        assert str(r) == (
+                '0.1000000000000000055511151231257827021181583404541015625')
+        assert Decimal(float('nan')).is_qnan()
+        assert Decimal(float('inf')).is_infinite()
+        assert Decimal(float('-inf')).is_infinite()
+        assert str(Decimal(float('nan'))) == str(Decimal('NaN'))
+        assert str(Decimal(float('inf'))) == str(Decimal('Infinity'))
+        assert str(Decimal(float('-inf'))) == str(Decimal('-Infinity'))
+        assert str(Decimal(float('-0.0'))) == str(Decimal('-0'))
+        for i in range(200):
+            x = self.random_float()
+            assert x == float(Decimal(x)) # roundtrip
