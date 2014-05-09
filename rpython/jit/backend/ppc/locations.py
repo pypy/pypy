@@ -1,6 +1,8 @@
 from rpython.jit.metainterp.history import INT, FLOAT
 import sys
 
+# TODO: solve the circular import: runner -> arch -> register -> locations ->
+# arch
 # XXX import from arch.py, currently we have a circular import
 if sys.maxint == (2**31 - 1):
     WORD = 4
@@ -9,6 +11,9 @@ else:
     WORD = 8
     FWORD = 8
 DWORD = 2 * WORD
+
+# JITFRAME_FIXED_SIZE is also duplicated because of the circular import
+JITFRAME_FIXED_SIZE = 27 + 31 + 1 + 4 + 1
 
 class AssemblerLocation(object):
     _immutable_ = True

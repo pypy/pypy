@@ -33,6 +33,16 @@ SIZE_LOAD_IMM_PATCH_SP  = 6
 
 FORCE_INDEX_OFS         = (len(MANAGED_REGS) + len(MANAGED_FP_REGS)) * WORD
 
+# The JITFRAME_FIXED_SIZE is measured in words, not bytes or bits.
+# Follwing the PPC ABI, we are saving:
+# - volatile fpr's
+# - volatile gpr's
+# - vrsave word
+# - alignment padding
+# - vector register save area (quadword aligned)
+# 3 + 27 + 1 + 4 + 1
+JITFRAME_FIXED_SIZE = len(MANAGED_FP_REGS) + len(MANAGED_REGS) + 1 + 4 + 1
+
 # offset to LR in BACKCHAIN
 if IS_PPC_32:
     LR_BC_OFFSET = WORD
