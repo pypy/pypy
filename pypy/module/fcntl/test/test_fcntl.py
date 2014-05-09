@@ -11,7 +11,9 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select', 'rctime'))
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios',
+                                   'select', 'rctime'))
+
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = cls.space.wrap(tmpprefix)
@@ -263,6 +265,31 @@ class AppTestFcntl:
         mfd, sfd = pty.openpty()
         try:
             assert fcntl.ioctl(mfd, TCFLSH, TCIOFLUSH) == 0
+        finally:
+            os.close(mfd)
+            os.close(sfd)
+
+    def test_ioctl_signed_unsigned_code_param(self):
+        import fcntl
+        import os
+        import pty
+        import struct
+        import termios
+
+        mfd, sfd = pty.openpty()
+        try:
+            if termios.TIOCSWINSZ < 0:
+                set_winsz_opcode_maybe_neg = termios.TIOCSWINSZ
+                set_winsz_opcode_pos = termios.TIOCSWINSZ & 0xffffffffL
+            else:
+                set_winsz_opcode_pos = termios.TIOCSWINSZ
+                set_winsz_opcode_maybe_neg, = struct.unpack("i",
+                        struct.pack("I", termios.TIOCSWINSZ))
+
+            our_winsz = struct.pack("HHHH",80,25,0,0)
+            # test both with a positive and potentially negative ioctl code
+            new_winsz = fcntl.ioctl(mfd, set_winsz_opcode_pos, our_winsz)
+            new_winsz = fcntl.ioctl(mfd, set_winsz_opcode_maybe_neg, our_winsz)
         finally:
             os.close(mfd)
             os.close(sfd)
