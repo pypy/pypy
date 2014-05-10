@@ -291,3 +291,26 @@ class AppTestExplicitConstruction:
         assert str(nc.create_decimal(Decimal('NaN12345'))) == 'NaN'
         assert nc.flags[InvalidOperation]
 
+    def test_explicit_context_create_from_float(self):
+        Decimal = self.decimal.Decimal
+
+        nc = self.decimal.Context()
+        r = nc.create_decimal(0.1)
+        assert assertEqual(type(r)) is Decimal
+        assert str(r) == '0.1000000000000000055511151231'
+        assert nc.create_decimal(float('nan')).is_qnan()
+        assert nc.create_decimal(float('inf')).is_infinite()
+        assert nc.create_decimal(float('-inf')).is_infinite()
+        assert (str(nc.create_decimal(float('nan'))) ==
+                str(nc.create_decimal('NaN')))
+        assert (str(nc.create_decimal(float('inf'))) ==
+                str(nc.create_decimal('Infinity')))
+        assert (str(nc.create_decimal(float('-inf'))) ==
+                str(nc.create_decimal('-Infinity')))
+        assert (str(nc.create_decimal(float('-0.0'))) ==
+                str(nc.create_decimal('-0')))
+        nc.prec = 100
+        for i in range(200):
+            x = self.random_float()
+            assert x == float(nc.create_decimal(x))  # roundtrip
+
