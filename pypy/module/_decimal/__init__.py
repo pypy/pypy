@@ -11,6 +11,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'Decimal': 'interp_decimal.W_Decimal',
         'Context': 'interp_context.W_Context',
+        'DefaultContext': 'interp_context.W_Context(space)',
         'getcontext': 'interp_context.getcontext',
         'setcontext': 'interp_context.setcontext',
         'DecimalException': 'interp_signals.get(space).w_DecimalException',

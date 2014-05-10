@@ -162,6 +162,12 @@ class W_Context(W_Root):
             raise oefmt(space.w_ValueError,
                         "valid range for Emax is [0, MAX_EMAX]")
 
+    def get_capitals(self, space):
+        return space.wrap(self.capitals)
+
+    def set_capitals(self, space, w_value):
+        self.capitals = space.int_w(w_value)
+
     def get_clamp(self, space):
         return space.wrap(rmpdec.mpd_getclamp(self.ctx))
 
@@ -175,6 +181,25 @@ class W_Context(W_Root):
         from pypy.module._decimal import interp_decimal
         return interp_decimal.decimal_from_object(
             space, None, w_value, self, exact=False)
+
+    def descr_repr(self, space):
+        # Rounding string.
+        rounding = rffi.cast(lltype.Signed, self.ctx.c_round)
+        for name, value in ROUND_CONSTANTS:
+            if value == rounding:
+                round_string = name
+                break
+        else:
+            raise oefmt(space.w_RuntimeError,
+                        "bad rounding value")
+        flags = interp_signals.flags_as_string(self.ctx.c_status)
+        traps = interp_signals.flags_as_string(self.ctx.c_traps)
+        return space.wrap("Context(prec=%s, rounding=%s, Emin=%s, Emax=%s, "
+                          "capitals=%s, clamp=%s, flags=%s, traps=%s)" % (
+                self.ctx.c_prec, round_string,
+                self.ctx.c_emin, self.ctx.c_emax,
+                self.capitals, rffi.cast(lltype.Signed, self.ctx.c_clamp),
+                flags, traps))
 
 
 def descr_new_context(space, w_subtype, __args__):
@@ -190,9 +215,12 @@ W_Context.typedef = TypeDef(
     traps=interp_attrproperty_w('w_traps', W_Context),
     prec=GetSetProperty(W_Context.get_prec, W_Context.set_prec),
     rounding=GetSetProperty(W_Context.get_rounding, W_Context.set_rounding),
+    capitals=GetSetProperty(W_Context.get_capitals, W_Context.set_capitals),
     Emin=GetSetProperty(W_Context.get_emin, W_Context.set_emin),
     Emax=GetSetProperty(W_Context.get_emax, W_Context.set_emax),
     clamp=GetSetProperty(W_Context.get_clamp, W_Context.set_clamp),
+    #
+    __repr__ = interp2app(W_Context.descr_repr),
     #
     copy=interp2app(W_Context.copy_w),
     create_decimal=interp2app(W_Context.create_decimal_w),

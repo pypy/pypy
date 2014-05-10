@@ -1,4 +1,6 @@
-from rpython.rlib import rmpdec
+from collections import OrderedDict
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rmpdec, rstring
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import oefmt, OperationError
 
@@ -22,6 +24,18 @@ COND_MAP = unrolling_iterable([
     ('InvalidContext', rmpdec.MPD_Invalid_context),
     ])
 
+SIGNAL_STRINGS = OrderedDict([
+    (rmpdec.MPD_Clamped, "Clamped"),
+    (rmpdec.MPD_IEEE_Invalid_operation, "InvalidOperation"),
+    (rmpdec.MPD_Division_by_zero, "DivisionByZero"),
+    (rmpdec.MPD_Inexact, "Inexact"),
+    (rmpdec.MPD_Float_operation, "FloatOperation"),
+    (rmpdec.MPD_Overflow, "Overflow"),
+    (rmpdec.MPD_Rounded, "Rounded"),
+    (rmpdec.MPD_Subnormal, "Subnormal"),
+    (rmpdec.MPD_Underflow, "Underflow"),
+    ])
+
 def flags_as_exception(space, flags):
     w_exc = None
     err_list = []
@@ -39,6 +53,20 @@ def exception_as_flag(space, w_exc):
             return flag
     raise oefmt(space.w_KeyError,
                 "invalid error flag")
+
+def flags_as_string(flags):
+    builder = rstring.StringBuilder(30)
+    builder.append('[')
+    first = True
+    flags = rffi.cast(lltype.Signed, flags)
+    for (flag, value) in SIGNAL_STRINGS.items():
+        if flag & flags:
+            if not first:
+                builder.append(', ')
+                first = False
+            builder.append(value)
+    builder.append(']')
+    return builder.build()
 
 
 class SignalState:

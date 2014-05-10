@@ -2,7 +2,7 @@ from pypy.interpreter import gateway
 import random
 
 class AppTestExplicitConstruction:
-    spaceconfig = dict(usemodules=('_decimal', '_random'))
+    spaceconfig = dict(usemodules=('_decimal',))
 
     def setup_class(cls):
         space = cls.space

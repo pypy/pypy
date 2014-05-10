@@ -80,6 +80,7 @@ class CConfig:
     MPD_IEEE_CONTEXT_MAX_BITS = platform.ConstantInteger(
         'MPD_IEEE_CONTEXT_MAX_BITS')
     MPD_MAX_PREC = platform.ConstantInteger('MPD_MAX_PREC')
+    MPD_MAX_SIGNAL_LIST = platform.ConstantInteger('MPD_MAX_SIGNAL_LIST')
 
     # Flags
     MPD_POS = platform.ConstantInteger('MPD_POS')
