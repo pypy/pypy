@@ -50,9 +50,9 @@ class W_Decimal(W_Root):
         w_result = W_Decimal.allocate(space, w_subtype)
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
             rmpdec.mpd_qcopy(w_result.mpd, self.mpd, status_ptr)
-            context.addstatus(space, status_ptr[0])
+            context.addstatus(space, rffi.cast(lltype.Signed, status_ptr[0]))
             rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
-            context.addstatus(space, status_ptr[0])
+            context.addstatus(space, rffi.cast(lltype.Signed, status_ptr[0]))
         return w_result
 
     def descr_str(self, space):
@@ -243,7 +243,9 @@ def decimal_from_decimal(space, w_subtype, w_value, context, exact=True):
         return w_result
     else:
         if (rmpdec.mpd_isnan(w_value.mpd) and
-            w_value.mpd.c_digits > (context.ctx.c_prec - context.ctx.c_clamp)):
+            w_value.mpd.c_digits > (
+                context.ctx.c_prec - rffi.cast(lltype.Signed,
+                                               context.ctx.c_clamp))):
             # Special case: too many NaN payload digits
             context.addstatus(space, rmpdec.MPD_Conversion_syntax)
             w_result = W_Decimal.allocate(space, w_subtype)
@@ -296,7 +298,7 @@ def decimal_from_float(space, w_subtype, w_value, context, exact=True):
     if not exact:
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
             rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
-            context.addstatus(space, status_ptr[0])
+            context.addstatus(space, rffi.cast(lltype.Signed, status_ptr[0]))
     return w_result
 
 def decimal_from_object(space, w_subtype, w_value, context, exact=True):
