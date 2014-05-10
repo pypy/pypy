@@ -43,10 +43,11 @@ eci = ExternalCompilationInfo(
         "mpd_maxcontext",
         "mpd_qnew",
         "mpd_to_sci_size",
-        "mpd_iszero", "mpd_isnegative", "mpd_isinfinite",
+        "mpd_iszero", "mpd_isnegative", "mpd_isinfinite", "mpd_isspecial",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
         "mpd_qcmp",
         "mpd_qpow", "mpd_qmul",
+        "mpd_qround_to_int",
         ],
     compile_extra=compile_extra,
     libraries=['m'],
@@ -104,8 +105,15 @@ class CConfig:
                              ('data', MPD_UINT_PTR),
                              ])
     MPD_CONTEXT_T = platform.Struct('mpd_context_t',
-                                    [('traps', rffi.UINT),
+                                    [('prec', lltype.Signed),
+                                     ('emax', lltype.Signed),
+                                     ('emin', lltype.Signed),
+                                     ('traps', rffi.UINT),
                                      ('status', rffi.UINT),
+                                     ('newtrap', rffi.UINT),
+                                     ('round', lltype.Signed),
+                                     ('clamp', lltype.Signed),
+                                     ('allcr', lltype.Signed),
                                      ])
 
 
@@ -183,6 +191,8 @@ mpd_isnegative = external(
     'mpd_isnegative', [MPD_PTR], rffi.INT)
 mpd_isinfinite = external(
     'mpd_isinfinite', [MPD_PTR], rffi.INT)
+mpd_isspecial = external(
+    'mpd_isspecial', [MPD_PTR], rffi.INT)
 mpd_isnan = external(
     'mpd_isnan', [MPD_PTR], rffi.INT)
 mpd_issnan = external(
@@ -199,4 +209,8 @@ mpd_qpow = external(
 mpd_qmul = external(
     'mpd_qmul',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+
+mpd_qround_to_int = external(
+    'mpd_qround_to_int', [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)

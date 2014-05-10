@@ -36,18 +36,23 @@ class W_Decimal(W_Root):
         if self.data:
             lltype.free(self.data, flavor='raw')
 
-    def apply(self, context, w_subtype=None):
-        # Apply the context to the input operand. Return a new W_Decimal.
-        if subtype:
+    @staticmethod
+    def allocate(space, w_subtype=None):
+        if w_subtype:
             w_result = space.allocate_instance(W_Decimal, w_subtype)
             W_Decimal.__init__(w_result, space)
         else:
             w_result = W_Decimal(space)
+        return w_result
+
+    def apply(self, space, context, w_subtype=None):
+        # Apply the context to the input operand. Return a new W_Decimal.
+        w_result = W_Decimal.allocate(space, w_subtype)
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
             rmpdec.mpd_qcopy(w_result.mpd, self.mpd, status_ptr)
-            context.addstatus(self.space, status_ptr[0])
+            context.addstatus(space, status_ptr[0])
             rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
-            context.addstatus(self.space, status_ptr[0])
+            context.addstatus(space, status_ptr[0])
         return w_result
 
     def descr_str(self, space):
@@ -101,17 +106,14 @@ class W_Decimal(W_Root):
 
 # Constructors
 def decimal_from_ssize(space, w_subtype, value, context, exact=True):
-    w_result = space.allocate_instance(W_Decimal, w_subtype)
-    W_Decimal.__init__(w_result, space)
+    w_result = W_Decimal.allocate(space, w_subtype)
     with interp_context.ConvContext(
             space, w_result.mpd, context, exact) as (ctx, status_ptr):
         rmpdec.mpd_qset_ssize(w_result.mpd, value, ctx, status_ptr)
     return w_result
 
 def decimal_from_cstring(space, w_subtype, value, context, exact=True):
-    w_result = space.allocate_instance(W_Decimal, w_subtype)
-    W_Decimal.__init__(w_result, space)
-
+    w_result = W_Decimal.allocate(space, w_subtype)
     with interp_context.ConvContext(
             space, w_result.mpd, context, exact) as (ctx, status_ptr):
         rmpdec.mpd_qset_string(w_result.mpd, value, ctx, status_ptr)
@@ -127,8 +129,7 @@ def decimal_from_unicode(space, w_subtype, w_value, context, exact=True,
     return decimal_from_cstring(space, w_subtype, s, context, exact=exact)
 
 def decimal_from_bigint(space, w_subtype, value, context, exact=True):
-    w_result = space.allocate_instance(W_Decimal, w_subtype)
-    W_Decimal.__init__(w_result, space)
+    w_result = W_Decimal.allocate(space, w_subtype)
 
     with interp_context.ConvContext(
             space, w_result.mpd, context, exact) as (ctx, status_ptr):
@@ -235,37 +236,34 @@ def decimal_from_decimal(space, w_subtype, w_value, context, exact=True):
     if exact:
         if space.is_w(w_subtype, space.gettypeobject(W_Decimal.typedef)):
             return w_value
-        w_result = space.allocate_instance(W_Decimal, w_subtype)
-        W_Decimal.__init__(w_result, space)
+        w_result = W_Decimal.allocate(space, w_subtype)
         with interp_context.ConvContext(
                 space, w_result.mpd, context, exact) as (ctx, status_ptr):
             rmpdec.mpd_qcopy(w_result.mpd, w_value.mpd, status_ptr)
         return w_result
     else:
         if (rmpdec.mpd_isnan(w_value.mpd) and
-            w_value.mpd.digits > (context.ctx.prec - context.ctx.clamp)):
+            w_value.mpd.c_digits > (context.ctx.c_prec - context.ctx.c_clamp)):
             # Special case: too many NaN payload digits
             context.addstatus(space, rmpdec.MPD_Conversion_syntax)
-            w_result = space.allocate_instance(W_Decimal, w_subtype)
-            W_Decimal.__init__(w_result, space)
+            w_result = W_Decimal.allocate(space, w_subtype)
             rmpdec.mpd_setspecial(w_result.mpd, rmpdec.MPD_POS, rmpdec.MPD_NAN)
+            return w_result
         else:
-            return w_value.apply(context)
+            return w_value.apply(space, context)
 
 def decimal_from_float(space, w_subtype, w_value, context, exact=True):
     value = space.float_w(w_value)
     sign = 0 if rfloat.copysign(1.0, value) == 1.0 else 1
 
     if rfloat.isnan(value):
-        w_result = space.allocate_instance(W_Decimal, w_subtype)
-        W_Decimal.__init__(w_result, space)
+        w_result = W_Decimal.allocate(space, w_subtype)
         # decimal.py calls repr(float(+-nan)), which always gives a
         # positive result.
         rmpdec.mpd_setspecial(w_result.mpd, rmpdec.MPD_POS, rmpdec.MPD_NAN)
         return w_result
     if rfloat.isinf(value):
-        w_result = space.allocate_instance(W_Decimal, w_subtype)
-        W_Decimal.__init__(w_result, space)
+        w_result = W_Decimal.allocate(space, w_subtype)
         rmpdec.mpd_setspecial(w_result.mpd, sign, rmpdec.MPD_INF)
         return w_result
 

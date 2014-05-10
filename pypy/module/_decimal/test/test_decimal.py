@@ -203,3 +203,91 @@ class AppTestExplicitConstruction:
         for i in range(200):
             x = self.random_float()
             assert x == float(Decimal(x)) # roundtrip
+
+    def test_explicit_context_create_decimal(self):
+        Decimal = self.decimal.Decimal
+        InvalidOperation = self.decimal.InvalidOperation
+        Rounded = self.decimal.Rounded
+
+        nc = self.decimal.getcontext().copy()
+        nc.prec = 3
+        nc.traps[InvalidOperation] = False
+        nc.traps[self.decimal.Overflow] = False
+        nc.traps[self.decimal.DivisionByZero] = False
+
+        # empty
+        d = Decimal()
+        assert str(d) == '0'
+        d = nc.create_decimal()
+        assert str(d) == '0'
+
+        # from None
+        raises(TypeError, nc.create_decimal, None)
+
+        # from int
+        d = nc.create_decimal(456)
+        assert isinstance(d, Decimal)
+        assert nc.create_decimal(45678) == nc.create_decimal('457E+2')
+
+        # from string
+        d = Decimal('456789')
+        assert str(d) == '456789'
+        d = nc.create_decimal('456789')
+        assert str(d) == '4.57E+5'
+        # leading and trailing whitespace should result in a NaN;
+        # spaces are already checked in Cowlishaw's test-suite, so
+        # here we just check that a trailing newline results in a NaN
+        assert str(nc.create_decimal('3.14\n')) == 'NaN'
+
+        # from tuples
+        d = Decimal( (1, (4, 3, 4, 9, 1, 3, 5, 3, 4), -25) )
+        assert str(d) == '-4.34913534E-17'
+        d = nc.create_decimal( (1, (4, 3, 4, 9, 1, 3, 5, 3, 4), -25) )
+        assert str(d) == '-4.35E-17'
+
+        # from Decimal
+        prevdec = Decimal(500000123)
+        d = Decimal(prevdec)
+        assert str(d) == '500000123'
+        d = nc.create_decimal(prevdec)
+        assert str(d) == '5.00E+8'
+
+        # more integers
+        nc.prec = 28
+        nc.traps[InvalidOperation] = True
+
+        for v in [-2**63-1, -2**63, -2**31-1, -2**31, 0,
+                   2**31-1, 2**31, 2**63-1, 2**63]:
+            d = nc.create_decimal(v)
+            assert isinstance(d, Decimal)
+            assert str(d) == str(v)
+
+        nc.prec = 3
+        nc.traps[Rounded] = True
+        raises(Rounded, nc.create_decimal, 1234)
+
+        # from string
+        nc.prec = 28
+        assert str(nc.create_decimal('0E-017')) == '0E-17'
+        assert str(nc.create_decimal('45')) == '45'
+        assert str(nc.create_decimal('-Inf')) == '-Infinity'
+        assert str(nc.create_decimal('NaN123')) == 'NaN123'
+
+        # invalid arguments
+        raises(InvalidOperation, nc.create_decimal, "xyz")
+        raises(ValueError, nc.create_decimal, (1, "xyz", -25))
+        raises(TypeError, nc.create_decimal, "1234", "5678")
+
+        # too many NaN payload digits
+        nc.prec = 3
+        raises(InvalidOperation, nc.create_decimal, 'NaN12345')
+        raises(InvalidOperation, nc.create_decimal, Decimal('NaN12345'))
+
+        nc.traps[InvalidOperation] = False
+        assert str(nc.create_decimal('NaN12345')) == 'NaN'
+        assert nc.flags[InvalidOperation]
+
+        nc.flags[InvalidOperation] = False
+        assert str(nc.create_decimal(Decimal('NaN12345'))) == 'NaN'
+        assert nc.flags[InvalidOperation]
+

@@ -67,12 +67,28 @@ def state_get(space):
 ROUND_CONSTANTS = unrolling_iterable([
         (name, getattr(rmpdec, 'MPD_' + name))
         for name in rmpdec.ROUND_CONSTANTS])
+DEC_DFLT_EMAX = 999999
+DEC_DFLT_EMIN = -999999
 
 class W_Context(W_Root):
     def __init__(self, space):
         self.ctx = lltype.malloc(rmpdec.MPD_CONTEXT_PTR.TO, flavor='raw',
                                  zero=True,
                                  track_allocation=False)
+        # Default context
+        self.ctx.c_prec = 28
+        self.ctx.c_emax = DEC_DFLT_EMAX
+        self.ctx.c_emin = DEC_DFLT_EMIN
+        rffi.setintfield(self.ctx, 'c_traps',
+                         (rmpdec.MPD_IEEE_Invalid_operation|
+                          rmpdec.MPD_Division_by_zero|
+                          rmpdec.MPD_Overflow))
+        rffi.setintfield(self.ctx, 'c_status', 0)
+        rffi.setintfield(self.ctx, 'c_newtrap', 0)
+        rffi.setintfield(self.ctx, 'c_round', rmpdec.MPD_ROUND_HALF_EVEN)
+        rffi.setintfield(self.ctx, 'c_clamp', 0)
+        rffi.setintfield(self.ctx, 'c_allcr', 1)
+        
         self.w_flags = new_signal_dict(
             space, lltype.direct_fieldptr(self.ctx, 'c_status'))
         self.w_traps = new_signal_dict(
@@ -97,7 +113,8 @@ class W_Context(W_Root):
 
     def copy_w(self, space):
         w_copy = W_Context(space)
-        # XXX incomplete
+        rffi.structcopy(w_copy.ctx, self.ctx)
+        w_copy.capitals = self.capitals
         return w_copy
 
     def get_prec(self, space):
@@ -154,6 +171,11 @@ class W_Context(W_Root):
             raise oefmt(space.w_ValueError,
                         "valid values for clamp are 0 or 1")
 
+    def create_decimal_w(self, space, w_value=None):
+        from pypy.module._decimal import interp_decimal
+        return interp_decimal.decimal_from_object(
+            space, None, w_value, self, exact=False)
+
 
 def descr_new_context(space, w_subtype, __args__):
     w_result = space.allocate_instance(W_Context, w_subtype)
@@ -162,7 +184,8 @@ def descr_new_context(space, w_subtype, __args__):
 
 W_Context.typedef = TypeDef(
     'Context',
-    copy=interp2app(W_Context.copy_w),
+    __new__ = interp2app(descr_new_context),
+    # Attributes
     flags=interp_attrproperty_w('w_flags', W_Context),
     traps=interp_attrproperty_w('w_traps', W_Context),
     prec=GetSetProperty(W_Context.get_prec, W_Context.set_prec),
@@ -170,7 +193,9 @@ W_Context.typedef = TypeDef(
     Emin=GetSetProperty(W_Context.get_emin, W_Context.set_emin),
     Emax=GetSetProperty(W_Context.get_emax, W_Context.set_emax),
     clamp=GetSetProperty(W_Context.get_clamp, W_Context.set_clamp),
-    __new__ = interp2app(descr_new_context),
+    #
+    copy=interp2app(W_Context.copy_w),
+    create_decimal=interp2app(W_Context.create_decimal_w),
     )
 
 
@@ -224,6 +249,7 @@ class ConvContext:
                     self.mpd, rmpdec.MPD_Invalid_operation, self.status_ptr)
         status = rffi.cast(lltype.Signed, self.status_ptr[0])
         lltype.free(self.status_ptr, flavor='raw')
-        status &= rmpdec.MPD_Errors
+        if self.exact:
+            status &= rmpdec.MPD_Errors
         # May raise a DecimalException
         self.context.addstatus(self.space, status)
