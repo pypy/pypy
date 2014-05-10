@@ -94,6 +94,72 @@ class W_Decimal(W_Root):
             w_s = self.descr_str(space)
         return space.call_function(space.w_float, w_s)
 
+    def to_long(self, space, context, round):
+        if rmpdec.mpd_isspecial(self.mpd):
+            if rmpdec.mpd_isnan(self.mpd):
+                raise oefmt(space.w_ValueError,
+                            "cannot convert NaN to integer")
+            else:
+                raise oefmt(space.w_OverflowError,
+                            "cannot convert Infinity to integer")
+
+        w_x = W_Decimal.allocate(space)
+        w_tempctx = context.copy_w(space)
+        rffi.setintfield(w_tempctx.ctx, 'c_round', round)
+        with context.catch_status(space) as (ctx, status_ptr):
+            # We round with the temporary context, but set status and
+            # raise errors on the global one.
+            rmpdec.mpd_qround_to_int(w_x.mpd, self.mpd,
+                                     w_tempctx.ctx, status_ptr)
+
+            # XXX mpd_qexport_u64 would be faster...
+            T = rffi.CArrayPtr(rffi.USHORTP).TO
+            with lltype.scoped_alloc(T, 1, zero=True) as digits_ptr:
+                n = rmpdec.mpd_qexport_u16(
+                    digits_ptr, 0, 0x10000,
+                    w_x.mpd, status_ptr)
+                if n == rmpdec.MPD_SIZE_MAX:
+                    raise OperationError(space.w_MemoryError, space.w_None)
+                try:
+                    char_ptr = rffi.cast(rffi.CCHARP, digits_ptr[0])
+                    size = rffi.cast(lltype.Signed, n) * 2
+                    s = rffi.charpsize2str(char_ptr, size)
+                finally:
+                    rmpdec.mpd_free(digits_ptr[0])
+            bigint = rbigint.rbigint.frombytes(
+                s, byteorder=rbigint.BYTEORDER, signed=False)
+        if rmpdec.mpd_isnegative(w_x.mpd) and not rmpdec.mpd_iszero(w_x.mpd):
+            bigint = bigint.neg()
+        return space.newlong_from_rbigint(bigint)
+
+    def descr_int(self, space):
+        context = interp_context.getcontext(space)
+        return self.to_long(space, context, rmpdec.MPD_ROUND_DOWN)
+        
+    def descr_floor(self, space):
+        context = interp_context.getcontext(space)
+        return self.to_long(space, context, rmpdec.MPD_ROUND_FLOOR)
+        
+    def descr_ceil(self, space):
+        context = interp_context.getcontext(space)
+        return self.to_long(space, context, rmpdec.MPD_ROUND_CEILING)
+
+    def descr_round(self, space, w_x=None):
+        context = interp_context.getcontext(space)
+        if not w_x:
+            return self.to_long(space, context, rmpdec.MPD_ROUND_HALF_EVEN)
+        x = space.int_w(w_x)
+        w_result = W_Decimal.allocate(space)
+        w_q = decimal_from_ssize(space, None, 1, context, exact=False)
+        if x == rmpdec.MPD_SSIZE_MIN:
+            w_q.mpd.c_exp = rmpdec.MPD_SSIZE_MAX
+        else:
+            w_q.mpd.c_exp = -x
+        with context.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qquantize(w_result.mpd, self.mpd, w_q.mpd,
+                                 ctx, status_ptr)
+        return w_result
+
     def compare(self, space, w_other, op):
         if not isinstance(w_other, W_Decimal):  # So far
             return space.w_NotImplemented
@@ -388,6 +454,10 @@ W_Decimal.typedef = TypeDef(
     __repr__ = interp2app(W_Decimal.descr_repr),
     __bool__ = interp2app(W_Decimal.descr_bool),
     __float__ = interp2app(W_Decimal.descr_float),
+    __int__ = interp2app(W_Decimal.descr_int),
+    __floor__ = interp2app(W_Decimal.descr_floor),
+    __ceil__ = interp2app(W_Decimal.descr_ceil),
+    __round__ = interp2app(W_Decimal.descr_round),
     __eq__ = interp2app(W_Decimal.descr_eq),
     #
     __add__ = interp2app(W_Decimal.descr_add),

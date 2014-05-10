@@ -333,17 +333,21 @@ class AppTestExplicitConstruction:
     def test_tonum_methods(self):
         #Test float and int methods.
         Decimal = self.decimal.Decimal
+        InvalidOperation = self.decimal.InvalidOperation
+        self.decimal.getcontext().traps[InvalidOperation] = False
+
+        import math
 
         d1 = Decimal('66')
         d2 = Decimal('15.32')
 
         #int
-        int(d1) == 66
-        int(d2) == 15
+        assert int(d1) == 66
+        assert int(d2) == 15
 
         #float
-        float(d1) == 66
-        float(d2) == 15.32
+        assert float(d1) == 66
+        assert float(d2) == 15.32
 
         #floor
         test_pairs = [

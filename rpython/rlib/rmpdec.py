@@ -37,6 +37,7 @@ eci = ExternalCompilationInfo(
                            ],
     export_symbols=[
         "mpd_qset_ssize", "mpd_qset_uint", "mpd_qset_string", "mpd_qcopy", "mpd_setspecial",
+        "mpd_qimport_u32", "mpd_qexport_u32", "mpd_qexport_u16",
         "mpd_set_sign", "mpd_qfinalize",
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
@@ -45,7 +46,7 @@ eci = ExternalCompilationInfo(
         "mpd_to_sci", "mpd_to_sci_size",
         "mpd_iszero", "mpd_isnegative", "mpd_isinfinite", "mpd_isspecial",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
-        "mpd_qcmp",
+        "mpd_qcmp", "mpd_qquantize",
         "mpd_qpow", "mpd_qadd", "mpd_qsub", "mpd_qmul", "mpd_qdiv",
         "mpd_qround_to_int",
         ],
@@ -81,6 +82,9 @@ class CConfig:
         'MPD_IEEE_CONTEXT_MAX_BITS')
     MPD_MAX_PREC = platform.ConstantInteger('MPD_MAX_PREC')
     MPD_MAX_SIGNAL_LIST = platform.ConstantInteger('MPD_MAX_SIGNAL_LIST')
+    MPD_SIZE_MAX = platform.ConstantInteger('MPD_SIZE_MAX')
+    MPD_SSIZE_MAX = platform.ConstantInteger('MPD_SSIZE_MAX')
+    MPD_SSIZE_MIN = platform.ConstantInteger('MPD_SSIZE_MIN')
 
     # Flags
     MPD_POS = platform.ConstantInteger('MPD_POS')
@@ -136,8 +140,17 @@ mpd_qset_uint = external(
 mpd_qset_string = external(
     'mpd_qset_string', [MPD_PTR, rffi.CCHARP, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qimport_u32 = external(
-    'mpd_qimport_u32', [MPD_PTR, rffi.UINTP, rffi.SIZE_T,
-                        rffi.UCHAR, rffi.UINT, MPD_CONTEXT_PTR, rffi.UINTP], rffi.SIZE_T)
+    'mpd_qimport_u32', [
+        MPD_PTR, rffi.UINTP, rffi.SIZE_T,
+        rffi.UCHAR, rffi.UINT, MPD_CONTEXT_PTR, rffi.UINTP], rffi.SIZE_T)
+mpd_qexport_u32 = external(
+    'mpd_qexport_u32', [
+        rffi.CArrayPtr(rffi.UINTP), rffi.SIZE_T, rffi.UINT,
+        MPD_PTR, rffi.UINTP], rffi.SIZE_T)
+mpd_qexport_u16 = external(
+    'mpd_qexport_u16', [
+        rffi.CArrayPtr(rffi.USHORTP), rffi.SIZE_T, rffi.UINT,
+        MPD_PTR, rffi.UINTP], rffi.SIZE_T)
 mpd_qcopy = external(
     'mpd_qcopy', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)
 mpd_setspecial = external(
@@ -204,6 +217,9 @@ mpd_isqnan = external(
     'mpd_isqnan', [MPD_PTR], rffi.INT)
 mpd_qcmp = external(
     'mpd_qcmp', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)
+mpd_qquantize = external(
+    'mpd_qquantize', [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
 
 mpd_qpow = external(
     'mpd_qpow',
