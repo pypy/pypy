@@ -120,6 +120,12 @@ class W_Context(W_Root):
         w_copy.capitals = self.capitals
         return w_copy
 
+    def clear_flags_w(self, space):
+        rffi.setintfield(self.ctx, 'c_status', 0)
+
+    def clear_traps_w(self, space):
+        rffi.setintfield(self.ctx, 'c_traps', 0)
+
     def get_prec(self, space):
         return space.wrap(rmpdec.mpd_getprec(self.ctx))
 
@@ -226,6 +232,8 @@ W_Context.typedef = TypeDef(
     __repr__ = interp2app(W_Context.descr_repr),
     #
     copy=interp2app(W_Context.copy_w),
+    clear_flags=interp2app(W_Context.clear_flags_w),
+    clear_traps=interp2app(W_Context.clear_traps_w),
     create_decimal=interp2app(W_Context.create_decimal_w),
     )
 
