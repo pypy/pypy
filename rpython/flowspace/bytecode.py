@@ -80,6 +80,22 @@ class HostCode(object):
         return bc_reader.read(self, offset)
 
 class BytecodeReader(object):
+    def __init__(self, opnames):
+        self.opnames = opnames
+        self.num2cls = {}
+
+    def register_name(self, name, InstrClass):
+        num = self.opnames.index(name)
+        self.num2cls[num] = InstrClass
+        return num
+
+    def register_opcode(self, cls):
+        """Class decorator: register opcode class as real Python opcode"""
+        name = cls.__name__
+        cls.name = name
+        cls.num = self.register_name(name, cls)
+        return cls
+
     def read(self, code, offset):
         """
         Decode the instruction starting at position ``offset``.
@@ -112,23 +128,19 @@ class BytecodeReader(object):
         elif opnum in opcode.hasname:
             oparg = code.names[oparg]
         try:
-            op = BCInstruction.num2op[opnum].decode(oparg, offset, code)
+            op = self.num2cls[opnum].decode(oparg, offset, code)
         except KeyError:
-            op = GenericOpcode(opnum, oparg, offset)
+            op = GenericOpcode(self.opnames[opnum], opnum, oparg, offset)
         return next_offset, op
 
-bc_reader = BytecodeReader()
+bc_reader = BytecodeReader(host_bytecode_spec.method_names)
 
-
-OPNAMES = host_bytecode_spec.method_names
 
 class BCInstruction(object):
     """
     A bytecode instruction, comprising an opcode and an optional argument.
 
     """
-    num2op = {}
-
     def __init__(self, arg, offset=-1):
         self.arg = arg
         self.offset = offset
@@ -140,21 +152,12 @@ class BCInstruction(object):
     def eval(self, ctx):
         pass
 
-    @classmethod
-    def register_name(cls, name, op_class):
-        try:
-            num = OPNAMES.index(name)
-            cls.num2op[num] = op_class
-            return num
-        except ValueError:
-            return -1
-
     def __repr__(self):
         return "%s(%s)" % (self.name, self.arg)
 
 class GenericOpcode(BCInstruction):
-    def __init__(self, opcode, arg, offset=-1):
-        self.name = OPNAMES[opcode]
+    def __init__(self, name, opcode, arg, offset=-1):
+        self.name = name
         self.num = opcode
         self.arg = arg
         self.offset = offset
@@ -163,14 +166,7 @@ class GenericOpcode(BCInstruction):
         return getattr(ctx, self.name)(self.arg)
 
 
-def register_opcode(cls):
-    """Class decorator: register opcode class as real Python opcode"""
-    name = cls.__name__
-    cls.name = name
-    cls.num = BCInstruction.register_name(name, cls)
-    return cls
-
-@register_opcode
+@bc_reader.register_opcode
 class LOAD_CONST(BCInstruction):
     @staticmethod
     def decode(arg, offset, code):

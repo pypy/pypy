@@ -8,7 +8,7 @@ from rpython.flowspace.model import (
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowContext
-from rpython.flowspace.bytecode import BCInstruction
+from rpython.flowspace.bytecode import bc_reader
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
@@ -57,7 +57,7 @@ def test_all_opcodes_defined():
     opnames = set(host_bytecode_spec.method_names)
     methods = set([name for name in dir(FlowContext) if name.upper() == name])
     handled_elsewhere = set(['EXTENDED_ARG'])
-    opcode_classes = set([cls.name for cls in BCInstruction.num2op.values()])
+    opcode_classes = set([cls.name for cls in bc_reader.num2cls.values()])
     missing = opnames - methods - handled_elsewhere - opcode_classes
     assert not missing
 
