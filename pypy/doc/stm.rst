@@ -30,7 +30,8 @@ Introduction
 
 ``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats_
 listed below, it should be in theory within 20%-50% slower than a
-regular PyPy, comparing the JIT version in both cases.  It is called
+regular PyPy, comparing the JIT version in both cases (but see below!).
+It is called
 STM for Software Transactional Memory, which is the internal technique
 used (see `Reference to implementation details`_).
 
@@ -89,6 +90,11 @@ Current status
 
 * So far, small examples work fine, but there are still a few bugs.
   We're busy fixing them as we find them; feel free to `report bugs`_.
+
+* It runs with an overhead as low as 20% on examples like "richards".
+  There are also other examples with higher overheads --up to 10x for
+  "translate.py"-- which we are still trying to understand.  One suspect
+  is our partial GC implementation, see below.
 
 * Currently limited to 1.5 GB of RAM (this is just a parameter in
   `core.h`__).  Memory overflows are not correctly handled; they cause
