@@ -58,25 +58,9 @@ class HostCode(object):
         self.signature = cpython_code_signature(self)
         self.build_flow()
 
-    def disassemble(self):
-        contents = []
-        offsets = []
-        jumps = {}
-        pos = 0
-        i = 0
-        while pos < len(self.co_code):
-            offsets.append(pos)
-            next_pos, op = self.decode(pos)
-            contents.append(op)
-            if op.has_jump():
-                jumps[pos] = op.arg
-            pos = next_pos
-            i += 1
-        return contents, offsets, jumps
-
     def build_flow(self):
         next_pos = pos = 0
-        contents, offsets, jumps = self.disassemble()
+        contents, offsets, jumps = bc_reader.disassemble(self)
         self.contents = zip(offsets, contents)
         self.pos_index = dict((offset, i) for i, offset in enumerate(offsets))
         # add end marker
@@ -109,8 +93,6 @@ class HostCode(object):
         next_offset = self.contents[i+1][0]
         return next_offset, op
 
-    def decode(self, offset):
-        return bc_reader.read(self, offset)
 
 class BytecodeReader(object):
     def __init__(self, opnames):
@@ -128,6 +110,22 @@ class BytecodeReader(object):
         cls.name = name
         cls.num = self.register_name(name, cls)
         return cls
+
+    def disassemble(self, code):
+        contents = []
+        offsets = []
+        jumps = {}
+        pos = 0
+        i = 0
+        while pos < len(code.co_code):
+            offsets.append(pos)
+            next_pos, op = self.read(code, pos)
+            contents.append(op)
+            if op.has_jump():
+                jumps[pos] = op.arg
+            pos = next_pos
+            i += 1
+        return contents, offsets, jumps
 
     def read(self, code, offset):
         """
