@@ -6,6 +6,7 @@ from opcode import EXTENDED_ARG, HAVE_ARGUMENT
 import opcode
 from rpython.flowspace.argument import Signature
 from rpython.flowspace.model import const
+from rpython.flowspace.operation import op
 
 CO_GENERATOR = 0x0020
 CO_VARARGS = 0x0004
@@ -174,3 +175,23 @@ class LOAD_CONST(BCInstruction):
 
     def eval(self, ctx):
         ctx.pushvalue(const(self.arg))
+
+_unary_ops = [
+    ('UNARY_POSITIVE', op.pos),
+    ('UNARY_NEGATIVE', op.neg),
+    ('UNARY_CONVERT', op.repr),
+    ('UNARY_INVERT', op.invert),
+]
+
+def unaryoperation(OPCODE, oper):
+    class UNARY_OP(BCInstruction):
+        def eval(self, ctx):
+            w_1 = ctx.popvalue()
+            w_result = oper(w_1).eval(ctx)
+            ctx.pushvalue(w_result)
+    UNARY_OP.__name__ = OPCODE
+    bc_reader.register_opcode(UNARY_OP)
+    return UNARY_OP
+
+for OPCODE, oper in _unary_ops:
+    globals()[OPCODE] = unaryoperation(OPCODE, oper)

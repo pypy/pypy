@@ -189,21 +189,6 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
-_unary_ops = [
-    ('UNARY_POSITIVE', op.pos),
-    ('UNARY_NEGATIVE', op.neg),
-    ('UNARY_CONVERT', op.repr),
-    ('UNARY_INVERT', op.invert),
-]
-
-def unaryoperation(OPCODE, operation):
-    def UNARY_OP(self, *ignored):
-        w_1 = self.popvalue()
-        w_result = operation(w_1).eval(self)
-        self.pushvalue(w_result)
-    UNARY_OP.func_name = OPCODE
-    return UNARY_OP
-
 _binary_ops = [
     ('BINARY_MULTIPLY', op.mul),
     ('BINARY_TRUE_DIVIDE', op.truediv),
@@ -927,9 +912,6 @@ class FlowContext(object):
                 break
             w_value = self.peekvalue(delta)
             self.pushvalue(w_value)
-
-    for OPCODE, op in _unary_ops:
-        locals()[OPCODE] = unaryoperation(OPCODE, op)
 
     for OPCODE, op in _binary_ops:
         locals()[OPCODE] = binaryoperation(OPCODE, op)
