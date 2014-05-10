@@ -195,3 +195,46 @@ def unaryoperation(OPCODE, oper):
 
 for OPCODE, oper in _unary_ops:
     globals()[OPCODE] = unaryoperation(OPCODE, oper)
+
+
+_binary_ops = [
+    ('BINARY_MULTIPLY', op.mul),
+    ('BINARY_TRUE_DIVIDE', op.truediv),
+    ('BINARY_FLOOR_DIVIDE', op.floordiv),
+    ('BINARY_DIVIDE', op.div),
+    ('BINARY_MODULO', op.mod),
+    ('BINARY_ADD', op.add),
+    ('BINARY_SUBTRACT', op.sub),
+    ('BINARY_SUBSCR', op.getitem),
+    ('BINARY_LSHIFT', op.lshift),
+    ('BINARY_RSHIFT', op.rshift),
+    ('BINARY_AND', op.and_),
+    ('BINARY_XOR', op.xor),
+    ('BINARY_OR', op.or_),
+    ('INPLACE_MULTIPLY', op.inplace_mul),
+    ('INPLACE_TRUE_DIVIDE', op.inplace_truediv),
+    ('INPLACE_FLOOR_DIVIDE', op.inplace_floordiv),
+    ('INPLACE_DIVIDE', op.inplace_div),
+    ('INPLACE_MODULO', op.inplace_mod),
+    ('INPLACE_ADD', op.inplace_add),
+    ('INPLACE_SUBTRACT', op.inplace_sub),
+    ('INPLACE_LSHIFT', op.inplace_lshift),
+    ('INPLACE_RSHIFT', op.inplace_rshift),
+    ('INPLACE_AND', op.inplace_and),
+    ('INPLACE_XOR', op.inplace_xor),
+    ('INPLACE_OR', op.inplace_or),
+]
+
+def binaryoperation(OPCODE, oper):
+    class BINARY_OP(BCInstruction):
+        def eval(self, ctx):
+            w_2 = ctx.popvalue()
+            w_1 = ctx.popvalue()
+            w_result = oper(w_1, w_2).eval(ctx)
+            ctx.pushvalue(w_result)
+    BINARY_OP.__name__ = OPCODE
+    bc_reader.register_opcode(BINARY_OP)
+    return BINARY_OP
+
+for OPCODE, oper in _binary_ops:
+    globals()[OPCODE] = binaryoperation(OPCODE, oper)

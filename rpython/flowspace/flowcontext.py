@@ -189,44 +189,6 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
-_binary_ops = [
-    ('BINARY_MULTIPLY', op.mul),
-    ('BINARY_TRUE_DIVIDE', op.truediv),
-    ('BINARY_FLOOR_DIVIDE', op.floordiv),
-    ('BINARY_DIVIDE', op.div),
-    ('BINARY_MODULO', op.mod),
-    ('BINARY_ADD', op.add),
-    ('BINARY_SUBTRACT', op.sub),
-    ('BINARY_SUBSCR', op.getitem),
-    ('BINARY_LSHIFT', op.lshift),
-    ('BINARY_RSHIFT', op.rshift),
-    ('BINARY_AND', op.and_),
-    ('BINARY_XOR', op.xor),
-    ('BINARY_OR', op.or_),
-    ('INPLACE_MULTIPLY', op.inplace_mul),
-    ('INPLACE_TRUE_DIVIDE', op.inplace_truediv),
-    ('INPLACE_FLOOR_DIVIDE', op.inplace_floordiv),
-    ('INPLACE_DIVIDE', op.inplace_div),
-    ('INPLACE_MODULO', op.inplace_mod),
-    ('INPLACE_ADD', op.inplace_add),
-    ('INPLACE_SUBTRACT', op.inplace_sub),
-    ('INPLACE_LSHIFT', op.inplace_lshift),
-    ('INPLACE_RSHIFT', op.inplace_rshift),
-    ('INPLACE_AND', op.inplace_and),
-    ('INPLACE_XOR', op.inplace_xor),
-    ('INPLACE_OR', op.inplace_or),
-]
-
-def binaryoperation(OPCODE, operation):
-    """NOT_RPYTHON"""
-    def BINARY_OP(self, _):
-        w_2 = self.popvalue()
-        w_1 = self.popvalue()
-        w_result = operation(w_1, w_2).eval(self)
-        self.pushvalue(w_result)
-    BINARY_OP.func_name = OPCODE
-    return BINARY_OP
-
 _unsupported_ops = [
     ('BINARY_POWER', "a ** b"),
     ('BUILD_CLASS', 'defining classes inside functions'),
@@ -912,9 +874,6 @@ class FlowContext(object):
                 break
             w_value = self.peekvalue(delta)
             self.pushvalue(w_value)
-
-    for OPCODE, op in _binary_ops:
-        locals()[OPCODE] = binaryoperation(OPCODE, op)
 
     for OPCODE, op in _unsupported_ops:
         locals()[OPCODE] = unsupportedoperation(OPCODE, op)
