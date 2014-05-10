@@ -59,13 +59,25 @@ class HostCode(object):
         self.build_flow()
 
     def build_flow(self):
-        next_pos = pos = 0
         contents, offsets, jumps = bc_reader.disassemble(self)
-        self.contents = zip(offsets, contents)
-        self.pos_index = dict((offset, i) for i, offset in enumerate(offsets))
-        # add end marker
-        self.contents.append((len(self.co_code), None))
+        pos_map = dict([(pos, i) for i, pos in enumerate(offsets)])
+        cuts = sorted([pos_map[n] + 1 for n in jumps.keys()] +
+                [pos_map[n] for n in jumps.values()])
+        pendingblocks = [SimpleBlock(contents[i:j])
+                for i, j in zip([0] + cuts, cuts + [len(self.co_code)])]
 
+        graph = self.graph = BytecodeGraph(pendingblocks[0])
+        graph.pendingblocks = pendingblocks
+        for block in pendingblocks:
+            for i, op in enumerate(block.operations):
+                graph.pos_index[op.offset] = block, i
+        graph.next_pos = dict([(offsets[i], offsets[i+1])
+            for i in range(len(offsets) - 1)])
+        graph.next_pos[offsets[-1]] = len(self.co_code)
+        while graph.pendingblocks:
+            block = graph.next_block()
+            for i, op in enumerate(block.operations):
+                op.bc_flow(block, graph)
 
     @classmethod
     def _from_code(cls, code):
@@ -88,9 +100,9 @@ class HostCode(object):
         return bool(self.co_flags & CO_GENERATOR)
 
     def read(self, offset):
-        i = self.pos_index[offset]
-        op = self.contents[i][1]
-        next_offset = self.contents[i+1][0]
+        block, i = self.graph.pos_index[offset]
+        op = block[i]
+        next_offset = self.graph.next_pos[offset]
         return next_offset, op
 
 
@@ -166,6 +178,61 @@ class BytecodeReader(object):
 
 bc_reader = BytecodeReader(host_bytecode_spec.method_names)
 
+class BytecodeGraph(object):
+    def __init__(self, startblock):
+        self.entry = EntryBlock()
+        self.entry.set_exits([startblock])
+        self.pos_index = {}
+        self.pendingblocks = [startblock]
+
+    def next_block(self):
+        return self.pendingblocks.pop()
+
+
+class BytecodeBlock(object):
+    """Base class for opcode blocks"""
+    def __init__(self):
+        self.parents = set()
+        self._exits = []
+
+    def __getitem__(self, i):
+        return self.operations[i]
+
+    def add_exit(self, exit):
+        self._exits.append(exit)
+        exit.parents.add(self)
+
+    def set_exits(self, exits):
+        for old_exit in self._exits:
+            old_exit.parents.remove(self)
+        self._exits = exits
+        for new_exit in exits:
+            new_exit.parents.add(self)
+
+    def change_exit(self, old_exit, new_exit):
+        self._exits = [new_exit if exit is old_exit else exit
+                for exit in self._exits]
+        old_exit.parents.remove(self)
+        new_exit.parents.add(self)
+
+    @property
+    def startpos(self):
+        return self.operations[0].offset
+
+
+class EntryBlock(BytecodeBlock):
+    """A fake block to represent the beginning of a code object"""
+
+class SimpleBlock(BytecodeBlock):
+    """A block with a single exit."""
+    def __init__(self, operations, exit=None):
+        BytecodeBlock.__init__(self)
+        self.operations = operations
+        if exit:
+            self.set_exits([exit])
+
+
+OPNAMES = host_bytecode_spec.method_names
 
 class BCInstruction(object):
     """
@@ -181,6 +248,9 @@ class BCInstruction(object):
         return cls(arg, offset)
 
     def eval(self, ctx):
+        pass
+
+    def bc_flow(self, block, graph):
         pass
 
     def has_jump(self):
