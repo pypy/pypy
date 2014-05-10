@@ -671,7 +671,8 @@ def run_command_line(interactive,
     if inspect_requested():
         try:
             from _pypy_interact import interactive_console
-            irc_topic = readenv and os.getenv('PYPY_IRC_TOPIC')
+            irc_topic = sys.version_info[3] != 'final' or (
+                                readenv and os.getenv('PYPY_IRC_TOPIC'))
             success = run_toplevel(interactive_console, mainmodule,
                                    quiet=not irc_topic)
         except SystemExit, e:
