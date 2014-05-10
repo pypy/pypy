@@ -111,6 +111,9 @@ class W_Context(W_Root):
         if to_trap:
             raise interp_signals.flags_as_exception(space, to_trap)
 
+    def catch_status(self, space):
+        return ContextStatus(space, self)
+
     def copy_w(self, space):
         w_copy = W_Context(space)
         rffi.structcopy(w_copy.ctx, self.ctx)
@@ -246,6 +249,23 @@ def ensure_context(space, w_context):
     if context is None:
         context = getcontext(space)
     return context
+
+class ContextStatus:
+    def __init__(self, space, context):
+        self.space = space
+        self.context = context
+
+    def __enter__(self):
+        self.status_ptr = lltype.malloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                        flavor='raw', zero=True)
+        return self.context.ctx, self.status_ptr
+        
+    def __exit__(self, *args):
+        status = rffi.cast(lltype.Signed, self.status_ptr[0])
+        lltype.free(self.status_ptr, flavor='raw')
+        # May raise a DecimalException
+        self.context.addstatus(self.space, status)
+
 
 class ConvContext:
     def __init__(self, space, mpd, context, exact):

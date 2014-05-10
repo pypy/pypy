@@ -46,7 +46,7 @@ eci = ExternalCompilationInfo(
         "mpd_iszero", "mpd_isnegative", "mpd_isinfinite", "mpd_isspecial",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
         "mpd_qcmp",
-        "mpd_qpow", "mpd_qmul",
+        "mpd_qpow", "mpd_qadd", "mpd_qsub", "mpd_qmul", "mpd_qdiv",
         "mpd_qround_to_int",
         ],
     compile_extra=compile_extra,
@@ -207,8 +207,20 @@ mpd_qpow = external(
     'mpd_qpow',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
+mpd_qadd = external(
+    'mpd_qadd',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qsub = external(
+    'mpd_qsub',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
 mpd_qmul = external(
     'mpd_qmul',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qdiv = external(
+    'mpd_qdiv',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
 

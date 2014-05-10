@@ -54,6 +54,8 @@ class AppTestExplicitConstruction:
         InvalidOperation = self.decimal.InvalidOperation
         localcontext = self.decimal.localcontext
 
+        self.decimal.getcontext().traps[InvalidOperation] = False
+
         #empty
         assert str(Decimal('')) == 'NaN'
 
@@ -296,7 +298,7 @@ class AppTestExplicitConstruction:
 
         nc = self.decimal.Context()
         r = nc.create_decimal(0.1)
-        assert assertEqual(type(r)) is Decimal
+        assert type(r) is Decimal
         assert str(r) == '0.1000000000000000055511151231'
         assert nc.create_decimal(float('nan')).is_qnan()
         assert nc.create_decimal(float('inf')).is_infinite()
@@ -314,3 +316,10 @@ class AppTestExplicitConstruction:
             x = self.random_float()
             assert x == float(nc.create_decimal(x))  # roundtrip
 
+    def test_operations(self):
+        Decimal = self.decimal.Decimal
+
+        assert Decimal(4) + Decimal(3) == Decimal(7)
+        assert Decimal(4) - Decimal(3) == Decimal(1)
+        assert Decimal(4) * Decimal(3) == Decimal(12)
+        assert Decimal(6) / Decimal(3) == Decimal(2)

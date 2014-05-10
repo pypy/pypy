@@ -1,4 +1,5 @@
 from rpython.rlib import rmpdec, rarithmetic, rbigint, rfloat
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
@@ -48,11 +49,9 @@ class W_Decimal(W_Root):
     def apply(self, space, context, w_subtype=None):
         # Apply the context to the input operand. Return a new W_Decimal.
         w_result = W_Decimal.allocate(space, w_subtype)
-        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
+        with context.catch_status(space) as (ctx, status_ptr):
             rmpdec.mpd_qcopy(w_result.mpd, self.mpd, status_ptr)
-            context.addstatus(space, rffi.cast(lltype.Signed, status_ptr[0]))
             rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
-            context.addstatus(space, rffi.cast(lltype.Signed, status_ptr[0]))
         return w_result
 
     def descr_str(self, space):
@@ -96,6 +95,46 @@ class W_Decimal(W_Root):
 
     def descr_eq(self, space, w_other):
         return self.compare(space, w_other, 'eq')
+
+    # Operations
+    @staticmethod
+    def convert_op(space, w_value, context):
+        if isinstance(w_value, W_Decimal):
+            return None, w_value
+        elif space.isinstance_w(w_value, space.w_int):
+            value = space.bigint_w(w_value)
+            return None, decimal_from_bigint(space, None, value, context,
+                                             exact=True)
+        return space.w_NotImplemented, None
+
+    def convert_binop(self, space, w_other, context):
+        w_err, w_a = W_Decimal.convert_op(space, self, context)
+        if w_err:
+            return w_err, None, None
+        w_err, w_b = W_Decimal.convert_op(space, w_other, context)
+        if w_err:
+            return w_err, None, None
+        return None, w_a, w_b
+
+    def binary_number_method(self, space, mpd_func, w_other):
+        context = interp_context.getcontext(space)
+
+        w_err, w_a, w_b = self.convert_binop(space, w_other, context)
+        if w_err:
+            return w_err
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
+        return w_result
+
+    def descr_add(self, space, w_other):
+        return self.binary_number_method(space, rmpdec.mpd_qadd, w_other)
+    def descr_sub(self, space, w_other):
+        return self.binary_number_method(space, rmpdec.mpd_qsub, w_other)
+    def descr_mul(self, space, w_other):
+        return self.binary_number_method(space, rmpdec.mpd_qmul, w_other)
+    def descr_truediv(self, space, w_other):
+        return self.binary_number_method(space, rmpdec.mpd_qdiv, w_other)
 
     # Boolean functions
     def is_qnan_w(self, space):
@@ -296,9 +335,8 @@ def decimal_from_float(space, w_subtype, w_value, context, exact=True):
     w_result.mpd.c_exp = - k
 
     if not exact:
-        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
-            rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
-            context.addstatus(space, rffi.cast(lltype.Signed, status_ptr[0]))
+        with context.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qfinalize(w_result.mpd, ctx, status_ptr)
     return w_result
 
 def decimal_from_object(space, w_subtype, w_value, context, exact=True):
@@ -339,6 +377,12 @@ W_Decimal.typedef = TypeDef(
     __bool__ = interp2app(W_Decimal.descr_bool),
     __float__ = interp2app(W_Decimal.descr_float),
     __eq__ = interp2app(W_Decimal.descr_eq),
+    #
+    __add__ = interp2app(W_Decimal.descr_add),
+    __sub__ = interp2app(W_Decimal.descr_sub),
+    __mul__ = interp2app(W_Decimal.descr_mul),
+    __truediv__ = interp2app(W_Decimal.descr_truediv),
+    #
     is_qnan = interp2app(W_Decimal.is_qnan_w),
     is_infinite = interp2app(W_Decimal.is_infinite_w),
     )
