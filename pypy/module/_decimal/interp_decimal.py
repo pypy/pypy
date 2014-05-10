@@ -67,6 +67,17 @@ class W_Decimal(W_Root):
                 rmpdec.mpd_free(cp)
         return space.wrap(result)  # Convert bytes to unicode
 
+    def descr_repr(self, space):
+        context = interp_context.getcontext(space)
+        cp = rmpdec.mpd_to_sci(self.mpd, context.capitals)
+        if not cp:
+            raise OperationError(space.w_MemoryError, space.w_None)
+        try:
+            result = rffi.charp2str(cp)
+        finally:
+            rmpdec.mpd_free(cp)
+        return space.wrap("Decimal('%s')" % result)
+
     def descr_bool(self, space):
         return space.wrap(not rmpdec.mpd_iszero(self.mpd))
 
@@ -374,6 +385,7 @@ W_Decimal.typedef = TypeDef(
     'Decimal',
     __new__ = interp2app(descr_new_decimal),
     __str__ = interp2app(W_Decimal.descr_str),
+    __repr__ = interp2app(W_Decimal.descr_repr),
     __bool__ = interp2app(W_Decimal.descr_bool),
     __float__ = interp2app(W_Decimal.descr_float),
     __eq__ = interp2app(W_Decimal.descr_eq),
