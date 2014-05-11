@@ -56,28 +56,7 @@ class HostCode(object):
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
         self.signature = cpython_code_signature(self)
-        self.graph = self.build_flow()
-
-    def build_flow(self):
-        contents, offsets, jumps = bc_reader.disassemble(self)
-        pos_map = dict([(pos, i) for i, pos in enumerate(offsets)])
-        cuts = sorted([pos_map[n] + 1 for n in jumps.keys()] +
-                [pos_map[n] for n in jumps.values()])
-        pendingblocks = [SimpleBlock(contents[i:j])
-                for i, j in zip([0] + cuts, cuts + [len(self.co_code)])]
-
-        graph = BytecodeGraph(pendingblocks[0])
-        for block in pendingblocks:
-            for i, op in enumerate(block.operations):
-                graph.pos_index[op.offset] = block, i
-        graph._next_pos = dict([(offsets[i], offsets[i+1])
-            for i in range(len(offsets) - 1)])
-        graph._next_pos[offsets[-1]] = len(self.co_code)
-        while pendingblocks:
-            block = pendingblocks.pop()
-            for i, op in enumerate(block.operations):
-                op.bc_flow(block, graph)
-        return graph
+        self.graph = bc_reader.build_flow(self)
 
     @classmethod
     def _from_code(cls, code):
@@ -169,6 +148,27 @@ class BytecodeReader(object):
         except KeyError:
             op = GenericOpcode(self.opnames[opnum], opnum, oparg, offset)
         return next_offset, op
+
+    def build_flow(self, code):
+        contents, offsets, jumps = self.disassemble(code)
+        pos_map = dict([(pos, i) for i, pos in enumerate(offsets)])
+        cuts = sorted([pos_map[n] + 1 for n in jumps.keys()] +
+                [pos_map[n] for n in jumps.values()])
+        pendingblocks = [SimpleBlock(contents[i:j])
+                for i, j in zip([0] + cuts, cuts + [len(code.co_code)])]
+
+        graph = BytecodeGraph(pendingblocks[0])
+        for block in pendingblocks:
+            for i, op in enumerate(block.operations):
+                graph.pos_index[op.offset] = block, i
+        graph._next_pos = dict([(offsets[i], offsets[i+1])
+            for i in range(len(offsets) - 1)])
+        graph._next_pos[offsets[-1]] = len(code.co_code)
+        while pendingblocks:
+            block = pendingblocks.pop()
+            for i, op in enumerate(block.operations):
+                op.bc_flow(block, graph)
+        return graph
 
     def build_code(self, code):
         return HostCode._from_code(code)
