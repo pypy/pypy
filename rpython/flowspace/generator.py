@@ -1,6 +1,8 @@
 """Flow graph building for generators"""
 
 from rpython.flowspace.argument import Signature
+from rpython.flowspace.bytecode import HostCode
+from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.model import (Block, Link, Variable,
     Constant, checkgraph, const)
 from rpython.flowspace.operation import op
@@ -12,6 +14,16 @@ from rpython.tool.sourcetools import func_with_new_name
 class AbstractPosition(object):
     _immutable_ = True
     _attrs_ = ()
+
+def make_generator_entry_graph(func):
+    code = HostCode._from_code(func.func_code)
+    graph = PyGraph(func, code)
+    block = graph.startblock
+    for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
+        if isinstance(w_value, Variable):
+            w_value.rename(name)
+    return bootstrap_generator(graph)
+
 
 def bootstrap_generator(graph):
     # This is the first copy of the graph.  We replace it with
