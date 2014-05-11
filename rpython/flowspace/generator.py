@@ -16,19 +16,16 @@ class AbstractPosition(object):
     _attrs_ = ()
 
 def make_generator_entry_graph(func):
+    # This is the first copy of the graph.  We replace it with
+    # a small bootstrap graph.
     code = HostCode._from_code(func.func_code)
     graph = PyGraph(func, code)
     block = graph.startblock
     for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
         if isinstance(w_value, Variable):
             w_value.rename(name)
-    return bootstrap_generator(graph)
-
-
-def bootstrap_generator(graph):
-    # This is the first copy of the graph.  We replace it with
-    # a small bootstrap graph.
-    GeneratorIterator = make_generatoriterator_class(graph)
+    varnames = get_variable_names(graph.startblock.inputargs)
+    GeneratorIterator = make_generatoriterator_class(varnames)
     replace_graph_with_bootstrap(GeneratorIterator, graph)
     # We attach a 'next' method to the GeneratorIterator class
     # that will invoke the real function, based on a second
@@ -42,11 +39,11 @@ def tweak_generator_graph(graph):
     tweak_generator_body_graph(GeneratorIterator.Entry, graph)
 
 
-def make_generatoriterator_class(graph):
+def make_generatoriterator_class(var_names):
     class GeneratorIterator(object):
         class Entry(AbstractPosition):
             _immutable_ = True
-            varnames = get_variable_names(graph.startblock.inputargs)
+            varnames = var_names
 
         def __init__(self, entry):
             self.current = entry
@@ -84,7 +81,7 @@ def attach_next_method(GeneratorIterator, graph):
         self.current = next_entry
         return return_value
     GeneratorIterator.next = next
-    return func   # for debugging
+    graph._tweaked_func = func  # for testing
 
 def get_variable_names(variables):
     seen = set()
