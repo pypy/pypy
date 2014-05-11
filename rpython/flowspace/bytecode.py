@@ -67,15 +67,14 @@ class HostCode(object):
                 for i, j in zip([0] + cuts, cuts + [len(self.co_code)])]
 
         graph = self.graph = BytecodeGraph(pendingblocks[0])
-        graph.pendingblocks = pendingblocks
         for block in pendingblocks:
             for i, op in enumerate(block.operations):
                 graph.pos_index[op.offset] = block, i
         graph.next_pos = dict([(offsets[i], offsets[i+1])
             for i in range(len(offsets) - 1)])
         graph.next_pos[offsets[-1]] = len(self.co_code)
-        while graph.pendingblocks:
-            block = graph.next_block()
+        while pendingblocks:
+            block = pendingblocks.pop()
             for i, op in enumerate(block.operations):
                 op.bc_flow(block, graph)
 
@@ -183,10 +182,6 @@ class BytecodeGraph(object):
         self.entry = EntryBlock()
         self.entry.set_exits([startblock])
         self.pos_index = {}
-        self.pendingblocks = [startblock]
-
-    def next_block(self):
-        return self.pendingblocks.pop()
 
 
 class BytecodeBlock(object):
