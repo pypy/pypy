@@ -712,3 +712,49 @@ class AppTestExplicitConstruction:
         d = Decimal(1).copy_sign(Decimal(-2))
         assert Decimal(1).copy_sign(-2) == d
         raises(TypeError, Decimal(1).copy_sign, '-2')
+
+    def test_as_tuple(self):
+        Decimal = self.decimal.Decimal
+
+        #with zero
+        d = Decimal(0)
+        assert d.as_tuple() == (0, (0,), 0) 
+
+        #int
+        d = Decimal(-45)
+        assert d.as_tuple() == (1, (4, 5), 0) 
+
+        #complicated string
+        d = Decimal("-4.34913534E-17")
+        assert d.as_tuple() == (1, (4, 3, 4, 9, 1, 3, 5, 3, 4), -25) 
+
+        # The '0' coefficient is implementation specific to decimal.py.
+        # It has no meaning in the C-version and is ignored there.
+        d = Decimal("Infinity")
+        assert d.as_tuple() == (0, (0,), 'F') 
+
+        #leading zeros in coefficient should be stripped
+        d = Decimal( (0, (0, 0, 4, 0, 5, 3, 4), -2) )
+        assert d.as_tuple() == (0, (4, 0, 5, 3, 4), -2) 
+        d = Decimal( (1, (0, 0, 0), 37) )
+        assert d.as_tuple() == (1, (0,), 37)
+        d = Decimal( (1, (), 37) )
+        assert d.as_tuple() == (1, (0,), 37)
+
+        #leading zeros in NaN diagnostic info should be stripped
+        d = Decimal( (0, (0, 0, 4, 0, 5, 3, 4), 'n') )
+        assert d.as_tuple() == (0, (4, 0, 5, 3, 4), 'n') 
+        d = Decimal( (1, (0, 0, 0), 'N') )
+        assert d.as_tuple() == (1, (), 'N') 
+        d = Decimal( (1, (), 'n') )
+        assert d.as_tuple() == (1, (), 'n') 
+
+        # For infinities, decimal.py has always silently accepted any
+        # coefficient tuple.
+        d = Decimal( (0, (0,), 'F') )
+        assert d.as_tuple() == (0, (0,), 'F')
+        d = Decimal( (0, (4, 5, 3, 4), 'F') )
+        assert d.as_tuple() == (0, (0,), 'F')
+        d = Decimal( (1, (0, 2, 7, 1), 'F') )
+        assert d.as_tuple() == (1, (0,), 'F')
+

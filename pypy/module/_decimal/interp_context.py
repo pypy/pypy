@@ -61,6 +61,10 @@ class State:
                             w_MutableMapping]),
             space.newdict())
 
+        self.W_DecimalTuple = space.call_method(
+            w_collections, "namedtuple",
+            space.wrap("DecimalTuple"), space.wrap("sign digits exponent"))
+
 def state_get(space):
     return space.fromcache(State)
 

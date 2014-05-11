@@ -36,13 +36,14 @@ eci = ExternalCompilationInfo(
                            libdir.join('memory.c'),
                            ],
     export_symbols=[
-        "mpd_qset_ssize", "mpd_qset_uint", "mpd_qset_string", "mpd_qcopy", "mpd_setspecial",
+        "mpd_qset_ssize", "mpd_qset_uint", "mpd_qset_string",
+        "mpd_qcopy", "mpd_qncopy", "mpd_setspecial", "mpd_clear_flags",
         "mpd_qimport_u32", "mpd_qexport_u32", "mpd_qexport_u16",
-        "mpd_set_sign", "mpd_qfinalize",
+        "mpd_set_sign", "mpd_sign", "mpd_qfinalize",
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
-        "mpd_qnew",
+        "mpd_qnew", "mpd_del",
         "mpd_to_sci", "mpd_to_sci_size",
         "mpd_iszero", "mpd_isnegative", "mpd_isinfinite", "mpd_isspecial",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
@@ -156,10 +157,16 @@ mpd_qexport_u16 = external(
         MPD_PTR, rffi.UINTP], rffi.SIZE_T)
 mpd_qcopy = external(
     'mpd_qcopy', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)
+mpd_qncopy = external(
+    'mpd_qncopy', [MPD_PTR], MPD_PTR)
 mpd_setspecial = external(
     'mpd_setspecial', [MPD_PTR, rffi.UCHAR, rffi.UCHAR], lltype.Void)
 mpd_set_sign = external(
     'mpd_set_sign', [MPD_PTR, rffi.UCHAR], lltype.Void)
+mpd_clear_flags = external(
+    'mpd_clear_flags', [MPD_PTR], lltype.Void)
+mpd_sign = external(
+    'mpd_sign', [MPD_PTR], rffi.UCHAR)
 mpd_qfinalize = external(
     'mpd_qfinalize', [MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 
@@ -191,6 +198,8 @@ mpd_maxcontext = external(
 
 mpd_qnew = external(
     'mpd_qnew', [], MPD_PTR)
+mpd_del = external(
+    'mpd_del', [MPD_PTR], lltype.Void)
 mpd_free = external(
     'mpd_free', [rffi.VOIDP], lltype.Void, macro=True)
 

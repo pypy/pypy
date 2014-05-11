@@ -315,6 +315,53 @@ class W_Decimal(W_Root):
     def is_infinite_w(self, space):
         return space.wrap(bool(rmpdec.mpd_isinfinite(self.mpd)))
 
+    def as_tuple_w(self, space):
+        "Return the DecimalTuple representation of a Decimal"
+        w_sign = space.wrap(rmpdec.mpd_sign(self.mpd))
+        if rmpdec.mpd_isinfinite(self.mpd):
+            w_expt = space.wrap("F")
+            # decimal.py has non-compliant infinity payloads.
+            w_coeff = space.newtuple([space.wrap(0)])
+        else:
+            if rmpdec.mpd_isnan(self.mpd):
+                if rmpdec.mpd_issnan(self.mpd):
+                    w_expt = space.wrap("N")
+                else:
+                    w_expt = space.wrap("n")
+            else:
+                w_expt = space.wrap(self.mpd.c_exp)
+
+            if self.mpd.c_len > 0:
+                # coefficient is defined
+
+                # make an integer
+                # XXX this should be done in C...
+                x = rmpdec.mpd_qncopy(self.mpd)
+                if not x:
+                    raise OperationError(space.w_MemoryError, space.w_None)
+                try:
+                    x.c_exp = 0
+                    # clear NaN and sign
+                    rmpdec.mpd_clear_flags(x)
+                    intstring = rmpdec.mpd_to_sci(x, 1)
+                finally:
+                    rmpdec.mpd_del(x)
+                if not intstring:
+                    raise OperationError(space.w_MemoryError, space.w_None)
+                try:
+                    digits = rffi.charp2str(intstring)
+                finally:
+                    rmpdec.mpd_free(intstring)
+                w_coeff = space.newtuple([
+                        space.wrap(ord(d) - ord('0'))
+                        for d in digits])
+            else:
+                w_coeff = space.newtuple([])
+
+        return space.call_function(
+            interp_context.state_get(space).W_DecimalTuple,
+            w_sign, w_coeff, w_expt)
+
 
 # Helper functions for arithmetic conversions
 def convert_op(space, context, w_value):
@@ -643,4 +690,6 @@ W_Decimal.typedef = TypeDef(
     copy_sign = interp2app(W_Decimal.copy_sign_w),
     is_qnan = interp2app(W_Decimal.is_qnan_w),
     is_infinite = interp2app(W_Decimal.is_infinite_w),
+    #
+    as_tuple = interp2app(W_Decimal.as_tuple_w),
     )
