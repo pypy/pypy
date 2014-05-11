@@ -349,9 +349,12 @@ class FlowContext(object):
         self.setstate(block.framestate)
         next_offset = block.framestate.next_offset
         self.recorder = block.make_recorder()
+        bc_graph = self.pycode.graph
         try:
             while True:
-                next_offset = self.handle_bytecode(next_offset)
+                instr = bc_graph.read(next_offset)
+                self.last_offset = instr.offset
+                next_offset = self.handle_bytecode(instr)
                 self.recorder.final_state = self.getstate(next_offset)
 
         except RaiseImplicit as e:
@@ -449,12 +452,10 @@ class FlowContext(object):
                     stack_items_w[i] = w_new
                     break
 
-    def handle_bytecode(self, next_offset):
+    def handle_bytecode(self, instr):
         bc_graph = self.pycode.graph
-        next_offset, instr = self.pycode.read(next_offset)
-        self.last_offset = instr.offset
         try:
-            offset = instr.eval(self)
+            next_offset = instr.eval(self)
         except FlowSignal as signal:
             return self.unroll(signal)
         if next_offset is None:
