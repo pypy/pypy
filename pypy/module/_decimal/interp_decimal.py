@@ -175,7 +175,7 @@ class W_Decimal(W_Root):
 
     # Operations
     @staticmethod
-    def convert_op(space, w_value, context):
+    def convert_op(space, context, w_value):
         if isinstance(w_value, W_Decimal):
             return None, w_value
         elif space.isinstance_w(w_value, space.w_int):
@@ -184,19 +184,34 @@ class W_Decimal(W_Root):
                                              exact=True)
         return space.w_NotImplemented, None
 
-    def convert_binop(self, space, w_other, context):
-        w_err, w_a = W_Decimal.convert_op(space, self, context)
+    @staticmethod
+    def convert_binop(space, context, w_x, w_y):
+        w_err, w_a = W_Decimal.convert_op(space, context, w_x)
         if w_err:
             return w_err, None, None
-        w_err, w_b = W_Decimal.convert_op(space, w_other, context)
+        w_err, w_b = W_Decimal.convert_op(space, context, w_y)
         if w_err:
             return w_err, None, None
         return None, w_a, w_b
 
+    @staticmethod
+    def convert_binop_raise(space, context, w_x, w_y):
+        w_err, w_a = W_Decimal.convert_op(space, context, w_x)
+        if w_err:
+            raise oefmt(space.w_TypeError,
+                        "conversion from %N to Decimal is not supported",
+                        space.type(w_x))
+        w_err, w_b = W_Decimal.convert_op(space, context, w_y)
+        if w_err:
+            raise oefmt(space.w_TypeError,
+                        "conversion from %N to Decimal is not supported",
+                        space.type(w_y))
+        return w_a, w_b
+
     def binary_number_method(self, space, mpd_func, w_other):
         context = interp_context.getcontext(space)
 
-        w_err, w_a, w_b = self.convert_binop(space, w_other, context)
+        w_err, w_a, w_b = W_Decimal.convert_binop(space, context, self, w_other)
         if w_err:
             return w_err
         w_result = W_Decimal.allocate(space)
@@ -279,7 +294,7 @@ def decimal_from_tuple(space, w_subtype, w_value, context, exact=True):
 
     # sign
     try:
-        sign = space.int_w(w_sign)
+        sign = space.int_w(w_sign, allow_conversion=False)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise

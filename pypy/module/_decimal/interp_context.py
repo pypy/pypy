@@ -210,6 +210,19 @@ class W_Context(W_Root):
                 self.capitals, rffi.cast(lltype.Signed, self.ctx.c_clamp),
                 flags, traps))
 
+    # Binary arithmetic functions
+    def binary_method(self, space, mpd_func, w_x, w_y):
+        from pypy.module._decimal.interp_decimal import W_Decimal
+        w_a, w_b = W_Decimal.convert_binop_raise(space, self, w_x, w_y)
+        w_result = W_Decimal.allocate(space)
+        with self.catch_status(space) as (ctx, status_ptr):
+            mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
+        return w_result
+
+    def add_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qadd, w_x, w_y)
+        
+
 
 def descr_new_context(space, w_subtype, __args__):
     w_result = space.allocate_instance(W_Context, w_subtype)
@@ -235,6 +248,8 @@ W_Context.typedef = TypeDef(
     clear_flags=interp2app(W_Context.clear_flags_w),
     clear_traps=interp2app(W_Context.clear_traps_w),
     create_decimal=interp2app(W_Context.create_decimal_w),
+    # Operations
+    add=interp2app(W_Context.add_w),
     )
 
 

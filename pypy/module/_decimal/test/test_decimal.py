@@ -437,3 +437,17 @@ class AppTestExplicitConstruction:
         for d, n, r in test_triples:
             assert str(round(Decimal(d), n)) == r
 
+    def test_add(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.add(Decimal(1), Decimal(1))
+        assert c.add(1, 1) == d
+        assert c.add(Decimal(1), 1) == d
+        assert c.add(1, Decimal(1)) == d
+        raises(TypeError, c.add, '1', 1)
+        raises(TypeError, c.add, 1, '1')
+
+    
+
