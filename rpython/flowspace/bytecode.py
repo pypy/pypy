@@ -56,7 +56,7 @@ class HostCode(object):
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
         self.signature = cpython_code_signature(self)
-        self.build_flow()
+        self.graph = self.build_flow()
 
     def build_flow(self):
         contents, offsets, jumps = bc_reader.disassemble(self)
@@ -66,7 +66,7 @@ class HostCode(object):
         pendingblocks = [SimpleBlock(contents[i:j])
                 for i, j in zip([0] + cuts, cuts + [len(self.co_code)])]
 
-        graph = self.graph = BytecodeGraph(pendingblocks[0])
+        graph = BytecodeGraph(pendingblocks[0])
         for block in pendingblocks:
             for i, op in enumerate(block.operations):
                 graph.pos_index[op.offset] = block, i
@@ -77,6 +77,7 @@ class HostCode(object):
             block = pendingblocks.pop()
             for i, op in enumerate(block.operations):
                 op.bc_flow(block, graph)
+        return graph
 
     @classmethod
     def _from_code(cls, code):
