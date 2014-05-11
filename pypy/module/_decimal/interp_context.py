@@ -221,7 +221,12 @@ class W_Context(W_Root):
 
     def add_w(self, space, w_x, w_y):
         return self.binary_method(space, rmpdec.mpd_qadd, w_x, w_y)
-        
+    def subtract_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qsub, w_x, w_y)
+    def multiply_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qmul, w_x, w_y)
+    def divide_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qdiv, w_x, w_y)
 
 
 def descr_new_context(space, w_subtype, __args__):
@@ -250,6 +255,9 @@ W_Context.typedef = TypeDef(
     create_decimal=interp2app(W_Context.create_decimal_w),
     # Operations
     add=interp2app(W_Context.add_w),
+    subtract=interp2app(W_Context.subtract_w),
+    multiply=interp2app(W_Context.multiply_w),
+    divide=interp2app(W_Context.divide_w),
     )
 
 

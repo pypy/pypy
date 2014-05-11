@@ -449,5 +449,38 @@ class AppTestExplicitConstruction:
         raises(TypeError, c.add, '1', 1)
         raises(TypeError, c.add, 1, '1')
 
-    
+    def test_subtract(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
 
+        c = Context()
+        d = c.subtract(Decimal(1), Decimal(2))
+        assert c.subtract(1, 2) == d
+        assert c.subtract(Decimal(1), 2) == d
+        assert c.subtract(1, Decimal(2)) == d
+        raises(TypeError, c.subtract, '1', 2)
+        raises(TypeError, c.subtract, 1, '2')
+
+    def test_multiply(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.multiply(Decimal(1), Decimal(2))
+        assert c.multiply(1, 2)== d
+        assert c.multiply(Decimal(1), 2)== d
+        assert c.multiply(1, Decimal(2))== d
+        raises(TypeError, c.multiply, '1', 2)
+        raises(TypeError, c.multiply, 1, '2')
+
+    def test_divide(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.divide(Decimal(1), Decimal(2))
+        assert c.divide(1, 2)== d
+        assert c.divide(Decimal(1), 2)== d
+        assert c.divide(1, Decimal(2))== d
+        raises(TypeError, c.divide, '1', 2)
+        raises(TypeError, c.divide, 1, '2')
