@@ -293,29 +293,6 @@ class AppTestExplicitConstruction:
         assert str(nc.create_decimal(Decimal('NaN12345'))) == 'NaN'
         assert nc.flags[InvalidOperation]
 
-    def test_explicit_context_create_from_float(self):
-        Decimal = self.decimal.Decimal
-
-        nc = self.decimal.Context()
-        r = nc.create_decimal(0.1)
-        assert type(r) is Decimal
-        assert str(r) == '0.1000000000000000055511151231'
-        assert nc.create_decimal(float('nan')).is_qnan()
-        assert nc.create_decimal(float('inf')).is_infinite()
-        assert nc.create_decimal(float('-inf')).is_infinite()
-        assert (str(nc.create_decimal(float('nan'))) ==
-                str(nc.create_decimal('NaN')))
-        assert (str(nc.create_decimal(float('inf'))) ==
-                str(nc.create_decimal('Infinity')))
-        assert (str(nc.create_decimal(float('-inf'))) ==
-                str(nc.create_decimal('-Infinity')))
-        assert (str(nc.create_decimal(float('-0.0'))) ==
-                str(nc.create_decimal('-0')))
-        nc.prec = 100
-        for i in range(200):
-            x = self.random_float()
-            assert x == float(nc.create_decimal(x))  # roundtrip
-
     def test_operations(self):
         Decimal = self.decimal.Decimal
 
@@ -437,50 +414,301 @@ class AppTestExplicitConstruction:
         for d, n, r in test_triples:
             assert str(round(Decimal(d), n)) == r
 
-    def test_add(self):
+    def test_addition(self):
         Decimal = self.decimal.Decimal
-        Context = self.decimal.Context
 
-        c = Context()
-        d = c.add(Decimal(1), Decimal(1))
-        assert c.add(1, 1) == d
-        assert c.add(Decimal(1), 1) == d
-        assert c.add(1, Decimal(1)) == d
-        raises(TypeError, c.add, '1', 1)
-        raises(TypeError, c.add, 1, '1')
+        d1 = Decimal('-11.1')
+        d2 = Decimal('22.2')
 
-    def test_subtract(self):
+        #two Decimals
+        assert d1+d2 == Decimal('11.1')
+        assert d2+d1 == Decimal('11.1')
+
+        #with other type, left
+        c = d1 + 5
+        assert c == Decimal('-6.1')
+        assert type(c) == type(d1)
+
+        #with other type, right
+        c = 5 + d1
+        assert c == Decimal('-6.1')
+        assert type(c) == type(d1)
+
+        #inline with decimal
+        d1 += d2
+        assert d1 == Decimal('11.1')
+
+        #inline with other type
+        d1 += 5
+        assert d1 == Decimal('16.1')
+
+    def test_subtraction(self):
         Decimal = self.decimal.Decimal
-        Context = self.decimal.Context
 
-        c = Context()
-        d = c.subtract(Decimal(1), Decimal(2))
-        assert c.subtract(1, 2) == d
-        assert c.subtract(Decimal(1), 2) == d
-        assert c.subtract(1, Decimal(2)) == d
-        raises(TypeError, c.subtract, '1', 2)
-        raises(TypeError, c.subtract, 1, '2')
+        d1 = Decimal('-11.1')
+        d2 = Decimal('22.2')
 
-    def test_multiply(self):
+        #two Decimals
+        assert d1-d2 == Decimal('-33.3')
+        assert d2-d1 == Decimal('33.3')
+
+        #with other type, left
+        c = d1 - 5
+        assert c == Decimal('-16.1')
+        assert type(c) == type(d1)
+
+        #with other type, right
+        c = 5 - d1
+        assert c == Decimal('16.1')
+        assert type(c) == type(d1)
+
+        #inline with decimal
+        d1 -= d2
+        assert d1 == Decimal('-33.3')
+
+        #inline with other type
+        d1 -= 5
+        assert d1 == Decimal('-38.3')
+
+    def test_multiplication(self):
         Decimal = self.decimal.Decimal
-        Context = self.decimal.Context
 
-        c = Context()
-        d = c.multiply(Decimal(1), Decimal(2))
-        assert c.multiply(1, 2)== d
-        assert c.multiply(Decimal(1), 2)== d
-        assert c.multiply(1, Decimal(2))== d
-        raises(TypeError, c.multiply, '1', 2)
-        raises(TypeError, c.multiply, 1, '2')
+        d1 = Decimal('-5')
+        d2 = Decimal('3')
 
-    def test_divide(self):
+        #two Decimals
+        assert d1*d2 == Decimal('-15')
+        assert d2*d1 == Decimal('-15')
+
+        #with other type, left
+        c = d1 * 5
+        assert c == Decimal('-25')
+        assert type(c) == type(d1)
+
+        #with other type, right
+        c = 5 * d1
+        assert c == Decimal('-25')
+        assert type(c) == type(d1)
+
+        #inline with decimal
+        d1 *= d2
+        assert d1 == Decimal('-15')
+
+        #inline with other type
+        d1 *= 5
+        assert d1 == Decimal('-75')
+
+    def test_division(self):
         Decimal = self.decimal.Decimal
-        Context = self.decimal.Context
 
-        c = Context()
-        d = c.divide(Decimal(1), Decimal(2))
-        assert c.divide(1, 2)== d
-        assert c.divide(Decimal(1), 2)== d
-        assert c.divide(1, Decimal(2))== d
-        raises(TypeError, c.divide, '1', 2)
-        raises(TypeError, c.divide, 1, '2')
+        d1 = Decimal('-5')
+        d2 = Decimal('2')
+
+        #two Decimals
+        assert d1/d2 == Decimal('-2.5')
+        assert d2/d1 == Decimal('-0.4')
+
+        #with other type, left
+        c = d1 / 4
+        assert c == Decimal('-1.25')
+        assert type(c) == type(d1)
+
+        #with other type, right
+        c = 4 / d1
+        assert c == Decimal('-0.8')
+        assert type(c) == type(d1)
+
+        #inline with decimal
+        d1 /= d2
+        assert d1 == Decimal('-2.5')
+
+        #inline with other type
+        d1 /= 4
+        assert d1 == Decimal('-0.625')
+
+    def test_floor_division(self):
+        Decimal = self.decimal.Decimal
+
+        d1 = Decimal('5')
+        d2 = Decimal('2')
+
+        #two Decimals
+        assert d1//d2 == Decimal('2')
+        assert d2//d1 == Decimal('0')
+
+        #with other type, left
+        c = d1 // 4
+        assert c == Decimal('1')
+        assert type(c) == type(d1)
+
+        #with other type, right
+        c = 7 // d1
+        assert c == Decimal('1')
+        assert type(c) == type(d1)
+
+        #inline with decimal
+        d1 //= d2
+        assert d1 == Decimal('2')
+
+        #inline with other type
+        d1 //= 2
+        assert d1 == Decimal('1')
+
+    def test_powering(self):
+        Decimal = self.decimal.Decimal
+
+        d1 = Decimal('5')
+        d2 = Decimal('2')
+
+        #two Decimals
+        assert d1**d2 == Decimal('25')
+        assert d2**d1 == Decimal('32')
+
+        #with other type, left
+        c = d1 ** 4
+        assert c == Decimal('625')
+        assert type(c) == type(d1)
+
+        #with other type, right
+        c = 7 ** d1
+        assert c == Decimal('16807')
+        assert type(c) == type(d1)
+
+        #inline with decimal
+        d1 **= d2
+        assert d1 == Decimal('25')
+
+        #inline with other type
+        d1 **= 4
+        assert d1 == Decimal('390625')
+
+    def test_module(self):
+        Decimal = self.decimal.Decimal
+
+        d1 = Decimal('5')
+        d2 = Decimal('2')
+
+        #two Decimals
+        assert d1%d2 == Decimal('1')
+        assert d2%d1 == Decimal('2')
+
+        #with other type, left
+        c = d1 % 4
+        assert c == Decimal('1')
+        assert type(c) == type(d1)
+
+        #with other type, right
+        c = 7 % d1
+        assert c == Decimal('2')
+        assert type(c) == type(d1)
+
+        #inline with decimal
+        d1 %= d2
+        assert d1 == Decimal('1')
+
+        #inline with other type
+        d1 %= 4
+        assert d1 == Decimal('1')
+
+    def test_floor_div_module(self):
+        Decimal = self.decimal.Decimal
+
+        d1 = Decimal('5')
+        d2 = Decimal('2')
+
+        #two Decimals
+        (p, q) = divmod(d1, d2)
+        assert p == Decimal('2')
+        assert q == Decimal('1')
+        assert type(p) == type(d1)
+        assert type(q) == type(d1)
+
+        #with other type, left
+        (p, q) = divmod(d1, 4)
+        assert p == Decimal('1')
+        assert q == Decimal('1')
+        assert type(p) == type(d1)
+        assert type(q) == type(d1)
+
+        #with other type, right
+        (p, q) = divmod(7, d1)
+        assert p == Decimal('1')
+        assert q == Decimal('2')
+        assert type(p) == type(d1)
+        assert type(q) == type(d1)
+
+    def test_unary_operators(self):
+        Decimal = self.decimal.Decimal
+
+        assert +Decimal(45) == Decimal(+45)
+        assert -Decimal(45) == Decimal(-45)
+        assert abs(Decimal(45)) == abs(Decimal(-45))
+
+    def test_nan_comparisons(self):
+        import operator
+        # comparisons involving signaling nans signal InvalidOperation
+
+        # order comparisons (<, <=, >, >=) involving only quiet nans
+        # also signal InvalidOperation
+
+        # equality comparisons (==, !=) involving only quiet nans
+        # don't signal, but return False or True respectively.
+        Decimal = self.decimal.Decimal
+        InvalidOperation = self.decimal.InvalidOperation
+        Overflow = self.decimal.Overflow
+        DivisionByZero = self.decimal.DivisionByZero
+        localcontext = self.decimal.localcontext
+
+        self.decimal.getcontext().traps[InvalidOperation] = False
+        self.decimal.getcontext().traps[Overflow] = False
+        self.decimal.getcontext().traps[DivisionByZero] = False
+
+        n = Decimal('NaN')
+        s = Decimal('sNaN')
+        i = Decimal('Inf')
+        f = Decimal('2')
+
+        qnan_pairs = (n, n), (n, i), (i, n), (n, f), (f, n)
+        snan_pairs = (s, n), (n, s), (s, i), (i, s), (s, f), (f, s), (s, s)
+        order_ops = operator.lt, operator.le, operator.gt, operator.ge
+        equality_ops = operator.eq, operator.ne
+
+        # results when InvalidOperation is not trapped
+        for x, y in qnan_pairs + snan_pairs:
+            for op in order_ops + equality_ops:
+                got = op(x, y)
+                expected = True if op is operator.ne else False
+                assert expected is got, (
+                    "expected {0!r} for operator.{1}({2!r}, {3!r}); "
+                    "got {4!r}".format(
+                        expected, op.__name__, x, y, got))
+
+        # repeat the above, but this time trap the InvalidOperation
+        with localcontext() as ctx:
+            ctx.traps[InvalidOperation] = 1
+
+            for x, y in qnan_pairs:
+                for op in equality_ops:
+                    got = op(x, y)
+                    expected = True if op is operator.ne else False
+                    assert expected is got, (
+                        "expected {0!r} for "
+                        "operator.{1}({2!r}, {3!r}); "
+                        "got {4!r}".format(
+                            expected, op.__name__, x, y, got))
+
+            for x, y in snan_pairs:
+                for op in equality_ops:
+                    raises(InvalidOperation, operator.eq, x, y)
+                    raises(InvalidOperation, operator.ne, x, y)
+
+            for x, y in qnan_pairs + snan_pairs:
+                for op in order_ops:
+                    raises(InvalidOperation, op, x, y)
+
+    def test_copy_sign(self):
+        Decimal = self.decimal.Decimal
+
+        d = Decimal(1).copy_sign(Decimal(-2))
+        assert Decimal(1).copy_sign(-2) == d
+        raises(TypeError, Decimal(1).copy_sign, '-2')

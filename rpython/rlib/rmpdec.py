@@ -47,7 +47,10 @@ eci = ExternalCompilationInfo(
         "mpd_iszero", "mpd_isnegative", "mpd_isinfinite", "mpd_isspecial",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
         "mpd_qcmp", "mpd_qquantize",
-        "mpd_qpow", "mpd_qadd", "mpd_qsub", "mpd_qmul", "mpd_qdiv",
+        "mpd_qplus", "mpd_qminus", "mpd_qabs",
+        "mpd_qadd", "mpd_qsub", "mpd_qmul", "mpd_qdiv", "mpd_qdivint",
+        "mpd_qrem", "mpd_qdivmod", "mpd_qpow", "mpd_qpowmod", 
+        "mpd_qcopy_sign",
         "mpd_qround_to_int",
         ],
     compile_extra=compile_extra,
@@ -221,9 +224,17 @@ mpd_qquantize = external(
     'mpd_qquantize', [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
 
-mpd_qpow = external(
-    'mpd_qpow',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+mpd_qplus = external(
+    'mpd_qplus',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qminus = external(
+    'mpd_qminus',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qabs = external(
+    'mpd_qabs',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
 mpd_qadd = external(
     'mpd_qadd',
@@ -239,6 +250,30 @@ mpd_qmul = external(
     lltype.Void)
 mpd_qdiv = external(
     'mpd_qdiv',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qdivint = external(
+    'mpd_qdivint',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qrem = external(
+    'mpd_qrem',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qdivmod = external(
+    'mpd_qdivmod',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qpow = external(
+    'mpd_qpow',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qpowmod = external(
+    'mpd_qpowmod',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qcopy_sign = external(
+    'mpd_qcopy_sign',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
 

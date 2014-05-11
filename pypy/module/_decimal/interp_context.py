@@ -212,9 +212,9 @@ class W_Context(W_Root):
 
     # Binary arithmetic functions
     def binary_method(self, space, mpd_func, w_x, w_y):
-        from pypy.module._decimal.interp_decimal import W_Decimal
-        w_a, w_b = W_Decimal.convert_binop_raise(space, self, w_x, w_y)
-        w_result = W_Decimal.allocate(space)
+        from pypy.module._decimal import interp_decimal
+        w_a, w_b = interp_decimal.convert_binop_raise(space, self, w_x, w_y)
+        w_result = interp_decimal.W_Decimal.allocate(space)
         with self.catch_status(space) as (ctx, status_ptr):
             mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
         return w_result

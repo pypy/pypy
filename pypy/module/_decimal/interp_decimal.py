@@ -161,72 +161,153 @@ class W_Decimal(W_Root):
         return w_result
 
     def compare(self, space, w_other, op):
-        if not isinstance(w_other, W_Decimal):  # So far
-            return space.w_NotImplemented
+        context = interp_context.getcontext(space)
+        w_err, w_other = convert_op(space, context, w_other)
+        if w_err:
+            return w_err
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
             r = rmpdec.mpd_qcmp(self.mpd, w_other.mpd, status_ptr)
+
+            if r > 0xFFFF:
+                # sNaNs or op={le,ge,lt,gt} always signal.
+                if (rmpdec.mpd_issnan(self.mpd) or rmpdec.mpd_issnan(w_other.mpd)
+                    or (op not in ('eq', 'ne'))):
+                    status = rffi.cast(lltype.Signed, status_ptr[0])
+                    context.addstatus(space, status)
+                # qNaN comparison with op={eq,ne} or comparison with
+                # InvalidOperation disabled.
+                if op == 'ne':
+                    return space.w_True
+                else:
+                    return space.w_False
+
         if op == 'eq':
             return space.wrap(r == 0)
+        elif op == 'ne':
+            return space.wrap(r != 0)
+        elif op == 'le':
+            return space.wrap(r <= 0)
+        elif op == 'ge':
+            return space.wrap(r >= 0)
+        elif op == 'lt':
+            return space.wrap(r == -1)
+        elif op == 'gt':
+            return space.wrap(r == 1)
         else:
             return space.w_NotImplemented
 
     def descr_eq(self, space, w_other):
         return self.compare(space, w_other, 'eq')
+    def descr_ne(self, space, w_other):
+        return self.compare(space, w_other, 'ne')
+    def descr_lt(self, space, w_other):
+        return self.compare(space, w_other, 'lt')
+    def descr_le(self, space, w_other):
+        return self.compare(space, w_other, 'le')
+    def descr_gt(self, space, w_other):
+        return self.compare(space, w_other, 'gt')
+    def descr_ge(self, space, w_other):
+        return self.compare(space, w_other, 'ge')
 
-    # Operations
-    @staticmethod
-    def convert_op(space, context, w_value):
-        if isinstance(w_value, W_Decimal):
-            return None, w_value
-        elif space.isinstance_w(w_value, space.w_int):
-            value = space.bigint_w(w_value)
-            return None, decimal_from_bigint(space, None, value, context,
-                                             exact=True)
-        return space.w_NotImplemented, None
-
-    @staticmethod
-    def convert_binop(space, context, w_x, w_y):
-        w_err, w_a = W_Decimal.convert_op(space, context, w_x)
-        if w_err:
-            return w_err, None, None
-        w_err, w_b = W_Decimal.convert_op(space, context, w_y)
-        if w_err:
-            return w_err, None, None
-        return None, w_a, w_b
-
-    @staticmethod
-    def convert_binop_raise(space, context, w_x, w_y):
-        w_err, w_a = W_Decimal.convert_op(space, context, w_x)
-        if w_err:
-            raise oefmt(space.w_TypeError,
-                        "conversion from %N to Decimal is not supported",
-                        space.type(w_x))
-        w_err, w_b = W_Decimal.convert_op(space, context, w_y)
-        if w_err:
-            raise oefmt(space.w_TypeError,
-                        "conversion from %N to Decimal is not supported",
-                        space.type(w_y))
-        return w_a, w_b
-
-    def binary_number_method(self, space, mpd_func, w_other):
-        context = interp_context.getcontext(space)
-
-        w_err, w_a, w_b = W_Decimal.convert_binop(space, context, self, w_other)
-        if w_err:
-            return w_err
-        w_result = W_Decimal.allocate(space)
-        with context.catch_status(space) as (ctx, status_ptr):
-            mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
-        return w_result
+    # Binary operations
 
     def descr_add(self, space, w_other):
-        return self.binary_number_method(space, rmpdec.mpd_qadd, w_other)
+        return binary_number_method(space, rmpdec.mpd_qadd, self, w_other)
     def descr_sub(self, space, w_other):
-        return self.binary_number_method(space, rmpdec.mpd_qsub, w_other)
+        return binary_number_method(space, rmpdec.mpd_qsub, self, w_other)
     def descr_mul(self, space, w_other):
-        return self.binary_number_method(space, rmpdec.mpd_qmul, w_other)
+        return binary_number_method(space, rmpdec.mpd_qmul, self, w_other)
     def descr_truediv(self, space, w_other):
-        return self.binary_number_method(space, rmpdec.mpd_qdiv, w_other)
+        return binary_number_method(space, rmpdec.mpd_qdiv, self, w_other)
+    def descr_floordiv(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qdivint, self, w_other)
+    def descr_mod(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qrem, self, w_other)
+
+    def descr_radd(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qadd, w_other, self)
+    def descr_rsub(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qsub, w_other, self)
+    def descr_rmul(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qmul, w_other, self)
+    def descr_rtruediv(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qdiv, w_other, self)
+    def descr_rfloordiv(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qdivint, w_other, self)
+    def descr_rmod(self, space, w_other):
+        return binary_number_method(space, rmpdec.mpd_qrem, w_other, self)
+
+    @staticmethod
+    def divmod_impl(space, w_x, w_y):
+        context = interp_context.getcontext(space)
+
+        w_err, w_a, w_b = convert_binop(space, context, w_x, w_y)
+        if w_err:
+            return w_err
+        w_q = W_Decimal.allocate(space)
+        w_r = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qdivmod(w_q.mpd, w_r.mpd, w_a.mpd, w_b.mpd,
+                               ctx, status_ptr)
+        return space.newtuple([w_q, w_r])
+
+    def descr_divmod(self, space, w_other):
+        return W_Decimal.divmod_impl(space, self, w_other)
+    def descr_rdivmod(self, space, w_other):
+        return W_Decimal.divmod_impl(space, w_other, self)
+
+    @staticmethod
+    def pow_impl(space, w_base, w_exp, w_mod):
+        context = interp_context.getcontext(space)
+
+        w_err, w_a, w_b = convert_binop(space, context, w_base, w_exp)
+        if w_err:
+            return w_err
+
+        if not space.is_none(w_mod):
+            w_err, w_c = convert_op(space, context, w_mod)
+            if w_err:
+                return w_err
+        else:
+            w_c = None
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            if w_c:
+                rmpdec.mpd_qpowmod(w_result.mpd, w_a.mpd, w_b.mpd, w_c.mpd,
+                                   ctx, status_ptr)
+            else:
+                rmpdec.mpd_qpow(w_result.mpd, w_a.mpd, w_b.mpd,
+                                ctx, status_ptr)
+        return w_result
+
+    def descr_pow(self, space, w_other, w_mod=None):
+        return W_Decimal.pow_impl(space, self, w_other, w_mod)
+    def descr_rpow(self, space, w_other):
+        return W_Decimal.pow_impl(space, w_other, self, None)
+
+    # Unary operations
+    def unary_number_method(self, space, mpd_func):
+        context = interp_context.getcontext(space)
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            mpd_func(w_result.mpd, self.mpd, ctx, status_ptr)
+        return w_result
+
+    def descr_neg(self, space):
+        return self.unary_number_method(space, rmpdec.mpd_qminus)
+    def descr_pos(self, space):
+        return self.unary_number_method(space, rmpdec.mpd_qplus)
+    def descr_abs(self, space):
+        return self.unary_number_method(space, rmpdec.mpd_qabs)
+
+    def copy_sign_w(self, space, w_other, w_context=None):
+        context = convert_context(space, w_context)
+        w_other = convert_op_raise(space, context, w_other)
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qcopy_sign(w_result.mpd, self.mpd, w_other.mpd,
+                                  ctx, status_ptr)
+        return w_result
 
     # Boolean functions
     def is_qnan_w(self, space):
@@ -234,6 +315,62 @@ class W_Decimal(W_Root):
     def is_infinite_w(self, space):
         return space.wrap(bool(rmpdec.mpd_isinfinite(self.mpd)))
 
+
+# Helper functions for arithmetic conversions
+def convert_op(space, context, w_value):
+    if isinstance(w_value, W_Decimal):
+        return None, w_value
+    elif space.isinstance_w(w_value, space.w_int):
+        value = space.bigint_w(w_value)
+        return None, decimal_from_bigint(space, None, value, context,
+                                         exact=True)
+    return space.w_NotImplemented, None
+
+def convert_op_raise(space, context, w_x):
+    w_err, w_a = convert_op(space, context, w_x)
+    if w_err:
+        raise oefmt(space.w_TypeError,
+                    "conversion from %N to Decimal is not supported",
+                    space.type(w_x))
+    return w_a
+
+def convert_binop(space, context, w_x, w_y):
+    w_err, w_a = convert_op(space, context, w_x)
+    if w_err:
+        return w_err, None, None
+    w_err, w_b = convert_op(space, context, w_y)
+    if w_err:
+        return w_err, None, None
+    return None, w_a, w_b
+
+def convert_binop_raise(space, context, w_x, w_y):
+    w_err, w_a = convert_op(space, context, w_x)
+    if w_err:
+        raise oefmt(space.w_TypeError,
+                    "conversion from %N to Decimal is not supported",
+                    space.type(w_x))
+    w_err, w_b = convert_op(space, context, w_y)
+    if w_err:
+        raise oefmt(space.w_TypeError,
+                    "conversion from %N to Decimal is not supported",
+                    space.type(w_y))
+    return w_a, w_b
+
+def binary_number_method(space, mpd_func, w_x, w_y):
+    context = interp_context.getcontext(space)
+
+    w_err, w_a, w_b = convert_binop(space, context, w_x, w_y)
+    if w_err:
+        return w_err
+    w_result = W_Decimal.allocate(space)
+    with context.catch_status(space) as (ctx, status_ptr):
+        mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
+    return w_result
+
+def convert_context(space, w_context):
+    if w_context is None:
+        return interp_context.getcontext(space)
+    return space.interp_w(interp_context.W_Context, w_context)
 
 # Constructors
 def decimal_from_ssize(space, w_subtype, value, context, exact=True):
@@ -473,13 +610,37 @@ W_Decimal.typedef = TypeDef(
     __floor__ = interp2app(W_Decimal.descr_floor),
     __ceil__ = interp2app(W_Decimal.descr_ceil),
     __round__ = interp2app(W_Decimal.descr_round),
+    #
     __eq__ = interp2app(W_Decimal.descr_eq),
+    __ne__ = interp2app(W_Decimal.descr_ne),
+    __le__ = interp2app(W_Decimal.descr_le),
+    __ge__ = interp2app(W_Decimal.descr_ge),
+    __lt__ = interp2app(W_Decimal.descr_lt),
+    __gt__ = interp2app(W_Decimal.descr_gt),
+    #
+    __pos__ = interp2app(W_Decimal.descr_pos),
+    __neg__ = interp2app(W_Decimal.descr_neg),
+    __abs__ = interp2app(W_Decimal.descr_abs),
     #
     __add__ = interp2app(W_Decimal.descr_add),
     __sub__ = interp2app(W_Decimal.descr_sub),
     __mul__ = interp2app(W_Decimal.descr_mul),
     __truediv__ = interp2app(W_Decimal.descr_truediv),
+    __floordiv__ = interp2app(W_Decimal.descr_floordiv),
+    __mod__ = interp2app(W_Decimal.descr_mod),
+    __divmod__ = interp2app(W_Decimal.descr_divmod),
+    __pow__ = interp2app(W_Decimal.descr_pow),
     #
+    __radd__ = interp2app(W_Decimal.descr_radd),
+    __rsub__ = interp2app(W_Decimal.descr_rsub),
+    __rmul__ = interp2app(W_Decimal.descr_rmul),
+    __rtruediv__ = interp2app(W_Decimal.descr_rtruediv),
+    __rfloordiv__ = interp2app(W_Decimal.descr_rfloordiv),
+    __rmod__ = interp2app(W_Decimal.descr_rmod),
+    __rdivmod__ = interp2app(W_Decimal.descr_rdivmod),
+    __rpow__ = interp2app(W_Decimal.descr_rpow),
+    #
+    copy_sign = interp2app(W_Decimal.copy_sign_w),
     is_qnan = interp2app(W_Decimal.is_qnan_w),
     is_infinite = interp2app(W_Decimal.is_infinite_w),
     )
