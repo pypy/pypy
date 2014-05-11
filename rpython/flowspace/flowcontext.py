@@ -452,7 +452,7 @@ class FlowContext(object):
         self.last_offset = next_offset
         next_offset, instr = self.pycode.read(next_offset)
         try:
-            res = instr.eval(self)
+            offset = instr.eval(self)
             return offset if offset is not None else next_offset
         except FlowSignal as signal:
             return self.unroll(signal)

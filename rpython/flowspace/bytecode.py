@@ -98,13 +98,6 @@ class HostCode(object):
     def is_generator(self):
         return bool(self.co_flags & CO_GENERATOR)
 
-    def read(self, offset):
-        block, i = self.graph.pos_index[offset]
-        op = block[i]
-        next_offset = self.graph.next_pos[offset]
-        return next_offset, op
-
-
 class BytecodeReader(object):
     def __init__(self, opnames):
         self.opnames = opnames
@@ -182,6 +175,12 @@ class BytecodeGraph(object):
         self.entry = EntryBlock()
         self.entry.set_exits([startblock])
         self.pos_index = {}
+
+    def read(self, offset):
+        block, i = self.pos_index[offset]
+        op = block[i]
+        next_offset = self.next_pos[offset]
+        return next_offset, op
 
 
 class BytecodeBlock(object):
