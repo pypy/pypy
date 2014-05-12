@@ -1,4 +1,3 @@
-
 import cffi, os
 
 ffi = cffi.FFI()
@@ -16,8 +15,8 @@ void* gdbm_open(char *, int, int, int, void (*)());
 void gdbm_close(void*);
 
 typedef struct {
-	char *dptr;
-	int   dsize;
+    char *dptr;
+    int   dsize;
 } datum;
 
 datum gdbm_fetch(void*, datum);
@@ -48,14 +47,14 @@ def _fromstr(key):
 
 class gdbm(object):
     ll_dbm = None
-    
+
     def __init__(self, filename, iflags, mode):
         self.size = -1
         res = lib.gdbm_open(filename, 0, iflags, mode, ffi.NULL)
         if not res:
             self._raise_from_errno()
         self.ll_dbm = res
-    
+
     def close(self):
         if self.ll_dbm:
             lib.gdbm_close(self.ll_dbm)
