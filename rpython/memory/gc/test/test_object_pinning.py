@@ -17,9 +17,8 @@ class PinningGCTest(BaseDirectGCTest):
         assert ptr.someInt == 100
 
     def test_pin_can_move(self):
-        # even a pinned ptrect is considered to be movable. Only the code
-        # that called pin() knows if it is currently movable or not.
-        # Additionally it could be unpinned anytime.
+        # even a pinned object is considered to be movable. Only the caller
+        # of pin() knows if it is currently movable or not.
         ptr = self.malloc(S)
         adr = llmemory.cast_ptr_to_adr(ptr)
         assert self.gc.can_move(adr)
