@@ -83,6 +83,7 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 #    minimarkpage.py (if they are small), or raw-malloced (if they are not
 #    small).  Collected by regular mark-n-sweep during major collections.
 #
+# XXX update doc string to contain object pinning (groggi)
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -136,7 +137,13 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # a minor collection.
 GCFLAG_VISITED_RMY   = first_gcflag << 8
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 9    # the first unused bit
+# The following flag is set on nursery objects of which we expect not to
+# move.  This means that a young object with this flag is not moved out
+# of the nursery during a minor collection. See pin()/unpin() for further
+# details.
+GCFLAG_PINNED        = first_gcflag << 9
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 10    # the first unused bit
 
 
 # States for the incremental GC
@@ -360,6 +367,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # GCFLAG_HAS_SHADOW to their future location at the next
         # minor collection.
         self.nursery_objects_shadows = self.AddressDict()
+        #
+        # A sorted deque containing all pinned objects *before* the last
+        # minor collection. This deque must be consulted when considering
+        # next nursery ceiling.
+        self.nursery_barriers = self.AddressDeque()
+        #
+        # Counter tracking how many pinned objects currently reside inside
+        # the nursery.
+        self.pinned_objects_in_nursery = 0
         #
         # Allocate a nursery.  In case of auto_nursery_size, start by
         # allocating a very small nursery, enough to do things like look
@@ -896,12 +912,42 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def pin(self, obj):
         debug_start("groggi-incminimark-pin")
+        # Tries to pin the given 'obj'.  On success this method returns True,
+        # otherwise False. There are multiple reasons why a call returns False
+        # and it should be always expected that pinning is likely to fail
+        # (return False).
+
+        # XXX what happens if nursery is full of pinned objects? (groggi)
+        # XXX what happens if pinned object references movable data? (groggi)
+
+        if not self.is_in_nursery(obj):
+            # Old objects are already non-moving, therefore pinning
+            # makes no sense. If you run into this case, you may forgot
+            # to check if can_move(obj) already returns True in which
+            # case a call to pin() is unnecessary.
+            return False
+        if self.header(obj).tid & GCFLAG_PINNED:
+            # Already pinned, we do not allow to pin it again.
+            # Reason: It would be possible that the first caller unpins
+            # while the second caller thinks it's still pinned.
+            return False
+
+        self.header(obj).tid |= GCFLAG_PINNED
+        self.pinned_objects_in_nursery += 1
+        debug_print("pinned_objects_in_nursery: ", self.pinned_objects_in_nursery)
         debug_stop("groggi-incminimark-pin")
-        return False
+        return True
 
 
     def unpin(self, obj):
+        # Unpins a previously pinned 'obj'.  This should only be called
+        # after a pin(obj).
         debug_start("groggi-incminimark-unpin")
+        ll_assert(self.header(obj) & GCFLAG_PINNED != 0,
+            "unpin: object is already not pinned")
+        self.header(obj).tid &= ~GCFLAG_PINNED
+        self.pinned_objects_in_nursery -= 1
+        debug_print("pinned_objects_in_nursery: ", self.pinned_objects_in_nursery)
         debug_stop("groggi-incminimark-unpin")
 
 
