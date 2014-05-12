@@ -47,12 +47,17 @@ eci = ExternalCompilationInfo(
         "mpd_to_sci", "mpd_to_sci_size",
         "mpd_iszero", "mpd_isnegative", "mpd_isinfinite", "mpd_isspecial",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
-        "mpd_qcmp", "mpd_qquantize",
+        "mpd_qcmp", "mpd_qcompare", "mpd_qcompare_signal",
+        "mpd_qmin", "mpd_qmax", "mpd_qmin_mag", "mpd_qmax_mag",
+        "mpd_qnext_minus", "mpd_qnext_plus", "mpd_qnext_toward",
+        "mpd_qquantize", "mpd_qreduce",
         "mpd_qplus", "mpd_qminus", "mpd_qabs",
         "mpd_qadd", "mpd_qsub", "mpd_qmul", "mpd_qdiv", "mpd_qdivint",
-        "mpd_qrem", "mpd_qdivmod", "mpd_qpow", "mpd_qpowmod", 
+        "mpd_qrem", "mpd_qrem_near", "mpd_qdivmod", "mpd_qpow", "mpd_qpowmod", 
+        "mpd_qfma",
+        "mpd_qexp", "mpd_qln", "mpd_qlog10", "mpd_qsqrt",
         "mpd_qcopy_sign",
-        "mpd_qround_to_int",
+        "mpd_qround_to_int", "mpd_qround_to_intx",
         ],
     compile_extra=compile_extra,
     libraries=['m'],
@@ -229,9 +234,40 @@ mpd_isqnan = external(
     'mpd_isqnan', [MPD_PTR], rffi.INT)
 mpd_qcmp = external(
     'mpd_qcmp', [MPD_PTR, MPD_PTR, rffi.UINTP], rffi.INT)
+mpd_qcompare = external(
+    'mpd_qcompare',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qcompare_signal = external(
+    'mpd_qcompare_signal',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+
+mpd_qmin = external(
+    'mpd_qmin',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qmax = external(
+    'mpd_qmax',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qmin_mag = external(
+    'mpd_qmin_mag',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qmax_mag = external(
+    'mpd_qmax_mag',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qnext_minus = external(
+    'mpd_qnext_minus',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qnext_plus = external(
+    'mpd_qnext_plus',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qnext_toward = external(
+    'mpd_qnext_toward',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qquantize = external(
-    'mpd_qquantize', [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
-    lltype.Void)
+    'mpd_qquantize',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qreduce = external(
+    'mpd_qreduce',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 
 mpd_qplus = external(
     'mpd_qplus',
@@ -251,36 +287,51 @@ mpd_qadd = external(
     lltype.Void)
 mpd_qsub = external(
     'mpd_qsub',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
-    lltype.Void)
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qmul = external(
     'mpd_qmul',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
-    lltype.Void)
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qdiv = external(
     'mpd_qdiv',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
-    lltype.Void)
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qdivint = external(
     'mpd_qdivint',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
-    lltype.Void)
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qrem = external(
     'mpd_qrem',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
-    lltype.Void)
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qrem_near = external(
+    'mpd_qrem_near',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qdivmod = external(
     'mpd_qdivmod',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
 mpd_qpow = external(
     'mpd_qpow',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
-    lltype.Void)
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qpowmod = external(
     'mpd_qpowmod',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
+mpd_qfma = external(
+    'mpd_qfma',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+
+mpd_qexp = external(
+    'mpd_qexp',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qln = external(
+    'mpd_qln',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qlog10 = external(
+    'mpd_qlog10',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qsqrt = external(
+    'mpd_qsqrt',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+
 mpd_qcopy_sign = external(
     'mpd_qcopy_sign',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
@@ -288,4 +339,7 @@ mpd_qcopy_sign = external(
 
 mpd_qround_to_int = external(
     'mpd_qround_to_int', [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qround_to_intx = external(
+    'mpd_qround_to_intx', [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)

@@ -238,9 +238,7 @@ class W_Decimal(W_Root):
         return binary_number_method(space, rmpdec.mpd_qrem, w_other, self)
 
     @staticmethod
-    def divmod_impl(space, w_x, w_y):
-        context = interp_context.getcontext(space)
-
+    def divmod_impl(space, context, w_x, w_y):
         w_err, w_a, w_b = convert_binop(space, context, w_x, w_y)
         if w_err:
             return w_err
@@ -252,9 +250,11 @@ class W_Decimal(W_Root):
         return space.newtuple([w_q, w_r])
 
     def descr_divmod(self, space, w_other):
-        return W_Decimal.divmod_impl(space, self, w_other)
+        context = interp_context.getcontext(space)
+        return W_Decimal.divmod_impl(space, context, self, w_other)
     def descr_rdivmod(self, space, w_other):
-        return W_Decimal.divmod_impl(space, w_other, self)
+        context = interp_context.getcontext(space)
+        return W_Decimal.divmod_impl(space, context, w_other, self)
 
     @staticmethod
     def pow_impl(space, w_base, w_exp, w_mod):

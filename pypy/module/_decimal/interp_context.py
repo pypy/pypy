@@ -214,6 +214,42 @@ class W_Context(W_Root):
                 self.capitals, rffi.cast(lltype.Signed, self.ctx.c_clamp),
                 flags, traps))
 
+    # Unary arithmetic functions
+    def unary_method(self, space, mpd_func, w_x):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_x)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with self.catch_status(space) as (ctx, status_ptr):
+            mpd_func(w_result.mpd, w_a.mpd, ctx, status_ptr)
+        return w_result
+
+    def abs_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qabs, w_x)
+    def exp_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qexp, w_x)
+    def ln_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qln, w_x)
+    def log10_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qlog10, w_x)
+    def minus_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qminus, w_x)
+    def next_minus_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qnext_minus, w_x)
+    def next_plus_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qnext_plus, w_x)
+    def normalize_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qreduce, w_x)
+    def plus_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qplus, w_x)
+    def to_integral_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qround_to_int, w_x)
+    def to_integral_exact_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qround_to_intx, w_x)
+    def to_integral_value_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qround_to_int, w_x)
+    def sqrt_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qsqrt, w_x)
+
     # Binary arithmetic functions
     def binary_method(self, space, mpd_func, w_x, w_y):
         from pypy.module._decimal import interp_decimal
@@ -231,7 +267,60 @@ class W_Context(W_Root):
         return self.binary_method(space, rmpdec.mpd_qmul, w_x, w_y)
     def divide_w(self, space, w_x, w_y):
         return self.binary_method(space, rmpdec.mpd_qdiv, w_x, w_y)
+    def compare_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qcompare, w_x, w_y)
+    def compare_signal_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qcompare_signal, w_x, w_y)
+    def divide_int_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qdivint, w_x, w_y)
+    def divmod_w(self, space, w_x, w_y):
+        from pypy.module._decimal import interp_decimal
+        return interp_decimal.W_Decimal.divmod_impl(space, self, w_x, w_y)
+    def max_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qmax, w_x, w_y)
+    def max_mag_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qmax_mag, w_x, w_y)
+    def min_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qmin, w_x, w_y)
+    def min_mag_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qmin_mag, w_x, w_y)
+    def next_toward_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qnext_toward, w_x, w_y)
+    def quantize_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qquantize, w_x, w_y)
+    def remainder_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qrem, w_x, w_y)
+    def remainder_near_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qrem_near, w_x, w_y)
 
+    # Ternary operations
+    def power_w(self, space, w_a, w_b, w_modulo=None):
+        from pypy.module._decimal import interp_decimal
+        w_a, w_b = interp_decimal.convert_binop_raise(space, self, w_a, w_b)
+        if not space.is_none(w_modulo):
+            w_modulo = interp_decimal.convert_op_raise(space, self, w_modulo)
+        else:
+            w_modulo = None
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with self.catch_status(space) as (ctx, status_ptr):
+            if w_modulo:
+                rmpdec.mpd_qpowmod(w_result.mpd, w_a.mpd, w_b.mpd, w_modulo.mpd,
+                                   ctx, status_ptr)
+            else:
+                rmpdec.mpd_qpow(w_result.mpd, w_a.mpd, w_b.mpd,
+                                ctx, status_ptr)
+        return w_result
+
+    def fma_w(self, space, w_v, w_w, w_x):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        w_b = interp_decimal.convert_op_raise(space, self, w_w)
+        w_c = interp_decimal.convert_op_raise(space, self, w_x)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with self.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qfma(w_result.mpd, w_a.mpd, w_b.mpd, w_c.mpd,
+                            ctx, status_ptr)
+        return w_result
 
 def descr_new_context(space, w_subtype, __args__):
     w_result = space.allocate_instance(W_Context, w_subtype)
@@ -257,11 +346,40 @@ W_Context.typedef = TypeDef(
     clear_flags=interp2app(W_Context.clear_flags_w),
     clear_traps=interp2app(W_Context.clear_traps_w),
     create_decimal=interp2app(W_Context.create_decimal_w),
-    # Operations
+    # Unary Operations
+    abs=interp2app(W_Context.abs_w),
+    exp=interp2app(W_Context.exp_w),
+    ln=interp2app(W_Context.ln_w),
+    log10=interp2app(W_Context.log10_w),
+    minus=interp2app(W_Context.minus_w),
+    next_minus=interp2app(W_Context.next_minus_w),
+    next_plus=interp2app(W_Context.next_plus_w),
+    normalize=interp2app(W_Context.normalize_w),
+    plus=interp2app(W_Context.plus_w),
+    to_integral=interp2app(W_Context.to_integral_w),
+    to_integral_exact=interp2app(W_Context.to_integral_exact_w),
+    to_integral_value=interp2app(W_Context.to_integral_value_w),
+    sqrt=interp2app(W_Context.sqrt_w),
+    # Binary Operations
     add=interp2app(W_Context.add_w),
     subtract=interp2app(W_Context.subtract_w),
     multiply=interp2app(W_Context.multiply_w),
     divide=interp2app(W_Context.divide_w),
+    compare=interp2app(W_Context.compare_w),
+    compare_signal=interp2app(W_Context.compare_signal_w),
+    divide_int=interp2app(W_Context.divide_int_w),
+    divmod=interp2app(W_Context.divmod_w),
+    max=interp2app(W_Context.max_w),
+    max_mag=interp2app(W_Context.max_mag_w),
+    min=interp2app(W_Context.min_w),
+    min_mag=interp2app(W_Context.min_mag_w),
+    next_toward=interp2app(W_Context.next_toward_w),
+    quantize=interp2app(W_Context.quantize_w),
+    remainder=interp2app(W_Context.remainder_w),
+    remainder_near=interp2app(W_Context.remainder_near_w),
+    # Ternary operations
+    power=interp2app(W_Context.power_w),
+    fma=interp2app(W_Context.fma_w),
     )
 
 
