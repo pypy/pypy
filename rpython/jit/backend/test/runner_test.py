@@ -2000,7 +2000,7 @@ class LLtypeBackendTest(BaseBackendTest):
         r = self.cpu.bh_getfield_gc_i(r1.value, descrshort)
         assert r == 1313
         self.cpu.bh_setfield_gc_i(r1.value, 1333, descrshort)
-        r = self.cpu.bh_getfield_gc_i(r1.value, descrshort)
+        r = self.cpu.bh_getfield_gc_i(r1.value, descrshort, pure=True)
         assert r == 1333
         r = self.execute_operation(rop.GETFIELD_GC, [r1], 'int',
                                    descr=descrshort)
@@ -2938,7 +2938,7 @@ class LLtypeBackendTest(BaseBackendTest):
         b = lltype.malloc(B, 4)
         b[3] = a
         x = cpu.bh_getarrayitem_gc_r(
-            lltype.cast_opaque_ptr(llmemory.GCREF, b), 3, descr_B)
+            lltype.cast_opaque_ptr(llmemory.GCREF, b), 3, descr_B, pure=True)
         assert lltype.cast_opaque_ptr(lltype.Ptr(A), x) == a
         if self.cpu.supports_floats:
             C = lltype.GcArray(lltype.Float)
@@ -2991,6 +2991,11 @@ class LLtypeBackendTest(BaseBackendTest):
         x = cpu.bh_getfield_raw_i(
             heaptracker.adr2int(llmemory.cast_ptr_to_adr(rs)),
             descrfld_rx)
+        assert x == ord('?')
+        #
+        x = cpu.bh_getfield_raw_i(
+            heaptracker.adr2int(llmemory.cast_ptr_to_adr(rs)),
+            descrfld_rx, pure=True)
         assert x == ord('?')
         #
         cpu.bh_setfield_raw_i(
@@ -3473,7 +3478,10 @@ class LLtypeBackendTest(BaseBackendTest):
             expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
             a[3] = rffi.cast(RESTYPE, value)
             a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
-            x = cpu.bh_getarrayitem_raw_i(a_rawint, 3, descrarray)
+            x = cpu.bh_getarrayitem_raw_i(a_rawint, 3, descrarray, pure=False)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+            x = cpu.bh_getarrayitem_raw_i(a_rawint, 3, descrarray, pure=True)
             assert x == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, x, expected))
             lltype.free(a, flavor='raw')

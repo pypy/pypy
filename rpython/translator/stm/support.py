@@ -12,6 +12,8 @@ def is_immutable(op):
     if op.opname == 'setinteriorfield':
         OUTER = op.args[0].concretetype.TO
         return OUTER._immutable_interiorfield(unwraplist(op.args[1:-1]))
-    if op.opname in ('raw_load', 'raw_store'):
+    if op.opname == 'raw_load':
+        return len(op.args) >= 3 and bool(op.args[2].value)
+    if op.opname == 'raw_store':
         return False
     raise AssertionError(op)

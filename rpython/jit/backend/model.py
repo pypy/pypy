@@ -199,25 +199,25 @@ class AbstractCPU(object):
     # lltype specific operations
     # --------------------------
 
-    def bh_getarrayitem_gc_i(self, array, index, arraydescr):
+    def bh_getarrayitem_gc_i(self, array, index, arraydescr, pure=False):
         raise NotImplementedError
-    def bh_getarrayitem_gc_r(self, array, index, arraydescr):
+    def bh_getarrayitem_gc_r(self, array, index, arraydescr, pure=False):
         raise NotImplementedError
-    def bh_getarrayitem_gc_f(self, array, index, arraydescr):
-        raise NotImplementedError
-
-    def bh_getfield_gc_i(self, struct, fielddescr):
-        raise NotImplementedError
-    def bh_getfield_gc_r(self, struct, fielddescr):
-        raise NotImplementedError
-    def bh_getfield_gc_f(self, struct, fielddescr):
+    def bh_getarrayitem_gc_f(self, array, index, arraydescr, pure=False):
         raise NotImplementedError
 
-    def bh_getfield_raw_i(self, struct, fielddescr):
+    def bh_getfield_gc_i(self, struct, fielddescr, pure=False):
         raise NotImplementedError
-    def bh_getfield_raw_r(self, struct, fielddescr):
+    def bh_getfield_gc_r(self, struct, fielddescr, pure=False):
         raise NotImplementedError
-    def bh_getfield_raw_f(self, struct, fielddescr):
+    def bh_getfield_gc_f(self, struct, fielddescr, pure=False):
+        raise NotImplementedError
+
+    def bh_getfield_raw_i(self, struct, fielddescr, pure=False):
+        raise NotImplementedError
+    def bh_getfield_raw_r(self, struct, fielddescr, pure=False):
+        raise NotImplementedError
+    def bh_getfield_raw_f(self, struct, fielddescr, pure=False):
         raise NotImplementedError
 
     def bh_new(self, sizedescr):

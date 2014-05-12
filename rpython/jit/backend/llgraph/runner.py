@@ -456,32 +456,37 @@ class LLGraphCPU(model.AbstractCPU):
     bh_call_f = _do_call
     bh_call_v = _do_call
 
-    def bh_getfield_gc(self, p, descr):
+    def _bh_getfield(self, p, descr, pure=False):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
-    bh_getfield_gc_pure = bh_getfield_gc
-    bh_getfield_gc_i = bh_getfield_gc
-    bh_getfield_gc_r = bh_getfield_gc
-    bh_getfield_gc_f = bh_getfield_gc
+    direct_getfield_gc = _bh_getfield
+    direct_getfield_gc_pure = _bh_getfield
+    direct_getfield_raw = _bh_getfield
+    direct_getfield_raw_pure = _bh_getfield
 
-    bh_getfield_raw = bh_getfield_gc
-    bh_getfield_raw_pure = bh_getfield_raw
-    bh_getfield_raw_i = bh_getfield_raw
-    bh_getfield_raw_r = bh_getfield_raw
-    bh_getfield_raw_f = bh_getfield_raw
+    bh_getfield_gc_i = _bh_getfield
+    bh_getfield_gc_r = _bh_getfield
+    bh_getfield_gc_f = _bh_getfield
 
-    def bh_setfield_gc(self, p, newvalue, descr):
+    bh_getfield_raw_i = _bh_getfield
+    bh_getfield_raw_r = _bh_getfield
+    bh_getfield_raw_f = _bh_getfield
+
+    def _bh_setfield(self, p, newvalue, descr):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         setattr(p, descr.fieldname, support.cast_arg(descr.FIELD, newvalue))
 
-    bh_setfield_gc_i = bh_setfield_gc
-    bh_setfield_gc_r = bh_setfield_gc
-    bh_setfield_gc_f = bh_setfield_gc
+    direct_setfield_gc = _bh_setfield
+    direct_setfield_raw = _bh_setfield
 
-    bh_setfield_raw   = bh_setfield_gc
-    bh_setfield_raw_i = bh_setfield_raw
-    bh_setfield_raw_f = bh_setfield_raw
+    bh_setfield_gc_i = _bh_setfield
+    bh_setfield_gc_r = _bh_setfield
+    bh_setfield_gc_f = _bh_setfield
+
+    bh_setfield_raw   = _bh_setfield
+    bh_setfield_raw_i = _bh_setfield
+    bh_setfield_raw_f = _bh_setfield
 
     def bh_arraylen_gc(self, a, descr):
         array = a._obj.container
@@ -489,35 +494,39 @@ class LLGraphCPU(model.AbstractCPU):
             array = getattr(array, descr.OUTERA._arrayfld)
         return array.getlength()
 
-    def bh_getarrayitem_gc(self, a, index, descr):
+    def _bh_getarrayitem(self, a, index, descr, pure=False):
         a = support.cast_arg(lltype.Ptr(descr.A), a)
         array = a._obj
         return support.cast_result(descr.A.OF, array.getitem(index))
 
-    bh_getarrayitem_gc_pure = bh_getarrayitem_gc
-    bh_getarrayitem_gc_i = bh_getarrayitem_gc
-    bh_getarrayitem_gc_r = bh_getarrayitem_gc
-    bh_getarrayitem_gc_f = bh_getarrayitem_gc
+    direct_getarrayitem_gc = _bh_getarrayitem
+    direct_getarrayitem_gc_pure = _bh_getarrayitem
+    direct_getarrayitem_raw = _bh_getarrayitem
+    direct_getarrayitem_raw_pure = _bh_getarrayitem
 
-    bh_getarrayitem_raw = bh_getarrayitem_gc
-    bh_getarrayitem_raw_pure = bh_getarrayitem_raw
-    bh_getarrayitem_raw_i = bh_getarrayitem_raw
-    bh_getarrayitem_raw_r = bh_getarrayitem_raw
-    bh_getarrayitem_raw_f = bh_getarrayitem_raw
+    bh_getarrayitem_gc_i = _bh_getarrayitem
+    bh_getarrayitem_gc_r = _bh_getarrayitem
+    bh_getarrayitem_gc_f = _bh_getarrayitem
 
-    def bh_setarrayitem_gc(self, a, index, item, descr):
+    bh_getarrayitem_raw_i = _bh_getarrayitem
+    bh_getarrayitem_raw_r = _bh_getarrayitem
+    bh_getarrayitem_raw_f = _bh_getarrayitem
+
+    def _bh_setarrayitem(self, a, index, item, descr):
         a = support.cast_arg(lltype.Ptr(descr.A), a)
         array = a._obj
         array.setitem(index, support.cast_arg(descr.A.OF, item))
 
-    bh_setarrayitem_gc_i = bh_setarrayitem_gc
-    bh_setarrayitem_gc_r = bh_setarrayitem_gc
-    bh_setarrayitem_gc_f = bh_setarrayitem_gc
+    direct_setarrayitem_gc = _bh_setarrayitem
+    direct_setarrayitem_raw = _bh_setarrayitem
 
-    bh_setarrayitem_raw   = bh_setarrayitem_gc
-    bh_setarrayitem_raw_i = bh_setarrayitem_raw
-    bh_setarrayitem_raw_r = bh_setarrayitem_raw
-    bh_setarrayitem_raw_f = bh_setarrayitem_raw
+    bh_setarrayitem_gc_i = _bh_setarrayitem
+    bh_setarrayitem_gc_r = _bh_setarrayitem
+    bh_setarrayitem_gc_f = _bh_setarrayitem
+
+    bh_setarrayitem_raw_i = _bh_setarrayitem
+    bh_setarrayitem_raw_r = _bh_setarrayitem
+    bh_setarrayitem_raw_f = _bh_setarrayitem
 
     def bh_getinteriorfield_gc(self, a, index, descr):
         array = a._obj.container
@@ -1072,12 +1081,17 @@ def _setup():
         return _op_default_implementation
 
     def _new_execute(opname):
+        if hasattr(LLGraphCPU, 'direct_' + opname):
+            methname = 'direct_' + opname
+        else:
+            methname = 'bh_' + opname
+        #
         def execute(self, descr, *args):
             if descr is not None:
                 new_args = args + (descr,)
             else:
                 new_args = args
-            return getattr(self.cpu, 'bh_' + opname)(*new_args)
+            return getattr(self.cpu, methname)(*new_args)
         execute.func_name = 'execute_' + opname
         return execute
 

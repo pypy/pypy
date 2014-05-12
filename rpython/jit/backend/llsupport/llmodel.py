@@ -385,14 +385,14 @@ class AbstractLLCPU(AbstractCPU):
     # ____________________ RAW PRIMITIVES ________________________
 
     @specialize.argtype(1)
-    def read_int_at_mem(self, gcref, ofs, size, sign):
+    def read_int_at_mem(self, gcref, ofs, size, sign, pure=False):
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 if sign:
-                    val = llop.raw_load(STYPE, gcref, ofs)
+                    val = llop.raw_load(STYPE, gcref, ofs, pure)
                     val = rffi.cast(lltype.Signed, val)
                 else:
-                    val = llop.raw_load(UTYPE, gcref, ofs)
+                    val = llop.raw_load(UTYPE, gcref, ofs, pure)
                     val = rffi.cast(lltype.Signed, val)
                 return val
         else:
@@ -409,8 +409,8 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % size)
 
     @specialize.argtype(1)
-    def read_ref_at_mem(self, gcref, ofs):
-        return llop.raw_load(llmemory.GCREF, gcref, ofs)
+    def read_ref_at_mem(self, gcref, ofs, pure=False):
+        return llop.raw_load(llmemory.GCREF, gcref, ofs, pure)
 
     # non-@specialized: must only be called with llmemory.GCREF
     def write_ref_at_mem(self, gcref, ofs, newvalue):
@@ -418,8 +418,8 @@ class AbstractLLCPU(AbstractCPU):
         # the write barrier is implied above
 
     @specialize.argtype(1)
-    def read_float_at_mem(self, gcref, ofs):
-        return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs)
+    def read_float_at_mem(self, gcref, ofs, pure=False):
+        return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs, pure)
 
     @specialize.argtype(1)
     def write_float_at_mem(self, gcref, ofs, newvalue):
@@ -461,23 +461,23 @@ class AbstractLLCPU(AbstractCPU):
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         ofs = arraydescr.lendescr.offset
-        return self.read_int_at_mem(array, ofs, WORD, 1)
+        return self.read_int_at_mem(array, ofs, WORD, 1, True)
 
     @specialize.argtype(1)
-    def bh_getarrayitem_gc_i(self, gcref, itemindex, arraydescr):
+    def bh_getarrayitem_gc_i(self, gcref, itemindex, arraydescr, pure=False):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         return self.read_int_at_mem(gcref, ofs + itemindex * size, size,
-                                    sign)
+                                    sign, pure)
 
-    def bh_getarrayitem_gc_r(self, gcref, itemindex, arraydescr):
+    def bh_getarrayitem_gc_r(self, gcref, itemindex, arraydescr, pure=False):
         ofs = self.unpack_arraydescr(arraydescr)
-        return self.read_ref_at_mem(gcref, itemindex * WORD + ofs)
+        return self.read_ref_at_mem(gcref, itemindex * WORD + ofs, pure)
 
     @specialize.argtype(1)
-    def bh_getarrayitem_gc_f(self, gcref, itemindex, arraydescr):
+    def bh_getarrayitem_gc_f(self, gcref, itemindex, arraydescr, pure=False):
         ofs = self.unpack_arraydescr(arraydescr)
         fsize = rffi.sizeof(longlong.FLOATSTORAGE)
-        return self.read_float_at_mem(gcref, itemindex * fsize + ofs)
+        return self.read_float_at_mem(gcref, itemindex * fsize + ofs, pure)
 
     @specialize.argtype(1)
     def bh_setarrayitem_gc_i(self, gcref, itemindex, newvalue, arraydescr):
@@ -557,19 +557,19 @@ class AbstractLLCPU(AbstractCPU):
         return ord(u.chars[index])
 
     @specialize.argtype(1)
-    def bh_getfield_gc_i(self, struct, fielddescr):
+    def bh_getfield_gc_i(self, struct, fielddescr, pure=False):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
-        return self.read_int_at_mem(struct, ofs, size, sign)
+        return self.read_int_at_mem(struct, ofs, size, sign, pure)
 
     @specialize.argtype(1)
-    def bh_getfield_gc_r(self, struct, fielddescr):
+    def bh_getfield_gc_r(self, struct, fielddescr, pure=False):
         ofs = self.unpack_fielddescr(fielddescr)
-        return self.read_ref_at_mem(struct, ofs)
+        return self.read_ref_at_mem(struct, ofs, pure)
 
     @specialize.argtype(1)
-    def bh_getfield_gc_f(self, struct, fielddescr):
+    def bh_getfield_gc_f(self, struct, fielddescr, pure=False):
         ofs = self.unpack_fielddescr(fielddescr)
-        return self.read_float_at_mem(struct, ofs)
+        return self.read_float_at_mem(struct, ofs, pure)
 
     bh_getfield_raw_i = bh_getfield_gc_i
     bh_getfield_raw_r = bh_getfield_gc_r

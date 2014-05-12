@@ -84,24 +84,39 @@ def do_cond_call(cpu, metainterp, argboxes, descr):
     if condbox.getint():
         do_call(cpu, metainterp, argboxes[1:], descr)
 
-def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
+def _do_getarrayitem_gc(cpu, pure, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
     index = indexbox.getint()
     if arraydescr.is_array_of_pointers():
-        return BoxPtr(cpu.bh_getarrayitem_gc_r(array, index, arraydescr))
+        return BoxPtr(cpu.bh_getarrayitem_gc_r(array, index, arraydescr, pure))
     elif arraydescr.is_array_of_floats():
-        return BoxFloat(cpu.bh_getarrayitem_gc_f(array, index, arraydescr))
+        return BoxFloat(cpu.bh_getarrayitem_gc_f(array, index, arraydescr,
+                                                 pure))
     else:
-        return BoxInt(cpu.bh_getarrayitem_gc_i(array, index, arraydescr))
+        return BoxInt(cpu.bh_getarrayitem_gc_i(array, index, arraydescr, pure))
 
-def do_getarrayitem_raw(cpu, _, arraybox, indexbox, arraydescr):
+def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
+    return _do_getarrayitem_gc(cpu, False, arraybox, indexbox, arraydescr)
+
+def do_getarrayitem_gc_pure(cpu, _, arraybox, indexbox, arraydescr):
+    return _do_getarrayitem_gc(cpu, True, arraybox, indexbox, arraydescr)
+
+def _do_getarrayitem_raw(cpu, pure, arraybox, indexbox, arraydescr):
     array = arraybox.getint()
     index = indexbox.getint()
     assert not arraydescr.is_array_of_pointers()
     if arraydescr.is_array_of_floats():
-        return BoxFloat(cpu.bh_getarrayitem_raw_f(array, index, arraydescr))
+        return BoxFloat(cpu.bh_getarrayitem_raw_f(array, index, arraydescr,
+                                                  pure))
     else:
-        return BoxInt(cpu.bh_getarrayitem_raw_i(array, index, arraydescr))
+        return BoxInt(cpu.bh_getarrayitem_raw_i(array, index, arraydescr,
+                                                pure))
+
+def do_getarrayitem_raw(cpu, _, arraybox, indexbox, arraydescr):
+    return _do_getarrayitem_raw(cpu, False, arraybox, indexbox, arraydescr)
+
+def do_getarrayitem_raw_pure(cpu, _, arraybox, indexbox, arraydescr):
+    return _do_getarrayitem_raw(cpu, True, arraybox, indexbox, arraydescr)
 
 def do_setarrayitem_gc(cpu, _, arraybox, indexbox, itembox, arraydescr):
     array = arraybox.getref_base()
@@ -147,24 +162,36 @@ def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, descr):
     else:
         cpu.bh_setinteriorfield_gc_i(array, index, valuebox.getint(), descr)
 
-def do_getfield_gc(cpu, _, structbox, fielddescr):
+def _do_getfield_gc(cpu, pure, structbox, fielddescr):
     struct = structbox.getref_base()
     if fielddescr.is_pointer_field():
-        return BoxPtr(cpu.bh_getfield_gc_r(struct, fielddescr))
+        return BoxPtr(cpu.bh_getfield_gc_r(struct, fielddescr, pure))
     elif fielddescr.is_float_field():
-        return BoxFloat(cpu.bh_getfield_gc_f(struct, fielddescr))
+        return BoxFloat(cpu.bh_getfield_gc_f(struct, fielddescr, pure))
     else:
-        return BoxInt(cpu.bh_getfield_gc_i(struct, fielddescr))
+        return BoxInt(cpu.bh_getfield_gc_i(struct, fielddescr, pure))
 
-def do_getfield_raw(cpu, _, structbox, fielddescr):
+def do_getfield_gc(cpu, _, structbox, fielddescr):
+    return _do_getfield_gc(cpu, False, structbox, fielddescr)
+
+def do_getfield_gc_pure(cpu, _, structbox, fielddescr):
+    return _do_getfield_gc(cpu, True, structbox, fielddescr)
+
+def _do_getfield_raw(cpu, pure, structbox, fielddescr):
     check_descr(fielddescr)
     struct = structbox.getint()
     if fielddescr.is_pointer_field():
-        return BoxPtr(cpu.bh_getfield_raw_r(struct, fielddescr))
+        return BoxPtr(cpu.bh_getfield_raw_r(struct, fielddescr, pure))
     elif fielddescr.is_float_field():
-        return BoxFloat(cpu.bh_getfield_raw_f(struct, fielddescr))
+        return BoxFloat(cpu.bh_getfield_raw_f(struct, fielddescr, pure))
     else:
-        return BoxInt(cpu.bh_getfield_raw_i(struct, fielddescr))
+        return BoxInt(cpu.bh_getfield_raw_i(struct, fielddescr, pure))
+
+def do_getfield_raw(cpu, _, structbox, fielddescr):
+    return _do_getfield_raw(cpu, False, structbox, fielddescr)
+
+def do_getfield_raw_pure(cpu, _, structbox, fielddescr):
+    return _do_getfield_raw(cpu, True, structbox, fielddescr)
 
 def do_setfield_gc(cpu, _, structbox, itembox, fielddescr):
     struct = structbox.getref_base()
@@ -310,14 +337,6 @@ def _make_execute_list():
                 execute[value] = globals()[name]
                 continue
             #
-            # Maybe the same without the _PURE suffix?
-            if key.endswith('_PURE'):
-                key = key[:-5]
-                name = 'do_' + key.lower()
-                if name in globals():
-                    execute[value] = globals()[name]
-                    continue
-            #
             # If missing, fallback to the bhimpl_xxx() method of the
             # blackhole interpreter.  This only works if there is a
             # method of the exact same name and it accepts simple
@@ -338,6 +357,7 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
+                         rop.CALL_PURE,
                          rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
                          rop.CALL_MALLOC_GC,
