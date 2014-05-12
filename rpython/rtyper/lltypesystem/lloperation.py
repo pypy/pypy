@@ -438,7 +438,7 @@ LL_OPERATIONS = {
     'stm_should_break_transaction':       LLOp(sideeffects=False),
     'stm_set_transaction_length':         LLOp(),
 
-    'stm_hint_commit_soon':   LLOp(),
+    'stm_hint_commit_soon':   LLOp(canrun=True),
 
     'stm_threadlocalref_get': LLOp(sideeffects=False),
     'stm_threadlocalref_set': LLOp(canmallocgc=True), # may allocate new array,

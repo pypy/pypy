@@ -70,7 +70,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
 
         i0 = stm_should_break_transaction()
         guard_false(i0) []
-        
+
         jump()
         """
         expected = """
@@ -93,7 +93,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         preamble = """
         [p1]
         i1 = getfield_gc(p1, descr=adescr)
-        
+
         i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p1)
@@ -102,7 +102,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         [p1]
         i0 = stm_should_break_transaction()
         guard_false(i0) []
-        
+
         jump(p1)
         """
         self.optimize_loop(ops, expected, expected_preamble=preamble)
@@ -142,10 +142,10 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         []
         stm_transaction_break(0)
         guard_not_forced() []
-        
+
         escape() # e.g. like a call_release_gil
         guard_not_forced() []
-        
+
         stm_transaction_break(0)
         guard_not_forced() []
         stm_transaction_break(0)
@@ -164,7 +164,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
 
         stm_transaction_break(0)
         guard_not_forced() []
-        
+
         i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump()
@@ -209,7 +209,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         guard_not_forced() []
 
         p6 = force_token() # not removed!
-                
+
         i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p0)
@@ -224,7 +224,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         escape()
 
         p6 = force_token() # not removed!
-        
+
         i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p0)
@@ -234,7 +234,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         escape()
 
         p6 = force_token() # not removed!
-        
+
         i0 = stm_should_break_transaction()
         guard_false(i0) []
         jump(p0)
@@ -246,7 +246,7 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         [p0, p1]
         setfield_gc(p0, p1, descr=adescr)
         stm_transaction_break(0)
-        
+
         p2 = force_token()
         p3 = force_token()
         jump(p0, p1)
@@ -264,9 +264,9 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         [p0, p1]
         p2 = force_token()
         p3 = force_token()
-        
+
         setfield_gc(p0, p1, descr=adescr) # moved here by other stuff...
-        jump(p0, p1)        
+        jump(p0, p1)
         """
         self.optimize_loop(ops, expected, expected_preamble=preamble)
 
@@ -286,3 +286,46 @@ class TestSTM(BaseTestWithUnroll, LLtypeMixin):
         jump(i1, p1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_add_tb_after_commit_soon(self):
+        ops = """
+        []
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        stm_hint_commit_soon()
+
+        stm_transaction_break(0)
+        guard_not_forced() []
+        stm_transaction_break(0)
+        guard_not_forced() []
+        i0 = stm_should_break_transaction()
+        guard_false(i0) []
+        jump()
+        """
+        preamble = """
+        []
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        stm_hint_commit_soon()
+
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        i0 = stm_should_break_transaction()
+        guard_false(i0) []
+        jump()
+        """
+        expected = """
+        []
+        stm_hint_commit_soon()
+
+        stm_transaction_break(0)
+        guard_not_forced() []
+
+        i0 = stm_should_break_transaction()
+        guard_false(i0) []
+        jump()
+        """
+        self.optimize_loop(ops, expected, expected_preamble=preamble)

@@ -31,6 +31,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.next_op_may_be_in_new_transaction()
             self.newops.append(op)
             return
+        if opnum == rop.STM_HINT_COMMIT_SOON:
+            self._do_stm_call('stm_hint_commit_soon', [], None,
+                              op.stm_location)
+            return
         # ----------  pure operations, guards  ----------
         if op.is_always_pure() or op.is_guard() or op.is_ovf():
             self.newops.append(op)

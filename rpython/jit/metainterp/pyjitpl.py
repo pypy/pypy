@@ -224,6 +224,13 @@ class MIFrame(object):
         # because of that
         self._record_stm_transaction_break(True)
 
+    @arguments()
+    def opimpl_stm_hint_commit_soon(self):
+        mi = self.metainterp
+        mi.history.record(rop.STM_HINT_COMMIT_SOON, [], None)
+        self.metainterp.heapcache.invalidate_caches(rop.STM_HINT_COMMIT_SOON,
+                                                    None, [])
+
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
                     'int_ne', 'int_gt', 'int_ge',

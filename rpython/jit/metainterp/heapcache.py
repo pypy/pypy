@@ -127,7 +127,8 @@ class HeapCache(object):
             opnum == rop.COPYSTRCONTENT or
             opnum == rop.COPYUNICODECONTENT):
             return
-        if opnum in (rop.GUARD_NOT_FORCED, rop.GUARD_NOT_FORCED_2):
+        if opnum in (rop.GUARD_NOT_FORCED, rop.GUARD_NOT_FORCED_2,
+                     rop.STM_HINT_COMMIT_SOON):
             self.stm_break_wanted = True
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or

@@ -912,7 +912,12 @@ class BlackholeInterpreter(object):
     @arguments()
     def bhimpl_stm_transaction_break():
         pass
-    
+
+    @arguments()
+    def bhimpl_stm_hint_commit_soon():
+        pass
+
+
     # ----------
     # the main hints and recursive calls
 

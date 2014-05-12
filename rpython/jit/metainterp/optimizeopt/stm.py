@@ -31,7 +31,7 @@ class OptSTM(Optimization):
     def flush(self):
         # just in case. it shouldn't be necessary
         self.flush_cached()
-        
+
     def default_emit(self, op):
         self.flush_cached()
         self.emit_operation(op)
@@ -39,7 +39,7 @@ class OptSTM(Optimization):
     def _break_wanted(self):
         is_loop = self.optimizer.loop.is_really_loop
         return self.optimizer.stm_info.get('break_wanted', is_loop)
-    
+
     def _set_break_wanted(self, val):
         self.optimizer.stm_info['break_wanted'] = val
 
@@ -83,6 +83,11 @@ class OptSTM(Optimization):
                 self._set_break_wanted(True)
             self.keep_but_ignore_gnf = False
             self.emit_operation(op)
+
+    def optimize_STM_HINT_COMMIT_SOON(self, op):
+        self.flush_cached()
+        self._set_break_wanted(True)
+        self.emit_operation(op)
 
 
 dispatch_opt = make_dispatcher_method(OptSTM, 'optimize_',

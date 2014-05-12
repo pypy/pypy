@@ -55,13 +55,17 @@ class STMTests:
             rstm.jit_stm_should_break_transaction(True) # keep (True)
             rstm.jit_stm_should_break_transaction(True) # keep (True)
             rstm.jit_stm_should_break_transaction(False)
+            rstm.hint_commit_soon()
+            rstm.jit_stm_should_break_transaction(False) # keep
+            rstm.jit_stm_should_break_transaction(False)
             return 42
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == 42
         self.check_operations_history({
-            'stm_transaction_break':1,
+            'stm_transaction_break':2,
+            'stm_hint_commit_soon':1,
             'stm_should_break_transaction':3,
-            'guard_not_forced':2,
+            'guard_not_forced':3,
             'guard_no_exception':1,
             'call_may_force':1})
 

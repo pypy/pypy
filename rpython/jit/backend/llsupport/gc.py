@@ -237,7 +237,7 @@ class GcLLDescr_boehm(GcLLDescription):
         return self.malloc_array(arraydescr.basesize, num_elem,
                                  arraydescr.itemsize,
                                  arraydescr.lendescr.offset)
-    
+
     def get_malloc_slowpath_addr(self):
         return None
 
@@ -257,7 +257,7 @@ class GcRootMap_asmgcc(object):
 class GcRootMap_shadowstack(object):
     is_shadow_stack = True
     is_stm = False
-    
+
     def __init__(self, gcdescr):
         pass
 
@@ -271,7 +271,7 @@ class GcRootMap_shadowstack(object):
 class GcRootMap_stm(object):
     is_shadow_stack = True
     is_stm = True
-    
+
     def __init__(self, gcdescr):
         pass
 
@@ -490,7 +490,7 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_itemsize   = self.unicode_descr.itemsize
         unicode_ofs_length = self.unicode_descr.lendescr.offset
 
-        
+
         def malloc_str(length):
             type_id = llop.extract_ushort(llgroup.HALFWORD, str_type_id)
             return llop1.do_malloc_varsize_clear(
@@ -499,7 +499,7 @@ class GcLLDescr_framework(GcLLDescription):
                 str_ofs_length)
         self.generate_function('malloc_str', malloc_str,
                                [lltype.Signed])
-            
+
         def malloc_unicode(length):
             type_id = llop.extract_ushort(llgroup.HALFWORD, unicode_type_id)
             return llop1.do_malloc_varsize_clear(
@@ -528,6 +528,9 @@ class GcLLDescr_framework(GcLLDescription):
             from rpython.rlib import rstm
             self.generate_function('stm_try_inevitable',
                                    rstm.become_inevitable, [],
+                                   RESULT=lltype.Void)
+            self.generate_function('stm_hint_commit_soon',
+                                   rstm.hint_commit_soon, [],
                                    RESULT=lltype.Void)
 
     def _bh_malloc(self, sizedescr):
@@ -603,7 +606,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def can_use_nursery_malloc(self, size):
         return size < self.max_size_of_young_obj
-        
+
     def has_write_barrier_class(self):
         return WriteBarrierDescr
 
@@ -612,7 +615,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_malloc_slowpath_array_addr(self):
         return self.get_malloc_fn_addr('malloc_array')
-    
+
 # ____________________________________________________________
 
 def get_ll_description(gcdescr, translator=None, rtyper=None):

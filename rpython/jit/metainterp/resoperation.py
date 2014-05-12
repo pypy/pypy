@@ -495,6 +495,7 @@ _oplist = [
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     'READ_TIMESTAMP/0',
     'STM_SHOULD_BREAK_TRANSACTION/0',
+    'STM_HINT_COMMIT_SOON/0',
     'MARK_OPAQUE_PTR/1b',
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway

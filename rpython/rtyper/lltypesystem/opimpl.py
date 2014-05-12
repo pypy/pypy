@@ -715,6 +715,9 @@ def op_jit_stm_should_break_transaction(if_there_is_no_other):
 def op_jit_stm_transaction_break_point():
     pass
 
+def op_stm_hint_commit_soon():
+    pass
+
 
 # ____________________________________________________________
 
