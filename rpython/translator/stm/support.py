@@ -17,3 +17,12 @@ def is_immutable(op):
     if op.opname == 'raw_store':
         return False
     raise AssertionError(op)
+
+def unwraplist(list_v):
+    for v in list_v:
+        if isinstance(v, Constant):
+            yield v.value
+        elif isinstance(v, Variable):
+            yield None    # unknown
+        else:
+            raise AssertionError(v)

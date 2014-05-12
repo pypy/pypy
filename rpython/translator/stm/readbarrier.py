@@ -10,15 +10,6 @@ READ_OPS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
 def is_gc_ptr(T):
     return isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc'
 
-def unwraplist(list_v):
-    for v in list_v:
-        if isinstance(v, Constant):
-            yield v.value
-        elif isinstance(v, Variable):
-            yield None    # unknown
-        else:
-            raise AssertionError(v)
-
 
 def insert_stm_read_barrier(transformer, graph):
     # We need to put enough 'stm_read' in the graph so that any
