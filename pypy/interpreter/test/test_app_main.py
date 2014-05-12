@@ -7,9 +7,10 @@ import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy.conftest import pypydir
+from pypy.module.sys.version import PYPY_VERSION
 from lib_pypy._pypy_interact import irc_header
 
-is_release = sys.version_info[3] == "final"
+is_release = PYPY_VERSION[3] == "final"
 
 
 banner = sys.version.splitlines()[0]
