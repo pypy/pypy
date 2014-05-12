@@ -50,16 +50,18 @@ else:
         info = _thread.longest_abort_info(mintime)
         if info is None:
             return
+
+        output = []
         with atomic:
-            print >> sys.stderr, "Conflict",
+            output.append("Conflict ")
             a, b, c, d = info
             try:
                 reason = _timing_reasons[a]
             except IndexError:
                 reason = "'%s'" % (a,)
-            print >> sys.stderr, reason,
+            output.append(reason)
             def show(line):
-                print >> sys.stderr, " ", line
+                output.append("  %s\n" % line)
                 match = _r_line.match(line)
                 if match and match.group(1) != '?':
                     filename = match.group(1)
@@ -82,14 +84,14 @@ else:
                         filename = _fullfilenames[filename]
                     line = linecache.getline(filename, lineno)
                     if line:
-                        print >> sys.stderr, "   ", line.strip()
+                        output.append("    %s\n" % line.strip())
             if d:
-                print >> sys.stderr, "between two threads:"
+                output.append(" between two threads:\n")
                 show(c)
                 show(d)
             else:
-                print >> sys.stderr, "in this thread:"
+                output.append(" in this thread:\n")
                 show(c)
-            print >> sys.stderr, 'Lost %.6f seconds.' % (b,)
-            print >> sys.stderr
+            output.append('Lost %.6f seconds.\n\n' % (b,))
             _thread.reset_longest_abort_info()
+        print >> sys.stderr, "".join(output),
