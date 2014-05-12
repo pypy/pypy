@@ -389,10 +389,16 @@ class AbstractLLCPU(AbstractCPU):
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 if sign:
-                    val = llop.raw_load(STYPE, gcref, ofs, pure)
+                    if pure:   # raw_load's last arg should be constant
+                        val = llop.raw_load(STYPE, gcref, ofs, True)
+                    else:
+                        val = llop.raw_load(STYPE, gcref, ofs)
                     val = rffi.cast(lltype.Signed, val)
                 else:
-                    val = llop.raw_load(UTYPE, gcref, ofs, pure)
+                    if pure:
+                        val = llop.raw_load(UTYPE, gcref, ofs, True)
+                    else:
+                        val = llop.raw_load(UTYPE, gcref, ofs)
                     val = rffi.cast(lltype.Signed, val)
                 return val
         else:
@@ -410,7 +416,10 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def read_ref_at_mem(self, gcref, ofs, pure=False):
-        return llop.raw_load(llmemory.GCREF, gcref, ofs, pure)
+        if pure:
+            return llop.raw_load(llmemory.GCREF, gcref, ofs, True)
+        else:
+            return llop.raw_load(llmemory.GCREF, gcref, ofs)
 
     # non-@specialized: must only be called with llmemory.GCREF
     def write_ref_at_mem(self, gcref, ofs, newvalue):
@@ -419,7 +428,10 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def read_float_at_mem(self, gcref, ofs, pure=False):
-        return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs, pure)
+        if pure:
+            return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs, True)
+        else:
+            return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs)
 
     @specialize.argtype(1)
     def write_float_at_mem(self, gcref, ofs, newvalue):

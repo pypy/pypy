@@ -1174,9 +1174,15 @@ class BlackholeInterpreter(object):
     def bhimpl_getarrayitem_gc_f(cpu, array, index, arraydescr):
         return cpu.bh_getarrayitem_gc_f(array, index, arraydescr)
 
-    bhimpl_getarrayitem_gc_i_pure = bhimpl_getarrayitem_gc_i
-    bhimpl_getarrayitem_gc_r_pure = bhimpl_getarrayitem_gc_r
-    bhimpl_getarrayitem_gc_f_pure = bhimpl_getarrayitem_gc_f
+    @arguments("cpu", "r", "i", "d", returns="i")
+    def bhimpl_getarrayitem_gc_i_pure(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_gc_i(array, index, arraydescr, pure=True)
+    @arguments("cpu", "r", "i", "d", returns="r")
+    def bhimpl_getarrayitem_gc_r_pure(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_gc_r(array, index, arraydescr, pure=True)
+    @arguments("cpu", "r", "i", "d", returns="f")
+    def bhimpl_getarrayitem_gc_f_pure(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_gc_f(array, index, arraydescr, pure=True)
 
     @arguments("cpu", "i", "i", "d", returns="i")
     def bhimpl_getarrayitem_raw_i(cpu, array, index, arraydescr):
@@ -1185,8 +1191,12 @@ class BlackholeInterpreter(object):
     def bhimpl_getarrayitem_raw_f(cpu, array, index, arraydescr):
         return cpu.bh_getarrayitem_raw_f(array, index, arraydescr)
 
-    bhimpl_getarrayitem_raw_i_pure = bhimpl_getarrayitem_raw_i
-    bhimpl_getarrayitem_raw_f_pure = bhimpl_getarrayitem_raw_f
+    @arguments("cpu", "i", "i", "d", returns="i")
+    def bhimpl_getarrayitem_raw_i_pure(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_raw_i(array, index, arraydescr, pure=True)
+    @arguments("cpu", "i", "i", "d", returns="f")
+    def bhimpl_getarrayitem_raw_f_pure(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_raw_f(array, index, arraydescr, pure=True)
 
     @arguments("cpu", "r", "i", "i", "d")
     def bhimpl_setarrayitem_gc_i(cpu, array, index, newvalue, arraydescr):
@@ -1272,9 +1282,15 @@ class BlackholeInterpreter(object):
     def bhimpl_getfield_gc_f(cpu, struct, fielddescr):
         return cpu.bh_getfield_gc_f(struct, fielddescr)
 
-    bhimpl_getfield_gc_i_pure = bhimpl_getfield_gc_i
-    bhimpl_getfield_gc_r_pure = bhimpl_getfield_gc_r
-    bhimpl_getfield_gc_f_pure = bhimpl_getfield_gc_f
+    @arguments("cpu", "r", "d", returns="i")
+    def bhimpl_getfield_gc_i_pure(cpu, struct, fielddescr):
+        return cpu.bh_getfield_gc_i(struct, fielddescr, pure=True)
+    @arguments("cpu", "r", "d", returns="r")
+    def bhimpl_getfield_gc_r_pure(cpu, struct, fielddescr):
+        return cpu.bh_getfield_gc_r(struct, fielddescr, pure=True)
+    @arguments("cpu", "r", "d", returns="f")
+    def bhimpl_getfield_gc_f_pure(cpu, struct, fielddescr):
+        return cpu.bh_getfield_gc_f(struct, fielddescr, pure=True)
 
     bhimpl_getfield_vable_i = bhimpl_getfield_gc_i
     bhimpl_getfield_vable_r = bhimpl_getfield_gc_r
@@ -1287,17 +1303,19 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", returns="i")
     def bhimpl_getfield_raw_i(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_i(struct, fielddescr)
-    @arguments("cpu", "i", "d", returns="r")
-    def _bhimpl_getfield_raw_r(cpu, struct, fielddescr):
-        # only for 'getfield_raw_r_pure'
-        return cpu.bh_getfield_raw_r(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="f")
     def bhimpl_getfield_raw_f(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_f(struct, fielddescr)
 
-    bhimpl_getfield_raw_i_pure = bhimpl_getfield_raw_i
-    bhimpl_getfield_raw_r_pure = _bhimpl_getfield_raw_r
-    bhimpl_getfield_raw_f_pure = bhimpl_getfield_raw_f
+    @arguments("cpu", "i", "d", returns="i")
+    def bhimpl_getfield_raw_i_pure(cpu, struct, fielddescr):
+        return cpu.bh_getfield_raw_i(struct, fielddescr, pure=True)
+    @arguments("cpu", "i", "d", returns="r")
+    def bhimpl_getfield_raw_r_pure(cpu, struct, fielddescr):
+        return cpu.bh_getfield_raw_r(struct, fielddescr, pure=True)
+    @arguments("cpu", "i", "d", returns="f")
+    def bhimpl_getfield_raw_f_pure(cpu, struct, fielddescr):
+        return cpu.bh_getfield_raw_f(struct, fielddescr, pure=True)
 
     @arguments("cpu", "r", "i", "d")
     def bhimpl_setfield_gc_i(cpu, struct, newvalue, fielddescr):

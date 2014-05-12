@@ -1,3 +1,4 @@
+from rpython.flowspace.model import Constant, Variable
 
 def is_immutable(op):
     if op.opname in ('getfield', 'setfield'):
