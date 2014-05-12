@@ -4,17 +4,25 @@ from rpython.memory.gc.incminimark import IncrementalMiniMarkGC
 from test_direct import BaseDirectGCTest
 
 S = lltype.GcForwardReference()
-S.become(lltype.GcStruct('S', ('someInt', lltype.Signed)))
+S.become(lltype.GcStruct('S',
+                         ('someInt', lltype.Signed),
+                         ('next', lltype.Ptr(S))))
 
 class PinningGCTest(BaseDirectGCTest):
 
     def test_simple_pin(self):
-        ptr = self.malloc(S)
-        adr = llmemory.cast_ptr_to_adr(ptr)
-        ptr.someInt = 100
-        assert self.gc.pin(adr)
-        self.gc.collect() # ptr should still live
-        assert ptr.someInt == 100
+        ptrRoot = self.malloc(S)
+        self.stackroots.append(ptrRoot)
+
+        ptrNext = self.malloc(S)
+        adrNext = llmemory.cast_ptr_to_adr(ptrNext)
+
+        self.write(ptrRoot, 'next', ptrNext)
+        ptrNext.someInt = 100
+        
+        assert self.gc.pin(adrNext)
+        self.gc.collect() # ptrNext should still live
+        assert ptrNext.someInt == 100
 
     def test_pin_can_move(self):
         # even a pinned object is considered to be movable. Only the caller
