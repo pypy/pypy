@@ -44,6 +44,8 @@ class error(Exception):
     pass
 
 def _fromstr(key):
+    if not isinstance(key, str):
+        raise TypeError("gdbm mappings have string indices only")
     return {'dptr': ffi.new("char[]", key), 'dsize': len(key)}
 
 class gdbm(object):
