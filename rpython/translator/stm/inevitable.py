@@ -43,12 +43,12 @@ def should_turn_inevitable_getter_setter(op, fresh_mallocs):
     # and it doesn't use the hint 'stm_dont_track_raw_accesses', then they
     # turn inevitable.
     TYPE = op.args[0].concretetype
+    if is_immutable(op):
+        return False
     if not isinstance(TYPE, lltype.Ptr):
         return True     # raw_load or raw_store with a number or address
     S = TYPE.TO
     if S._gckind == 'gc':
-        return False
-    if is_immutable(op):
         return False
     if S._hints.get('stm_dont_track_raw_accesses', False):
         return False

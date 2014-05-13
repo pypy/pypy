@@ -1009,7 +1009,7 @@ class LLFrame(object):
 
     op_raw_memmove = op_raw_memcopy # this is essentially the same here
 
-    def op_raw_load(self, RESTYPE, addr, offset):
+    def op_raw_load(self, RESTYPE, addr, offset, pure=False):
         checkadr(addr)
         if isinstance(offset, int):
             from rpython.rtyper.lltypesystem import rffi

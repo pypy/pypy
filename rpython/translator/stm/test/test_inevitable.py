@@ -255,3 +255,27 @@ class TestTransform:
 
         res = self.interpret_inevitable(f, [2])
         assert res is None
+
+    def test_raw_load_nonpure(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 42
+
+        def f1():
+            return llop.raw_load(
+                lltype.Signed, llmemory.cast_ptr_to_adr(x1), 0, False)
+
+        res = self.interpret_inevitable(f1, [])
+        assert res == 'raw_load'
+
+    def test_raw_load_pure(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 42
+
+        def f1():
+            return llop.raw_load(
+                lltype.Signed, llmemory.cast_ptr_to_adr(x1), 0, True)
+
+        res = self.interpret_inevitable(f1, [])
+        assert res is None
