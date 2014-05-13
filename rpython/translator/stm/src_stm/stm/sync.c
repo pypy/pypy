@@ -130,7 +130,8 @@ static void wait_for_end_of_inevitable_transaction(
     long i;
  restart:
     for (i = 1; i <= NB_SEGMENTS; i++) {
-        if (get_priv_segment(i)->transaction_state == TS_INEVITABLE) {
+        struct stm_priv_segment_info_s *other_pseg = get_priv_segment(i);
+        if (other_pseg->transaction_state == TS_INEVITABLE) {
             if (tl_or_null_if_can_abort == NULL) {
                 /* handle this case like a contention: it will either
                    abort us (not the other thread, which is inevitable),
@@ -142,6 +143,7 @@ static void wait_for_end_of_inevitable_transaction(
             else {
                 /* wait for stm_commit_transaction() to finish this
                    inevitable transaction */
+                signal_other_to_commit_soon(other_pseg);
                 change_timing_state_tl(tl_or_null_if_can_abort,
                                        STM_TIME_WAIT_INEVITABLE);
                 cond_wait(C_INEVITABLE);
@@ -265,7 +267,7 @@ void _stm_stop_safe_point(void)
 static bool _safe_points_requested = false;
 #endif
 
-static void signal_other_to_commit_soon(struct stm_priv_segment_info_s *other_pseg)
+void signal_other_to_commit_soon(struct stm_priv_segment_info_s *other_pseg)
 {
     assert(_has_mutex());
     /* never overwrite abort signals or safepoint requests

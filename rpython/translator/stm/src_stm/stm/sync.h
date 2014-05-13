@@ -39,3 +39,5 @@ static void synchronize_all_threads(enum sync_type_e sync_type);
 static void committed_globally_unique_transaction(void);
 
 static bool pause_signalled, globally_unique_transaction;
+
+void signal_other_to_commit_soon(struct stm_priv_segment_info_s *other_pseg);

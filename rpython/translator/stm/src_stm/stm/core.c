@@ -287,13 +287,15 @@ static bool detect_write_read_conflicts(void)
             ({
                 if (was_read_remote(remote_base, item, remote_version)) {
                     /* A write-read conflict! */
-                    write_read_contention_management(i, item);
-
-                    /* If we reach this point, we didn't abort, but maybe we
-                       had to wait for the other thread to commit.  If we
-                       did, then we have to restart committing from our call
-                       to synchronize_all_threads(). */
-                    return true;
+                    if (write_read_contention_management(i, item)) {
+                        /* If we reach this point, we didn't abort, but we
+                           had to wait for the other thread to commit.  If we
+                           did, then we have to restart committing from our call
+                           to synchronize_all_threads(). */
+                        return true;
+                    }
+                    /* we aborted the other transaction without waiting, so
+                       we can just continue */
                 }
             }));
     }
@@ -502,6 +504,9 @@ void stm_commit_transaction(void)
     /* the call to minor_collection() above leaves us with
        STM_TIME_BOOKKEEPING */
 
+    /* synchronize overflow objects living in privatized pages */
+    push_overflow_objects_from_privatized_pages();
+
     s_mutex_lock();
 
  restart:
@@ -521,11 +526,11 @@ void stm_commit_transaction(void)
     STM_SEGMENT->jmpbuf_ptr = NULL;
 
     /* if a major collection is required, do it here */
-    if (is_major_collection_requested())
+    if (is_major_collection_requested()) {
+        int oldstate = change_timing_state(STM_TIME_MAJOR_GC);
         major_collection_now_at_safe_point();
-
-    /* synchronize overflow objects living in privatized pages */
-    push_overflow_objects_from_privatized_pages();
+        change_timing_state(oldstate);
+    }
 
     /* synchronize modified old objects to other threads */
     push_modified_to_other_segments();
