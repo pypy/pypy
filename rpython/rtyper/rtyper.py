@@ -589,8 +589,6 @@ class RPythonTyper(object):
         classdef = hop.s_result.classdef
         return rclass.rtype_new_instance(self, classdef, hop.llops)
 
-    generic_translate_operation = None
-
     def default_translate_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 
@@ -688,13 +686,8 @@ class HighLevelOp(object):
 
     def dispatch(self):
         rtyper = self.rtyper
-        generic = rtyper.generic_translate_operation
-        if generic is not None:
-            res = generic(self)
-            if res is not None:
-                return res
         opname = self.forced_opname or self.spaceop.opname
-        translate_meth = getattr(rtyper, 'translate_op_'+opname,
+        translate_meth = getattr(rtyper, 'translate_op_' + opname,
                                  rtyper.default_translate_operation)
         return translate_meth(self)
 
