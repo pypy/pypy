@@ -104,7 +104,7 @@ class SomeWeakValueDict(annmodel.SomeObject):
         return _rweakvaldict.WeakValueDictRepr(rtyper,
                                                rtyper.getrepr(self.s_key))
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def method_get(self, s_key):
@@ -164,7 +164,7 @@ class SomeWeakKeyDict(annmodel.SomeObject):
         from rpython.rlib import _rweakkeydict
         return _rweakkeydict.WeakKeyDictRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def method_get(self, s_key):

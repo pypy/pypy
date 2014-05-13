@@ -268,8 +268,8 @@ class __extend__(annmodel.SomeIterator):
             return EnumerateIteratorRepr(r_baseiter)
         return r_container.make_iterator_repr(*self.variant)
 
-    def rtyper_makekey_ex(self, rtyper):
-        return self.__class__, rtyper.makekey(self.s_container), self.variant
+    def rtyper_makekey(self):
+        return self.__class__, self.s_container.rtyper_makekey(), self.variant
 
 
 class __extend__(annmodel.SomeImpossibleValue):

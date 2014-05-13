@@ -220,8 +220,8 @@ class SomeControlledInstance(annmodel.SomeObject):
         from rpython.rtyper.rcontrollerentry import ControlledInstanceRepr
         return ControlledInstanceRepr(rtyper, self.s_real_obj, self.controller)
 
-    def rtyper_makekey_ex(self, rtyper):
-        real_key = rtyper.makekey(self.s_real_obj)
+    def rtyper_makekey(self):
+        real_key = self.s_real_obj.rtyper_makekey()
         return self.__class__, real_key, self.controller
 
 _make_none_union("SomeControlledInstance", "obj.s_real_obj, obj.controller", globals())

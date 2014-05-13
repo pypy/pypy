@@ -135,14 +135,9 @@ class RPythonTyper(object):
                 return key._as_ptr()
         raise KeyError(search)
 
-    def makekey(self, s_obj):
-        if hasattr(s_obj, "rtyper_makekey_ex"):
-            return s_obj.rtyper_makekey_ex(self)
-        return s_obj.rtyper_makekey()
-
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
-        key = self.makekey(s_obj)
+        key = s_obj.rtyper_makekey()
         assert key[0] is s_obj.__class__
         try:
             result = self.reprs[key]
