@@ -3,7 +3,9 @@ from rpython.rlib import jit
 from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
-from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr, inputconst, Repr
+from rpython.rtyper.rmodel import IteratorRepr, inputconst, Repr
+from rpython.rtyper.rint import IntegerRepr
+from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.staticmethods import StaticMethods
@@ -472,6 +474,11 @@ class __extend__(pairtype(AbstractStringRepr, Repr)):
         # for the case where the 2nd argument is a tuple, see the
         # overriding rtype_mod() below
         return r_str.ll.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+
+class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
+    def rtype_mod(_, hop):
+        from rpython.rtyper.lltypesystem.rstr import do_stringformat
+        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 
 class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):

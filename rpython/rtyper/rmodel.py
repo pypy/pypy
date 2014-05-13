@@ -2,7 +2,7 @@ from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import (Void, Bool, Float, typeOf,
+from rpython.rtyper.lltypesystem.lltype import (Void, Bool, typeOf,
     LowLevelType, isCompatibleType)
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
@@ -322,25 +322,6 @@ class __extend__(pairtype(Repr, Repr)):
         return NotImplemented
 
 # ____________________________________________________________
-# Primitive Repr classes, in the same hierarchical order as
-# the corresponding SomeObjects
-
-class FloatRepr(Repr):
-    lowleveltype = Float
-
-class IntegerRepr(FloatRepr):
-    def __init__(self, lowleveltype, opprefix):
-        self.lowleveltype = lowleveltype
-        self._opprefix = opprefix
-        self.as_int = self
-
-    def _get_opprefix(self):
-        if self._opprefix is None:
-            raise TyperError("arithmetic not supported on %r, its size is too small" %
-                             self.lowleveltype)
-        return self._opprefix
-
-    opprefix = property(_get_opprefix)
 
 class VoidRepr(Repr):
     lowleveltype = Void
