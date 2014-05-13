@@ -231,13 +231,13 @@ void _pypy_stm_inev_state(void)
     uintptr_t t;
     if (pypy_stm_ready_atomic == 1) {
         t = pypy_stm_nursery_low_fill_mark;
-        t = _stm_nursery_start + (t - _stm_nursery_start) >> 2;
+        t = _stm_nursery_start + ((t - _stm_nursery_start) >> 2);
         pypy_stm_nursery_low_fill_mark = t;
     }
     else {
         assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
         t = pypy_stm_nursery_low_fill_mark_saved;
-        t = _stm_nursery_start + (t - _stm_nursery_start) >> 2;
+        t = _stm_nursery_start + ((t - _stm_nursery_start) >> 2);
         pypy_stm_nursery_low_fill_mark_saved = t;
     }
 }
