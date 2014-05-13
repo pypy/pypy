@@ -522,7 +522,7 @@ class FunctionGcRootTracker(object):
         # raw data, not GC pointers
         'movnt', 'mfence', 'lfence', 'sfence',
         # bit manipulations
-        'bextr',
+        'andn', 'bextr', 'blsi', 'blsmask', 'blsr', 'tzcnt', 'lzcnt',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
