@@ -135,14 +135,9 @@ class RPythonTyper(object):
                 return key._as_ptr()
         raise KeyError(search)
 
-    def makekey(self, s_obj):
-        if hasattr(s_obj, "rtyper_makekey_ex"):
-            return s_obj.rtyper_makekey_ex(self)
-        return s_obj.rtyper_makekey()
-
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
-        key = self.makekey(s_obj)
+        key = s_obj.rtyper_makekey()
         assert key[0] is s_obj.__class__
         try:
             result = self.reprs[key]
@@ -589,8 +584,6 @@ class RPythonTyper(object):
         classdef = hop.s_result.classdef
         return rclass.rtype_new_instance(self, classdef, hop.llops)
 
-    generic_translate_operation = None
-
     def default_translate_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 
@@ -688,13 +681,8 @@ class HighLevelOp(object):
 
     def dispatch(self):
         rtyper = self.rtyper
-        generic = rtyper.generic_translate_operation
-        if generic is not None:
-            res = generic(self)
-            if res is not None:
-                return res
         opname = self.forced_opname or self.spaceop.opname
-        translate_meth = getattr(rtyper, 'translate_op_'+opname,
+        translate_meth = getattr(rtyper, 'translate_op_' + opname,
                                  rtyper.default_translate_operation)
         return translate_meth(self)
 
