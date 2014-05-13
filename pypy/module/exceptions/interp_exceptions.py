@@ -389,14 +389,14 @@ class W_EnvironmentError(W_Exception):
     def descr_str(self, space):
         if (not space.is_w(self.w_errno, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
-            errno = space.str_w(space.str(self.w_errno))
-            strerror = space.str_w(space.str(self.w_strerror))
+            errno = space.unicode_w(space.str(self.w_errno))
+            strerror = space.unicode_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Errno %s] %s: %s" % (
+                return space.wrap(u"[Errno %s] %s: %s" % (
                     errno,
                     strerror,
-                    space.str_w(space.repr(self.w_filename))))
-            return space.wrap("[Errno %s] %s" % (
+                    space.unicode_w(space.repr(self.w_filename))))
+            return space.wrap(u"[Errno %s] %s" % (
                 errno,
                 strerror,
             ))
@@ -441,13 +441,15 @@ class W_WindowsError(W_OSError):
     def descr_str(self, space):
         if (not space.is_w(self.w_winerror, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
+            winerror = space.int_w(self.w_winerror)
+            strerror = space.unicode_w(self.w_strerror)
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Error %d] %s: %s" % (
-                    space.int_w(self.w_winerror),
-                    space.str_w(self.w_strerror),
-                    space.str_w(self.w_filename)))
-            return space.wrap("[Error %d] %s" % (space.int_w(self.w_winerror),
-                                                 space.str_w(self.w_strerror)))
+                return space.wrap(u"[Error %d] %s: %s" % (
+                    winerror,
+                    strerror,
+                    space.unicode_w(self.w_filename)))
+            return space.wrap(u"[Error %d] %s" % (winerror,
+                                                  strerror))
         return W_BaseException.descr_str(self, space)
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
