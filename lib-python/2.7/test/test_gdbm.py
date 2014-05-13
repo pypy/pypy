@@ -87,6 +87,17 @@ class TestGdbm(unittest.TestCase):
         self.g = gdbm.open(filename, 'r')
         self.assertEquals(self.g['x'], 'x' * 10000)
 
+    def test_key_with_null_bytes(self):
+        key = 'a\x00b'
+        value = 'c\x00d'
+        self.g = gdbm.open(filename, 'cf')
+        self.g[key] = value
+        self.g.close()
+        self.g = gdbm.open(filename, 'r')
+        self.assertEquals(self.g[key], value)
+        self.assertTrue(key in self.g)
+        self.assertTrue(self.g.has_key(key))
+
 def test_main():
     run_unittest(TestGdbm)
 

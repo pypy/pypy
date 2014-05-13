@@ -90,7 +90,7 @@ class gdbm(object):
         drec = lib.gdbm_fetch(self.ll_dbm, _fromstr(key))
         if not drec.dptr:
             raise KeyError(key)
-        res = ffi.string(drec.dptr, drec.dsize)
+        res = str(ffi.buffer(drec.dptr, drec.dsize))
         lib.free(drec.dptr)
         return res
 
@@ -99,7 +99,7 @@ class gdbm(object):
         l = []
         key = lib.gdbm_firstkey(self.ll_dbm)
         while key.dptr:
-            l.append(ffi.string(key.dptr, key.dsize))
+            l.append(str(ffi.buffer(key.dptr, key.dsize)))
             nextkey = lib.gdbm_nextkey(self.ll_dbm, key)
             lib.free(key.dptr)
             key = nextkey
@@ -109,7 +109,7 @@ class gdbm(object):
         self._check_closed()
         key = lib.gdbm_firstkey(self.ll_dbm)
         if key.dptr:
-            res = ffi.string(key.dptr, key.dsize)
+            res = str(ffi.buffer(key.dptr, key.dsize))
             lib.free(key.dptr)
             return res
 
@@ -117,7 +117,7 @@ class gdbm(object):
         self._check_closed()
         key = lib.gdbm_nextkey(self.ll_dbm, _fromstr(key))
         if key.dptr:
-            res = ffi.string(key.dptr, key.dsize)
+            res = str(ffi.buffer(key.dptr, key.dsize))
             lib.free(key.dptr)
             return res
 
