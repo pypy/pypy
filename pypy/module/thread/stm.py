@@ -43,6 +43,8 @@ def _fill_untranslated(ec):
 
 
 class STMThreadLocals(BaseThreadLocals):
+    threads_running = False
+    _immutable_fields_ = ['threads_running?']
 
     def initialize(self, space):
         """NOT_RPYTHON: set up a mechanism to send to the C code the value
@@ -53,7 +55,6 @@ class STMThreadLocals(BaseThreadLocals):
         #
         assert space.actionflag.setcheckinterval_callback is None
         space.actionflag.setcheckinterval_callback = setcheckinterval_callback
-        self.threads_running = False
         self.seen_main_ec = False
 
     def getvalue(self):
@@ -73,7 +74,9 @@ class STMThreadLocals(BaseThreadLocals):
         self.setvalue(None)
 
     def setup_threads(self, space):
-        self.threads_running = True
+        if not self.threads_running:
+            # invalidate quasi-immutable if we have threads:
+            self.threads_running = True
         self.configure_transaction_length(space)
         invoke_around_extcall(rstm.before_external_call,
                               rstm.after_external_call,
