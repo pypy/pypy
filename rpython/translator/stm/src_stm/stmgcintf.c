@@ -29,7 +29,7 @@ inline void stmcb_commit_soon()
         /* atomic */
         pypy_stm_nursery_low_fill_mark_saved = 0;
     } else {
-        pypy_stm_nursery_low_fill_mark >>= 2;
+        pypy_stm_nursery_low_fill_mark = 0;
     }
 }
 
@@ -101,12 +101,8 @@ void pypy_stm_leave_callback_call(long token)
     }
 }
 
-void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
-                                volatile long *v_counter)
+void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter)
 {
-    pypy_stm_nursery_low_fill_mark = 1;  /* will be set to a correct value below */
-    _stm_start_transaction(&stm_thread_local, jmpbuf_ptr);
-
     /* If v_counter==0, initialize 'pypy_stm_nursery_low_fill_mark'
        from the configured length limit.  If v_counter>0, we did an
        abort, and we now configure 'pypy_stm_nursery_low_fill_mark'
@@ -120,8 +116,7 @@ void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
         counter = _htm_info.retry_counter;
     limit = pypy_transaction_length >> counter;
 #else
-    counter = *v_counter;
-    *v_counter = counter + 1;
+    counter = v_counter;
 
     if (counter == 0) {
         limit = pypy_transaction_length;
@@ -133,6 +128,17 @@ void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
 #endif
 
     pypy_stm_nursery_low_fill_mark = _stm_nursery_start + limit;
+}
+
+void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
+                                volatile long *v_counter)
+{
+    pypy_stm_nursery_low_fill_mark = 1;  /* will be set to a correct value below */
+    _stm_start_transaction(&stm_thread_local, jmpbuf_ptr);
+
+    _pypy_stm_initialize_nursery_low_fill_mark(*v_counter);
+    *v_counter = *v_counter + 1;
+
     pypy_stm_ready_atomic = 1; /* reset after abort */
 }
 
@@ -157,8 +163,6 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
                transaction.
              */
             assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
-            assert(!(STM_SEGMENT->jmpbuf_ptr == NULL) ||
-                   (pypy_stm_nursery_low_fill_mark == 0));
 
             stm_commit_transaction();
 
@@ -195,8 +199,10 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
             //assert(pypy_stm_nursery_low_fill_mark != 0);
             assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
             stm_commit_transaction();
-            pypy_stm_nursery_low_fill_mark = 0;
+
             stm_start_inevitable_transaction(&stm_thread_local);
+            _pypy_stm_initialize_nursery_low_fill_mark(0);
+            _pypy_stm_inev_state();
         }
         else {
             assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
@@ -206,8 +212,6 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     }
     /* double-check */
     if (pypy_stm_ready_atomic == 1) {
-        assert(!(STM_SEGMENT->jmpbuf_ptr == NULL) ||
-               (pypy_stm_nursery_low_fill_mark == 0));
     }
     else {
         assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
@@ -219,14 +223,17 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     assert(v_old_shadowstack == stm_thread_local.shadowstack);
 }
 
-static void _pypy_stm_inev_state(void)
+void _pypy_stm_inev_state(void)
 {
+    /* Reduce the limit so that inevitable transactions are generally
+       shorter. We depend a bit on stmcb_commit_soon() in order for
+       other transactions to signal us in case we block them. */
     if (pypy_stm_ready_atomic == 1) {
-        pypy_stm_nursery_low_fill_mark = 0;
+        pypy_stm_nursery_low_fill_mark >>= 2;
     }
     else {
         assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
-        pypy_stm_nursery_low_fill_mark_saved = 0;
+        pypy_stm_nursery_low_fill_mark_saved >>= 2;
     }
 }
 

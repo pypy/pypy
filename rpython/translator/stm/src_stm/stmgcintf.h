@@ -23,6 +23,9 @@ void pypy_stm_setup_prebuilt(void);        /* generated into stm_prebuilt.c */
 void pypy_stm_register_thread_local(void); /* generated into stm_prebuilt.c */
 void pypy_stm_unregister_thread_local(void); /* generated into stm_prebuilt.c */
 
+void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter);
+void _pypy_stm_inev_state(void);
+
 void _pypy_stm_become_inevitable(const char *);
 void pypy_stm_become_globally_unique_transaction(void);
 
@@ -52,8 +55,9 @@ static inline void pypy_stm_commit_if_not_atomic(void) {
 static inline void pypy_stm_start_inevitable_if_not_atomic(void) {
     if (pypy_stm_ready_atomic == 1) {
         int e = errno;
-        pypy_stm_nursery_low_fill_mark = 0;
         stm_start_inevitable_transaction(&stm_thread_local);
+        _pypy_stm_initialize_nursery_low_fill_mark(0);
+        _pypy_stm_inev_state();
         errno = e;
     }
 }
@@ -73,8 +77,6 @@ static inline void pypy_stm_decrement_atomic(void) {
     case 1:
         pypy_stm_nursery_low_fill_mark = pypy_stm_nursery_low_fill_mark_saved;
         assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
-        assert(!(STM_SEGMENT->jmpbuf_ptr == NULL) ||
-               (pypy_stm_nursery_low_fill_mark == 0));
         break;
     case 0:
         pypy_stm_ready_atomic = 1;
