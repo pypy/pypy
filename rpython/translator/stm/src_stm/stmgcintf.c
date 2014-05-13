@@ -228,12 +228,17 @@ void _pypy_stm_inev_state(void)
     /* Reduce the limit so that inevitable transactions are generally
        shorter. We depend a bit on stmcb_commit_soon() in order for
        other transactions to signal us in case we block them. */
+    uintptr_t t;
     if (pypy_stm_ready_atomic == 1) {
-        pypy_stm_nursery_low_fill_mark >>= 2;
+        t = pypy_stm_nursery_low_fill_mark;
+        t = _stm_nursery_start + (t - _stm_nursery_start) >> 2;
+        pypy_stm_nursery_low_fill_mark = t;
     }
     else {
         assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
-        pypy_stm_nursery_low_fill_mark_saved >>= 2;
+        t = pypy_stm_nursery_low_fill_mark_saved;
+        t = _stm_nursery_start + (t - _stm_nursery_start) >> 2;
+        pypy_stm_nursery_low_fill_mark_saved = t;
     }
 }
 
