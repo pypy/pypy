@@ -1,21 +1,16 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Unsigned, Bool, Float
-from rpython.rtyper.rmodel import IntegerRepr, BoolRepr, log
+from rpython.rtyper.rmodel import IntegerRepr, log
 from rpython.tool.pairtype import pairtype
 
 
-class __extend__(annmodel.SomeBool):
-    def rtyper_makerepr(self, rtyper):
-        return bool_repr
-
-    def rtyper_makekey(self):
-        return self.__class__,
-
-bool_repr = BoolRepr()
-
-
-class __extend__(BoolRepr):
+class BoolRepr(IntegerRepr):
+    lowleveltype = Bool
+    # NB. no 'opprefix' here.  Use 'as_int' systematically.
+    def __init__(self):
+        from rpython.rtyper.rint import signed_repr
+        self.as_int = signed_repr
 
     def convert_const(self, value):
         if not isinstance(value, bool):
@@ -23,7 +18,7 @@ class __extend__(BoolRepr):
         return value
 
     def rtype_bool(_, hop):
-        vlist = hop.inputargs(Bool)
+        vlist = hop.inputargs(bool_repr)
         return vlist[0]
 
     def rtype_int(_, hop):
@@ -35,6 +30,16 @@ class __extend__(BoolRepr):
         vlist = hop.inputargs(Float)
         hop.exception_cannot_occur()
         return vlist[0]
+
+bool_repr = BoolRepr()
+
+
+class __extend__(annmodel.SomeBool):
+    def rtyper_makerepr(self, rtyper):
+        return bool_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
 
 #
 # _________________________ Conversions _________________________

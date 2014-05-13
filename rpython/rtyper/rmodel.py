@@ -342,13 +342,6 @@ class IntegerRepr(FloatRepr):
 
     opprefix = property(_get_opprefix)
 
-class BoolRepr(IntegerRepr):
-    lowleveltype = Bool
-    # NB. no 'opprefix' here.  Use 'as_int' systematically.
-    def __init__(self):
-        from rpython.rtyper.rint import signed_repr
-        self.as_int = signed_repr
-
 class VoidRepr(Repr):
     lowleveltype = Void
     def get_ll_eq_function(self): return None

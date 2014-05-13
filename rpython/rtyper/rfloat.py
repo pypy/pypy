@@ -7,7 +7,8 @@ from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned,
     SignedLongLong, UnsignedLongLong, Bool, Float)
-from rpython.rtyper.rmodel import FloatRepr, IntegerRepr, BoolRepr, log
+from rpython.rtyper.rmodel import FloatRepr, IntegerRepr, log
+from rpython.rtyper.rbool import BoolRepr
 from rpython.rtyper.rstr import AbstractStringRepr
 from rpython.tool.pairtype import pairtype
 
