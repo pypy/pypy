@@ -29,6 +29,7 @@ int gdbm_reorganize(void*);
 
 datum gdbm_firstkey(void*);
 datum gdbm_nextkey(void*, datum);
+void gdbm_sync(void*);
 
 char* gdbm_strerror(int);
 int gdbm_errno;
@@ -50,7 +51,6 @@ class gdbm(object):
     ll_dbm = None
     
     def __init__(self, filename, iflags, mode):
-        self.size = -1
         res = lib.gdbm_open(filename, 0, iflags, mode, ffi.NULL)
         if not res:
             self._raise_from_errno()
@@ -89,7 +89,7 @@ class gdbm(object):
         drec = lib.gdbm_fetch(self.ll_dbm, _fromstr(key))
         if not drec.dptr:
             raise KeyError(key)
-        res = ffi.string(drec.dptr, drec.size)
+        res = ffi.string(drec.dptr, drec.dsize)
         lib.free(drec.dptr)
         return res
 
@@ -130,6 +130,10 @@ class gdbm(object):
             raise error("GDBM object has already been closed")
 
     __del__ = close
+
+    def sync(self):
+        self._check_closed()
+        lib.gdbm_sync(self.ll_dbm)
 
 def open(filename, flags='r', mode=0666):
     if flags[0] == 'r':
