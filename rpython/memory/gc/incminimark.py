@@ -1975,7 +1975,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Debugging checks
         ll_assert(self.nursery_free == self.nursery,
                   "nursery not empty in major_collection_step()")
-        self.debug_check_consistency() # YYY
+        self.debug_check_consistency()
 
 
         # XXX currently very course increments, get this working then split
