@@ -56,6 +56,9 @@ class ResultLog(object):
         for line in longrepr.splitlines():
             py.builtin.print_(" %s" % line, file=self.logfile)
         for key, text in sections:
+            # py.io.StdCaptureFD may send in unicode
+            if isinstance(text, unicode):
+                text = text.encode('utf-8')
             py.builtin.print_(" ", file=self.logfile)
             py.builtin.print_(" -------------------- %s --------------------"
                               % key.rstrip(), file=self.logfile)
