@@ -14,6 +14,7 @@ from rpython.tool.pairtype import pairtype
 from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.rtyper import HopArg
 from rpython.rtyper.module import ll_os_stat
 
 
@@ -34,12 +35,12 @@ class StatResultRepr(Repr):
 
     def redispatch_getfield(self, hop, index):
         rtyper = self.rtyper
-        s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
         hop2 = hop.copy()
         hop2.forced_opname = 'getitem'
-        hop2.args_v = [hop2.args_v[0], Constant(index)]
-        hop2.args_s = [self.s_tuple, s_index]
-        hop2.args_r = [self.r_tuple, rtyper.getrepr(s_index)]
+        s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
+        h_index = HopArg(Constant(index), s_index, rtyper.getrepr(s_index))
+        h_tuple = HopArg(hop2.args[0].v, self.s_tuple, self.r_tuple)
+        hop2.args = [h_tuple, h_index]
         return hop2.dispatch()
 
     def rtype_getattr(self, hop):
