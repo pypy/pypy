@@ -458,12 +458,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         # XXX understand this, correct? (groggi)
         self.pin_ptr = getfn(GCClass.pin,
-                             [s_gc, s_gcref],
+                             [s_gc, SomeAddress()],
                              annmodel.SomeBool())
 
         # XXX understand this, correct? (groggi)
         self.unpin_ptr = getfn(GCClass.unpin,
-                               [s_gc, s_gcref],
+                               [s_gc, SomeAddress()],
                                annmodel.s_None)
 
         self.write_barrier_ptr = None

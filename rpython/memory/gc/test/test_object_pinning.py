@@ -58,6 +58,7 @@ class PinningGCTest(BaseDirectGCTest):
         assert not self.gc.pin(adr)
 
     # XXX test with multiple mallocs, and only part of them is pinned
+    # XXX test unpin()
 
 
 class TestIncminimark(PinningGCTest):

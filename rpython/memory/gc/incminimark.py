@@ -979,7 +979,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def unpin(self, obj):
         # Unpins a previously pinned 'obj'.  This should only be called
         # after a pin(obj).
-        ll_assert(self.header(obj) & GCFLAG_PINNED != 0,
+        ll_assert(self.header(obj).tid & GCFLAG_PINNED != 0,
             "unpin: object is already not pinned")
         self.header(obj).tid &= ~GCFLAG_PINNED
         self.pinned_objects_in_nursery -= 1
