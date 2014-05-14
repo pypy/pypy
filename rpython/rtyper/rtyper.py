@@ -650,19 +650,18 @@ RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERA
 
 class HopArg(object):
     # XXX: find a better name and a meaningful definition
-    def __init__(self, v, s, r, llops):
+    def __init__(self, v, s, r):
         self.v = v  # a Constant or Variable
         self.s = s  # an annotation
         self.r = r  # a repr
-        self.llops = llops
 
-    def convert_to(self, repr):
+    def convert_to(self, repr, llops):
         v = self.v
         if isinstance(v, Constant):
             return inputconst(repr, v.value)
         if self.s.is_constant():
             return inputconst(repr, self.s.const)
-        return self.llops.convertvar(v, self.r, repr)
+        return llops.convertvar(v, self.r, repr)
 
 
 class HighLevelOp(object):
@@ -690,7 +689,7 @@ class HighLevelOp(object):
 
     @property
     def args(self):
-        return [HopArg(v, s, r, self.llops) for v, s, r in
+        return [HopArg(v, s, r) for v, s, r in
                 zip(self.args_v, self.args_s, self.args_r)]
 
     def copy(self):
@@ -718,7 +717,7 @@ class HighLevelOp(object):
         """
         if not isinstance(converted_to, Repr):
             converted_to = self.rtyper.getprimitiverepr(converted_to)
-        return self.args[arg].convert_to(converted_to)
+        return self.args[arg].convert_to(converted_to, self.llops)
 
     inputconst = staticmethod(inputconst)    # export via the HighLevelOp class
 
@@ -731,7 +730,7 @@ class HighLevelOp(object):
         for arg, repr in zip(self.args, converted_to):
             if not isinstance(repr, Repr):
                 repr = self.rtyper.getprimitiverepr(repr)
-            vars.append(arg.convert_to(repr))
+            vars.append(arg.convert_to(repr, self.llops))
         return vars
 
     def genop(self, opname, args_v, resulttype=None):
