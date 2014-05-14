@@ -43,7 +43,7 @@ inline void stmcb_commit_soon()
 
 #define LOW_FILL_MARK   400000
 
-static long pypy_transaction_length;
+static long pypy_transaction_length = NURSERY_SIZE * 3 / 4;
 
 
 void pypy_stm_set_transaction_length(double fraction)
@@ -158,7 +158,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
     while (1) {
         long counter;
 
-        if (pypy_stm_ready_atomic == 1) {
+        if (pypy_stm_should_break_transaction()) { //pypy_stm_ready_atomic == 1) {
             /* Not in an atomic transaction; but it might be an inevitable
                transaction.
              */
@@ -193,22 +193,12 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
 
     if (STM_SEGMENT->jmpbuf_ptr == &jmpbuf) {
         /* we can't leave this function leaving a non-inevitable
-           transaction whose jmpbuf points into this function
+           transaction whose jmpbuf points into this function.
+           we could break the transaction here but we instead rely
+           on the caller to break it. Since we have to use an inevitable
+           transaction anyway, using the current one may be cheaper.
         */
-        if (pypy_stm_ready_atomic == 1) {
-            //assert(pypy_stm_nursery_low_fill_mark != 0);
-            assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
-            stm_commit_transaction();
-
-            stm_start_inevitable_transaction(&stm_thread_local);
-            _pypy_stm_initialize_nursery_low_fill_mark(0);
-            _pypy_stm_inev_state();
-        }
-        else {
-            assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
-            pypy_stm_nursery_low_fill_mark_saved = 0;
-            _stm_become_inevitable("perform_transaction left with atomic");
-        }
+        _stm_become_inevitable("perform_transaction left with inevitable");
     }
     /* double-check */
     if (pypy_stm_ready_atomic == 1) {
