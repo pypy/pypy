@@ -100,6 +100,8 @@ ENVIRONMENT
         ``debug_start``/``debug_stop`` but not any nested
         ``debug_print``.
         *fname* can be ``-`` to log to *stderr*.
+        Note that using a : in fname is a bad idea, Windows
+        users, beware.
 
     ``:``\ *fname*
         Full logging, including ``debug_print``.

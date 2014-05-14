@@ -9,8 +9,9 @@ from rpython.rtyper.lltypesystem.lltype import (
     Void, Signed, Bool, Ptr, GcStruct, malloc, typeOf, nullptr)
 from rpython.rtyper.lltypesystem.rstr import LLHelpers
 from rpython.rtyper.rstr import AbstractStringRepr
-from rpython.rtyper.rmodel import (Repr, IntegerRepr, inputconst, IteratorRepr,
+from rpython.rtyper.rmodel import (Repr, inputconst, IteratorRepr,
     externalvsinternal)
+from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 

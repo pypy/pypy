@@ -1,5 +1,5 @@
 import py
-import os, time, sys
+import os, time, sys, genericpath
 from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.annotator import model as annmodel
@@ -243,14 +243,16 @@ def test_os_path_exists():
     assert f() == False
 
 def test_os_path_isdir():
+    # os.path.isdir is not rpython once pywin is installed (win32 specific)
+    # genericpath.isdir is better.
     directory = "./."
     def fn():
-        return os.path.isdir(directory)
+        return genericpath.isdir(directory)
     f = compile(fn, [])
     assert f() == True
     directory = "some/random/name"
     def fn():
-        return os.path.isdir(directory)
+        return genericpath.isdir(directory)
     f = compile(fn, [])
     assert f() == False
 
@@ -298,7 +300,7 @@ def test_chdir():
         return os.getcwd()
     f1 = compile(does_stuff, [str])
     if os.name == 'nt':
-        assert f1(os.environment['TEMP']) == os.path.realpath(os.environment['TEMP'])
+        assert f1(os.environ['TEMP']) == os.path.realpath(os.environ['TEMP'])
     else:    
         assert f1('/tmp') == os.path.realpath('/tmp')
 

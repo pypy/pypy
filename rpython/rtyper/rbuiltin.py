@@ -54,7 +54,6 @@ def call_args_expand(hop, takes_kwds = True):
         from rpython.rtyper.rtuple import TupleRepr
         if arguments.w_stararg != hop.nb_args - 3:
             raise TyperError("call pattern too complex")
-        hop.nb_args -= 1
         v_tuple = hop.args_v.pop()
         s_tuple = hop.args_s.pop()
         r_tuple = hop.args_r.pop()
@@ -62,7 +61,6 @@ def call_args_expand(hop, takes_kwds = True):
             raise TyperError("*arg must be a tuple")
         for i in range(len(r_tuple.items_r)):
             v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
-            hop.nb_args += 1
             hop.args_v.append(v_item)
             hop.args_s.append(s_tuple.items[i])
             hop.args_r.append(r_tuple.items_r[i])
@@ -177,7 +175,7 @@ def parse_kwds(hop, *argspec_i_r):
             result.append(hop.inputarg(r, arg=i))
         else:
             result.append(None)
-    hop.nb_args -= len(lst)
+    del hop.args_v[hop.nb_args - len(lst):]
     return result
 
 def get_builtin_method_self(x):
@@ -367,8 +365,7 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         (i_zero, None),
         (i_track_allocation, None),
         (i_add_memory_pressure, None))
-    (v_flavor, v_zero, v_track_allocation,
-     v_add_memory_pressure) = kwds_v
+    (v_flavor, v_zero, v_track_allocation, v_add_memory_pressure) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value

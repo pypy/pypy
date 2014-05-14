@@ -661,13 +661,16 @@ class HighLevelOp(object):
     def setup(self):
         rtyper = self.rtyper
         spaceop = self.spaceop
-        self.nb_args  = len(spaceop.args)
         self.args_v   = list(spaceop.args)
         self.args_s   = [rtyper.binding(a) for a in spaceop.args]
         self.s_result = rtyper.binding(spaceop.result)
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
         rtyper.call_all_setups()  # compute ForwardReferences now
+
+    @property
+    def nb_args(self):
+        return len(self.args_v)
 
     def copy(self):
         result = HighLevelOp(self.rtyper, self.spaceop,
@@ -726,7 +729,6 @@ class HighLevelOp(object):
 
     def r_s_pop(self, index=-1):
         "Return and discard the argument with index position."
-        self.nb_args -= 1
         self.args_v.pop(index)
         return self.args_r.pop(index), self.args_s.pop(index)
 
@@ -739,7 +741,6 @@ class HighLevelOp(object):
         self.args_v.insert(0, v_newfirstarg)
         self.args_r.insert(0, r_newfirstarg)
         self.args_s.insert(0, s_newfirstarg)
-        self.nb_args += 1
 
     def swap_fst_snd_args(self):
         self.args_v[0], self.args_v[1] = self.args_v[1], self.args_v[0]
