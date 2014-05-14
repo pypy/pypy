@@ -495,6 +495,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.set_major_threshold_from(0.0)
         ll_assert(self.extra_threshold == 0, "extra_threshold set too early")
         self.initial_cleanup = self.nursery_size
+        debug_print("nursery start: ", self.nursery) # XXX remove (groggi)
+        debug_print("nursery top: ", self.nursery_top) # XXX remove (groggi)
+        debug_print("nursery_real_top: ", self.nursery_real_top) # XXX remove (groggi)
         debug_stop("gc-set-nursery-size")
 
 
