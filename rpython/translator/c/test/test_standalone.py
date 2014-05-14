@@ -1297,7 +1297,10 @@ class TestShared(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point, shared=True,
                                    entrypoints=[f])
+        ext_suffix = '.so'
+        if cbuilder.eci.platform.name == 'msvc':
+            ext_suffix = '.dll'
         libname = cbuilder.executable_name.join('..', 'lib' +
-                                                cbuilder.modulename + '.so')
+                                      cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))
         assert lib.foo(13) == 16
