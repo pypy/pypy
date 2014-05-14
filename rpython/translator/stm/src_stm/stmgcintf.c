@@ -183,7 +183,7 @@ void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
         }
         else {
             /* In an atomic transaction */
-            assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
+            //assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
             counter = v_counter;
         }
 
