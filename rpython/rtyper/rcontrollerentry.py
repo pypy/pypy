@@ -1,5 +1,6 @@
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.rtyper import HopArg
 from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
 
@@ -58,11 +59,11 @@ def rtypedelegate(callable, hop, revealargs=[0], revealresult=False):
             raise TyperError("args_r[%d] = %r, expected ControlledInstanceRepr"
                              % (index, r_controlled))
         s_new, r_new = r_controlled.s_real_obj, r_controlled.r_real_obj
-        hop2.args_s[index], hop2.args_r[index] = s_new, r_new
         v = hop2.args_v[index]
         if isinstance(v, Constant):
             real_value = r_controlled.controller.convert(v.value)
-            hop2.args_v[index] = Constant(real_value)
+            v = Constant(real_value)
+        hop2.args[index] = HopArg(v, s_new, r_new)
     if revealresult:
         r_controlled = hop2.r_result
         if not isinstance(r_controlled, ControlledInstanceRepr):

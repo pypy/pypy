@@ -390,6 +390,7 @@ class AbstractInstanceRepr(Repr):
         raise NotImplementedError
 
     def _emulate_call(self, hop, meth_name):
+        from rpython.rtyper.rtyper import HopArg
         vinst, = hop.inputargs(self)
         clsdef = hop.args_s[0].classdef
         s_unbound_attr = clsdef.find_attribute(meth_name).getvalue()
@@ -402,10 +403,10 @@ class AbstractInstanceRepr(Repr):
         r_method = self.rtyper.getrepr(s_attr)
         r_method.get_method_from_instance(self, vinst, hop.llops)
         hop2 = hop.copy()
-        hop2.spaceop = op.simple_call(hop.spaceop.args[0])
+        v = hop.args[0].v
+        hop2.spaceop = op.simple_call(v)
         hop2.spaceop.result = hop.spaceop.result
-        hop2.args_r = [r_method]
-        hop2.args_s = [s_attr]
+        hop2.args = [HopArg(v, s_attr, r_method)]
         return hop2.dispatch()
 
     def rtype_iter(self, hop):

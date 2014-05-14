@@ -1,6 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
+from rpython.rtyper.rtyper import HopArg
 from rpython.rtyper import raddress, rptr, extregistry, rrange
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
@@ -47,23 +48,19 @@ def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
-            hop.args_s[1].const, # shape
+            hop.args[1].s.const, # shape
             range(hop.nb_args-2))
     if arguments.w_stararg is not None:
         # expand the *arg in-place -- it must be a tuple
         from rpython.rtyper.rtuple import TupleRepr
         if arguments.w_stararg != hop.nb_args - 3:
             raise TyperError("call pattern too complex")
-        v_tuple = hop.args_v.pop()
-        s_tuple = hop.args_s.pop()
-        r_tuple = hop.args_r.pop()
-        if not isinstance(r_tuple, TupleRepr):
+        tup = hop.args.pop()
+        if not isinstance(tup.r, TupleRepr):
             raise TyperError("*arg must be a tuple")
-        for i in range(len(r_tuple.items_r)):
-            v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
-            hop.args_v.append(v_item)
-            hop.args_s.append(s_tuple.items[i])
-            hop.args_r.append(r_tuple.items_r[i])
+        for i in range(len(tup.r.items_r)):
+            v_item = tup.r.getitem_internal(hop.llops, tup.v, i)
+            hop.args.append(HopArg(v_item, tup.s.items[i], tup.r.items_r[i]))
 
     keywords = arguments.keywords
     if not takes_kwds and keywords:
@@ -143,13 +140,15 @@ class BuiltinMethodRepr(Repr):
                 self.self_repr.__class__.__name__, name))
         # hack based on the fact that 'lowleveltype == self_repr.lowleveltype'
         hop2 = hop.copy()
-        assert hop2.args_r[0] is self
-        if isinstance(hop2.args_v[0], Constant):
-            c = hop2.args_v[0].value    # get object from bound method
+        assert hop2.args[0].r is self
+        if isinstance(hop2.args[0].v, Constant):
+            c = hop2.args[0].v.value    # get object from bound method
             c = get_builtin_method_self(c)
-            hop2.args_v[0] = Constant(c)
-        hop2.args_s[0] = self.s_self
-        hop2.args_r[0] = self.self_repr
+            v_self = Constant(c)
+        else:
+            v_self = hop2.args[0].v
+        h_self = HopArg(v_self, self.s_self, self.self_repr)
+        hop2.args[0] = h_self
         return bltintyper(hop2)
 
 class __extend__(pairtype(BuiltinMethodRepr, BuiltinMethodRepr)):
@@ -175,7 +174,7 @@ def parse_kwds(hop, *argspec_i_r):
             result.append(hop.inputarg(r, arg=i))
         else:
             result.append(None)
-    del hop.args_v[hop.nb_args - len(lst):]
+    del hop.args[hop.nb_args - len(lst):]
     return result
 
 def get_builtin_method_self(x):
@@ -316,8 +315,9 @@ def rtype_hlinvoke(hop):
     for i in range(len(new_args_r)):
         assert hop.args_r[i].lowleveltype == new_args_r[i].lowleveltype
 
-    hop.args_r = new_args_r
-    hop.args_s = [s_callable] + args_s
+    new_args = [HopArg(v, s, r) for v, s, r in
+            zip(hop.args_v, [s_callable] + args_s, new_args_r)]
+    hop.args = new_args
 
     hop.s_result = s_ret
     assert hop.r_result.lowleveltype == rresult.lowleveltype

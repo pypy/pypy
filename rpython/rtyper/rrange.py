@@ -1,5 +1,6 @@
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.rtyper import HopArg
 from rpython.rtyper.lltypesystem.lltype import Signed, Void, Ptr
 from rpython.rtyper.rlist import dum_nocheck, dum_checkidx
 from rpython.rtyper.rmodel import Repr, IteratorRepr
@@ -207,7 +208,7 @@ class EnumerateIteratorRepr(IteratorRepr):
         v_enumerate, = hop.inputargs(self)
         v_index = hop.gendirectcall(self.ll_getnextindex, v_enumerate)
         hop2 = hop.copy()
-        hop2.args_r = [self.r_baseiter]
+        hop2.args = [HopArg(hop.args[0].v, hop.args[0].s, self.r_baseiter)]
         r_item_src = self.r_baseiter.external_item_repr
         r_item_dst = hop.r_result.items_r[1]
         v_item = self.r_baseiter.rtype_next(hop2)

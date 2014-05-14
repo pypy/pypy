@@ -2,6 +2,7 @@ import types
 
 from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
+from rpython.rtyper.rtyper import HopArg
 from rpython.rtyper import rclass, callparse
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
@@ -563,11 +564,15 @@ class MethodOfFrozenPBCRepr(Repr):
         # XXX obscure, try to refactor...
         s_function = annmodel.SomePBC([self.funcdesc])
         hop2 = hop.copy()
-        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
-        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+
+        # make the 1st arg stand for 'im_self'
         if isinstance(hop2.args_v[0], Constant):
             boundmethod = hop2.args_v[0].value
-            hop2.args_v[0] = Constant(boundmethod.im_self)
+            v_im_self = Constant(boundmethod.im_self)
+        else:
+            v_im_self = hop2.args[0].v
+        hop2.args[0] = HopArg(v_im_self, self.s_im_self, self.r_im_self)
+
         if call_args:
             hop2.swap_fst_snd_args()
             _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
@@ -854,8 +859,8 @@ class AbstractMethodsPBCRepr(Repr):
 
     def add_instance_arg_to_hop(self, hop, call_args):
         hop2 = hop.copy()
-        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
-        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+        hop2.args[0].s = self.s_im_self   # make the 1st arg stand for 'im_self'
+        hop2.args[0].r = self.r_im_self   # (same lowleveltype as 'self')
 
         if call_args:
             hop2.swap_fst_snd_args()

@@ -676,10 +676,12 @@ class HighLevelOp(object):
     def setup(self):
         rtyper = self.rtyper
         spaceop = self.spaceop
-        self.args_v   = list(spaceop.args)
-        self.args_s   = [rtyper.binding(a) for a in spaceop.args]
+        args_v   = spaceop.args
+        args_s   = [rtyper.binding(a) for a in args_v]
+        args_r   = [rtyper.getrepr(s_a) for s_a in args_s]
+        self.args = [HopArg(v, s, r) for v, s, r in
+                zip(args_v, args_s, args_r)]
         self.s_result = rtyper.binding(spaceop.result)
-        self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
         rtyper.call_all_setups()  # compute ForwardReferences now
 
@@ -688,9 +690,16 @@ class HighLevelOp(object):
         return len(self.args_v)
 
     @property
-    def args(self):
-        return [HopArg(v, s, r) for v, s, r in
-                zip(self.args_v, self.args_s, self.args_r)]
+    def args_v(self):
+        return [arg.v for arg in self.args]
+
+    @property
+    def args_s(self):
+        return [arg.s for arg in self.args]
+
+    @property
+    def args_r(self):
+        return [arg.r for arg in self.args]
 
     def copy(self):
         result = HighLevelOp(self.rtyper, self.spaceop,
@@ -741,8 +750,8 @@ class HighLevelOp(object):
 
     def r_s_pop(self, index=-1):
         "Return and discard the argument with index position."
-        self.args_v.pop(index)
-        return self.args_r.pop(index), self.args_s.pop(index)
+        arg = self.args.pop(index)
+        return arg.r, arg.s
 
     def r_s_popfirstarg(self):
         "Return and discard the first argument."
@@ -750,14 +759,11 @@ class HighLevelOp(object):
 
     def v_s_insertfirstarg(self, v_newfirstarg, s_newfirstarg):
         r_newfirstarg = self.rtyper.getrepr(s_newfirstarg)
-        self.args_v.insert(0, v_newfirstarg)
-        self.args_r.insert(0, r_newfirstarg)
-        self.args_s.insert(0, s_newfirstarg)
+        newarg = HopArg(v_newfirstarg, s_newfirstarg, r_newfirstarg)
+        self.args.insert(0, newarg)
 
     def swap_fst_snd_args(self):
-        self.args_v[0], self.args_v[1] = self.args_v[1], self.args_v[0]
-        self.args_s[0], self.args_s[1] = self.args_s[1], self.args_s[0]
-        self.args_r[0], self.args_r[1] = self.args_r[1], self.args_r[0]
+        self.args[0], self.args[1] = self.args[1], self.args[0]
 
     def has_implicit_exception(self, exc_cls):
         if self.llops.llop_raising_exceptions is not None:
