@@ -4,25 +4,43 @@ from rpython.memory.gc.incminimark import IncrementalMiniMarkGC
 from test_direct import BaseDirectGCTest
 
 S = lltype.GcForwardReference()
-S.become(lltype.GcStruct('S',
+S.become(lltype.GcStruct('pinning_test_struct',
                          ('someInt', lltype.Signed),
                          ('next', lltype.Ptr(S))))
 
 class PinningGCTest(BaseDirectGCTest):
 
     def test_simple_pin(self):
-        ptrRoot = self.malloc(S)
-        self.stackroots.append(ptrRoot)
+        ptr = self.malloc(S)
+        ptr.someInt = 100
+        self.stackroots.append(ptr)
 
-        ptrNext = self.malloc(S)
-        adrNext = llmemory.cast_ptr_to_adr(ptrNext)
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        assert self.gc.pin(adr)
 
-        self.write(ptrRoot, 'next', ptrNext)
-        ptrNext.someInt = 100
+        self.gc.collect()
         
-        assert self.gc.pin(adrNext)
-        self.gc.collect() # ptrNext should still live
-        assert ptrNext.someInt == 100
+        assert self.gc.is_in_nursery(adr)
+        assert ptr.someInt == 100
+
+    # XXX not implemented yet
+    def test_pin_referenced_from_stackroot(self):
+        root_ptr = self.malloc(S)
+        next_ptr = self.malloc(S)
+        self.write(root_ptr, 'next', next_ptr)
+        self.stackroots.append(root_ptr)
+        next_ptr.someInt = 100
+
+        next_adr = llmemory.cast_ptr_to_adr(next_ptr)
+        assert self.gc.pin(next_adr)
+
+        self.gc.collect()
+
+        assert self.gc.is_in_nursery(adr)
+        assert next_ptr.someInt == 100
+        root_ptr = self.stackroots[0]
+        assert root_ptr.next == next_ptr
+        
 
     def test_pin_can_move(self):
         # even a pinned object is considered to be movable. Only the caller
