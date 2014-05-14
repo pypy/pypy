@@ -723,8 +723,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # move search area to the next free memory block in the
                 # nursery.
                 self.nursery_free = self.nursery_top + pinned_obj_size
-                self.move_nursery_top(llarena.getfakearenaaddress(
-                    self.nursery_barriers.popleft()) - self.nursery_free)
+                # XXX should be, but check if the new area
+                # (nursery_free to nursery_top) was reset (arena_reset()). (groggi)
+                self.nursery_top = self.nursery_barriers.popleft()
             else:
                 count += 1
                 #
@@ -766,7 +767,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     ll_assert(count == 2,
                         "Seeing minor_collection() at least twice. "
                         "Too many pinned objects?")
-
             #
             # attempt to get 'totalzise' out of the nursery now.  This may
             # fail again, and then we loop. Should be the uncommon case.
