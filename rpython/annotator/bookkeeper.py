@@ -27,6 +27,14 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import extregistry
 
 
+BUILTIN_ANALYZERS = {}
+
+def analyzer_for(func):
+    def wrapped(ann_func):
+        BUILTIN_ANALYZERS[func] = ann_func
+        return func
+    return wrapped
+
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
@@ -600,6 +608,7 @@ def ishashable(x):
         return False
     else:
         return True
+
 # get current bookkeeper
 
 def getbookkeeper():
@@ -610,7 +619,8 @@ def getbookkeeper():
     except AttributeError:
         return None
 
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)
+
 def delayed_imports():
-    # import ordering hack
-    global BUILTIN_ANALYZERS
-    from rpython.annotator.builtin import BUILTIN_ANALYZERS
+    import rpython.annotator.builtin

@@ -10,15 +10,12 @@ from rpython.annotator.model import (
     SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
 from rpython.rtyper.llannotation import (
     SomeAddress, annotation_to_lltype, lltype_to_annotation, ll_to_annotation)
-from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.annotator.bookkeeper import (
+        getbookkeeper, immutablevalue, BUILTIN_ANALYZERS, analyzer_for)
 from rpython.annotator import description
 from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
-
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
 
 def constpropagate(func, args_s, s_result):
     """Returns s_result unless all args are constants, in which case the
@@ -43,14 +40,6 @@ def constpropagate(func, args_s, s_result):
         raise Exception("%s%r returned %r, which is not contained in %s" % (
             func, args, realresult, s_result))
     return s_realresult
-
-BUILTIN_ANALYZERS = {}
-
-def analyzer_for(func):
-    def wrapped(ann_func):
-        BUILTIN_ANALYZERS[func] = ann_func
-        return func
-    return wrapped
 
 # ____________________________________________________________
 
