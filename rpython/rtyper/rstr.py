@@ -9,6 +9,7 @@ from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.staticmethods import StaticMethods
+from rpython.rlib.rstring import UnicodeBuilder
 
 
 class AbstractStringRepr(Repr):
@@ -27,11 +28,12 @@ class AbstractStringRepr(Repr):
         from rpython.rtyper.annlowlevel import hlstr
         value = hlstr(llvalue)
         assert value is not None
-        univalue, _ = self.rstr_decode_utf_8(
+        result = UnicodeBuilder(len(value))
+        self.rstr_decode_utf_8(
             value, len(value), 'strict', final=False,
             errorhandler=self.ll_raise_unicode_exception_decode,
-            allow_surrogates=False)
-        return self.ll.llunicode(univalue)
+            allow_surrogates=False, result=result)
+        return self.ll.llunicode(result.build())
 
     def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
                                        startingpos, endingpos):
