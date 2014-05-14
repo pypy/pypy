@@ -97,6 +97,24 @@ class TestIncminimark(PinningGCTest):
         # ^^^ should not be possible, struct is already old and won't
         # move.
 
+    def test_pin_malloc_pin(self):
+        first_ptr = self.malloc(S)
+        first_ptr.someInt = 101
+        self.stackroots.append(first_ptr)
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(first_ptr))
+
+        self.gc.collect()
+        assert first_ptr.someInt == 101
+
+        second_ptr = self.malloc(S)
+        second_ptr.someInt = 102
+        self.stackroots.append(second_ptr)
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(second_ptr))
+
+        self.gc.collect()
+        assert first_ptr.someInt == 101
+        assert second_ptr.someInt == 102
+
     # XXX test/define what happens if we try to pin an object that is too
     # big for the nursery and will be raw-malloc'ed.
 
