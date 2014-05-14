@@ -27,8 +27,11 @@ inline void stmcb_commit_soon()
 {
     if (pypy_stm_nursery_low_fill_mark == (uintptr_t)-1) {
         /* atomic */
-        pypy_stm_nursery_low_fill_mark_saved = 0;
-    } else {
+        if (((long)pypy_stm_nursery_low_fill_mark_saved) > 0) {
+            pypy_stm_nursery_low_fill_mark_saved = 0;
+        }
+    } else if (((long)pypy_stm_nursery_low_fill_mark) > 0) {
+        /* if not set to unlimited by pypy_stm_setup() (s.b.) */
         pypy_stm_nursery_low_fill_mark = 0;
     }
 }
@@ -43,7 +46,7 @@ inline void stmcb_commit_soon()
 
 #define LOW_FILL_MARK   400000
 
-static long pypy_transaction_length = NURSERY_SIZE * 3 / 4;
+static long pypy_transaction_length;
 
 
 void pypy_stm_set_transaction_length(double fraction)
@@ -51,7 +54,7 @@ void pypy_stm_set_transaction_length(double fraction)
     /* the value '1.0' means 'use the default'.  Other values are
        interpreted proportionally, up to some maximum. */
     long low_fill_mark = (long)(LOW_FILL_MARK * fraction);
-    if (low_fill_mark > NURSERY_SIZE * 3 / 4)
+    if (low_fill_mark > (long)(NURSERY_SIZE * 3 / 4))
         low_fill_mark = NURSERY_SIZE * 3 / 4;
     pypy_transaction_length = low_fill_mark;
 }
@@ -61,7 +64,10 @@ void pypy_stm_setup(void)
     stm_setup();
     pypy_stm_register_thread_local();
     pypy_stm_ready_atomic = 1;
-    pypy_stm_set_transaction_length(1.0);
+    /* set transaction length to unlimited until the first thread
+       starts. pypy_stm_set_transaction_length will then be called
+       again by pypy. */
+    pypy_stm_set_transaction_length(-10000.0);
     pypy_stm_start_inevitable_if_not_atomic();
 }
 
@@ -69,6 +75,7 @@ long pypy_stm_enter_callback_call(void)
 {
     if (pypy_stm_ready_atomic == 0) {
         /* first time we see this thread */
+        assert(pypy_transaction_length >= 0);
         int e = errno;
         pypy_stm_register_thread_local();
         errno = e;
@@ -218,16 +225,16 @@ void _pypy_stm_inev_state(void)
     /* Reduce the limit so that inevitable transactions are generally
        shorter. We depend a bit on stmcb_commit_soon() in order for
        other transactions to signal us in case we block them. */
-    uintptr_t t;
+    long t;
     if (pypy_stm_ready_atomic == 1) {
-        t = pypy_stm_nursery_low_fill_mark;
-        t = _stm_nursery_start + ((t - _stm_nursery_start) >> 2);
+        t = (long)pypy_stm_nursery_low_fill_mark;
+        t = _stm_nursery_start + ((t - (long)_stm_nursery_start) >> 2);
         pypy_stm_nursery_low_fill_mark = t;
     }
     else {
         assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
-        t = pypy_stm_nursery_low_fill_mark_saved;
-        t = _stm_nursery_start + ((t - _stm_nursery_start) >> 2);
+        t = (long)pypy_stm_nursery_low_fill_mark_saved;
+        t = _stm_nursery_start + ((t - (long)_stm_nursery_start) >> 2);
         pypy_stm_nursery_low_fill_mark_saved = t;
     }
 }
@@ -243,6 +250,8 @@ void _pypy_stm_become_inevitable(const char *msg)
 
 void pypy_stm_become_globally_unique_transaction(void)
 {
-    _pypy_stm_inev_state();
+    if (STM_SEGMENT->jmpbuf_ptr != NULL) {
+        _pypy_stm_inev_state();
+    }
     stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");
 }
