@@ -2,8 +2,7 @@ from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import (Void, Bool, typeOf,
-    LowLevelType, isCompatibleType)
+from rpython.rtyper.lltypesystem.lltype import Void, Bool, LowLevelType
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
 
@@ -120,14 +119,9 @@ class Repr(object):
 
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
-        if self.lowleveltype is not Void:
-            try:
-                realtype = typeOf(value)
-            except (AssertionError, AttributeError, TypeError):
-                realtype = '???'
-            if realtype != self.lowleveltype:
-                raise TyperError("convert_const(self = %r, value = %r)" % (
-                    self, value))
+        if not self.lowleveltype._contains_value(value):
+            raise TyperError("convert_const(self = %r, value = %r)" % (
+                self, value))
         return value
 
     def get_ll_eq_function(self):
@@ -356,18 +350,9 @@ def inputconst(reqtype, value):
         lltype = reqtype
     else:
         raise TypeError(repr(reqtype))
-    # Void Constants can hold any value;
-    # non-Void Constants must hold a correctly ll-typed value
-    if lltype is not Void:
-        try:
-            realtype = typeOf(value)
-        except (AssertionError, AttributeError):
-            realtype = '???'
-        if not isCompatibleType(realtype, lltype):
-            raise TyperError("inputconst(reqtype = %s, value = %s):\n"
-                             "expected a %r,\n"
-                             "     got a %r" % (reqtype, value,
-                                                lltype, realtype))
+    if not lltype._contains_value(value):
+        raise TyperError("inputconst(): expected a %r, got %r" %
+                         (lltype, value))
     c = Constant(value)
     c.concretetype = lltype
     return c
