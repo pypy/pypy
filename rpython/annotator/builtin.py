@@ -211,7 +211,7 @@ def builtin_hasattr(s_obj, s_attr):
 def builtin_tuple(s_iterable):
     if isinstance(s_iterable, SomeTuple):
         return s_iterable
-    return SomeObject()
+    return AnnotatorError("tuple(): argument must be another tuple")
 
 def builtin_list(s_iterable):
     if isinstance(s_iterable, SomeList):

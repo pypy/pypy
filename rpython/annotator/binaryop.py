@@ -834,5 +834,5 @@ class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
         else:
             basedef = s_wrf1.classdef.commonbase(s_wrf2.classdef)
             if basedef is None:    # no common base class! complain...
-                return SomeObject()
+                raise UnionError(s_wrf1, s_wrf2)
         return SomeWeakRef(basedef)
