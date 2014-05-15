@@ -53,6 +53,7 @@ class gdbm(object):
 
     def __init__(self, filename, iflags, mode):
         res = lib.gdbm_open(filename, 0, iflags, mode, ffi.NULL)
+        self.size = -1
         if not res:
             self._raise_from_errno()
         self.ll_dbm = res
@@ -67,8 +68,14 @@ class gdbm(object):
             raise error(os.strerror(ffi.errno))
         raise error(lib.gdbm_strerror(lib.gdbm_errno))
 
+    def __len__(self):
+        if self.size < 0:
+            self.size = len(self.keys())
+        return self.size
+
     def __setitem__(self, key, value):
         self._check_closed()
+        self._size = -1
         r = lib.gdbm_store(self.ll_dbm, _fromstr(key), _fromstr(value),
                            lib.GDBM_REPLACE)
         if r < 0:
