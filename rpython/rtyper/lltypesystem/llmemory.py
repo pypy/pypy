@@ -9,6 +9,7 @@ from rpython.rlib.objectmodel import Symbolic, specialize
 from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.uid import uid
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 
 class AddressOffset(Symbolic):
@@ -529,6 +530,13 @@ class fakeaddress(object):
         else:
             return self
 
+class fakeaddressEntry(ExtRegistryEntry):
+    _type_ = fakeaddress
+
+    def compute_annotation(self):
+        from rpython.rtyper.llannotation import SomeAddress
+        return SomeAddress()
+
 # ____________________________________________________________
 
 class AddressAsInt(Symbolic):
@@ -899,7 +907,6 @@ def _reccopy(source, dest):
     else:
         raise TypeError(T)
 
-from rpython.rtyper.extregistry import ExtRegistryEntry
 
 class RawMemmoveEntry(ExtRegistryEntry):
     _about_ = raw_memmove

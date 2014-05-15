@@ -7,6 +7,7 @@ from rpython.tool import leakfinder
 from types import NoneType
 from rpython.rlib.rarithmetic import maxint, is_valid_int, is_emulated_long
 import weakref
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 class State(object):
     pass
@@ -1406,6 +1407,14 @@ class _ptr(_abstract_ptr):
         return val
 
 assert not '__dict__' in dir(_ptr)
+
+class _ptrEntry(ExtRegistryEntry):
+    _type_ = _ptr
+
+    def compute_annotation(self):
+        from rpython.rtyper.llannotation import SomePtr
+        return SomePtr(typeOf(self.instance))
+
 
 class _interior_ptr(_abstract_ptr):
     __slots__ = ('_parent', '_offsets')
