@@ -243,6 +243,20 @@ def test_os_path_exists():
     assert f() == False
 
 def test_os_path_isdir():
+    if sys.platform != 'win32':
+        py.test.skip('use generic.isdir() instead')
+    directory = "./."
+    def fn():
+        return os.path.isdir(directory)
+    f = compile(fn, [])
+    assert f() == True
+    directory = "some/random/name"
+    def fn():
+        return os.path.isdir(directory)
+    f = compile(fn, [])
+    assert f() == False
+
+def test_generic_isdir():
     # os.path.isdir is not rpython once pywin is installed (win32 specific)
     # genericpath.isdir is better.
     directory = "./."
@@ -301,7 +315,7 @@ def test_chdir():
     f1 = compile(does_stuff, [str])
     if os.name == 'nt':
         assert f1(os.environ['TEMP']) == os.path.realpath(os.environ['TEMP'])
-    else:    
+    else:
         assert f1('/tmp') == os.path.realpath('/tmp')
 
 def test_mkdir_rmdir():
