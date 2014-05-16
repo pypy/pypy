@@ -90,10 +90,7 @@ class HLOperation(SpaceOperation):
         return None
 
     def consider(self, annotator, *argcells):
-        consider_meth = getattr(annotator, 'consider_op_' + self.opname, None)
-        if not consider_meth:
-            raise Exception("unknown op: %r" % op)
-        return consider_meth(*argcells)
+        raise NotImplementedError
 
 class PureOperation(HLOperation):
     pure = True
@@ -141,15 +138,17 @@ class SingleDispatchMixin(object):
     dispatch = 1
 
     def consider(self, annotator, arg, *other_args):
-        impl = getattr(arg, self.opname)
-        return impl(*other_args)
+        impl = getattr(arg.ann, self.opname)
+        s_others = [x.ann for x in other_args]
+        return impl(*s_others)
 
 class DoubleDispatchMixin(object):
     dispatch = 2
 
     def consider(self, annotator, arg1, arg2, *other_args):
-        impl = getattr(pair(arg1, arg2), self.opname)
-        return impl(*other_args)
+        impl = getattr(pair(arg1.ann, arg2.ann), self.opname)
+        s_others = [arg.ann for arg in other_args]
+        return impl(*s_others)
 
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
@@ -374,7 +373,7 @@ class Contains(PureOperation):
 
     # XXX "contains" clash with SomeObject method
     def consider(self, annotator, seq, elem):
-        return seq.op_contains(elem)
+        return seq.ann.op_contains(elem.ann)
 
 
 class NewDict(HLOperation):
@@ -391,7 +390,7 @@ class NewTuple(PureOperation):
     canraise = []
 
     def consider(self, annotator, *args):
-        return SomeTuple(items=args)
+        return SomeTuple(items=[arg.ann for arg in args])
 
 
 class NewList(HLOperation):
@@ -399,7 +398,7 @@ class NewList(HLOperation):
     canraise = []
 
     def consider(self, annotator, *args):
-        return annotator.bookkeeper.newlist(*args)
+        return annotator.bookkeeper.newlist(*[arg.ann for arg in args])
 
 
 class Pow(PureOperation):

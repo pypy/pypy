@@ -10,6 +10,7 @@ from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
+from rpython.annotator.value import AnnotatedValue
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -239,6 +240,9 @@ class RPythonAnnotator(object):
             return self.bookkeeper.immutablevalue(arg.value)
         else:
             raise TypeError('Variable or Constant expected, got %r' % (arg,))
+
+    def annvalue(self, arg):
+        return AnnotatedValue(arg, self.binding(arg))
 
     def typeannotation(self, t):
         return signature.annotation(t, self.bookkeeper)
@@ -577,11 +581,10 @@ class RPythonAnnotator(object):
         self.links_followed[link] = True
         self.addpendingblock(graph, link.target, cells)
 
-
     #___ creating the annotations based on operations ______
 
     def consider_op(self, op):
-        argcells = [self.binding(a) for a in op.args]
+        argcells = [self.annvalue(a) for a in op.args]
 
         # let's be careful about avoiding propagated SomeImpossibleValues
         # to enter an op; the latter can result in violations of the
@@ -590,7 +593,7 @@ class RPythonAnnotator(object):
         #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
         # boom -- in the assert of setbinding()
         for arg in argcells:
-            if isinstance(arg, annmodel.SomeImpossibleValue):
+            if isinstance(arg.ann, annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, op, -1)
         resultcell = op.consider(self, *argcells)
         if resultcell is None:
