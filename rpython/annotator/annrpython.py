@@ -397,16 +397,15 @@ class RPythonAnnotator(object):
         return repr(graph) + blk + opid
 
     def flowin(self, graph, block):
-        #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
         try:
-            for i in range(len(block.operations)):
+            for i, op in enumerate(block.operations):
+                self.bookkeeper.enter((graph, block, i))
                 try:
-                    self.bookkeeper.enter((graph, block, i))
-                    self.consider_op(block, i)
+                    self.consider_op(op)
                 finally:
                     self.bookkeeper.leave()
 
-        except BlockedInference, e:
+        except BlockedInference as e:
             if (e.op is block.operations[-1] and
                 block.exitswitch == c_last_exception):
                 # this is the case where the last operation of the block will
@@ -428,6 +427,7 @@ class RPythonAnnotator(object):
                 # other cases are problematic (but will hopefully be solved
                 # later by reflowing).  Throw the BlockedInference up to
                 # processblock().
+                e.opindex = i
                 raise
 
         except annmodel.HarmlesslyBlocked:
@@ -582,8 +582,7 @@ class RPythonAnnotator(object):
 
     #___ creating the annotations based on operations ______
 
-    def consider_op(self, block, opindex):
-        op = block.operations[opindex]
+    def consider_op(self, op):
         argcells = [self.binding(a) for a in op.args]
 
         # let's be careful about avoiding propagated SomeImpossibleValues
@@ -594,12 +593,12 @@ class RPythonAnnotator(object):
         # boom -- in the assert of setbinding()
         for arg in argcells:
             if isinstance(arg, annmodel.SomeImpossibleValue):
-                raise BlockedInference(self, op, opindex)
+                raise BlockedInference(self, op, -1)
         resultcell = op.consider(self, *argcells)
         if resultcell is None:
             resultcell = annmodel.s_ImpossibleValue
         elif resultcell == annmodel.s_ImpossibleValue:
-            raise BlockedInference(self, op, opindex) # the operation cannot succeed
+            raise BlockedInference(self, op, -1) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
