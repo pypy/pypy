@@ -13,6 +13,10 @@ from pypy.module._decimal import interp_context
 
 IEEE_CONTEXT_MAX_BITS = rmpdec.MPD_IEEE_CONTEXT_MAX_BITS
 MAX_PREC = rmpdec.MPD_MAX_PREC
+MAX_EMAX = rmpdec.MPD_MAX_EMAX
+MAX_EMIN = rmpdec.MPD_MAX_EMIN
+MAX_ETINY = rmpdec.MPD_MAX_ETINY
+
 # DEC_MINALLOC >= MPD_MINALLOC
 DEC_MINALLOC = 4
 
@@ -306,7 +310,7 @@ class W_Decimal(W_Root):
         w_result = W_Decimal.allocate(space)
         with context.catch_status(space) as (ctx, status_ptr):
             rmpdec.mpd_qcopy_sign(w_result.mpd, self.mpd, w_other.mpd,
-                                  ctx, status_ptr)
+                                  status_ptr)
         return w_result
 
     # Boolean functions

@@ -90,6 +90,9 @@ class CConfig:
     MPD_IEEE_CONTEXT_MAX_BITS = platform.ConstantInteger(
         'MPD_IEEE_CONTEXT_MAX_BITS')
     MPD_MAX_PREC = platform.ConstantInteger('MPD_MAX_PREC')
+    MPD_MAX_EMAX = platform.ConstantInteger('MPD_MAX_EMAX')
+    MPD_MAX_EMIN = platform.ConstantInteger('MPD_MAX_EMIN')
+    MPD_MAX_ETINY = platform.ConstantInteger('MPD_MAX_ETINY')
     MPD_MAX_SIGNAL_LIST = platform.ConstantInteger('MPD_MAX_SIGNAL_LIST')
     MPD_SIZE_MAX = platform.ConstantInteger('MPD_SIZE_MAX')
     MPD_SSIZE_MAX = platform.ConstantInteger('MPD_SSIZE_MAX')
@@ -334,7 +337,7 @@ mpd_qsqrt = external(
 
 mpd_qcopy_sign = external(
     'mpd_qcopy_sign',
-    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    [MPD_PTR, MPD_PTR, MPD_PTR, rffi.UINTP],
     lltype.Void)
 
 mpd_qround_to_int = external(
