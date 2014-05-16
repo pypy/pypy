@@ -447,11 +447,6 @@ class RPythonAnnotator(object):
                     exits = [link for link in exits
                                   if link.exitcase == s_exitswitch.const]
 
-        # mapping (exitcase, variable) -> s_annotation
-        # that can be attached to booleans, exitswitches
-        knowntypedata = getattr(self.bindings.get(block.exitswitch),
-                                "knowntypedata", {})
-
         # filter out those exceptions which cannot
         # occour for this specific, typed operation.
         if block.exitswitch == c_last_exception:
@@ -484,93 +479,12 @@ class RPythonAnnotator(object):
                         exits.append(link)
                         candidates = [c for c in candidates if c not in covered]
 
+        # mapping (exitcase, variable) -> s_annotation
+        # that can be attached to booleans, exitswitches
+        knowntypedata = getattr(self.bindings.get(block.exitswitch),
+                                "knowntypedata", {})
         for link in exits:
-            in_except_block = False
-
-            last_exception_var = link.last_exception # may be None for non-exception link
-            last_exc_value_var = link.last_exc_value # may be None for non-exception link
-
-            if isinstance(link.exitcase, (types.ClassType, type)) \
-                   and issubclass(link.exitcase, py.builtin.BaseException):
-                assert last_exception_var and last_exc_value_var
-                last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
-                last_exception_object = annmodel.SomeType()
-                if isinstance(last_exception_var, Constant):
-                    last_exception_object.const = last_exception_var.value
-                last_exception_object.is_type_of = [last_exc_value_var]
-
-                if isinstance(last_exception_var, Variable):
-                    self.setbinding(last_exception_var, last_exception_object)
-                if isinstance(last_exc_value_var, Variable):
-                    self.setbinding(last_exc_value_var, last_exc_value_object)
-
-                last_exception_object = annmodel.SomeType()
-                if isinstance(last_exception_var, Constant):
-                    last_exception_object.const = last_exception_var.value
-                #if link.exitcase is Exception:
-                #    last_exc_value_object = annmodel.SomeObject()
-                #else:
-                last_exc_value_vars = []
-                in_except_block = True
-
-            ignore_link = False
-            cells = []
-            renaming = {}
-            for a,v in zip(link.args,link.target.inputargs):
-                renaming.setdefault(a, []).append(v)
-            for a,v in zip(link.args,link.target.inputargs):
-                if a == last_exception_var:
-                    assert in_except_block
-                    cells.append(last_exception_object)
-                elif a == last_exc_value_var:
-                    assert in_except_block
-                    cells.append(last_exc_value_object)
-                    last_exc_value_vars.append(v)
-                else:
-                    cell = self.binding(a)
-                    if (link.exitcase, a) in knowntypedata:
-                        knownvarvalue = knowntypedata[(link.exitcase, a)]
-                        cell = pair(cell, knownvarvalue).improve()
-                        # ignore links that try to pass impossible values
-                        if cell == annmodel.s_ImpossibleValue:
-                            ignore_link = True
-
-                    if hasattr(cell,'is_type_of'):
-                        renamed_is_type_of = []
-                        for v in cell.is_type_of:
-                            new_vs = renaming.get(v,[])
-                            renamed_is_type_of += new_vs
-                        assert cell.knowntype is type
-                        newcell = annmodel.SomeType()
-                        if cell.is_constant():
-                            newcell.const = cell.const
-                        cell = newcell
-                        cell.is_type_of = renamed_is_type_of
-
-                    if hasattr(cell, 'knowntypedata'):
-                        renamed_knowntypedata = {}
-                        for (value, v), s in cell.knowntypedata.items():
-                            new_vs = renaming.get(v, [])
-                            for new_v in new_vs:
-                                renamed_knowntypedata[value, new_v] = s
-                        assert isinstance(cell, annmodel.SomeBool)
-                        newcell = annmodel.SomeBool()
-                        if cell.is_constant():
-                            newcell.const = cell.const
-                        cell = newcell
-                        cell.set_knowntypedata(renamed_knowntypedata)
-
-                    cells.append(cell)
-
-            if ignore_link:
-                continue
-
-            if in_except_block:
-                last_exception_object.is_type_of = last_exc_value_vars
-
-            self.links_followed[link] = True
-            self.addpendingblock(graph, link.target, cells)
-
+            self.follow_link(graph, link, knowntypedata)
         if block in self.notify:
             # reflow from certain positions when this block is done
             for callback in self.notify[block]:
@@ -578,6 +492,90 @@ class RPythonAnnotator(object):
                     self.reflowfromposition(callback) # callback is a position
                 else:
                     callback()
+
+    def follow_link(self, graph, link, knowntypedata):
+        in_except_block = False
+        last_exception_var = link.last_exception  # may be None for non-exception link
+        last_exc_value_var = link.last_exc_value  # may be None for non-exception link
+
+        if isinstance(link.exitcase, (types.ClassType, type)) \
+                and issubclass(link.exitcase, py.builtin.BaseException):
+            assert last_exception_var and last_exc_value_var
+            last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
+            last_exception_object = annmodel.SomeType()
+            if isinstance(last_exception_var, Constant):
+                last_exception_object.const = last_exception_var.value
+            last_exception_object.is_type_of = [last_exc_value_var]
+
+            if isinstance(last_exception_var, Variable):
+                self.setbinding(last_exception_var, last_exception_object)
+            if isinstance(last_exc_value_var, Variable):
+                self.setbinding(last_exc_value_var, last_exc_value_object)
+
+            last_exception_object = annmodel.SomeType()
+            if isinstance(last_exception_var, Constant):
+                last_exception_object.const = last_exception_var.value
+            #if link.exitcase is Exception:
+            #    last_exc_value_object = annmodel.SomeObject()
+            #else:
+            last_exc_value_vars = []
+            in_except_block = True
+
+        ignore_link = False
+        cells = []
+        renaming = {}
+        for a, v in zip(link.args, link.target.inputargs):
+            renaming.setdefault(a, []).append(v)
+        for a, v in zip(link.args, link.target.inputargs):
+            if a == last_exception_var:
+                assert in_except_block
+                cells.append(last_exception_object)
+            elif a == last_exc_value_var:
+                assert in_except_block
+                cells.append(last_exc_value_object)
+                last_exc_value_vars.append(v)
+            else:
+                cell = self.binding(a)
+                if (link.exitcase, a) in knowntypedata:
+                    knownvarvalue = knowntypedata[(link.exitcase, a)]
+                    cell = pair(cell, knownvarvalue).improve()
+                    # ignore links that try to pass impossible values
+                    if cell == annmodel.s_ImpossibleValue:
+                        ignore_link = True
+
+                if hasattr(cell,'is_type_of'):
+                    renamed_is_type_of = []
+                    for v in cell.is_type_of:
+                        new_vs = renaming.get(v,[])
+                        renamed_is_type_of += new_vs
+                    assert cell.knowntype is type
+                    newcell = annmodel.SomeType()
+                    if cell.is_constant():
+                        newcell.const = cell.const
+                    cell = newcell
+                    cell.is_type_of = renamed_is_type_of
+
+                if hasattr(cell, 'knowntypedata'):
+                    renamed_knowntypedata = {}
+                    for (value, v), s in cell.knowntypedata.items():
+                        new_vs = renaming.get(v, [])
+                        for new_v in new_vs:
+                            renamed_knowntypedata[value, new_v] = s
+                    assert isinstance(cell, annmodel.SomeBool)
+                    newcell = annmodel.SomeBool()
+                    if cell.is_constant():
+                        newcell.const = cell.const
+                    cell = newcell
+                    cell.set_knowntypedata(renamed_knowntypedata)
+
+                cells.append(cell)
+        if ignore_link:
+            return
+
+        if in_except_block:
+            last_exception_object.is_type_of = last_exc_value_vars
+        self.links_followed[link] = True
+        self.addpendingblock(graph, link.target, cells)
 
 
     #___ creating the annotations based on operations ______
