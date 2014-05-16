@@ -31,6 +31,30 @@ class PinningGCTest(BaseDirectGCTest):
         py.test.raises(Exception,
             self.gc.unpin, llmemory.cast_ptr_to_adr(ptr))
 
+    def test_pin_id(self):
+        ptr = self.malloc(S)
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        self.stackroots.append(ptr)
+        ptr.someInt = 100
+        assert self.gc.pin(adr)
+        # XXX incminimark: leads to a shadow.
+        # Check if this really works. (groggi)
+        self.gc.id(ptr)
+        self.gc.collect()
+        assert ptr.someInt == 100
+
+    def test_pin_hash(self):
+        ptr = self.malloc(S)
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        self.stackroots.append(ptr)
+        ptr.someInt = 100
+        assert self.gc.pin(adr)
+        # XXX incminimark: leads to a shadow.
+        # Check if this really works. (groggi)
+        self.gc.identityhash(ptr)
+        self.gc.collect()
+        assert ptr.someInt == 100
+
     # XXX test with multiple mallocs, and only part of them is pinned
 
 class TestIncminimark(PinningGCTest):
