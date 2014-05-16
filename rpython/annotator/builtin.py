@@ -14,6 +14,7 @@ from rpython.annotator import description
 from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
+from rpython.annotator.model import AnnotatorError
 
 
 def constpropagate(func, args_s, s_result):
@@ -211,7 +212,7 @@ def builtin_hasattr(s_obj, s_attr):
 def builtin_tuple(s_iterable):
     if isinstance(s_iterable, SomeTuple):
         return s_iterable
-    return AnnotatorError("tuple(): argument must be another tuple")
+    raise AnnotatorError("tuple(): argument must be another tuple")
 
 def builtin_list(s_iterable):
     if isinstance(s_iterable, SomeList):
