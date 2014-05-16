@@ -330,6 +330,9 @@ def get_file():
         """
         import os
         import zipimport
+        if self.appdirect:
+            # py3k's appdirect startup may populate _zip_directory_cache
+            zipimport._zip_directory_cache.clear()
         self.writefile("directory/package/__init__.py", "")
         importer = zipimport.zipimporter(self.zipfile + "/directory")
         l = [i for i in zipimport._zip_directory_cache]
