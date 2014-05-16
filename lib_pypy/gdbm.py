@@ -36,9 +36,15 @@ int gdbm_errno;
 void free(void*);
 ''')
 
-lib = ffi.verify('''
-#include "gdbm.h"
-''', libraries=['gdbm'])
+try:
+    lib = ffi.verify('''
+    #include "gdbm.h"
+    ''', libraries=['gdbm'])
+except cffi.VerificationError as e:
+    # distutils does not preserve the actual message,
+    # but the verification is simple enough that the
+    # failure must be due to missing gdbm dev libs
+    raise ImportError('%s: %s' %(e.__class__.__name__, e))
 
 class error(Exception):
     pass
