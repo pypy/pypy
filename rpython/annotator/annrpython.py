@@ -433,6 +433,10 @@ class RPythonAnnotator(object):
         except annmodel.HarmlesslyBlocked:
             return
 
+        except annmodel.AnnotatorError as e: # note that UnionError is a subclass
+            e.source = gather_error(self, graph, block, i)
+            raise
+
         else:
             # dead code removal: don't follow all exits if the exitswitch
             # is known
@@ -580,23 +584,18 @@ class RPythonAnnotator(object):
 
     def consider_op(self, block, opindex):
         op = block.operations[opindex]
-        try:
-            argcells = [self.binding(a) for a in op.args]
+        argcells = [self.binding(a) for a in op.args]
 
-            # let's be careful about avoiding propagated SomeImpossibleValues
-            # to enter an op; the latter can result in violations of the
-            # more general results invariant: e.g. if SomeImpossibleValue enters is_
-            #  is_(SomeImpossibleValue, None) -> SomeBool
-            #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
-            # boom -- in the assert of setbinding()
-            for arg in argcells:
-                if isinstance(arg, annmodel.SomeImpossibleValue):
-                    raise BlockedInference(self, op, opindex)
-            resultcell = op.consider(self, *argcells)
-        except annmodel.AnnotatorError as e: # note that UnionError is a subclass
-            graph = self.bookkeeper.position_key[0]
-            e.source = gather_error(self, graph, block, opindex)
-            raise
+        # let's be careful about avoiding propagated SomeImpossibleValues
+        # to enter an op; the latter can result in violations of the
+        # more general results invariant: e.g. if SomeImpossibleValue enters is_
+        #  is_(SomeImpossibleValue, None) -> SomeBool
+        #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
+        # boom -- in the assert of setbinding()
+        for arg in argcells:
+            if isinstance(arg, annmodel.SomeImpossibleValue):
+                raise BlockedInference(self, op, opindex)
+        resultcell = op.consider(self, *argcells)
         if resultcell is None:
             resultcell = annmodel.s_ImpossibleValue
         elif resultcell == annmodel.s_ImpossibleValue:
