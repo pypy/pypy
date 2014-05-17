@@ -20,9 +20,21 @@ UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
 
 @op.type.register(SomeObject)
-def type(arg):
+def type_SomeObject(arg):
     r = SomeType()
     r.is_type_of = [arg.value]
+    return r
+
+@op.bool.register(SomeObject)
+def bool_SomeObject(obj):
+    r = SomeBool()
+    obj.ann.bool_behavior(r)
+    s_nonnone_obj = obj.ann
+    if s_nonnone_obj.can_be_none():
+        s_nonnone_obj = s_nonnone_obj.nonnoneify()
+    knowntypedata = {}
+    add_knowntypedata(knowntypedata, True, [obj.value], s_nonnone_obj)
+    r.set_knowntypedata(knowntypedata)
     return r
 
 class __extend__(SomeObject):
@@ -47,21 +59,6 @@ class __extend__(SomeObject):
             s_len = self.len()
             if s_len.is_immutable_constant():
                 s.const = s_len.const > 0
-
-    def bool(s_obj):
-        r = SomeBool()
-        s_obj.bool_behavior(r)
-
-        bk = getbookkeeper()
-        knowntypedata = {}
-        op = bk._find_current_op(opname="bool", arity=1)
-        arg = op.args[0]
-        s_nonnone_obj = s_obj
-        if s_obj.can_be_none():
-            s_nonnone_obj = s_obj.nonnoneify()
-        add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
-        r.set_knowntypedata(knowntypedata)
-        return r
 
     def hash(self):
         raise AnnotatorError("cannot use hash() in RPython")
