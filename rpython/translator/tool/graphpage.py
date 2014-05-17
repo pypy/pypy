@@ -107,7 +107,8 @@ class FlowGraphPage(GraphPage):
         # make the dictionary of links -- one per annotated variable
         self.current_value = {}
         if self.annotator:
-            for var, s_value in self.annotator.bindings.items():
+            for var, value in self.annotator.bindings.items():
+                s_value = value.ann
                 info = '%s: %s' % (var.name, s_value)
                 annotationcolor = getattr(s_value, 'annotationcolor', None)
                 self.links[var.name] = info, annotationcolor

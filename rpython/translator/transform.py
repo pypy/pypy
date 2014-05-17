@@ -178,8 +178,7 @@ def cutoff_alwaysraising_block(self, block):
     assert 0 <= n < len(block.operations)
     # chop off the unreachable end of the block
     del block.operations[n+1:]
-    s_impossible = annmodel.SomeImpossibleValue()
-    self.bindings[block.operations[n].result] = s_impossible
+    self.setbinding(block.operations[n].result, annmodel.s_ImpossibleValue)
     # insert the equivalent of 'raise AssertionError'
     graph = self.annotated[block]
     msg = "Call to %r should have raised an exception" % (getattr(graph, 'func', None),)

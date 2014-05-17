@@ -33,7 +33,7 @@ class RPythonAnnotator(object):
             translator.annotator = self
         self.translator = translator
         self.pendingblocks = {}  # map {block: graph-containing-it}
-        self.bindings = {}       # map Variables to SomeValues
+        self.bindings = {}       # map Variables to AnnotatedValues
         self.annotated = {}      # set of blocks already seen
         self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
@@ -153,7 +153,7 @@ class RPythonAnnotator(object):
         elif isinstance(variable, Variable):
             cell = self.bindings.get(variable)
             if cell:
-                return cell.knowntype
+                return cell.ann.knowntype
             else:
                 return object
         else:
@@ -230,7 +230,7 @@ class RPythonAnnotator(object):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
             try:
-                return self.bindings[arg]
+                return self.bindings[arg].ann
             except KeyError:
                 if default is not FAIL:
                     return default
@@ -242,19 +242,25 @@ class RPythonAnnotator(object):
             raise TypeError('Variable or Constant expected, got %r' % (arg,))
 
     def annvalue(self, arg):
-        return AnnotatedValue(arg, self.binding(arg))
+        if isinstance(arg, Variable):
+            return self.bindings[arg]
+        else:
+            return AnnotatedValue(arg, self.bookkeeper.immutablevalue(arg.value))
 
     def typeannotation(self, t):
         return signature.annotation(t, self.bookkeeper)
 
     def setbinding(self, arg, s_value):
         if arg in self.bindings:
-            assert s_value.contains(self.bindings[arg])
-        self.bindings[arg] = s_value
+            assert s_value.contains(self.bindings[arg].ann)
+            self.bindings[arg].ann = s_value
+        else:
+            self.bindings[arg] = AnnotatedValue(arg, s_value)
 
     def transfer_binding(self, v_target, v_source):
         assert v_source in self.bindings
-        self.bindings[v_target] = self.bindings[v_source]
+        self.bindings[v_target] = AnnotatedValue(v_target,
+                                                 self.bindings[v_source].ann)
 
     def warning(self, msg, pos=None):
         if pos is None:
@@ -293,7 +299,7 @@ class RPythonAnnotator(object):
         # get the (current) return value
         v = graph.getreturnvar()
         try:
-            return self.bindings[v]
+            return self.binding(v)
         except KeyError:
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
@@ -446,7 +452,7 @@ class RPythonAnnotator(object):
             # is known
             exits = block.exits
             if isinstance(block.exitswitch, Variable):
-                s_exitswitch = self.bindings[block.exitswitch]
+                s_exitswitch = self.binding(block.exitswitch)
                 if s_exitswitch.is_constant():
                     exits = [link for link in exits
                                   if link.exitcase == s_exitswitch.const]
@@ -485,8 +491,10 @@ class RPythonAnnotator(object):
 
         # mapping (exitcase, variable) -> s_annotation
         # that can be attached to booleans, exitswitches
-        knowntypedata = getattr(self.bindings.get(block.exitswitch),
-                                "knowntypedata", {})
+        knowntypedata = {}
+        if isinstance(block.exitswitch, Variable):
+            knowntypedata = getattr(self.binding(block.exitswitch),
+                                    "knowntypedata", {})
         for link in exits:
             self.follow_link(graph, link, knowntypedata)
         if block in self.notify:
