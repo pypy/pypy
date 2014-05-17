@@ -13,7 +13,7 @@ from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.annotator.model import SomeTuple
+from rpython.annotator.model import SomeTuple, AnnotatorError
 from rpython.flowspace.specialcase import SPECIAL_CASES
 
 
@@ -53,6 +53,13 @@ class HLOperationMeta(type):
         type.__init__(cls, name, bases, attrdict)
         if hasattr(cls, 'opname'):
             setattr(op, cls.opname, cls)
+        cls._registry = {}
+
+    def register(cls, Some_cls):
+        def decorator(func):
+            cls._registry[Some_cls] = func
+        return decorator
+
 
 class HLOperation(SpaceOperation):
     __metaclass__ = HLOperationMeta
@@ -140,11 +147,23 @@ class SingleDispatchMixin(object):
     dispatch = 1
 
     @classmethod
+    def _dispatch(cls, Some_cls):
+        for c in Some_cls.__mro__:
+            try:
+                return cls._registry[c]
+            except KeyError:
+                pass
+        raise AnnotatorError("Unknown operation")
+
+    @classmethod
     def get_specialization(cls, s_arg, *_ignored):
-        impl = getattr(s_arg, cls.opname)
-        def specialized(arg, *other_args):
-            return impl(*[x.ann for x in other_args])
-        return specialized
+        try:
+            impl = getattr(s_arg, cls.opname)
+            def specialized(arg, *other_args):
+                return impl(*[x.ann for x in other_args])
+            return specialized
+        except AttributeError:
+            return cls._dispatch(type(s_arg))
 
 
 class DoubleDispatchMixin(object):
