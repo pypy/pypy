@@ -26,15 +26,15 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "constants.h"
-#include "memory.h"
-#include "typearith.h"
-#include "basearith.h"
+#include "src/libmpdec/constants.h"
+#include "src/libmpdec/memory.h"
+#include "src/libmpdec/typearith.h"
+#include "src/libmpdec/basearith.h"
 
 
 /*********************************************************************/

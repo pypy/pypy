@@ -26,19 +26,19 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include <math.h>
-#include "basearith.h"
-#include "bits.h"
-#include "convolute.h"
-#include "crt.h"
-#include "memory.h"
-#include "typearith.h"
-#include "umodarith.h"
+#include "src/libmpdec/basearith.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/convolute.h"
+#include "src/libmpdec/crt.h"
+#include "src/libmpdec/memory.h"
+#include "src/libmpdec/typearith.h"
+#include "src/libmpdec/umodarith.h"
 
 #ifdef PPRO
   #if defined(_MSC_VER)

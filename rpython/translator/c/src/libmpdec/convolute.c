@@ -26,16 +26,16 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
-#include "bits.h"
-#include "constants.h"
-#include "fnt.h"
-#include "fourstep.h"
-#include "numbertheory.h"
-#include "sixstep.h"
-#include "umodarith.h"
-#include "convolute.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/constants.h"
+#include "src/libmpdec/fnt.h"
+#include "src/libmpdec/fourstep.h"
+#include "src/libmpdec/numbertheory.h"
+#include "src/libmpdec/sixstep.h"
+#include "src/libmpdec/umodarith.h"
+#include "src/libmpdec/convolute.h"
 
 
 /* Bignum: Fast convolution using the Number Theoretic Transform. Used for

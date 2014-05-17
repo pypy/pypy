@@ -26,13 +26,13 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <assert.h>
-#include "bits.h"
-#include "numbertheory.h"
-#include "umodarith.h"
-#include "difradix2.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/numbertheory.h"
+#include "src/libmpdec/umodarith.h"
+#include "src/libmpdec/difradix2.h"
 
 
 /* Bignum: The actual transform routine (decimation in frequency). */

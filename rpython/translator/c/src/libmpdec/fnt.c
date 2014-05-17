@@ -26,14 +26,14 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "bits.h"
-#include "difradix2.h"
-#include "numbertheory.h"
-#include "fnt.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/difradix2.h"
+#include "src/libmpdec/numbertheory.h"
+#include "src/libmpdec/fnt.h"
 
 
 /* Bignum: Fast transform for medium-sized coefficients. */

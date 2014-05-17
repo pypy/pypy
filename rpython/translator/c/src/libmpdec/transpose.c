@@ -26,16 +26,16 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include <assert.h>
-#include "bits.h"
-#include "constants.h"
-#include "typearith.h"
-#include "transpose.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/constants.h"
+#include "src/libmpdec/typearith.h"
+#include "src/libmpdec/transpose.h"
 
 
 #define BUFSIZE 4096

@@ -26,12 +26,12 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <assert.h>
-#include "numbertheory.h"
-#include "umodarith.h"
-#include "crt.h"
+#include "src/libmpdec/numbertheory.h"
+#include "src/libmpdec/umodarith.h"
+#include "src/libmpdec/crt.h"
 
 
 /* Bignum: Chinese Remainder Theorem, extends the maximum transform length. */

@@ -26,12 +26,12 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdlib.h>
 #include <assert.h>
-#include "bits.h"
-#include "umodarith.h"
-#include "numbertheory.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/umodarith.h"
+#include "src/libmpdec/numbertheory.h"
 
 
 /* Bignum: Initialize the Number Theoretic Transform. */

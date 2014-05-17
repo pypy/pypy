@@ -26,9 +26,9 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
-#include "constants.h"
+#include "src/libmpdec/constants.h"
 
 
 #if defined(CONFIG_64)

@@ -26,16 +26,16 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "bits.h"
-#include "difradix2.h"
-#include "numbertheory.h"
-#include "transpose.h"
-#include "umodarith.h"
-#include "sixstep.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/difradix2.h"
+#include "src/libmpdec/numbertheory.h"
+#include "src/libmpdec/transpose.h"
+#include "src/libmpdec/umodarith.h"
+#include "src/libmpdec/sixstep.h"
 
 
 /* Bignum: Cache efficient Matrix Fourier Transform for arrays of the

@@ -26,7 +26,7 @@
  */
 
 
-#include "mpdecimal.h"
+#include "src/libmpdec/mpdecimal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,11 +35,11 @@
 #include <assert.h>
 #include <errno.h>
 #include <locale.h>
-#include "bits.h"
-#include "constants.h"
-#include "memory.h"
-#include "typearith.h"
-#include "io.h"
+#include "src/libmpdec/bits.h"
+#include "src/libmpdec/constants.h"
+#include "src/libmpdec/memory.h"
+#include "src/libmpdec/typearith.h"
+#include "src/libmpdec/io.h"
 
 
 /* This file contains functions for decimal <-> string conversions, including
