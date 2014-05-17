@@ -19,17 +19,13 @@ from rpython.annotator.model import AnnotatorError
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
 
+@op.type.register(SomeObject)
+def type(arg):
+    r = SomeType()
+    r.is_type_of = [arg.value]
+    return r
 
 class __extend__(SomeObject):
-
-    def type(self, *moreargs):
-        if moreargs:
-            raise Exception('type() called with more than one argument')
-        r = SomeType()
-        bk = getbookkeeper()
-        op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=self)
-        r.is_type_of = [op.args[0]]
-        return r
 
     def issubtype(self, s_cls):
         if hasattr(self, 'is_type_of'):
