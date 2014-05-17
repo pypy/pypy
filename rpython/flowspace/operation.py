@@ -89,8 +89,10 @@ class HLOperation(SpaceOperation):
     def constfold(self):
         return None
 
-    def consider(self, annotator, *argcells):
-        raise NotImplementedError
+    def consider(self, annotator, *args):
+        args_s = [arg.ann for arg in args]
+        spec = type(self).get_specialization(*args_s)
+        return spec(*args)
 
 class PureOperation(HLOperation):
     pure = True
@@ -137,18 +139,23 @@ class OverflowingOperation(PureOperation):
 class SingleDispatchMixin(object):
     dispatch = 1
 
-    def consider(self, annotator, arg, *other_args):
-        impl = getattr(arg.ann, self.opname)
-        s_others = [x.ann for x in other_args]
-        return impl(*s_others)
+    @classmethod
+    def get_specialization(cls, s_arg, *_ignored):
+        impl = getattr(s_arg, cls.opname)
+        def specialized(arg, *other_args):
+            return impl(*[x.ann for x in other_args])
+        return specialized
+
 
 class DoubleDispatchMixin(object):
     dispatch = 2
 
-    def consider(self, annotator, arg1, arg2, *other_args):
-        impl = getattr(pair(arg1.ann, arg2.ann), self.opname)
-        s_others = [arg.ann for arg in other_args]
-        return impl(*s_others)
+    @classmethod
+    def get_specialization(cls, s_arg1, s_arg2, *_ignored):
+        impl = getattr(pair(s_arg1, s_arg2), cls.opname)
+        def specialized(arg1, arg2, *other_args):
+            return impl(*[x.ann for x in other_args])
+        return specialized
 
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
@@ -372,8 +379,12 @@ class Contains(PureOperation):
     pyfunc = staticmethod(operator.contains)
 
     # XXX "contains" clash with SomeObject method
-    def consider(self, annotator, seq, elem):
-        return seq.ann.op_contains(elem.ann)
+    @classmethod
+    def get_specialization(cls, s_seq, s_elem):
+        impl = s_seq.op_contains
+        def specialized(seq, elem):
+            return impl(elem.ann)
+        return specialized
 
 
 class NewDict(HLOperation):
