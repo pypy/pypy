@@ -115,8 +115,10 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
             def bind(src_obj, tgt_obj, tgt_arg):
                 if hasattr(tgt_obj, 'is_type_of') and src_obj.is_constant():
-                    add_knowntypedata(knowntypedata, True, tgt_obj.is_type_of,
-                                      bk.valueoftype(src_obj.const))
+                    add_knowntypedata(
+                        knowntypedata, True,
+                        [inst.value for inst in tgt_obj.is_type_of],
+                        bk.valueoftype(src_obj.const))
 
                 assert annotator.binding(op.args[tgt_arg]) == tgt_obj
                 add_knowntypedata(knowntypedata, True, [op.args[tgt_arg]], src_obj)

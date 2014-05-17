@@ -48,11 +48,12 @@ def check_exceptblocks_qgen(translator):
         s_ev = annotator.binding(ev, None)
         if s_et:
             if s_et.knowntype == type:
-                if s_et.__class__ == annmodel.SomeType:
-                    if hasattr(s_et, 'is_type_of') and  s_et.is_type_of == [ev]:
+                if isinstance(s_et, annmodel.SomeType):
+                    if (hasattr(s_et, 'is_type_of') and
+                            s_et.is_type_of == [annotator.annvalue(ev)]):
                         continue
                 else:
-                    if s_et.__class__ == annmodel.SomePBC:
+                    if isinstance(s_et, annmodel.SomePBC):
                         continue
             yield "%s exceptblock is not completely sane" % graph.name
 

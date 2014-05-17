@@ -191,7 +191,7 @@ def cutoff_alwaysraising_block(self, block):
     # fix the annotation of the exceptblock.inputargs
     etype, evalue = graph.exceptblock.inputargs
     s_type = annmodel.SomeType()
-    s_type.is_type_of = [evalue]
+    s_type.is_type_of = [self.annvalue(evalue)]
     s_value = annmodel.SomeInstance(self.bookkeeper.getuniqueclassdef(Exception))
     self.setbinding(etype, s_type)
     self.setbinding(evalue, s_value)
