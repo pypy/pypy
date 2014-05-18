@@ -590,6 +590,11 @@ def run_command_line(interactive,
             # handle the case where no command/filename/module is specified
             # on the command-line.
 
+            try:
+                from _ast import PyCF_ACCEPT_NULL_BYTES
+            except ImportError:
+                PyCF_ACCEPT_NULL_BYTES = 0
+
             # update sys.path *after* loading site.py, in case there is a
             # "site.py" file in the script's directory. Only run this if we're
             # executing the interactive prompt, if we're running a script we
@@ -613,7 +618,8 @@ def run_command_line(interactive,
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
-                                                        'exec')
+                                                        'exec',
+                                                        PyCF_ACCEPT_NULL_BYTES)
                             exec co_python_startup in mainmodule.__dict__
                         mainmodule.__file__ = python_startup
                         run_toplevel(run_it)
@@ -626,7 +632,8 @@ def run_command_line(interactive,
             else:
                 # If not interactive, just read and execute stdin normally.
                 def run_it():
-                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
+                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
+                                       PyCF_ACCEPT_NULL_BYTES)
                     exec co_stdin in mainmodule.__dict__
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
