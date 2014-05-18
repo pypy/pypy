@@ -14,8 +14,8 @@ from pypy.module._decimal import interp_context
 IEEE_CONTEXT_MAX_BITS = rmpdec.MPD_IEEE_CONTEXT_MAX_BITS
 MAX_PREC = rmpdec.MPD_MAX_PREC
 MAX_EMAX = rmpdec.MPD_MAX_EMAX
-MAX_EMIN = rmpdec.MPD_MAX_EMIN
-MAX_ETINY = rmpdec.MPD_MAX_ETINY
+MIN_EMIN = rmpdec.MPD_MIN_EMIN
+MIN_ETINY = rmpdec.MPD_MIN_ETINY
 
 # DEC_MINALLOC >= MPD_MINALLOC
 DEC_MINALLOC = 4

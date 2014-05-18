@@ -19,8 +19,10 @@ class Module(MixedModule):
         'IEEE_CONTEXT_MAX_BITS': 'space.wrap(interp_decimal.IEEE_CONTEXT_MAX_BITS)',
         'MAX_PREC': 'space.wrap(interp_decimal.MAX_PREC)',
         'MAX_EMAX': 'space.wrap(interp_decimal.MAX_EMAX)',
-        'MAX_EMIN': 'space.wrap(interp_decimal.MAX_EMIN)',
-        'MAX_ETINY': 'space.wrap(interp_decimal.MAX_ETINY)',
+        'MIN_EMIN': 'space.wrap(interp_decimal.MIN_EMIN)',
+        'MIN_ETINY': 'space.wrap(interp_decimal.MIN_ETINY)',
+
+        'HAVE_THREADS': 'space.wrap(space.config.translation.thread)',
         }
     for name in rmpdec.ROUND_CONSTANTS:
         interpleveldefs[name] = 'space.wrap(%r)' % name

@@ -48,3 +48,7 @@ class AppTestDecimalModule:
             assert issubclass(ex, _decimal.DecimalException)
             assert issubclass(ex, ArithmeticError)
 
+    def test_threads(self):
+        import _decimal
+        assert (_decimal.HAVE_THREADS is False or
+                _decimal.HAVE_THREADS is True)
