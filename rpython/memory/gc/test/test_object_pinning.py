@@ -144,3 +144,6 @@ class TestIncminimark(PinningGCTest):
 
     # XXX test/define what happens if pinned object already has a shadow
     # => shadow handling.
+
+    # XXX fill nursery with pinned objects -> + define behavior for such a
+    # case
