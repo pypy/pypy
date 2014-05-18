@@ -707,7 +707,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # XXX update doc to contain nursery_barrier (groggi)
 
         # keep track how many iteration we've gone trough
-        count = 0
+        minor_collection_count = 0
         while True:
             if self.nursery_barriers.non_empty():
                 # we have multiple blocks of free memory in the nursery
@@ -726,8 +726,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # XXX should be, but check if the new area
                 # (nursery_free to nursery_top) was reset (arena_reset()). (groggi)
                 self.nursery_top = self.nursery_barriers.popleft()
+                # XXX should we progress a step in the major collection?
+                # in original version this is always done if we call this
+                # function. (groggi)
             else:
-                count += 1
                 #
                 # no barriers (i.e. pinned objects) left. Check if there is
                 # enough space till we reach the real top of the nursery.
@@ -736,7 +738,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     return prev_result
                 #
                 self.minor_collection()
-                if count == 1:
+                if minor_collection_count == 0:
+                    minor_collection_count += 1
                     #
                     # If the gc_state is not STATE_SCANNING, we're in the middle of
                     # an incremental major collection.  In this case, always progress
@@ -754,17 +757,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             #
                             if self.nursery_free + totalsize > self.nursery_real_top:
                                 self.minor_collection()
-                                # then the nursery is empty
-                                # XXX ^^^ not necessarily, update comment (groggi)
+                                # then the nursery is empty (except pinned objects)
                             else:
-                                # we just need to clean up a bit more of the nursery
-                                #self.move_nursery_top(totalsize)
-                                # do a loop, should take care of finding space
-                                # XXX ^^^ rewrite comment the moment we're sure it's
-                                # the correct way.
+                                # execute loop one more time. This should find
+                                # enough space in most cases to allocate the
+                                # object
                                 pass
                 else:
-                    ll_assert(count == 2,
+                    ll_assert(minor_collection_count >= 1,
                         "Seeing minor_collection() at least twice. "
                         "Too many pinned objects?")
             #
